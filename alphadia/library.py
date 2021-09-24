@@ -22,14 +22,16 @@ class Library(object):
     def __len__(self):
         return len(self.peptide_data)
 
-    def __init__(self, alphapept_hdf_file_name, decoy=False):
+    def __init__(self, alphapept_hdf_file_name, decoy=False, decoy_style=""):
         self.file_name = alphapept_hdf_file_name
         ms_library = alphapept.io.MS_Data_File(alphapept_hdf_file_name)
-        ion_df = ms_library.read(dataset_name="ions")
+        self.ion_data = ms_library.read(dataset_name="ions")
         pep_df = ms_library.read(dataset_name="peptide_fdr")
         self.decoy = decoy
         self.peptide_data = pep_df[pep_df.target_precursor]
-        self.convert_to_peptide_arrays(ion_df)
+        self.peptide_data.reset_index(drop=True, inplace=True)
+        self.ion_data.reset_index(drop=True, inplace=True)
+        self.convert_to_peptide_arrays(decoy_style)
         self.convert_to_peptide_dict()
 
     def convert_to_peptide_dict(self):
@@ -50,8 +52,7 @@ class Library(object):
             }
             self.peptide_dict.append(peptide)
 
-    def convert_to_peptide_arrays(self, ion_df, decoy_style=""):
-        self.peptide_data.reset_index(drop=True, inplace=True)
+    def convert_to_peptide_arrays(self, decoy_style=""):
         self.peptide_rt_apex = self.peptide_data.rt_apex.values * 60
         self.peptide_mzs = self.peptide_data.mz.values
         try:
@@ -95,19 +96,19 @@ class Library(object):
             end = start + self.ion_count[i]
             offset_start = self.peptide_offsets[i]
             offset_end = self.peptide_offsets[i + 1]
-            intensities = ion_df.ion_int.values[start: end]
-            loss_types = ion_df.ion_type.values[start: end].astype(np.int64)
-            ion_types = ion_df.ion_index.values[start: end].astype(np.int64)
+            intensities = self.ion_data.ion_int.values[start: end]
+            loss_types = self.ion_data.ion_type.values[start: end].astype(np.int64)
+            ion_types = self.ion_data.ion_index.values[start: end].astype(np.int64)
             if self.decoy:
                 decoy_sequence = alphapept.fasta.parse(sequence_string)
                 if decoy_style == "DIA-NN":
                     original = "GAVLIFMPWSCTYHKRQEND"
                     mutated = "LLLVVLLLLTSSSSLLNDQE"
                     decoy_sequence[1] = alphapept.fasta.parse(
-                        mutated[original.index(sequence_string[1][-1])]
+                        mutated[original.index(decoy_sequence[1][-1])]
                     )[0]
                     decoy_sequence[-2] = alphapept.fasta.parse(
-                        mutated[original.index(sequence_string[-2][-1])]
+                        mutated[original.index(decoy_sequence[-2][-1])]
                     )[0]
                 else:
                     decoy_sequence[:-1] = decoy_sequence[:-1][::-1]
@@ -125,7 +126,7 @@ class Library(object):
                 ]
                 mzs = np.array(mzs)
             else:
-                mzs = ion_df.db_mass.values[start: end]
+                mzs = self.ion_data.db_mass.values[start: end]
             order = np.argsort(mzs)
             self.peptide_fragment_mzs[offset_start: offset_end] = mzs[order]
             self.peptide_fragment_intensities[offset_start: offset_end] = intensities[order]
