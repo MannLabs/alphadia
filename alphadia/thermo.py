@@ -8,20 +8,10 @@ import os
 
 def load_thermo_raw(
     raw_file_name: str,
-    profile: bool = False
+    dda: bool,
+    profile: bool = False,
 ) -> tuple:
-    """Load raw thermo data as a dictionary.
-​
-    Args:
-        raw_file_name (str): The name of a Thermo .raw file.
-        n_most_abundant (int): The maximum number of peaks to retain per MS2 spectrum.
-        use_profile_ms1 (bool): Use profile data or centroid it beforehand. Defaults to False.
-        callback (callable): A function that accepts a float between 0 and 1 as progress. Defaults to None.
-​
-    Returns:
-        tuple: A dictionary with all the raw data and a string with the acquisition_date_time
-​
-    """
+    """Load raw thermo data as a dictionary."""
     import alphapept.pyrawfilereader
     import tqdm
     rawfile = alphapept.pyrawfilereader.RawFileReader(raw_file_name)
@@ -31,6 +21,7 @@ def load_thermo_raw(
     rt_values = []
     quad_mz_values = []
     precursor_indices = []
+    precursor = 0
     for i in tqdm.tqdm(
         range(
             rawfile.FirstSpectrumNumber,
@@ -48,8 +39,12 @@ def load_thermo_raw(
         rt_values.append(rt)
         ms_order = rawfile.GetMSOrderForScanNum(i)
         if ms_order == 1:
-            precursor = 0
             quad_mz_values.append((-1, -1))
+            if dda:
+                precursor_indices.append(0)
+            else:
+                precursor = 0
+                precursor_indices.append(precursor)
         elif ms_order == 2:
             precursor += 1
             isolation_center = rawfile.GetPrecursorMassForScanNum(i)
@@ -60,7 +55,7 @@ def load_thermo_raw(
                     isolation_center + DIA_width / 2,
                 )
             )
-        precursor_indices.append(precursor)
+            precursor_indices.append(precursor)
     rawfile.Close()
     push_indices = np.empty(rawfile.LastSpectrumNumber + 1, np.int64)
     push_indices[0] = 0
@@ -79,6 +74,7 @@ class RawFile(alphatims.bruker.TimsTOF):
     def __init__(
         self,
         thermo_raw_file_name: str,
+        dda: bool,
         slice_as_dataframe: bool = True
     ):
         """Create a Bruker Orbitrap object that contains all data in-memory.
@@ -89,6 +85,10 @@ class RawFile(alphatims.bruker.TimsTOF):
             The full file name to a Bruker .d folder.
             Alternatively, the full file name of an already exported .hdf
             can be provided as well.
+        dda : bool
+            If DDA, precursor indices will be equal to scan numbers.
+            If not DDA (i.e. DIA), precursor indices will be equal to the
+            scan number within a DIA cycle.
         slice_as_dataframe : bool
             If True, slicing returns a pd.DataFrame by default.
             If False, slicing provides a np.int64[:] with raw indices.
@@ -101,6 +101,7 @@ class RawFile(alphatims.bruker.TimsTOF):
         if thermo_raw_file_name.endswith(".raw"):
             self._import_data_from_raw_file(
                 thermo_raw_file_name,
+                dda,
             )
         elif thermo_raw_file_name.endswith(".hdf"):
             self._import_data_from_hdf_file(
@@ -125,6 +126,7 @@ class RawFile(alphatims.bruker.TimsTOF):
     def _import_data_from_raw_file(
         self,
         thermo_raw_file_name: str,
+        dda: bool,
     ):
         self._version = alphatims.__version__
         (
@@ -134,7 +136,7 @@ class RawFile(alphatims.bruker.TimsTOF):
             self._rt_values,
             self._quad_mz_values,
             self._precursor_indices,
-        ) = load_thermo_raw(thermo_raw_file_name)
+        ) = load_thermo_raw(thermo_raw_file_name, dda)
         self.thermo_raw_file_name = thermo_raw_file_name
         scan_count = len(self._precursor_indices)
         self._frame_max_index = scan_count
