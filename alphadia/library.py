@@ -15,6 +15,7 @@ import sklearn.ensemble
 import sklearn.pipeline
 import sklearn.model_selection
 import functools
+import scipy.ndimage.filters
 
 
 class Library(object):
@@ -217,6 +218,7 @@ class Library(object):
         mobility_tolerance=0.05,  # 1/k0
         selection: np.ndarray = None,
         return_as_df: bool = True,
+        blur_sigma: int = 3,
         score_features=(
             "push_apex",
             "push_library_cosine_peak_mask_len",
@@ -378,6 +380,7 @@ class Library(object):
             fragment_tof_slices,
             max_scan_difference,
             max_cycle_difference,
+            blur_sigma,
         )
         if not return_as_df:
             if result is not None:
@@ -1504,6 +1507,109 @@ def peak_percentile(
     )
 
 
+@alphatims.utils.njit(nogil=True, cache=False)
+def make_dense_cycle_matrix(
+    push_indices,
+    zeroth_frame,
+    scan_max_index,
+    dia_mz_cycle_length,
+    values,
+):
+    mobility_indices = push_indices % scan_max_index
+    cycle_indices = (
+        push_indices - zeroth_frame * scan_max_index
+    ) // dia_mz_cycle_length
+    mobility_indices -= np.min(mobility_indices)
+    cycle_indices -= np.min(cycle_indices)
+    matrix = np.zeros((np.max(mobility_indices) + 1, np.max(cycle_indices) + 1))
+    for intensity, mobility, cycle in zip(
+        values,
+        mobility_indices,
+        cycle_indices,
+    ):
+        matrix[mobility, cycle] += intensity
+    return matrix, (mobility_indices, cycle_indices)
+
+
+@alphatims.utils.njit(nogil=True, cache=False)
+def partition_dense_cycle_matrix(matrix):
+    order = np.argsort(matrix.flatten())[::-1]
+    assignments = np.zeros(matrix.shape, dtype=np.int64)
+    borders = []
+    new_assignment = 1
+#     im_indices, rt_indices = np.unravel_index(order, matrix.shape)
+    im_indices = order // matrix.shape[1]
+    rt_indices = order % matrix.shape[1]
+    im_max, rt_max = matrix.shape
+    peaks = []
+    for im_index, rt_index in zip(im_indices, rt_indices):
+#         print(im_index, rt_index)
+        assignment = assignments[im_index, rt_index]
+        neighbors = []
+        if im_index > 0:
+            neighbors.append((im_index - 1, rt_index))
+        if im_index + 1 < im_max:
+            neighbors.append((im_index + 1, rt_index))
+        if rt_index > 0:
+            neighbors.append((im_index, rt_index - 1))
+        if rt_index + 1 < rt_max:
+            neighbors.append((im_index, rt_index + 1))
+        if assignment == 0:
+            min_connected_assignment = np.inf
+            for neighbor_im_index, neighbor_rt_index in neighbors:
+                connected_assignment = assignments[neighbor_im_index, neighbor_rt_index]
+                if connected_assignment != 0:
+                    if connected_assignment < min_connected_assignment:
+                        min_connected_assignment = connected_assignment
+            if min_connected_assignment != np.inf:
+                assignment = min_connected_assignment
+            else:
+                assignment = new_assignment
+                new_assignment += 1
+                peaks.append((rt_index, im_index))
+            assignments[im_index, rt_index] = assignment
+        for neighbor_im_index, neighbor_rt_index in neighbors:
+            connected_assignment = assignments[neighbor_im_index, neighbor_rt_index]
+            if connected_assignment == 0:
+                assignments[neighbor_im_index, neighbor_rt_index] = assignment
+            elif connected_assignment != assignment:
+                borders.append((neighbor_rt_index, neighbor_im_index))
+                borders.append((rt_index, im_index))
+    return assignments, peaks, borders
+
+
+def visualize_segmented_peaks(
+    matrix,
+    blurred_matrix,
+    peaks,
+    assignments,
+):
+    from matplotlib import pyplot as plt
+    fig, axs = plt.subplots(2, 3, sharex=True, sharey=True)
+
+    axs[0, 0].imshow(matrix, cmap="Greys")
+    axs[0, 0].set_title("raw")
+    axs[0, 1].imshow(blurred_matrix, cmap="Greys")
+    axs[0, 1].set_title("blurred")
+    axs[0, 2].imshow(np.log10(blurred_matrix), cmap="Greys")
+    axs[0, 2].set_title("log10 blurred")
+
+    axs[1, 0].imshow(matrix, cmap="Greys")
+    axs[1, 0].scatter(*list(zip(*peaks)), c="r", marker=".")
+    # axs[1, 0].scatter(*list(zip(*borders)))
+    axs[1, 0].imshow(assignments, cmap="tab20", alpha=0.33)
+
+    axs[1, 1].imshow(blurred_matrix, cmap="Greys")
+    axs[1, 1].scatter(*list(zip(*peaks)), c="r", marker=".")
+    # axs[1, 1].scatter(*list(zip(*borders)))
+    axs[1, 1].imshow(assignments, cmap="tab20", alpha=0.33)
+
+    axs[1, 2].imshow(np.log10(blurred_matrix), cmap="Greys")
+    axs[1, 2].scatter(*list(zip(*peaks)), c="r", marker=".")
+    # axs[1, 2].scatter(*list(zip(*borders)))
+    axs[1, 2].imshow(assignments, cmap="tab20", alpha=0.33)
+
+
 @alphatims.utils.threadpool
 def process_library_peptide(
     peptide_index,
@@ -1517,6 +1623,7 @@ def process_library_peptide(
     fragment_tof_slices,
     max_scan_difference,
     max_cycle_difference,
+    blur_sigma,
 ):
     push_indices = alphatims.bruker.get_dia_push_indices(
         precursor_frame_slices[peptide_index: peptide_index + 1],
@@ -1594,7 +1701,6 @@ def process_library_peptide(
     normalized_smooth_push_intensities = sum_push_intensities(
         normalized_smooth_intensity_matrix
     )
-
     # (
     #     push_intensities,
     #     fwhm_pushes,
@@ -1641,8 +1747,22 @@ def process_library_peptide(
         push_connection_indptr,
     )
 
+    matrix, reverse_push_indices = make_dense_cycle_matrix(
+        push_indices=push_indices,
+        zeroth_frame=dia_data.zeroth_frame,
+        scan_max_index=dia_data.scan_max_index,
+        dia_mz_cycle_length=len(dia_data.dia_mz_cycle),
+        values=push_intensities,
+    )
+    blurred_matrix = scipy.ndimage.filters.gaussian_filter(
+        matrix,
+        sigma=blur_sigma
+    )
+    assignments, peaks, borders = partition_dense_cycle_matrix(blurred_matrix)
+    push_assignments = assignments[reverse_push_indices]
+
     percentiles = [0, 50, 100]
-    import collections
+    # import collections
     # score_features = collections.defaultdict(lambda:{}) #TODELETE!!!!!!!!!!!!!!!!!!
     for peak_mask_name, peak_mask in [
         ("push_library_cosine_peak_mask", push_library_cosine_peak_mask),
