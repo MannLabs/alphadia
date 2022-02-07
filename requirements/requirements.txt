@@ -1,3 +1,3 @@
 click==8.0.1
-alphatims @ git+https://github.com/MannLabs/alphatims.git@dia#egg=alphatims[legacy]
-alphapept @ git+https://github.com/MannLabs/alphapept.git
+alphatims==0.3.1
+alphapept==0.3.29
