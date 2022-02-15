@@ -127,7 +127,7 @@ def push_index_to_cycle_index(
     return cycle_index, cycle_offset
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def push_precursor_borders(
     push_indices,
     push_indptr,
@@ -142,10 +142,10 @@ def push_precursor_borders(
         (len(push_indices), 2),
         dtype=np.int64
     )
+    cycle_length = len(dia_mz_cycle)
     for index, push_index in enumerate(push_indices):
         if push_index < zeroth_frame * scan_max_index:
             continue
-        cycle_length = len(dia_mz_cycle)
         push_index_ = push_index - zeroth_frame * scan_max_index
         cycle_index = push_index_ // cycle_length
         cycle_offset = push_index_ % cycle_length
@@ -177,6 +177,7 @@ def find_best_peptide(
     max_indices,
     max_counts,
     max_precursor_mzs,
+    selected_ms1_ions,
     fragment_ppm=50,
     precursor_ppm=50,
 ):
@@ -197,9 +198,12 @@ def find_best_peptide(
     precursor_intensities = intensity_values[
         selected_precursors[0]: selected_precursors[1]
     ]
+    selected_ms1_ion = np.argmax(
+        precursor_intensities
+    ) + selected_precursors[0]
     precursor_mz = mz_values[
         tof_indices[
-            np.argmax(precursor_intensities) + selected_precursors[0]
+            selected_ms1_ion
         ]
     ]
     lower_bound = np.searchsorted(
@@ -234,10 +238,11 @@ def find_best_peptide(
     max_indices[selected_index] = max_index
     max_counts[selected_index] = max_hit_count
     max_precursor_mzs[selected_index] = precursor_mz
+    selected_ms1_ions[selected_index] = selected_ms1_ion
     # return max_index, max_hit_count
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def rough_match(
     fragment_mzs,
     database_mzs,
@@ -334,6 +339,7 @@ def first_search(
     max_indices = np.zeros_like(spectra_of_interest)
     max_counts = np.zeros_like(spectra_of_interest)
     max_precursor_mzs = np.zeros_like(spectra_of_interest, dtype=np.float64)
+    selected_ms1_ions = np.zeros_like(spectra_of_interest)
     find_best_peptide(
         range(len(spectra_of_interest)),
         potential_precursors,
@@ -350,6 +356,7 @@ def first_search(
         max_indices,
         max_counts,
         max_precursor_mzs,
+        selected_ms1_ions,
         precursor_ppm,
         fragment_ppm,
     )
@@ -360,6 +367,7 @@ def first_search(
     lib_df["rt_experimental"] = np.copy(data_df.rt_values_min.values)
     lib_df["mobility_experimental"] = np.copy(data_df.mobility_values.values)
     lib_df["mz_experimental"] = max_precursor_mzs[selection]
+    lib_df["raw_ms1_index"] = selected_ms1_ions[selection]
     lib_df["count"] = max_counts[selection]
     lib_df["ppm"] = (lib_df.mz_experimental - lib_df.precursor_mz) / lib_df.precursor_mz * 10**6
     lib_df["delta_im"] = lib_df.mobility_experimental - lib_df.mobility_pred
@@ -372,6 +380,9 @@ def first_search(
     )
     lib_df["decoy"] = lib_df["decoy"].astype(np.bool)
     lib_df["target"] = ~lib_df["decoy"]
+    lib_df["mz_pred"] = lib_df.precursor_mz
+    lib_df["im_pred"] = lib_df.mobility_pred
+    lib_df["im_experimental"] = lib_df.mobility_experimental
     return train_and_score(
         lib_df,
         ["count", "ppm", "delta_im"],
@@ -495,7 +506,7 @@ def calibrate_hits(
     fdr=0.01,
 ):
     lib_df = first_hits[first_hits.q_value < fdr]
-    for dimension in ["rt", "im", "mz"]:
+    for dimension in ["rt", "im"]:
         X = lib_df[f"{dimension}_pred"].values.reshape(-1, 1)
         y = lib_df[f"{dimension}_experimental"].values
         (
@@ -522,5 +533,163 @@ def calibrate_hits(
             first_hits[f"{dimension}_pred"].values.reshape(-1, 1)
         )
         first_hits[f"{dimension}_diff"] = first_hits[f"{dimension}_experimental"] - first_hits[f"{dimension}_calibrated"]
-    first_hits["ppm_diff"] = first_hits["mz_diff"] / first_hits["mz_pred"] * 10**6
     return first_hits
+
+
+@alphatims.utils.pjit
+def best_transitions(
+    index,
+    start_indices,
+    end_indices,
+    fragment_intensities,
+    best_transitions,
+):
+    start = start_indices[index]
+    end = end_indices[index]
+    max_index = start + np.argmax(fragment_intensities[start: end])
+    best_transitions[index] = max_index
+
+
+@alphatims.utils.njit(nogil=True)
+def merge_best_transitions(
+    b_intensities,
+    b_transitions,
+    b_mzs,
+    y_intensities,
+    y_transitions,
+    y_mzs,
+):
+    # best_transation_indices = np.empty_like(y_transitions)
+    best_transation_mzs = np.empty_like(y_transitions, dtype=np.float64)
+    for index, y_index in enumerate(y_transitions):
+        b_index = b_transitions[index]
+        if b_intensities[b_index] > y_intensities[y_index]:
+            # best_transation_indices[index] = b_index
+            best_transation_mzs[index] = b_mzs[b_index]
+        else:
+            # best_transation_indices[index] = y_index
+            best_transation_mzs[index] = y_mzs[y_index]
+    # return best_transation_indices, best_transation_mzs
+    return best_transation_mzs
+
+
+@alphatims.utils.pjit
+def find_candidates(
+    cycle_index,
+    library_precursor_offsets,
+    library_precursor_indices,
+    library_precursor_rt_values,
+    library_precursor_im_values,
+    library_lower_indices,
+    library_upper_indices,
+    rt_tolerance,
+    im_tolerance,
+    push_indptr,
+    tof_indices,
+    mz_values,
+    rt_values,
+    im_values,
+    precursor_cycle,
+    zeroth_frame,
+    scan_max_index,
+    precursor_frame,
+    final_candidates,
+    min_fragments,
+):
+    cycle_length = len(precursor_cycle)
+    push_offset = cycle_length * cycle_index + zeroth_frame * scan_max_index
+    frame = push_offset // scan_max_index
+    rt = rt_values[frame]
+    start_offsets, end_offsets = filter_offsets_by_rt(
+        library_precursor_offsets,
+        library_precursor_rt_values,
+        rt,
+        rt_tolerance,
+    )
+    peptide_buffer = np.zeros_like(library_lower_indices, dtype=np.bool_)
+    for cycle_offset, (low_precursor, high_precursor) in enumerate(
+        precursor_cycle
+    ):
+        if low_precursor == high_precursor:
+            continue
+        scan_index = cycle_offset % scan_max_index
+        im = im_values[scan_index]
+        precursor_push_index = (
+            push_offset + precursor_frame * scan_max_index + scan_index
+        )
+        push_index = push_offset + cycle_offset
+        precursor_push_index_start = push_indptr[precursor_push_index]
+        precursor_push_index_end = push_indptr[precursor_push_index + 1]
+        if precursor_push_index_start == precursor_push_index_end:
+            continue
+        push_index_start = push_indptr[push_index]
+        push_index_end = push_indptr[push_index + 1]
+        if (push_index_end - push_index_start) < min_fragments:
+            continue
+        candidate_precursors = []
+        for index in tof_indices[push_index_start: push_index_end]:
+            low_index = start_offsets[index]
+            high_index = end_offsets[index]
+            candidate_ims = library_precursor_im_values[
+                low_index: high_index
+            ]
+            # final_candidates[cycle_index] += high_index-low_index
+            for candidate_index, candidate_im in enumerate(
+                candidate_ims,
+                low_index
+            ):
+                candidate_precursor = library_precursor_indices[candidate_index]
+                if library_upper_indices[candidate_precursor] < low_precursor:
+                    continue
+                if library_lower_indices[candidate_precursor] > high_precursor:
+                    continue
+                if peptide_buffer[candidate_precursor]:
+                    continue
+                if final_candidates[candidate_precursor]:
+                    continue
+                if abs(candidate_im - im) < im_tolerance:
+                    candidate_precursors.append(candidate_precursor)
+        if len(candidate_precursors) == 0:
+            continue
+        candidate_precursors = sorted(candidate_precursors)
+        candidate_index = 0
+        for precursor_tof in tof_indices[
+            precursor_push_index_start: precursor_push_index_end
+        ]:
+            lower_tof = library_lower_indices[
+                candidate_precursors[candidate_index]
+            ]
+            if precursor_tof < lower_tof:
+                continue
+            upper_tof = library_upper_indices[
+                candidate_precursors[candidate_index]
+            ]
+            if precursor_tof < upper_tof:
+                # check other fragments?
+                peptide_buffer[candidate_precursor] = True
+                continue
+            candidate_index += 1
+            if candidate_index == len(candidate_precursors):
+                break
+            peptide_buffer[candidate_precursor] = True
+    for candidate_index, candidate_precursor in enumerate(peptide_buffer):
+        if candidate_precursor:
+            final_candidates[candidate_index] = True
+
+
+@alphatims.utils.njit(nogil=True)
+def filter_offsets_by_rt(
+    offsets,
+    library_precursor_rt_values,
+    rt,
+    rt_tolerance,
+):
+    start_offsets = np.empty(len(offsets) - 1, dtype=offsets.dtype)
+    end_offsets = np.empty(len(offsets) - 1, dtype=offsets.dtype)
+    for index, start in enumerate(offsets[:-1]):
+        end = offsets[index + 1]
+        start_offsets[index], end_offsets[index] = start + np.searchsorted(
+            library_precursor_rt_values[start: end],
+            [rt - rt_tolerance, rt + rt_tolerance]
+        )
+    return start_offsets, end_offsets
