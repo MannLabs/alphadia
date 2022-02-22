@@ -148,6 +148,7 @@ class RawFile(alphatims.bruker.TimsTOF):
         self._raw_quad_indptr = np.arange(scan_count + 1)
         self._intensity_min_value = float(np.min(self._intensity_values))
         self._intensity_max_value = float(np.max(self._intensity_values))
+        self._intensity_corrections = np.ones(self._frame_max_index)
         self._quad_min_mz_value = float(
             np.min(
                 self._quad_mz_values[self._quad_mz_values != -1]
