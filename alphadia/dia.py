@@ -28,7 +28,7 @@ def run_analysis(
     alphatims.utils.set_threads(thread_count)
     logging.info("Loading DIA data")
     if dia_file_name.endswith(".raw"):
-        dia_data = alphadia.thermo.RawFile(dia_file_name)
+        dia_data = alphadia.thermo.RawFile(dia_file_name, False)
     else:
         dia_data = alphatims.bruker.TimsTOF(dia_file_name)
     logging.info("Loading target library")
