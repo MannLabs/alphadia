@@ -543,14 +543,18 @@ def best_transitions(
     end_indices,
     fragment_intensities,
     best_transitions,
+    remove_outer_ions,
 ):
-    start = start_indices[index]
-    end = end_indices[index]
+    start = start_indices[index] + remove_outer_ions
+    end = end_indices[index] - remove_outer_ions
+    if (start + remove_outer_ions) < (end - remove_outer_ions):
+        start += remove_outer_ions
+        end -= remove_outer_ions
     max_index = start + np.argmax(fragment_intensities[start: end])
     best_transitions[index] = max_index
 
 
-@alphatims.utils.njit(nogil=True)
+@alphatims.utils.njit
 def merge_best_transitions(
     b_intensities,
     b_transitions,
@@ -573,7 +577,71 @@ def merge_best_transitions(
     return best_transation_mzs
 
 
-@alphatims.utils.pjit
+def find_seeds(
+    dia_data,
+    predicted_library_df,
+    cycle_index,
+    offsets,
+    idxs,
+    library_precursor_rt_values,
+    library_precursor_im_values,
+    rt_diff_std,
+    im_diff_std,
+    precursor_cycle,
+    precursor_frame,
+    min_fragments,
+    potential_peaks,
+):
+    import multiprocessing
+
+    def starfunc(cycle_index):
+        return find_candidates(
+            cycle_index,
+            offsets,
+            idxs,
+            library_precursor_rt_values,
+            library_precursor_im_values,
+            predicted_library_df.precursor_index_lower.values,
+            predicted_library_df.precursor_index_upper.values,
+            rt_diff_std,
+            im_diff_std,
+            dia_data.push_indptr,
+            dia_data.tof_indices,
+            dia_data.mz_values,
+            dia_data.rt_values / 60,
+            dia_data.mobility_values,
+            precursor_cycle,
+            dia_data.zeroth_frame,
+            dia_data.scan_max_index,
+            precursor_frame,
+            # final_candidates,
+            min_fragments,
+            potential_peaks,
+        )
+
+    iterable = range(len(dia_data.push_indptr) // len(dia_data.dia_mz_cycle) + 1)
+    # iterable = range(500, 520)
+    seeds = []
+    counts = [[0] * (1 + dia_data.zeroth_frame * dia_data.scan_max_index)]
+    with multiprocessing.pool.ThreadPool(alphatims.utils.MAX_THREADS) as pool:
+        for cycle_index, (
+            push_counts,
+            seed_candidates,
+        ) in alphatims.utils.progress_callback(
+            enumerate(pool.imap(starfunc, iterable)),
+            total=len(iterable),
+            include_progress_callback=True
+        ):
+            counts.append(push_counts)
+            seeds.append(seed_candidates)
+    # return seeds, counts
+    return (
+        np.cumsum(np.concatenate(counts))[:len(dia_data.push_indptr)],
+        np.concatenate(seeds)
+    )
+
+
+@alphatims.utils.njit(nogil=True)
 def find_candidates(
     cycle_index,
     library_precursor_offsets,
@@ -593,8 +661,9 @@ def find_candidates(
     zeroth_frame,
     scan_max_index,
     precursor_frame,
-    final_candidates,
+    # final_candidates,
     min_fragments,
+    potential_peaks,
 ):
     cycle_length = len(precursor_cycle)
     push_offset = cycle_length * cycle_index + zeroth_frame * scan_max_index
@@ -606,7 +675,9 @@ def find_candidates(
         rt,
         rt_tolerance,
     )
-    peptide_buffer = np.zeros_like(library_lower_indices, dtype=np.bool_)
+    seed_candidates = []
+    push_counts = np.zeros(len(precursor_cycle), dtype=np.int64)
+    # peptide_buffer = np.zeros_like(library_lower_indices, dtype=np.bool_)
     for cycle_offset, (low_precursor, high_precursor) in enumerate(
         precursor_cycle
     ):
@@ -617,7 +688,11 @@ def find_candidates(
         precursor_push_index = (
             push_offset + precursor_frame * scan_max_index + scan_index
         )
+        if precursor_push_index > len(push_indptr):
+            continue
         push_index = push_offset + cycle_offset
+        if push_index > len(push_indptr):
+            continue
         precursor_push_index_start = push_indptr[precursor_push_index]
         precursor_push_index_end = push_indptr[precursor_push_index + 1]
         if precursor_push_index_start == precursor_push_index_end:
@@ -627,13 +702,18 @@ def find_candidates(
         if (push_index_end - push_index_start) < min_fragments:
             continue
         candidate_precursors = []
-        for index in tof_indices[push_index_start: push_index_end]:
-            low_index = start_offsets[index]
-            high_index = end_offsets[index]
+        for index, tof_index in enumerate(
+            tof_indices[push_index_start: push_index_end],
+            push_index_start,
+        ):
+            if not potential_peaks[index]:
+                continue
+            low_index = start_offsets[tof_index]
+            high_index = end_offsets[tof_index]
             candidate_ims = library_precursor_im_values[
                 low_index: high_index
             ]
-            # final_candidates[cycle_index] += high_index-low_index
+            # final_candidates[cycle_index] += high_index - low_index
             for candidate_index, candidate_im in enumerate(
                 candidate_ims,
                 low_index
@@ -643,38 +723,42 @@ def find_candidates(
                     continue
                 if library_lower_indices[candidate_precursor] > high_precursor:
                     continue
-                if peptide_buffer[candidate_precursor]:
-                    continue
-                if final_candidates[candidate_precursor]:
-                    continue
+                # if peptide_buffer[candidate_precursor]:
+                #     continue
+                # if final_candidates[candidate_precursor]:
+                #     continue
                 if abs(candidate_im - im) < im_tolerance:
                     candidate_precursors.append(candidate_precursor)
+                    # final_candidates[candidate_precursor] = True
         if len(candidate_precursors) == 0:
             continue
+        # return locals()
         candidate_precursors = sorted(candidate_precursors)
         candidate_index = 0
         for precursor_tof in tof_indices[
             precursor_push_index_start: precursor_push_index_end
         ]:
-            lower_tof = library_lower_indices[
-                candidate_precursors[candidate_index]
-            ]
-            if precursor_tof < lower_tof:
-                continue
-            upper_tof = library_upper_indices[
-                candidate_precursors[candidate_index]
-            ]
-            if precursor_tof < upper_tof:
-                # check other fragments?
-                peptide_buffer[candidate_precursor] = True
-                continue
-            candidate_index += 1
-            if candidate_index == len(candidate_precursors):
-                break
-            peptide_buffer[candidate_precursor] = True
-    for candidate_index, candidate_precursor in enumerate(peptide_buffer):
-        if candidate_precursor:
-            final_candidates[candidate_index] = True
+            while candidate_index < len(candidate_precursors):
+                candidate_precursor = candidate_precursors[candidate_index]
+                lower_tof = library_lower_indices[candidate_precursor]
+                if precursor_tof < lower_tof:
+                    break
+                upper_tof = library_upper_indices[candidate_precursor]
+                if precursor_tof < upper_tof:
+                    # check other fragments?
+                    # peptide_buffer[candidate_precursor] = True
+                    # final_candidates[candidate_precursor] = True
+                    seed_candidates.append(candidate_precursor)
+                    push_counts[cycle_offset] += 1
+                    # final_candidates[cycle_index] += 1
+                candidate_index += 1
+                # else:
+                #     final_candidates[candidate_precursor] = True
+                #     candidate_index += 1
+    # for candidate_index, candidate_precursor in enumerate(peptide_buffer):
+    #     if candidate_precursor:
+    #         final_candidates[candidate_index] = True
+    return push_counts, np.array(seed_candidates)
 
 
 @alphatims.utils.njit(nogil=True)
@@ -693,3 +777,203 @@ def filter_offsets_by_rt(
             [rt - rt_tolerance, rt + rt_tolerance]
         )
     return start_offsets, end_offsets
+
+
+def remove_unreachable_precursors(
+    predicted_library_df,
+    dia_data,
+):
+    lower_mz_index, upper_mz_index = np.searchsorted(
+        predicted_library_df.precursor_mz.values,
+        [dia_data.quad_mz_min_value, dia_data.quad_mz_max_value],
+    )
+    return predicted_library_df[lower_mz_index: upper_mz_index].reset_index(
+        drop=True,
+    )
+
+
+
+@alphatims.utils.pjit
+def annotate_seeds(
+    push_index,
+    y_mzs,
+    b_mzs,
+    frag_start_idxs,
+    frag_end_idxs,
+    mz_values,
+    tof_indices,
+    push_indptr,
+    # max_indices,
+    # max_counts,
+    # max_precursor_mzs,
+    push_counts,
+    seed_candidates,
+    fragment_ppm,
+    # ppm_offset,
+    hit_counts,
+    intensity_values,
+    dia_mz_cycle,
+    tof_tolerance,
+    scan_max_index,
+    tof_max_index,
+    zeroth_frame,
+    connection_counts,
+    connections,
+    cycle_tolerance,
+    is_signal,
+):
+    seed_start = push_counts[push_index]
+    seed_end = push_counts[push_index + 1]
+    if seed_start == seed_end:
+        return
+    push_start = push_indptr[push_index]
+    push_end = push_indptr[push_index + 1]
+    fragment_tofs = tof_indices[push_start: push_end]
+    # fragment_tofs, fragment_intensities = alpharaw.smoothing.merge_pushes2(
+    #     push_index,
+    #     push_indptr,
+    #     tof_indices,
+    #     intensity_values,
+    #     dia_mz_cycle,
+    #     tof_tolerance,
+    #     scan_max_index,
+    #     tof_max_index,
+    #     zeroth_frame,
+    #     connection_counts,
+    #     connections,
+    #     cycle_tolerance,
+    #     is_signal,
+    #     # mz_values,
+    # )
+    fragment_mzs = mz_values[fragment_tofs]
+    # smooth from connections?
+    for seed_index, seed in enumerate(
+        seed_candidates[seed_start: seed_end],
+        seed_start
+    ):
+        frag_start_idx = frag_start_idxs[seed]
+        frag_end_idx = frag_end_idxs[seed]
+        if frag_start_idx == frag_end_idx:
+            continue
+        y_hit_count = rough_match(
+            fragment_mzs,
+            y_mzs[frag_start_idx: frag_end_idx][::-1],
+            fragment_ppm,
+        )
+        b_hit_count = rough_match(
+            fragment_mzs,
+            b_mzs[frag_start_idx: frag_end_idx],
+            fragment_ppm,
+        )
+        hit_count = y_hit_count + b_hit_count
+        hit_counts[seed_index] = hit_count
+
+
+@alphatims.utils.pjit
+# @alphatims.utils.njit
+def annotate_seeds2(
+    push_index,
+    y_mzs,
+    b_mzs,
+    frag_start_idxs,
+    frag_end_idxs,
+    mz_values,
+    tof_indices,
+    push_indptr,
+    # max_indices,
+    # max_counts,
+    # max_precursor_mzs,
+    push_counts,
+    seed_candidates,
+    fragment_ppm,
+    # ppm_offset,
+    b_hit_counts,
+    y_hit_counts,
+    summed_b_hit_ints,
+    summed_y_hit_ints,
+    mean_b_hit_ints,
+    mean_y_hit_ints,
+    std_b_hit_ints,
+    std_y_hit_ints,
+):
+    seed_start = push_counts[push_index]
+    seed_end = push_counts[push_index + 1]
+    if seed_start == seed_end:
+        return
+    push_start = push_indptr[push_index]
+    push_end = push_indptr[push_index + 1]
+    fragment_tofs = tof_indices[push_start: push_end]
+    fragment_mzs = mz_values[fragment_tofs]
+    # smooth from connections?
+    for seed_index, seed in enumerate(
+        seed_candidates[seed_start: seed_end],
+        seed_start
+    ):
+        frag_start_idx = frag_start_idxs[seed]
+        frag_end_idx = frag_end_idxs[seed]
+        if frag_start_idx == frag_end_idx:
+            continue
+        b_hits = rough_match2(
+            fragment_mzs,
+            y_mzs[frag_start_idx: frag_end_idx][::-1],
+            fragment_ppm,
+        )
+        y_hits = rough_match2(
+            fragment_mzs,
+            b_mzs[frag_start_idx: frag_end_idx],
+            fragment_ppm,
+        )
+        b_hit_counts[seed_index] = len(b_hits)
+        y_hit_counts[seed_index] = len(y_hits)
+        if len(b_hits) > 0:
+            mean_b_hit_ints[seed_index] = sum(b_hits) / len(b_hits)
+            for i in b_hits:
+                std_b_hit_ints[seed_index] += (i - mean_b_hit_ints[seed_index])**2
+            std_b_hit_ints[seed_index] /= len(b_hits)
+        if len(y_hits) > 0:
+            mean_y_hit_ints[seed_index] = sum(y_hits) / len(y_hits)
+            for i in y_hits:
+                std_y_hit_ints[seed_index] += (i - mean_y_hit_ints[seed_index])**2
+            std_y_hit_ints[seed_index] /= len(y_hits)
+
+
+@alphatims.utils.njit(nogil=True)
+def rough_match2(
+    fragment_mzs,
+    database_mzs,
+    fragment_ppm,
+):
+    fragment_index = 0
+    database_index = 0
+    hits = []
+    while (fragment_index < len(fragment_mzs)) and (database_index < len(database_mzs)):
+        fragment_mz = fragment_mzs[fragment_index]
+        database_mz = database_mzs[database_index]
+        if fragment_mz < (database_mz / (1 + 10**-6 * fragment_ppm)):
+            fragment_index += 1
+        elif database_mz < (fragment_mz / (1 + 10**-6 * fragment_ppm)):
+            database_index += 1
+        else:
+            ppm = (fragment_mz - database_mz) / fragment_mz * 10**6
+            hits.append(ppm)
+            fragment_index += 1
+            database_index += 1
+    return hits
+
+
+@alphatims.utils.njit
+def trim_seeds(
+    push_counts,
+    seed_candidates,
+    hit_counts,
+    threshold=3,
+):
+    new_push_counts = np.empty_like(push_counts)
+    new_push_counts[0] = 0
+    total_sum = 0
+    for index, start in enumerate(push_counts[:-1]):
+        end = push_counts[index + 1]
+        total_sum += np.sum(hit_counts[start: end] >= threshold)
+        new_push_counts[index + 1] = total_sum
+    new_seed_candidates = seed_candidates[hit_counts >= threshold]
+    return new_push_counts, new_seed_candidates
