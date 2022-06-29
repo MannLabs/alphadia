@@ -419,7 +419,7 @@ def train_and_score(
         random_state=random_state,
     )
     df['score'] = cv.predict_proba(df[features])[:, 1]
-    return alphadia.library.get_q_values(df, "score", 'decoy')
+    return alphadia.library.get_q_values(df, "score", 'decoy', drop=True)
 
 
 @alphatims.utils.pjit
@@ -829,22 +829,22 @@ def annotate_seeds(
     push_start = push_indptr[push_index]
     push_end = push_indptr[push_index + 1]
     fragment_tofs = tof_indices[push_start: push_end]
-    # fragment_tofs, fragment_intensities = alpharaw.smoothing.merge_pushes2(
-    #     push_index,
-    #     push_indptr,
-    #     tof_indices,
-    #     intensity_values,
-    #     dia_mz_cycle,
-    #     tof_tolerance,
-    #     scan_max_index,
-    #     tof_max_index,
-    #     zeroth_frame,
-    #     connection_counts,
-    #     connections,
-    #     cycle_tolerance,
-    #     is_signal,
-    #     # mz_values,
-    # )
+    fragment_tofs, fragment_intensities = alpharaw.smoothing.merge_pushes2(
+        push_index,
+        push_indptr,
+        tof_indices,
+        intensity_values,
+        dia_mz_cycle,
+        tof_tolerance,
+        scan_max_index,
+        tof_max_index,
+        zeroth_frame,
+        connection_counts,
+        connections,
+        cycle_tolerance,
+        is_signal,
+        # mz_values,
+    )
     fragment_mzs = mz_values[fragment_tofs]
     # smooth from connections?
     for seed_index, seed in enumerate(
@@ -895,14 +895,40 @@ def annotate_seeds2(
     mean_y_hit_ints,
     std_b_hit_ints,
     std_y_hit_ints,
+    intensity_values,
+    dia_mz_cycle,
+    tof_tolerance,
+    scan_max_index,
+    tof_max_index,
+    zeroth_frame,
+    connection_counts,
+    connections,
+    cycle_tolerance,
+    is_signal,
 ):
     seed_start = push_counts[push_index]
     seed_end = push_counts[push_index + 1]
     if seed_start == seed_end:
         return
-    push_start = push_indptr[push_index]
-    push_end = push_indptr[push_index + 1]
-    fragment_tofs = tof_indices[push_start: push_end]
+    # push_start = push_indptr[push_index]
+    # push_end = push_indptr[push_index + 1]
+    # fragment_tofs = tof_indices[push_start: push_end]
+    fragment_tofs, fragment_intensities = alpharaw.smoothing.merge_pushes2(
+        push_index,
+        push_indptr,
+        tof_indices,
+        intensity_values,
+        dia_mz_cycle,
+        tof_tolerance,
+        scan_max_index,
+        tof_max_index,
+        zeroth_frame,
+        connection_counts,
+        connections,
+        cycle_tolerance,
+        is_signal,
+        # mz_values,
+    )
     fragment_mzs = mz_values[fragment_tofs]
     # smooth from connections?
     for seed_index, seed in enumerate(
@@ -961,6 +987,185 @@ def rough_match2(
     return hits
 
 
+@alphatims.utils.njit(nogil=True)
+def rough_match2_count_only(
+    fragment_mzs,
+    database_mzs,
+    fragment_ppm,
+):
+    fragment_index = 0
+    database_index = 0
+    hits = 0
+    while (fragment_index < len(fragment_mzs)) and (database_index < len(database_mzs)):
+        fragment_mz = fragment_mzs[fragment_index]
+        database_mz = database_mzs[database_index]
+        if fragment_mz < (database_mz / (1 + 10**-6 * fragment_ppm)):
+            fragment_index += 1
+        elif database_mz < (fragment_mz / (1 + 10**-6 * fragment_ppm)):
+            database_index += 1
+        else:
+            hits += 1
+            fragment_index += 1
+            database_index += 1
+    return hits
+
+
+@alphatims.utils.pjit
+def annotate(
+    index,
+    frag_start_idx,
+    frag_end_idx,
+    frag_indices,
+    indptr,
+    precursor_indices,
+    mz_values,
+    tof_indices,
+    fragment_ppm,
+    lower,
+    upper,
+    y_mzs,
+    b_mzs,
+    max_hit_counts,
+    max_db_indices,
+    min_size,
+):
+    start = indptr[index]
+    end = indptr[index + 1]
+    if (end - start) < min_size:
+        return
+    frags = frag_indices[start: end]
+    fragment_tofs = np.sort(tof_indices[frags])
+    fragment_mzs = mz_values[fragment_tofs]
+    for db_index in range(lower[index], upper[index]):
+        frag_start = frag_start_idx[db_index]
+        frag_end = frag_end_idx[db_index]
+        # b_hits = rough_match2(
+        y_hits = rough_match2_count_only(
+            fragment_mzs,
+            y_mzs[frag_start: frag_end][::-1],
+            fragment_ppm,
+        )
+        # y_hits = rough_match2(
+        b_hits = rough_match2_count_only(
+            fragment_mzs,
+            b_mzs[frag_start: frag_end],
+            fragment_ppm,
+        )
+        # hit_count = len(b_hits) + len(y_hits)
+        hit_count = b_hits + y_hits
+        # if hit_count == max_hit_counts[index]:
+        #     max_db_indices[index] = db_index
+        if hit_count > max_hit_counts[index]:
+            max_db_indices[index] = db_index
+            max_hit_counts[index] = hit_count
+
+
+@alphatims.utils.njit(nogil=True)
+def annotate_pool(
+    index,
+    frag_start_idx,
+    frag_end_idx,
+    frag_indices,
+    frag_frequencies,
+    indptr,
+    mz_values,
+    tof_indices,
+    fragment_ppm,
+    lower,
+    upper,
+    y_mzs,
+    b_mzs,
+    min_size,
+    min_hit_count,
+    top_n_hits,
+):
+    start = indptr[index]
+    end = indptr[index + 1]
+    results = [0][1:] # this defines the type
+    hit_counts = [0][1:] # this defines the type
+    frequency_counts = [0.0][1:] # this defines the type
+    if (end - start) < min_size:
+        return index, hit_counts, frequency_counts, results
+    if (end - start) < min_hit_count:
+        return index, hit_counts, frequency_counts, results
+    frags = frag_indices[start: end]
+    fragment_tofs = tof_indices[frags]
+    order = np.argsort(fragment_tofs)
+    frequencies = frag_frequencies[start: end][order]
+    fragment_tofs = fragment_tofs[order]
+    fragment_mzs = mz_values[fragment_tofs]
+    max_hit_count = min_hit_count
+    for db_index in range(lower[index], upper[index]):
+        frag_start = frag_start_idx[db_index]
+        frag_end = frag_end_idx[db_index]
+        y_hits, y_frequency = hit_and_frequency_count(
+            fragment_mzs,
+            frequencies,
+            y_mzs[frag_start: frag_end][::-1],
+            fragment_ppm,
+        )
+        b_hits, b_frequency = hit_and_frequency_count(
+            fragment_mzs,
+            frequencies,
+            b_mzs[frag_start: frag_end],
+            fragment_ppm,
+        )
+        hit_count = b_hits + y_hits
+        frequency_count = b_frequency + y_frequency
+        if top_n_hits == 1:
+            if frequency_count == max_hit_count:
+                results.append(db_index)
+                hit_counts.append(hit_count)
+                frequency_counts.append(frequency_count)
+            elif frequency_count > max_hit_count:
+                results = [db_index]
+                hit_counts = [hit_count]
+                frequency_counts = [frequency_count]
+                max_hit_count = hit_count
+        elif frequency_count >= min_hit_count:
+            if len(results) >= top_n_hits:
+                for min_index, freq_count in enumerate(frequency_counts):
+                    if freq_count == min_hit_count:
+                        results[min_index] = db_index
+                        hit_counts[min_index] = hit_count
+                        frequency_counts[min_index] = frequency_count
+                        break
+                min_hit_count = min(frequency_counts)
+            else:
+                results.append(db_index)
+                hit_counts.append(hit_count)
+                frequency_counts.append(frequency_count)
+    # return index, max_hit_count, results
+    return index, hit_counts, frequency_counts, results
+
+
+@alphatims.utils.njit(nogil=True)
+def hit_and_frequency_count(
+    fragment_mzs,
+    frequencies,
+    database_mzs,
+    fragment_ppm,
+):
+    fragment_index = 0
+    database_index = 0
+    hits = 0
+    summed_frequency = 0
+    while (fragment_index < len(fragment_mzs)) and (database_index < len(database_mzs)):
+        fragment_mz = fragment_mzs[fragment_index]
+        database_mz = database_mzs[database_index]
+        frequency = frequencies[fragment_index]
+        if fragment_mz < (database_mz / (1 + 10**-6 * fragment_ppm)):
+            fragment_index += 1
+        elif database_mz < (fragment_mz / (1 + 10**-6 * fragment_ppm)):
+            database_index += 1
+        else:
+            hits += 1
+            summed_frequency += frequency
+            fragment_index += 1
+            database_index += 1
+    return hits, summed_frequency
+
+
 @alphatims.utils.njit
 def trim_seeds(
     push_counts,
@@ -977,3 +1182,84 @@ def trim_seeds(
         new_push_counts[index + 1] = total_sum
     new_seed_candidates = seed_candidates[hit_counts >= threshold]
     return new_push_counts, new_seed_candidates
+
+
+
+
+
+@alphatims.utils.njit(nogil=True)
+def annotate_pool2(
+    index,
+    frag_start_idx,
+    frag_end_idx,
+    frag_indices,
+    frag_frequencies,
+    indptr,
+    mz_values,
+    tof_indices,
+    fragment_ppm,
+    lower,
+    upper,
+    y_mzs,
+    b_mzs,
+    min_size,
+    min_hit_count,
+    top_n_hits,
+):
+    start = indptr[index]
+    end = indptr[index + 1]
+    results = [0][1:] # this defines the type
+    hit_counts = [0][1:] # this defines the type
+    frequency_counts = [0.0][1:] # this defines the type
+    if (end - start) < min_size:
+        return index, hit_counts, frequency_counts, results
+    if (end - start) < min_hit_count:
+        return index, hit_counts, frequency_counts, results
+    fragment_tofs = frag_indices[start: end]
+    order = np.argsort(fragment_tofs)
+    frequencies = frag_frequencies[start: end][order]
+    fragment_tofs = fragment_tofs[order]
+    fragment_mzs = mz_values[fragment_tofs]
+    max_hit_count = min_hit_count
+    for db_index in range(lower[index], upper[index]):
+        frag_start = frag_start_idx[db_index]
+        frag_end = frag_end_idx[db_index]
+        y_hits, y_frequency = hit_and_frequency_count(
+            fragment_mzs,
+            frequencies,
+            y_mzs[frag_start: frag_end][::-1],
+            fragment_ppm,
+        )
+        b_hits, b_frequency = hit_and_frequency_count(
+            fragment_mzs,
+            frequencies,
+            b_mzs[frag_start: frag_end],
+            fragment_ppm,
+        )
+        hit_count = b_hits + y_hits
+        frequency_count = b_frequency + y_frequency
+        if top_n_hits == 1:
+            if frequency_count == max_hit_count:
+                results.append(db_index)
+                hit_counts.append(hit_count)
+                frequency_counts.append(frequency_count)
+            elif frequency_count > max_hit_count:
+                results = [db_index]
+                hit_counts = [hit_count]
+                frequency_counts = [frequency_count]
+                max_hit_count = hit_count
+        elif frequency_count >= min_hit_count:
+            if len(results) >= top_n_hits:
+                for min_index, freq_count in enumerate(frequency_counts):
+                    if freq_count == min_hit_count:
+                        results[min_index] = db_index
+                        hit_counts[min_index] = hit_count
+                        frequency_counts[min_index] = frequency_count
+                        break
+                min_hit_count = min(frequency_counts)
+            else:
+                results.append(db_index)
+                hit_counts.append(hit_count)
+                frequency_counts.append(frequency_count)
+    # return index, max_hit_count, results
+    return index, hit_counts, frequency_counts, results
