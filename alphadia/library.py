@@ -1155,8 +1155,8 @@ def fdr_to_q_values(fdr_values):
     return q_values
 
 
-def get_q_values(_df, score_column, decoy_column):
-    _df = _df.reset_index()
+def get_q_values(_df, score_column, decoy_column, drop=False):
+    _df = _df.reset_index(drop=drop)
     _df = _df.sort_values([score_column,score_column], ascending=False)
     target_values = 1-_df['decoy'].values
     decoy_cumsum = np.cumsum(_df['decoy'].values)
@@ -1286,10 +1286,8 @@ def train_RF(
         )
 
     # Subset the targets and decoys datasets to result in a balanced dataset
-    df_training = dfT_high.sample(
-        n=n_train,
-        random_state=random_state
-    ).append(dfD.sample(n=n_train, random_state=random_state))
+    df_training = dfT_high.append(dfD.sample(n=n_train, random_state=random_state))
+    # df_training = dfT_high.append(dfD)
 
     # Select training and test sets
     X = df_training[features]
@@ -1310,7 +1308,8 @@ def train_RF(
     # Train the classifier on the training set via 5-fold cross-validation and subsequently test on the test set
     logging.info(
         'Training & cross-validation on {} targets and {} decoys'.format(
-            np.sum(y_train), X_train.shape[0] - np.sum(y_train)
+            # np.sum(y_train), X_train.shape[0] - np.sum(y_train)
+            *np.bincount(y_train)[::-1]
         )
     )
     cv.fit(X_train, y_train)
