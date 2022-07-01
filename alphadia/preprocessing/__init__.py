@@ -4,6 +4,7 @@ from . import connecting
 from . import smoothing
 from . import peakfinding
 from . import deisotoping
+from . import peakstats
 
 
 class Workflow:
@@ -15,7 +16,7 @@ class Workflow:
         self.set_smoother()
         self.set_peak_collection()
         self.set_deisotoper()
-        # self.set_peak_stats()
+        self.set_peak_stats_calculator()
 
     def set_dia_data(self, dia_data):
         self.dia_data = dia_data
@@ -44,3 +45,9 @@ class Workflow:
         self.deisotoper.set_connector(self.connector)
         self.deisotoper.set_peak_collection(self.peakfinder.peak_collection)
         self.deisotoper.deisotope()
+
+    def set_peak_stats_calculator(self):
+        self.peak_stats_calculator = peakstats.PeakStatsCalculator()
+        self.peak_stats_calculator.set_dia_data(self.dia_data)
+        self.peak_stats_calculator.set_peakfinder(self.peakfinder)
+        self.peak_stats_calculator.calculate_stats()
