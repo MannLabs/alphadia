@@ -34,7 +34,8 @@ class PeakFinder:
         self.find_ambiguous_cluster_overlaps()
         self.assemble_clusters()
         self.assign_quantifiable_clusters()
-        self.peak_collection = PeakCollection(
+        self.peak_collection = PeakCollection()
+        self.peak_collection.set_peak_indptr(
             self.dia_data.push_indptr,
             self.peaks,
         )
@@ -123,13 +124,16 @@ class PeakFinder:
             (self.nonambiguous_ions & self.internal_points)[unique_peaks]
         ]
 
+
 class PeakCollection(object):
 
-    def __init__(
+    def set_peak_indptr(
         self,
-        indptr: np.ndarray,
-        peaks: np.ndarray,
+        indptr: np.ndarray = None,
+        peaks: np.ndarray = None,
     ):
+        if peaks is None:
+            return
         if peaks.dtype == np.bool_:
             self.indices = tm.clone(np.flatnonzero(peaks))
         else:
