@@ -125,7 +125,7 @@ class MSMSGenerator:
             precursor_index_mask,
             append_apices=True
         )
-        ms1_df['charge2'] = np.array([2, 3])[
+        ms1_df['charge'] = np.array([2, 3])[
             np.isin(
                 self.precursor_indices,
                 self.deisotoper.mono_isotopes_charge3
