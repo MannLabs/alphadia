@@ -7,6 +7,7 @@ import pandas as pd
 
 import alphatims.utils
 import alphatims.tempmmap as tm
+import alphabase.io.hdf
 
 
 class MSMSGenerator:
@@ -31,6 +32,9 @@ class MSMSGenerator:
 
     def set_deisotoper(self, deisotoper):
         self.deisotoper = deisotoper
+
+    def set_peak_stats_calculator(self, peak_stats_calculator):
+        self.peak_stats_calculator = peak_stats_calculator
 
     def create_msms_spectra(self):
         import multiprocessing
@@ -111,6 +115,58 @@ class MSMSGenerator:
             )
         ).values
 
+    def get_ms1_df(self):
+        logging.info("Creating MS1 dataframe")
+        precursor_index_mask = np.isin(
+            self.peak_collection.indices,
+            self.precursor_indices
+        )
+        ms1_df = self.peak_stats_calculator.as_dataframe(
+            precursor_index_mask,
+            append_apices=True
+        )
+        ms1_df['charge2'] = np.array([2, 3])[
+            np.isin(
+                self.precursor_indices,
+                self.deisotoper.mono_isotopes_charge3
+            ).astype(np.int)
+        ]
+        ms1_df['fragment_start'] = self.precursor_indptr[:-1]
+        ms1_df['fragment_end'] = self.precursor_indptr[1:]
+        return ms1_df
+
+    def get_ms2_df(self):
+        logging.info("Creating MS2 dataframe")
+        sorted_fragment_indices = self.fragment_indices.copy()
+        sort_ms2_fragments_by_tof_indices(
+            range(len(self.precursor_indices)),
+            sorted_fragment_indices,
+            self.precursor_indptr,
+            self.dia_data.tof_indices,
+        )
+        fragment_indices = np.searchsorted(
+            self.peak_collection.indices,
+            sorted_fragment_indices,
+        )
+        ms2_df = self.peak_stats_calculator.as_dataframe(
+            fragment_indices,
+            append_apices=True
+        )
+        return ms2_df
+
+    def write_to_file(self, file_name=None):
+        if file_name is None:
+            file_name = f"{self.dia_data.sample_name}.alphadia.ms_data.hdf"
+        ms1_df = self.get_ms1_df()
+        ms2_df = self.get_ms2_df()
+        hdf = alphabase.io.hdf.HDF_File(
+            file_name,
+            read_only=False,
+            truncate=True,
+        )
+        hdf.precursors = ms1_df
+        hdf.fragments = ms2_df
+
 
 @alphatims.utils.njit(nogil=True)
 def create_precursor_centric_ion_network(
@@ -172,3 +228,18 @@ def create_precursor_centric_ion_network(
         np.array(precursor_count),
         np.array(fragment_indices),
     )
+
+
+@alphatims.utils.pjit
+def sort_ms2_fragments_by_tof_indices(
+    index,
+    fragment_indices,
+    indptr,
+    tof_indices,
+):
+    start = indptr[index]
+    end = indptr[index + 1]
+    selected_fragment_indices = fragment_indices[start:end]
+    selected_tof_indices = tof_indices[selected_fragment_indices]
+    order = np.argsort(selected_tof_indices)
+    fragment_indices[start:end] = selected_fragment_indices[order]

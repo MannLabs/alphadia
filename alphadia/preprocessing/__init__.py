@@ -61,8 +61,13 @@ class Workflow:
     def set_msms_generator(self):
         self.msms_generator = msmsgeneration.MSMSGenerator()
         self.msms_generator.set_dia_data(self.dia_data)
-        self.msms_generator.set_peak_collection(self.peakfinder.peak_collection)
+        self.msms_generator.set_peak_collection(
+            self.peakfinder.peak_collection
+        )
         self.msms_generator.set_deisotoper(self.deisotoper)
+        self.msms_generator.set_peak_stats_calculator(
+            self.peak_stats_calculator
+        )
         self.msms_generator.create_msms_spectra()
 
     def save_to_hdf(self, file_name=None):
@@ -104,6 +109,7 @@ class Workflow:
             "peak_collection",
             "peakfinder",
             "deisotoper",
+            "peak_stats_calculator",
         ]
         return {
             key: val for (
@@ -159,6 +165,9 @@ class Workflow:
         self.msms_generator.set_dia_data(self.dia_data)
         self.msms_generator.set_peak_collection(self.peakfinder.peak_collection)
         self.msms_generator.set_deisotoper(self.deisotoper)
+        self.msms_generator.set_peak_stats_calculator(
+            self.peak_stats_calculator
+        )
 
     def _load_from_hdf_dict(self, element):
         select_dict = {}
