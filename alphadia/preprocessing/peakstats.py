@@ -161,25 +161,62 @@ class PeakStatsCalculator:
         self.mobilogram_indptr = tm.clone(np.cumsum(mobilogram_indptr))
         self.mz_profile_indptr = tm.clone(np.cumsum(mz_profile_indptr))
 
-    def as_dataframe(self):
-        return pd.DataFrame(
+    def as_dataframe(self, selected_indices=Ellipsis, *, append_apices=False):
+        raw_indices = self.peakfinder.peak_collection.indices[
+            selected_indices
+        ]
+        df = pd.DataFrame(
             {
-                "number_of_ions": self.number_of_ions,
-                "summed_intensity_values": self.summed_intensity_values,
-                "xic_offset": self.xic_offset,
-                "rt_average": self.rt_average,
-                "rt_start": self.rt_start,
-                "rt_end": self.rt_end,
-                "mobilogram_offset": self.mobilogram_offset,
-                "mobility_average": self.mobility_average,
-                "mobility_start": self.mobility_start,
-                "mobility_end": self.mobility_end,
-                "mz_profile_offset": self.mz_profile_offset,
-                "mz_average": self.mz_average,
-                "mz_start": self.mz_start,
-                "mz_end": self.mz_end,
+                "number_of_ions": self.number_of_ions[
+                    selected_indices
+                ],
+                "summed_intensity_values": self.summed_intensity_values[
+                    selected_indices
+                ],
+                "xic_offset": self.xic_offset[
+                    selected_indices
+                ],
+                "rt_average": self.rt_average[
+                    selected_indices
+                ],
+                "rt_start": self.rt_start[
+                    selected_indices
+                ],
+                "rt_end": self.rt_end[
+                    selected_indices
+                ],
+                "mobilogram_offset": self.mobilogram_offset[
+                    selected_indices
+                ],
+                "mobility_average": self.mobility_average[
+                    selected_indices
+                ],
+                "mobility_start": self.mobility_start[
+                    selected_indices
+                ],
+                "mobility_end": self.mobility_end[
+                    selected_indices
+                ],
+                "mz_profile_offset": self.mz_profile_offset[
+                    selected_indices
+                ],
+                "mz_average": self.mz_average[
+                    selected_indices
+                ],
+                "mz_start": self.mz_start[
+                    selected_indices
+                ],
+                "mz_end": self.mz_end[
+                    selected_indices
+                ],
             }
         )
+        if append_apices:
+            apex_df = self.dia_data.as_dataframe(raw_indices)
+            df = df.join(apex_df, how="left")
+        else:
+            df["raw_indices"] = raw_indices
+        return df
 
 
 @alphatims.utils.njit
