@@ -47,7 +47,12 @@ class Smoother:
             dtype=np.uint8
         )
         smooth(
-            range(len(self.dia_data.push_indptr) // len(self.dia_data.dia_mz_cycle) + 1),
+            # 0,
+            range(
+                len(self.dia_data.push_indptr) // np.prod(
+                    self.connector.cycle.shape[:-1]
+                ) + 1
+            ),
             self.dia_data.push_indptr,
             self.dia_data.tof_indices,
             self.dia_data.intensity_values,
@@ -63,6 +68,9 @@ class Smoother:
             self.cycle_sigma,
             self.scan_sigma,
             self.tof_sigma,
+            np.prod(
+                self.connector.cycle.shape[1:-1]
+            ),
         )
         self.smooth_intensity_values += self.dia_data.intensity_values
 
@@ -85,7 +93,9 @@ def smooth(
     cycle_sigma,
     scan_sigma,
     tof_sigma,
+    subcycle_len,
 ):
+    # print(1)
     len_dia_mz_cycle = len(connection_counts) - 1
     push_offset = len_dia_mz_cycle * cycle_index + zeroth_frame * scan_max_index
     for self_connection_index, connection_start in enumerate(
@@ -103,19 +113,35 @@ def smooth(
             continue
         self_scan = self_connection_index % scan_max_index
         max_neighbor_count = 0
-        for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
-            cycle_blur = gauss_correction(cycle_offset, cycle_sigma)
-            for other_connection_index in connections[connection_start: connection_end]:
-                other_scan = other_connection_index % scan_max_index
-                connection_blur = gauss_correction(
-                    self_connection_index % scan_max_index - other_connection_index % scan_max_index,
-                    scan_sigma,
-                )
-                other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        if True:
+            self_cycle = (self_push_index - zeroth_frame * scan_max_index) // subcycle_len
+            for other_connection_offset in connections[connection_start: connection_end]:
+                other_push_index = self_push_index + other_connection_offset
                 if other_push_index == self_push_index:
                     continue
-                if other_push_index >= len(indptr):
+                if not (0 <= other_push_index < len(indptr)):
                     continue
+                other_scan = other_push_index % scan_max_index
+                connection_blur = gauss_correction(
+                    self_scan - other_scan,
+                    scan_sigma,
+                )
+                other_cycle = (other_push_index - zeroth_frame * scan_max_index) // subcycle_len
+                cycle_offset = self_cycle - other_cycle
+                cycle_blur = gauss_correction(cycle_offset, cycle_sigma)
+        # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
+        #     cycle_blur = gauss_correction(cycle_offset, cycle_sigma)
+        #     for other_connection_index in connections[connection_start: connection_end]:
+        #         other_scan = other_connection_index % scan_max_index
+        #         connection_blur = gauss_correction(
+        #             self_connection_index % scan_max_index - other_connection_index % scan_max_index,
+        #             scan_sigma,
+        #         )
+        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         if other_push_index == self_push_index:
+        #             continue
+        #         if other_push_index >= len(indptr):
+        #             continue
                 max_neighbor_count += 1
                 other_start = indptr[other_push_index]
                 other_end = indptr[other_push_index + 1]
@@ -170,7 +196,7 @@ def determine_neighbor_type(
         if self_scan < other_scan:
             return 2**7
         elif self_scan == other_scan:
-            pass  # cannot happen because scan is fully equal?
+            return 0
         else:
             return 2**3
     else:

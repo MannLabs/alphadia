@@ -218,6 +218,44 @@ class PeakStatsCalculator:
             df["raw_indices"] = raw_indices
         return df
 
+    def get_xic_from_index(
+        self,
+        peak_index,
+    ):
+        xics = self.xics
+        xic_indptr = self.xic_indptr
+
+        def _get_xic_from_index(
+            peak_index,
+        ):
+            xic_start = xic_indptr[peak_index]
+            xic_end = xic_indptr[peak_index + 1]
+            return xics[xic_start: xic_end]
+        self.get_xic_from_index = alphatims.utils.njit(
+            _get_xic_from_index,
+            cache=False,
+        )
+        return self.get_xic_from_index(peak_index)
+
+    def get_mobilogram_from_index(
+        self,
+        peak_index,
+    ):
+        mobilograms = self.mobilograms
+        mobilogram_indptr = self.mobilogram_indptr
+
+        def _get_mobilogram_from_index(
+            peak_index,
+        ):
+            mobilogram_start = mobilogram_indptr[peak_index]
+            mobilogram_end = mobilogram_indptr[peak_index + 1]
+            return mobilograms[mobilogram_start: mobilogram_end]
+        self.get_mobilogram_from_index = alphatims.utils.njit(
+            _get_mobilogram_from_index,
+            cache=False,
+        )
+        return self.get_mobilogram_from_index(peak_index)
+
 
 @alphatims.utils.njit
 def calculate_stats(

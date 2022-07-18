@@ -28,9 +28,15 @@ class Workflow:
         self.dia_data = dia_data
 
     def set_connector(self):
-        self.connector = connecting.Connector()
-        self.connector.set_dia_data(self.dia_data)
-        self.connector.connect()
+        # self.connector = connecting.Connector()
+        # self.connector.set_dia_data(self.dia_data)
+        # self.connector.connect()
+        connector = connecting.PushConnector(
+            self.dia_data,
+            # subcycle_tolerance=3,
+            # scan_tolerance=6,
+        )
+        self.connector = connector
 
     def set_smoother(self):
         self.smoother = smoothing.Smoother()
