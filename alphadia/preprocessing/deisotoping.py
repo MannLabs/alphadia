@@ -97,7 +97,11 @@ def create_isotopic_pairs(
             difference,
         )
 
-    iterable = range(len(self.dia_data.push_indptr) // len(self.dia_data.dia_mz_cycle) + 1)
+    iterable = range(
+        len(self.dia_data.push_indptr) // np.prod(
+            self.connector.cycle.shape[:-1]
+        ) + 1
+    )
     # iterable = range(500, 520)
     self_connections = []
     other_connections = []
@@ -145,11 +149,18 @@ def get_isotopic_pairs(
         self_end = indptr[self_push_index + 1]
         if self_start == self_end:
             continue
-        for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
-            for other_connection_index in connections[connection_start: connection_end]:
-                other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
-                if other_push_index >= len(indptr):
+        if True:
+            for other_connection_offset in connections[connection_start: connection_end]:
+                other_push_index = self_push_index + other_connection_offset
+                if other_push_index == self_push_index:
                     continue
+                if not (0 <= other_push_index < len(indptr)):
+                    continue
+        # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
+        #     for other_connection_index in connections[connection_start: connection_end]:
+        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         if other_push_index >= len(indptr):
+        #             continue
                 other_start = indptr[other_push_index]
                 other_end = indptr[other_push_index + 1]
                 if other_start == other_end:

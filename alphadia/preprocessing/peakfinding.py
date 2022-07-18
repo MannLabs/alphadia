@@ -59,7 +59,11 @@ class PeakFinder:
         logging.info("Finding cluster paths")
         self.cluster_path_pointers = tm.clone(np.arange(len(self.dia_data)))
         cluster_to_max_peaks_(
-            range(len(self.dia_data.push_indptr) // len(self.dia_data.dia_mz_cycle) + 1),
+            range(
+                len(self.dia_data.push_indptr) // np.prod(
+                    self.connector.cycle.shape[:-1]
+                ) + 1
+            ),
             self.dia_data.push_indptr,
             self.dia_data.tof_indices,
             self.smoother.smooth_intensity_values,
@@ -82,7 +86,11 @@ class PeakFinder:
         logging.info("Detecting cluster ambiguities")
         self.nonambiguous_ions = tm.ones(len(self.dia_data), dtype=np.bool_)
         find_unique_peaks_(
-            range(len(self.dia_data.push_indptr) // len(self.dia_data.dia_mz_cycle) + 1),
+            range(
+                len(self.dia_data.push_indptr) // np.prod(
+                    self.connector.cycle.shape[:-1]
+                ) + 1
+            ),
             self.dia_data.push_indptr,
             self.dia_data.tof_indices,
             self.smoother.smooth_intensity_values,
@@ -186,13 +194,20 @@ def cluster_to_max_peaks_(
         self_end = indptr[self_push_index + 1]
         if self_start == self_end:
             continue
-        for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
-            for other_connection_index in connections[connection_start: connection_end]:
-                other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        if True:
+            for other_connection_offset in connections[connection_start: connection_end]:
+                other_push_index = self_push_index + other_connection_offset
                 if other_push_index == self_push_index:
                     continue
-                if other_push_index >= len(indptr):
+                if not (0 <= other_push_index < len(indptr)):
                     continue
+        # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
+        #     for other_connection_index in connections[connection_start: connection_end]:
+        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         if other_push_index == self_push_index:
+        #             continue
+        #         if other_push_index >= len(indptr):
+        #             continue
                 other_start = indptr[other_push_index]
                 other_end = indptr[other_push_index + 1]
                 if other_start == other_end:
@@ -269,13 +284,20 @@ def find_unique_peaks_(
         self_end = indptr[self_push_index + 1]
         if self_start == self_end:
             continue
-        for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
-            for other_connection_index in connections[connection_start: connection_end]:
-                other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
-                if other_push_index <= self_push_index:
+        if True:
+            for other_connection_offset in connections[connection_start: connection_end]:
+                other_push_index = self_push_index + other_connection_offset
+                if other_push_index == self_push_index:
                     continue
-                if other_push_index >= len(indptr):
+                if not (0 <= other_push_index < len(indptr)):
                     continue
+        # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
+        #     for other_connection_index in connections[connection_start: connection_end]:
+        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         if other_push_index <= self_push_index:
+        #             continue
+        #         if other_push_index >= len(indptr):
+        #             continue
                 other_start = indptr[other_push_index]
                 other_end = indptr[other_push_index + 1]
                 if other_start == other_end:
