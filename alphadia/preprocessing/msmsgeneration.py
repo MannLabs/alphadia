@@ -15,12 +15,12 @@ class MSMSGenerator:
     def __init__(
         self,
         scan_tolerance=6,
-        cycle_tolerance=3,
+        subcycle_tolerance=3,
         cycle_sigma=3,
         scan_sigma=6,
     ):
         self.scan_tolerance = scan_tolerance
-        self.cycle_tolerance = cycle_tolerance
+        self.subcycle_tolerance = subcycle_tolerance
         self.cycle_sigma = cycle_sigma
         self.scan_sigma = scan_sigma
 
@@ -29,6 +29,9 @@ class MSMSGenerator:
 
     def set_peak_collection(self, peak_collection):
         self.peak_collection = peak_collection
+
+    def set_connector(self, connector):
+        self.connector = connector
 
     def set_deisotoper(self, deisotoper):
         self.deisotoper = deisotoper
@@ -48,8 +51,8 @@ class MSMSGenerator:
                 self.dia_data.zeroth_frame,
                 self.dia_data.scan_max_index,
                 self.scan_tolerance,
-                self.cycle_tolerance,
-                self.dia_data.dia_mz_cycle,
+                self.subcycle_tolerance,
+                self.connector.cycle,
                 self.dia_data.mz_values,
                 self.dia_data.tof_indices,
                 np.isin(self.peak_collection.indices, self.deisotoper.mono_isotopes)
@@ -85,6 +88,7 @@ class MSMSGenerator:
         self.fragment_indices = tm.clone(fragment_indices)
         self.set_fragment_apex_distances()
         self.set_fragment_profile_distances()
+        self.fragment_frequencies = self.mobilogram_correlations * self.xic_correlations
 
     def set_fragment_apex_distances(self):
         logging.info("Setting fragment-precursor apex distances")
@@ -227,43 +231,51 @@ def create_precursor_centric_ion_network(
     zeroth_frame,
     scan_max_index,
     scan_tolerance,
-    cycle_tolerance,
+    subcycle_tolerance,
     mz_windows,
     mz_values,
     tof_indices,
     is_mono,
 ):
-    cycle_length = len(mz_windows)
-    frame_count = cycle_length // scan_max_index
+    subcycle_count = mz_windows.shape[0]
+    frame_count = mz_windows.shape[1]
+    cycle_length = subcycle_count * frame_count * scan_max_index
     push_offset = cycle_length * cycle_index + zeroth_frame * scan_max_index
     precursor_indices = []
     precursor_count = []
     fragment_indices = []
-    for self_push_offset in np.flatnonzero(mz_windows[:, 0] == -1):
+    for self_push_offset in np.flatnonzero(mz_windows[..., 0] == -1):
         self_push_index = push_offset + self_push_offset
         if self_push_index > len(indptr):
             break
         self_start = indptr[self_push_index]
         self_end = indptr[self_push_index + 1]
         self_scan = self_push_offset % scan_max_index
+        self_frame = (self_push_offset // scan_max_index) % subcycle_count
         for precursor_index_ in range(self_start, self_end):
             if not is_mono[precursor_index_]:
                 continue
             precursor_index = indices[precursor_index_]
             precursor_mz = mz_values[tof_indices[precursor_index]]
             hits = 0
-            for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
-                for frame_offset in range(frame_count):
+            for sub_cycle_offset in range(-subcycle_tolerance, subcycle_tolerance + 1):
+                for frame_offset in range(-self_frame, frame_count - self_frame):
                     for scan_offset in range(-scan_tolerance, scan_tolerance + 1):
                         other_scan = self_scan + scan_offset
                         if not (0 <= other_scan < scan_max_index):
                             continue
-                        other_push_offset = frame_offset * scan_max_index + other_scan
-                        low_mz, high_mz = mz_windows[other_push_offset]
-                        if not (low_mz <= precursor_mz < high_mz):
-                            continue
-                        other_push_index = push_offset + other_push_offset + cycle_length * cycle_offset
+
+                        other_push_index = self_push_index
+                        other_push_index += scan_offset
+                        other_push_index += frame_offset * scan_max_index
+                        other_push_index += sub_cycle_offset * frame_count * scan_max_index
+
                         if not (0 <= other_push_index < len(indptr)):
+                            continue
+                        low_mz, high_mz = mz_windows.reshape((-1, 2))[
+                            (other_push_index - zeroth_frame * scan_max_index) % cycle_length
+                        ]
+                        if not (low_mz <= precursor_mz < high_mz):
                             continue
                         other_start = indptr[other_push_index]
                         other_end = indptr[other_push_index + 1]
@@ -422,8 +434,3 @@ def set_profile_correlations(
                 )*summed_profile/np.sum(summed_profile)
             )
         profile_correlations[fragment_index] = correlation
-
-
-@alphatims.utils.njit
-def test():
-    return 1

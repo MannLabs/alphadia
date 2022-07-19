@@ -152,8 +152,8 @@ def get_isotopic_pairs(
         if True:
             for other_connection_offset in connections[connection_start: connection_end]:
                 other_push_index = self_push_index + other_connection_offset
-                if other_push_index == self_push_index:
-                    continue
+                # if other_push_index == self_push_index:
+                #     continue
                 if not (0 <= other_push_index < len(indptr)):
                     continue
         # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
