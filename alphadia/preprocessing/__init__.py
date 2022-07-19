@@ -67,6 +67,7 @@ class Workflow:
     def set_msms_generator(self):
         self.msms_generator = msmsgeneration.MSMSGenerator()
         self.msms_generator.set_dia_data(self.dia_data)
+        self.msms_generator.set_connector(self.connector)
         self.msms_generator.set_peak_collection(
             self.peakfinder.peak_collection
         )
