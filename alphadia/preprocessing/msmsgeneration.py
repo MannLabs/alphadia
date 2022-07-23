@@ -8,6 +8,7 @@ import pandas as pd
 import alphatims.utils
 import alphatims.tempmmap as tm
 import alphabase.io.hdf
+import alphadia.preprocessing.peakstats
 
 
 class MSMSGenerator:
@@ -133,7 +134,7 @@ class MSMSGenerator:
             self.peak_collection.indices,
             self.precursor_indices,
         )
-        set_profile_correlations(
+        alphadia.preprocessing.peakstats.set_profile_correlations(
             range(len(precursor_peak_indices)),
             # range(10),
             # 0,
@@ -145,7 +146,7 @@ class MSMSGenerator:
             self.peak_stats_calculator.xics,
             self.peak_stats_calculator.xic_indptr,
         )
-        set_profile_correlations(
+        alphadia.preprocessing.peakstats.set_profile_correlations(
             range(len(precursor_peak_indices)),
             # range(10),
             # 0,
@@ -307,130 +308,3 @@ def sort_ms2_fragments_by_tof_indices(
     selected_tof_indices = tof_indices[selected_fragment_indices]
     order = np.argsort(selected_tof_indices)
     fragment_order[start:end] = fragment_order[start:end][order]
-
-
-@alphatims.utils.pjit
-def set_profile_correlations(
-    precursor_index,
-    fragment_peak_indices,
-    precursor_peak_indices,
-    precursor_indptr,
-    profile_correlations,
-    profile_offset,
-    profiles,
-    profile_indptr,
-):
-    convolution_mask = np.array([.5,.5,.75,1,.75,.5,.25])
-    precursor_peak_index = precursor_peak_indices[precursor_index]
-    precursor_profile_offset = profile_offset[precursor_peak_index]
-    precursor_profile_start = profile_indptr[precursor_peak_index]
-    precursor_profile_end = profile_indptr[precursor_peak_index + 1]
-    precursor_profile = profiles[precursor_profile_start: precursor_profile_end]
-    fragment_start = precursor_indptr[precursor_index]
-    fragment_end = precursor_indptr[precursor_index + 1]
-    for fragment_index, fragment_peak_index in enumerate(
-        fragment_peak_indices[fragment_start: fragment_end],
-        fragment_start,
-    ):
-        fragment_profile_offset = profile_offset[fragment_peak_index]
-        fragment_profile_start = profile_indptr[fragment_peak_index]
-        fragment_profile_end = profile_indptr[fragment_peak_index + 1]
-        fragment_profile = profiles[fragment_profile_start: fragment_profile_end]
-        fragment_overlap_profile = fragment_profile
-        precursor_overlap_profile = precursor_profile
-        if fragment_profile_offset < precursor_profile_offset:
-            fragment_overlap_profile = fragment_profile[
-                precursor_profile_offset - fragment_profile_offset:
-            ]
-        else:
-            precursor_overlap_profile = precursor_profile[
-                fragment_profile_offset - precursor_profile_offset:
-            ]
-        if len(precursor_overlap_profile) <= 1:
-            correlation = 0
-        elif len(fragment_overlap_profile) <= 1:
-            correlation = 0
-        else:
-            # correlation = np.corrcoef(
-            #     fragment_overlap_profile[:len(precursor_overlap_profile)],
-            #     precursor_overlap_profile[:len(fragment_overlap_profile)],
-            # )[0, 1]
-            start = min(fragment_profile_offset, precursor_profile_offset)
-            end = max(
-                fragment_profile_offset + len(fragment_profile),
-                precursor_profile_offset + len(precursor_profile)
-            )
-            # precursor_profile_cumulative = np.zeros(end - start)
-            # precursor_profile_cumulative[
-            #     precursor_profile_offset - start: precursor_profile_offset + len(precursor_profile) - start
-            # ] = precursor_profile
-            # precursor_profile_cumulative[
-            #     precursor_profile_offset + len(precursor_profile) - start:
-            # ]
-            # precursor_profile_cumulative = np.cumsum(
-            #     precursor_profile_cumulative
-            # )
-            # fragment_profile_cumulative = np.zeros(end - start)
-            # fragment_profile_cumulative[
-            #     fragment_profile_offset - start: fragment_profile_offset + len(fragment_profile) - start
-            # ] = fragment_profile
-            # fragment_profile_cumulative[
-            #     fragment_profile_offset + len(fragment_profile) - start:
-            # ]
-            # fragment_profile_cumulative = np.cumsum(
-            #     fragment_profile_cumulative
-            # )
-            # # correlation = 1 - np.sum(np.abs(diff_profile)) / (end - start)
-            # correlation = 1 - np.max(
-            #     np.abs(
-            #         precursor_profile_cumulative - fragment_profile_cumulative
-            #     )
-            # )
-            start = min(fragment_profile_offset, precursor_profile_offset)
-            end = max(
-                fragment_profile_offset + len(fragment_profile),
-                precursor_profile_offset + len(precursor_profile)
-            )
-            precursor_profile_cumulative = np.zeros(end - start)
-            precursor_profile_cumulative[
-                precursor_profile_offset - start: precursor_profile_offset + len(precursor_profile) - start
-            ] = precursor_profile
-            # precursor_profile_cumulative[
-            #     precursor_profile_offset + len(precursor_profile) - start:
-            # ]
-            # precursor_profile_cumulative = np.cumsum(
-            #     precursor_profile_cumulative
-            # )
-            fragment_profile_cumulative = np.zeros(end - start)
-            fragment_profile_cumulative[
-                fragment_profile_offset - start: fragment_profile_offset + len(fragment_profile) - start
-            ] = fragment_profile
-            # fragment_profile_cumulative[
-            #     fragment_profile_offset + len(fragment_profile) - start:
-            # ]
-            # fragment_profile_cumulative = np.cumsum(
-            #     fragment_profile_cumulative
-            # )
-
-            # correlation = 1 - np.sum(np.abs(diff_profile)) / (end - start)
-
-            precursor_profile_cumulative = np.convolve(
-                precursor_profile_cumulative,
-                convolution_mask,
-            )
-            fragment_profile_cumulative = np.convolve(
-                fragment_profile_cumulative,
-                convolution_mask,
-            )
-            # correlation = 1 - np.max(
-            #     np.abs(
-            #         np.cumsum(precursor_profile_cumulative)/np.sum(precursor_profile_cumulative) - np.cumsum(fragment_profile_cumulative)/np.sum(fragment_profile_cumulative)
-            #     )
-            # )
-            summed_profile = precursor_profile_cumulative + fragment_profile_cumulative
-            correlation = 1 - np.sum(
-                np.abs(
-                    np.cumsum(precursor_profile_cumulative)/np.sum(precursor_profile_cumulative) - np.cumsum(fragment_profile_cumulative)/np.sum(fragment_profile_cumulative)
-                )*summed_profile/np.sum(summed_profile)
-            )
-        profile_correlations[fragment_index] = correlation

@@ -20,8 +20,8 @@ class Workflow:
         self.set_connector()
         self.set_smoother()
         self.set_peak_collection()
-        self.set_deisotoper()
         self.set_peak_stats_calculator()
+        self.set_deisotoper()
         self.set_msms_generator()
 
     def set_dia_data(self, dia_data):
@@ -56,6 +56,9 @@ class Workflow:
         self.deisotoper.set_dia_data(self.dia_data)
         self.deisotoper.set_connector(self.connector)
         self.deisotoper.set_peak_collection(self.peakfinder.peak_collection)
+        self.deisotoper.set_peak_stats_calculator(
+            self.peak_stats_calculator
+        )
         self.deisotoper.deisotope()
 
     def set_peak_stats_calculator(self):
