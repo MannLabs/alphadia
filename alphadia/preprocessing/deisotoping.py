@@ -6,6 +6,7 @@ import numpy as np
 
 import alphatims.utils
 import alphatims.tempmmap as tm
+import alphadia.preprocessing.peakstats
 
 
 class Deisotoper:
@@ -14,9 +15,13 @@ class Deisotoper:
         self,
         isotope_mz_tolerance=0.01,
         cycle_tolerance=3,
+        min_correlation=0.5,
+        proton_mass=1.007277,
     ):
         self.isotope_mz_tolerance = isotope_mz_tolerance
         self.cycle_tolerance = cycle_tolerance
+        self.min_correlation = min_correlation
+        self.proton_mass = proton_mass
 
     def set_dia_data(self, dia_data):
         self.dia_data = dia_data
@@ -27,41 +32,24 @@ class Deisotoper:
     def set_peak_collection(self, peak_collection):
         self.peak_collection = peak_collection
 
+    def set_peak_stats_calculator(self, peak_stats_calculator):
+        self.peak_stats_calculator = peak_stats_calculator
+
     def deisotope(self):
         logging.info("Determining mono isotopes")
         logging.info("Charge 2")
-        left_connection, right_connection = create_isotopic_pairs(
+        self.mono_isotopes_charge2 = create_isotopic_pairs(
             self,
-            difference=1/2,
+            difference=self.proton_mass/2,
             mz_tolerance=self.isotope_mz_tolerance,
-        )
-        self.mono_isotopes_charge2 = tm.clone(
-            self.peak_collection.indices[
-                left_connection[
-                    ~np.isin(
-                        left_connection, right_connection
-                    ) & np.isin(
-                        right_connection, left_connection
-                    )
-                ]
-            ]
+            min_correlation=self.min_correlation
         )
         logging.info("Charge 3")
-        left_connection, right_connection = create_isotopic_pairs(
+        self.mono_isotopes_charge3 = create_isotopic_pairs(
             self,
-            difference=1/3,
+            difference=self.proton_mass/3,
             mz_tolerance=self.isotope_mz_tolerance,
-        )
-        self.mono_isotopes_charge3 = tm.clone(
-            self.peak_collection.indices[
-                left_connection[
-                    ~np.isin(
-                        left_connection, right_connection
-                    ) & np.isin(
-                        right_connection, left_connection
-                    )
-                ]
-            ]
+            min_correlation=self.min_correlation
         )
         self.mono_isotopes = np.unique(
             np.concatenate(
@@ -72,10 +60,12 @@ class Deisotoper:
             )
         )
 
+
 def create_isotopic_pairs(
     self,
     difference,
     mz_tolerance,
+    min_correlation,
 ):
     import multiprocessing
 
@@ -116,7 +106,47 @@ def create_isotopic_pairs(
         ):
             self_connections.append(self_connection)
             other_connections.append(other_connection)
-    return np.concatenate(self_connections), np.concatenate(other_connections)
+    left_connection = np.concatenate(self_connections)
+    right_connection = np.concatenate(other_connections)
+    xic_correlations = np.empty(len(left_connection))
+    alphadia.preprocessing.peakstats.set_profile_correlations(
+        range(len(left_connection)),
+        # range(10),
+        # 0,
+        left_connection,
+        right_connection,
+        np.arange(len(left_connection) + 1),
+        xic_correlations,
+        self.peak_stats_calculator.xic_offset,
+        self.peak_stats_calculator.xics,
+        self.peak_stats_calculator.xic_indptr,
+    )
+    mobilogram_correlations = np.empty(len(left_connection))
+    alphadia.preprocessing.peakstats.set_profile_correlations(
+        range(len(left_connection)),
+        # range(10),
+        # 0,
+        left_connection,
+        right_connection,
+        np.arange(len(left_connection) + 1),
+        mobilogram_correlations,
+        self.peak_stats_calculator.mobilogram_offset,
+        self.peak_stats_calculator.mobilograms,
+        self.peak_stats_calculator.mobilogram_indptr,
+    )
+    correlation = xic_correlations * mobilogram_correlations
+    mono_isotopes_charge = tm.clone(
+        self.peak_collection.indices[
+            left_connection[correlation > min_correlation][
+                ~np.isin(
+                    left_connection[correlation > min_correlation], right_connection[correlation > min_correlation]
+                # ) & np.isin(
+                #     right_connection, left_connection
+                )
+            ]
+        ]
+    )
+    return mono_isotopes_charge
 
 
 # @alphatims.utils.pjit
