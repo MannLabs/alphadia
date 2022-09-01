@@ -2,14 +2,14 @@
 
 import logging
 
+import alphabase.io
+
 from . import connecting
 from . import smoothing
 from . import peakfinding
 from . import deisotoping
 from . import peakstats
 from . import msmsgeneration
-
-import alphabase.io
 
 
 class Workflow:
@@ -82,7 +82,7 @@ class Workflow:
 
     def save_to_hdf(self, file_name=None):
         if file_name is None:
-            file_name = f"sandbox_{self.dia_data.sample_name}_preprocess_workflow.hdf"
+            file_name = f"{self.dia_data.bruker_hdf_file_name[:-4]}_preprocess_workflow.hdf"
         logging.info(f"Saving preprocessing workflow results to {file_name}.")
         hdf = alphabase.io.hdf.HDF_File(
             file_name,
@@ -130,7 +130,7 @@ class Workflow:
 
     def load_from_hdf(self):
         hdf = alphabase.io.hdf.HDF_File(
-            f"sandbox_{self.dia_data.sample_name}_preprocess_workflow.hdf",
+            f"{self.dia_data.bruker_hdf_file_name[:-4]}_preprocess_workflow.hdf",
             read_only=False,
         )
         self.connector = connecting.Connector()
