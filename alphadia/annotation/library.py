@@ -9,12 +9,12 @@ import alphabase.io.hdf
 
 class Library:
 
-    def import_from_file(self, library_file_name):
+    def import_from_file(self, library_file_name, is_already_mmapped=True):
         logging.info("Loading library")
         self.library_file_name = library_file_name
         self.lib = alphabase.io.hdf.HDF_File(
-            self.library_file_name
-        #     read_only=False
+            self.library_file_name,
+            read_only=is_already_mmapped,
         )
 
         predicted_library_df = self.lib.library.precursor_df[...]
