@@ -25,7 +25,7 @@ class PeakStatsCalculator:
         # iterable = range(4585132, 4585132+1)
 
         self.cycle_rt_values = self.dia_data.rt_values[
-            int(self.dia_data.zeroth_frame)::len(self.dia_data.dia_mz_cycle)//self.dia_data.scan_max_index
+            int(self.dia_data.zeroth_frame)::np.prod(self.dia_data.cycle.shape[:-1])//self.dia_data.scan_max_index
         ]
 
         self.number_of_ions = tm.empty(
@@ -118,7 +118,7 @@ class PeakStatsCalculator:
                 self.cycle_rt_values,
                 self.dia_data.mobility_values,
                 self.peakfinder.cluster_assemblies,
-                len(self.dia_data.dia_mz_cycle),
+                np.prod(self.dia_data.cycle.shape[:-1]),
                 self.number_of_ions,
                 self.summed_intensity_values,
                 xic_indptr,
