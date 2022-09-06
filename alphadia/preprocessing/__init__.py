@@ -10,6 +10,7 @@ from . import peakfinding
 from . import deisotoping
 from . import peakstats
 from . import msmsgeneration
+from . import calibration
 
 
 class Workflow:
@@ -28,9 +29,6 @@ class Workflow:
         self.dia_data = dia_data
 
     def set_connector(self):
-        # self.connector = connecting.Connector()
-        # self.connector.set_dia_data(self.dia_data)
-        # self.connector.connect()
         connector = connecting.PushConnector(
             self.dia_data,
             # subcycle_tolerance=3,
@@ -133,7 +131,7 @@ class Workflow:
             f"{self.dia_data.bruker_hdf_file_name[:-4]}_preprocess_workflow.hdf",
             read_only=False,
         )
-        self.connector = connecting.Connector()
+        self.connector = connecting.PushConnector(self.dia_data)
         self.smoother = smoothing.Smoother()
         self.peakfinder = peakfinding.PeakFinder()
         self.deisotoper = deisotoping.Deisotoper()
@@ -157,7 +155,7 @@ class Workflow:
         self.msms_generator.__dict__ = self._load_from_hdf_dict(
             hdf.msms_generator
         )
-        self.connector.set_dia_data(self.dia_data)
+        # self.connector.set_dia_data(self.dia_data)
         self.smoother.set_dia_data(self.dia_data)
         self.smoother.set_connector(self.connector)
         self.peakfinder.set_dia_data(self.dia_data)

@@ -62,6 +62,7 @@ class Percolator:
             score_df,
             val_names,
         )
+        # log_odds = score_df["frequency_counts"].values
         score_df["log_odds"] = log_odds
         # score_df = alphadia.prefilter.train_and_score(
         #     score_df,
@@ -117,6 +118,7 @@ class Percolator:
         score_df["ppm_diff_calibrated"] = (score_df.mz_calibrated - score_df.mz_values) / score_df.mz_calibrated * 10**6
         score_df["rt_diff_calibrated"] = score_df.rt_calibrated - score_df.rt_values
         score_df["im_diff_calibrated"] = score_df.im_calibrated - score_df.mobility_values
+        # self.score_df = score_df.reset_index(drop=True)
         self.score_df = train_and_score(
             # score_df[np.abs(score_df.rt_diff_calibrated) < 250].reset_index(drop=True),
             score_df,
@@ -279,7 +281,7 @@ def train_RF(
     scoring: str = 'accuracy',
     plot: bool = False,
     random_state: int = 42,
-) -> (sklearn.model_selection.GridSearchCV, list):
+):
     # Setup ML pipeline
     scaler = sklearn.preprocessing.StandardScaler()
     rfc = sklearn.ensemble.RandomForestClassifier(random_state=random_state)
