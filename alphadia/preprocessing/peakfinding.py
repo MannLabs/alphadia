@@ -181,8 +181,8 @@ def cluster_to_max_peaks_(
     cycle_tolerance,
     clusters,
 ):
-    len_dia_mz_cycle = len(connection_counts) - 1
-    push_offset = len_dia_mz_cycle * cycle_index + zeroth_frame * scan_max_index
+    len_cycle = len(connection_counts) - 1
+    push_offset = len_cycle * cycle_index + zeroth_frame * scan_max_index
     for self_connection_index, connection_start in enumerate(
         connection_counts[:-1]
     ):
@@ -203,7 +203,7 @@ def cluster_to_max_peaks_(
                     continue
         # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
         #     for other_connection_index in connections[connection_start: connection_end]:
-        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         other_push_index = push_offset + other_connection_index + len_cycle * cycle_offset
         #         if other_push_index == self_push_index:
         #             continue
         #         if other_push_index >= len(indptr):
@@ -271,8 +271,8 @@ def find_unique_peaks_(
     clusters,
     unique_peaks,
 ):
-    len_dia_mz_cycle = len(connection_counts) - 1
-    push_offset = len_dia_mz_cycle * cycle_index + zeroth_frame * scan_max_index
+    len_cycle = len(connection_counts) - 1
+    push_offset = len_cycle * cycle_index + zeroth_frame * scan_max_index
     for self_connection_index, connection_start in enumerate(
         connection_counts[:-1]
     ):
@@ -293,7 +293,7 @@ def find_unique_peaks_(
                     continue
         # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
         #     for other_connection_index in connections[connection_start: connection_end]:
-        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         other_push_index = push_offset + other_connection_index + len_cycle * cycle_offset
         #         if other_push_index <= self_push_index:
         #             continue
         #         if other_push_index >= len(indptr):
