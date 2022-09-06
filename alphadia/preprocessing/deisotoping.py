@@ -164,8 +164,8 @@ def get_isotopic_pairs(
     difference,
     # peaks,
 ):
-    len_dia_mz_cycle = len(connection_counts) - 1
-    push_offset = len_dia_mz_cycle * cycle_index + zeroth_frame * scan_max_index
+    len_cycle = len(connection_counts) - 1
+    push_offset = len_cycle * cycle_index + zeroth_frame * scan_max_index
     self_connections = []
     other_connections = []
     for self_connection_index, connection_start in enumerate(
@@ -188,7 +188,7 @@ def get_isotopic_pairs(
                     continue
         # for cycle_offset in range(-cycle_tolerance, cycle_tolerance + 1):
         #     for other_connection_index in connections[connection_start: connection_end]:
-        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         other_push_index = push_offset + other_connection_index + len_cycle * cycle_offset
         #         if other_push_index >= len(indptr):
         #             continue
                 other_start = indptr[other_push_index]

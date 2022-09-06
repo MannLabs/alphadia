@@ -64,7 +64,7 @@ class MSMSGenerator:
         fragment_indices = []
 
         iterable = range(
-            len(self.dia_data.push_indptr) // len(self.dia_data.dia_mz_cycle) + 1
+            len(self.dia_data.push_indptr) // np.prod(self.dia_data.cycle.shape[:-1]) + 1
         )
 
         with multiprocessing.pool.ThreadPool(alphatims.utils.MAX_THREADS) as pool:
@@ -111,8 +111,8 @@ class MSMSGenerator:
                 return_push_indices=True,
             )
         )
-        pdf["cycle"] = (pdf.push_indices - dia_data.zeroth_frame * dia_data.scan_max_index) // dia_data.dia_mz_cycle.shape[0]
-        fdf["cycle"] = (fdf.push_indices - dia_data.zeroth_frame * dia_data.scan_max_index) // dia_data.dia_mz_cycle.shape[0]
+        pdf["cycle"] = (pdf.push_indices - dia_data.zeroth_frame * dia_data.scan_max_index) // np.prod(dia_data.cycle.shape[:-1])
+        fdf["cycle"] = (fdf.push_indices - dia_data.zeroth_frame * dia_data.scan_max_index) // np.prod(dia_data.cycle.shape[:-1])
         self.apex_distances = (
             np.exp(
                 -((pdf.scan_indices - fdf.scan_indices) / self.scan_sigma)**2 / 2

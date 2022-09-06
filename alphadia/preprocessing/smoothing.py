@@ -95,8 +95,8 @@ def smooth(
     tof_sigma,
     subcycle_len,
 ):
-    len_dia_mz_cycle = len(connection_counts) - 1
-    push_offset = len_dia_mz_cycle * cycle_index + zeroth_frame * scan_max_index
+    len_cycle = len(connection_counts) - 1
+    push_offset = len_cycle * cycle_index + zeroth_frame * scan_max_index
     for self_connection_index, connection_start in enumerate(
         connection_counts[:-1]
     ):
@@ -136,7 +136,7 @@ def smooth(
         #             self_connection_index % scan_max_index - other_connection_index % scan_max_index,
         #             scan_sigma,
         #         )
-        #         other_push_index = push_offset + other_connection_index + len_dia_mz_cycle * cycle_offset
+        #         other_push_index = push_offset + other_connection_index + len_cycle * cycle_offset
         #         if other_push_index == self_push_index:
         #             continue
         #         if other_push_index >= len(indptr):
