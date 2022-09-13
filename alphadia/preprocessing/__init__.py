@@ -80,7 +80,7 @@ class Workflow:
 
     def save_to_hdf(self, file_name=None):
         if file_name is None:
-            file_name = f"{self.dia_data.bruker_hdf_file_name[:-4]}_preprocess_workflow.hdf"
+            file_name = f"{self.dia_data.bruker_d_folder_name[:-2]}_preprocess_workflow.hdf"
         logging.info(f"Saving preprocessing workflow results to {file_name}.")
         hdf = alphabase.io.hdf.HDF_File(
             file_name,
