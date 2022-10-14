@@ -109,8 +109,8 @@ def annotate(**kwargs):
         datefmt="%Y-%m-%d %H:%M:%S",
         level=logging.INFO
     )
+    start_time = time.time()
     try:
-        start_time = time.time()
         kwargs = {key: arg for key, arg in kwargs.items() if arg is not None}
         logging.info("Creating new AlphaTemplate with parameters:")
         max_len = max(len(key) + 1 for key in kwargs)
@@ -130,6 +130,69 @@ def annotate(**kwargs):
             thread_count=kwargs["thread_count"],
             fdr_rate=kwargs["fdr_rate"],
         )
+    except Exception:
+        logging.exception("Something went wrong, execution incomplete!")
+    else:
+        logging.info(
+            f"Analysis done in {time.time() - start_time:.2f} seconds."
+        )
+
+
+@run.command(
+    "spectrum",
+    help="Create pseudo MSMS spectra from a DIA file."
+)
+@click.argument(
+    "file_names",
+    type=click.Path(exists=True, file_okay=True, dir_okay=True),
+    required=True,
+    nargs=-1,
+)
+@click.option(
+    "--folder",
+    help="If set, the input arguments are considered folders and all .d folders in them will be processed",
+    is_flag=True,
+    default=False,
+)
+@click.option(
+    "--thread_count",
+    help="The number of threads to use. 0 for all, negative to keep available.",
+    type=int,
+    default=-1,
+    show_default=True,
+)
+def spectrum(file_names, folder, thread_count, **kwargs):
+    logging.basicConfig(
+        format='%(asctime)s> %(message)s',
+        datefmt="%Y-%m-%d %H:%M:%S",
+        level=logging.INFO
+    )
+    start_time = time.time()
+    try:
+        import os
+        import alphatims.bruker
+        import alphadia.preprocessing
+        import alphatims.utils
+        alphatims.utils.set_threads(thread_count)
+        # alphatims.utils.set_logger()
+        if folder:
+            dia_file_names = []
+            for directory in file_names:
+                for file_name in os.listdir(directory):
+                    full_file_name = os.path.join(directory, file_name)
+                    dia_file_names.append(full_file_name)
+        else:
+            dia_file_names = file_names
+        for dia_file_name in dia_file_names:
+            if not dia_file_name.endswith(".d") or os.path.isfile(dia_file_name):
+                continue
+            dia_data = alphatims.bruker.TimsTOF(dia_file_name)
+            preprocessing_workflow = alphadia.preprocessing.Workflow()
+            preprocessing_workflow.set_dia_data(dia_data)
+            preprocessing_workflow.run_default()
+            # preprocessing_workflow.save_to_hdf()
+            # preprocessing_workflow.load_from_hdf()
+            preprocessing_workflow.msms_generator.write_to_hdf_file()
     except Exception:
         logging.exception("Something went wrong, execution incomplete!")
     else:
