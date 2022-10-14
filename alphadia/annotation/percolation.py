@@ -189,14 +189,16 @@ def calculate_odds(
     smooth=1,
     plot=False
 ):
-    order = np.argsort(df[column_name].values)
     negatives, positives = np.bincount(df.target.values)
     if negatives > positives:
         raise ValueError(
             f"Found more decoys ({negatives}) than targets ({positives})"
         )
-    tp_count = positives - negatives
+        tp_count = 1000
+    else:
+        tp_count = positives - negatives
     n = int(tp_count * smooth)
+    order = np.argsort(df[column_name].values)
     forward = np.cumsum(df[target_name].values[order])
     odds = np.zeros_like(forward, dtype=np.float)
     odds[n:-n] = forward[2*n:] - forward[:-2*n]
