@@ -228,6 +228,9 @@ class MSMSGenerator:
         ms2_df["mobilogram_correlations"] = self.mobilogram_correlations[
             fragment_order
         ]
+        ms2_df["quad_correlation"] = self.quad_overlaps[
+            fragment_order
+        ]
         return ms2_df
 
     def write_to_hdf_file(self, file_name=None):
