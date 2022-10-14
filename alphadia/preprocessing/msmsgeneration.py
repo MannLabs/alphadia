@@ -89,7 +89,8 @@ class MSMSGenerator:
         self.fragment_indices = tm.clone(fragment_indices)
         self.set_fragment_apex_distances()
         self.set_fragment_profile_distances()
-        self.fragment_frequencies = self.mobilogram_correlations * self.xic_correlations
+        self.set_fragment_quad_overlaps()
+        self.fragment_frequencies = self.mobilogram_correlations * self.xic_correlations * self.quad_overlaps
 
     def set_fragment_apex_distances(self):
         logging.info("Setting fragment-precursor apex distances")
@@ -157,6 +158,26 @@ class MSMSGenerator:
             self.peak_stats_calculator.mobilogram_offset,
             self.peak_stats_calculator.mobilograms,
             self.peak_stats_calculator.mobilogram_indptr,
+        )
+
+    def set_fragment_quad_overlaps(self):
+        logging.info("Setting fragment-precursor quad overlaps")
+        self.quad_overlaps = np.empty_like(
+            self.apex_distances
+        )
+        calculate_quad_overlap(
+            range(len(self.precursor_indices)),
+            self.precursor_indices,
+            self.precursor_indptr,
+            self.fragment_indices,
+            self.dia_data.mz_values,
+            self.dia_data.tof_indices,
+            self.dia_data.push_indptr,
+            self.dia_data.zeroth_frame,
+            self.dia_data.cycle,
+            self.peak_stats_calculator.peakfinder.cluster_assemblies,
+            self.dia_data.intensity_values.astype(np.float32),
+            self.quad_overlaps,
         )
 
     def get_ms1_df(self):
@@ -308,3 +329,59 @@ def sort_ms2_fragments_by_tof_indices(
     selected_tof_indices = tof_indices[selected_fragment_indices]
     order = np.argsort(selected_tof_indices)
     fragment_order[start:end] = fragment_order[start:end][order]
+
+
+@alphatims.utils.pjit
+def calculate_quad_overlap(
+    index,
+    precursor_indices,
+    precursor_indptr,
+    fragment_indices,
+    mz_values,
+    tof_indices,
+    push_indptr,
+    zeroth_frame,
+    cycle,
+    cluster_assemblies,
+    intensity_values,
+    quad_overlaps,
+):
+    precursor_index = precursor_indices[index]
+    precursor_mz = mz_values[tof_indices[precursor_index]]
+    precursor_start = precursor_indptr[index]
+    precursor_end = precursor_indptr[index + 1]
+    for f_index in range(precursor_start, precursor_end):
+        fragment_index = fragment_indices[f_index]
+        raw_indices = alphadia.preprocessing.peakstats.get_ions(
+            fragment_index,
+            cluster_assemblies,
+        )
+        push_indices = np.searchsorted(
+            push_indptr,
+            raw_indices,
+            "right"
+        ) - 1
+        cycle_offsets = (push_indices - zeroth_frame * cycle.shape[-2]) % (cycle.size // 2)
+        quads = cycle.reshape(-1,2)[cycle_offsets]
+        # selected = quads[:,0] <= precursor_mz
+        # selected &= precursor_mz <= quads[:,1]
+        # result = np.sum(selected) / len(selected)
+        # quad_overlaps[f_index] = result
+        mzs = np.empty(len(quads) * 2)
+        mzs[:len(quads)] = quads[:,0]
+        mzs[len(quads):] = quads[:,1]
+        ints = np.empty(len(quads) * 2)
+        ints[:len(quads)] = intensity_values[raw_indices]
+        ints[len(quads):] = -intensity_values[raw_indices]
+        order = np.argsort(mzs)
+        selected = np.zeros(len(mzs), dtype=np.bool_)
+        mzs = mzs[order]
+        if len(selected) > 0:
+            selected[0] = True
+            selected[np.flatnonzero(mzs[:-1] != mzs[1:]) + 1] = True
+        mzs = mzs[selected]
+        ints = np.cumsum(ints[order])[selected]
+        ints /= np.max(ints)
+        location = np.searchsorted(mzs, precursor_mz)
+        probability = ints[location]
+        quad_overlaps[f_index] = probability
