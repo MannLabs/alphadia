@@ -27,10 +27,9 @@ class MSMSIdentifier:
         self.append_stats = append_stats
         self.top_n_hits = top_n_hits
 
-    def set_preprocessor(self, preprocessing_workflow):
-        self.preprocessing_workflow = preprocessing_workflow
-        self.dia_data = preprocessing_workflow.dia_data
-        self.msms_generator = preprocessing_workflow.msms_generator
+    def set_ions(self, precursor_df, fragment_df):
+        self.precursor_df = precursor_df
+        self.fragment_df = fragment_df
 
     def set_library(self, library):
         self.library = library
@@ -49,21 +48,17 @@ class MSMSIdentifier:
         logging.info(
             f"Quick library annotation of mono isotopes with {self.ppm_mean=} and {self.precursor_ppm=}"
         )
-        o = np.argsort(
-            self.dia_data.tof_indices[self.msms_generator.precursor_indices]
-        )
-        mz_values = self.dia_data.mz_values * (1 + self.ppm_mean * 10**-6)
-        p_mzs = mz_values[
-            self.dia_data.tof_indices[self.msms_generator.precursor_indices][o]
-        ]
+        spectrum_sizes = (self.precursor_df.fragment_end - self.precursor_df.fragment_start).values
+        o = np.argsort(self.precursor_df.tof_indices.values)
+        p_mzs = self.precursor_df.mz_average.values[o]
         lower = np.empty(
-            len(self.msms_generator.precursor_indices),
+            len(self.precursor_df),
             dtype=np.int64
-            )
+        )
         upper = np.empty(
-            len(self.msms_generator.precursor_indices),
+            len(self.precursor_df),
             dtype=np.int64
-            )
+        )
         lower[o] = np.searchsorted(
             self.library.predicted_library_df.precursor_mz.values,
             p_mzs / (1 + self.precursor_ppm * 10**-6)
@@ -73,7 +68,7 @@ class MSMSIdentifier:
             p_mzs * (1 + self.precursor_ppm * 10**-6)
         )
         logging.info(
-            f"PSMs to test: {np.sum(((upper - lower) * (np.diff(self.msms_generator.precursor_indptr) >= self.min_size)))}"
+            f"PSMs to test: {np.sum(((upper - lower) * (spectrum_sizes >= self.min_size)))}"
         )
         (
             precursor_indices,
@@ -86,11 +81,12 @@ class MSMSIdentifier:
             # range(100),
             self.library.predicted_library_df.frag_start_idx.values,
             self.library.predicted_library_df.frag_end_idx.values,
-            self.msms_generator.fragment_indices,
-            self.msms_generator.fragment_frequencies,
-            self.msms_generator.precursor_indptr,
-            mz_values,
-            self.dia_data.tof_indices,
+            self.precursor_df.fragment_start.values,
+            self.precursor_df.fragment_end.values,
+            self.fragment_df.mz_average.values * (1 + self.ppm_mean * 10**-6),
+            self.fragment_df[
+                [i for i in self.fragment_df.columns if "correlation" in i]
+            ].prod(axis=1).values, # TODO
             self.fragment_ppm,
             lower,
             upper,
@@ -102,18 +98,15 @@ class MSMSIdentifier:
         )
 
         precursor_selection = np.repeat(precursor_indices, precursor_indptr)
-        hits = self.dia_data.as_dataframe(self.msms_generator.precursor_indices[precursor_selection])
+        hits = self.precursor_df.iloc[precursor_selection].reset_index()
         hits["inet_index"] = precursor_selection
         hits["candidates"] = (upper - lower)[precursor_selection]
-        hits["total_peaks"] = np.diff(self.msms_generator.precursor_indptr)[precursor_selection]
+        hits["total_peaks"] = spectrum_sizes[precursor_selection]
         hits["db_index"] = db_indices.astype(np.int64)
         # hits["counts"] = np.repeat(hit_counts, precursor_indptr)
         hits["counts"] = hit_counts
         hits["frequency_counts"] = frequency_counts
-        self.annotation = hits
-        self.annotation["smooth_intensity"] = self.preprocessing_workflow.smoother.smooth_intensity_values[
-            self.annotation.raw_indices
-        ]
+        self.annotation = hits.rename(columns={"charge": "precursor_charge"})
         self.annotation = self.annotation.join(self.library.predicted_library_df, on="db_index")
         self.annotation["im_diff"] = self.annotation.mobility_pred - self.annotation.mobility_values
         self.annotation["mz_diff"] = self.annotation.precursor_mz - self.annotation.mz_values
@@ -126,11 +119,10 @@ def annotate(
     iterable,
     frag_start_idx,
     frag_end_idx,
-    frag_indices,
-    frag_frequencies,
-    indptr,
-    mz_values,
-    tof_indices,
+    frag_start,
+    frag_end,
+    frag_mzs,
+    frag_weights,
     fragment_ppm,
     lower,
     upper,
@@ -148,11 +140,10 @@ def annotate(
             index,
             frag_start_idx,
             frag_end_idx,
-            frag_indices,
-            frag_frequencies,
-            indptr,
-            mz_values,
-            tof_indices,
+            frag_start,
+            frag_end,
+            frag_mzs,
+            frag_weights,
             fragment_ppm,
             lower,
             upper,
@@ -200,11 +191,10 @@ def annotate_pool2(
     index,
     frag_start_idx,
     frag_end_idx,
-    frag_indices,
-    frag_frequencies,
-    indptr,
-    mz_values,
-    tof_indices,
+    frag_start,
+    frag_end,
+    frag_mzs,
+    frag_weights,
     fragment_ppm,
     lower,
     upper,
@@ -214,8 +204,8 @@ def annotate_pool2(
     min_hit_count,
     top_n_hits,
 ):
-    start = indptr[index]
-    end = indptr[index + 1]
+    start = frag_start[index]
+    end = frag_end[index]
     results = [0][1:] # this defines the type
     hit_counts = [0][1:] # this defines the type
     frequency_counts = [0.0][1:] # this defines the type
@@ -223,12 +213,8 @@ def annotate_pool2(
         return index, hit_counts, frequency_counts, results
     if (end - start) < min_hit_count:
         return index, hit_counts, frequency_counts, results
-    fragment_indices = frag_indices[start: end]
-    fragment_tofs = tof_indices[fragment_indices]
-    order = np.argsort(fragment_tofs)
-    frequencies = frag_frequencies[start: end][order]
-    fragment_tofs = fragment_tofs[order]
-    fragment_mzs = mz_values[fragment_tofs]
+    frequencies = frag_weights[start: end]
+    fragment_mzs = frag_mzs[start: end]
     max_hit_count = min_hit_count
     for db_index in range(lower[index], upper[index]):
         frag_start = frag_start_idx[db_index]

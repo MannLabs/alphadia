@@ -15,10 +15,9 @@ class PSMStatsCalculator:
     ):
         self.pseudo_int = pseudo_int
 
-    def set_preprocessor(self, preprocessing_workflow):
-        self.preprocessing_workflow = preprocessing_workflow
-        self.dia_data = preprocessing_workflow.dia_data
-        self.msms_generator = preprocessing_workflow.msms_generator
+    def set_ions(self, precursor_df, fragment_df):
+        self.precursor_df = precursor_df
+        self.fragment_df = fragment_df
 
     def set_library(self, library):
         self.library = library
@@ -67,6 +66,7 @@ class PSMStatsCalculator:
         pearsons_log = np.zeros(len(self.annotation))
         update_annotation(
             range(len(self.annotation)),
+            # 1000,
             self.annotation.db_index.values,
             self.library.predicted_library_df.frag_start_idx.values,
             self.library.predicted_library_df.frag_end_idx.values,
@@ -75,12 +75,18 @@ class PSMStatsCalculator:
             self.library.y_ions_intensities,
             self.library.b_ions_intensities,
             self.annotation.inet_index.values,
-            self.msms_generator.precursor_indptr,
-            self.msms_generator.fragment_indices,
-            self.dia_data.tof_indices,
-            # analysis1.dia_data.intensity_values, #.astype(np.float64),
-            self.preprocessing_workflow.smoother.smooth_intensity_values, #.astype(np.float64),
-            self.dia_data.mz_values * (1 + self.ppm_mean * 10**-6),
+
+            self.precursor_df.fragment_start.values,
+            self.precursor_df.fragment_end.values,
+            self.fragment_df.summed_intensity_values.values,
+            self.fragment_df.mz_average.values * (1 + self.ppm_mean * 10**-6),
+            # self.precursor_indptr,
+            # self.fragment_indices,
+            # self.tof_indices,
+            # self.smooth_intensity_values, #.astype(np.float64),
+            # self.mz_values * (1 + self.ppm_mean * 10**-6),
+
+
             self.ppm_width,
             b_hit_counts,
             y_hit_counts,
@@ -124,11 +130,15 @@ def update_annotation(
     database_y_ints,
     database_b_ints,
     inet_indices,
-    precursor_indptr,
-    fragment_indices,
-    tof_indices,
-    intensity_values,
-    mz_values,
+    fragment_start,
+    fragment_end,
+    fragment_intensities,
+    fragment_mzs,
+    # precursor_indptr,
+    # fragment_indices,
+    # tof_indices,
+    # intensity_values,
+    # mz_values,
     fragment_ppm,
     b_hit_counts,
     y_hit_counts,
@@ -157,13 +167,10 @@ def update_annotation(
         db_y_ints = db_y_ints + pseudo_int
         db_b_ints = db_b_ints + pseudo_int
     precursor_index = inet_indices[index]
-    frag_start_idx = precursor_indptr[precursor_index]
-    frag_end_idx = precursor_indptr[precursor_index + 1]
-    frags = fragment_indices[frag_start_idx: frag_end_idx]
-    fragment_tofs = tof_indices[frags]
-    order = np.argsort(fragment_tofs)
-    fragment_mzs = mz_values[fragment_tofs][order]
-    fragment_ints = intensity_values[frags][order]
+    frag_start_idx = fragment_start[precursor_index]
+    frag_end_idx = fragment_end[precursor_index]
+    fragment_mzs = fragment_mzs[frag_start_idx: frag_end_idx]
+    fragment_ints = fragment_intensities[frag_start_idx: frag_end_idx]
     fragment_b_hits, db_b_hits = find_hits(
         fragment_mzs,
         db_b_mzs,

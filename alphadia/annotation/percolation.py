@@ -6,6 +6,11 @@ import numpy as np
 import pandas as pd
 import sklearn
 import sklearn.model_selection
+import sklearn.decomposition
+import sklearn.neighbors
+import sklearn.preprocessing
+import sklearn.ensemble
+import sklearn.pipeline
 
 
 import alphatims.utils
@@ -288,7 +293,7 @@ def train_RF(
     scaler = sklearn.preprocessing.StandardScaler()
     rfc = sklearn.ensemble.RandomForestClassifier(random_state=random_state)
     ## Initiate scaling + classification pipeline
-    pipeline = sklearn.pipeline .Pipeline([('scaler', scaler), ('clf', rfc)])
+    pipeline = sklearn.pipeline.Pipeline([('scaler', scaler), ('clf', rfc)])
     parameters = {
         'clf__max_depth': (max_depth),
         'clf__max_leaf_nodes': (max_leaf_nodes)

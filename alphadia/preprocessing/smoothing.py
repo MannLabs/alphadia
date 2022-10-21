@@ -14,10 +14,10 @@ class Smoother:
         self,
         tof_tolerance=3,
         cycle_tolerance=3,
-        scan_tolerance=6,
-        tof_sigma=3,
+        scan_tolerance=45,
+        tof_sigma=0,
         cycle_sigma=3,
-        scan_sigma=6,
+        scan_sigma=15,
     ):
         self.tof_tolerance = tof_tolerance
         self.cycle_tolerance = cycle_tolerance
@@ -175,7 +175,10 @@ def smooth(
 
 @alphatims.utils.njit(nogil=True)
 def gauss_correction(x=0, sigma=1):
-    return np.exp(-(x / sigma)**2 / 2)
+    if sigma == 0:
+        return 1
+    else:
+        return np.exp(-(x / sigma)**2 / 2)
 
 
 @alphatims.utils.njit(nogil=True)
