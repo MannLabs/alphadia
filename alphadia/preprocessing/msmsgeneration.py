@@ -235,7 +235,11 @@ class MSMSGenerator:
 
     def write_to_hdf_file(self, file_name=None):
         if file_name is None:
-            file_name = f"{self.dia_data.sample_name}.alphadia.ms_data.hdf"
+            import os
+            file_name = os.path.join(
+                self.dia_data.bruker_d_folder_name,
+                "pseudo_spectra.hdf"
+            )
         ms1_df = self.get_ms1_df()
         ms2_df = self.get_ms2_df()
         hdf = alphabase.io.hdf.HDF_File(

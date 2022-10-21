@@ -20,8 +20,10 @@ class PeakStatsCalculator:
     def calculate_stats(self):
         logging.info("Calculating peak stats")
         import multiprocessing
+        import multiprocessing.pool
 
         iterable = range(len(self.peakfinder.peak_collection.indices))
+        # iterable = range(len(self.peakfinder.peak_collection.indices) // 10)
         # iterable = range(4585132, 4585132+1)
 
         self.cycle_rt_values = self.dia_data.rt_values[
@@ -104,6 +106,9 @@ class PeakStatsCalculator:
             dtype=self.dia_data.mz_values.dtype
         )
 
+        count = np.prod(self.dia_data.cycle.shape[:-1])
+
+        # @alphatims.utils.njit(nogil=True)
         def starfunc(index):
             return calculate_stats(
                 index,
@@ -118,7 +123,7 @@ class PeakStatsCalculator:
                 self.cycle_rt_values,
                 self.dia_data.mobility_values,
                 self.peakfinder.cluster_assemblies,
-                np.prod(self.dia_data.cycle.shape[:-1]),
+                count,
                 self.number_of_ions,
                 self.summed_intensity_values,
                 xic_indptr,
@@ -142,15 +147,23 @@ class PeakStatsCalculator:
         mobilograms = []
         mz_profiles = []
         with multiprocessing.pool.ThreadPool(alphatims.utils.MAX_THREADS) as pool:
-            for (
-                xic,
-                mobilogram,
-                mz_profile,
-            ) in alphatims.utils.progress_callback(
-                pool.imap(starfunc, iterable),
-                total=len(iterable),
-                include_progress_callback=True
-            ):
+            for index in alphatims.utils.progress_callback(iterable):
+                (
+                    xic,
+                    mobilogram,
+                    mz_profile,
+                ) = starfunc(index)
+            # chunksize=len(iterable) // 10000
+            # for (
+            #     xic,
+            #     mobilogram,
+            #     mz_profile,
+            # ) in alphatims.utils.progress_callback(
+            #     pool.imap(starfunc, iterable, chunksize=chunksize),
+            #     total=len(iterable),
+            #     include_progress_callback=True
+            #     # include_progress_callback=False
+            # ):
                 xics.append(xic)
                 mobilograms.append(mobilogram)
                 mz_profiles.append(mz_profile)
@@ -273,18 +286,7 @@ class PeakStatsCalculator:
         return self.get_ions_from_index(peak_index)
 
 
-@alphatims.utils.njit
-def get_ions(peak_index, cluster_assemblies):
-    raw_ions = [peak_index]
-    pointer = cluster_assemblies[peak_index]
-    while pointer != peak_index:
-        raw_ions.append(pointer)
-        pointer = cluster_assemblies[pointer]
-    return np.array(raw_ions)
-
-
-
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def calculate_stats(
     index,
     peak_indices,
@@ -317,10 +319,17 @@ def calculate_stats(
     mz_start,
     mz_end,
 ):
+    # return (
+    #     np.empty(0),
+    #     np.empty(0),
+    #     np.empty(0),
+    # )
+    # if index < 100:
+    #     print(index)
     peak_index = peak_indices[index]
     raw_ion_indices = get_ions(peak_index, cluster_assemblies)
     number_of_ions[index] = len(raw_ion_indices)
-    if len(raw_ion_indices) == 0:
+    if len(raw_ion_indices) == 1:
         return (
             np.empty(0),
             np.empty(0),
@@ -380,17 +389,22 @@ def calculate_stats(
     )
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def get_ions(peak_index, cluster_assemblies):
-    raw_ions = [peak_index]
+    size = 1
     pointer = cluster_assemblies[peak_index]
     while pointer != peak_index:
-        raw_ions.append(pointer)
+        size += 1
         pointer = cluster_assemblies[pointer]
-    return np.array(raw_ions)
+    pointer = cluster_assemblies[peak_index]
+    raw_ions = np.empty(size, dtype=cluster_assemblies.dtype)
+    for index in range(size):
+        raw_ions[index] = pointer
+        pointer = cluster_assemblies[pointer]
+    return raw_ions
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def calculate_rt_stats(
     index,
     push_indices,
@@ -422,7 +436,7 @@ def calculate_rt_stats(
     return scan_intensities
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def calculate_mobility_stats(
     index,
     push_indices,
@@ -453,7 +467,7 @@ def calculate_mobility_stats(
     return cycle_intensities
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def calculate_mz_stats(
     index,
     tof_indices,
@@ -482,7 +496,7 @@ def calculate_mz_stats(
     return mz_intensities
 
 
-@alphatims.utils.njit
+@alphatims.utils.njit(nogil=True)
 def extract_profile(
     raw_intensities,
     indices
