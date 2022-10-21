@@ -1,3 +1,4 @@
 click==8.0.1
 alphatims==1.0.4
 alphapept==0.3.29
+alphabase==0.1.3
