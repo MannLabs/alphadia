@@ -10,6 +10,7 @@ from typing import Tuple, Union, List
 
 import pandas as pd
 import numpy as np
+import matplotlib.patches as patches
 
 def rt_to_frame_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):
     """converts retention time limits to frame limits while including full precursor cycles"""
@@ -540,7 +541,72 @@ def estimate_peak_boundaries(
     return np.array([lower_limit, upper_limit], dtype='int32'), np.array([left_limit, right_limit], dtype='int32')
 
 @alphatims.utils.njit()
-def find_peaks(a):
+def estimate_peak_boundaries_symmetric(
+        a, 
+        scan_center, 
+        dia_cycle_center,
+        f = 0.95,
+        min_size = 5,
+        max_size = 15
+    ):
+    
+
+    # determine limits in the mobility dimension
+    trailing_intensity = a[scan_center,dia_cycle_center]
+
+    # The number of steps into both directions is limited by:
+    # 1. The closest border (top or bottom)
+    # 2. The max_size defined
+    mobility_max_len = min(a.shape[0], a.shape[0]-scan_center)
+    mobility_max_len = int(min(mobility_max_len, max_size))
+    
+    mobility_limit = min_size
+
+
+    for s in range(min_size,mobility_max_len):
+
+        intensity = (a[scan_center-s,dia_cycle_center]+a[scan_center+s,dia_cycle_center])/2
+        if trailing_intensity * f >= intensity:
+            mobility_limit = s
+            trailing_intensity = intensity
+        else: break
+
+    mobility_limits = np.array([scan_center-mobility_limit, scan_center+mobility_limit], dtype='int32')
+    
+
+    # determine limits in the precursor cycle dimension
+    trailing_intensity = a[scan_center,dia_cycle_center]
+
+    # The number of steps into both directions is limited by:
+    # 1. The closest border (top or bottom)
+    # 2. The max_size defined
+    dia_cycle_max_len = min(a.shape[1], a.shape[1]-dia_cycle_center)
+    dia_cycle_max_len = int(min(dia_cycle_max_len, max_size))
+    
+    dia_cycle_limit = min_size
+
+    for s in range(min_size, dia_cycle_max_len):
+
+        intensity = (a[scan_center,dia_cycle_center-s]+a[scan_center,dia_cycle_center+s])/2
+        if trailing_intensity * f >= intensity:
+            dia_cycle_limit = s
+            trailing_intensity = intensity
+        else: break
+
+    dia_cycle_limits = np.array([dia_cycle_center-dia_cycle_limit, dia_cycle_center+dia_cycle_limit], dtype='int32')
+
+    return mobility_limits, dia_cycle_limits
+
+def plt_limits(mobility_limits, dia_cycle_limits):
+    mobility_len = mobility_limits[1]-mobility_limits[0]
+    dia_cycle_len = dia_cycle_limits[1]-dia_cycle_limits[0]
+
+    rect = patches.Rectangle((dia_cycle_limits[0], mobility_limits[0] ), dia_cycle_len, mobility_len , linewidth=1, edgecolor='r', facecolor='none')
+
+    return rect
+
+@alphatims.utils.njit()
+def find_peaks(a, top_n=3):
     """accepts a dense representation and returns the top three peaks
     
     """
@@ -564,7 +630,7 @@ def find_peaks(a):
     dia_cycle = np.array(dia_cycle)
     intensity = np.array(intensity)
 
-    idx = np.argsort(intensity)[::-1][:3]
+    idx = np.argsort(intensity)[::-1][:top_n]
 
     scan = scan[idx]
     dia_cycle = dia_cycle[idx]

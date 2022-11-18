@@ -6,7 +6,7 @@ from matplotlib import pyplot as plt
 
 import sklearn.base
 
-
+import os
 import logging
 
 # external imports
@@ -138,7 +138,7 @@ class GlobalCalibration():
         return self.estimators[run_index][property].predict(values)
 
 
-    def plot(self):
+    def plot(self, *args, save_name=None, **kwargs):
         logging.info('plotting calibration curves')
         ipp = 4
         calibration_df = self.extraction_plan.get_calibration_df()
@@ -150,14 +150,17 @@ class GlobalCalibration():
 
         for run_mapping in self.extraction_plan.runs:
 
+            run_df = calibration_df[calibration_df['raw_name'] == run_mapping['name']]
+            print(len(run_df))
+
             estimators = self.estimators[run_mapping['index']]
 
             fig, axs = plt.subplots(ncols=len(estimators), nrows=1, figsize=(len(estimators)*ipp,ipp))
             for i, (property, estimator) in enumerate(estimators.items()):
                 
                 target_column, measured_column = self.prediction_targets[property]
-                target_values = calibration_df[target_column].values
-                measured_values = calibration_df[measured_column].values
+                target_values = run_df[target_column].values
+                measured_values = run_df[measured_column].values
 
                 # plotting
                 axs[i].set_title(property)
@@ -168,14 +171,18 @@ class GlobalCalibration():
                 if property == 'mz':
                     measured_values = (target_values - measured_values) / target_values * 10**6
                     calibration_curve = (calibration_space - calibration_curve) / calibration_space * 10**6
-
-                density_scatter(target_values,measured_values,axs[i], s=2)
+                #axs[i].scatter(target_values,measured_values)
+                density_scatter(target_values,measured_values,axs[i], s=2, **kwargs)
                 axs[i].plot(calibration_space,calibration_curve, c='r')
                 axs[i].set_xlabel(ax_labels[property][0])
                 axs[i].set_ylabel(ax_labels[property][1])
 
             fig.suptitle(run_mapping['name'])
             fig.tight_layout()
+
+            if save_name is not None:
+                loaction = os.path.join(save_name, f"{run_mapping['name']}.png")
+                fig.savefig(loaction, dpi=300)
             plt.show()
 
 
