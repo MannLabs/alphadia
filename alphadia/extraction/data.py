@@ -111,7 +111,7 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
             indptr.append(len(values))
         return np.array(indptr), np.array(values), np.array(columns)
 
-    #@alphatims.utils.class_njit()
+    @alphatims.utils.class_njit()
     def get_dense(self,
             frame_limits,
             scan_limits,
@@ -127,8 +127,6 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
             self._scan_max_index,
             self._dia_mz_cycle
         )
-
-        print(tof_limits)
         
         # csr of indices
         # push_ptr has len of push_indices + 1 

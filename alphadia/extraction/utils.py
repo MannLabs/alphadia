@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.patches as patches
 
+ISOTOPE_DIFF = 1.0032999999999674
+
 def rt_to_frame_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):
     """converts retention time limits to frame limits while including full precursor cycles"""
     
@@ -319,6 +321,8 @@ def kernel_1d(
     
     njitted = stencil(kernel_stencil, neighborhood = ((-size,size),))
 
+    return njitted
+
     def stencil_caller(array):
         return njitted(array, indices, weights)
     
@@ -362,6 +366,8 @@ def multivariate_normal(
     b = (np.pi*2)**(-k/2)*np.linalg.det(sigma)**(-1/2)
     #print(a*b)
     return a * b
+
+
     
 def kernel_2d(
         size: int, 
@@ -661,3 +667,160 @@ def get_precursor_mz(dense, scan, dia_cycle):
     intensity = np.sum(dense[0,0,max(scan-w,0):scan+w,max(dia_cycle-w,0):dia_cycle+w])
 
     return fraction_nonzero, mz, intensity
+
+@alphatims.utils.njit()
+def amean1(array):
+    out = np.zeros(array.shape[0])
+    for i in range(len(out)):
+        out[i] = np.mean(array[i])
+    return out
+
+@alphatims.utils.njit()
+def amean0(array):
+    out = np.zeros(array.shape[1])
+    for i in range(len(out)):
+        out[i] = np.mean(array[:,i])
+    return out
+
+@alphatims.utils.njit()
+def calculate_correlations(
+        dense_precursor, 
+        dense_fragments
+    ):
+    """Calculate correlation metrics between fragments and precursors
+
+    Parameter
+    ---------
+
+    dense_precursor : np.ndarray
+        (S, F) 
+
+    dense_fragments : np.ndarray
+        (N, S, F)
+
+    Returns
+    -------
+
+    np.ndarray
+        (N)
+
+    """
+
+    # calculate the fragment profiles 
+    # RT
+    fragment_frame_profile = np.sum(dense_fragments, axis = 1)
+
+    # mobility
+    fragment_scan_profile = np.sum(dense_fragments, axis = 2)
+
+    # calulate the precursor profiles 
+    # RT
+    precursor_frame_profile = np.sum(dense_precursor,axis=0)
+
+    # mobility
+    precursor_scan_profile = np.sum(dense_precursor,axis=1)
+
+    # F fragments and 1 precursors are concatenated, resulting in a (F+1, F+1) correlation matrix
+    corr_frame = np.corrcoef(fragment_frame_profile, precursor_frame_profile)
+    corr_scan = np.corrcoef(fragment_scan_profile, precursor_scan_profile)
+    # The first 
+    
+    mean_frame_corr = amean0(corr_frame[:-1,:-1])-1/len(corr_frame[:-1,:-1])
+    mean_scan_corr = amean0(corr_scan[:-1,:-1])-1/len(corr_scan[:-1,:-1])
+
+    prec_frame_corr = corr_frame[-1,:-1]
+    prec_scan_corr = corr_scan[-1,:-1]
+    
+    return np.stack((mean_frame_corr, mean_scan_corr, prec_frame_corr, prec_scan_corr))
+
+@alphatims.utils.njit()
+def calculate_mass_deviation(
+        dense_fragments_mz,
+        fragments_mz,
+        size = 4
+    ):
+    """Calculate the mass deviation between the observed fragment masses and the calculated fragment masses
+
+    Parameters
+    ----------
+    dense_fragments_mz : np.ndarray
+        (N, S, F)
+
+    fragments_mz : np.ndarray
+        (N)
+
+    size : int, optional
+        Size of the window around the center, by default 4
+
+    Returns
+    -------
+
+    (np.ndarray, np.ndarray)
+        (N), (N) mass deviation in ppm and number of observations
+        
+    
+    """
+
+    out_arr = np.zeros((fragments_mz.shape))
+    num_observations = np.zeros((fragments_mz.shape))
+
+    scan_center = dense_fragments_mz.shape[1] // 2
+    frame_center = dense_fragments_mz.shape[2] // 2
+    center_view = dense_fragments_mz[:, scan_center - size:scan_center + size, frame_center - size:frame_center + size]
+
+    idxs, scans, precs = np.nonzero(center_view > 0)
+
+    for idx, scan, prec in zip(idxs, scans, precs):
+
+        out_arr[idx] += (center_view[idx, scan, prec] - fragments_mz[idx]) / fragments_mz[idx] * 1e6
+        num_observations[idx] += 1
+
+
+    mass_error = out_arr / num_observations
+    fraction_nonzero = num_observations / (center_view[0].shape[0]*center_view[0].shape[1])
+    
+    return mass_error, fraction_nonzero, num_observations
+
+@alphatims.utils.njit()
+def calc_isotopes_center(
+        mz,
+        charge,
+        num_isotopes
+    ):
+    """Calculate the mass to charge ratios for a given number of isotopes, numba compatible
+    
+    Parameters
+    ----------
+
+    mz : float
+        first monoisotopic mass to charge ratio of the precursor
+
+    charge : int
+        charge of the precursor, must be positive and larger than 1
+
+    num_isotopes : int      
+        number of isotopes to calculate
+
+    Returns
+    -------
+    np.ndarray
+        (num_isotopes) mass to charge ratios of the isotopes
+        
+    """
+
+    out_mz = np.arange(0, num_isotopes)
+    out_mz = out_mz * ISOTOPE_DIFF/max(charge, 1)
+    out_mz += mz
+
+    return out_mz
+
+@alphatims.utils.njit()
+def mass_range(
+        mz_list,
+        ppm_tolerance
+    ):
+
+    out_mz = np.zeros((len(mz_list),2))
+    out_mz[:,0] = mz_list - ppm_tolerance * mz_list/(10**6)
+    out_mz[:,1] = mz_list + ppm_tolerance * mz_list/(10**6)
+    return out_mz
