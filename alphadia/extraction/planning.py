@@ -10,18 +10,23 @@ import peptdeep.pretrained_models
 
 import alphabase.psm_reader
 import alphabase.peptide.precursor
+import alphabase.peptide.fragment
 import alphabase.spectral_library.library_base
 import os
+
 from . import calibration
+
 import numpy as np
 import hashlib
 
+
+
 class ExtractionPlan():
 
-    def __init__(self, psm_reader_name):
+    def __init__(self, psm_reader_name, decoy_type='diann'):
         self.psm_reader_name = psm_reader_name
         self.runs = []
-        self.speclib = alphabase.spectral_library.library_base.SpecLibBase(decoy='pseudo_reverse')
+        self.speclib = alphabase.spectral_library.library_base.SpecLibBase(decoy=decoy_type)
 
     def set_precursor_df(self, precursor_df):
         self.speclib.precursor_df = precursor_df
@@ -49,9 +54,23 @@ class ExtractionPlan():
 
     def process_psms(self):
 
+        # rename columns
+        # all columns are expected to be observed values
+        self.speclib._precursor_df.rename(
+            columns={
+                "rt": "rt_observed", 
+                "mobility": "mobility_observed",
+                "mz": "mz_observed",
+                "precursor_mz": "mz_predicted",
+                }, inplace=True
+        )
+
         if not self.has_decoys():
             logging.info('no decoys were found, decoys will be generated using alphaPeptDeep')
             self.speclib.append_decoy_sequence()
+            self.speclib._precursor_df.drop(['mz_predicted'],axis=1, inplace=True)
+            self.speclib._precursor_df = alphabase.peptide.precursor.update_precursor_mz(self.speclib._precursor_df)
+            self.speclib._precursor_df.rename(columns={"precursor_mz": "mz_predicted",}, inplace=True )
 
         model_mgr = peptdeep.pretrained_models.ModelManager()
         model_mgr.nce = 30
@@ -59,21 +78,29 @@ class ExtractionPlan():
 
         # check if retention times are in seconds, convert to seconds if necessary
         RT_HEURISTIC = 180
-        if self.speclib._precursor_df['rt'].max() < RT_HEURISTIC:
+        if self.speclib._precursor_df['rt_observed'].max() < RT_HEURISTIC:
             logging.info('retention times are most likely in minutes, will be converted to seconds')
-            self.speclib._precursor_df['rt'] *= 60
+            self.speclib._precursor_df['rt_observed'] *= 60
 
-        if not 'precursor_mz' in self.speclib._precursor_df.columns:
-            logging.info('precursor mz column not found, column is being generated')
-            alphabase.peptide.precursor.update_precursor_mz(self.speclib._precursor_df)
+        #if not 'mz_predicted' in self.speclib._precursor_df.columns:
+        #    logging.info('precursor mz column not found, column is being generated')
+        #    self.speclib._precursor_df = alphabase.peptide.precursor.update_precursor_mz(self.speclib._precursor_df)
+            
 
-        if not 'rt_pred' in self.speclib._precursor_df.columns:
+        if not 'rt_predicted' in self.speclib._precursor_df.columns:
             logging.info('rt prediction not found, column is being generated using alphaPeptDeep')
             self.speclib._precursor_df = model_mgr.predict_all(
                 self.speclib._precursor_df,
                 predict_items=['rt']
             )['precursor_df']
-            self.speclib._precursor_df.drop(['rt_norm','rt_norm_pred'],axis=1, inplace=True)
+        
+        self.speclib._precursor_df.drop(['rt_norm','rt_norm_pred'],axis=1, inplace=True)
+        self.speclib.precursor_df.rename(
+            columns={
+                "rt_pred": "rt_predicted",
+                }, inplace=True
+        )
+            
 
         if not 'mobility_pred' in self.speclib._precursor_df.columns:
             logging.info('mobility prediction not found, column is being generated using alphaPeptDeep')
@@ -81,8 +108,15 @@ class ExtractionPlan():
                 self.speclib._precursor_df,
                 predict_items=['mobility']
             )['precursor_df']
-            self.speclib._precursor_df.drop(['ccs_pred','ccs'],axis=1, inplace=True)
 
+        self.speclib._precursor_df.drop(['ccs_pred','ccs'],axis=1, inplace=True)
+        self.speclib.precursor_df.rename(
+            columns={
+                "mobility_pred": "mobility_predicted",
+                }, inplace=True
+        )
+
+        self.speclib._precursor_df.drop(['precursor_mz'],axis=1, inplace=True)
 
     def get_calibration_df(self):
         """Used by the calibration class to get the first set of precursors used for calibration.
@@ -214,4 +248,132 @@ class ExtractionPlan():
             
             new_precursor_df[target_column] = self.calibration.predict(run_index,property,new_precursor_df[source_column].values)*new_precursor_df[f'{property}_norm']
 
-        return new_precursor_df
+        # flatten out the mz_values and intensity_values
+            
+        # flatten precursor
+        precursors_flat, fragments_flat = alphabase.peptide.fragment.flatten_fragments(
+            new_precursor_df,
+            self.speclib.fragment_mz_df,
+            self.speclib.fragment_intensity_df,
+            intensity_treshold = 0
+        )
+
+        fragments_flat.rename(
+            columns={
+                "mz": "mz_predicted",
+                }, inplace=True
+        )
+
+        if 'precursor_mz' in self.calibration.estimators[run_index].keys():
+            logging.info('Performing precursor_mz calibration')
+            source_column, target_column = self.calibration.precursor_calibration_targets['precursor_mz']
+            precursors_flat[target_column] = self.calibration.predict(run_index, 'precursor_mz', precursors_flat[source_column].values)    
+        else:
+            logging.info('No precursor_mz calibration found, using predicted values')
+
+        if 'fragment_mz' in self.calibration.estimators[run_index].keys():
+            logging.info('Performing fragment_mz calibration')
+            source_column, target_column = self.calibration.fragment_calibration_targets['fragment_mz']
+            fragments_flat[target_column] = self.calibration.predict(run_index, 'fragment_mz', fragments_flat[source_column].values)    
+        else:
+            logging.info('No fragment_mz calibration found, using predicted values')
+
+        return precursors_flat, fragments_flat
+
+
+class LibraryManager():
+
+    def __init__(self, decoy_type='diann'):
+        self.runs = []
+        self.speclib = alphabase.spectral_library.library_base.SpecLibBase(decoy=decoy_type)
+
+    def set_precursor_df(self, precursor_df):
+        self.speclib.precursor_df = precursor_df
+
+        logging.info('Initiate run mapping')
+
+        # init run mapping
+        for i, raw_name in enumerate(self.speclib.precursor_df['raw_name'].unique()):
+            logging.info(f'run: {i} , name: {raw_name}')
+            self.runs.append(
+                {
+                    "name": raw_name, 
+                    'index': i, 
+                    'path': os.path.join(self.data_path, f'{raw_name}.d')
+                }
+            )
+
+        self.process_psms()
+
+    def has_decoys(self):
+        if 'decoy' in self.speclib.precursor_df.columns:
+            return self.speclib.precursor_df['decoy'].sum() > 0
+        else:
+            return False
+
+    def process_psms(self):
+
+        # rename columns
+        # all columns are expected to be observed values
+        self.speclib._precursor_df.rename(
+            columns={
+                "rt": "rt_library", 
+                "mobility": "mobility_library",
+                "mz": "mz_library",
+                "precursor_mz": "mz_library",
+                }, inplace=True
+        )
+
+        if not self.has_decoys():
+            logging.info('no decoys were found, decoys will be generated using alphaPeptDeep')
+            self.speclib.append_decoy_sequence()
+            self.speclib._precursor_df.drop(['mz_library'],axis=1, inplace=True)
+            self.speclib._precursor_df = alphabase.peptide.precursor.update_precursor_mz(self.speclib._precursor_df)
+            self.speclib._precursor_df.rename(columns={"precursor_mz": "mz_library",}, inplace=True )
+
+        # check if retention times are in seconds, convert to seconds if necessary
+        RT_HEURISTIC = 180
+        if self.speclib._precursor_df['rt_library'].max() < RT_HEURISTIC:
+            logging.info('retention times are most likely in minutes, will be converted to seconds')
+            self.speclib._precursor_df['rt_library'] *= 60
+
+        #if not 'mz_predicted' in self.speclib._precursor_df.columns:
+        #    logging.info('precursor mz column not found, column is being generated')
+        #    self.speclib._precursor_df = alphabase.peptide.precursor.update_precursor_mz(self.speclib._precursor_df)
+        if 'precursor_mz' in self.speclib._precursor_df.columns:
+            self.speclib._precursor_df.drop(['precursor_mz'],axis=1, inplace=True)
+
+
+    def set_library(self, lib: peptdeep.protein.fasta.FastaLib):
+        self.lib = lib
+
+    def set_data_path(self, folder):
+        self.data_path = folder
+
+    def build_run_precursor_df(self, run_index):
+        """
+        build run specific speclib which combines entries from other runs
+        """
+
+        self.speclib.hash_precursor_df()
+
+        # IDs from the own run are already calibrated
+        run_name = self.runs[run_index]['name']
+        run_precursor_df = self.speclib.precursor_df[self.speclib.precursor_df['raw_name'] == run_name].copy()
+             
+        # flatten precursor
+        precursors_flat, fragments_flat = alphabase.peptide.fragment.flatten_fragments(
+            run_precursor_df,
+            self.speclib.fragment_mz_df,
+            self.speclib.fragment_intensity_df,
+            intensity_treshold = 0
+        )
+
+        fragments_flat.rename(
+            columns={
+                "mz": "mz_library"
+                }, inplace=True
+        )
+
+
+        return precursors_flat, fragments_flat

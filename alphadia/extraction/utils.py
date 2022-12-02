@@ -2,6 +2,8 @@
 import alphatims.bruker
 import alphatims.utils
 import alphabase.spectral_library.library_base
+from . import calibration
+
 
 # external imports
 import logging
@@ -11,6 +13,10 @@ from typing import Tuple, Union, List
 import pandas as pd
 import numpy as np
 import matplotlib.patches as patches
+import matplotlib.patheffects as patheffects
+import matplotlib.pyplot as plt
+
+from ctypes import Structure, c_double
 
 ISOTOPE_DIFF = 1.0032999999999674
 
@@ -247,7 +253,7 @@ def reannotate_fragments(
     frag_start_idx = fragment_speclib.precursor_df['frag_start_idx'].values[speclib_indices]
     frag_end_idx = fragment_speclib.precursor_df['frag_end_idx'].values[speclib_indices]
     
-    speclib._precursor_df = speclib._precursor_df[matched_mask]
+    speclib._precursor_df = speclib._precursor_df[matched_mask].copy()
     speclib._precursor_df['frag_start_idx'] = frag_start_idx[matched_mask]
     speclib._precursor_df['frag_end_idx'] = frag_end_idx[matched_mask]
 
@@ -824,3 +830,89 @@ def mass_range(
     out_mz[:,0] = mz_list - ppm_tolerance * mz_list/(10**6)
     out_mz[:,1] = mz_list + ppm_tolerance * mz_list/(10**6)
     return out_mz
+
+
+
+def recalibrate_mz(df, calibration_estimator, plot=True, plot_title='', save_path=None):
+    logging.info(f"Performing calibration with {len(df)} features")
+
+    observed_mz = df['mz_observed'].values
+    calculated_mz = df['mz_predicted'].values
+    order = np.argsort(calculated_mz)
+
+    observed_mz = observed_mz[order]
+    calculated_mz = calculated_mz[order]
+
+    observed_mass_error = (observed_mz - calculated_mz) / calculated_mz * 1e6
+
+    calibration_estimator.fit(calculated_mz, observed_mz)
+
+    calibrated_mz = calibration_estimator.predict(calculated_mz)
+
+    calibration_curve = (calibrated_mz - calculated_mz) / calculated_mz * 1e6
+    
+    calibrated_mass_error = (observed_mz - calibrated_mz) / calibrated_mz * 1e6
+
+    mass_error_95 = np.mean(np.abs(np.percentile(calibrated_mass_error, [2.5,97.5])))
+    mass_error_99 = np.mean(np.abs(np.percentile(calibrated_mass_error, [0.5,99.5])))
+    mass_error_70 = np.mean(np.abs(np.percentile(calibrated_mass_error, [15,85])))
+
+    if plot:
+
+        fig, ax = plt.subplots(ncols=2, figsize=(6.5,3.5))
+        calibration.density_scatter(calculated_mz, observed_mass_error,ax[0], s=1)
+        ax[0].plot(calculated_mz, calibration_curve, color='red')
+        ax[0].set_ylim(-120, 120)
+
+        ax[0].text(0.05, 0.95, f'{len(observed_mz):,} datapoints',
+            horizontalalignment='left',
+            verticalalignment='top',
+            path_effects=[patheffects.withStroke(linewidth=3, foreground='white', capstyle="round")],
+            transform=ax[0].transAxes)
+        
+        ax[0].set_ylabel('Mass error (ppm)')
+        ax[0].set_xlabel('mz')
+
+        calibration.density_scatter(calculated_mz, calibrated_mass_error,ax[1], s=1)
+        ax[1].plot([np.min(calculated_mz), np.max(calculated_mz)], [0,0], color='red')
+        ax[1].set_ylim(-30, 30)
+        ax[1].set_ylabel('Mass error (ppm)')
+        ax[1].set_xlabel('mz')
+        
+        
+        ax[1].text(0.05, 0.95, f'95% $\delta$ {mass_error_95:,.2f} ppm',
+            horizontalalignment='left',
+            verticalalignment='top',
+            path_effects=[patheffects.withStroke(linewidth=3, foreground='white', capstyle="round")],
+            transform=ax[1].transAxes)
+        
+        ax[1].text(0.05, 0.88, f'99% $\delta$ {mass_error_99:,.2f} ppm',
+            horizontalalignment='left',
+            verticalalignment='top',
+            path_effects=[patheffects.withStroke(linewidth=3, foreground='white', capstyle="round")],
+            transform=ax[1].transAxes)
+        
+        fig.suptitle(plot_title)
+
+        fig.tight_layout()
+        if save_path is not None:
+            fig.savefig(save_path, dpi=300, bbox_inches='tight')
+
+        plt.show()
+
+    return mass_error_70, mass_error_95, mass_error_99
+
+
+def function_call(q):
+    q.put('X' * 1000000)
+
+def modify(n, x, s, A):
+    n.value **= 2
+    x.value **= 2
+    s.value = s.value.upper()
+    for a in A:
+        a.x **= 2
+        a.y **= 2
+
+class Point(Structure):
+    _fields_ = [('x', c_double), ('y', c_double)]
