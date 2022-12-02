@@ -16,7 +16,10 @@ class MS1CentricCandidateSelection(object):
             mobility_tolerance = 0.03,
             mz_tolerance = 120,
             num_isotopes = 2,
-            num_candidates = 3
+            num_candidates = 3,
+            rt_column = 'rt_predicted',  
+            precursor_mz_column = 'mz_library',
+            mobility_column = 'mobility_predicted',
         ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -64,14 +67,21 @@ class MS1CentricCandidateSelection(object):
         self.num_isotopes = num_isotopes
         self.num_candidates = num_candidates
 
+        self.rt_column = rt_column
+        self.precursor_mz_column = precursor_mz_column
+        self.mobility_column = mobility_column
+
+        self.has_mz_library = 'mz_library' in self.precursors_flat.columns
+        self.has_mz_calibrated = 'mz_calibrated' in self.precursors_flat.columns
+
         self.kernel = utils.kernel_2d_fft(4,3)
 
     def get_candidates(self, i):
 
         rt_limits = np.array(
             [
-                self.precursors_flat.rt.values[i]-self.rt_tolerance, 
-                self.precursors_flat.rt.values[i]+self.rt_tolerance
+                self.precursors_flat[self.rt_column].values[i]-self.rt_tolerance, 
+                self.precursors_flat[self.rt_column].values[i]+self.rt_tolerance
             ]
         )
         frame_limits = utils.make_np_slice(
@@ -83,8 +93,8 @@ class MS1CentricCandidateSelection(object):
 
         mobility_limits = np.array(
             [
-                self.precursors_flat.mobility.values[i]+self.mobility_tolerance,
-                self.precursors_flat.mobility.values[i]-self.mobility_tolerance
+                self.precursors_flat[self.mobility_column].values[i]+self.mobility_tolerance,
+                self.precursors_flat[self.mobility_column].values[i]-self.mobility_tolerance
 
             ]
         )
@@ -94,9 +104,9 @@ class MS1CentricCandidateSelection(object):
             )
         )
 
-        precursor_mz = self.precursors_flat.mz.values[i]
+        precursor_mz = self.precursors_flat[self.precursor_mz_column].values[i]
         isotopes = utils.calc_isotopes_center(precursor_mz,self.precursors_flat.charge.values[i], self.num_isotopes)
-        isotope_limits = utils.mass_range(isotopes, 100)
+        isotope_limits = utils.mass_range(isotopes, self.mz_tolerance)
         tof_limits = utils.make_np_slice(
             self.dia_data.return_tof_indices(
                 isotope_limits,
@@ -130,14 +140,23 @@ class MS1CentricCandidateSelection(object):
 
             mass_error = (mz - precursor_mz)/mz*10**6
 
+
             if np.abs(mass_error) < self.mz_tolerance:
 
-                out.append({
-                    'index':i,
-                    'fraction_nonzero':fraction_nonzero, 
-                    'mz':mz, 
-                    'precursor_mz':precursor_mz,
+                out_dict = {'index':i}
+                
+                # the mz column is choosen by the initial parameters and cannot be guaranteed to be present
+                # the mz_observed column is the product of this step and will therefore always be present
+                if self.has_mz_calibrated:
+                    out_dict['mz_calibrated'] = self.precursors_flat.mz_calibrated.values[i]
+
+                if self.has_mz_library:
+                    out_dict['mz_library'] = self.precursors_flat.mz_library.values[i]
+
+                out_dict.update({
+                    'mz_observed':mz, 
                     'mass_error':(mz - precursor_mz)/mz*10**6,
+                    'fraction_nonzero':fraction_nonzero,
                     'intensity':intensity, 
                     'scan_center':scan_limits[0,0]+scan[j], 
                     'scan_start':scan_limits[0,0]+mobility_limits[0], 
@@ -146,6 +165,8 @@ class MS1CentricCandidateSelection(object):
                     'frame_start':frame_limits[0,0]+dia_cycle_limits[0]*self.dia_data._cycle.shape[1],
                     'frame_stop':frame_limits[0,0]+dia_cycle_limits[1]*self.dia_data._cycle.shape[1],
                 })
+
+                out.append(out_dict)
 
         return out
 

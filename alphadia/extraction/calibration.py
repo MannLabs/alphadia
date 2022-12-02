@@ -19,10 +19,14 @@ from scipy.stats import gaussian_kde
 class GlobalCalibration():
 
     # template column names
-    possible_prediction_targets = {
-        'mz':('precursor_mz', 'mz'),
-        'mobility':('mobility_pred', 'mobility'),
-        'rt':('rt_pred', 'rt'),
+    precursor_calibration_targets = {
+        'precursor_mz':('mz_predicted', 'mz_calibrated'),
+        'mobility':('mobility_predicted', 'mobility_observed'),
+        'rt':('rt_predicted', 'rt_observed'),
+    }
+
+    fragment_calibration_targets = {
+        'fragment_mz':('mz_predicted', 'mz_calibrated'),
     }
 
     def __init__(self, extraction_plan):
@@ -69,7 +73,7 @@ class GlobalCalibration():
 
 
         # check what calibratable properties exist
-        for property, columns in self.possible_prediction_targets.items():
+        for property, columns in self.precursor_calibration_targets.items():
             if set(columns).issubset(calibration_df.columns):
                 self.prediction_targets[property] = columns
 
@@ -85,12 +89,8 @@ class GlobalCalibration():
                 new_estimators[property] = sklearn.base.clone(self.estimator_template[property])
             self.estimators.append(new_estimators)
 
-        print(self.estimators)
-
         # load all runs found in the extraction plan
         for run in self.extraction_plan.runs:
-            
-
             run_index = run['index']
             run_name = run['name']
 
