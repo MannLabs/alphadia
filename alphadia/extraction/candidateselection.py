@@ -7,6 +7,8 @@ import pandas as pd
 from .data import TimsTOFDIA
 from . import utils
 
+import matplotlib.pyplot as plt
+
 class MS1CentricCandidateSelection(object):
 
     def __init__(self, 
@@ -17,9 +19,9 @@ class MS1CentricCandidateSelection(object):
             mz_tolerance = 120,
             num_isotopes = 2,
             num_candidates = 3,
-            rt_column = 'rt_predicted',  
+            rt_column = 'rt_library',  
             precursor_mz_column = 'mz_library',
-            mobility_column = 'mobility_predicted',
+            mobility_column = 'mobility_library',
         ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -74,7 +76,8 @@ class MS1CentricCandidateSelection(object):
         self.has_mz_library = 'mz_library' in self.precursors_flat.columns
         self.has_mz_calibrated = 'mz_calibrated' in self.precursors_flat.columns
 
-        self.kernel = utils.kernel_2d_fft(4,3)
+        self.k = 6
+        self.kernel = utils.kernel_2d_fft(self.k,4)
 
     def get_candidates(self, i):
 
@@ -120,22 +123,37 @@ class MS1CentricCandidateSelection(object):
             np.array([[-1.,-1.]])
         )
 
+        
+
         profile = np.sum(dense[0], axis=0)
 
         # smooth intensity channel
         new_height = profile.shape[0] - profile.shape[0]%2
         new_width = profile.shape[1] - profile.shape[1]%2
         smooth = self.kernel(profile)
+        
+        # cut first k elements from smooth representation with k being the kernel size
+        # due to fft (?) smooth representation is shifted
+        smooth = smooth[self.k:,self.k:]
+
         profile[:smooth.shape[0], :smooth.shape[1]] = smooth
+
+
+
+        
+        
 
         out = []
 
         # get all peak candidates
         scan, dia_cycle, intensity = utils.find_peaks(profile, top_n=self.num_candidates)
 
+
         for j in range(len(scan)):
             
-            mobility_limits, dia_cycle_limits = utils.estimate_peak_boundaries_symmetric(profile, scan[j], dia_cycle[j])
+            mobility_limits, dia_cycle_limits = utils.estimate_peak_boundaries_symmetric(profile, scan[j], dia_cycle[j], f=0.99)
+
+   
             fraction_nonzero, mz, intensity = utils.get_precursor_mz(dense, scan[j], dia_cycle[j])
 
             mass_error = (mz - precursor_mz)/mz*10**6
@@ -153,21 +171,29 @@ class MS1CentricCandidateSelection(object):
                 if self.has_mz_library:
                     out_dict['mz_library'] = self.precursors_flat.mz_library.values[i]
 
+                frame_center = frame_limits[0,0]+dia_cycle[j]*self.dia_data._cycle.shape[1]
+                scan_center = scan_limits[0,0]+scan[j]
+
                 out_dict.update({
                     'mz_observed':mz, 
                     'mass_error':(mz - precursor_mz)/mz*10**6,
                     'fraction_nonzero':fraction_nonzero,
                     'intensity':intensity, 
-                    'scan_center':scan_limits[0,0]+scan[j], 
+                    'scan_center':scan_center, 
                     'scan_start':scan_limits[0,0]+mobility_limits[0], 
+                    #'scan_stop':scan_limits[0,1],
                     'scan_stop':scan_limits[0,0]+mobility_limits[1],
-                    'frame_center':frame_limits[0,0]+dia_cycle[j]*self.dia_data._cycle.shape[1], 
+                    'frame_center':frame_center, 
                     'frame_start':frame_limits[0,0]+dia_cycle_limits[0]*self.dia_data._cycle.shape[1],
                     'frame_stop':frame_limits[0,0]+dia_cycle_limits[1]*self.dia_data._cycle.shape[1],
+                    'rt_library': self.precursors_flat['rt_library'].values[i],
+                    'rt_observed': self.dia_data.rt_values[frame_center],
+                    'mobility_library': self.precursors_flat['mobility_library'].values[i],
+                    'mobility_observed': self.dia_data.mobility_values[scan_center]
                 })
 
                 out.append(out_dict)
-
+ 
         return out
 
     def __call__(self):
@@ -175,4 +201,5 @@ class MS1CentricCandidateSelection(object):
         candidates = []
         for i in tqdm(range(len(self.precursors_flat))):
             candidates += self.get_candidates(i)
+    
         return pd.DataFrame(candidates)

@@ -46,7 +46,7 @@ class MS2ExtractionWorkflow():
         self.candidates = candidates
 
 
-        self.fragments_mz_predicted = fragments_flat[fragment_mz_column].values.copy()
+        self.fragments_mz_library = fragments_flat['mz_library'].values.copy()
         self.fragments_mz = fragments_flat[fragment_mz_column].values.copy()
         self.fragments_intensity = fragments_flat['intensity'].values.copy()
         self.fragments_type = np.array(fragments_flat['type'].values.copy(), dtype='U20')
@@ -265,10 +265,10 @@ class MS2ExtractionWorkflow():
         # ========= assembling individual fragment information =========
 
         if self.include_fragment_info:
-            mz_predicted = self.fragments_mz_predicted[c_frag_start_idx:c_frag_end_idx]      
-            mz_predicted = mz_predicted[c_fragments_order]
-            mz_predicted = mz_predicted[intensity_mask]
-            mz_predicted = mz_predicted[fragment_order]
+            mz_library = self.fragments_mz_library[c_frag_start_idx:c_frag_end_idx]      
+            mz_library = mz_library[c_fragments_order]
+            mz_library = mz_library[intensity_mask]
+            mz_library = mz_library[fragment_order]
 
             # this will be mz_predicted in the first round and mz_calibrated as soon as calibration has been locked in
             mz_used = c_fragments_mzs[intensity_mask][fragment_order]
@@ -276,7 +276,7 @@ class MS2ExtractionWorkflow():
 
             mz_observed = mz_used + mass_error * 1e-6 * mz_used
 
-            candidate_dict['fragment_mz_predicted_list'] = ';'.join([ f'{el:.4f}' for el in mz_predicted[:10]])
+            candidate_dict['fragment_mz_library_list'] = ';'.join([ f'{el:.4f}' for el in mz_library[:10]])
             candidate_dict['fragment_mz_observed_list'] = ';'.join([ f'{el:.4f}' for el in mz_observed[:10]])
             candidate_dict['mass_error_list'] = ';'.join([ f'{el:.3f}' for el in mass_error[:10]])
             #candidate_dict['mass_list'] = ';'.join([ f'{el:.3f}' for el in c_fragments_mzs[fragment_order][:10]])
@@ -288,20 +288,20 @@ class MS2ExtractionWorkflow():
 def unpack_fragment_info(candidate_scoring_df):
 
     all_precursor_indices = []
-    all_fragment_mz_predicted = []
+    all_fragment_mz_library = []
     all_fragment_mz_observed = []
     all_mass_errors = []
     all_intensities = []
 
-    for precursor_index, fragment_mz_predicted_list, fragment_mz_observed_list, mass_error_list, intensity_list in zip(
+    for precursor_index, fragment_mz_library_list, fragment_mz_observed_list, mass_error_list, intensity_list in zip(
         candidate_scoring_df['index'].values,
-        candidate_scoring_df.fragment_mz_predicted_list.values, 
+        candidate_scoring_df.fragment_mz_library_list.values, 
         candidate_scoring_df.fragment_mz_observed_list.values, 
         candidate_scoring_df.mass_error_list.values,
         candidate_scoring_df.intensity_list.values
     ):
-        fragment_masses = [float(i) for i in fragment_mz_predicted_list.split(';')]
-        all_fragment_mz_predicted += fragment_masses
+        fragment_masses = [float(i) for i in fragment_mz_library_list.split(';')]
+        all_fragment_mz_library += fragment_masses
 
         all_fragment_mz_observed += [float(i) for i in fragment_mz_observed_list.split(';')]
         
@@ -311,7 +311,7 @@ def unpack_fragment_info(candidate_scoring_df):
 
     fragment_calibration_df = pd.DataFrame({
         'precursor_index': all_precursor_indices,
-        'mz_library': all_fragment_mz_predicted,
+        'mz_library': all_fragment_mz_library,
         'mz_observed': all_fragment_mz_observed,
         'mass_error': all_mass_errors,
         'intensity': all_intensities
