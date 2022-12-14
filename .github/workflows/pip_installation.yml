@@ -2,7 +2,7 @@ on:
   push:
     branches: [ main, alpha ]
   pull_request:
-    branches: [ main, development, alpha ]
+    branches: [ main, alpha, development ]
   workflow_dispatch:
 
 name: Default installation and tests
