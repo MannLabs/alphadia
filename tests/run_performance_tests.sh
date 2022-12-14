@@ -1,0 +1,1 @@
+python performance_tests/diann_psm_extraction.py
