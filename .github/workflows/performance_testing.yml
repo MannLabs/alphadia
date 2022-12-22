@@ -15,15 +15,11 @@ jobs:
     runs-on: self-hosted
     
     steps:
-      - uses: actions/checkout@v2
-      - name: Add conda to path
-        shell: PowerShell	
-        run: |
-          $env:PATH += ';C:\Users\wallmann\Miniconda3\bin'
+      - uses: actions/checkout@v3
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-activate-base: true
+          activate-environment: ""
       - name: Conda info
-        shell: PowerShell	
         run: |
-          $env:GITHUB_PATH
-          $env:CONDA
-          $env:PATH
           conda info
