@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 import seaborn as sns
+import numba as nb 
+
 
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.preprocessing import StandardScaler
@@ -319,6 +321,17 @@ def unpack_fragment_info(candidate_scoring_df):
 
     return fragment_calibration_df.dropna().reset_index(drop=True)
 
+@nb.njit()
+def assign_best_candidate(sorted_index_values):
+    best_candidate = -np.ones(np.max(sorted_index_values), dtype=np.int64)
+    for i, idx in enumerate(sorted_index_values):
+        if best_candidate[idx] == -1:
+            best_candidate[idx] = i
+
+    best_candidate = best_candidate[best_candidate >= 0]
+    return best_candidate
+
+
 
 
 def fdr_correction(features, 
@@ -350,12 +363,19 @@ def fdr_correction(features,
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     pipeline.fit(X_train, y_train)
+    
 
     y_test_proba = pipeline.predict_proba(X_test)[:,1]
     y_test_pred = np.round(y_test_proba)
 
     y_train_proba = pipeline.predict_proba(X_train)[:,1]
     y_train_pred = np.round(y_train_proba)
+
+    features['proba'] = pipeline.predict_proba(X)[:,1]
+    # subset to the best candidate for every precursor
+    features = features.sort_values(by=['proba'], ascending=True)
+    best_candidates = assign_best_candidate(features['index'].values)
+    features_best_df = features.iloc[best_candidates].copy()
 
 
     # ROC curve
@@ -381,22 +401,18 @@ def fdr_correction(features,
     axs[0].set_title("ROC Curve")
     axs[0].legend(loc="lower right")
     
-
-    proba = pipeline.predict_proba(X)[:,1]
-    features['proba'] = proba
-    
-    sns.histplot(data=features, x='proba', hue='decoy', bins=30, element="step", fill=False, ax=axs[1])
+    sns.histplot(data=features_best_df, x='proba', hue='decoy', bins=30, element="step", fill=False, ax=axs[1])
     axs[1].set_xlabel('score')
     axs[1].set_ylabel('number of precursors')
     axs[1].set_title("Score Distribution")
 
-    features = features.sort_values(['proba'], ascending=True)
-    target_values = 1-features['decoy'].values
-    decoy_cumsum = np.cumsum(features['decoy'].values)
+    features_best_df = features_best_df.sort_values(['proba'], ascending=True)
+    target_values = 1-features_best_df['decoy'].values
+    decoy_cumsum = np.cumsum(features_best_df['decoy'].values)
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum/target_cumsum
-    features['qval'] = fdr_to_q_values(fdr_values)
-    q_val = features[features['qval'] <0.05 ]['qval'].values
+    features_best_df['qval'] = fdr_to_q_values(fdr_values)
+    q_val = features_best_df[features_best_df['qval'] <0.05 ]['qval'].values
 
     ids = np.arange(0, len(q_val), 1)
     axs[2].plot(q_val, ids)
@@ -408,4 +424,4 @@ def fdr_correction(features,
     fig.tight_layout()
     plt.show()
 
-    return features
+    return features_best_df

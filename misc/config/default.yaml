@@ -1,0 +1,60 @@
+# configuration for the extraction plan
+extraction:
+  precursor:
+    mz_library: ['mz','precursor_mz']
+    rt_library: ['rt','rt_norm']
+    mobility_library: ['mobility']
+  fragment:
+    mz_library: ['mz','predicted_mz']
+
+# configuration for the calibration manager
+# the config has to start with the calibration keyword and consists of a list of calibration groups.
+# each group consists of datapoints which have multiple properties.
+# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
+calibration:
+  - name: fragment
+    estimators: 
+      - name: mz
+        model: LOESSRegression
+        model_args:
+          n_kernels: 3
+        input_columns: 
+          - mz_library
+        target_columns:
+          - mz_observed
+        output_columns:
+          - mz_calibrated
+        transform_deviation: 1e6
+  - name: precursor
+    estimators: 
+        - name: mz
+          model: LOESSRegression
+          model_args:
+            n_kernels: 3
+          input_columns: 
+            - mz_library
+          target_columns:
+            - mz_observed
+          output_columns:
+            - mz_calibrated
+          transform_deviation: 1e6
+        - name: rt
+          model: LOESSRegression
+          model_args:
+            n_kernels: 12
+          input_columns: 
+            - rt_library
+          target_columns:
+            - rt_observed
+          output_columns:
+            - rt_calibrated
+        - name: mobility
+          model: LOESSRegression
+          model_args:
+            n_kernels: 3
+          input_columns: 
+            - mobility_library
+          target_columns:
+            - mobility_observed
+          output_columns:
+            - mobility_calibrated

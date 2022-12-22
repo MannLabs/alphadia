@@ -5,13 +5,13 @@ import alphadia.annotation
 import pandas as pd 
 import logging
 
-import peptdeep.protein.fasta
-import peptdeep.pretrained_models
-
 import alphabase.psm_reader
 import alphabase.peptide.precursor
 import alphabase.peptide.fragment
-import alphabase.spectral_library.library_base
+from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.spectral_library.base import SpecLibBase
+
+import yaml
 import os
 
 from . import calibration
@@ -19,8 +19,54 @@ from . import calibration
 import numpy as np
 import hashlib
 
+class Plan:
 
+    def __init__(self, yaml_file):
+        with open(yaml_file, 'r') as f:
+            logging.info(f'loading calibration config from {yaml_file}')
+            self.config = yaml.safe_load(f)['extraction']
 
+    def load_speclib(self, speclib_path, dense=True):
+        if dense:
+            speclib_dense = SpecLibBase()
+            speclib_dense.load_hdf(speclib_path, load_mod_seq=True)
+
+            self.speclib = SpecLibFlat()
+            self.speclib.parse_base_library(speclib_dense)
+
+        else:
+            self.speclib = SpecLibFlat()
+            self.speclib.load_hdf(speclib_path, load_mod_seq=True)
+
+        self.rename_columns(self.speclib.precursor_df, 'precursor')
+        self.rename_columns(self.speclib.fragment_df, 'fragment')
+
+        # check if retention times are in seconds, convert to seconds if necessary
+        # TODO: this is a heuristic, should be replaced by a more robust solution
+        RT_HEURISTIC = 180
+        if self.speclib._precursor_df['rt_library'].max() < RT_HEURISTIC:
+            logging.info('retention times are most likely in minutes, will be converted to seconds')
+            self.speclib._precursor_df['rt_library'] *= 60
+
+    def rename_columns(self, precursor_flat, group):
+        logging.info(f'renaming {group} columns')
+        # precursor columns
+        if group in self.config:
+            for key, value in self.config[group].items():
+                # column which should be created already exists
+                if key in precursor_flat.columns:
+                    continue
+                # column does not yet exist
+                else:
+                    for candidate_columns in value:
+                        if candidate_columns in precursor_flat.columns:
+                            precursor_flat.rename(columns={candidate_columns: key}, inplace=True)
+                            # break after first match
+                            break
+        else:
+            logging.warning('no {group} columns specified in extraction config')
+
+"""
 class ExtractionPlan():
 
     def __init__(self, psm_reader_name, decoy_type='diann'):
@@ -119,9 +165,9 @@ class ExtractionPlan():
         self.speclib._precursor_df.drop(['precursor_mz'],axis=1, inplace=True)
 
     def get_calibration_df(self):
-        """Used by the calibration class to get the first set of precursors used for calibration.
-            Returns a filtered subset of the precursor_df based on metrics like the q-value, target channel etc.
-        """
+        # Used by the calibration class to get the first set of precursors used for calibration.
+        # Returns a filtered subset of the precursor_df based on metrics like the q-value, target channel etc.
+        
         calibration_df = self.speclib.precursor_df.copy()
         calibration_df = calibration_df[calibration_df['fdr'] < 0.01]
         calibration_df = calibration_df[calibration_df['decoy'] == 0]
@@ -129,8 +175,8 @@ class ExtractionPlan():
         return calibration_df
 
     def validate(self):
-        """Validate extraction plan before proceeding
-        """
+        #Validate extraction plan before proceeding
+        
 
         logging.info('Validating extraction plan')
 
@@ -208,9 +254,9 @@ class ExtractionPlan():
             pass
 
     def build_run_precursor_df(self, run_index):
-        """
-        build run specific speclib which combines entries from other runs
-        """
+        
+        #build run specific speclib which combines entries from other runs
+        
 
         self.speclib.hash_precursor_df()
 
@@ -351,9 +397,9 @@ class LibraryManager():
         self.data_path = folder
 
     def build_run_precursor_df(self, run_index):
-        """
-        build run specific speclib which combines entries from other runs
-        """
+        
+        # build run specific speclib which combines entries from other runs
+        
 
         self.speclib.hash_precursor_df()
 
@@ -377,3 +423,4 @@ class LibraryManager():
 
 
         return precursors_flat, fragments_flat
+"""
