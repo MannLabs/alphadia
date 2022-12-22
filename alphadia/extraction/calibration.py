@@ -12,10 +12,12 @@ import logging
 # external imports
 import pandas as pd
 import numpy as np
+import yaml 
 from . import calibration
 
 
 from sklearn.linear_model import LinearRegression
+from alphabase.statistics.regression import LOESSRegression
 from scipy.stats import gaussian_kde
 
 class Calibration():
@@ -34,7 +36,11 @@ class Calibration():
         self.input_columns = input_columns
         self.target_columns = target_columns
         self.output_columns = output_columns
-        self.transform_deviation = transform_deviation
+
+        try:    
+            self.transform_deviation = float(transform_deviation)
+        except:
+            self.transform_deviation = None
 
         self.is_fitted = is_fitted
 
@@ -80,7 +86,7 @@ class Calibration():
 
     def predict(self, dataframe, inplace=False):
         if self.is_fitted == False:
-            logging.error(f'Warning: {self.name} prediction was skipped as it hasn not been fitted yet')
+            logging.error(f'Warning: {self.name} prediction was skipped as it has not been fitted yet')
             return
         
         if not set(self.input_columns).issubset(dataframe.columns):
@@ -220,10 +226,13 @@ class Calibration():
 
 class RunCalibration():
 
-    estimator_groups = []
 
 
-    def __init__(self, estimator_groups):
+    def __init__(self):
+        self.estimator_groups = []
+        pass
+
+    def load_groups(self, estimator_groups):
         for group in estimator_groups:
             group['estimators'] = [Calibration(**x) for x in group['estimators']]
             
@@ -272,7 +281,52 @@ class RunCalibration():
                 logging.info(f'calibration group: {group_name}, predicting {estimator.name}')
                 estimator.predict(df, inplace=True, *args, **kwargs)
 
+    def load_yaml(self, yaml_file):
+        """Load calibration config from yaml file.
+        each calibration config is a list of calibration groups which consist of multiple estimators.
+        For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
+        The estimator is then initialized with the `Calibration` class and added to the group.
+        """
+        with open(yaml_file, 'r') as f:
+            
+            
+            logging.info(f'loading calibration config from {yaml_file}')
+            config = yaml.safe_load(f)['calibration']
 
+            logging.info(f'found {len(config)} calibration groups')
+            for group in config:
+                logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
+                for estimator in group['estimators']:
+                    try:
+                        template = calibration_model_provider.get_model(estimator['model'])
+                        estimator['function'] = template(**estimator['model_args'])
+                    except Exception as e:
+                        logging.error(f'Could not load estimator {estimator["name"]}: {e}')
+                    
+                group['estimators'] = [Calibration(**x) for x in group['estimators']]
+                self.estimator_groups.append(group)
+        
+class CalibrationModelProvider:
+
+    def __init__(self):
+        self.model_dict = {}
+
+    def __repr__(self) -> str:
+        return str(self.model_dict)
+
+    def register_model(self, model_name, model_template):
+        self.model_dict[model_name] = model_template
+
+    def get_model(self, model_name):
+        if model_name not in self.model_dict:
+            raise ValueError(f'Unknown model {model_name}')
+        else:
+            return self.model_dict[model_name]
+
+calibration_model_provider = CalibrationModelProvider()
+calibration_model_provider.register_model('LinearRegression', LinearRegression)
+calibration_model_provider.register_model('LOESSRegression', LOESSRegression)
+        
 class GlobalCalibration():
 
     # template column names

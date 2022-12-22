@@ -1,7 +1,7 @@
 # internal imports
 import alphatims.bruker
 import alphatims.utils
-import alphabase.spectral_library.library_base
+from alphabase.spectral_library.base import SpecLibBase
 from . import calibration
 
 
@@ -199,24 +199,24 @@ def test_join_left():
 test_join_left()
 
 def reannotate_fragments(
-    speclib: alphabase.spectral_library.library_base.SpecLibBase, 
-    fragment_speclib: alphabase.spectral_library.library_base.SpecLibBase,
+    speclib: SpecLibBase, 
+    fragment_speclib: SpecLibBase,
     verbose = True
-):
+) -> SpecLibBase:
     """Reannotate an alphabase SpecLibBase library with framents from a different SpecLibBase library
 
     Parameters
     ----------
-    speclib: alphabase.spectral_library.library_base.SpecLibBase
+    speclib: SpecLibBase
         Spectral library which contains the precursors to be annotated. All fragments mz and fragment intensities will be removed.
 
-    fragment_speclib: alphabase.spectral_library.library_base.SpecLibBase
+    fragment_speclib: SpecLibBase
         Spectral library which contains the donor precursors whose fragments should be used.
 
     Returns
     -------
 
-    alphabase.spectral_library.library_base.SpecLibBase
+    SpecLibBase
         newly annotated spectral library
  
     """
