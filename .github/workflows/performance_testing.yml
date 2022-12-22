@@ -20,8 +20,11 @@ jobs:
       - name: Add conda to path
         shell: PowerShell	
         run: |
-          $env:Path += ';C:\Users\wallmann\Miniconda3'
+          $env:GITHUB_PATH += ';C:\Users\wallmann\Miniconda3\bin'
       - name: Conda info
         shell: PowerShell	
         run: |
+          $env:GITHUB_PATH
+          $env:CONDA
+          $env:PATH
           conda info
