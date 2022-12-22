@@ -17,8 +17,11 @@ jobs:
     
     steps:
       - uses: actions/checkout@v2
+      - name: Add conda to path
+        shell: PowerShell	
+        run: |
+          $env:Path += ';C:\Users\wallmann\Miniconda3'
       - name: Conda info
         shell: PowerShell	
         run: |
-          $env:path
           conda info
