@@ -8,12 +8,19 @@ name: performance testing
 
 env:
   TEST_DATA_DIR: ../_data/
+  CONDA: C:\Users\wallmann\Miniconda3
 
 jobs:
   loose_installation:
     name: Performance testing
     runs-on: self-hosted
+    
     steps:
       - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniforge-version: 'latest'
+          auto-update-conda: true
+          python-version: '3.9'
       - name: Conda info
         run: echo $CONDA
