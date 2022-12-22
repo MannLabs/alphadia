@@ -8,7 +8,7 @@ name: performance testing
 
 env:
   TEST_DATA_DIR: ../_data/
-  CONDA: C:\Users\wallmann\Miniconda3
+  CONDA: C:\Users\wallmann\Miniconda
 
 jobs:
   loose_installation:
