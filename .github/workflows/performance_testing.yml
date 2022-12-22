@@ -9,25 +9,25 @@ env:
   TEST_DATA_DIR: ../_data/
 
 jobs:
-  stable_installation:
-    name: Test stable pip installation on ${{ matrix.os }}
-    runs-on: ubuntu-latest
+  loose_installation:
+    name: Performance testing
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v2
       - uses: conda-incubator/setup-miniconda@v2
         with:
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.9'
       - name: Conda info
         shell: bash -l {0}
         run: conda info
-      - name: Test pip installation with all stable dependencies
+      - name: Test pip installation with all loose dependencies
         shell: bash -l {0}
         run: |
           cd misc
-          . ./stable_pip_install.sh
-      - name: Unittests
+          . ./loose_pip_install.sh
+      - name: Performance tests
         shell: bash -l {0}
         run: |
           cd tests
-          . ./run_perfromance_tests.sh
+          . ./run_performance_tests.sh
