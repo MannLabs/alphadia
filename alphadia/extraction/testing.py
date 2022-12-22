@@ -12,6 +12,8 @@ import zipfile
 import progressbar
 from typing import Union
 
+import shutil
+
 class Progress():
     """Class to report the download progress of a file to the console.
     """
@@ -134,4 +136,144 @@ def update_onedrive(sharing_url: str, output_dir: str, unzip: bool = True) -> No
             logging.info(f'{filename} successfully unzipped')
 
     else:
+        logging.info(f'{filename} already exists')
+
+def encode_url_datashare(sharing_url: str) -> str:
+    """encode datashare sharing link as url for downloading files
+
+    Parameters
+    ----------
+    sharing_url : str
+        onedrive sharing link
+
+    Returns
+    -------
+    encoded_url : str
+        encoded url for directly downloading files
+
+    """
+    
+    encoded_url = f'{sharing_url}/download'
+    return encoded_url
+
+
+def filename_datashare(sharing_url: str, tar=False) -> str:
+    """get filename from onedrive sharing link
+
+    Parameters
+    ----------  
+    sharing_url : str
+        onedrive sharing link
+
+    Returns
+    -------
+    filename : str
+        filename of the file shared cia onedrive
+
+    """
+
+    encoded_url = encode_url_datashare(sharing_url)
+
+    try:
+        remotefile = urlopen(encoded_url)
+    except:
+        #logging.info(f'Could not open {sharing_url} for reading filename')
+        raise ValueError(f'Could not open {sharing_url} for reading filename') from None
+    
+    info = remotefile.info()['Content-Disposition']
+    value, params = cgi.parse_header(info)
+    filename = params["filename"]
+    return filename
+
+def download_datashare(sharing_url: str, output_dir: str) -> Union[str, None]:
+    """download file from datashare sharing link
+
+    Parameters
+    ----------
+    sharing_url : str
+        onedrive sharing link
+
+    output_dir : str
+        path to output directory
+
+    Returns
+    -------
+    path : str
+        local path to downloaded file
+
+    """
+    filename = filename_datashare(sharing_url)
+    encoded_url = encode_url_datashare(sharing_url)
+
+    output_path = os.path.join(output_dir, filename)
+
+    try:
+        path, message = urlretrieve(encoded_url, output_path, Progress())
+        logging.info(f'{filename} successfully downloaded')
+
+        return path
+    except Exception as e:
+        logging.info(f'Could not download {filename} from datashare')
+
+        return None
+    
+def update_datashare(sharing_url: str, output_dir: str, force=False) -> None:
+    """download file from datashare sharing link if it does not yet exist
+
+    Parameters
+    ----------
+    sharing_url : str
+        datashare sharing link
+
+    output_dir : str
+        path to output directory
+
+    unzip : bool
+        unzip file if it ends with .zip
+
+    force : bool
+        force download even if file already exists
+
+    """
+
+    
+    filename = filename_datashare(sharing_url)
+    output_path = os.path.join(output_dir, filename)
+    unzipped_path = os.path.join(output_dir, filename.replace('.zip', ''))
+
+    # file does not yet exist
+    if not os.path.exists(unzipped_path):
+        logging.info(f'{filename} does not yet exist')
+        download_datashare(sharing_url, output_dir)
+
+        # if file ends with .zip and zip=True
+        if filename.endswith('.zip'):
+            with zipfile.ZipFile(output_path, 'r') as zip_ref:
+                zip_ref.extractall(output_dir)
+            logging.info(f'{filename} successfully unzipped')
+            os.remove(output_path)
+
+    # file already exists
+    else:
+        # force download
+        if force:
+            logging.info(f'{filename} already exists, but force=True')
+
+            # remove file
+            try:
+                os.remove(output_path)
+                logging.info(f'{filename} successfully removed')
+            except:
+                logging.error(f'Could not remove {filename}')
+                return
+
+            download_datashare(sharing_url, output_dir)
+
+            # if file ends with .zip and zip=True
+            if filename.endswith('.zip'):
+                with zipfile.ZipFile(output_path, 'r') as zip_ref:
+                    zip_ref.extractall(output_dir)
+                logging.info(f'{filename} successfully unzipped')
+                os.remove(output_path)
+
         logging.info(f'{filename} already exists')
