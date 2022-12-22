@@ -16,5 +16,4 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Conda info
-        shell: bash -l {0}
         run: conda info
