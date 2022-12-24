@@ -21,8 +21,9 @@ jobs:
         with:
           activate-environment: alpha
           python-version: '3.9'
-      - name: Conda info
+      - name: Install alphadia
         run: |
-          conda info
-          echo "$PATH"
-          echo "$CONDA"
+          pip install -e '../.[development]'     
+      - name: Diann re extraction
+        run: |
+            python tests/performance_tests/diann_psm_extraction.py
