@@ -20,7 +20,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@v2
         with:
           activate-environment: alpha
-          python-version: '3.9'
+          python-version: '3.8'
       - name: Install alphadia
         run: |
           conda install hdf5
