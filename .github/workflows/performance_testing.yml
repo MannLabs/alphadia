@@ -25,7 +25,7 @@ jobs:
         run: |
           cd
           tree
-          pip install -e 'alphadia/.'     
+          pip install -e '.'     
       - name: Diann re extraction
         run: |
             python alphadia/tests/performance_tests/diann_psm_extraction.py
