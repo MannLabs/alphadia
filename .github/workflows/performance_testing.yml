@@ -23,6 +23,7 @@ jobs:
           python-version: '3.9'
       - name: Install alphadia
         run: |
+          conda install hdf5
           pip install -e '.[development]'     
       - name: Diann re extraction
         run: |
