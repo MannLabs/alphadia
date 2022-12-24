@@ -17,14 +17,9 @@ jobs:
     
     steps:
       - uses: actions/checkout@v3
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          activate-environment: alpha
-          python-version: '3.8'
       - name: Install alphadia
         run: |
-          conda install hdf5
-          pip install -e '.[development]'     
+          conda activate alpha
       - name: Diann re extraction
         run: |
             python tests/performance_tests/diann_psm_extraction.py
