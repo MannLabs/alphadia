@@ -23,9 +23,7 @@ jobs:
           python-version: '3.9'
       - name: Install alphadia
         run: |
-          cd
-          tree
           pip install -e '.'     
       - name: Diann re extraction
         run: |
-            python alphadia/tests/performance_tests/diann_psm_extraction.py
+            python tests/performance_tests/diann_psm_extraction.py
