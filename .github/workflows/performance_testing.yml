@@ -7,7 +7,7 @@ on:
 name: performance testing
 
 env:
-  TEST_DATA_DIR: ..\_data\
+  TEST_DATA_DIR: C:\actions-runner\_data
   CONDA: C:\Users\wallmann\Miniconda3
 
 jobs:
