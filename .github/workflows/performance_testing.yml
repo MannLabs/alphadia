@@ -16,9 +16,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v3
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
       - name: Conda info
         run: |
           conda info
+          echo "$PATH"
+          echo "$CONDA"
