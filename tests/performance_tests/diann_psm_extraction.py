@@ -5,6 +5,8 @@ logging.basicConfig(format='%(asctime)s %(levelname)s: %(message)s', datefmt='%Y
 import os
 import neptune.new as neptune
 import pathlib
+import socket
+
 
 
 from alphadia.extraction.planning import Plan
@@ -29,6 +31,7 @@ if __name__ == "__main__":
     )
     run['version'] = 'alpha_0.1'
     run["sys/tags"].add(["0_brunner_2022_1ng_extraction"])
+    run['host'] = socket.gethostname()
 
     # set up logging
     
