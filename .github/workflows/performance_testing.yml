@@ -9,6 +9,7 @@ name: performance testing
 env:
   TEST_DATA_DIR: C:\actions-runner\_data
   CONDA: C:\Users\wallmann\Miniconda3
+  NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
 
 jobs:
   loose_installation:
