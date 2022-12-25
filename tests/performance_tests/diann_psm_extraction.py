@@ -87,9 +87,9 @@ if __name__ == "__main__":
     initial_ms2_error = 120
     initial_rt_error = 30
 
-    target_ms1_error = 10
+    target_ms1_error = 15
     target_ms2_error = 15
-    target_rt_error = 10
+    target_rt_error = 15
 
 
     mobility_99 = 0.03
