@@ -426,7 +426,7 @@ def fdr_correction(features,
 
     if neptune_run is not None:
         neptune_run[f'eval/fdr'].log(fig)
-        plt.close
+        plt.close()
     else:
         plt.show()
 

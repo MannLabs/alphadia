@@ -222,7 +222,7 @@ class Calibration():
         # log figure to neptune ai
         if neptune_run is not None and neptune_key is not None:
             neptune_run[f'calibration/{neptune_key}'].log(fig)
-            plt.close
+            plt.close()
         else:
             plt.show()
 
