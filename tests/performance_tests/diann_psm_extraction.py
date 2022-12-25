@@ -66,7 +66,7 @@ if __name__ == "__main__":
     raw_location = os.path.join(output_dir,'20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D1_1_2944.d')
 
     script_location = pathlib.Path(__file__).parent.resolve()
-    yaml_file = os.path.join(script_location, '../../misc/config/default.yaml')
+    yaml_file = os.path.join(script_location, '..','..', 'misc','config','default.yaml')
 
     run["config"].upload(yaml_file)
     
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
     iteration = 0
 
-    precursors_flat, fragments_flat = plan.speclib.precursor_df.sample(5000), plan.speclib.fragment_df
+    precursors_flat, fragments_flat = plan.speclib.precursor_df, plan.speclib.fragment_df
 
     while initial_ms1_error >= target_ms1_error or iteration < 1:
         logging.info(f'Starting Iteration {iteration}, RT error {initial_rt_error:.2f}s,MS1 error {initial_ms1_error:.2f} ppm, MS2 error {initial_ms2_error:.2f} ppm')
