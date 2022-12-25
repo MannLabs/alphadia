@@ -52,22 +52,22 @@ class Calibration():
         valid = True
 
         if len (self.input_columns) != 1:
-            logging.error('Warning: Only one input column supported')
+            logging.warning('Only one input column supported')
             valid = False
 
         if len (self.target_columns) != 1:
-            logging.error('Warning: Only one target column supported')
+            logging.warning('Only one target column supported')
             valid = False
         required_columns = set(self.input_columns + self.target_columns)
         if not required_columns.issubset(dataframe.columns):
-            logging.error(f'Warning: {self.name}, at least one column {required_columns} not found in dataframe')
+            logging.warning(f'{self.name}, at least one column {required_columns} not found in dataframe')
             valid = False
 
         return valid
 
-    def fit(self, dataframe, plot=False, report_ci=0.95):
+    def fit(self, dataframe, plot=False, report_ci=0.95, **kwargs):
         if not self.validate_columns(dataframe):
-            logging.error(f'Warning: {self.name} calibration was skipped')
+            logging.warning(f'{self.name} calibration was skipped')
             return
 
         if self.function is None:
@@ -80,17 +80,17 @@ class Calibration():
         self.is_fitted = True
 
         if plot == True:
-            self.plot(dataframe)
+            self.plot(dataframe, **kwargs)
 
         return self.ci(dataframe, float(report_ci))
 
     def predict(self, dataframe, inplace=False):
         if self.is_fitted == False:
-            logging.error(f'Warning: {self.name} prediction was skipped as it has not been fitted yet')
+            logging.warning(f'{self.name} prediction was skipped as it has not been fitted yet')
             return
         
         if not set(self.input_columns).issubset(dataframe.columns):
-            logging.error(f'Warning: {self.name} calibration was skipped as input column {self.input_columns} not found in dataframe')
+            logging.warning(f'{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe')
             return
 
         input_values = dataframe[self.input_columns].values
@@ -174,7 +174,7 @@ class Calibration():
             return '(absolute)'
 
 
-    def plot(self, dataframe):
+    def plot(self, dataframe, neptune_run=None, neptune_key=None, **kwargs):
 
         deviation = self.deviation(dataframe)
 
@@ -218,8 +218,13 @@ class Calibration():
                 ax.set_ylim(-y_abs.max()*1.05, y_abs.max()*1.05)
 
         fig.tight_layout()
-        plt.show()
-        pass
+
+        # log figure to neptune ai
+        if neptune_run is not None and neptune_key is not None:
+            neptune_run[f'calibration/{neptune_key}'].log(fig)
+            plt.close
+        else:
+            plt.show()
 
        
 
@@ -266,7 +271,7 @@ class RunCalibration():
         for group in group_idx:
             for estimator in self.estimator_groups[group]['estimators']:
                 logging.info(f'calibration group: {group_name}, fitting {estimator.name} estimator ')
-                estimator.fit(df, *args, **kwargs)
+                estimator.fit(df, *args, neptune_key=f'{group_name}_{estimator.name}', **kwargs)
 
        
     def predict(self, df, group_name, *args, **kwargs):

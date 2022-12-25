@@ -345,7 +345,8 @@ def fdr_correction(features,
        'num_fragments_fcorr_3', 'num_fragments_fcorr_2',
        'num_fragments_fcorr_1', 'mean_pcorr_top_5', 'mean_pcorr_top_10',
        'mean_pcorr_top_15', 'mean_fcorr_top_5', 'mean_fcorr_top_10',
-       'mean_fcorr_top_15', 'charge', 'nAA']
+       'mean_fcorr_top_15', 'charge', 'nAA'],
+       neptune_run=None
     ):
     features = features.dropna().reset_index(drop=True).copy()
 
@@ -422,6 +423,11 @@ def fdr_correction(features,
     axs[2].set_title("Identifications")
 
     fig.tight_layout()
-    plt.show()
+
+    if neptune_run is not None:
+        neptune_run[f'eval/fdr'].log(fig)
+        plt.close
+    else:
+        plt.show()
 
     return features_best_df
