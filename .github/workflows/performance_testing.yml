@@ -1,33 +1,26 @@
 on:
   pull_request:
     branches: [alpha]
+  
   workflow_dispatch:
 
 name: performance testing
 
 env:
-  TEST_DATA_DIR: ../_data/
+  TEST_DATA_DIR: C:\actions-runner\_data
+  CONDA: C:\Users\wallmann\Miniconda3
+  NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
 
 jobs:
-  stable_installation:
-    name: Test stable pip installation on ${{ matrix.os }}
-    runs-on: ubuntu-latest
+  loose_installation:
+    name: Performance testing
+    runs-on: self-hosted
+    
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
-      - name: Conda info
-        shell: bash -l {0}
-        run: conda info
-      - name: Test pip installation with all stable dependencies
-        shell: bash -l {0}
+      - uses: actions/checkout@v3
+      - name: Install alphadia
         run: |
-          cd misc
-          . ./stable_pip_install.sh
-      - name: Unittests
-        shell: bash -l {0}
+          conda activate alpha
+      - name: Diann re extraction
         run: |
-          cd tests
-          . ./run_perfromance_tests.sh
+            python tests/performance_tests/diann_psm_extraction.py
