@@ -10,6 +10,7 @@ import alphabase.peptide.precursor
 import alphabase.peptide.fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.reader import SWATHLibraryReader
 
 import yaml
 import os
@@ -19,34 +20,114 @@ from . import calibration
 import numpy as np
 import hashlib
 
+def recursive_update(full_dict, update_dict):
+    """recursively update a dict with a second dict
+    The dict is updated inplace
+    """
+    for key, value in update_dict.items():
+        if key in full_dict.keys():
+            if isinstance(value, dict):
+                recursive_update(full_dict[key], update_dict[key])
+            else:
+                full_dict[key] = value
+        else:
+            full_dict[key] = value
+
 class Plan:
 
-    def __init__(self, yaml_file):
+    def __init__(self, yaml_file, raw_data, config=None):
         with open(yaml_file, 'r') as f:
-            logging.info(f'loading calibration config from {yaml_file}')
+            logging.info(f'loading extraction config from {yaml_file}')
             self.config = yaml.safe_load(f)['extraction']
 
-    def load_speclib(self, speclib_path, dense=True):
-        if dense:
+        if config is not None:
+            recursive_update(self.config, config)
+
+        # default value for RT_HEURISTIC
+        if not 'rt_heuristic' in self.config:
+            self.config['rt_heuristic'] = 180
+
+        self.raw_data = raw_data
+
+    def from_spec_lib_base(self, speclib_base):
+
+        self.speclib = SpecLibFlat()
+        self.speclib.parse_base_library(speclib_base)
+
+        self.rename_columns(self.speclib._precursor_df, 'precursor_columns')
+        self.rename_columns(self.speclib._fragment_df, 'fragment_columns')
+
+
+        if 'rt_type' in self.config:
+            self.rt_type = self.config['rt_type']
+            logging.info(f'forcing rt_type {self.rt_type} from config file')
+        else:
+            self.rt_type = self.check_rt_type()
+            logging.info(f'rt_type automatically determined as {self.rt_type}')
+
+
+    def load_speclib(self, speclib_path, mode='dense'):
+        if mode == 'dense':
             speclib_dense = SpecLibBase()
             speclib_dense.load_hdf(speclib_path, load_mod_seq=True)
 
             self.speclib = SpecLibFlat()
             self.speclib.parse_base_library(speclib_dense)
 
-        else:
+        elif mode == 'flat':
             self.speclib = SpecLibFlat()
             self.speclib.load_hdf(speclib_path, load_mod_seq=True)
 
-        self.rename_columns(self.speclib.precursor_df, 'precursor')
-        self.rename_columns(self.speclib.fragment_df, 'fragment')
+        elif mode == 'swath':
+            speclib_dense = SWATHLibraryReader()
+            speclib_dense.import_file(speclib_path)
 
+            if 'decoy' not in speclib_dense.precursor_df.columns:
+                logging.info('adding decoys')
+                speclib_dense.decoy = 'diann'
+                speclib_dense.append_decoy_sequence()
+                speclib_dense.calc_precursor_mz()
+
+            self.speclib = SpecLibFlat()
+            self.speclib.parse_base_library(speclib_dense)
+
+        self.rename_columns(self.speclib.precursor_df, 'precursor_columns')
+        self.rename_columns(self.speclib.fragment_df, 'fragment_columns')
+
+        if 'rt_type' in self.config:
+            self.rt_type = self.config['rt_type']
+            logging.info(f'forcing rt_type {self.rt_type} from config file')
+        else:
+            self.rt_type = self.check_rt_type()
+            logging.info(f'rt_type automatically determined as {self.rt_type}')
+
+    def check_rt_type(self):
         # check if retention times are in seconds, convert to seconds if necessary
-        # TODO: this is a heuristic, should be replaced by a more robust solution
-        RT_HEURISTIC = 180
-        if self.speclib._precursor_df['rt_library'].max() < RT_HEURISTIC:
-            logging.info('retention times are most likely in minutes, will be converted to seconds')
-            self.speclib._precursor_df['rt_library'] *= 60
+        # possible options: 'seconds', 'minutes', 'norm', 'irt'
+
+        rt_type = 'unknown'
+
+        rt_series = self.speclib.precursor_df['rt_library']
+
+        if rt_series.min() < 0:
+            rt_type = 'irt'
+        
+        elif 0 <= rt_series.min() <= 1:
+            rt_type = 'norm'
+
+        elif rt_series.max() < self.config['rt_heuristic']:
+            rt_type = 'minutes'
+
+        elif rt_series.max() > self.config['rt_heuristic']:
+            rt_type = 'seconds'
+
+        if rt_type == 'unknown':
+            logging.warning("""Could not determine retention time typ. 
+                            Raw values will be used. 
+                            Please specify extraction.rt_type with the possible values ('irt', 'norm, 'minutes', 'seconds',) in the config file.""")
+
+        return rt_type
+
 
     def rename_columns(self, precursor_flat, group):
         logging.info(f'renaming {group} columns')
@@ -64,7 +145,31 @@ class Plan:
                             # break after first match
                             break
         else:
-            logging.warning('no {group} columns specified in extraction config')
+            logging.error(f'no {group} columns specified in extraction config')
+
+    def get_run_data(self):
+        for raw in self.raw_data:
+            if self.rt_type == 'seconds' or self.rt_type == 'unknown':
+                yield raw, self.speclib.precursor_df, self.speclib.fragment_df
+            
+            elif self.rt_type == 'minutes':
+                precursor_df = self.speclib.precursor_df.copy()
+                precursor_df['rt_library'] *= 60
+
+                yield raw, precursor_df, self.speclib.fragment_df
+
+            elif self.rt_type == 'irt':
+
+                raise NotImplementedError()
+            
+            elif self.rt_type == 'norm':
+                precursor_df = self.speclib.precursor_df.copy()
+                precursor_df['rt_library'] *= raw.rt_max_value
+
+                yield raw, precursor_df, self.speclib.fragment_df
+                
+
+        
 
 """
 class ExtractionPlan():

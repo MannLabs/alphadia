@@ -32,10 +32,10 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
 
         if not full_precursor_cycle:
             return frame_index
-        precursor_cycle_limits = (frame_index-self._zeroth_frame)//self._cycle.shape[1]
+        precursor_cycle_limits = (frame_index+self._zeroth_frame)//self._cycle.shape[1]
         
         # second element is the index of the first whole cycle which should not be used
-        precursor_cycle_limits[1] += 1
+        #precursor_cycle_limits[1] += 1
         # convert back to frame indices
         frame_limits = precursor_cycle_limits*self._cycle.shape[1]+self._zeroth_frame
         return frame_limits

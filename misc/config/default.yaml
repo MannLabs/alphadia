@@ -1,10 +1,10 @@
 # configuration for the extraction plan
 extraction:
-  precursor:
+  precursor_columns:
     mz_library: ['mz','precursor_mz']
     rt_library: ['rt','rt_norm']
     mobility_library: ['mobility']
-  fragment:
+  fragment_columns:
     mz_library: ['mz','predicted_mz']
 
 # configuration for the calibration manager
@@ -42,6 +42,7 @@ calibration:
           model: LOESSRegression
           model_args:
             n_kernels: 12
+            uniform: True
           input_columns: 
             - rt_library
           target_columns:

@@ -85,9 +85,10 @@ class MS2ExtractionWorkflow():
             features += self.get_features(i, candidate_dict)
             
         features = pd.DataFrame(features)
-
-        logging.info(f'MS2 extraction was able to extract {len(features):,} sets of features for {len(features)/len(self.candidates)*100:.2f}% of candidates')
-
+        if len(self.candidates) > 0:
+            logging.info(f'MS2 extraction was able to extract {len(features):,} sets of features for {len(features)/len(self.candidates)*100:.2f}% of candidates')
+        else:
+            logging.warning(f'zero candidates were provided for MS2 extraction')
         
 
         return features
@@ -104,16 +105,16 @@ class MS2ExtractionWorkflow():
         c_mz = candidate_dict[self.precursor_mz_column]
 
         c_frag_start_idx = self.precursors_flat.frag_start_idx.values[c_precursor_index]
-        c_frag_end_idx = self.precursors_flat.frag_end_idx.values[c_precursor_index]
+        c_frag_stop_idx = self.precursors_flat.frag_stop_idx.values[c_precursor_index]
 
-        c_fragments_mzs = self.fragments_mz[c_frag_start_idx:c_frag_end_idx]
+        c_fragments_mzs = self.fragments_mz[c_frag_start_idx:c_frag_stop_idx]
         
         c_fragments_order = np.argsort(c_fragments_mzs)
         
         c_fragments_mzs = c_fragments_mzs[c_fragments_order]
         
-        c_intensity = self.fragments_intensity[c_frag_start_idx:c_frag_end_idx][c_fragments_order]
-        c_fragments_type = self.fragments_type[c_frag_start_idx:c_frag_end_idx][c_fragments_order]
+        c_intensity = self.fragments_intensity[c_frag_start_idx:c_frag_stop_idx][c_fragments_order]
+        c_fragments_type = self.fragments_type[c_frag_start_idx:c_frag_stop_idx][c_fragments_order]
         
 
         fragment_limits = utils.mass_range(c_fragments_mzs, self.fragment_mass_tolerance)
@@ -267,7 +268,7 @@ class MS2ExtractionWorkflow():
         # ========= assembling individual fragment information =========
 
         if self.include_fragment_info:
-            mz_library = self.fragments_mz_library[c_frag_start_idx:c_frag_end_idx]      
+            mz_library = self.fragments_mz_library[c_frag_start_idx:c_frag_stop_idx]      
             mz_library = mz_library[c_fragments_order]
             mz_library = mz_library[intensity_mask]
             mz_library = mz_library[fragment_order]
@@ -356,7 +357,7 @@ def fdr_correction(features,
 
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=200, alpha=1, learning_rate_init=0.0005))
+        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=200, alpha=1, learning_rate_init=0.0005, early_stopping=True))
     ])
 
     X = features[feature_columns].values

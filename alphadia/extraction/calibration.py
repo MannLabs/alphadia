@@ -14,6 +14,7 @@ import pandas as pd
 import numpy as np
 import yaml 
 from . import calibration
+from .planning import recursive_update
 
 
 from sklearn.linear_model import LinearRegression
@@ -235,6 +236,8 @@ class RunCalibration():
 
     def __init__(self):
         self.estimator_groups = []
+        
+
         pass
 
     def load_groups(self, estimator_groups):
@@ -286,7 +289,7 @@ class RunCalibration():
                 logging.info(f'calibration group: {group_name}, predicting {estimator.name}')
                 estimator.predict(df, inplace=True, *args, **kwargs)
 
-    def load_yaml(self, yaml_file):
+    def load_yaml(self, yaml_file, config_update):
         """Load calibration config from yaml file.
         each calibration config is a list of calibration groups which consist of multiple estimators.
         For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
@@ -297,6 +300,9 @@ class RunCalibration():
             
             logging.info(f'loading calibration config from {yaml_file}')
             config = yaml.safe_load(f)['calibration']
+
+            if config_update is not None:
+                recursive_update(config, config_update)
 
             logging.info(f'found {len(config)} calibration groups')
             for group in config:
@@ -310,6 +316,8 @@ class RunCalibration():
                     
                 group['estimators'] = [Calibration(**x) for x in group['estimators']]
                 self.estimator_groups.append(group)
+
+        
         
 class CalibrationModelProvider:
 
