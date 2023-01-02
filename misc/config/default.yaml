@@ -1,5 +1,25 @@
 # configuration for the extraction plan
+
 extraction:
+  initial_num_candidates: 2
+
+  initial_ms1_tolerance: 120
+  initial_ms2_tolerance: 120
+  initial_mobility_tolerance: 0.04
+  initial_rt_tolerance: 360
+
+  target_ms1_tolerance: 15
+  target_ms2_tolerance: 15
+  target_mobility_tolerance: 0.02
+  target_rt_tolerance: 30
+
+  max_epochs: 7
+
+  rt_heuristic: 180
+  batch_size: 2000
+  recalibration_target: 200
+  final_full_calibration: True
+
   precursor_columns:
     mz_library: ['mz','precursor_mz']
     rt_library: ['rt','rt_norm']

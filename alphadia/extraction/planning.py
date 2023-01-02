@@ -2,8 +2,11 @@ from typing_extensions import Self
 
 from matplotlib.style import library
 import alphadia.annotation
+
 import pandas as pd 
 import logging
+from pathlib import Path
+
 
 import alphabase.psm_reader
 import alphabase.peptide.precursor
@@ -11,6 +14,8 @@ import alphabase.peptide.fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.reader import SWATHLibraryReader
+
+from alphadia.extraction.data import TimsTOFDIA
 
 import yaml
 import os
@@ -35,19 +40,44 @@ def recursive_update(full_dict, update_dict):
 
 class Plan:
 
-    def __init__(self, yaml_file, raw_data, config=None):
+    def __init__(self, 
+                raw_data: list, 
+                config_update=None):
+        """initialize a dia extraction plan
+
+        Parameters
+        ----------
+        raw_data : list
+            list of input file locations
+
+        config_update : dict or str, optional
+            dict or yaml file to update the default config, by default None
+
+        """
+        
+        # default yaml config location under /misc/config/config.yaml
+        yaml_file = os.path.join(os.path.dirname(__file__), '..','..','misc','config','default.yaml')
         with open(yaml_file, 'r') as f:
-            logging.info(f'loading extraction config from {yaml_file}')
-            self.config = yaml.safe_load(f)['extraction']
+            self._config = yaml.safe_load(f)
 
-        if config is not None:
-            recursive_update(self.config, config)
+        # config can be updated with a dict or a yaml file
+        if isinstance(config_update, dict):
+            print(config_update)
+            recursive_update(self._config, config_update)
 
-        # default value for RT_HEURISTIC
-        if not 'rt_heuristic' in self.config:
-            self.config['rt_heuristic'] = 180
+        elif isinstance(config_update, str):
+            try:
+                with open(config_update, 'r') as f:
+                    config_update = yaml.safe_load(f)
+                    recursive_update(self._config, config_update)
+            except:
+                logging.error(f'Could not load config file {config_update}')
 
         self.raw_data = raw_data
+
+    @property
+    def config(self):
+        return self._config
 
     def from_spec_lib_base(self, speclib_base):
 
@@ -132,8 +162,8 @@ class Plan:
     def rename_columns(self, precursor_flat, group):
         logging.info(f'renaming {group} columns')
         # precursor columns
-        if group in self.config:
-            for key, value in self.config[group].items():
+        if group in self.config['extraction']:
+            for key, value in self.config['extraction'][group].items():
                 # column which should be created already exists
                 if key in precursor_flat.columns:
                     continue
@@ -148,25 +178,31 @@ class Plan:
             logging.error(f'no {group} columns specified in extraction config')
 
     def get_run_data(self):
-        for raw in self.raw_data:
+        for raw_location in self.raw_data:
+            raw = TimsTOFDIA(raw_location)
+            raw_name = Path(raw_location).stem
+
             if self.rt_type == 'seconds' or self.rt_type == 'unknown':
-                yield raw, self.speclib.precursor_df, self.speclib.fragment_df
+                yield raw, raw_name, self.speclib.precursor_df, self.speclib.fragment_df
             
             elif self.rt_type == 'minutes':
                 precursor_df = self.speclib.precursor_df.copy()
                 precursor_df['rt_library'] *= 60
 
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw, raw_name, precursor_df, self.speclib.fragment_df
 
             elif self.rt_type == 'irt':
-
                 raise NotImplementedError()
             
             elif self.rt_type == 'norm':
                 precursor_df = self.speclib.precursor_df.copy()
-                precursor_df['rt_library'] *= raw.rt_max_value
 
-                yield raw, precursor_df, self.speclib.fragment_df
+                # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
+                rt_min = self.config['extraction']['initial_rt_tolerance']/2
+                rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
+                precursor_df['rt_library'] = precursor_df['rt_library'] * (rt_max - rt_min) + rt_min
+
+                yield raw, raw_name, precursor_df, self.speclib.fragment_df
                 
 
         

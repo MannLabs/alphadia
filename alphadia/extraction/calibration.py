@@ -233,12 +233,8 @@ class Calibration():
 class RunCalibration():
 
 
-
     def __init__(self):
         self.estimator_groups = []
-        
-
-        pass
 
     def load_groups(self, estimator_groups):
         for group in estimator_groups:
@@ -289,33 +285,26 @@ class RunCalibration():
                 logging.info(f'calibration group: {group_name}, predicting {estimator.name}')
                 estimator.predict(df, inplace=True, *args, **kwargs)
 
-    def load_yaml(self, yaml_file, config_update):
+    def load_config(self, config):
         """Load calibration config from yaml file.
         each calibration config is a list of calibration groups which consist of multiple estimators.
         For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
         The estimator is then initialized with the `Calibration` class and added to the group.
         """
-        with open(yaml_file, 'r') as f:
-            
-            
-            logging.info(f'loading calibration config from {yaml_file}')
-            config = yaml.safe_load(f)['calibration']
 
-            if config_update is not None:
-                recursive_update(config, config_update)
+        logging.info(f'found {len(config["calibration"])} calibration groups')
+        for group in config["calibration"]:
+            logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
+            for estimator in group['estimators']:
+                try:
+                    template = calibration_model_provider.get_model(estimator['model'])
+                    estimator['function'] = template(**estimator['model_args'])
+                except Exception as e:
+                    logging.error(f'Could not load estimator {estimator["name"]}: {e}')
 
-            logging.info(f'found {len(config)} calibration groups')
-            for group in config:
-                logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
-                for estimator in group['estimators']:
-                    try:
-                        template = calibration_model_provider.get_model(estimator['model'])
-                        estimator['function'] = template(**estimator['model_args'])
-                    except Exception as e:
-                        logging.error(f'Could not load estimator {estimator["name"]}: {e}')
-                    
-                group['estimators'] = [Calibration(**x) for x in group['estimators']]
-                self.estimator_groups.append(group)
+            group_copy = {'name': group['name']} 
+            group_copy['estimators'] = [Calibration(**x) for x in group['estimators']]
+            self.estimator_groups.append(group_copy)
 
         
         
