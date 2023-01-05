@@ -23,4 +23,4 @@ jobs:
           conda activate alpha
       - name: Diann re extraction
         run: |
-            python tests/performance_tests/diann_psm_extraction.py
+            python tests/performance_tests/1_brunner_2022_1ng_all.py
