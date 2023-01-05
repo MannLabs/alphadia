@@ -66,10 +66,10 @@ def recursive_update(
 class Plan:
 
     def __init__(self, 
-            raw_file_list: list,
+            raw_file_list: List,
             config_path : Union[str, None] = None,
             config_update_path : Union[str, None] = None,
-            config_update : Union[dict, None] = None
+            config_update : Union[Dict, None] = None
         ) -> None:
         """Highest level class to plan a DIA extraction. Owns the input file list, speclib and the config.
 
@@ -118,7 +118,7 @@ class Plan:
     @property
     def raw_file_list(
             self
-        ) -> list[str]:
+        ) -> List[str]:
         """List of input files locations.
         """
         return self._raw_file_list
@@ -126,7 +126,7 @@ class Plan:
     @raw_file_list.setter
     def raw_file_list(
             self, 
-            raw_file_list : list[str]
+            raw_file_list : List[str]
         ):
         self._raw_file_list = raw_file_list
 
