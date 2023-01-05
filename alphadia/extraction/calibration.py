@@ -13,12 +13,11 @@ import logging
 import pandas as pd
 import numpy as np
 import yaml 
-from . import calibration
-
+from .utils import density_scatter
 
 from sklearn.linear_model import LinearRegression
 from alphabase.statistics.regression import LOESSRegression
-from scipy.stats import gaussian_kde
+
 
 class Calibration():
     def __init__(self, 
@@ -232,10 +231,8 @@ class Calibration():
 class RunCalibration():
 
 
-
     def __init__(self):
         self.estimator_groups = []
-        pass
 
     def load_groups(self, estimator_groups):
         for group in estimator_groups:
@@ -286,30 +283,28 @@ class RunCalibration():
                 logging.info(f'calibration group: {group_name}, predicting {estimator.name}')
                 estimator.predict(df, inplace=True, *args, **kwargs)
 
-    def load_yaml(self, yaml_file):
+    def load_config(self, config):
         """Load calibration config from yaml file.
         each calibration config is a list of calibration groups which consist of multiple estimators.
         For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
         The estimator is then initialized with the `Calibration` class and added to the group.
         """
-        with open(yaml_file, 'r') as f:
-            
-            
-            logging.info(f'loading calibration config from {yaml_file}')
-            config = yaml.safe_load(f)['calibration']
 
-            logging.info(f'found {len(config)} calibration groups')
-            for group in config:
-                logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
-                for estimator in group['estimators']:
-                    try:
-                        template = calibration_model_provider.get_model(estimator['model'])
-                        estimator['function'] = template(**estimator['model_args'])
-                    except Exception as e:
-                        logging.error(f'Could not load estimator {estimator["name"]}: {e}')
-                    
-                group['estimators'] = [Calibration(**x) for x in group['estimators']]
-                self.estimator_groups.append(group)
+        logging.info(f'found {len(config["calibration"])} calibration groups')
+        for group in config["calibration"]:
+            logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
+            for estimator in group['estimators']:
+                try:
+                    template = calibration_model_provider.get_model(estimator['model'])
+                    estimator['function'] = template(**estimator['model_args'])
+                except Exception as e:
+                    logging.error(f'Could not load estimator {estimator["name"]}: {e}')
+
+            group_copy = {'name': group['name']} 
+            group_copy['estimators'] = [Calibration(**x) for x in group['estimators']]
+            self.estimator_groups.append(group_copy)
+
+        
         
 class CalibrationModelProvider:
 
@@ -502,14 +497,3 @@ class GlobalCalibration():
             plt.show()
 
 
-def density_scatter(x, y, axis, **kwargs):
-
-    # Calculate the point density
-    xy = np.vstack([x,y])
-    z = gaussian_kde(xy)(xy)
-
-    # Sort the points by density, so that the densest points are plotted last
-    idx = z.argsort()
-    x, y, z = x[idx], y[idx], z[idx]
-
-    axis.scatter(x, y, c=z, **kwargs)

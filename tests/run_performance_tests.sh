@@ -1,1 +1,1 @@
-python performance_tests/diann_psm_extraction.py
+python performance_tests/1_brunner_2022_1ng.py

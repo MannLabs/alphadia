@@ -2,8 +2,6 @@
 import alphatims.bruker
 import alphatims.utils
 from alphabase.spectral_library.base import SpecLibBase
-from . import calibration
-
 
 # external imports
 import logging
@@ -15,10 +13,24 @@ import numpy as np
 import matplotlib.patches as patches
 import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
+from scipy.stats import gaussian_kde
 
 from ctypes import Structure, c_double
 
 ISOTOPE_DIFF = 1.0032999999999674
+
+def density_scatter(x, y, axis, **kwargs):
+
+    # Calculate the point density
+    xy = np.vstack([x,y])
+    z = gaussian_kde(xy)(xy)
+
+    # Sort the points by density, so that the densest points are plotted last
+    idx = z.argsort()
+    x, y, z = x[idx], y[idx], z[idx]
+
+    axis.scatter(x, y, c=z, **kwargs)
+
 
 def rt_to_frame_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):
     """converts retention time limits to frame limits while including full precursor cycles"""
@@ -860,7 +872,7 @@ def recalibrate_mz(df, calibration_estimator, plot=True, plot_title='', save_pat
     if plot:
 
         fig, ax = plt.subplots(ncols=2, figsize=(6.5,3.5))
-        calibration.density_scatter(calculated_mz, observed_mass_error,ax[0], s=1)
+        density_scatter(calculated_mz, observed_mass_error,ax[0], s=1)
         ax[0].plot(calculated_mz, calibration_curve, color='red')
         ax[0].set_ylim(-120, 120)
 
@@ -873,7 +885,7 @@ def recalibrate_mz(df, calibration_estimator, plot=True, plot_title='', save_pat
         ax[0].set_ylabel('Mass error (ppm)')
         ax[0].set_xlabel('mz')
 
-        calibration.density_scatter(calculated_mz, calibrated_mass_error,ax[1], s=1)
+        density_scatter(calculated_mz, calibrated_mass_error,ax[1], s=1)
         ax[1].plot([np.min(calculated_mz), np.max(calculated_mz)], [0,0], color='red')
         ax[1].set_ylim(-30, 30)
         ax[1].set_ylabel('Mass error (ppm)')

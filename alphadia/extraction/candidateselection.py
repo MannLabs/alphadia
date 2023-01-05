@@ -123,9 +123,10 @@ class MS1CentricCandidateSelection(object):
             np.array([[-1.,-1.]])
         )
 
-        
-
         profile = np.sum(dense[0], axis=0)
+
+        if profile.shape[0] <  6 or profile.shape[1] < 6:
+            return []
 
         # smooth intensity channel
         new_height = profile.shape[0] - profile.shape[0]%2

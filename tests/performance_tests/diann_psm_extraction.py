@@ -74,7 +74,7 @@ if __name__ == "__main__":
     run["config"].upload(yaml_file)
     
     plan = Plan(yaml_file)
-    plan.load_speclib(psm_lib_location, dense=True)
+    plan.load_speclib(psm_lib_location, mode='dense')
     calibration = RunCalibration()
     conf = calibration.load_yaml(yaml_file)
 

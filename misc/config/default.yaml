@@ -1,10 +1,30 @@
 # configuration for the extraction plan
+version: 'alpha_0.2'
 extraction:
-  precursor:
+  initial_num_candidates: 1
+
+  initial_ms1_tolerance: 120
+  initial_ms2_tolerance: 120
+  initial_mobility_tolerance: 0.04
+  initial_rt_tolerance: 360
+
+  target_ms1_tolerance: 15
+  target_ms2_tolerance: 15
+  target_mobility_tolerance: 0.02
+  target_rt_tolerance: 30
+
+  max_epochs: 7
+
+  rt_heuristic: 180
+  batch_size: 2000
+  recalibration_target: 100
+  final_full_calibration: True
+
+  precursor_columns:
     mz_library: ['mz','precursor_mz']
     rt_library: ['rt','rt_norm']
     mobility_library: ['mobility']
-  fragment:
+  fragment_columns:
     mz_library: ['mz','predicted_mz']
 
 # configuration for the calibration manager
@@ -17,7 +37,7 @@ calibration:
       - name: mz
         model: LOESSRegression
         model_args:
-          n_kernels: 3
+          n_kernels: 2
         input_columns: 
           - mz_library
         target_columns:
@@ -30,7 +50,7 @@ calibration:
         - name: mz
           model: LOESSRegression
           model_args:
-            n_kernels: 3
+            n_kernels: 2
           input_columns: 
             - mz_library
           target_columns:
@@ -51,7 +71,7 @@ calibration:
         - name: mobility
           model: LOESSRegression
           model_args:
-            n_kernels: 3
+            n_kernels: 2
           input_columns: 
             - mobility_library
           target_columns:
