@@ -5,3 +5,4 @@ alphabase==0.1.3
 peptdeep
 progressbar
 neptune-client
+seaborn
