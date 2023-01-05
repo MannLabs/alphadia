@@ -24,28 +24,6 @@ if __name__ == "__main__":
     logging.getLogger().setLevel(logging.INFO)
     logging.info("Starting diann psm extraction performance test")
 
-    yaml_file = '/Users/georgwallmann/Documents/git/alphadia/misc/config/diann_lib.yaml'
-
-    raw_files = ['/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D1_1_2944.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D3_1_2946.d',]
-    x = [
-                
-                
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D4_1_2947.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D5_1_2948.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D6_1_2949.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep03_400s_30min_S1-D7_1_2950.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep03_400s_30min_S1-D8_1_2951.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep03_400s_30min_S1-D9_1_2952.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep04_400s_30min_S1-D10_1_2953.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep04_400s_30min_S1-D11_1_2954.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep04_400s_30min_S1-D12_1_2955.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep05_400s_30min_S1-E1_1_2956.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep05_400s_30min_S1-E2_1_2957.d',
-                '/Users/georgwallmann/Documents/data/brunner2022/diaPASEF_repetitions/20200827_TIMS04_EVO07_AnBr_1ng_dia_rep05_400s_30min_S1-E3_1_2958.d',
-                ]
- 
-
     # get test dir from environment variable
     try:
         test_dir = os.environ['TEST_DATA_DIR']
@@ -77,7 +55,12 @@ if __name__ == "__main__":
         update_datashare(element, output_dir)
 
     file_names = ['20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D1_1_2944.d',
-                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D2_1_2945.d']
+                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D2_1_2945.d',
+                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D3_1_2946.d',
+                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D4_1_2947.d',
+                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D5_1_2948.d',
+                '20200827_TIMS04_EVO07_AnBr_1ng_dia_rep02_400s_30min_S1-D6_1_2949.d',
+    ]
     raw_files = [os.path.join(output_dir, file) for file in file_names]
 
     print(raw_files)
