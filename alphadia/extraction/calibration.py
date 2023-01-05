@@ -13,13 +13,11 @@ import logging
 import pandas as pd
 import numpy as np
 import yaml 
-from . import calibration
-from .planning import recursive_update
-
+from .utils import density_scatter
 
 from sklearn.linear_model import LinearRegression
 from alphabase.statistics.regression import LOESSRegression
-from scipy.stats import gaussian_kde
+
 
 class Calibration():
     def __init__(self, 
@@ -499,14 +497,3 @@ class GlobalCalibration():
             plt.show()
 
 
-def density_scatter(x, y, axis, **kwargs):
-
-    # Calculate the point density
-    xy = np.vstack([x,y])
-    z = gaussian_kde(xy)(xy)
-
-    # Sort the points by density, so that the densest points are plotted last
-    idx = z.argsort()
-    x, y, z = x[idx], y[idx], z[idx]
-
-    axis.scatter(x, y, c=z, **kwargs)
