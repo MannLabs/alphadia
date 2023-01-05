@@ -10,3 +10,4 @@ ipykernel==6.4.0
 tqdm==4.61.1
 psutil==5.8.0
 progressbar
+neptune-client
