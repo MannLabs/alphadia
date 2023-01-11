@@ -34,6 +34,8 @@ import hashlib
 
 from typing import Union, List, Dict, Tuple, Optional
 
+
+
 def recursive_update(
             full_dict: dict, 
             update_dict: dict
@@ -159,6 +161,42 @@ class Plan:
         ) -> None:
         self._speclib = speclib
 
+    
+    def norm_to_rt(
+            self,
+            dia_data, 
+            norm_values, 
+            active_gradient_start=None, 
+            active_gradient_stop=None
+        ):
+
+        data = dia_data.frames.query('MsMsType == 0')[[
+            'Time', 'SummedIntensities']
+        ]
+        time = data['Time'].values
+        intensity = data['SummedIntensities'].values
+
+        lower_rt = time[0] if active_gradient_start is None else active_gradient_start
+        upper_rt = time[-1] if active_gradient_stop is None else active_gradient_stop
+
+        
+        mode = self.config['extraction']['norm_rt_mode'] if 'norm_rt_mode' in self.config['extraction'] else 'tic'
+
+        if mode == 'linear':
+            return np.interp(norm_values, [0,1], [lower_rt,upper_rt])
+            
+        elif mode == 'tic':
+            # get lower and upper rt slice
+            lower_idx = np.searchsorted(time, lower_rt)
+            upper_idx = np.searchsorted(time, upper_rt, side='right')
+            time = time[lower_idx:upper_idx]
+            intensity = intensity[lower_idx:upper_idx]
+            cum_intensity = np.cumsum(intensity)/np.sum(intensity)
+            return np.interp(norm_values, cum_intensity, time)
+
+        else:
+            raise ValueError(f'Unknown norm_rt_mode {mode}')
+
     def from_spec_lib_base(self, speclib_base):
 
         self.speclib = SpecLibFlat()
@@ -224,10 +262,10 @@ class Plan:
         elif 0 <= rt_series.min() <= 1:
             rt_type = 'norm'
 
-        elif rt_series.max() < self.config['rt_heuristic']:
+        elif rt_series.max() < self.config['extraction']['rt_heuristic']:
             rt_type = 'minutes'
 
-        elif rt_series.max() > self.config['rt_heuristic']:
+        elif rt_series.max() > self.config['extraction']['rt_heuristic']:
             rt_type = 'seconds'
 
         if rt_type == 'unknown':
@@ -290,7 +328,9 @@ class Plan:
                 # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
                 rt_min = self.config['extraction']['initial_rt_tolerance']/2
                 rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
-                precursor_df['rt_library'] = precursor_df['rt_library'] * (rt_max - rt_min) + rt_min
+
+
+                precursor_df['rt_library'] = self.norm_to_rt(raw,precursor_df['rt_library'].values, active_gradient_start=rt_min, active_gradient_stop=rt_max) 
 
                 yield raw, raw_name, precursor_df, self.speclib.fragment_df
                 
@@ -496,6 +536,8 @@ class Workflow:
             
             self.end_of_epoch()
 
+        
+
         if 'final_full_calibration' in self.config['extraction']:
             if self.config['extraction']['final_full_calibration']:
                 logging.info('Performing final calibration with all precursors')
@@ -510,6 +552,8 @@ class Workflow:
         pass
 
     def end_of_calibration(self):
+        self.calibration_manager.predict(self.precursors_flat, 'precursor')
+        self.calibration_manager.predict(self.fragments_flat, 'fragment')
         pass
 
     def recalibration(self, precursor_df):
@@ -525,7 +569,7 @@ class Workflow:
         mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df, 0.99)[0]
 
         fragment_calibration_df = unpack_fragment_info(precursor_df_filtered)
-        fragment_calibration_df = fragment_calibration_df.sort_values(by=['intensity'], ascending=True).head(10000)
+        fragment_calibration_df = fragment_calibration_df.sort_values(by=['intensity'], ascending=True).head(20000)
         self.calibration_manager.fit(fragment_calibration_df,'fragment', plot=True, neptune_run=self.run)
         m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(precursor_df, 0.70)[0]
         m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(precursor_df, 0.99)[0]
@@ -611,8 +655,11 @@ class Workflow:
        
     def extraction(self):
 
-        for key, value in self.progress.items():
-            self.run[f"eval/{key}"].log(value)
+        if self.run is not None:
+            for key, value in self.progress.items():
+                self.run[f"eval/{key}"].log(value)
+
+        self.progress["num_candidates"] = self.config['extraction']['target_num_candidates']
 
         features_df = self.extract_batch(self.precursors_flat)
         precursor_df = self.fdr_correction(features_df)
@@ -623,8 +670,9 @@ class Workflow:
         precursors_001 = len(precursor_df[precursor_df['qval'] < 0.001])
 
 
-        self.run["eval/precursors"].log(precursors_01)
+        
         if self.run is not None:
+            self.run["eval/precursors"].log(precursors_01)
             self.run.stop()
 
         logging.info(f'=== extraction finished, 0.05 FDR: {precursors_05:,}, 0.01 FDR: {precursors_01:,}, 0.001 FDR: {precursors_001:,} ===')

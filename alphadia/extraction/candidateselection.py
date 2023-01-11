@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import tqdm
 
 import pandas as pd
-
+import logging
 from .data import TimsTOFDIA
 from . import utils
 
@@ -22,6 +22,7 @@ class MS1CentricCandidateSelection(object):
             rt_column = 'rt_library',  
             precursor_mz_column = 'mz_library',
             mobility_column = 'mobility_library',
+            debug = False
         ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -79,6 +80,8 @@ class MS1CentricCandidateSelection(object):
         self.k = 6
         self.kernel = utils.kernel_2d_fft(self.k,4)
 
+        self.debug = debug
+
     def get_candidates(self, i):
 
         rt_limits = np.array(
@@ -132,31 +135,33 @@ class MS1CentricCandidateSelection(object):
         new_height = profile.shape[0] - profile.shape[0]%2
         new_width = profile.shape[1] - profile.shape[1]%2
         smooth = self.kernel(profile)
+
+        
         
         # cut first k elements from smooth representation with k being the kernel size
         # due to fft (?) smooth representation is shifted
         smooth = smooth[self.k:,self.k:]
 
+        if self.debug:
+            old_profile = profile.copy()
         profile[:smooth.shape[0], :smooth.shape[1]] = smooth
-
-
-
-        
         
 
         out = []
 
         # get all peak candidates
-        scan, dia_cycle, intensity = utils.find_peaks(profile, top_n=self.num_candidates)
+        peak_scan, peak_cycle, intensity = utils.find_peaks(profile, top_n=self.num_candidates)
 
+    
+        limits_scan = []
+        limits_cycle = []
+        for j in range(len(peak_scan)):
+            limit_scan, limit_cycle = utils.estimate_peak_boundaries_symmetric(profile, peak_scan[j], peak_cycle[j], f=0.99)
+            limits_scan.append(limit_scan)
+            limits_cycle.append(limit_cycle)
 
-        for j in range(len(scan)):
-            
-            mobility_limits, dia_cycle_limits = utils.estimate_peak_boundaries_symmetric(profile, scan[j], dia_cycle[j], f=0.99)
-
-   
-            fraction_nonzero, mz, intensity = utils.get_precursor_mz(dense, scan[j], dia_cycle[j])
-
+        for limit_scan, limit_cycle in zip(limits_scan, limits_cycle):
+            fraction_nonzero, mz, intensity = utils.get_precursor_mz(dense, peak_scan[j], peak_cycle[j])
             mass_error = (mz - precursor_mz)/mz*10**6
 
 
@@ -172,8 +177,8 @@ class MS1CentricCandidateSelection(object):
                 if self.has_mz_library:
                     out_dict['mz_library'] = self.precursors_flat.mz_library.values[i]
 
-                frame_center = frame_limits[0,0]+dia_cycle[j]*self.dia_data._cycle.shape[1]
-                scan_center = scan_limits[0,0]+scan[j]
+                frame_center = frame_limits[0,0]+peak_cycle[j]*self.dia_data._cycle.shape[1]
+                scan_center = scan_limits[0,0]+peak_scan[j]
 
                 out_dict.update({
                     'mz_observed':mz, 
@@ -181,12 +186,12 @@ class MS1CentricCandidateSelection(object):
                     'fraction_nonzero':fraction_nonzero,
                     'intensity':intensity, 
                     'scan_center':scan_center, 
-                    'scan_start':scan_limits[0,0]+mobility_limits[0], 
+                    'scan_start':scan_limits[0,0]+limit_scan[0], 
                     #'scan_stop':scan_limits[0,1],
-                    'scan_stop':scan_limits[0,0]+mobility_limits[1],
+                    'scan_stop':scan_limits[0,0]+limit_scan[1],
                     'frame_center':frame_center, 
-                    'frame_start':frame_limits[0,0]+dia_cycle_limits[0]*self.dia_data._cycle.shape[1],
-                    'frame_stop':frame_limits[0,0]+dia_cycle_limits[1]*self.dia_data._cycle.shape[1],
+                    'frame_start':frame_limits[0,0]+limit_cycle[0]*self.dia_data._cycle.shape[1],
+                    'frame_stop':frame_limits[0,0]+limit_cycle[1]*self.dia_data._cycle.shape[1],
                     'rt_library': self.precursors_flat['rt_library'].values[i],
                     'rt_observed': self.dia_data.rt_values[frame_center],
                     'mobility_library': self.precursors_flat['mobility_library'].values[i],
@@ -194,13 +199,58 @@ class MS1CentricCandidateSelection(object):
                 })
 
                 out.append(out_dict)
+
+        if self.debug:
+            visualize_candidates(old_profile, profile, peak_scan, peak_cycle, limits_scan, limits_cycle)
+       
  
         return out
 
     def __call__(self):
     
         candidates = []
-        for i in tqdm(range(len(self.precursors_flat))):
-            candidates += self.get_candidates(i)
+        if not self.debug:
+            for i in tqdm(range(len(self.precursors_flat))):
+                candidates += self.get_candidates(i)
+        else:
+            candidates += self.get_candidates(0)
     
         return pd.DataFrame(candidates)
+
+from matplotlib import patches
+
+def visualize_candidates(profile, smooth, peak_scan, peak_cycle, limits_scan, limits_cycle):
+    print(limits_scan, limits_cycle)
+    fig, ax = plt.subplots(1,2, figsize=(10,5))
+    ax[0].imshow(smooth, aspect='equal')
+    ax[1].imshow(profile, aspect='equal')
+    for i in range(len(peak_scan)):
+        ax[0].scatter(peak_cycle[i], peak_scan[i], c='r')
+        ax[0].text(peak_cycle[i]+1, peak_scan[i]+1, str(i), color='r')
+
+        ax[1].scatter(peak_cycle[i], peak_scan[i], c='r')
+
+        limit_scan = limits_scan[i]
+        limit_cycle = limits_cycle[i]
+
+        ax[0].add_patch(patches.Rectangle(
+            (limit_cycle[0], limit_scan[0]),   # (x,y)
+            limit_cycle[1]-limit_cycle[0],          # width
+            limit_scan[1]-limit_scan[0],          # height
+            fill=False,
+            edgecolor='r'
+        ))
+
+        ax[0].add_patch(patches.Rectangle(
+            (limit_cycle[0], limit_scan[0]),   # (x,y)
+            limit_cycle[1]-limit_cycle[0],          # width
+            limit_scan[1]-limit_scan[0],          # height
+            fill=False,
+            edgecolor='r'
+        ))
+
+        logging.info(f'peak {i}, scan: {peak_scan[i]}, cycle: {peak_cycle[i]}')
+        # width and height
+        logging.info(f'height: {limit_scan[1]-limit_scan[0]}, width: {limit_cycle[1]-limit_cycle[0]}')
+
+    plt.show()

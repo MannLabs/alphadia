@@ -225,9 +225,6 @@ class Calibration():
         else:
             plt.show()
 
-       
-
-
 class RunCalibration():
 
 
@@ -304,7 +301,6 @@ class RunCalibration():
             group_copy['estimators'] = [Calibration(**x) for x in group['estimators']]
             self.estimator_groups.append(group_copy)
 
-        
         
 class CalibrationModelProvider:
 
