@@ -279,8 +279,8 @@ class MS2ExtractionWorkflow():
         candidate_dict['num_fragments'] = len(fragment_order)
 
         # number of fragments with precursor correlation above 0.5
-        candidate_dict['num_fragments_fcorr_7'] = np.sum(precursor_correlations[fragment_order] > 0.7)
-        candidate_dict['num_fragments_fcorr_5'] = np.sum(precursor_correlations[fragment_order] > 0.5)
+        candidate_dict['num_fragments_pcorr_7'] = np.sum(precursor_correlations[fragment_order] > 0.7)
+        candidate_dict['num_fragments_pcorr_5'] = np.sum(precursor_correlations[fragment_order] > 0.5)
         candidate_dict['num_fragments_pcorr_3'] = np.sum(precursor_correlations[fragment_order] > 0.3)
         candidate_dict['num_fragments_pcorr_2'] = np.sum(precursor_correlations[fragment_order] > 0.2)
         candidate_dict['num_fragments_pcorr_1'] = np.sum(precursor_correlations[fragment_order] > 0.1)
@@ -406,9 +406,18 @@ def fdr_correction(features,
        'mono_precursor_mass_error', 'mono_precursor_observations',
        'mono_precursor_fraction', 'top_precursor_isotope',
        'log_top_precursor_intensity', 'top_precursor_mass_error', 'num_fragments',
-       'num_fragments_pcorr_5', 'num_fragments_pcorr_3',
-       'num_fragments_fcorr_3', 'num_fragments_fcorr_2',
-       'num_fragments_fcorr_1', 'mean_pcorr_top_5', 'mean_pcorr_top_10',
+       'num_fragments_pcorr_7',
+       'num_fragments_pcorr_5',
+       'num_fragments_pcorr_3',
+       'num_fragments_pcorr_2',
+       'num_fragments_pcorr_1',
+       'num_fragments_fcorr_7',
+       'num_fragments_fcorr_5',
+       'num_fragments_fcorr_3',
+       'num_fragments_fcorr_2',
+       'num_fragments_fcorr_1', 
+       'mean_pcorr_top_5',
+       'mean_pcorr_top_10',
        'mean_pcorr_top_15', 'mean_fcorr_top_5', 'mean_fcorr_top_10',
        'mean_fcorr_top_15','fragment_intensity_top_5',
        'fragment_intensity_top_10', 'fragment_intensity',
