@@ -701,6 +701,45 @@ def amean0(array):
     return out
 
 @alphatims.utils.njit()
+def _and_envelope(input_profile, output_envelope):
+    """
+    Calculate the envelope of a profile spectrum.
+    """
+    
+    for i in range(1, len(input_profile) - 2):
+        if (input_profile[i] < input_profile[i-1]) & (input_profile[i] < input_profile[i+1]):
+            output_envelope[i] = (input_profile[i-1] + input_profile[i+1]) / 2
+
+@alphatims.utils.njit()
+def _or_envelope(input_profile, output_envelope):
+    """
+    Calculate the envelope of a profile spectrum.
+    """
+    
+    for i in range(1, len(input_profile) - 2):
+        if (input_profile[i] < input_profile[i-1]) or (input_profile[i] < input_profile[i+1]):
+            output_envelope[i] = (input_profile[i-1] + input_profile[i+1]) / 2
+       
+
+@alphatims.utils.njit()
+def and_envelope(profile):
+    envelope = profile.copy()
+
+    for i in range(len(profile)):
+        _and_envelope(profile[i],envelope[i])
+
+    return envelope
+
+@alphatims.utils.njit()
+def or_envelope(profile):
+    envelope = profile.copy()
+
+    for i in range(len(profile)):
+        _or_envelope(profile[i],envelope[i])
+
+    return envelope
+
+@alphatims.utils.njit()
 def calculate_correlations(
         dense_precursor, 
         dense_fragments
@@ -726,10 +765,10 @@ def calculate_correlations(
 
     # calculate the fragment profiles 
     # RT
-    fragment_frame_profile = np.sum(dense_fragments, axis = 1)
-
+    fragment_frame_profile = or_envelope(np.sum(dense_fragments, axis = 1))
+  
     # mobility
-    fragment_scan_profile = np.sum(dense_fragments, axis = 2)
+    fragment_scan_profile = or_envelope(np.sum(dense_fragments, axis = 2))
 
     # calulate the precursor profiles 
     # RT
@@ -737,6 +776,7 @@ def calculate_correlations(
 
     # mobility
     precursor_scan_profile = np.sum(dense_precursor,axis=1)
+
 
     # F fragments and 1 precursors are concatenated, resulting in a (F+1, F+1) correlation matrix
     corr_frame = np.corrcoef(fragment_frame_profile, precursor_frame_profile)
@@ -784,7 +824,7 @@ def calculate_mass_deviation(
 
     scan_center = dense_fragments_mz.shape[1] // 2
     frame_center = dense_fragments_mz.shape[2] // 2
-    center_view = dense_fragments_mz[:, scan_center - size:scan_center + size, frame_center - size:frame_center + size]
+    center_view = dense_fragments_mz#[:, scan_center - size:scan_center + size, frame_center - size:frame_center + size]
 
     idxs, scans, precs = np.nonzero(center_view > 0)
 

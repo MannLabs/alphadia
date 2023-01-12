@@ -1,4 +1,7 @@
 on:
+  pull_request:
+    branches:
+      - 'alpha'
   workflow_dispatch:
 
 name: performance testing

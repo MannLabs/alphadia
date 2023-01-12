@@ -1,7 +1,8 @@
 # configuration for the extraction plan
-version: 'alpha_0.2'
+version: 'alpha_0.3'
 extraction:
   initial_num_candidates: 1
+  target_num_candidates: 2
 
   initial_ms1_tolerance: 120
   initial_ms2_tolerance: 120
@@ -19,6 +20,8 @@ extraction:
   batch_size: 2000
   recalibration_target: 100
   final_full_calibration: True
+
+  norm_rt_mode: 'tic'
 
   precursor_columns:
     mz_library: ['mz','precursor_mz']
