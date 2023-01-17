@@ -19,6 +19,34 @@ from ctypes import Structure, c_double
 
 ISOTOPE_DIFF = 1.0032999999999674
 
+def recursive_update(
+            full_dict: dict, 
+            update_dict: dict
+        ):
+        """recursively update a dict with a second dict. The dict is updated inplace.
+
+        Parameters
+        ----------
+        full_dict : dict
+            dict to be updated, is updated inplace.
+
+        update_dict : dict
+            dict with new values
+
+        Returns
+        -------
+        None
+
+        """
+        for key, value in update_dict.items():
+            if key in full_dict.keys():
+                if isinstance(value, dict):
+                    recursive_update(full_dict[key], update_dict[key])
+                else:
+                    full_dict[key] = value
+            else:
+                full_dict[key] = value
+
 def density_scatter(x, y, axis, **kwargs):
 
     # Calculate the point density
@@ -659,8 +687,6 @@ def find_peaks(a, top_n=3):
     scan = scan[idx]
     dia_cycle = dia_cycle[idx]
     intensity = intensity[idx]
-
-
 
     return scan, dia_cycle, intensity
 

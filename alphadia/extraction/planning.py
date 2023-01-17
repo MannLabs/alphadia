@@ -1,16 +1,22 @@
+# native imports
 from typing_extensions import Self
-
-from matplotlib.style import library
-import alphadia.annotation
-
-import pandas as pd 
-import neptune.new as neptune
-from neptune.new.types import File
-
 import logging
 import socket
 from pathlib import Path
+import yaml
+import os
+import hashlib
+from typing import Union, List, Dict, Tuple, Optional
 
+# alphadia imports
+from alphadia.extraction.data import TimsTOFDIA_
+from alphadia.extraction.calibration import RunCalibration
+from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
+from alphadia.extraction.scoring import fdr_correction, unpack_fragment_info, MS2ExtractionWorkflow
+from alphadia.extraction import utils
+
+# alpha family imports
+import alphatims
 
 import alphabase.psm_reader
 import alphabase.peptide.precursor
@@ -19,51 +25,12 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.reader import SWATHLibraryReader
 
-from alphadia.extraction.data import TimsTOFDIA
-from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
-from alphadia.extraction.scoring import fdr_correction, unpack_fragment_info, MS2ExtractionWorkflow
-
-import yaml
-import os
-
-from . import calibration
-
+# third party imports
 import numpy as np
-import hashlib
-
-from typing import Union, List, Dict, Tuple, Optional
-
-
-
-def recursive_update(
-            full_dict: dict, 
-            update_dict: dict
-        ):
-        """recursively update a dict with a second dict. The dict is updated inplace.
-
-        Parameters
-        ----------
-        full_dict : dict
-            dict to be updated, is updated inplace.
-
-        update_dict : dict
-            dict with new values
-
-        Returns
-        -------
-        None
-
-        """
-        for key, value in update_dict.items():
-            if key in full_dict.keys():
-                if isinstance(value, dict):
-                    recursive_update(full_dict[key], update_dict[key])
-                else:
-                    full_dict[key] = value
-            else:
-                full_dict[key] = value
-
+import pandas as pd 
+from matplotlib.style import library
+import neptune.new as neptune
+from neptune.new.types import File
 
 class Plan:
 
@@ -73,7 +40,9 @@ class Plan:
             config_update_path : Union[str, None] = None,
             config_update : Union[Dict, None] = None
         ) -> None:
-        """Highest level class to plan a DIA extraction. Owns the input file list, speclib and the config.
+        """Highest level class to plan a DIA Search. 
+        Owns the input file list, speclib and the config.
+        Performs required manipulation of the spectral library like transforming RT scales and adding columns.
 
         Parameters
         ----------
@@ -108,12 +77,12 @@ class Plan:
             logging.info(f'loading config update from {config_update_path}')
             with open(config_update_path, 'r') as f:
                 config_update_fromyaml = yaml.safe_load(f)
-            recursive_update(self.config, config_update_fromyaml)
+            utils.recursive_update(self.config, config_update_fromyaml)
 
         # 3. load update config from dict
         if config_update is not None:
             logging.info(f'Applying config update from dict')
-            recursive_update(self.config, config_update)
+            utils.recursive_update(self.config, config_update)
 
         
 
@@ -164,23 +133,67 @@ class Plan:
     
     def norm_to_rt(
             self,
-            dia_data, 
-            norm_values, 
-            active_gradient_start=None, 
-            active_gradient_stop=None
+            dia_data : alphatims.bruker.TimsTOF, 
+            norm_values : np.ndarray, 
+            active_gradient_start : Union[float,None] = None, 
+            active_gradient_stop : Union[float,None] = None,
+            mode = None
         ):
+        """Convert normalized retention time values to absolute retention time values.
 
+        Parameters
+        ----------
+        dia_data : alphatims.bruker.TimsTOF
+            TimsTOF object containing the DIA data.
+
+        norm_values : np.ndarray
+            Array of normalized retention time values.
+
+        active_gradient_start : float, optional
+            Start of the active gradient in seconds, by default None. 
+            If None, the value from the config is used. 
+            If not defined in the config, it is set to zero.
+
+        active_gradient_stop : float, optional
+            End of the active gradient in seconds, by default None.
+            If None, the value from the config is used.
+            If not defined in the config, it is set to the last retention time value.
+
+        mode : str, optional
+            Mode of the gradient, by default None.
+            If None, the value from the config is used which should be 'tic' by default
+
+        """
+
+        # retrive the converted absolute intensities
         data = dia_data.frames.query('MsMsType == 0')[[
             'Time', 'SummedIntensities']
         ]
         time = data['Time'].values
         intensity = data['SummedIntensities'].values
 
-        lower_rt = time[0] if active_gradient_start is None else active_gradient_start
-        upper_rt = time[-1] if active_gradient_stop is None else active_gradient_stop
+        # determine if the gradient start and stop are defined in the config
+        if active_gradient_start is None:
+            if 'active_gradient_start' in self.config['extraction']:
+                lower_rt = self.config['extraction']['active_gradient_start']
+            else:
+                lower_rt = time[0] + self.config['extraction']['initial_rt_tolerance']/2
+        else:
+            lower_rt = active_gradient_start
 
-        
-        mode = self.config['extraction']['norm_rt_mode'] if 'norm_rt_mode' in self.config['extraction'] else 'tic'
+        if active_gradient_stop is None:
+            if 'active_gradient_stop' in self.config['extraction']:
+                upper_rt = self.config['extraction']['active_gradient_stop']
+            else:
+                upper_rt = time[-1] - (self.config['extraction']['initial_rt_tolerance']/2)
+        else:
+            upper_rt = active_gradient_stop
+
+        # determine the mode based on the config or the function parameter
+        if mode is None:
+            mode = self.config['extraction']['norm_rt_mode'] if 'norm_rt_mode' in self.config['extraction'] else 'tic'
+        else:
+            mode = mode.lower()
 
         if mode == 'linear':
             return np.interp(norm_values, [0,1], [lower_rt,upper_rt])
@@ -199,46 +212,70 @@ class Plan:
 
     def from_spec_lib_base(self, speclib_base):
 
-        self.speclib = SpecLibFlat()
-        self.speclib.parse_base_library(speclib_base)
+        speclib = SpecLibFlat()
+        speclib.parse_base_library(speclib_base)
+
+        self.from_spec_lib_flat(speclib)
+
+    def from_spec_lib_flat(self, speclib_flat):
+
+        self.speclib = speclib_flat
 
         self.rename_columns(self.speclib._precursor_df, 'precursor_columns')
         self.rename_columns(self.speclib._fragment_df, 'fragment_columns')
 
+        self.log_library_stats()
 
-    def load_speclib(self, speclib_path, mode='dense'):
-        if mode == 'dense':
-            speclib_dense = SpecLibBase()
-            speclib_dense.load_hdf(speclib_path, load_mod_seq=True)
+        self.add_precursor_columns(self.speclib.precursor_df)
 
-            self.speclib = SpecLibFlat()
-            self.speclib.parse_base_library(speclib_dense)
+        output_columns = self.config['extraction']['output_columns']
+        existing_columns = self.speclib.precursor_df.columns
+        existing_output_columns = [c for c in output_columns if c in existing_columns]
 
-        elif mode == 'flat':
-            self.speclib = SpecLibFlat()
-            self.speclib.load_hdf(speclib_path, load_mod_seq=True)
+        self.speclib.precursor_df = self.speclib.precursor_df[existing_output_columns]
+        self.speclib.precursor_df = self.speclib.precursor_df.sort_values('elution_group_idx')
+        self.speclib.precursor_df = self.speclib.precursor_df.reset_index(drop=True)
 
-        elif mode == 'swath':
-            speclib_dense = SWATHLibraryReader()
-            speclib_dense.import_file(speclib_path)
+    def log_library_stats(self):
 
-            if 'decoy' not in speclib_dense.precursor_df.columns:
-                logging.info('adding decoys')
-                speclib_dense.decoy = 'diann'
-                speclib_dense.append_decoy_sequence()
-                speclib_dense.calc_precursor_mz()
+        logging.info(f'========= Library Stats =========')
+        logging.info(f'Number of precursors: {len(self.speclib.precursor_df):,}')
 
-            self.speclib = SpecLibFlat()
-            self.speclib.parse_base_library(speclib_dense)
+        if 'decoy' in self.speclib.precursor_df.columns:
+            n_targets = len(self.speclib.precursor_df.query('decoy == False'))
+            n_decoys = len(self.speclib.precursor_df.query('decoy == True'))
+            logging.info(f'\tthereof targets:{n_targets:,}')
+            logging.info(f'\tthereof decoys: {n_decoys:,}')
+        else:
+            logging.warning(f'no decoy column was found')
 
-        self.rename_columns(self.speclib.precursor_df, 'precursor_columns')
-        self.rename_columns(self.speclib.fragment_df, 'fragment_columns')
+        if 'elution_group_idx' in self.speclib.precursor_df.columns:
+            n_elution_groups = len(self.speclib.precursor_df['elution_group_idx'].unique())
+            average_precursors_per_group = len(self.speclib.precursor_df)/n_elution_groups
+            logging.info(f'Number of elution groups: {n_elution_groups:,}')
+            logging.info(f'\taverage size: {average_precursors_per_group:.2f}')
+
+        else:
+            logging.warning(f'no elution_group_idx column was found')
+
+        if 'proteins' in self.speclib.precursor_df.columns:
+            n_proteins = len(self.speclib.precursor_df['proteins'].unique())
+            logging.info(f'Number of proteins: {n_proteins:,}')
+        else:
+            logging.warning(f'no proteins column was found')
+
+        if 'isotope_apex_offset' in self.speclib.precursor_df.columns:
+            logging.info(f'Isotope_apex_offset column found')
+        else:
+            logging.warning(f'No isotope_apex_offset column was found')
+        
+        logging.info(f'=================================')
+
 
         
-
     def get_rt_type(self, speclib):
         """check the retention time type of a spectral library
-        # possible options: 'seconds', 'minutes', 'norm', 'irt'
+    
 
         Parameters
         ----------
@@ -294,6 +331,24 @@ class Plan:
         else:
             logging.error(f'no {group} columns specified in extraction config')
 
+    def add_precursor_columns(self, dataframe):
+
+        if not 'precursor_idx' in dataframe.columns:
+            dataframe['precursor_idx'] = np.arange(len(dataframe))
+            logging.warning(f'no precursor_idx column found, creating one')
+
+        if not 'elution_group_idx' in dataframe.columns:
+            dataframe['elution_group_idx'] = self.get_elution_group_idx(dataframe, strategy='precursor')
+            logging.warning(f'no elution_group_idx column found, creating one')
+
+    def get_elution_group_idx(self, dataframe, strategy='precursor'):
+
+        if strategy == 'precursor':
+            return dataframe['precursor_idx']
+
+        else:
+            raise NotImplementedError(f'elution group strategy {strategy} not implemented')
+
     def get_run_data(self):
         """Generator for raw data and spectral library."""
         
@@ -307,45 +362,43 @@ class Plan:
 
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_file_list:
-            raw = TimsTOFDIA(raw_location)
+            raw = TimsTOFDIA_(raw_location)
             raw_name = Path(raw_location).stem
 
+            precursor_df = self.speclib.precursor_df.copy()
+            precursor_df['raw_name'] = raw_name
+
             if rt_type == 'seconds' or rt_type == 'unknown':
-                yield raw, raw_name, self.speclib.precursor_df, self.speclib.fragment_df
+                yield raw, precursor_df, self.speclib.fragment_df
             
             elif rt_type == 'minutes':
-                precursor_df = self.speclib.precursor_df.copy()
                 precursor_df['rt_library'] *= 60
 
-                yield raw, raw_name, precursor_df, self.speclib.fragment_df
+                yield raw, precursor_df, self.speclib.fragment_df
 
             elif rt_type == 'irt':
                 raise NotImplementedError()
             
             elif rt_type == 'norm':
-                precursor_df = self.speclib.precursor_df.copy()
-
                 # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
                 rt_min = self.config['extraction']['initial_rt_tolerance']/2
                 rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
 
-
                 precursor_df['rt_library'] = self.norm_to_rt(raw,precursor_df['rt_library'].values, active_gradient_start=rt_min, active_gradient_stop=rt_max) 
 
-                yield raw, raw_name, precursor_df, self.speclib.fragment_df
+                yield raw, precursor_df, self.speclib.fragment_df
                 
     def run(self, output_folder, log_neptune=False, neptune_tags=[]):
 
 
         dataframes = []
 
-        for dia_data, raw_name, precursors_flat, fragments_flat in self.get_run_data():
+        for dia_data, precursors_flat, fragments_flat in self.get_run_data():
 
             try:
                 workflow = Workflow(
                     self.config, 
                     dia_data, 
-                    raw_name, 
                     precursors_flat, 
                     fragments_flat, 
                     log_neptune=log_neptune,
@@ -372,7 +425,6 @@ class Workflow:
             self, 
             config, 
             dia_data, 
-            raw_name,
             precursors_flat, 
             fragments_flat,
             log_neptune=False,
@@ -380,9 +432,10 @@ class Workflow:
         ):
         self.config = config
         self.dia_data = dia_data
-        self.raw_name = raw_name
+        self.raw_name = precursors_flat.iloc[0]['raw_name']
         self.precursors_flat = precursors_flat
         self.fragments_flat = fragments_flat
+
 
         if log_neptune:
             try:
@@ -421,11 +474,13 @@ class Workflow:
 
     def get_exponential_batches(self, step):
         """Get the number of batches for a given step
+        This plan has the shape:
+        1, 1, 1, 2, 4, 8, 16, 32, 64, ...
         """
         return int(2 ** max(step - 3,0))
 
     def get_batch_plan(self):
-        number_of_batches = len(self.precursors_flat) // self.config['extraction']['batch_size']
+        n_eg = self.precursors_flat['elution_group_idx'].nunique()
 
         plan = []
 
@@ -433,9 +488,9 @@ class Workflow:
         step = 0
         start_index = 0
 
-        while start_index < len(self.precursors_flat):
+        while start_index < n_eg:
             n_batches = self.get_exponential_batches(step)
-            stop_index = min(start_index + n_batches * batch_size, len(self.precursors_flat))
+            stop_index = min(start_index + n_batches * batch_size, n_eg)
             plan.append((start_index, stop_index))
             step += 1
             start_index = stop_index
@@ -448,6 +503,7 @@ class Workflow:
         self.calibration_manager.load_config(self.config)
         self.batch_plan = self.get_batch_plan()
 
+        # initialize the progress dict
         self.progress = {
             'current_epoch': 0,
             'current_step': 0,
@@ -469,11 +525,13 @@ class Workflow:
         if self.run is not None:
             self.run["eval/epoch"].log(current_epoch)
 
-        self.precursors_flat = self.precursors_flat.sample(frac=1).reset_index(drop=True)
+        self.elution_group_order = self.precursors_flat['elution_group_idx'].sample(frac=1).values
+
 
         self.calibration_manager.predict(self.precursors_flat, 'precursor')
         self.calibration_manager.predict(self.fragments_flat, 'fragment')
 
+        # make updates to the progress dict depending on the epoch
         if self.progress['current_epoch'] > 0:
             self.progress['num_candidates'] = 1
             self.progress['recalibration_target'] = self.config['extraction']['recalibration_target'] * (1+current_epoch)
@@ -486,7 +544,7 @@ class Workflow:
             for key, value in self.progress.items():
                 self.run[f"eval/{key}"].log(value)
 
-        logging.info(f'=== Epoch {self.progress["current_epoch"]}, step {current_step}, extracting precursors {start_index} to {stop_index} ===')
+        logging.info(f'=== Epoch {self.progress["current_epoch"]}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===')
 
     def check_epoch_conditions(self):
 
@@ -511,7 +569,8 @@ class Workflow:
         self.start_of_calibration()
         for current_epoch in range(self.config['extraction']['max_epochs']):
             self.start_of_epoch(current_epoch)
-
+        
+            
             if self.check_epoch_conditions():
                 pass
             else:
@@ -521,8 +580,10 @@ class Workflow:
             for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
                 self.start_of_step(current_step, start_index, stop_index)
 
-                batch = self.precursors_flat.iloc[start_index:stop_index]
-                features += [self.extract_batch(batch)]
+                eg_idxes = self.elution_group_order[start_index:stop_index]
+                batch_df = self.precursors_flat[self.precursors_flat['elution_group_idx'].isin(eg_idxes)]
+                
+                features += [self.extract_batch(batch_df)]
                 features_df = pd.concat(features)
 
                 logging.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
