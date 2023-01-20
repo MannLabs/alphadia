@@ -17,7 +17,7 @@ extraction:
   max_epochs: 7
 
   rt_heuristic: 180
-  batch_size: 20000
+  batch_size: 2000
   recalibration_target: 100
   final_full_calibration: True
 

@@ -209,7 +209,10 @@ class TimsTOFJIT(object):
             end = self.push_indptr[push_index + 1]
             idx = start
             for i, (tof_start, tof_stop, tof_step) in enumerate(tof_slices):
-                idx += np.searchsorted(self.tof_indices[idx: end], tof_start)
+                # Instead of leaving it at the end of the first tof slice it's reset to the start to allow for 
+                # Overlap of tof slices
+                start_idx = np.searchsorted(self.tof_indices[idx: end], tof_start)
+                idx += start_idx
                 tof_value = self.tof_indices[idx]
                 while (tof_value < tof_stop) and (idx < end):
                     if tof_value in range(tof_start, tof_stop, tof_step):
@@ -219,6 +222,7 @@ class TimsTOFJIT(object):
                         #break  # TODO what if multiple hits?
                     idx += 1
                     tof_value = self.tof_indices[idx]
+                idx = start + start_idx
             indptr.append(len(values))
         return np.array(indptr), np.array(values), np.array(columns)
 
@@ -329,7 +333,8 @@ class TimsTOFJIT(object):
             frame_limits,
             scan_limits,
             tof_limits,
-            quadrupole_limits
+            quadrupole_limits,
+            skip_mz,
         ):
 
         push_indices, absolute_precursor_index  = self.get_dia_push_indices(
@@ -404,7 +409,12 @@ class TimsTOFJIT(object):
         intensities = self.intensity_values[raw_indices]
 
         # number of channels: intensity, mz
-        n_channels = 2
+        if skip_mz:
+            n_channels = 1
+        else:
+            n_channels = 2
+        
+        
 
         n_tof_slices = len(tof_limits)
 
@@ -426,13 +436,13 @@ class TimsTOFJIT(object):
             p_slice = raw_relative_precursor_index[i]
             dense_output[0, tof_slice, p_slice ,mobility, precursor_cycle] += intensity
 
-        # create dense weighted mz
-        for i, (tof_slice, intensity, mz) in enumerate(zip(tof_slice_ptr, intensities, mz_values)):
-            mobility = scan_indices[i]-mobility_start
-            precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
-            p_slice = raw_relative_precursor_index[i]
-            dense_output[1,tof_slice, p_slice, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,tof_slice, p_slice, mobility, precursor_cycle])
-
+        if not skip_mz:
+            # create dense weighted mz
+            for i, (tof_slice, intensity, mz) in enumerate(zip(tof_slice_ptr, intensities, mz_values)):
+                mobility = scan_indices[i]-mobility_start
+                precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
+                p_slice = raw_relative_precursor_index[i]
+                dense_output[1,tof_slice, p_slice, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,tof_slice, p_slice, mobility, precursor_cycle])
 
         return dense_output, precursor_index
 

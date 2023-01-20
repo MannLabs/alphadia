@@ -598,7 +598,8 @@ def estimate_peak_boundaries_symmetric(
         scan_center, 
         dia_cycle_center,
         f = 0.95,
-        min_size = 5,
+        min_size_mobility = 5,
+        min_size_rt = 5,
         max_size = 15
     ):
     
@@ -612,10 +613,10 @@ def estimate_peak_boundaries_symmetric(
     mobility_max_len = min(a.shape[0], a.shape[0]-scan_center)
     mobility_max_len = int(min(mobility_max_len, max_size))
     
-    mobility_limit = min_size
+    mobility_limit = min_size_mobility
 
 
-    for s in range(min_size,mobility_max_len):
+    for s in range(min_size_mobility,mobility_max_len):
 
         intensity = (a[scan_center-s,dia_cycle_center]+a[scan_center+s,dia_cycle_center])/2
         if trailing_intensity * f >= intensity:
@@ -635,9 +636,9 @@ def estimate_peak_boundaries_symmetric(
     dia_cycle_max_len = min(a.shape[1], a.shape[1]-dia_cycle_center)
     dia_cycle_max_len = int(min(dia_cycle_max_len, max_size))
     
-    dia_cycle_limit = min_size
+    dia_cycle_limit = min_size_rt
 
-    for s in range(min_size, dia_cycle_max_len):
+    for s in range(min_size_rt, dia_cycle_max_len):
 
         intensity = (a[scan_center,dia_cycle_center-s]+a[scan_center,dia_cycle_center+s])/2
         if trailing_intensity * f >= intensity:
@@ -691,26 +692,30 @@ def find_peaks(a, top_n=3):
     return scan, dia_cycle, intensity
 
 @alphatims.utils.njit()
-def get_precursor_mz(dense, scan, dia_cycle):
+def get_precursor_mz(dense_intensity, dense_mz, scan, dia_cycle):
     """ create a fixed window around the peak and extract the mz as well as the intensity
     
     """
     # window size around peak
-    w = 2
+    w = 4
 
     # extract mz
-    mz_window = dense[1,0,max(scan-w,0):scan+w,max(dia_cycle-w,0):dia_cycle+w].flatten()
-    mask = (mz_window>0)
+    mz_window = dense_mz[
+        max(scan-w,0):scan+w,
+        max(dia_cycle-w,0):dia_cycle+w
+    ].flatten()
+
+    mask = (mz_window > 0)
     fraction_nonzero = np.mean(mask.astype('int8'))
 
     if fraction_nonzero > 0:
         mz = np.mean(mz_window[mask])
     else:
         mz = -1
-    #extract intensity
-    intensity = np.sum(dense[0,0,max(scan-w,0):scan+w,max(dia_cycle-w,0):dia_cycle+w])
 
-    return fraction_nonzero, mz, intensity
+    return fraction_nonzero, mz
+
+
 
 @alphatims.utils.njit()
 def amean1(array):
