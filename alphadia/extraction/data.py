@@ -335,13 +335,28 @@ class TimsTOFJIT(object):
             tof_limits,
             quadrupole_limits,
             skip_mz,
+            dia_mz_cycle = None
         ):
+
+        
 
         push_indices, absolute_precursor_index  = self.get_dia_push_indices(
             frame_limits,
             scan_limits,
             quadrupole_limits,
+            dia_mz_cycle = dia_mz_cycle
         )
+        
+        # as creating empty array fails for some weird reason, a 1 sized array is returned
+        if len(push_indices) == 0:
+
+            # suggested way tto create an empty but typed array
+            # https://numba.readthedocs.io/en/stable/user/troubleshoot.html#my-code-has-an-untyped-list-problem
+            x = np.array([[[[[np.float64(x) for x in range(0)]]]]])
+            y = np.array([np.int64(x) for x in range(0)])
+            return x, y
+            
+        
 
         # The precursor cycle is the 3rd dimension of the dense precursor representation
         # The 3rd axis could theoretically have the length of all existing precursor cycles
@@ -358,7 +373,7 @@ class TimsTOFJIT(object):
         n_precursor_indices = len(precursor_index)
         precursor_index_reverse = np.zeros(np.max(precursor_index)+1, dtype=np.int64)
         precursor_index_reverse[precursor_index] = np.arange(len(precursor_index))
-        
+   
         push_ptr, raw_indices, tof_slice_ptr = self.filter_tof_to_csr(
             tof_limits, 
             push_indices, 
@@ -443,7 +458,7 @@ class TimsTOFJIT(object):
                 precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
                 p_slice = raw_relative_precursor_index[i]
                 dense_output[1,tof_slice, p_slice, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,tof_slice, p_slice, mobility, precursor_cycle])
-
+        
         return dense_output, precursor_index
 
 class TimsTOFDIA(alphatims.bruker.TimsTOF):
@@ -559,7 +574,7 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
             tof_limits,
             quadrupole_limits
         ):
-
+        
         # push indices contains the indices for all pushes within the frame, scan limits
         push_indices = alphatims.bruker.get_dia_push_indices(
             frame_limits,
@@ -577,7 +592,7 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
             push_indices, 
         )
 
-
+        
         push_len = np.diff(push_ptr)
 
         raw_push_indices = np.repeat(push_indices, push_len)

@@ -14,6 +14,7 @@ from alphadia.extraction.calibration import RunCalibration
 from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.scoring import fdr_correction, unpack_fragment_info, MS2ExtractionWorkflow
 from alphadia.extraction import utils
+from alphadia.extraction.quadrupole import SimpleQuadrupole
 
 # alpha family imports
 import alphatims
@@ -212,7 +213,7 @@ class Plan:
 
     def from_spec_lib_base(self, speclib_base):
 
-        speclib = SpecLibFlat()
+        speclib = SpecLibFlat(min_fragment_intensity=0.0001)
         speclib.parse_base_library(speclib_base)
 
         self.from_spec_lib_flat(speclib)
@@ -230,6 +231,7 @@ class Plan:
 
         output_columns = self.config['extraction']['output_columns']
         existing_columns = self.speclib.precursor_df.columns
+        output_columns += [f'i_{i}' for i in utils.get_isotope_columns(existing_columns)]
         existing_output_columns = [c for c in output_columns if c in existing_columns]
 
         self.speclib.precursor_df = self.speclib.precursor_df[existing_output_columns]
@@ -269,6 +271,11 @@ class Plan:
         else:
             logging.warning(f'No isotope_apex_offset column was found')
         
+        isotopes = utils.get_isotope_columns(self.speclib.precursor_df.columns)
+
+        if len(isotopes) > 0:
+            logging.info(f'Isotopes Distribution for {len(isotopes)} isotopes')
+
         logging.info(f'=================================')
 
 
@@ -395,6 +402,8 @@ class Plan:
 
         for dia_data, precursors_flat, fragments_flat in self.get_run_data():
 
+            raw_name = precursors_flat.iloc[0]['raw_name']
+
             try:
                 workflow = Workflow(
                     self.config, 
@@ -406,6 +415,7 @@ class Plan:
                     )
                 
                 workflow.calibration()
+                return
                 df = workflow.extraction()
                 df = df[df['qval'] < 0.01]
                 df = df[df['decoy'] == 0]
@@ -533,7 +543,6 @@ class Workflow:
 
         # make updates to the progress dict depending on the epoch
         if self.progress['current_epoch'] > 0:
-            self.progress['num_candidates'] = 1
             self.progress['recalibration_target'] = self.config['extraction']['recalibration_target'] * (1+current_epoch)
 
     def start_of_step(self, current_step, start_index, stop_index):
@@ -577,20 +586,24 @@ class Workflow:
                 break
         
             features = []
+            fragments = []
             for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
                 self.start_of_step(current_step, start_index, stop_index)
 
                 eg_idxes = self.elution_group_order[start_index:stop_index]
                 batch_df = self.precursors_flat[self.precursors_flat['elution_group_idx'].isin(eg_idxes)]
                 
-                features += [self.extract_batch(batch_df)]
+                feature_df, fragment_df = self.extract_batch(batch_df)
+                features += [feature_df]
+                fragments += [fragment_df]
                 features_df = pd.concat(features)
+                fragments_df = pd.concat(fragments)
 
                 logging.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
                 precursor_df = self.fdr_correction(features_df)
 
                 if self.check_recalibration(precursor_df):
-                    self.recalibration(precursor_df)
+                    self.recalibration(precursor_df, fragments_df)
                     break
                 else:
                     pass
@@ -602,9 +615,9 @@ class Workflow:
         if 'final_full_calibration' in self.config['extraction']:
             if self.config['extraction']['final_full_calibration']:
                 logging.info('Performing final calibration with all precursors')
-                features_df = self.extract_batch(self.precursors_flat)
+                features_df, fragments_df = self.extract_batch(self.precursors_flat)
                 precursor_df = self.fdr_correction(features_df)
-                self.recalibration(precursor_df)
+                self.recalibration(precursor_df, fragments_df)
 
         self.end_of_calibration()
 
@@ -617,28 +630,33 @@ class Workflow:
         self.calibration_manager.predict(self.fragments_flat, 'fragment')
         pass
 
-    def recalibration(self, precursor_df):
-        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.001]
+    def recalibration(self, precursor_df, fragments_df):
+        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.01]
         precursor_df_filtered = precursor_df_filtered[precursor_df_filtered['decoy'] == 0]
 
         self.calibration_manager.fit(precursor_df_filtered,'precursor', plot=True, neptune_run=self.run)
-        m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df, 0.70)[0]
-        m1_99 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df, 0.99)[0]
-        rt_70 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df, 0.70)[0]
-        rt_99 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df, 0.99)[0]
-        mobility_70 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df, 0.70)[0]
-        mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df, 0.99)[0]
+        m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)[0]
+        m1_99 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.99)[0]
+        rt_70 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.70)[0]
+        rt_99 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.99)[0]
+        mobility_70 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.70)[0]
+        mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.99)[0]
 
-        fragment_calibration_df = unpack_fragment_info(precursor_df_filtered)
-        fragment_calibration_df = fragment_calibration_df.sort_values(by=['intensity'], ascending=True).head(20000)
-        self.calibration_manager.fit(fragment_calibration_df,'fragment', plot=True, neptune_run=self.run)
-        m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(precursor_df, 0.70)[0]
-        m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(precursor_df, 0.99)[0]
+        #top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
+        median_precursor_intensity = precursor_df_filtered['sum_precursor_intensity'].median()
+        top_intensity_precursors = precursor_df_filtered[precursor_df_filtered['sum_precursor_intensity'] > median_precursor_intensity]
+        fragments_df_filtered = fragments_df[fragments_df['precursor_idx'].isin(top_intensity_precursors['precursor_idx'])]
+        median_fragment_intensity = fragments_df_filtered['intensity'].median()
+        fragments_df_filtered = fragments_df_filtered[fragments_df_filtered['intensity'] > median_fragment_intensity]
+        self.calibration_manager.fit(fragments_df_filtered,'fragment', plot=True, neptune_run=self.run)
 
-        self.progress["ms1_error"] = max(m1_70, self.config['extraction']['target_ms1_tolerance'])
-        self.progress["ms2_error"] = max(m2_70, self.config['extraction']['target_ms2_tolerance'])
-        self.progress["rt_error"] = max(rt_70, self.config['extraction']['target_rt_tolerance'])
-        self.progress["mobility_error"] = max(mobility_70, self.config['extraction']['target_mobility_tolerance'])
+        m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)[0]
+        m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.99)[0]
+
+        self.progress["ms1_error"] = max(m1_99, self.config['extraction']['target_ms1_tolerance'])
+        self.progress["ms2_error"] = max(m2_99, self.config['extraction']['target_ms2_tolerance'])
+        self.progress["rt_error"] = max(rt_99, self.config['extraction']['target_rt_tolerance'])
+        self.progress["mobility_error"] = max(mobility_99, self.config['extraction']['target_mobility_tolerance'])
         self.progress["column_type"] = 'calibrated'
 
         if self.run is not None:
@@ -685,36 +703,31 @@ class Workflow:
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
             rt_tolerance = self.progress["rt_error"],
             mobility_tolerance = self.progress["mobility_error"],
-            num_candidates = self.progress["num_candidates"],
-            num_isotopes=2,
+            candidate_count = self.progress["num_candidates"],
             mz_tolerance = self.progress["ms1_error"],
         )
         candidates_df = extraction()
 
+        quad = SimpleQuadrupole(self.dia_data.cycle)
+
         extraction = MS2ExtractionWorkflow(
             self.dia_data,
             batch_df,
-            candidates_df,
             self.fragments_flat,
-            coarse_mz_calibration = False,
+            candidates_df,
+            quadrupole_calibration = quad,
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
             fragment_mz_column = f'mz_{self.progress["column_type"]}',
-            precursor_mass_tolerance = self.progress["ms1_error"],
-            fragment_mass_tolerance = self.progress["ms2_error"],
+            precursor_mz_tolerance = self.progress["ms1_error"],
+            fragment_mz_tolerance = self.progress["ms2_error"],
         )
-        features_df = extraction()
-        features_df['decoy'] = batch_df['decoy'].values[features_df['index'].values]
-        features_df['charge'] = batch_df['charge'].values[features_df['index'].values]
-        features_df['nAA'] = batch_df['nAA'].values[features_df['index'].values]
-        features_df['sequence'] = batch_df['sequence'].values[features_df['index'].values]
+        features_df, fragments_df = extraction()
         
-        features_df['index'] += batch_df.first_valid_index()
-        
-        return features_df
+        return features_df, fragments_df
        
-    def extraction(self):
+    def extraction(self, keep_decoys=False):
 
         if self.run is not None:
             for key, value in self.progress.items():
@@ -722,16 +735,15 @@ class Workflow:
 
         self.progress["num_candidates"] = self.config['extraction']['target_num_candidates']
 
-        features_df = self.extract_batch(self.precursors_flat)
+        features_df, fragments_df = self.extract_batch(self.precursors_flat)
         precursor_df = self.fdr_correction(features_df)
 
-        precursor_df = precursor_df[precursor_df['decoy'] == 0]
-        precursors_05 = len(precursor_df[precursor_df['qval'] < 0.05])
-        precursors_01 = len(precursor_df[precursor_df['qval'] < 0.01])
-        precursors_001 = len(precursor_df[precursor_df['qval'] < 0.001])
+        if not keep_decoys:
+            precursor_df = precursor_df[precursor_df['decoy'] == 0]
+        precursors_05 = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0)])
+        precursors_01 = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
+        precursors_001 = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0)])
 
-
-        
         if self.run is not None:
             self.run["eval/precursors"].log(precursors_01)
             self.run.stop()

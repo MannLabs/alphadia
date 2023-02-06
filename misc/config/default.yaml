@@ -1,7 +1,7 @@
 # configuration for the extraction plan
 version: 'alpha_0.3'
 extraction:
-  initial_num_candidates: 3
+  initial_num_candidates: 2
   target_num_candidates: 2
 
   initial_ms1_tolerance: 120
@@ -45,6 +45,11 @@ extraction:
     - 'proteins'
     - 'uniprot_ids'
 
+  fdr_classifier: 'LogisticRegression'
+  fdr_columns:
+
+
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
@@ -79,7 +84,7 @@ calibration:
         - name: rt
           model: LOESSRegression
           model_args:
-            n_kernels: 12
+            n_kernels: 6
             uniform: True
           input_columns: 
             - rt_library

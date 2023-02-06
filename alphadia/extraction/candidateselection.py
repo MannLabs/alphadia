@@ -559,8 +559,6 @@ class ElutionGroup:
             False
         )
 
-        smooth_dense = fourier_filter(dense, kernel)
-
         candidate_precursor_idx = []
         candidate_mass_error = []
         candidate_fraction_nonzero = []
@@ -577,50 +575,56 @@ class ElutionGroup:
 
         candidate_idx = 0
 
-        for i, idx in enumerate(self.precursor_idx):
-            smooth_precursor = smooth_dense[i]
-            smooth_precursor = np.sum(smooth_precursor, axis=0)
+        if dense.shape[3] >= kernel.shape[0] or dense.shape[4] >= kernel.shape[1]:
+            smooth_dense = fourier_filter(dense, kernel)
 
-            peak_scan_list, peak_cycle_list, peak_intensity_list = utils.find_peaks(
-                smooth_precursor, top_n=candidate_count
-            )
+            for i, idx in enumerate(self.precursor_idx):
+                smooth_precursor = smooth_dense[i]
+                smooth_precursor = np.sum(smooth_precursor, axis=0)
 
-            for j, (scan, cycle, intensity) in enumerate(
-                zip(
-                    peak_scan_list, 
-                    peak_cycle_list, 
-                    peak_intensity_list
+                peak_scan_list, peak_cycle_list, peak_intensity_list = utils.find_peaks(
+                    smooth_precursor, top_n=candidate_count
+                )
+
+                for j, (scan, cycle, intensity) in enumerate(
+                    zip(
+                        peak_scan_list, 
+                        peak_cycle_list, 
+                        peak_intensity_list
+                        )
+                    ):
+
+                    limit_scan, limit_cycle = utils.estimate_peak_boundaries_symmetric(
+                        smooth_precursor, 
+                        scan, 
+                        cycle, 
+                        f_mobility=0.99,
+                        f_rt=0.95,
+                        min_size_mobility=6,
+                        min_size_rt=3,
+                        max_size_mobility = 20,
+                        max_size_rt = 10,
                     )
-                ):
 
-                limit_scan, limit_cycle = utils.estimate_peak_boundaries_symmetric(
-                    smooth_precursor, 
-                    scan, 
-                    cycle, 
-                    f=0.99,
-                    min_size_mobility=6,
-                    min_size_rt=3
-                )
+                    fraction_nonzero, mz = utils.get_precursor_mz(
+                        dense[0,i,0],
+                        dense[1,i,0],
+                        scan, 
+                        cycle
+                    )
+                    mass_error = (mz - self.mz[i])/mz*10**6
 
-                fraction_nonzero, mz = utils.get_precursor_mz(
-                    dense[0,i,0],
-                    dense[1,i,0],
-                    scan, 
-                    cycle
-                )
-                mass_error = (mz - self.mz[i])/mz*10**6
+                    candidate_precursor_idx.append(idx)
+                    candidate_mass_error.append(mass_error)
+                    candidate_fraction_nonzero.append(fraction_nonzero)
+                    candidate_intensity.append(intensity)
+                    candidate_scan_center.append(scan)
+                    candidate_frame_center.append(cycle)
 
-                candidate_precursor_idx.append(idx)
-                candidate_mass_error.append(mass_error)
-                candidate_fraction_nonzero.append(fraction_nonzero)
-                candidate_intensity.append(intensity)
-                candidate_scan_center.append(scan)
-                candidate_frame_center.append(cycle)
+                    self.candidate_scan_limit[candidate_idx] = limit_scan
+                    self.candidate_frame_limit[candidate_idx] = limit_cycle
 
-                self.candidate_scan_limit[candidate_idx] = limit_scan
-                self.candidate_frame_limit[candidate_idx] = limit_cycle
-
-                candidate_idx += 1
+                    candidate_idx += 1
 
         self.candidate_precursor_idx = np.array(candidate_precursor_idx)
         self.candidate_mass_error = np.array(candidate_mass_error)
@@ -633,9 +637,10 @@ class ElutionGroup:
         # resize the arrays to the actual number of candidates
         self.candidate_scan_limit = self.candidate_scan_limit[:candidate_idx]
         self.candidate_frame_limit = self.candidate_frame_limit[:candidate_idx]
-
+        
         if debug:
-            self.visualize_candidates(dense, smooth_dense)
+            if dense.shape[3] >= kernel.shape[0] or dense.shape[4] >= kernel.shape[1]:
+                self.visualize_candidates(dense, smooth_dense)
 
     def visualize_candidates(
         self, 
