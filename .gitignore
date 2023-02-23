@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# neptune ai
+.neptune
+
 # C extensions
 *.so
 
@@ -132,3 +135,4 @@ dmypy.json
 AlphaDIA/logs
 *.DS_Store
 *sandbox*
+nbs/mono_crash*
