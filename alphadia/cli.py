@@ -4,12 +4,15 @@
 # builtin
 import logging
 import time
+import sys
 
 # external
 import click
 
 # local
 import alphadia
+from alphadia.extraction import processlogger
+
 
 
 @click.group(
@@ -18,125 +21,144 @@ import alphadia
     ),
     invoke_without_command=True
 )
+
 @click.pass_context
 @click.version_option(alphadia.__version__, "-v", "--version")
 def run(ctx, **kwargs):
-    name = f"AlphaDIA {alphadia.__version__}"
-    click.echo("*" * (len(name) + 4))
-    click.echo(f"* {name} *")
-    click.echo("*" * (len(name) + 4))
+    click.echo('      _   _      _         ___ ___   _   ')
+    click.echo('     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
+    click.echo('    / _ \| | \'_ \\ \' \/ _` | |) | | / _ \ ')
+    click.echo('   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\')
+    click.echo(f'           |_|              version: {alphadia.__version__}')
+    click.echo('')
+
+    
     if ctx.invoked_subcommand is None:
         click.echo(run.get_help(ctx))
-
 
 @run.command("gui", help="Start graphical user interface.")
 def gui():
     import alphadia.gui
     alphadia.gui.run()
 
-
 @run.command(
     "extract",
-    help="Extract DIA precursors from an AlphaPept result library."
+    help="Extract DIA precursors from a list of raw files using a spectral library."
 )
 @click.argument(
-    "dia_file_name",
+    "output-location",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+    required=True,
+)
+@click.option(
+    '--file',
+    '-f',
+    help="Raw data input files.",
+    multiple=True,
     type=click.Path(exists=True, file_okay=True, dir_okay=True),
-    required=True,
 )
-@click.argument(
-    "alphapept_library_file_name",
+@click.option(
+    '--library',
+    '-l',
+    help="Spectral library in AlphaBase hdf5 format.",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
-    required=True,
-)
-@click.argument(
-    "output_file_name",
-    type=click.Path(exists=False, file_okay=True, dir_okay=False),
-    required=True,
 )
 @click.option(
-    "--ppm_tolerance",
-    help="The ppm tolerance",
-    type=float,
-    default=20,
-    show_default=True,
-)
-@click.option(
-    "--rt_tolerance",
-    help="The rt tolerance in seconds",
-    type=float,
-    default=30,
-    show_default=True,
-)
-@click.option(
-    "--mobility_tolerance",
-    help="The mobility tolerance in 1/k0 (ignored for Thermo)",
-    type=float,
-    default=0.05,
-    show_default=True,
-)
-@click.option(
-    "--fdr_rate",
-    help="The FDR",
+    "--fdr",
+    help='False discovery rate for the final output.',
     type=float,
     default=0.01,
     show_default=True,
 )
 @click.option(
-    "--thread_count",
-    help="The number of threads to use",
-    type=int,
-    default=-1,
+    "--keep-decoys",
+    help='Keep decoys in the final output.',
+    type=bool,
+    default=False,
     show_default=True,
 )
 @click.option(
-    "--max_scan_difference",
-    help="KEEP DEFAULT",
-    type=int,
-    default=1,
-    show_default=True,
+    "--config-path",
+    help='DO NOT TOUCH - Default config yaml. If not specified, the default config will be used.',
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
 )
 @click.option(
-    "--max_cycle_difference",
-    help="KEEP DEFAULT",
-    type=int,
-    default=1,
-    show_default=True,
+    "--config-update-path",
+    help='Config yaml which will be used to update the default config.',
+    type=click.Path(exists=True, file_okay=True, dir_okay=False),
 )
-def extract(**kwargs):
-    logging.basicConfig(
-        format='%(asctime)s> %(message)s',
-        datefmt="%Y-%m-%d %H:%M:%S",
-        level=logging.INFO
-    )
-    start_time = time.time()
-    try:
-        kwargs = {key: arg for key, arg in kwargs.items() if arg is not None}
-        logging.info("Creating new AlphaTemplate with parameters:")
-        max_len = max(len(key) + 1 for key in kwargs)
-        for key, value in sorted(kwargs.items()):
-            logging.info(f"{key:<{max_len}} - {value}")
-        logging.info("")
-        import alphadia.dia
-        alphadia.dia.run_analysis(
-            dia_file_name=kwargs["dia_file_name"],
-            alphapept_library_file_name=kwargs["alphapept_library_file_name"],
-            output_file_name=kwargs["output_file_name"],
-            ppm=kwargs["ppm_tolerance"],
-            rt_tolerance=kwargs["rt_tolerance"],
-            mobility_tolerance=kwargs["mobility_tolerance"],
-            max_scan_difference=kwargs["max_scan_difference"],
-            max_cycle_difference=kwargs["max_cycle_difference"],
-            thread_count=kwargs["thread_count"],
-            fdr_rate=kwargs["fdr_rate"],
-        )
-    except Exception:
-        logging.exception("Something went wrong, execution incomplete!")
+@click.option(
+    "--config-update",
+    help='Dict which will be used to update the default config.',
+    type=str,
+)
+@click.option(
+    "--neptune-token",
+    help="Neptune.ai token for continous logging.",
+    type=str,
+    default=None,
+    show_default=False,
+)
+@click.option(
+    "--neptune-tag",
+    help="Neptune.ai tag for continous logging.",
+    type=str,
+    multiple=True,
+    show_default=False,
+)
+@click.option(
+    "--figure-path",
+    help="If specified, directory will be used to store calibration figures.",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True)
+)
+def extract(**kwargs):   
+    processlogger.init_logging(kwargs['output_location'])
+
+    if kwargs['file'] is None:
+        logging.error("No input file specified.")
+        return
     else:
-        logging.info(
-            f"Analysis done in {time.time() - start_time:.2f} seconds."
+        kwargs['file'] = list(kwargs['file'])
+
+    if kwargs['library'] is None:
+        logging.error("No library specified.")
+        return
+    
+    kwargs['neptune_tag'] = list(kwargs['neptune_tag'])
+    
+    try:
+        print (kwargs)
+        import matplotlib
+        # important to supress matplotlib output
+        matplotlib.use('Agg')
+
+        from alphabase.spectral_library.base import SpecLibBase
+        from alphadia.extraction.planning import Plan
+
+        lib = SpecLibBase()
+        lib.load_hdf(kwargs['library'], load_mod_seq=True)
+
+        config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
+        
+        plan = Plan(
+            kwargs['file'],
+            kwargs['config_path'],
+            kwargs['config_update_path'],
+            config_update
+            )
+        plan.from_spec_lib_base(lib)
+
+        plan.run(
+            kwargs['output_location'], 
+            keep_decoys = kwargs['keep_decoys'], 
+            fdr = kwargs['fdr'], 
+            figure_path = kwargs['figure_path'],
+            neptune_token = kwargs['neptune_token'],
+            neptune_tags = kwargs['neptune_tag'] 
         )
 
+    except Exception as e:
+        logging.exception(e)
 
 @run.group(
     "spectrum",

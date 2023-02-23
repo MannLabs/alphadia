@@ -1,4 +1,0 @@
-
-extraction:
-  precursor_columns:
-    rt_library: ['rt_norm']

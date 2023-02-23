@@ -1,8 +1,8 @@
 # configuration for the extraction plan
-version: 'alpha_0.3'
+version: 'alpha_1.0'
 extraction:
-  initial_num_candidates: 1
-  target_num_candidates: 2
+  initial_num_candidates: 2
+  target_num_candidates: 5
 
   initial_ms1_tolerance: 120
   initial_ms2_tolerance: 120
@@ -14,12 +14,13 @@ extraction:
   target_mobility_tolerance: 0.02
   target_rt_tolerance: 30
 
-  max_epochs: 7
+  min_epochs: 5
+  max_epochs: 20
 
   rt_heuristic: 180
   batch_size: 2000
-  recalibration_target: 100
-  final_full_calibration: True
+  recalibration_target: 200
+  final_full_calibration: False
 
   norm_rt_mode: 'tic'
 
@@ -29,6 +30,26 @@ extraction:
     mobility_library: ['mobility']
   fragment_columns:
     mz_library: ['mz','predicted_mz']
+  
+  output_columns:
+    - 'elution_group_idx'
+    - 'precursor_idx'
+    - 'decoy' 
+    - 'frag_start_idx'
+    - 'frag_stop_idx' 
+    - 'charge'
+    - 'rt_library'
+    - 'mobility_library'
+    - 'mz_library'
+    - 'sequence'
+    - 'genes'
+    - 'proteins'
+    - 'uniprot_ids'
+
+  fdr_classifier: 'LogisticRegression'
+  fdr_columns:
+
+
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
@@ -64,7 +85,7 @@ calibration:
         - name: rt
           model: LOESSRegression
           model_args:
-            n_kernels: 12
+            n_kernels: 6
             uniform: True
           input_columns: 
             - rt_library

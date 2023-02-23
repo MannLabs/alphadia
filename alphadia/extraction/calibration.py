@@ -1,22 +1,24 @@
-# internal imports
+# native imports
+import os
+import logging
 from unittest.mock import DEFAULT
+import yaml 
+
+# alphadia imports
+from alphadia.extraction.utils import density_scatter
+
+# alpha family imports
 import alphatims.bruker
 import alphatims.utils
+from alphabase.statistics.regression import LOESSRegression
+
+# third party imports
+import pandas as pd
+import numpy as np
 from matplotlib import pyplot as plt
 
 import sklearn.base
-
-import os
-import logging
-
-# external imports
-import pandas as pd
-import numpy as np
-import yaml 
-from .utils import density_scatter
-
 from sklearn.linear_model import LinearRegression
-from alphabase.statistics.regression import LOESSRegression
 
 
 class Calibration():
@@ -64,7 +66,13 @@ class Calibration():
 
         return valid
 
-    def fit(self, dataframe, plot=False, report_ci=0.95, **kwargs):
+    def fit(
+            self, 
+            dataframe,
+            plot=False, 
+            report_ci=0.95, 
+            **kwargs
+        ):
         if not self.validate_columns(dataframe):
             logging.warning(f'{self.name} calibration was skipped')
             return
@@ -173,7 +181,14 @@ class Calibration():
             return '(absolute)'
 
 
-    def plot(self, dataframe, neptune_run=None, neptune_key=None, **kwargs):
+    def plot(
+            self, 
+            dataframe, 
+            figure_path = None,
+            neptune_run = None, 
+            neptune_key = None, 
+            **kwargs
+        ):
 
         deviation = self.deviation(dataframe)
 
@@ -221,9 +236,23 @@ class Calibration():
         # log figure to neptune ai
         if neptune_run is not None and neptune_key is not None:
             neptune_run[f'calibration/{neptune_key}'].log(fig)
-            plt.close()
+
+        if figure_path is not None:
+            
+            i = 0
+            file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
+            while os.path.exists(file_name):
+                file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
+                i += 1
+
+            fig.savefig(file_name)
+            
         else:
-            plt.show()
+            plt.show()  
+
+        plt.close()
+
+        
 
 class RunCalibration():
 
@@ -322,174 +351,3 @@ class CalibrationModelProvider:
 calibration_model_provider = CalibrationModelProvider()
 calibration_model_provider.register_model('LinearRegression', LinearRegression)
 calibration_model_provider.register_model('LOESSRegression', LOESSRegression)
-        
-class GlobalCalibration():
-
-    # template column names
-    precursor_calibration_targets = {
-        'precursor_mz':('mz_predicted', 'mz_calibrated'),
-        'mobility':('mobility_predicted', 'mobility_observed'),
-        'rt':('rt_predicted', 'rt_observed'),
-    }
-
-    fragment_calibration_targets = {
-        'fragment_mz':('mz_predicted', 'mz_calibrated'),
-    }
-
-    def __init__(self, extraction_plan):
-        self.prediction_targets = {}
-        self.estimator_template = []
-        self.extraction_plan = extraction_plan
-        
-
-    def __str__(self):
-
-        output = ''
-        
-        num_run_mappings = len(self.extraction_plan.runs)
-        output += f'Calibration for {num_run_mappings} runs: \n'
-
-        for run in self.extraction_plan.runs:
-            output += '\t' + run.__str__()
-
-        return output
-
-    def print(self):
-        print(self)
-
-    def set_extraction_plan(self, extraction_plan):
-        self.extraction_plan = extraction_plan
-
-    def set_estimators(self, estimator_template = {}):
-        self.estimator_template=estimator_template
-
-    def fit(self):
-        """A calibration is fitted based on the preferred precursors presented by the extraction plan. 
-        This is done for all runs found within the calibration df. 
-        As the calibration df can change and (should) increase during recalibration, the runs need to be fixed. """
-         
-        calibration_df = self.extraction_plan.get_calibration_df()
-
-        # contains all source - target coliumn names
-        # is created based on self.prediction_target and will look somehwat like this:
-        # prediction_target = {
-        #    'mz':('precursor_mz', 'mz'),
-        #    'mobility':('mobility_pred', 'mobility'),
-        #    'rt':('rt_pred', 'rt'),
-        # }
-
-
-        # check what calibratable properties exist
-        for property, columns in self.precursor_calibration_targets.items():
-            if set(columns).issubset(calibration_df.columns):
-                self.prediction_targets[property] = columns
-
-            else:
-                logging.info(f'calibrating {property} not possible as required columns are missing' )
-
-        # reset estimators and initialize them based on the estimator template
-        self.estimators = []
-
-        for i, run in enumerate(self.extraction_plan.runs):
-            new_estimators = {}
-            for property in self.prediction_targets.keys():
-                new_estimators[property] = sklearn.base.clone(self.estimator_template[property])
-            self.estimators.append(new_estimators)
-
-        # load all runs found in the extraction plan
-        for run in self.extraction_plan.runs:
-            run_index = run['index']
-            run_name = run['name']
-
-            calibration_df_run = calibration_df[calibration_df['raw_name'] == run_name]
-            num_dp = len(calibration_df_run)
-            logging.info(f'Calibrating run {run_index} {run_name} with {num_dp} entries')
-            self.fit_run_wise(run_index,run_name , calibration_df_run, self.prediction_targets)
-
-    def fit_run_wise(self, 
-                    run_index, 
-                    run_name, 
-                    calibration_df, 
-                    prediction_target):
-        
-        run_df = calibration_df[calibration_df['raw_name'] == run_name]
-
-        for property, columns in prediction_target.items():
-
-            estimator = self.estimators[run_index][property]
-
-            source_column = columns[0]
-            target_column = columns[1]
-
-            source_values = run_df[source_column].values
-            target_value = run_df[target_column].values
-
-            estimator.fit(source_values, target_value)
-
-    def predict(self, run, property, values):
-        
-        # translate run name to index
-        if isinstance(run, str):
-            run_index = -1
-
-            for run_mapping in self.runs:
-                if run_mapping['name'] == run:
-                    run_index = run_mapping['index']
-            
-            if run_index == -1:
-                raise ValueError(f'No run found with name {run}')
-
-        else:
-            run_index = run
-
-        return self.estimators[run_index][property].predict(values)
-
-
-    def plot(self, *args, save_name=None, **kwargs):
-        logging.info('plotting calibration curves')
-        ipp = 4
-        calibration_df = self.extraction_plan.get_calibration_df()
-    
-        ax_labels = {'mz': ('mz','ppm'),
-                    'rt': ('rt_pred','RT (seconds)'),
-                    'mobility': ('mobility', 'mobility')}
-        # check if 
-
-        for run_mapping in self.extraction_plan.runs:
-
-            run_df = calibration_df[calibration_df['raw_name'] == run_mapping['name']]
-            print(len(run_df))
-
-            estimators = self.estimators[run_mapping['index']]
-
-            fig, axs = plt.subplots(ncols=len(estimators), nrows=1, figsize=(len(estimators)*ipp,ipp))
-            for i, (property, estimator) in enumerate(estimators.items()):
-                
-                target_column, measured_column = self.prediction_targets[property]
-                target_values = run_df[target_column].values
-                measured_values = run_df[measured_column].values
-
-                # plotting
-                axs[i].set_title(property)
-
-                calibration_space = np.linspace(np.min(target_values),np.max(target_values),1000)
-                calibration_curve = estimator.predict(calibration_space)
-
-                if property == 'mz':
-                    measured_values = (target_values - measured_values) / target_values * 10**6
-                    calibration_curve = (calibration_space - calibration_curve) / calibration_space * 10**6
-                #axs[i].scatter(target_values,measured_values)
-                density_scatter(target_values,measured_values,axs[i], s=2, **kwargs)
-                axs[i].plot(calibration_space,calibration_curve, c='r')
-                axs[i].set_xlabel(ax_labels[property][0])
-                axs[i].set_ylabel(ax_labels[property][1])
-
-            fig.suptitle(run_mapping['name'])
-            fig.tight_layout()
-
-            if save_name is not None:
-                loaction = os.path.join(save_name, f"{run_mapping['name']}.png")
-                fig.savefig(loaction, dpi=300)
-            plt.show()
-
-

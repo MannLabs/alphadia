@@ -1,13 +1,16 @@
-# internal imports
+# native imports
+import logging
+from ctypes import Structure, c_double
+from typing import Tuple, Union, List
+
+# alphadia imports
+
+# alpha family imports
 import alphatims.bruker
 import alphatims.utils
 from alphabase.spectral_library.base import SpecLibBase
 
-# external imports
-import logging
-
-from typing import Tuple, Union, List
-
+# third party imports
 import pandas as pd
 import numpy as np
 import matplotlib.patches as patches
@@ -15,11 +18,40 @@ import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 
-from ctypes import Structure, c_double
-
 ISOTOPE_DIFF = 1.0032999999999674
 
-def density_scatter(x, y, axis, **kwargs):
+def recursive_update(
+            full_dict: dict, 
+            update_dict: dict
+        ):
+        """recursively update a dict with a second dict. The dict is updated inplace.
+
+        Parameters
+        ----------
+        full_dict : dict
+            dict to be updated, is updated inplace.
+
+        update_dict : dict
+            dict with new values
+
+        Returns
+        -------
+        None
+
+        """
+        for key, value in update_dict.items():
+            if key in full_dict.keys():
+                if isinstance(value, dict):
+                    recursive_update(full_dict[key], update_dict[key])
+                else:
+                    full_dict[key] = value
+            else:
+                full_dict[key] = value
+
+def density_scatter(x, y, axis=None, **kwargs):
+
+    if axis is None:
+        axis = plt.gca()
 
     # Calculate the point density
     xy = np.vstack([x,y])
@@ -569,9 +601,12 @@ def estimate_peak_boundaries_symmetric(
         a, 
         scan_center, 
         dia_cycle_center,
-        f = 0.95,
-        min_size = 5,
-        max_size = 15
+        f_mobility = 0.95,
+        f_rt = 0.95,
+        min_size_mobility = 5,
+        max_size_mobility = 20,
+        min_size_rt = 5,
+        max_size_rt = 10
     ):
     
 
@@ -582,15 +617,15 @@ def estimate_peak_boundaries_symmetric(
     # 1. The closest border (top or bottom)
     # 2. The max_size defined
     mobility_max_len = min(a.shape[0], a.shape[0]-scan_center)
-    mobility_max_len = int(min(mobility_max_len, max_size))
+    mobility_max_len = int(min(mobility_max_len, max_size_mobility))
     
-    mobility_limit = min_size
+    mobility_limit = min_size_mobility
 
 
-    for s in range(min_size,mobility_max_len):
+    for s in range(min_size_mobility,mobility_max_len):
 
         intensity = (a[scan_center-s,dia_cycle_center]+a[scan_center+s,dia_cycle_center])/2
-        if trailing_intensity * f >= intensity:
+        if trailing_intensity * f_mobility >= intensity:
             mobility_limit = s
             trailing_intensity = intensity
         else: break
@@ -605,14 +640,14 @@ def estimate_peak_boundaries_symmetric(
     # 1. The closest border (top or bottom)
     # 2. The max_size defined
     dia_cycle_max_len = min(a.shape[1], a.shape[1]-dia_cycle_center)
-    dia_cycle_max_len = int(min(dia_cycle_max_len, max_size))
+    dia_cycle_max_len = int(min(dia_cycle_max_len, max_size_rt))
     
-    dia_cycle_limit = min_size
+    dia_cycle_limit = min_size_rt
 
-    for s in range(min_size, dia_cycle_max_len):
+    for s in range(min_size_rt, dia_cycle_max_len):
 
         intensity = (a[scan_center,dia_cycle_center-s]+a[scan_center,dia_cycle_center+s])/2
-        if trailing_intensity * f >= intensity:
+        if trailing_intensity * f_rt >= intensity:
             dia_cycle_limit = s
             trailing_intensity = intensity
         else: break
@@ -660,31 +695,33 @@ def find_peaks(a, top_n=3):
     dia_cycle = dia_cycle[idx]
     intensity = intensity[idx]
 
-
-
     return scan, dia_cycle, intensity
 
 @alphatims.utils.njit()
-def get_precursor_mz(dense, scan, dia_cycle):
+def get_precursor_mz(dense_intensity, dense_mz, scan, dia_cycle):
     """ create a fixed window around the peak and extract the mz as well as the intensity
     
     """
     # window size around peak
-    w = 2
+    w = 4
 
     # extract mz
-    mz_window = dense[1,0,max(scan-w,0):scan+w,max(dia_cycle-w,0):dia_cycle+w].flatten()
-    mask = (mz_window>0)
+    mz_window = dense_mz[
+        max(scan-w,0):scan+w,
+        max(dia_cycle-w,0):dia_cycle+w
+    ].flatten()
+
+    mask = (mz_window > 0)
     fraction_nonzero = np.mean(mask.astype('int8'))
 
     if fraction_nonzero > 0:
         mz = np.mean(mz_window[mask])
     else:
         mz = -1
-    #extract intensity
-    intensity = np.sum(dense[0,0,max(scan-w,0):scan+w,max(dia_cycle-w,0):dia_cycle+w])
 
-    return fraction_nonzero, mz, intensity
+    return fraction_nonzero, mz
+
+
 
 @alphatims.utils.njit()
 def amean1(array):
@@ -741,8 +778,8 @@ def or_envelope(profile):
 
 @alphatims.utils.njit()
 def calculate_correlations(
-        dense_precursor, 
-        dense_fragments
+        dense_template_profile, 
+        dense_fragments_profile
     ):
     """Calculate correlation metrics between fragments and precursors
 
@@ -763,33 +800,21 @@ def calculate_correlations(
 
     """
 
-    # calculate the fragment profiles 
-    # RT
-    fragment_frame_profile = or_envelope(np.sum(dense_fragments, axis = 1))
-  
-    # mobility
-    fragment_scan_profile = or_envelope(np.sum(dense_fragments, axis = 2))
 
-    # calulate the precursor profiles 
-    # RT
-    precursor_frame_profile = np.sum(dense_precursor,axis=0)
-
-    # mobility
-    precursor_scan_profile = np.sum(dense_precursor,axis=1)
 
 
     # F fragments and 1 precursors are concatenated, resulting in a (F+1, F+1) correlation matrix
-    corr_frame = np.corrcoef(fragment_frame_profile, precursor_frame_profile)
-    corr_scan = np.corrcoef(fragment_scan_profile, precursor_scan_profile)
+    corr_frame = np.corrcoef(dense_fragments_profile, dense_template_profile)
+    #corr_scan = np.corrcoef(fragment_scan_profile, precursor_scan_profile)
     # The first 
     
     mean_frame_corr = amean0(corr_frame[:-1,:-1])-1/len(corr_frame[:-1,:-1])
-    mean_scan_corr = amean0(corr_scan[:-1,:-1])-1/len(corr_scan[:-1,:-1])
+    #mean_scan_corr = amean0(corr_scan[:-1,:-1])-1/len(corr_scan[:-1,:-1])
 
     prec_frame_corr = corr_frame[-1,:-1]
-    prec_scan_corr = corr_scan[-1,:-1]
+    #prec_scan_corr = corr_scan[-1,:-1]
     
-    return np.stack((mean_frame_corr, mean_scan_corr, prec_frame_corr, prec_scan_corr))
+    return np.stack((mean_frame_corr, prec_frame_corr))
 
 @alphatims.utils.njit()
 def calculate_mass_deviation(
@@ -871,6 +896,22 @@ def calc_isotopes_center(
     out_mz += mz
 
     return out_mz
+
+def get_isotope_columns(colnames):
+    isotopes = []
+    for col in colnames:
+        if col[:2] == 'i_':
+            try:
+                isotopes.append(int(col[2:]))
+            except:
+                logging.warning(f'Column {col} does not seem to be a valid isotope column')
+    
+    isotopes = np.array(sorted(isotopes))
+
+    if not np.all(np.diff(isotopes) == 1):
+        logging.warning(f'Isotopes are not consecutive')
+
+    return isotopes
 
 @alphatims.utils.njit()
 def mass_range(
@@ -968,3 +1009,8 @@ def modify(n, x, s, A):
 
 class Point(Structure):
     _fields_ = [('x', c_double), ('y', c_double)]
+
+
+@alphatims.utils.njit()
+def tile(a, n):
+    return np.repeat(a, n).reshape(-1, n).T.flatten()
