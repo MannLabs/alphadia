@@ -1,9 +1,13 @@
+# native imports
 
-import numpy as np
-import numba as nb 
-
+# alphadia imports
 from alphadia.extraction import utils
 
+# alpha family imports
+
+# third party imports
+import numpy as np
+import numba as nb 
 
 
 @nb.njit
@@ -401,6 +405,12 @@ def build_features(
         p_expected_scan_center,
         p_expected_frame_center
     ).reshape(n_precursors, n_isotopes)
+    
+    # create weight matrix to exclude empty isotopes
+    i, j = np.nonzero(observed_precursor_mz == 0)
+    precursor_weights = isotope_intensity.copy()
+    for i, j in zip(i, j):
+        precursor_weights[i, j] = 0
 
     observed_precursor_intensity = weighted_center_mean_2d(
         dense_precursors[0],
@@ -412,7 +422,7 @@ def build_features(
     mass_error_array = (observed_precursor_mz - isotope_mz) / isotope_mz * 1e6
 
     # (n_precursor)
-    mass_error = np.sum(mass_error_array * isotope_intensity, axis=-1)
+    mass_error = weighted_mean_a1(mass_error_array, precursor_weights)
     total_precursor_intensity = np.sum(observed_precursor_intensity * isotope_intensity, axis=-1)
 
     features['precursor_mass_error'] = np.mean(mass_error.astype(np.float32))

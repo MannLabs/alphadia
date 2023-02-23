@@ -24,11 +24,6 @@ def logistic(x, mu, sigma):
     return y
 
 @alphatims.utils.njit
-def erf(x, mu, sigma):
-    a = (x-mu)/sigma
-    return np.array(list(map(math.erf, a)))
-
-@alphatims.utils.njit
 def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y

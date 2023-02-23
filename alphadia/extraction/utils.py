@@ -1,21 +1,22 @@
-# internal imports
+# native imports
+import logging
+from ctypes import Structure, c_double
+from typing import Tuple, Union, List
+
+# alphadia imports
+
+# alpha family imports
 import alphatims.bruker
 import alphatims.utils
 from alphabase.spectral_library.base import SpecLibBase
 
-# external imports
-import logging
-
-from typing import Tuple, Union, List
-
+# third party imports
 import pandas as pd
 import numpy as np
 import matplotlib.patches as patches
 import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
-
-from ctypes import Structure, c_double
 
 ISOTOPE_DIFF = 1.0032999999999674
 

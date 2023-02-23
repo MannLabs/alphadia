@@ -14,6 +14,195 @@ import numba as nb
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
+@alphatims.utils.njit()
+def symetric_limits(
+    array_1d, 
+    center, 
+    f = 0.95,
+    center_fraction = 0.01,
+    min_size = 1, 
+    max_size = 10,
+    ):
+
+    center_intensity = array_1d[center]
+    trailing_intensity = center_intensity
+    max_len = min(array_1d.shape[0], array_1d.shape[0]-center)
+    max_len = int(min(max_len, max_size))
+
+    limit = min_size
+
+    for s in range(min_size,max_len):
+        intensity = (array_1d[center-s]+array_1d[center+s])/2
+        if intensity < f * trailing_intensity:
+            if intensity > center_intensity * center_fraction:
+                limit = s
+                trailing_intensity = intensity
+        else: break
+
+    return np.array([center-limit, center+limit], dtype='int32')
+
+
+@alphatims.utils.njit()
+def peak_boundaries_symmetric(
+        a, 
+        scan_center, 
+        dia_cycle_center,
+        f_mobility = 0.95,
+        f_rt = 0.95,
+        center_fraction = 0.01,
+        min_size_mobility = 3,
+        max_size_mobility = 20,
+        min_size_rt = 1,
+        max_size_rt = 10,
+        refine = True
+    ):
+
+
+    mobility_limits = symetric_limits(
+        a[:,dia_cycle_center],
+        scan_center,
+        f = f_mobility,
+        center_fraction = center_fraction,
+        min_size = min_size_mobility,
+        max_size = max_size_mobility,
+
+    )
+
+    dia_cycle_limits = symetric_limits(
+        a[scan_center,:],
+        dia_cycle_center,
+        f = f_rt,
+        center_fraction = center_fraction,
+        min_size = min_size_rt,
+        max_size = max_size_rt
+    )
+
+    if refine:
+
+        window = a[mobility_limits[0]:mobility_limits[1],dia_cycle_limits[0]:dia_cycle_limits[1]]
+        window_scan_center = scan_center - mobility_limits[0]
+        window_dia_cycle_center = dia_cycle_center - dia_cycle_limits[0]
+
+        mobility_limits = symetric_limits(
+            np.sum(window, axis=1),
+            window_scan_center,
+            f = f_mobility,
+            center_fraction = center_fraction,
+            min_size = min_size_mobility,
+            max_size = max_size_mobility,
+        ) + mobility_limits[0]
+
+        dia_cycle_limits = symetric_limits(
+            np.sum(window, axis=0),
+            window_dia_cycle_center,
+            f = f_rt,
+            center_fraction = center_fraction,
+            min_size = min_size_rt,
+            max_size = max_size_rt
+        ) + dia_cycle_limits[0]
+
+    return mobility_limits, dia_cycle_limits
+
+class GaussianFilter:
+
+    def __init__(
+            self, 
+            dia_data,
+            peak_len_rt = 8,
+            peak_len_mobility = 0.02
+            ):
+        self.dia_data = dia_data
+        self.peak_len_rt = peak_len_rt
+        self.peak_len_mobility = peak_len_mobility
+
+    def determine_rt_sigma(
+        self,
+        rt_length
+    ):
+        expected_peak_len_rt = self.peak_len_rt / rt_length
+        # sigma = 1/3 rt at base
+        return expected_peak_len_rt / (2 * 3)
+    
+    def determine_mobility_sigma(
+        self,
+        mobility_len
+    ):
+        expected_peak_len_mobility = self.peak_len_mobility / mobility_len
+        # sigma = 1/3 moblity at base
+        return expected_peak_len_mobility / (2 * 3)
+
+    def get_kernel(
+        self,
+        verbose = True
+    ):
+        rt_datapoints = self.dia_data.cycle.shape[1]
+        rt_length = np.mean(np.diff(self.dia_data.rt_values[::rt_datapoints]))
+
+        mobility_datapoints = self.dia_data.cycle.shape[2]
+        mobility_len = np.mean(np.diff(self.dia_data.mobility_values[::-1]))
+
+        if verbose:
+            logging.info(f'Duty cycle consists of {rt_datapoints} frames, {rt_length:.2f} seconds cycle time')
+            logging.info(f'Duty cycle consists of {mobility_datapoints} scans, {mobility_len:.5f} 1/K_0 resolution')
+
+        rt_sigma = self.determine_rt_sigma(rt_length)
+        mobility_sigma = self.determine_mobility_sigma(mobility_len)
+
+        if verbose:
+            logging.info(f'Expected peak length in RT is {self.peak_len_rt:.2f} seconds, sigma is {rt_sigma:.2f}')
+            logging.info(f'Expected peak length in mobility is {self.peak_len_mobility:.2f} 1/K_0, sigma is {mobility_sigma:.2f}')
+
+        k = 20
+        return self.gaussian_kernel_2d(
+            k,
+            rt_sigma,
+            mobility_sigma
+        ).astype(np.float32)
+    
+    @staticmethod
+    def gaussian_kernel_2d(
+        size: int, 
+        sigma_x: float, 
+        sigma_y: float
+    ): 
+        """
+        Create a 2D gaussian kernel with a given size and standard deviation.
+
+        Parameters
+        ----------
+
+        size : int
+            Width and height of the kernel matrix.
+
+        sigma_x : float
+            Standard deviation of the gaussian kernel in x direction. This will correspond to the RT dimension.
+
+        sigma_y : float
+            Standard deviation of the gaussian kernel in y direction. This will correspond to the mobility dimension.
+
+        Returns
+        -------
+
+        weights : np.ndarray
+            2D gaussian kernel matrix of shape (size, size).
+
+        """
+        # create indicies [-2, -1, 0, 1 ...]
+        x, y = np.meshgrid(np.arange(-size//2,size//2),np.arange(-size//2,size//2))
+        xy = np.column_stack((x.flatten(), y.flatten())).astype('float32')
+
+        # mean is always zero
+        mu = np.array([[0., 0.]])
+
+        # sigma is set with no covariance
+        sigma_mat = np.array([[sigma_x,0.],[0.,sigma_y]])
+
+        weights = utils.multivariate_normal(xy, mu, sigma_mat)
+        return weights.reshape(size,size)
+
+
+
+
 class MS1CentricCandidateSelection(object):
 
     def __init__(self, 
@@ -75,12 +264,10 @@ class MS1CentricCandidateSelection(object):
         self.precursor_mz_column = precursor_mz_column
         self.mobility_column = mobility_column
 
-        k = 20
-        self.kernel = gaussian_kernel_2d(
-            k,
-            kernel_sigma_rt,
-            kernel_sigma_mobility
-        ).astype(np.float32)
+        gaussian_filter = GaussianFilter(
+            dia_data
+        )
+        self.kernel = gaussian_filter.get_kernel()
 
     def __call__(self):
         """
@@ -111,7 +298,9 @@ class MS1CentricCandidateSelection(object):
             thread_count=thread_count
         )
 
-        pjit_fun(
+        alphatims.utils.set_threads(thread_count)
+
+        _executor(
             range(iterator_len), 
             self.dia_data.jitclass(), 
             elution_group_container, 
@@ -506,6 +695,23 @@ class ElutionGroup:
             mz_limits
         ))
 
+    def determine_fragment_scan_limits(
+        self,
+        quad_slices, 
+        dia_data
+        ):
+        quad_mask = alphatims.bruker.calculate_dia_cycle_mask(
+            dia_mz_cycle=dia_data.dia_mz_cycle,
+            quad_slices=np.array([[400.,402]]),
+            dia_precursor_cycle=dia_data.dia_precursor_cycle,
+            precursor_slices=None
+        )
+
+        mask = quad_mask.reshape(dia_data.cycle.shape[:3])
+        _, _, scans = mask.nonzero()
+
+        return scans.min(), scans.max()
+
 
     def process(
         self, 
@@ -551,6 +757,7 @@ class ElutionGroup:
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_tof_limits(jit_data, mz_tolerance)
 
+        # (2, n_isotopes, n_observations, n_scans, n_frames)
         dense, precursor_index = jit_data.get_dense(
             self.frame_limits,
             self.scan_limits,
@@ -575,10 +782,26 @@ class ElutionGroup:
 
         candidate_idx = 0
 
-        if dense.shape[3] >= kernel.shape[0] or dense.shape[4] >= kernel.shape[1]:
+        if dense.shape[3] > kernel.shape[0] and dense.shape[4] > kernel.shape[1]:
+
+            for i, idx in enumerate(self.precursor_idx):
+                
+                lower_scan_limit, upper_scan_limit = self.determine_fragment_scan_limits(np.array([[self.top_isotope_mz[i]-0.1, self.top_isotope_mz[i]+0.1]]), jit_data)
+
+                lower_scan_limit -= self.scan_limits[0,0]
+                lower_scan_limit = max(lower_scan_limit, 0)
+
+                upper_scan_limit -= self.scan_limits[0,0]
+                upper_scan_limit = min(upper_scan_limit, dense.shape[3])
+
+                #dense[0,i,0,:lower_scan_limit] = 0
+                #dense[0,i,0, upper_scan_limit:] = 0
+
+            
             smooth_dense = fourier_filter(dense, kernel)
 
             for i, idx in enumerate(self.precursor_idx):
+
                 smooth_precursor = smooth_dense[i]
                 smooth_precursor = np.sum(smooth_precursor, axis=0)
 
@@ -594,16 +817,17 @@ class ElutionGroup:
                         )
                     ):
 
-                    limit_scan, limit_cycle = utils.estimate_peak_boundaries_symmetric(
+                    limit_scan, limit_cycle = peak_boundaries_symmetric(
                         smooth_precursor, 
                         scan, 
                         cycle, 
-                        f_mobility=0.99,
-                        f_rt=0.95,
+                        f_mobility=0.95,
+                        f_rt=0.99,
+                        center_fraction=0.05,
                         min_size_mobility=6,
                         min_size_rt=3,
-                        max_size_mobility = 20,
-                        max_size_rt = 10,
+                        max_size_mobility = 40,
+                        max_size_rt = 30,
                     )
 
                     fraction_nonzero, mz = utils.get_precursor_mz(
@@ -614,17 +838,19 @@ class ElutionGroup:
                     )
                     mass_error = (mz - self.mz[i])/mz*10**6
 
-                    candidate_precursor_idx.append(idx)
-                    candidate_mass_error.append(mass_error)
-                    candidate_fraction_nonzero.append(fraction_nonzero)
-                    candidate_intensity.append(intensity)
-                    candidate_scan_center.append(scan)
-                    candidate_frame_center.append(cycle)
+                    if intensity > 1:
 
-                    self.candidate_scan_limit[candidate_idx] = limit_scan
-                    self.candidate_frame_limit[candidate_idx] = limit_cycle
+                        candidate_precursor_idx.append(idx)
+                        candidate_mass_error.append(mass_error)
+                        candidate_fraction_nonzero.append(fraction_nonzero)
+                        candidate_intensity.append(intensity)
+                        candidate_scan_center.append(scan)
+                        candidate_frame_center.append(cycle)
 
-                    candidate_idx += 1
+                        self.candidate_scan_limit[candidate_idx] = limit_scan
+                        self.candidate_frame_limit[candidate_idx] = limit_cycle
+
+                        candidate_idx += 1
 
         self.candidate_precursor_idx = np.array(candidate_precursor_idx)
         self.candidate_mass_error = np.array(candidate_mass_error)
@@ -766,45 +992,7 @@ def _executor(
         debug
     )
 
-def gaussian_kernel_2d(
-        size: int, 
-        sigma_x: float, 
-        sigma_y: float
-    ): 
-    """
-    Create a 2D gaussian kernel with a given size and standard deviation.
 
-    Parameters
-    ----------
-
-    size : int
-        Width and height of the kernel matrix.
-
-    sigma_x : float
-        Standard deviation of the gaussian kernel in x direction. This will correspond to the RT dimension.
-
-    sigma_y : float
-        Standard deviation of the gaussian kernel in y direction. This will correspond to the mobility dimension.
-
-    Returns
-    -------
-
-    weights : np.ndarray
-        2D gaussian kernel matrix of shape (size, size).
-
-    """
-    # create indicies [-2, -1, 0, 1 ...]
-    x, y = np.meshgrid(np.arange(-size//2,size//2),np.arange(-size//2,size//2))
-    xy = np.column_stack((x.flatten(), y.flatten())).astype('float32')
-
-    # mean is always zero
-    mu = np.array([[0., 0.]])
-
-    # sigma is set with no covariance
-    sigma_mat = np.array([[sigma_x,0.],[0.,sigma_y]])
-
-    weights = utils.multivariate_normal(xy, mu, sigma_mat)
-    return weights.reshape(size,size)
 
 @alphatims.utils.njit
 def make_slice_1d(

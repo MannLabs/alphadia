@@ -1,5 +1,6 @@
 # native imports
 import logging
+import os
 
 # alphadia imports
 from alphadia.extraction import utils
@@ -26,365 +27,6 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import LogisticRegression
 
 
-class MS2ExtractionWorkflow_():
-    
-    def __init__(self, 
-            dia_data,
-            precursors_flat, 
-            candidates,
-            fragments_flat,
-            num_precursor_isotopes=2,
-            precursor_mass_tolerance=20,
-            fragment_mass_tolerance=100,
-            coarse_mz_calibration=False,
-            include_fragment_info=True,
-            rt_column = 'rt_library',
-            mobility_column = 'mobility_library',
-            precursor_mz_column = 'mz_library',
-            fragment_mz_column = 'mz_library',
-            debug=False
-                   
-        ):
-
-        self.dia_data = dia_data
-        self.precursors_flat = precursors_flat
-        self.candidates = candidates
-
-
-        self.fragments_mz_library = fragments_flat['mz_library'].values.copy()
-        self.fragments_mz = fragments_flat[fragment_mz_column].values.copy()
-        self.fragments_intensity = fragments_flat['intensity'].values.copy().astype('float64')
-        self.fragments_type = fragments_flat['type'].values.copy().astype('int8')
-
-        self.num_precursor_isotopes = num_precursor_isotopes
-        self.precursor_mass_tolerance = precursor_mass_tolerance
-        self.fragment_mass_tolerance = fragment_mass_tolerance
-        self.include_fragment_info = include_fragment_info
-
-        self.rt_column = rt_column
-        self.mobility_column = mobility_column
-        self.precursor_mz_column = precursor_mz_column
-        self.fragment_mz_column = fragment_mz_column
-
-        self.debug = debug
-
-        # check if rough calibration is possible
-        if 'mass_error' in self.candidates.columns and coarse_mz_calibration:
-
-            target_indices = np.nonzero(precursors_flat['decoy'].values == 0)[0]
-            target_df = candidates[candidates['index'].isin(target_indices)]
-            
-            correction = np.mean(target_df['mass_error'])
-            logging.info(f'rough calibration will be performed {correction:.2f} ppm')
-
-            self.fragments_mz = fragments_flat[fragment_mz_column].values + fragments_flat[fragment_mz_column].values/(10**6)*correction
-
-
-    def __call__(self):
-
-        logging.info(f'performing MS2 extraction for {len(self.candidates):,} candidates')
-
-        features = []
-        candidate_iterator = self.candidates.to_dict(orient="records")
-        if not self.debug:
-            for i, candidate_dict in tqdm(enumerate(candidate_iterator), total=len(candidate_iterator)):
-                features += self.get_features(i, candidate_dict)
-        else:
-            for i, candidate_dict in enumerate(candidate_iterator):
-                logging.info(f'Only a single candidate is allowed in debugging mode')
-                return self.get_features(i, candidate_dict)
-      
-            
-        features = pd.DataFrame(features)
-        if len(self.candidates) > 0:
-            logging.info(f'MS2 extraction was able to extract {len(features):,} sets of features for {len(features)/len(self.candidates)*100:.2f}% of candidates')
-        else:
-            logging.warning(f'zero candidates were provided for MS2 extraction')
-        
-
-        return features
-
-    def get_features(self, i, candidate_dict):
-
-        c_precursor_index = candidate_dict['index']
-
-        c_charge = self.precursors_flat.charge.values[c_precursor_index]
-
-        c_mz_predicted = candidate_dict['mz_library']
-
-        # observed mz
-        c_mz = candidate_dict[self.precursor_mz_column]
-
-        c_frag_start_idx = self.precursors_flat.frag_start_idx.values[c_precursor_index]
-        c_frag_stop_idx = self.precursors_flat.frag_stop_idx.values[c_precursor_index]
-
-        c_fragments_mzs = self.fragments_mz[c_frag_start_idx:c_frag_stop_idx]
-        #print('fragment_mz', c_fragments_mzs)
-        
-        c_fragments_order = np.argsort(c_fragments_mzs)
-        
-        c_fragments_mzs = c_fragments_mzs[c_fragments_order]
-        #print('fragment_mz ordered', c_fragments_mzs)
-        
-        c_intensity = self.fragments_intensity[c_frag_start_idx:c_frag_stop_idx][c_fragments_order]
-        c_fragments_type = self.fragments_type[c_frag_start_idx:c_frag_stop_idx][c_fragments_order]
-
-        fragment_limits = utils.mass_range(c_fragments_mzs, self.fragment_mass_tolerance)
-        fragment_tof_limits = utils.make_np_slice(
-            self.dia_data.return_tof_indices(
-                fragment_limits,
-            )
-        )
-
-        scan_limits = np.array([[candidate_dict['scan_start'],candidate_dict['scan_stop'],1]])
-        frame_limits = np.array([[candidate_dict['frame_start'],candidate_dict['frame_stop'],1]])
-    
-        quadrupole_limits = np.array([[c_mz_predicted,c_mz_predicted]])
-
-
-
-        dense_fragments = self.dia_data.get_dense(
-            frame_limits,
-            scan_limits,
-            fragment_tof_limits,
-            quadrupole_limits
-        )
-
-        #return dense_fragments, (c_fragments_mzs, c_intensity, c_fragments_type)
-
-        # calculate fragment values
-        fragment_intensity = np.sum(dense_fragments[0], axis=(1,2))
-        intensity_mask = np.nonzero(fragment_intensity > 10)[0]
-
-        dense_fragments = dense_fragments[:,intensity_mask]
-        c_fragments_mzs = c_fragments_mzs[intensity_mask]
-    
-        c_intensity = c_intensity[intensity_mask]
-        c_fragments_type = c_fragments_type[intensity_mask]
-        fragment_intensity = fragment_intensity[intensity_mask]
-
-        if len(intensity_mask) < 3:
-            return []
-
-        num_isotopes = 3
-        
-        # get dense precursor
-        precursor_isotopes = utils.calc_isotopes_center(
-            c_mz,
-            c_charge,
-            self.num_precursor_isotopes
-        )
-        precursor_isotope_limits = utils.mass_range(
-                precursor_isotopes,
-                self.precursor_mass_tolerance
-        )
-        precursor_tof_limits =utils.make_np_slice(
-            self.dia_data.return_tof_indices(
-                precursor_isotope_limits,
-            )
-        )
-        dense_precursor = self.dia_data.get_dense(
-            frame_limits,
-            scan_limits,
-            precursor_tof_limits,
-            np.array([[-1.,-1.]])
-        )
-
-        if self.debug:
-            
-            visualize_dense_fragments(dense_precursor)
-            visualize_dense_fragments(dense_fragments)
-  
-        #print(np.sum(dense_fragments[0],axis=(1,2)))
-        #print(np.sum(dense_precursor[0],axis=(1,2)))
-
-        #return {}
-
-        # ========= assembling general features =========
-
-        frame_center = candidate_dict['frame_center']
-        rt_center = self.dia_data.rt_values[frame_center]
-        rt_lib = self.precursors_flat[self.rt_column].values[c_precursor_index]
-
-        candidate_dict['rt_diff'] = rt_center - rt_lib
-
-        scan_center = candidate_dict['scan_center']
-        mobility_center = self.dia_data.mobility_values[scan_center]
-        mobility_lib = self.precursors_flat[self.mobility_column].values[c_precursor_index]
-
-        candidate_dict['mobility_diff'] = mobility_center - mobility_lib
-
-        # ========= assembling precursor features =========
-        theoreticsl_precursor_isotopes = utils.calc_isotopes_center(
-            c_mz,
-            c_charge,
-            self.num_precursor_isotopes
-        )
-
-        precursor_mass_err, precursor_fraction, precursor_observations = utils.calculate_mass_deviation(
-                dense_precursor[1], 
-                theoreticsl_precursor_isotopes, 
-                size=5
-        )
-
-        precursor_intensity = np.sum(dense_precursor[0], axis=(1,2))
-
-        # monoisotopic precursor intensity
-        candidate_dict['mono_precursor_intensity'] = precursor_intensity[0]
-
-        # monoisotopic precursor mass error
-        candidate_dict['mono_precursor_mass_error'] = precursor_mass_err[0]
-
-        # monoisotopic precursor observations
-        candidate_dict['mono_precursor_observations'] = precursor_observations[0]
-
-        # monoisotopic precursor fraction
-        candidate_dict['mono_precursor_fraction'] = precursor_fraction[0]
-
-        # highest intensity isotope
-        candidate_dict['top_precursor_isotope'] = np.argmax(precursor_intensity, axis=0)
-
-        # highest intensity isotope mass error
-        candidate_dict['top_precursor_intensity'] = precursor_intensity[candidate_dict['top_precursor_isotope']]
-
-        # precursor mass error
-        candidate_dict['top_precursor_mass_error'] = precursor_mass_err[candidate_dict['top_precursor_isotope']]
-
-        # ========= assembling fragment features =========
-
-
-        fragment_mass_err, fragment_fraction, fragment_observations = utils.calculate_mass_deviation(
-                dense_fragments[1], 
-                c_fragments_mzs, 
-                size=5
-        )
-
-        precursor_sum = np.sum(dense_precursor[0],axis=0)
-
-        
-        correlations = utils.calculate_correlations(
-                np.sum(dense_precursor[0],axis=0), 
-                dense_fragments[0]
-        )
-
-        precursor_correlations = np.mean(correlations[0:2], axis=0)
-        fragment_correlations = np.mean(correlations[2:4], axis=0)
-
-        corr_sum = np.mean(correlations,axis=0)
-
-        # the fragment order is given by the sum of the correlations
-        fragment_order = np.argsort(corr_sum)[::-1]
-
-        # number of fragments above intensity threshold
-        candidate_dict['num_fragments'] = len(fragment_order)
-
-        # number of fragments with precursor correlation above 0.5
-        candidate_dict['num_fragments_pcorr_7'] = np.sum(precursor_correlations[fragment_order] > 0.7)
-        candidate_dict['num_fragments_pcorr_5'] = np.sum(precursor_correlations[fragment_order] > 0.5)
-        candidate_dict['num_fragments_pcorr_3'] = np.sum(precursor_correlations[fragment_order] > 0.3)
-        candidate_dict['num_fragments_pcorr_2'] = np.sum(precursor_correlations[fragment_order] > 0.2)
-        candidate_dict['num_fragments_pcorr_1'] = np.sum(precursor_correlations[fragment_order] > 0.1)
-
-        # number of fragments with precursor correlation above 0.5
-        candidate_dict['num_fragments_fcorr_7'] = np.sum(precursor_correlations[fragment_order] > 0.7)
-        candidate_dict['num_fragments_fcorr_5'] = np.sum(precursor_correlations[fragment_order] > 0.5)
-        candidate_dict['num_fragments_fcorr_3'] = np.sum(fragment_correlations[fragment_order] > 0.3)
-        candidate_dict['num_fragments_fcorr_2'] = np.sum(fragment_correlations[fragment_order] > 0.2)
-        candidate_dict['num_fragments_fcorr_1'] = np.sum(fragment_correlations[fragment_order] > 0.1)
-
-        # mean precursor correlation for top n fragments
-        candidate_dict['mean_pcorr_top_5'] = np.mean(precursor_correlations[fragment_order[0:5]])
-        candidate_dict['mean_pcorr_top_10'] = np.mean(precursor_correlations[fragment_order[0:10]])
-        candidate_dict['mean_pcorr_top_15'] = np.mean(precursor_correlations[fragment_order[0:15]])
-
-        # mean correlation for top n fragments
-        candidate_dict['mean_fcorr_top_5'] = np.mean(fragment_correlations[fragment_order[0:5]])
-        candidate_dict['mean_fcorr_top_10'] = np.mean(fragment_correlations[fragment_order[0:10]])
-        candidate_dict['mean_fcorr_top_15'] = np.mean(fragment_correlations[fragment_order[0:15]])
-
-        #  ======== assembling fragment intensity features ========
-
-        candidate_dict['fragment_intensity_top_5'] = np.mean(fragment_intensity[fragment_order[0:5]])
-        candidate_dict['fragment_intensity_top_10'] = np.mean(fragment_intensity[fragment_order[0:10]])
-        candidate_dict['fragment_intensity'] = np.mean(fragment_intensity)
-
-        candidate_dict['fragment_rank_score_1d'] = local_rank_score_1d(fragment_intensity, c_intensity)
-        candidate_dict['fragment_rank_score_2d'] = local_rank_score_2d(fragment_intensity, c_intensity)
-
-        candidate_dict['fragment_dot_product'] = np.dot(fragment_intensity, c_intensity)
-        candidate_dict['fragment_similarity'] = cosine_similarity_float(fragment_intensity, c_intensity)
-
-        fragment_intensity_weighted = calc_fragment_shape(dense_fragments[0, fragment_order])
-        candidate_dict['intensity_weighted_top_5'] = np.mean(fragment_intensity_weighted[0:5])
-        candidate_dict['intensity_weighted_top_10'] = np.mean(fragment_intensity_weighted[0:10])
-        candidate_dict['intensity_weighted'] = np.mean(fragment_intensity_weighted)
-
-        fragment_shape = fragment_intensity_weighted / np.sum(dense_fragments[0], axis = (1,2))
-        candidate_dict['fragment_shape_top_5'] = np.mean(fragment_shape[0:5])
-        candidate_dict['fragment_shape_top_10'] = np.mean(fragment_shape[0:10])
-        candidate_dict['fragment_shape'] = np.mean(fragment_shape)
-
-        # ========= assembling individual fragment information =========
-
-        if self.include_fragment_info:
-            mz_library = self.fragments_mz_library[c_frag_start_idx:c_frag_stop_idx]      
-            #print('fragment_mz ordered by correlation',c_fragments_mzs[fragment_order])
-            #print(mz_library)
-            mz_library = mz_library[c_fragments_order]
-            #print(mz_library)
-            mz_library = mz_library[intensity_mask]
-            #print(mz_library)
-            mz_library = mz_library[fragment_order]
-            #print(mz_library)
-
-            # this will be mz_predicted in the first round and mz_calibrated as soon as calibration has been locked in
-            mz_used = c_fragments_mzs[fragment_order]
-            mass_error = fragment_mass_err[fragment_order]
-    
-            mz_observed = mz_used + mass_error * 1e-6 * mz_used
-
-            candidate_dict['fragment_mz_library_list'] = ';'.join([ f'{el:.4f}' for el in mz_library[:15]])
-            candidate_dict['fragment_mz_observed_list'] = ';'.join([ f'{el:.4f}' for el in mz_observed[:15]])
-            candidate_dict['mass_error_list'] = ';'.join([ f'{el:.3f}' for el in mass_error[:15]])
-            #candidate_dict['mass_list'] = ';'.join([ f'{el:.3f}' for el in c_fragments_mzs[fragment_order][:10]])
-            candidate_dict['intensity_list'] = ';'.join([ f'{el:.3f}' for el in fragment_intensity[fragment_order][:15]])
-            candidate_dict['type_list'] = ';'.join([ f'{el:.3f}' for el in c_fragments_type[fragment_order][:15]])
-
-        return [candidate_dict]
-    
-def unpack_fragment_info(candidate_scoring_df):
-
-    all_precursor_indices = []
-    all_fragment_mz_library = []
-    all_fragment_mz_observed = []
-    all_mass_errors = []
-    all_intensities = []
-
-    for precursor_index, fragment_mz_library_list, fragment_mz_observed_list, mass_error_list, intensity_list in zip(
-        candidate_scoring_df['index'].values,
-        candidate_scoring_df.fragment_mz_library_list.values, 
-        candidate_scoring_df.fragment_mz_observed_list.values, 
-        candidate_scoring_df.mass_error_list.values,
-        candidate_scoring_df.intensity_list.values
-    ):
-        fragment_masses = [float(i) for i in fragment_mz_library_list.split(';')]
-        all_fragment_mz_library += fragment_masses
-
-        all_fragment_mz_observed += [float(i) for i in fragment_mz_observed_list.split(';')]
-        
-        all_mass_errors += [float(i) for i in mass_error_list.split(';')]
-        all_intensities += [float(i) for i in intensity_list.split(';')]
-        all_precursor_indices += [precursor_index] * len(fragment_masses)
-
-    fragment_calibration_df = pd.DataFrame({
-        'precursor_index': all_precursor_indices,
-        'mz_library': all_fragment_mz_library,
-        'mz_observed': all_fragment_mz_observed,
-        'mass_error': all_mass_errors,
-        'intensity': all_intensities
-    })
-
-    return fragment_calibration_df.dropna().reset_index(drop=True)
 
 @nb.njit()
 def assign_best_candidate(sorted_index_values):
@@ -412,7 +54,8 @@ def fdr_correction(features,
             'var_observation_score',
             'fragment_frame_correlation', 'fragment_scan_correlation', 'template_frame_correlation', 'template_scan_correlation'
             ],
-        neptune_run=None,
+        figure_path = None,
+        neptune_run = None,
         index_group = 'precursor_idx'
     ):
     features = features.dropna().reset_index(drop=True).copy()
@@ -429,7 +72,7 @@ def fdr_correction(features,
 
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=400, alpha=1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
+        ('GBC', LogisticRegression() )# MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=400, alpha=1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
     ])
 
     X = features[feature_columns].values
@@ -494,14 +137,28 @@ def fdr_correction(features,
     axs[2].set_xlabel('q-value')
     axs[2].set_ylabel('number of precursors')
     axs[2].set_title("Identifications")
-
+    
     fig.tight_layout()
 
+    # log figure to neptune ai
     if neptune_run is not None:
         neptune_run[f'eval/fdr'].log(fig)
-        plt.close()
+
+    if figure_path is not None:
+        
+        i = 0
+        file_name = os.path.join(figure_path, f'fdr_{i}.png')
+        while os.path.exists(file_name):
+            file_name = os.path.join(figure_path, f'fdr_{i}.png')
+            i += 1
+
+        fig.savefig(file_name)
+        
+    
     else:
-        plt.show()
+        plt.show()  
+
+    plt.close()
 
     return features_best_df
 
@@ -1231,9 +888,13 @@ class Candidate:
         # check if an empty array is returned
         # scan and quadrupole limits of the fragments candidte are outside the acquisition range
         if dense_fragments.shape[-1] == 0:
-            #print("No fragments found")
             return
         
+        # only one fragment is found
+        if dense_fragments.shape[1] <= 1:
+            return
+        
+        # total intensity of all fragments is too low
         if np.sum(dense_fragments[0]) < 100:
             #print("No fragments found")
             return
@@ -1276,8 +937,6 @@ class Candidate:
         self.observation_importance = observation_importance
         self.template = template
 
-        
-
         self.features, self.fragment_features = features.build_features(
             dense_fragments, 
             dense_precursors, 
@@ -1286,6 +945,9 @@ class Candidate:
             self.isotope_mz, 
             self.fragments
         )
+
+        coverage = np.sum(qtf, axis = 2)
+        self.features['fragment_coverage'] = np.mean(coverage) 
 
         self.build_correlation_features(debug)
         self.add_fixed_features(jit_data)
@@ -1373,6 +1035,8 @@ class MS2ExtractionWorkflow():
         candidate_container = self.assemble_candidates(iterator_len)
         fragment_container = self.assemble_fragments()
 
+        alphatims.utils.set_threads(thread_count)
+
         _executor(
             range(iterator_len),
             candidate_container,
@@ -1382,11 +1046,13 @@ class MS2ExtractionWorkflow():
             self.precursor_mz_tolerance,
             self.fragment_mz_tolerance,
             self.debug
+
         )
-    
-        feature_df, fragment_df = self.collect_dataframes(candidate_container)
+
         if self.debug:
-            return candidate_container, feature_df, fragment_df
+            return candidate_container#, feature_df, fragment_df
+        feature_df, fragment_df = self.collect_dataframes(candidate_container)
+        
         
         feature_df = self.append_precursor_information(feature_df)
         self.log_stats(feature_df)
@@ -1535,6 +1201,9 @@ class MS2ExtractionWorkflow():
             df['mobility_calibrated'] = self.precursors_flat['mobility_calibrated'].values[precursor_flat_lookup]
         df['mobility_error'] = df['mobility_observed'] - df[self.mobility_column]
 
+        if 'proteins' in self.precursors_flat.columns:
+            df['proteins'] = self.precursors_flat['proteins'].values[precursor_flat_lookup]
+
         return df
    
 
@@ -1554,7 +1223,7 @@ class MS2ExtractionWorkflow():
 
         logging.info(f'{target_percentage:.2f}% of targets failed, {decoy_percentage:.2f}% of decoys failed')
 
-@alphatims.utils.pjit
+@alphatims.utils.pjit()
 def _executor(
         i,
         candidate_container,
