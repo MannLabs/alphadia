@@ -1,0 +1,105 @@
+# configuration for the extraction plan
+version: 'alpha_1.0'
+extraction:
+  initial_num_candidates: 2
+  target_num_candidates: 5
+
+  initial_ms1_tolerance: 120
+  initial_ms2_tolerance: 120
+  initial_mobility_tolerance: 0.04
+  initial_rt_tolerance: 360
+
+  target_ms1_tolerance: 15
+  target_ms2_tolerance: 15
+  target_mobility_tolerance: 0.02
+  target_rt_tolerance: 30
+
+  min_epochs: 5
+  max_epochs: 20
+
+  rt_heuristic: 180
+  batch_size: 2000
+  recalibration_target: 200
+  final_full_calibration: False
+
+  norm_rt_mode: 'tic'
+
+  precursor_columns:
+    mz_library: ['mz','precursor_mz']
+    rt_library: ['rt','rt_norm']
+    mobility_library: ['mobility']
+  fragment_columns:
+    mz_library: ['mz','predicted_mz']
+  
+  output_columns:
+    - 'elution_group_idx'
+    - 'precursor_idx'
+    - 'decoy' 
+    - 'frag_start_idx'
+    - 'frag_stop_idx' 
+    - 'charge'
+    - 'rt_library'
+    - 'mobility_library'
+    - 'mz_library'
+    - 'sequence'
+    - 'genes'
+    - 'proteins'
+    - 'uniprot_ids'
+
+  fdr_classifier: 'LogisticRegression'
+  fdr_columns:
+
+
+
+# configuration for the calibration manager
+# the config has to start with the calibration keyword and consists of a list of calibration groups.
+# each group consists of datapoints which have multiple properties.
+# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
+calibration:
+  - name: fragment
+    estimators: 
+      - name: mz
+        model: LOESSRegression
+        model_args:
+          n_kernels: 2
+        input_columns: 
+          - mz_library
+        target_columns:
+          - mz_observed
+        output_columns:
+          - mz_calibrated
+        transform_deviation: 1e6
+  - name: precursor
+    estimators: 
+        - name: mz
+          model: LOESSRegression
+          model_args:
+            n_kernels: 2
+          input_columns: 
+            - mz_library
+          target_columns:
+            - mz_observed
+          output_columns:
+            - mz_calibrated
+          transform_deviation: 1e6
+        - name: rt
+          model: LOESSRegression
+          model_args:
+            n_kernels: 6
+            uniform: True
+          input_columns: 
+            - rt_library
+          target_columns:
+            - rt_observed
+          output_columns:
+            - rt_calibrated
+        - name: mobility
+          model: LOESSRegression
+          model_args:
+            n_kernels: 2
+          input_columns: 
+            - mobility_library
+          target_columns:
+            - mobility_observed
+          output_columns:
+            - mobility_calibrated
