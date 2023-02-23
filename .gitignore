@@ -136,3 +136,4 @@ AlphaDIA/logs
 *.DS_Store
 *sandbox*
 nbs/mono_crash*
+.coverage
