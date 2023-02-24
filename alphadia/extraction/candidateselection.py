@@ -293,11 +293,6 @@ class MS1CentricCandidateSelection(object):
         iterator_len = min(10,len(elution_group_container)) if self.debug else len(elution_group_container)
         thread_count = 1 if self.debug else self.thread_count
 
-        pjit_fun = alphatims.utils.pjit(
-            _executor,
-            thread_count=thread_count
-        )
-
         alphatims.utils.set_threads(thread_count)
 
         _executor(
@@ -967,6 +962,7 @@ class ElutionGroupContainer:
         def __len__(self):
             return len(self.elution_groups)
 
+@alphatims.utils.pjit()
 def _executor(
         i,
         jit_data, 

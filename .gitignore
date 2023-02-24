@@ -137,3 +137,4 @@ AlphaDIA/logs
 *sandbox*
 .neptune
 nbs/mono_crash*
+.coverage
