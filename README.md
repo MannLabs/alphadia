@@ -5,7 +5,7 @@
 [//]: # [![Downloads](https://pepy.tech/badge/{{project_package_name}}/month)](https://pepy.tech/project/{{project_package_name}})
 [//]: # [![Downloads](https://pepy.tech/badge/{{project_package_name}}/week)](https://pepy.tech/project/{{project_package_name}})
 
-[![Coverage](https://github.com/MannLabs/alphadia/blob/dev_gw/coverage.svg)
+![Coverage](https://github.com/MannLabs/alphadia/blob/dev_gw/coverage.svg)
 
 # AlphaDIA
 An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann). To enable all hyperlinks in this document, please view it at [GitHub](https://github.com/MannLabs/alphadia).
