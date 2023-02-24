@@ -1,10 +1,5 @@
 ![Pip installation](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
 ![GUI and PyPi releases](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
-
-[//]: # [![Downloads](https://pepy.tech/badge/{{project_package_name}})](https://pepy.tech/project/{{project_package_name}})
-[//]: # [![Downloads](https://pepy.tech/badge/{{project_package_name}}/month)](https://pepy.tech/project/{{project_package_name}})
-[//]: # [![Downloads](https://pepy.tech/badge/{{project_package_name}}/week)](https://pepy.tech/project/{{project_package_name}})
-
 ![Coverage](https://github.com/MannLabs/alphadia/blob/dev_gw/coverage.svg)
 
 # AlphaDIA
