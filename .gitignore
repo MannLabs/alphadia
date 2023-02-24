@@ -135,4 +135,6 @@ dmypy.json
 AlphaDIA/logs
 *.DS_Store
 *sandbox*
+.neptune
 nbs/mono_crash*
+.coverage
