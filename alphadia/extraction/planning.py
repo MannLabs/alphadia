@@ -21,6 +21,7 @@ from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
 from alphadia.extraction.quadrupole import SimpleQuadrupole
+from alphadia.extraction.hybridselection import HybridCandidateSelection
 
 # alpha family imports
 import alphatims
@@ -66,16 +67,6 @@ class Plan:
         config_update : dict, optional
             dict to update the default config. Can be used for debugging purposes etc.
 
-        """
-
-        # print the current date and time
-        """
-              _   _      _         ___ ___   _   
-             /_\ | |_ __| |_  __ _|   \_ _| /_\  
-            / _ \| | '_ \ ' \/ _` | |) | | / _ \ 
-           /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\
-                   |_|                           
-                    
         """
 
         logger.progress('      _   _      _         ___ ___   _   ')
@@ -748,9 +739,10 @@ class Workflow:
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
 
-        extraction = MS1CentricCandidateSelection(
+        extraction = HybridCandidateSelection(
             self.dia_data,
             batch_df,
+            self.fragments_flat,
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',

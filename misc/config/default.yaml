@@ -1,8 +1,8 @@
 # configuration for the extraction plan
-version: 'alpha_1.0'
+version: '1.0.1'
 extraction:
   initial_num_candidates: 2
-  target_num_candidates: 5
+  target_num_candidates: 2
 
   initial_ms1_tolerance: 120
   initial_ms2_tolerance: 120
@@ -18,7 +18,7 @@ extraction:
   max_epochs: 20
 
   rt_heuristic: 180
-  batch_size: 2000
+  batch_size: 4000
   recalibration_target: 200
   final_full_calibration: False
 

@@ -137,6 +137,7 @@ def extract(**kwargs):
 
         lib = SpecLibBase()
         lib.load_hdf(kwargs['library'], load_mod_seq=True)
+        lib._precursor_df['elution_group_idx'] = lib._precursor_df['precursor_idx']
 
         config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
         

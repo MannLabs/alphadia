@@ -436,8 +436,6 @@ class TimsTOFJIT(object):
             n_channels = 1
         else:
             n_channels = 2
-        
-        
 
         n_tof_slices = len(tof_limits)
 
@@ -467,6 +465,99 @@ class TimsTOFJIT(object):
                 p_slice = raw_relative_precursor_index[i]
                 dense_output[1,tof_slice, p_slice, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,tof_slice, p_slice, mobility, precursor_cycle])
         
+        return dense_output, precursor_index
+    
+    def get_dense_fragments(
+        self,
+        frame_limits,
+        scan_limits,
+        precursor_quad_limits,
+        fragment_precursor_idx,
+        fragment_tof_limits
+    ):
+        n_precursors = len(precursor_quad_limits)
+        n_tof_slices = len(fragment_tof_limits)
+
+        # cycle values
+        precursor_cycle_start = (frame_limits[0,0]-self.zeroth_frame)//self.cycle.shape[1]
+        precursor_cycle_stop = (frame_limits[0,1]-self.zeroth_frame)//self.cycle.shape[1]
+        precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+
+        # scan valuesa
+        mobility_start = scan_limits[0,0]
+        mobility_stop = scan_limits[0,1]
+        mobility_len = mobility_stop - mobility_start
+
+        dense_output = np.zeros(
+            (
+                2, 
+                n_tof_slices,
+                1,
+                mobility_len,
+                precursor_cycle_len
+            ), 
+            dtype=np.float64
+        )
+
+        for pidx in range(0,n_precursors):
+
+            local_fragment_indices = np.nonzero(fragment_precursor_idx == pidx)[0]
+            local_fragment_tof_indices = fragment_tof_limits[local_fragment_indices]
+            quadrupole_limits = np.array([[precursor_quad_limits[pidx,0], precursor_quad_limits[pidx,1]]])
+
+
+            push_indices, absolute_precursor_index  = self.get_dia_push_indices(
+                frame_limits,
+                scan_limits,
+                quadrupole_limits
+            )
+
+            # as creating empty array fails for some weird reason, a 1 sized array is returned
+            if len(push_indices) == 0:
+
+                # suggested way tto create an empty but typed array
+                # https://numba.readthedocs.io/en/stable/user/troubleshoot.html#my-code-has-an-untyped-list-problem
+                x = np.array([[[[[np.float64(x) for x in range(0)]]]]])
+                y = np.array([np.int64(x) for x in range(0)])
+                return x, y
+            
+            precursor_index = np.unique(absolute_precursor_index)
+
+            push_ptr, raw_indices, local_tof_slice_ptr = self.filter_tof_to_csr(
+                local_fragment_tof_indices, 
+                push_indices, 
+            )
+
+            push_len = np.diff(push_ptr)
+
+            # get push index for every raw index
+            raw_push_indices = np.repeat(push_indices, push_len)
+
+            frame_indices = raw_push_indices // self.scan_max_index
+            scan_indices = raw_push_indices % self.scan_max_index
+            precursor_cycle_indices = (frame_indices-self.zeroth_frame)//self.cycle.shape[1]
+
+
+            tof_indices = self.tof_indices[raw_indices]
+            mz_values = self.mz_values[tof_indices]
+            intensities = self.intensity_values[raw_indices]
+
+            tof_slice_ptr = local_fragment_indices[local_tof_slice_ptr]
+
+            # create dense intensities
+            for i, (tof_slice, intensity, mz) in enumerate(zip(tof_slice_ptr, intensities, mz_values)):
+                mobility = scan_indices[i]-mobility_start
+                precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
+                p_slice = 0 #raw_relative_precursor_index[i]
+                dense_output[0, tof_slice, p_slice ,mobility, precursor_cycle] += intensity
+                
+            # create dense weighted mz
+            for i, (tof_slice, intensity, mz) in enumerate(zip(tof_slice_ptr, intensities, mz_values)):
+                mobility = scan_indices[i]-mobility_start
+                precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
+                p_slice = 0 # raw_relative_precursor_index[i]
+                dense_output[1,tof_slice, p_slice, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,tof_slice, p_slice, mobility, precursor_cycle])
+
         return dense_output, precursor_index
 
 class TimsTOFDIA(alphatims.bruker.TimsTOF):
@@ -648,6 +739,5 @@ class TimsTOFDIA(alphatims.bruker.TimsTOF):
             mobility = scan_indices[i]-mobility_start
             precursor_cycle = precursor_cycle_indices[i]-precursor_cycle_start
             dense_output[1,isotope, mobility, precursor_cycle] += mz_values[i] * (intensities[i]/dense_output[0,isotope, mobility, precursor_cycle])
-
 
         return dense_output
