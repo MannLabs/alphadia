@@ -6,12 +6,12 @@ extraction:
 
   initial_ms1_tolerance: 120
   initial_ms2_tolerance: 120
-  initial_mobility_tolerance: 0.04
+  initial_mobility_tolerance: 0.06
   initial_rt_tolerance: 360
 
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.02
+  target_mobility_tolerance: 0.03
   target_rt_tolerance: 30
 
   min_epochs: 5
