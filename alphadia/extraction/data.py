@@ -335,6 +335,58 @@ class TimsTOFJIT(object):
                             push_indices.append(push_index)
 
         return np.array(push_indices), np.array(precursor_indices)
+    
+    def fast_tof_to_csr(
+        jit_data,
+        tof_slices: np.ndarray,
+        push_indices: np.ndarray,
+    ) -> tuple:
+        """Get a CSR-matrix with raw indices satisfying push indices and tof slices. 
+        In contrast to the alphatims.bruker.filter_tof_to_csr implementation, this function will return all hits.
+
+        Parameters
+        ----------
+        tof_slices : np.int64[:, 3]
+            Each row of the array is assumed to be a (start, stop, step) tuple.
+            This array is assumed to be sorted, disjunct and strictly increasing
+            (i.e. np.all(np.diff(tof_slices[:, :2].ravel()) >= 0) = True).
+        push_indices : np.int64[:]
+            The push indices from where to retrieve the TOF slices.
+
+        Returns
+        -------
+        (np.int64[:], np.int64[:], np.int64[:],)
+            An (indptr, values, columns) tuple, where indptr are push indices,
+            values raw indices, and columns the tof_slices.
+        """
+
+        intensity = np.zeros((len(push_indices), len(tof_slices)))
+        #mz = np.zeros((len(push_indices), len(tof_slices)))
+
+        #indptr = [0]
+        #values = []
+        #columns = []
+        for j, push_index in enumerate(push_indices):
+            
+            start = jit_data.push_indptr[push_index]
+            end = jit_data.push_indptr[push_index + 1]
+            idx = start
+            for i, (tof_start, tof_stop, tof_step) in enumerate(tof_slices):
+                # Instead of leaving it at the end of the first tof slice it's reset to the start to allow for 
+                # Overlap of tof slices
+                start_idx = np.searchsorted(jit_data.tof_indices[idx: end], tof_start)
+                idx += start_idx
+                tof_value = jit_data.tof_indices[idx]
+                while (tof_value < tof_stop) and (idx < end):
+                    
+                    intensity[j, 0] += jit_data.intensity_values[idx]
+                    
+                    idx += 1
+                    tof_value = jit_data.tof_indices[idx]
+
+                    
+                idx = start + start_idx
+        return intensity
 
 
     def get_dense(self,
