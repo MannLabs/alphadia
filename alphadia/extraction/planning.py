@@ -31,7 +31,6 @@ import alphabase.peptide.precursor
 import alphabase.peptide.fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.reader import LibraryReaderBase
 
 # third party imports
 import numpy as np
