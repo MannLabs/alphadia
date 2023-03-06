@@ -606,7 +606,7 @@ class HybridCandidateSelection(object):
                 int(name), 
                 grouped['precursor_idx'].values.astype(np.uint32),
                 # copy is required for consistent c style striding
-                grouped[['frag_start_idx','frag_stop_idx']].values.copy().astype(np.uint32),
+                grouped[['flat_frag_start_idx','flat_frag_stop_idx']].values.copy().astype(np.uint32),
                 grouped[self.rt_column].values.astype(np.float64)[0],
                 grouped[self.mobility_column].values.astype(np.float64)[0],
                 grouped['charge'].values.astype(np.uint8)[0],

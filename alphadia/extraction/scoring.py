@@ -953,8 +953,8 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['frag_start_idx'] = self.precursors_flat['frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['frag_stop_idx'] = self.precursors_flat['frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
+        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
+        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
         candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup].astype(np.float32)
 
         for isotope_column in self.available_isotope_columns:
@@ -986,8 +986,8 @@ class MS2ExtractionWorkflow():
             c['frame_center'].values[0],
             c['charge'].values[0],
             c['decoy'].values[0],
-            c['frag_start_idx'].values,
-            c['frag_stop_idx'].values,
+            c['flat_frag_start_idx'].values,
+            c['flat_frag_stop_idx'].values,
             c['mz'].values,
             c[self.available_isotope_columns].values.astype(np.float32),
         )
