@@ -402,10 +402,8 @@ class Plan:
 
                 yield raw, precursor_df, self.speclib.fragment_df
 
-            elif rt_type == 'irt':
-                raise NotImplementedError()
-            
-            elif rt_type == 'norm':
+            elif rt_type == 'irt' or rt_type == 'norm':
+
                 # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
                 rt_min = self.config['extraction']['initial_rt_tolerance']/2
                 rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
