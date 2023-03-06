@@ -1,5 +1,6 @@
 # configuration for the extraction plan
 version: '1.0.1'
+thread_count: 10
 extraction:
   initial_num_candidates: 2
   target_num_candidates: 2

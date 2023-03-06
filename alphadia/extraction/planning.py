@@ -750,6 +750,7 @@ class Workflow:
             mobility_tolerance = self.progress["mobility_error"],
             candidate_count = self.progress["num_candidates"],
             mz_tolerance = self.progress["ms1_error"],
+            thread_count=self.config['thread_count']
         )
         candidates_df = extraction()
 
@@ -767,6 +768,7 @@ class Workflow:
             fragment_mz_column = f'mz_{self.progress["column_type"]}',
             precursor_mz_tolerance = self.progress["ms1_error"],
             fragment_mz_tolerance = self.progress["ms2_error"],
+            thread_count=self.config['thread_count']
         )
         features_df, fragments_df = extraction()
         
