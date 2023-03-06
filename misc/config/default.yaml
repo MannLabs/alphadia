@@ -4,24 +4,25 @@ extraction:
   initial_num_candidates: 2
   target_num_candidates: 2
 
-  initial_ms1_tolerance: 120
-  initial_ms2_tolerance: 120
+  initial_ms1_tolerance: 30
+  initial_ms2_tolerance: 30
   initial_mobility_tolerance: 0.06
   initial_rt_tolerance: 360
 
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.03
-  target_rt_tolerance: 30
+  target_mobility_tolerance: 0.04
+  target_rt_tolerance: 60
 
   min_epochs: 5
   max_epochs: 20
 
   rt_heuristic: 180
   batch_size: 4000
-  recalibration_target: 200
+  recalibration_target: 100
   final_full_calibration: False
 
+  # tic or linear
   norm_rt_mode: 'tic'
 
   precursor_columns:

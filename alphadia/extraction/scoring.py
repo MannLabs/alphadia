@@ -73,7 +73,7 @@ def fdr_correction(features,
 
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=400, alpha=1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
+        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=1000, alpha=0.1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
     ])
 
     X = features[feature_columns].values

@@ -103,8 +103,7 @@ def gui():
     "--neptune-tag",
     help="Neptune.ai tag for continous logging.",
     type=str,
-    multiple=True,
-    show_default=False,
+    multiple=True
 )
 @click.option(
     "--figure-path",

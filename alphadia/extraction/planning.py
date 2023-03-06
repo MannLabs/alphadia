@@ -31,7 +31,7 @@ import alphabase.peptide.precursor
 import alphabase.peptide.fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.reader import SWATHLibraryReader
+from alphabase.spectral_library.reader import LibraryReaderBase
 
 # third party imports
 import numpy as np
@@ -631,6 +631,7 @@ class Workflow:
 
                 logger.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
                 precursor_df = self.fdr_correction(features_df)
+                precursor_df = self.fdr_correction(precursor_df)
 
                 if self.check_recalibration(precursor_df):
                     self.recalibration(precursor_df, fragments_df)
