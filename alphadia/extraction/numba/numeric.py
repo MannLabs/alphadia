@@ -82,7 +82,7 @@ def fourier_a1(dense, kernel):
 
     k0, k1 = kernel.shape
 
-    out = np.zeros_like(dense)
+    out = np.zeros_like(dense, dtype='float32')
 
     fourier_filter = np.fft.rfft2(kernel, dense.shape[2:])
     for i in range(dense.shape[0]):

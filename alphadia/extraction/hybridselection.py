@@ -1,5 +1,5 @@
 from alphadia.extraction import utils
-from alphadia.extraction.numba import fragments
+from alphadia.extraction.numba import fragments, numeric
 from alphadia.extraction.utils import fourier_filter
 from alphadia.extraction.candidateselection import peak_boundaries_symmetric, GaussianFilter
 import numba as nb
@@ -8,21 +8,30 @@ import pandas as pd
 import logging
 import alphatims
 
+import matplotlib.pyplot as plt
+
 
 
 @nb.njit()
 def calculate_score(dense_precursors, dense_fragments, expected_intensity, kernel):
-    precursor_intensity = fourier_filter(dense_precursors, kernel)
 
-    # (n_fragments, 1, n_scans, n_frames)
-    fragment_intensity = fourier_filter(dense_fragments, kernel)
+    precursor_intensity = numeric.fourier_a1(dense_precursors[0], kernel)
+    #print(precursor_i.shape)
+
+    fragment_intensity = numeric.fourier_a1(dense_fragments[0], kernel)
 
     fragment_kernel = expected_intensity.reshape(-1, 1, 1, 1)
 
     fragment_dot = np.sum(fragment_intensity * fragment_kernel, axis=0)
 
-    score = fragment_dot * precursor_intensity[0] * np.sum(fragment_intensity, axis=0)
-    return score[0]
+    s = fragment_dot * precursor_intensity[0] * np.sum(fragment_intensity, axis=0)
+
+    
+
+
+    
+
+    return s[0]
 
 @nb.experimental.jitclass()
 class HybridElutionGroup:
@@ -561,7 +570,7 @@ class HybridCandidateSelection(object):
    
         df = self.assemble_candidates(elution_group_container)
 
-        return df, elution_group_container
+        #return df, elution_group_container
 
         #return df
         df = self.append_precursor_information(df)
