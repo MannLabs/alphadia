@@ -1129,18 +1129,18 @@ def fourier_filter(
         frame_size,
     ), dtype='float32')
 
-    with nb.objmode(smooth_output='float32[:,:,:,:]'):
-        fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
-
-        for i in range(smooth_output.shape[0]):
-            for j in range(smooth_output.shape[1]):
-                layer = dense_stack[0,i,j,:scan_size,:frame_size]
     
-                smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
-                
+    fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
 
-        # roll back to original position
-        smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-        smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+    for i in range(smooth_output.shape[0]):
+        for j in range(smooth_output.shape[1]):
+            layer = dense_stack[0,i,j,:scan_size,:frame_size]
+
+            smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
+                
+    #with nb.objmode(smooth_output='float32[:,:,:,:]'):
+    #    # roll back to original position
+    #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
+    #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output

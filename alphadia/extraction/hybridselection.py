@@ -157,11 +157,9 @@ class HybridElutionGroup:
         ])
     
         self.frame_limits = utils.make_slice_1d(
-            utils.expand_if_odd(
-                jit_data.return_frame_indices(
-                    rt_limits,
-                    True
-                )
+            jit_data.return_frame_indices(
+                rt_limits,
+                True
             )
         )
 
@@ -188,11 +186,11 @@ class HybridElutionGroup:
         ])
 
         self.scan_limits = utils.make_slice_1d(
-            utils.expand_if_odd(
-                jit_data.return_scan_indices(
-                    mobility_limits
-                )
+
+            jit_data.return_scan_indices(
+                mobility_limits
             )
+
         )
 
     def determine_precursor_tof_limits(
@@ -562,6 +560,8 @@ class HybridCandidateSelection(object):
         )
    
         df = self.assemble_candidates(elution_group_container)
+
+        return df, elution_group_container
 
         #return df
         df = self.append_precursor_information(df)
