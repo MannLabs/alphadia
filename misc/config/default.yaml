@@ -3,7 +3,7 @@ version: '1.0.1'
 thread_count: 10
 extraction:
   initial_num_candidates: 2
-  target_num_candidates: 2
+  target_num_candidates: 5
 
   initial_ms1_tolerance: 30
   initial_ms2_tolerance: 30

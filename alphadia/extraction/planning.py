@@ -628,7 +628,7 @@ class Workflow:
 
                 logger.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
                 precursor_df = self.fdr_correction(features_df)
-                precursor_df = self.fdr_correction(precursor_df)
+                #precursor_df = self.fdr_correction(precursor_df)
 
                 if self.check_recalibration(precursor_df):
                     self.recalibration(precursor_df, fragments_df)
