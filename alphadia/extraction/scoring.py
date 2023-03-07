@@ -6,6 +6,7 @@ import os
 from alphadia.extraction import utils
 from alphadia.extraction import features, plotting
 from alphadia.library import fdr_to_q_values
+from alphadia.extraction.numba.fragments import FragmentContainer
 
 # alpha family imports
 import alphatims
@@ -72,7 +73,7 @@ def fdr_correction(features,
 
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
-        ('GBC', LogisticRegression() )# MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=400, alpha=1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
+        ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=1000, alpha=0.1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
     ])
 
     X = features[feature_columns].values
@@ -288,120 +289,6 @@ def concat(array_list):
         start += len(a)
     return out
 
-import numba as nb
-@nb.experimental.jitclass()
-class FragmentContainer:
-
-    mz_library: nb.float32[::1]
-    mz: nb.float32[::1]
-    intensity: nb.float32[::1]
-    type: nb.uint8[::1]
-    loss_type: nb.uint8[::1]
-    charge: nb.uint8[::1]
-    number: nb.uint8[::1]
-    position: nb.uint8[::1]
-    precursor_idx: nb.uint32[::1]
-       
-    def __init__(
-        self,
-        mz_library,
-        mz,
-        intensity,
-        type,
-        loss_type,
-        charge,
-        number,
-        position
-    ):
-
-        self.mz_library = mz_library
-        self.mz = mz
-        self.intensity = intensity
-        self.type = type
-        self.loss_type = loss_type
-        self.charge = charge
-        self.number = number
-        self.position = position
-        self.precursor_idx = np.zeros(len(mz), dtype=np.uint32)
-
-    def __len__(self):
-        return len(self.mz)
-
-    def sort_by_mz(self):
-        """
-        Sort all arrays by m/z
-        
-        """
-        mz_order = np.argsort(self.mz)
-        self.precursor_idx = self.precursor_idx[mz_order]
-        self.mz_library = self.mz_library[mz_order]
-        self.mz = self.mz[mz_order]
-        self.intensity = self.intensity[mz_order]
-        self.type = self.type[mz_order]
-        self.loss_type = self.loss_type[mz_order]
-        self.charge = self.charge[mz_order]
-        self.number = self.number[mz_order]
-        self.position = self.position[mz_order]
-        
-
-@overload_method(nb.types.misc.ClassInstanceType, 'slice', )
-def slice(inst, slices):
-    
-    if inst is FragmentContainer.class_type.instance_type:
-
-        
-        def impl(inst, slices):
-            precursor_idx = []
-            fragments_mz_library = []
-            fragments_mz = []
-            fragments_intensity = []
-            fragments_type = []
-            fragments_loss_type = []
-            fragments_charge = []
-            fragments_number = []
-            fragments_position = []
-
-            precursor = np.zeros(len(slices), dtype=np.uint32)
-
-            for i, (start_idx, stop_idx, step) in enumerate(slices):
-                for j in range(start_idx, stop_idx):
-                    
-                    precursor_idx.append(precursor[i])
-                    fragments_mz_library.append(inst.mz_library[j])
-                    fragments_mz.append(inst.mz[j])
-                    fragments_intensity.append(inst.intensity[j])
-                    fragments_type.append(inst.type[j])
-                    fragments_loss_type.append(inst.loss_type[j])
-                    fragments_charge.append(inst.charge[j])
-                    fragments_number.append(inst.number[j])
-                    fragments_position.append(inst.position[j])
-
-            precursor_idx = np.array(precursor_idx, dtype=np.uint32)
-            fragments_mz_library = np.array(fragments_mz_library, dtype=np.float32)
-            fragment_mz = np.array(fragments_mz, dtype=np.float32)
-            fragment_intensity = np.array(fragments_intensity, dtype=np.float32)
-            fragment_type = np.array(fragments_type, dtype=np.uint8)
-            fragment_loss_type = np.array(fragments_loss_type, dtype=np.uint8)
-            fragment_charge = np.array(fragments_charge, dtype=np.uint8)
-            fragment_number = np.array(fragments_number, dtype=np.uint8)
-            fragment_position = np.array(fragments_position, dtype=np.uint8)
-
-            f = FragmentContainer(
-                fragments_mz_library,
-                fragment_mz,
-                fragment_intensity,
-                fragment_type,
-                fragment_loss_type,
-                fragment_charge,
-                fragment_number,
-                fragment_position
-            )
-
-            f.precursor_idx = precursor_idx
-
-            return f
-        return impl
-
 @nb.guvectorize([
     (nb.float64[:], nb.float64[:]),
     (nb.float32[:], nb.float32[:]),
@@ -567,7 +454,7 @@ class Candidate:
         ):
 
         mz_limits = utils.mass_range(self.fragments.mz, fragment_mz_tolerance)
-        self.fragment_tof_limit = candidateselection.make_slice_2d(
+        self.fragment_tof_limit = utils.make_slice_2d(
             jit_data.return_tof_indices(
                 mz_limits
             )
@@ -581,7 +468,7 @@ class Candidate:
 
         
         mz_limits = utils.mass_range(self.isotope_mz.flatten(), precursor_mz_tolerance)
-        self.precursor_tof_limit = candidateselection.make_slice_2d(
+        self.precursor_tof_limit = utils.make_slice_2d(
             jit_data.return_tof_indices(
                 mz_limits
             )
@@ -1066,8 +953,8 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['frag_start_idx'] = self.precursors_flat['frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['frag_stop_idx'] = self.precursors_flat['frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
+        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
+        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
         candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup].astype(np.float32)
 
         for isotope_column in self.available_isotope_columns:
@@ -1099,8 +986,8 @@ class MS2ExtractionWorkflow():
             c['frame_center'].values[0],
             c['charge'].values[0],
             c['decoy'].values[0],
-            c['frag_start_idx'].values,
-            c['frag_stop_idx'].values,
+            c['flat_frag_start_idx'].values,
+            c['flat_frag_stop_idx'].values,
             c['mz'].values,
             c[self.available_isotope_columns].values.astype(np.float32),
         )
