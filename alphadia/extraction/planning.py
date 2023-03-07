@@ -21,6 +21,7 @@ from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
 from alphadia.extraction.quadrupole import SimpleQuadrupole
+from alphadia.extraction.hybridselection import HybridCandidateSelection
 
 # alpha family imports
 import alphatims
@@ -30,7 +31,6 @@ import alphabase.peptide.precursor
 import alphabase.peptide.fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.reader import SWATHLibraryReader
 
 # third party imports
 import numpy as np
@@ -66,16 +66,6 @@ class Plan:
         config_update : dict, optional
             dict to update the default config. Can be used for debugging purposes etc.
 
-        """
-
-        # print the current date and time
-        """
-              _   _      _         ___ ___   _   
-             /_\ | |_ __| |_  __ _|   \_ _| /_\  
-            / _ \| | '_ \ ' \/ _` | |) | | / _ \ 
-           /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\
-                   |_|                           
-                    
         """
 
         logger.progress('      _   _      _         ___ ___   _   ')
@@ -412,10 +402,8 @@ class Plan:
 
                 yield raw, precursor_df, self.speclib.fragment_df
 
-            elif rt_type == 'irt':
-                raise NotImplementedError()
-            
-            elif rt_type == 'norm':
+            elif rt_type == 'irt' or rt_type == 'norm':
+
                 # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
                 rt_min = self.config['extraction']['initial_rt_tolerance']/2
                 rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
@@ -640,6 +628,7 @@ class Workflow:
 
                 logger.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
                 precursor_df = self.fdr_correction(features_df)
+                #precursor_df = self.fdr_correction(precursor_df)
 
                 if self.check_recalibration(precursor_df):
                     self.recalibration(precursor_df, fragments_df)
@@ -748,9 +737,10 @@ class Workflow:
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
 
-        extraction = MS1CentricCandidateSelection(
+        extraction = HybridCandidateSelection(
             self.dia_data,
             batch_df,
+            self.fragments_flat,
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
@@ -758,6 +748,7 @@ class Workflow:
             mobility_tolerance = self.progress["mobility_error"],
             candidate_count = self.progress["num_candidates"],
             mz_tolerance = self.progress["ms1_error"],
+            thread_count=self.config['thread_count']
         )
         candidates_df = extraction()
 
@@ -775,6 +766,7 @@ class Workflow:
             fragment_mz_column = f'mz_{self.progress["column_type"]}',
             precursor_mz_tolerance = self.progress["ms1_error"],
             fragment_mz_tolerance = self.progress["ms2_error"],
+            thread_count=self.config['thread_count']
         )
         features_df, fragments_df = extraction()
         

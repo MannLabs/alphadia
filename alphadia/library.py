@@ -1,7 +1,7 @@
 #!python
 
-import alphapept.fasta
-import alphapept.constants
+#import alphapept.fasta
+#import alphapept.constants
 import alphatims.utils
 import alphatims.bruker
 # import alphatims.plotting

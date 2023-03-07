@@ -1,27 +1,29 @@
 # configuration for the extraction plan
-version: 'alpha_1.0'
+version: '1.0.1'
+thread_count: 10
 extraction:
   initial_num_candidates: 2
   target_num_candidates: 5
 
-  initial_ms1_tolerance: 120
-  initial_ms2_tolerance: 120
-  initial_mobility_tolerance: 0.04
+  initial_ms1_tolerance: 30
+  initial_ms2_tolerance: 30
+  initial_mobility_tolerance: 0.06
   initial_rt_tolerance: 360
 
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.02
-  target_rt_tolerance: 30
+  target_mobility_tolerance: 0.04
+  target_rt_tolerance: 60
 
   min_epochs: 5
   max_epochs: 20
 
   rt_heuristic: 180
-  batch_size: 2000
-  recalibration_target: 200
+  batch_size: 4000
+  recalibration_target: 100
   final_full_calibration: False
 
+  # tic or linear
   norm_rt_mode: 'tic'
 
   precursor_columns:
@@ -35,8 +37,8 @@ extraction:
     - 'elution_group_idx'
     - 'precursor_idx'
     - 'decoy' 
-    - 'frag_start_idx'
-    - 'frag_stop_idx' 
+    - 'flat_frag_start_idx'
+    - 'flat_frag_stop_idx' 
     - 'charge'
     - 'rt_library'
     - 'mobility_library'

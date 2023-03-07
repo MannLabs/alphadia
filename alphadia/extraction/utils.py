@@ -13,6 +13,7 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import pandas as pd
 import numpy as np
+import numba as nb
 import matplotlib.patches as patches
 import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
@@ -1014,3 +1015,132 @@ class Point(Structure):
 @alphatims.utils.njit()
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
+
+@alphatims.utils.njit
+def make_slice_1d(
+        start_stop
+    ):
+    """Numba helper function to create a 1D slice object from a start and stop value.
+
+        e.g. make_slice_1d([0, 10]) -> np.array([[0, 10, 1]], dtype='uint64')
+
+    Parameters
+    ----------
+    start_stop : np.ndarray
+        Array of shape (2,) containing the start and stop value.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (1,3) containing the start, stop and step value.
+
+    """
+    return np.array([[start_stop[0], start_stop[1],1]], dtype='uint64')
+
+@alphatims.utils.njit
+def make_slice_2d(
+        start_stop
+    ):
+    """Numba helper function to create a 2D slice object from multiple start and stop value.
+
+        e.g. make_slice_2d([[0, 10], [0, 10]]) -> np.array([[0, 10, 1], [0, 10, 1]], dtype='uint64')
+
+    Parameters
+    ----------
+    start_stop : np.ndarray
+        Array of shape (N, 2) containing the start and stop value for each dimension.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (N, 3) containing the start, stop and step value for each dimension.
+
+    """
+
+    out = np.ones((start_stop.shape[0], 3), dtype='uint64')
+    out[:,0] = start_stop[:,0]
+    out[:,1] = start_stop[:,1]
+    return out
+
+@alphatims.utils.njit
+def expand_if_odd(
+        limits
+    ):
+    """Numba helper function to expand a range if the difference between the start and stop value is odd.
+
+        e.g. expand_if_odd([0, 11]) -> np.array([0, 12])
+
+    Parameters
+    ----------
+    limits : np.ndarray
+        Array of shape (2,) containing the start and stop value.
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (2,) containing the expanded start and stop value.
+
+    """
+    if (limits[1] - limits[0])%2 == 1:
+        limits[1] += 1
+    return limits
+
+@alphatims.utils.njit
+def fourier_filter(
+        dense_stack, 
+        kernel
+    ):
+    """Numba helper function to apply a gaussian filter to a dense stack. 
+    The filter is applied as convolution wrapping around the edges, calculated in fourier space.
+
+    As there seems to be no easy option to perform 2d fourier transforms in numba, the numpy fft is used in object mode.
+    During multithreading the GIL has to be acquired to use the numpy fft and is realeased afterwards.
+
+    Parameters
+    ----------
+
+    dense_stack : np.ndarray
+        Array of shape (2, n_precursors, n_observations ,n_scans, n_cycles) containing the dense stack.
+
+    kernel : np.ndarray
+        Array of shape (k0, k1) containing the gaussian kernel.
+
+    Returns
+    -------
+    smooth_output : np.ndarray
+        Array of shape (n_precursors, n_observations, n_scans, n_cycles) containing the filtered dense stack.
+
+    """
+
+    k0 = kernel.shape[0]
+    k1 = kernel.shape[1]
+
+    # make sure both dimensions are even
+    scan_mod = dense_stack.shape[3] % 2
+    frame_mod = dense_stack.shape[4] % 2
+
+    scan_size = dense_stack.shape[3] - scan_mod
+    frame_size = dense_stack.shape[4] - frame_mod
+
+    smooth_output = np.zeros((
+        dense_stack.shape[1],
+        dense_stack.shape[2], 
+        scan_size,
+        frame_size,
+    ), dtype='float32')
+
+    with nb.objmode(smooth_output='float32[:,:,:,:]'):
+        fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
+
+        for i in range(smooth_output.shape[0]):
+            for j in range(smooth_output.shape[1]):
+                layer = dense_stack[0,i,j,:scan_size,:frame_size]
+    
+                smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
+                
+
+        # roll back to original position
+        smooth_output = np.roll(smooth_output, -k0//2, axis=2)
+        smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+
+    return smooth_output

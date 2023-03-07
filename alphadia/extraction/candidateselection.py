@@ -3,6 +3,7 @@ import logging
 
 # alphadia imports
 from alphadia.extraction import utils
+from alphadia.extraction.utils import fourier_filter
 
 # alpha family imports
 import alphatims
@@ -16,12 +17,12 @@ from matplotlib import patches
 
 @alphatims.utils.njit()
 def symetric_limits(
-    array_1d, 
-    center, 
-    f = 0.95,
-    center_fraction = 0.01,
-    min_size = 1, 
-    max_size = 10,
+        array_1d, 
+        center, 
+        f = 0.95,
+        center_fraction = 0.01,
+        min_size = 1, 
+        max_size = 10,
     ):
 
     center_intensity = array_1d[center]
@@ -121,7 +122,7 @@ class GaussianFilter:
     ):
         expected_peak_len_rt = self.peak_len_rt / rt_length
         # sigma = 1/3 rt at base
-        return expected_peak_len_rt / (2 * 3)
+        return expected_peak_len_rt / (2 * 2)
     
     def determine_mobility_sigma(
         self,
@@ -129,7 +130,7 @@ class GaussianFilter:
     ):
         expected_peak_len_mobility = self.peak_len_mobility / mobility_len
         # sigma = 1/3 moblity at base
-        return expected_peak_len_mobility / (2 * 3)
+        return expected_peak_len_mobility / (2 * 2)
 
     def get_kernel(
         self,
@@ -628,8 +629,8 @@ class ElutionGroup:
             self.rt+tolerance
         ])
     
-        self.frame_limits = make_slice_1d(
-            expand_if_odd(
+        self.frame_limits = utils.make_slice_1d(
+            utils.expand_if_odd(
                 jit_data.return_frame_indices(
                     rt_limits,
                     True
@@ -659,8 +660,8 @@ class ElutionGroup:
             self.mobility-tolerance
         ])
 
-        self.scan_limits = make_slice_1d(
-            expand_if_odd(
+        self.scan_limits = utils.make_slice_1d(
+            utils.expand_if_odd(
                 jit_data.return_scan_indices(
                     mobility_limits
                 )
@@ -686,7 +687,7 @@ class ElutionGroup:
 
         """
         mz_limits = utils.mass_range(self.top_isotope_mz, tolerance)
-        self.tof_limits = make_slice_2d(jit_data.return_tof_indices(
+        self.tof_limits = utils.make_slice_2d(jit_data.return_tof_indices(
             mz_limits
         ))
 
@@ -951,7 +952,6 @@ class ElutionGroupContainer:
             ----------
             elution_groups : nb.types.ListType(ElutionGroup.class_type.instance_type)
                 List of ElutionGroup objects.
-            
             """
 
             self.elution_groups = elution_groups
@@ -990,131 +990,3 @@ def _executor(
 
 
 
-@alphatims.utils.njit
-def make_slice_1d(
-        start_stop
-    ):
-    """Numba helper function to create a 1D slice object from a start and stop value.
-
-        e.g. make_slice_1d([0, 10]) -> np.array([[0, 10, 1]], dtype='uint64')
-
-    Parameters
-    ----------
-    start_stop : np.ndarray
-        Array of shape (2,) containing the start and stop value.
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (1,3) containing the start, stop and step value.
-
-    """
-    return np.array([[start_stop[0], start_stop[1],1]], dtype='uint64')
-
-@alphatims.utils.njit
-def make_slice_2d(
-        start_stop
-    ):
-    """Numba helper function to create a 2D slice object from multiple start and stop value.
-
-        e.g. make_slice_2d([[0, 10], [0, 10]]) -> np.array([[0, 10, 1], [0, 10, 1]], dtype='uint64')
-
-    Parameters
-    ----------
-    start_stop : np.ndarray
-        Array of shape (N, 2) containing the start and stop value for each dimension.
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (N, 3) containing the start, stop and step value for each dimension.
-
-    """
-
-    out = np.ones((start_stop.shape[0], 3), dtype='uint64')
-    out[:,0] = start_stop[:,0]
-    out[:,1] = start_stop[:,1]
-    return out
-
-@alphatims.utils.njit
-def expand_if_odd(
-        limits
-    ):
-    """Numba helper function to expand a range if the difference between the start and stop value is odd.
-
-        e.g. expand_if_odd([0, 11]) -> np.array([0, 12])
-
-    Parameters
-    ----------
-    limits : np.ndarray
-        Array of shape (2,) containing the start and stop value.
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (2,) containing the expanded start and stop value.
-
-    """
-    if (limits[1] - limits[0])%2 == 1:
-        limits[1] += 1
-    return limits
-
-@alphatims.utils.njit
-def fourier_filter(
-        dense_stack, 
-        kernel
-    ):
-    """Numba helper function to apply a gaussian filter to a dense stack. 
-    The filter is applied as convolution wrapping around the edges, calculated in fourier space.
-
-    As there seems to be no easy option to perform 2d fourier transforms in numba, the numpy fft is used in object mode.
-    During multithreading the GIL has to be acquired to use the numpy fft and is realeased afterwards.
-
-    Parameters
-    ----------
-
-    dense_stack : np.ndarray
-        Array of shape (2, n_precursors, n_observations ,n_scans, n_cycles) containing the dense stack.
-
-    kernel : np.ndarray
-        Array of shape (k0, k1) containing the gaussian kernel.
-
-    Returns
-    -------
-    smooth_output : np.ndarray
-        Array of shape (n_precursors, n_observations, n_scans, n_cycles) containing the filtered dense stack.
-
-    """
-
-    k0 = kernel.shape[0]
-    k1 = kernel.shape[1]
-
-    # make sure both dimensions are even
-    scan_mod = dense_stack.shape[3] % 2
-    frame_mod = dense_stack.shape[4] % 2
-
-    scan_size = dense_stack.shape[3] - scan_mod
-    frame_size = dense_stack.shape[4] - frame_mod
-
-    smooth_output = np.zeros((
-        dense_stack.shape[1],
-        dense_stack.shape[2], 
-        scan_size,
-        frame_size,
-    ), dtype='float32')
-
-    with nb.objmode(smooth_output='float32[:,:,:,:]'):
-        fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
-
-        for i in range(smooth_output.shape[0]):
-            for j in range(smooth_output.shape[1]):
-                layer = dense_stack[0,i,j,:scan_size,:frame_size]
-    
-                smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
-                
-
-        # roll back to original position
-        smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-        smooth_output = np.roll(smooth_output, -k1//2, axis=3)
-
-    return smooth_output
