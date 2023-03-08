@@ -28,7 +28,7 @@ import alphatims
 
 import alphabase.psm_reader
 import alphabase.peptide.precursor
-import alphabase.peptide.fragment
+from alphabase.peptide import fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -232,8 +232,10 @@ class Plan:
 
     def from_spec_lib_base(self, speclib_base):
 
-        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=12)
-        speclib.parse_base_library(speclib_base)
+        speclib_base._fragment_cardinality_df = fragment.calc_fragment_cardinality(speclib_base.precursor_df, speclib_base._fragment_mz_df)
+
+        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=20)
+        speclib.parse_base_library(speclib_base, custom_df={'cardinality':speclib_base._fragment_cardinality_df})
 
         self.from_spec_lib_flat(speclib)
 
@@ -285,10 +287,15 @@ class Plan:
         else:
             logger.warning(f'no proteins column was found')
 
-        if 'isotope_apex_offset' in self.speclib.precursor_df.columns:
-            logger.info(f'Isotope_apex_offset column found')
+        if 'channel' in self.speclib.precursor_df.columns:
+            channels = self.speclib.precursor_df['channel'].unique()
+            n_channels = len(channels)
+            logger.info(f'Number of channels: {n_channels:,} ({channels})')
+
         else:
-            logger.warning(f'No isotope_apex_offset column was found')
+            logger.warning(f'no channel column was found, will assume only one channel')
+
+        
         
         isotopes = utils.get_isotope_columns(self.speclib.precursor_df.columns)
 
@@ -366,6 +373,10 @@ class Plan:
         if not 'elution_group_idx' in dataframe.columns:
             dataframe['elution_group_idx'] = self.get_elution_group_idx(dataframe, strategy='precursor')
             logger.warning(f'no elution_group_idx column found, creating one')
+
+        if not 'channel' in dataframe.columns:
+            dataframe['channel'] = 0
+            logger.warning(f'no channel column found, creating one')
 
     def get_elution_group_idx(self, dataframe, strategy='precursor'):
 

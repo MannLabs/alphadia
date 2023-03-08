@@ -14,6 +14,7 @@ class FragmentContainer:
     number: nb.uint8[::1]
     position: nb.uint8[::1]
     precursor_idx: nb.uint32[::1]
+    cardinality: nb.uint8[::1]
        
     def __init__(
         self,
@@ -24,7 +25,8 @@ class FragmentContainer:
         loss_type,
         charge,
         number,
-        position
+        position,
+        cardinality
     ):
 
         self.mz_library = mz_library
@@ -36,6 +38,7 @@ class FragmentContainer:
         self.number = number
         self.position = position
         self.precursor_idx = np.zeros(len(mz), dtype=np.uint32)
+        self.cardinality = cardinality
 
     def __len__(self):
         return len(self.mz)
@@ -55,6 +58,7 @@ class FragmentContainer:
         self.charge = self.charge[mz_order]
         self.number = self.number[mz_order]
         self.position = self.position[mz_order]
+        self.cardinality = self.cardinality[mz_order]
         
 
 @overload_method(nb.types.misc.ClassInstanceType, 'slice', )
@@ -73,6 +77,7 @@ def slice(inst, slices):
             fragments_charge = []
             fragments_number = []
             fragments_position = []
+            fragments_cardinality = []
 
             precursor = np.arange(len(slices), dtype=np.uint32)
 
@@ -88,6 +93,7 @@ def slice(inst, slices):
                     fragments_charge.append(inst.charge[j])
                     fragments_number.append(inst.number[j])
                     fragments_position.append(inst.position[j])
+                    fragments_cardinality.append(inst.cardinality[j])
 
             precursor_idx = np.array(precursor_idx, dtype=np.uint32)
             fragments_mz_library = np.array(fragments_mz_library, dtype=np.float32)
@@ -98,6 +104,7 @@ def slice(inst, slices):
             fragment_charge = np.array(fragments_charge, dtype=np.uint8)
             fragment_number = np.array(fragments_number, dtype=np.uint8)
             fragment_position = np.array(fragments_position, dtype=np.uint8)
+            fragment_cardinality = np.array(fragments_cardinality, dtype=np.uint8)
 
             f = FragmentContainer(
                 fragments_mz_library,
@@ -107,7 +114,8 @@ def slice(inst, slices):
                 fragment_loss_type,
                 fragment_charge,
                 fragment_number,
-                fragment_position
+                fragment_position,
+                fragment_cardinality
             )
 
             f.precursor_idx = precursor_idx

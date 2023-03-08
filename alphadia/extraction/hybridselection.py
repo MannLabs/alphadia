@@ -26,11 +26,6 @@ def calculate_score(dense_precursors, dense_fragments, expected_intensity, kerne
 
     s = fragment_dot * precursor_intensity[0] * np.sum(fragment_intensity, axis=0)
 
-    
-
-
-    
-
     return s[0]
 
 @nb.experimental.jitclass()
@@ -38,6 +33,7 @@ class HybridElutionGroup:
 
     elution_group_idx: nb.uint32
     precursor_idx: nb.uint32[::1]
+    channel: nb.uint32[::1]
     frag_start_stop_idx: nb.uint32[:,::1]
     
     rt: nb.float64
@@ -46,8 +42,12 @@ class HybridElutionGroup:
 
     decoy: nb.uint8[::1]
     mz: nb.float64[::1]
-    isotope_apex_offset: nb.int8[::1]
-    top_isotope_mz: nb.float64[::1]
+    
+    #isotope_apex_offset: nb.int8[::1]
+    #top_isotope_mz: nb.float64[::1]
+
+    isotope_intensity: nb.float32[:, :]
+    isotope_mz: nb.float32[:, ::1]
 
     frame_limits: nb.uint64[:, ::1]
     scan_limits: nb.uint64[:, ::1]
@@ -73,13 +73,15 @@ class HybridElutionGroup:
             self, 
             elution_group_idx,
             precursor_idx,
+            channel,
             frag_start_stop_idx,
             rt,
             mobility,
             charge,
             decoy,
             mz,
-            isotope_apex_offset
+            #isotope_apex_offset,
+            isotope_intensity
         ) -> None:
         """
         ElutionGroup jit class which contains all information about a single elution group.
@@ -118,12 +120,14 @@ class HybridElutionGroup:
         self.charge = charge
         self.decoy = decoy
         self.mz = mz
-        self.isotope_apex_offset = isotope_apex_offset
-        self.top_isotope_mz = mz + isotope_apex_offset * 1.0033548350700006 / charge
+        self.channel = channel
+        #self.isotope_apex_offset = isotope_apex_offset
+        #self.top_isotope_mz = mz + isotope_apex_offset * 1.0033548350700006 / charge
 
         self.frag_start_stop_idx = frag_start_stop_idx
+        self.isotope_intensity = isotope_intensity
 
-        self.sort_by_mz()
+        
 
     def __str__(self):
         with nb.objmode(r='unicode_type'):
@@ -138,9 +142,22 @@ class HybridElutionGroup:
         mz_order = np.argsort(self.mz)
         self.mz = self.mz[mz_order]
         self.decoy = self.decoy[mz_order]
-        self.isotope_apex_offset = self.isotope_apex_offset[mz_order]
-        self.top_isotope_mz = self.top_isotope_mz[mz_order]
+        #self.isotope_apex_offset = self.isotope_apex_offset[mz_order]
+        #self.top_isotope_mz = self.top_isotope_mz[mz_order]
         self.precursor_idx = self.precursor_idx[mz_order]
+
+    def assemble_isotope_mz(self):
+        """
+        Assemble the isotope m/z values from the precursor m/z and the isotope
+        offsets.
+        """
+        offset = np.arange(self.isotope_intensity.shape[1]) * 1.0033548350700006 / self.charge
+        self.isotope_mz = np.expand_dims(self.mz, 1).astype(np.float32) + np.expand_dims(offset,0).astype(np.float32)
+
+    def trim_isotopes(self):
+
+        elution_group_isotopes = np.sum(self.isotope_intensity, axis=0)
+        self.isotope_intensity = self.isotope_intensity[:,elution_group_isotopes>0.01]
 
     def determine_frame_limits(
             self, 
@@ -220,7 +237,7 @@ class HybridElutionGroup:
             tolerance in part per million (ppm)
 
         """
-        precursor_mz_limits = utils.mass_range(self.top_isotope_mz, tolerance)
+        precursor_mz_limits = utils.mass_range(self.mz, tolerance)
         self.precursor_tof_limits = utils.make_slice_2d(jit_data.return_tof_indices(
             precursor_mz_limits
         ))
@@ -315,10 +332,15 @@ class HybridElutionGroup:
         self.fragments = fragment_container.slice(fragment_idx_slices)
         self.fragments.sort_by_mz()
 
+        self.sort_by_mz()
+        self.trim_isotopes()
+        self.assemble_isotope_mz()
         self.determine_frame_limits(jit_data, rt_tolerance)
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)
         self.determine_fragment_tof_limits(jit_data, mz_tolerance)
+
+        return
         
         precursor_quad_limits = utils.mass_range(self.top_isotope_mz, 500)
         
@@ -528,6 +550,9 @@ class HybridCandidateSelection(object):
         )
         self.kernel = gaussian_filter.get_kernel()
 
+        self.available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
+        self.available_isotope_columns = [f'i_{i}' for i in self.available_isotopes]
+
     def __call__(self):
         """
         Perform candidate extraction workflow. 
@@ -546,7 +571,7 @@ class HybridCandidateSelection(object):
             logging.info('starting candidate selection')
 
         # initialize input container
-        elution_group_container = self.assemble_elution_groups()
+        elution_group_container = self.assemble_elution_groups(self.precursors_flat)
         fragment_container = self.assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
@@ -568,9 +593,9 @@ class HybridCandidateSelection(object):
             self.debug
         )
    
-        df = self.assemble_candidates(elution_group_container)
+        #df = self.assemble_candidates(elution_group_container)
 
-        #return df, elution_group_container
+        return elution_group_container
 
         #return df
         df = self.append_precursor_information(df)
@@ -578,6 +603,13 @@ class HybridCandidateSelection(object):
         return df
     
     def assemble_fragments(self):
+            
+            if 'cardinality' in self.fragments_flat.columns:
+                cardinality = self.fragments_flat['cardinality'].values.astype(np.uint8)
+            
+            else:
+                logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
+                cardinality = np.ones(len(self.fragments_flat), dtype=np.uint8)
 
             return fragments.FragmentContainer(
                 self.fragments_flat['mz_library'].values.astype(np.float32),
@@ -587,45 +619,94 @@ class HybridCandidateSelection(object):
                 self.fragments_flat['loss_type'].values.astype(np.uint8),
                 self.fragments_flat['charge'].values.astype(np.uint8),
                 self.fragments_flat['number'].values.astype(np.uint8),
-                self.fragments_flat['position'].values.astype(np.uint8)
+                self.fragments_flat['position'].values.astype(np.uint8),
+                cardinality
             )
 
-    def assemble_elution_groups(self):
+    def assemble_elution_groups(
+            self,
+            precursors_flat,
+        ):
+    
         """
-        Create an ElutionGroup object for every elution group in the precursor dataframe.
-        The list of ElutionGroup objects is stored in an ElutionGroupContainer object and returned.
+        Assemble elution groups from precursor library.
+
+        Parameters
+        ----------
+
+        precursors_flat : pandas.DataFrame
+            Precursor library.
 
         Returns
         -------
-        ElutionGroupContainer
-            container object containing a list of ElutionGroup objects
+        HybridElutionGroupContainer
+            Numba jitclass with list of elution groups.
         """
-        eg_grouped = self.precursors_flat.groupby('elution_group_idx')
+        
+        if len(precursors_flat) == 0:
+            return
 
-        egs = []
-        for i, (name, grouped) in enumerate(eg_grouped):
+        available_isotopes = utils.get_isotope_columns(precursors_flat.columns)
+        available_isotope_columns = [f'i_{i}' for i in available_isotopes]
 
-            if 'isotope_apex_offset' in self.precursors_flat.columns:
-                isotope_apex_offset = self.precursors_flat['isotope_apex_offset'].values.astype(np.int8)
-            else:
-                isotope_apex_offset = np.zeros_like(grouped['precursor_idx'].values).astype(np.int8)
+        precursors_sorted = precursors_flat.sort_values('elution_group_idx').copy()
 
+        @nb.njit(debug=True)
+        def assemble_njit(
+            elution_group_idx,
+            precursor_idx,
+            channel,
+            flat_frag_start_stop_idx,
+            rt_values,
+            mobility_values,
+            charge,
+            decoy,
+            precursor_mz,
+            isotope_intensity
+        ):
+            elution_group = elution_group_idx[0]
+            elution_group_start = 0
+            elution_group_stop = 0
 
-            egs.append(HybridElutionGroup(
-                int(name), 
-                grouped['precursor_idx'].values.astype(np.uint32),
-                # copy is required for consistent c style striding
-                grouped[['flat_frag_start_idx','flat_frag_stop_idx']].values.copy().astype(np.uint32),
-                grouped[self.rt_column].values.astype(np.float64)[0],
-                grouped[self.mobility_column].values.astype(np.float64)[0],
-                grouped['charge'].values.astype(np.uint8)[0],
-                grouped['decoy'].values.astype(np.uint8),
-                grouped[self.precursor_mz_column].values.astype(np.float64),
-                isotope_apex_offset,
-                ))
+            eg_list = []
+            
+            while elution_group_stop < len(elution_group_idx)-1:
+                
+                elution_group_stop += 1
 
-        egs = nb.typed.List(egs)
-        return HybridElutionGroupContainer(egs)
+                if elution_group_idx[elution_group_stop] != elution_group:
+                        
+                    eg_list.append(HybridElutionGroup(    
+                        elution_group,
+                        precursor_idx[elution_group_start:elution_group_stop],
+                        channel[elution_group_start:elution_group_stop],
+                        flat_frag_start_stop_idx[elution_group_start:elution_group_stop],
+                        rt_values[elution_group_start],
+                        mobility_values[elution_group_start],
+                        charge[elution_group_start],
+                        decoy[elution_group_start:elution_group_stop],
+                        precursor_mz[elution_group_start:elution_group_stop],
+                        isotope_intensity[elution_group_start:elution_group_stop]
+                    ))
+
+                    elution_group_start = elution_group_stop
+                    elution_group = elution_group_idx[elution_group_start]
+                    
+            egs = nb.typed.List(eg_list)
+            return HybridElutionGroupContainer(egs)
+
+        return assemble_njit(
+            precursors_sorted['elution_group_idx'].values.astype(np.uint32),
+            precursors_sorted['precursor_idx'].values.astype(np.uint32),
+            precursors_sorted['channel'].values.astype(np.uint32),
+            precursors_sorted[['flat_frag_start_idx','flat_frag_stop_idx']].values.copy().astype(np.uint32),
+            precursors_sorted[self.rt_column].values.astype(np.float64),
+            precursors_sorted[self.mobility_column].values.astype(np.float64),
+            precursors_sorted['charge'].values.astype(np.uint8),
+            precursors_sorted['decoy'].values.astype(np.uint8),
+            precursors_sorted[self.precursor_mz_column].values.astype(np.float64),
+            precursors_sorted[available_isotope_columns].values.copy().astype(np.float32),
+        )
     
     def assemble_candidates(
             self, 

@@ -109,8 +109,8 @@ class GaussianFilter:
     def __init__(
             self, 
             dia_data,
-            peak_len_rt = 8,
-            peak_len_mobility = 0.02
+            peak_len_rt = 10,
+            peak_len_mobility = 0.03
             ):
         self.dia_data = dia_data
         self.peak_len_rt = peak_len_rt

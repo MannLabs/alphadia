@@ -47,6 +47,7 @@ extraction:
     - 'genes'
     - 'proteins'
     - 'uniprot_ids'
+    - 'channel'
 
   fdr_classifier: 'LogisticRegression'
   fdr_columns:
