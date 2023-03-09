@@ -340,9 +340,9 @@ class HybridElutionGroup:
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)
         self.determine_fragment_tof_limits(jit_data, mz_tolerance)
 
-        return
+        #return
         
-        precursor_quad_limits = utils.mass_range(self.top_isotope_mz, 500)
+        precursor_quad_limits = utils.mass_range(self.mz, 500)
         
         dense_fragments, _ = jit_data.get_dense_fragments(
             self.frame_limits,
@@ -351,6 +351,8 @@ class HybridElutionGroup:
             self.fragments.precursor_idx,
             self.fragment_tof_limits
         )
+
+        return
 
         # (2, n_isotopes, n_observations, n_scans, n_frames)
         dense_precursors, _ = jit_data.get_dense(
