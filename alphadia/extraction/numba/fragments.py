@@ -122,3 +122,98 @@ def slice(inst, slices):
 
             return f
         return impl
+    
+import numba as nb
+@nb.njit
+def get_ion_group_mapping(
+    ion_precursor, 
+    ion_mz, 
+    ion_intensity, 
+    precursor_abundance, 
+    precursor_group,
+    exclude_shared=False
+    ):
+    """
+    Can be used to group a set of ions by and return the expected, summed intensity distribution for each group.
+
+    Parameters
+    ----------
+
+    ion_precursor : np.ndarray
+        Array of precursor indices for each ion with shape (n_fragments).
+
+    ion_mz : np.ndarray
+        Array of m/z values for each ion (n_fragments).
+
+    ion_intensity : np.ndarray
+        Array of intensity values for each ion (n_fragments).
+
+    precursor_abundance : np.ndarray
+        Array of precursor abundances with shape (n_precursors).
+
+    precursor_group : np.ndarray
+        Array of precursor groups with shape (n_precursors).
+
+    exclude_shared : bool, optional, default=False
+        If True, ions that are shared between multiple precursor groups are excluded from the calculation.
+
+    Returns
+    -------
+
+    score_group_intensity : np.ndarray
+        Array of summed intensity values for each group with shape (n_groups, n_unique_fragments).
+
+    score_group_mz : np.ndarray
+        Array of m/z values for each group with shape (n_groups, n_unique_fragments).
+
+
+    """
+
+    if not len(precursor_abundance) == len(precursor_group):
+        raise ValueError('precursor_abundance and precursor_group must have the same length')
+    
+    if not len(ion_mz) == len(ion_intensity) == len(ion_precursor):
+        raise ValueError('ion_mz, ion_intensity and ion_precursor must have the same length')
+
+    EPSILON = 1e-6
+
+    grouped_mz = []
+
+    score_group_intensity = np.zeros((precursor_group.max()+1, len(ion_mz)))
+
+    for i, (precursor, mz, intensity) in enumerate(zip(ion_precursor, ion_mz, ion_intensity)):
+
+        if len(grouped_mz) == 0:
+            grouped_mz.append(mz)
+            
+        elif np.abs(grouped_mz[-1] - mz) > EPSILON:
+            grouped_mz.append(mz)
+
+        idx = len(grouped_mz) - 1
+        score_group_idx = precursor_group[precursor]
+        priot_abundance = precursor_abundance[precursor]
+
+        score_group_intensity[score_group_idx, idx] += intensity * priot_abundance
+
+    score_group_intensity = score_group_intensity[:, :len(grouped_mz)]
+
+    grouped_mz = np.array(grouped_mz)
+
+    # normalize each score group to 1
+    for row in score_group_intensity:
+        if row.max() > 0:
+            row /= row.max()
+
+    if exclude_shared:
+        score_group_count = np.ceil(score_group_intensity).astype(np.uint8).sum(axis=0)
+
+        score_group_intensity = score_group_intensity[:, score_group_count <= 1]
+        grouped_mz = grouped_mz[score_group_count <= 1]
+        #normalization has to be done again
+        # it was needed in the first place so np.ceil evaluates to 1
+        # normalize each score group to 1
+        for row in score_group_intensity:
+            if row.max() > 0:
+                row /= row.max()
+
+    return grouped_mz, score_group_intensity

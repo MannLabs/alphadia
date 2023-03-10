@@ -145,6 +145,7 @@ class HybridElutionGroup:
         #self.isotope_apex_offset = self.isotope_apex_offset[mz_order]
         #self.top_isotope_mz = self.top_isotope_mz[mz_order]
         self.precursor_idx = self.precursor_idx[mz_order]
+        self.frag_start_stop_idx = self.frag_start_stop_idx[mz_order]
 
     def assemble_isotope_mz(self):
         """
@@ -156,8 +157,8 @@ class HybridElutionGroup:
 
     def trim_isotopes(self):
 
-        elution_group_isotopes = np.sum(self.isotope_intensity, axis=0)
-        self.isotope_intensity = self.isotope_intensity[:,elution_group_isotopes>0.01]
+        elution_group_isotopes = np.sum(self.isotope_intensity, axis=0)/self.isotope_intensity.shape[0]
+        self.isotope_intensity = self.isotope_intensity[:,elution_group_isotopes>0.1]
 
     def determine_frame_limits(
             self, 
@@ -326,15 +327,19 @@ class HybridElutionGroup:
             if True, self.visualize_candidates() will be called after processing the elution group.
             Make sure to use debug mode only on a small number of elution groups (10) and with a single thread. 
         """
+        
+
+        self.sort_by_mz()
+        self.trim_isotopes()
+        self.assemble_isotope_mz()
+
         fragment_idx_slices = utils.make_slice_2d(
             self.frag_start_stop_idx
         )
         self.fragments = fragment_container.slice(fragment_idx_slices)
         self.fragments.sort_by_mz()
 
-        self.sort_by_mz()
-        self.trim_isotopes()
-        self.assemble_isotope_mz()
+
         self.determine_frame_limits(jit_data, rt_tolerance)
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)

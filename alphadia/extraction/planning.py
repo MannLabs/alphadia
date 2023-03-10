@@ -234,7 +234,7 @@ class Plan:
 
         speclib_base._fragment_cardinality_df = fragment.calc_fragment_cardinality(speclib_base.precursor_df, speclib_base._fragment_mz_df)
 
-        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=20)
+        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=100)
         speclib.parse_base_library(speclib_base, custom_df={'cardinality':speclib_base._fragment_cardinality_df})
 
         self.from_spec_lib_flat(speclib)
