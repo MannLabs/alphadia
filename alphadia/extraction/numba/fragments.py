@@ -131,7 +131,8 @@ def get_ion_group_mapping(
     ion_intensity, 
     precursor_abundance, 
     precursor_group,
-    exclude_shared=False
+    exclude_shared=False,
+    top_k=20
     ):
     """
     Can be used to group a set of ions by and return the expected, summed intensity distribution for each group.
@@ -157,6 +158,9 @@ def get_ion_group_mapping(
     exclude_shared : bool, optional, default=False
         If True, ions that are shared between multiple precursor groups are excluded from the calculation.
 
+    top_k : int, optional, default=20
+        Number of ions to consider per precursor group.
+
     Returns
     -------
 
@@ -179,23 +183,31 @@ def get_ion_group_mapping(
 
     grouped_mz = []
 
-    score_group_intensity = np.zeros((precursor_group.max()+1, len(ion_mz)))
+    # keep track of the ions per group
+    top_k_count = np.zeros(precursor_group.max()+1)
+
+    score_group_intensity = np.zeros((precursor_group.max()+1, len(ion_mz)), dtype=np.float32)
 
     for i, (precursor, mz, intensity) in enumerate(zip(ion_precursor, ion_mz, ion_intensity)):
 
-        if len(grouped_mz) == 0:
-            grouped_mz.append(mz)
-            
-        elif np.abs(grouped_mz[-1] - mz) > EPSILON:
-            grouped_mz.append(mz)
-
-        idx = len(grouped_mz) - 1
         score_group_idx = precursor_group[precursor]
-        priot_abundance = precursor_abundance[precursor]
 
-        score_group_intensity[score_group_idx, idx] += intensity * priot_abundance
+        if top_k_count[score_group_idx] < top_k:
+            top_k_count[score_group_idx] += 1
 
-    score_group_intensity = score_group_intensity[:, :len(grouped_mz)]
+            if len(grouped_mz) == 0:
+                grouped_mz.append(mz)
+                
+            elif np.abs(grouped_mz[-1] - mz) > EPSILON:
+                grouped_mz.append(mz)
+
+            idx = len(grouped_mz) - 1
+            
+            priot_abundance = precursor_abundance[precursor]
+
+            score_group_intensity[score_group_idx, idx] += intensity * priot_abundance
+
+    score_group_intensity = score_group_intensity[:, :len(grouped_mz)].copy()
 
     grouped_mz = np.array(grouped_mz)
 
@@ -209,6 +221,7 @@ def get_ion_group_mapping(
 
         score_group_intensity = score_group_intensity[:, score_group_count <= 1]
         grouped_mz = grouped_mz[score_group_count <= 1]
+
         #normalization has to be done again
         # it was needed in the first place so np.ceil evaluates to 1
         # normalize each score group to 1

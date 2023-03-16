@@ -9,7 +9,23 @@ import logging
 import alphatims
 
 import matplotlib.pyplot as plt
+from matplotlib import patches
 
+@nb.experimental.jitclass()
+class Candidate:
+    id: nb.uint32
+
+    def __init__(
+            self,
+            candidate_id,
+    ):
+        self.id = candidate_id
+
+@nb.jit()
+def determine_candidates(
+    i
+):
+    return Candidate(i)
 
 
 @nb.njit()
@@ -66,8 +82,17 @@ class HybridElutionGroup:
     candidate_frame_center: nb.int64[::1]
 
     fragments: fragments.FragmentContainer.class_type.instance_type
-    dense_fragments : nb.float64[:, :, :, :, ::1]
-    dense_precursors : nb.float64[:, :, :, :, ::1]
+    dense_fragments : nb.float32[:, :, :, :, ::1]
+    dense_precursors : nb.float32[:, :, :, :, ::1]
+
+    fragment_mz: nb.float32[::1]
+    precursor_mz: nb.float32[::1]
+
+    precursor_intensity: nb.float32[:, ::1]
+    fragment_intensity: nb.float32[:, ::1]
+
+    candidates: nb.types.ListType(Candidate.class_type.instance_type)
+
 
     def __init__(
             self, 
@@ -339,41 +364,147 @@ class HybridElutionGroup:
         self.fragments = fragment_container.slice(fragment_idx_slices)
         self.fragments.sort_by_mz()
 
-
         self.determine_frame_limits(jit_data, rt_tolerance)
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)
         self.determine_fragment_tof_limits(jit_data, mz_tolerance)
 
-        #return
-        
-        precursor_quad_limits = utils.mass_range(self.mz, 500)
-        
-        dense_fragments, _ = jit_data.get_dense_fragments(
-            self.frame_limits,
-            self.scan_limits,
-            precursor_quad_limits,
+        prior_abundance = np.ones((len(self.decoy)))
+
+        score_grouped = True
+        exclude_shared_fragments = False
+        top_k_fragments = 12
+        top_k_precursors = 3
+
+        if score_grouped:
+            group_ids = np.unique(self.decoy)
+            group_ids_reverse = np.zeros(np.max(group_ids)+1, dtype=np.int64)
+            group_ids_reverse[group_ids] = np.arange(len(group_ids))
+            score_groups = group_ids_reverse[self.decoy]
+
+        else:
+            score_groups = np.arange(len(self.decoy))
+
+        fragment_mz, fragment_intensity = fragments.get_ion_group_mapping(
             self.fragments.precursor_idx,
-            self.fragment_tof_limits
+            self.fragments.mz,
+            self.fragments.intensity,
+            prior_abundance,
+            score_groups,
+            exclude_shared=exclude_shared_fragments,
+            top_k = top_k_fragments
         )
 
-        return
+        self.fragment_mz = fragment_mz
+        self.fragment_intensity = fragment_intensity
 
-        # (2, n_isotopes, n_observations, n_scans, n_frames)
-        dense_precursors, _ = jit_data.get_dense(
+        isotope_mz = self.isotope_mz.flatten()
+        isotope_intensity = self.isotope_intensity.flatten()
+        isotope_precursor = np.repeat(np.arange(0, self.isotope_mz.shape[0]), self.isotope_mz.shape[1])
+
+        order = np.argsort(isotope_mz)
+        isotope_mz = isotope_mz[order]
+        isotope_intensity = isotope_intensity[order]
+        isotope_precursor = isotope_precursor[order]
+
+        precursor_mz, precursor_intensity = fragments.get_ion_group_mapping(
+            isotope_precursor, 
+            isotope_mz,
+            isotope_intensity,
+            prior_abundance,
+            score_groups,
+            exclude_shared=exclude_shared_fragments,
+            top_k = top_k_precursors
+        )
+        
+        self.precursor_mz = precursor_mz
+        self.precursor_intensity = precursor_intensity
+
+        quadrupole_mz = calculate_score_group_limits(
+            precursor_mz, 
+            precursor_intensity
+        )
+
+        precursor_tof_limits = utils.make_slice_2d( 
+            jit_data.return_tof_indices( 
+                utils.mass_range(
+                    precursor_mz, mz_tolerance
+                )
+            )
+        )
+
+        fragment_tof_limits = utils.make_slice_2d(
+            jit_data.return_tof_indices(
+                utils.mass_range(
+                    fragment_mz, mz_tolerance
+                )
+            )
+        )
+
+        precursor_cycle_mask = calculate_dia_cycle_mask(
+            jit_data.cycle,
+            np.array([[-1., -1.]])
+        )
+
+        fragment_cycle_mask = calculate_dia_cycle_mask(
+            jit_data.cycle,
+            quadrupole_mz
+        )
+
+        # combines different quadrupole limits into one
+        # push_query : (n_pushes) 
+        # push_indices : (n_pushes)
+        push_query, _absolute_precursor_index = get_push_indices(
+            jit_data,
             self.frame_limits,
             self.scan_limits,
-            self.precursor_tof_limits,
-            np.array([[-1.,-1.]]),
-            False
+            precursor_cycle_mask,
+        )
+        
+        dense_precursors = assemble_push(
+            precursor_tof_limits,
+            precursor_mz,
+            jit_data.push_indices,
+            jit_data.tof_indptr, 
+            push_query,
+            _absolute_precursor_index,
+            self.frame_limits,
+            self.scan_limits,
+            mz_tolerance,
+            jit_data
         )
 
-        candidate_precursor_idx = []
-        candidate_mass_error = []
-        candidate_fraction_nonzero = []
-        candidate_intensity = []
-        candidate_scan_center = []
-        candidate_frame_center = []
+        push_query, _absolute_precursor_index = get_push_indices(
+            jit_data,
+            self.frame_limits,
+            self.scan_limits,
+            fragment_cycle_mask,
+        )
+        
+        dense_fragments = assemble_push(
+            fragment_tof_limits,
+            fragment_mz,
+            jit_data.push_indices,
+            jit_data.tof_indptr, 
+            push_query,
+            _absolute_precursor_index,
+            self.frame_limits,
+            self.scan_limits,
+            mz_tolerance,
+            jit_data
+        )
+
+        self.dense_fragments = dense_fragments
+        self.dense_precursors = dense_precursors
+
+       
+
+        #candidate_precursor_idx = []
+        #candidate_mass_error = []
+        #candidate_fraction_nonzero = []
+        #candidate_intensity = []
+        #candidate_scan_center = []
+        #candidate_frame_center = []
 
         # This is the theoretical maximum number of candidates
         # As we don't know how many candidates we will have, we will
@@ -386,17 +517,35 @@ class HybridElutionGroup:
 
         if dense_fragments.shape[3] > kernel.shape[0] and dense_fragments.shape[4] > kernel.shape[1]:
 
-            score = calculate_score(
-                dense_precursors,
-                dense_fragments,
-                self.fragments.intensity,
+            score_matrix = build_score(
+                dense_precursors, 
+                dense_fragments, 
+                precursor_mz,
+                precursor_intensity,
+                fragment_mz,
+                fragment_intensity,
                 kernel
             )
+             
+            if debug:
+                with nb.objmode():
+                    print(self.decoy)
+                    min_score = np.min(score_matrix)
+                    max_score = np.max(score_matrix)
+                    for i in range(score_matrix.shape[0]):
+                        plt.imshow(score_matrix[i], vmin=min_score, vmax=max_score)
+                        plt.show()
 
+        self.candidates = nb.typed.List([determine_candidates(1),determine_candidates(2)])
+        self.candidates.append(determine_candidates(3))
+            
+        return
+    
+        if True:
             for i, idx in enumerate(self.precursor_idx):
 
                 peak_scan_list, peak_cycle_list, peak_intensity_list = utils.find_peaks(
-                    score, top_n=candidate_count
+                    score_matrix[idx], top_n=candidate_count
                 )
 
                 for j, (scan, cycle, intensity) in enumerate(
@@ -408,7 +557,7 @@ class HybridElutionGroup:
                     ):
 
                     limit_scan, limit_cycle = peak_boundaries_symmetric(
-                        score, 
+                        score_matrix[idx], 
                         scan, 
                         cycle, 
                         f_mobility=0.95,
@@ -454,6 +603,74 @@ class HybridElutionGroup:
         self.candidate_scan_limit = self.candidate_scan_limit[:candidate_idx]
         self.candidate_frame_limit = self.candidate_frame_limit[:candidate_idx]
 
+
+    def visualize_candidates(
+        self, 
+        smooth_dense
+    ):
+        """
+        Visualize the candidates of the elution group using numba objmode.
+
+        Parameters
+        ----------
+
+        dense : np.ndarray
+            The raw, dense intensity matrix of the elution group. 
+            Shape: (2, n_precursors, n_observations ,n_scans, n_cycles)
+            n_observations is indexed based on the 'precursor' index within a DIA cycle. 
+
+        smooth_dense : np.ndarray
+            Dense data of the elution group after smoothing.
+            Shape: (n_precursors, n_observations, n_scans, n_cycles)
+
+        """
+        with nb.objmode():
+
+            n_precursors = len(self.precursor_idx)
+
+            fig, axs = plt.subplots(n_precursors,2, figsize=(10,n_precursors*3))
+
+            if axs.shape == (2,):
+                axs = axs.reshape(1,2)
+
+            # iterate all precursors
+            for j, idx in enumerate(self.precursor_idx):
+
+                axs[j,0].set_xlabel('cycle')
+                axs[j,0].set_ylabel('scan')
+                axs[j,0].set_title(f'- RAW DATA - elution group: {self.elution_group_idx}, precursor: {idx}')
+
+                axs[j,1].imshow(smooth_dense[j], aspect='auto')
+                axs[j,1].set_xlabel('cycle')
+                axs[j,1].set_ylabel('scan')
+                axs[j,1].set_title(f'- Candidates - elution group: {self.elution_group_idx}, precursor: {idx}')
+
+                candidate_mask = self.candidate_precursor_idx == idx
+                for k, (scan_limit, scan_center, frame_limit, frame_center) in enumerate(zip(
+                    self.candidate_scan_limit[candidate_mask],
+                    self.candidate_scan_center[candidate_mask],
+                    self.candidate_frame_limit[candidate_mask],
+                    self.candidate_frame_center[candidate_mask]
+                )):
+                    axs[j,1].scatter(
+                        frame_center, 
+                        scan_center, 
+                        c='r', 
+                        s=10
+                    )
+
+                    axs[j,1].text(frame_limit[1], scan_limit[0], str(k), color='r')
+
+                    axs[j,1].add_patch(patches.Rectangle(
+                        (frame_limit[0], scan_limit[0]),
+                        frame_limit[1]-frame_limit[0],
+                        scan_limit[1]-scan_limit[0],
+                        fill=False,
+                        edgecolor='r'
+                    ))
+
+            fig.tight_layout()   
+            plt.show()
 
 
 
@@ -590,7 +807,7 @@ class HybridCandidateSelection(object):
         _executor(
             range(iterator_len), 
             elution_group_container,
-            self.dia_data.jitclass(), 
+            self.dia_data, 
             fragment_container, 
             self.kernel, 
             self.rt_tolerance,
@@ -874,3 +1091,439 @@ def _executor(
         debug
     )
 
+@nb.njit
+def calculate_dia_cycle_mask(
+        cycle : np.ndarray,
+        quad_slices : np.ndarray
+    ):
+
+    """ Calculate the DIA cycle quadrupole mask for each score group.
+
+    Parameters
+    ----------
+
+    cycle : np.ndarray
+        The DIA mz cycle as part of the bruker.TimsTOF object. (n_frames * n_scans)
+
+    quad_slices : np.ndarray
+        The quadrupole slices for each score group. (n_score_groups, 2)
+
+    Returns
+    -------
+
+    np.ndarray
+        The DIA cycle quadrupole mask for each score group. (n_score_groups, n_frames * n_scans)
+    """
+
+    n_score_groups = quad_slices.shape[0]
+
+    dia_mz_cycle = cycle.reshape(-1, 2)
+
+    mz_mask = np.zeros((n_score_groups, len(dia_mz_cycle)), dtype=np.bool_)
+    for i, (mz_start, mz_stop) in enumerate(dia_mz_cycle):
+        for j, (quad_mz_start, quad_mz_stop) in enumerate(quad_slices):
+            if (quad_mz_start <= mz_stop) and (quad_mz_stop >= mz_start):
+                mz_mask[j, i] = True
+
+    return mz_mask
+
+
+
+@nb.njit
+def calculate_score_group_limits(
+        precursor_mz, 
+        precursor_intensity
+    ):
+
+    quadrupole_mz = np.zeros((precursor_intensity.shape[0], 2))
+
+    for i in range(len(quadrupole_mz)):
+        mask = precursor_intensity[i] > 0
+
+        quadrupole_mz[i,0] = precursor_mz[mask].min()
+        quadrupole_mz[i,1] = precursor_mz[mask].max()
+
+    return quadrupole_mz
+
+@nb.njit
+def get_push_indices(
+        jit_data,
+        frame_limits,
+        scan_limits,
+        cycle_mask,
+    ):
+
+    n_score_groups = cycle_mask.shape[0]
+
+    push_indices = []
+    #score_group = []
+    absolute_precursor_cycle = []
+    len_dia_mz_cycle = len(jit_data.dia_mz_cycle)
+    
+
+    frame_start, frame_stop, frame_step = frame_limits[0]
+    scan_start, scan_stop, scan_step = scan_limits[0]
+    for frame_index in range(frame_start, frame_stop, frame_step):
+
+        for scan_index in range(scan_start, scan_stop, scan_step):
+
+            push_index = frame_index * jit_data.scan_max_index + scan_index
+            # subtract a whole frame if the first frame is zero
+            if jit_data.zeroth_frame:
+                cyclic_push_index = push_index - jit_data.scan_max_index
+            else:
+                cyclic_push_index = push_index
+
+            # gives the scan index in the dia mz cycle
+            scan_in_dia_mz_cycle = cyclic_push_index % len_dia_mz_cycle
+
+            # check fragment push indices
+            for i in range(n_score_groups):
+                if cycle_mask[i,scan_in_dia_mz_cycle]:
+                    precursor_cycle = jit_data.dia_precursor_cycle[scan_in_dia_mz_cycle]
+                    absolute_precursor_cycle.append(precursor_cycle)
+                    push_indices.append(push_index)
+                    #score_group.append(i+1)
+
+    return np.array(push_indices), np.array(absolute_precursor_cycle)
+
+@nb.njit()
+def get_dense_hybrid(
+        jit_data,
+        frame_limits,
+        scan_limits,
+        precursor_mz,
+        precursor_ppm,
+        fragment_mz,
+        fragment_ppm,
+        quadrupole_mz
+):
+    precursor_cycle_mask = calculate_dia_cycle_mask(
+        jit_data.cycle,
+        np.array([[-1., -1.]])
+    )
+
+    fragment_cycle_mask = calculate_dia_cycle_mask(
+        jit_data.cycle,
+        quadrupole_mz
+    )
+
+    push_indices, source_indices, absolute_precursor_index = get_push_indices(
+        jit_data,
+        frame_limits,
+        scan_limits,
+        fragment_cycle_mask,
+        precursor_cycle_mask,
+    )
+
+    precursor_tof_limits = utils.make_slice_2d( 
+        jit_data.return_tof_indices( 
+            utils.mass_range(
+                precursor_mz, precursor_ppm
+            )
+        )
+    )
+
+    fragment_tof_limits = utils.make_slice_2d(
+        jit_data.return_tof_indices(
+            utils.mass_range(
+                fragment_mz, fragment_ppm
+            )
+        )
+    )
+
+
+    precursor_index = np.unique(absolute_precursor_index)
+    n_precursor_indices = len(precursor_index)
+    precursor_index_reverse = np.zeros(np.max(precursor_index)+1, dtype=np.int64)
+    precursor_index_reverse[precursor_index] = np.arange(len(precursor_index))
+
+    mobility_len = scan_limits[0,1] - scan_limits[0,0]
+
+    cycle_start = int(frame_limits[0,0]//jit_data.cycle.shape[1])
+    cycle_stop = int(frame_limits[0,1]//jit_data.cycle.shape[1])
+    cycle_len =  cycle_stop - cycle_start
+    n_precursors = len(precursor_tof_limits)
+    n_fragments = len(fragment_tof_limits)
+
+    precursor_dense = np.zeros(
+        (
+            2, 
+            n_precursors,
+            1,
+            mobility_len,
+            cycle_len
+        ),
+        dtype=np.float32
+    )
+
+    precursor_dense[1] = precursor_ppm
+
+    fragments_dense = np.zeros(
+        (
+            2,
+            n_fragments,
+            n_precursor_indices,
+            mobility_len,
+            cycle_len
+        ),
+        dtype=np.float32
+    )
+
+    fragments_dense[1] = fragment_ppm
+    
+    for push_index, source_index, absolute_precursor_index in zip(push_indices, source_indices, absolute_precursor_index):
+        
+        start = jit_data.push_indptr[push_index]
+        end = jit_data.push_indptr[push_index + 1]
+        idx = start
+
+        if jit_data.zeroth_frame:
+            cycle_index = push_index - jit_data.scan_max_index
+        else:
+            cycle_index = push_index
+
+        absolute_cycle_index = cycle_index // (jit_data.scan_max_index * jit_data.cycle.shape[1])
+        relative_cycle_index = absolute_cycle_index - cycle_start
+
+        absolute_scan_index = push_index % jit_data.scan_max_index
+        relative_scan_index = absolute_scan_index - scan_limits[0,0]
+
+        relative_precursor_index = precursor_index_reverse[absolute_precursor_index]
+
+        if source_index == 0:
+            tof_limits = precursor_tof_limits[:3]
+            output_matrix = precursor_dense
+        else:
+            tof_limits = fragment_tof_limits[:12]
+            output_matrix = fragments_dense
+
+        # precursor
+        
+        for i, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
+            # Instead of leaving it at the end of the first tof slice it's reset to the start to allow for 
+            # Overlap of tof slices
+            start_idx = np.searchsorted(jit_data.tof_indices[idx: end], tof_start)
+            idx += start_idx
+            tof_value = jit_data.tof_indices[idx]
+
+            intensity = 0
+            weighted_error = 0
+
+            while (tof_value < tof_stop) and (idx < end):
+                if tof_value in range(tof_start, tof_stop, tof_step):
+
+                    intensity += jit_data.intensity_values[idx]
+                    mz = jit_data.mz_values[tof_value]
+                    weighted_error += (mz - precursor_mz[i])/mz * 1e6 * jit_data.intensity_values[idx]
+
+                idx += 1
+                tof_value = jit_data.tof_indices[idx]
+
+            if intensity > 0:
+                pass
+                output_matrix[0,i,relative_precursor_index,relative_scan_index, relative_cycle_index] = intensity
+                output_matrix[1,i,relative_precursor_index,relative_scan_index, relative_cycle_index] = weighted_error / intensity
+    
+        idx = start + start_idx
+
+    return precursor_dense, fragments_dense
+
+@nb.njit
+def filter_push(
+    tof_limits, 
+    push_index,
+    tof_indptr, 
+    push_query,
+    precursor_index
+    
+):
+    
+    tof_slice = []
+    values = []
+    push_indices = []
+    precursor_indices = []
+    tof_indices= []
+
+    for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
+        
+        for tof_index in range(tof_start, tof_stop, tof_step):
+            
+            start = tof_indptr[tof_index]
+            stop = tof_indptr[tof_index + 1]
+
+            i = 0
+            idx = int(start)
+
+            while (idx < stop) and (i < len(push_query)):
+                    #print('i',i)
+                    #print('idx',idx)
+                    #print('push_query[i]',push_query[i])
+                    #print('push_index[idx]',push_index[idx])
+                    
+                    if push_query[i] < push_index[idx]:
+                        i += 1
+
+                    else:
+                        if push_query[i] == push_index[idx]:
+                            tof_slice.append(j)
+                            values.append(idx)
+                            push_indices.append(push_index[idx])
+                            precursor_indices.append(precursor_index[i])
+                            tof_indices.append(tof_index)
+                        
+                        idx = idx + 1
+
+
+        
+        
+
+    return np.array(tof_slice), np.array(values), np.array(push_indices), np.array(precursor_indices), np.array(tof_indices)
+
+@nb.njit
+def assemble_push(
+    tof_limits, 
+    mz_values,
+    push_index,
+    tof_indptr, 
+    push_query,
+    precursor_index,
+    frame_limits,
+    scan_limits,
+    ppm_background,
+    jit_data
+):  
+    if len(precursor_index) == 0:
+         return np.empty((0,0,0,0,0),dtype=np.float32)
+    
+    unique_precursor_index = np.unique(precursor_index)
+    precursor_index_reverse = np.zeros(np.max(unique_precursor_index)+1, dtype=np.int64)
+    precursor_index_reverse[unique_precursor_index] = np.arange(len(unique_precursor_index))
+
+    relative_precursor_index = precursor_index_reverse[precursor_index]
+
+    n_precursor_indices = len(unique_precursor_index)
+    n_tof_slices = len(tof_limits)
+
+    # scan valuesa
+    mobility_start = int(scan_limits[0,0])
+    mobility_stop = int(scan_limits[0,1])
+    mobility_len = mobility_stop - mobility_start
+
+    # cycle values
+    precursor_cycle_start = int(frame_limits[0,0]-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
+    precursor_cycle_stop = int(frame_limits[0,1]-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
+    precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+
+    dense_output = np.zeros(
+        (
+            2, 
+            n_tof_slices,
+            n_precursor_indices,
+            mobility_len,
+            precursor_cycle_len
+        ), 
+        dtype=np.float32
+    )
+
+    dense_output[1,:,:,:,:] = ppm_background
+
+    for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
+
+        library_mz_value = mz_values[j]
+        
+        for tof_index in range(tof_start, tof_stop, tof_step):
+
+            measured_mz_value = jit_data.mz_values[tof_index]
+            
+            start = tof_indptr[tof_index]
+            stop = tof_indptr[tof_index + 1]
+
+            i = 0
+            idx = int(start)
+
+            while (idx < stop) and (i < len(push_query)):
+                    #print('i',i)
+                    #print('idx',idx)
+                    #print('push_query[i]',push_query[i])
+                    #print('push_index[idx]',push_index[idx])
+                    
+                    if push_query[i] < push_index[idx]:
+                        i += 1
+
+                    else:
+                        if push_query[i] == push_index[idx]:
+                            
+                            frame_index = push_index[idx] // jit_data.scan_max_index
+                            scan_index = push_index[idx] % jit_data.scan_max_index
+                            precursor_cycle_index = (frame_index-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
+
+                            relative_scan = scan_index - mobility_start
+                            relative_precursor = precursor_cycle_index - precursor_cycle_start
+
+                            accumulated_intensity = dense_output[0,j,relative_precursor_index[i],relative_scan,relative_precursor]
+                            accumulated_error = dense_output[1,j,relative_precursor_index[i],relative_scan,relative_precursor]
+
+                            new_intensity = jit_data.intensity_values_t[idx]
+                            new_error = (measured_mz_value - library_mz_value) / library_mz_value * 10**6
+
+                            weighted_error = (accumulated_error * accumulated_intensity + new_error * new_intensity)/(accumulated_intensity + new_intensity)
+                            
+                            dense_output[0,j,relative_precursor_index[i],relative_scan,relative_precursor] = accumulated_intensity + new_intensity
+                            dense_output[1,j,relative_precursor_index[i],relative_scan,relative_precursor] = weighted_error
+                        
+                        idx = idx + 1
+
+
+    return dense_output
+
+@nb.njit
+def build_score(
+    dense_precursors,
+    dense_fragments,
+    precursor_mz,
+    precursor_intensity,
+    fragment_mz,
+    fragment_intensity,
+    kernel
+    ):
+
+    smooth_precursor = numeric.fourier_a1(dense_precursors[0,:,:,:,:], kernel)
+    smooth_precursor = smooth_precursor.sum(axis=1)
+    smooth_fragment = numeric.fourier_a1(dense_fragments[0,:,:,:,:], kernel)
+    smooth_fragment = smooth_fragment.sum(axis=1)
+    
+    n_scores = precursor_intensity.shape[0]
+
+    score = np.zeros(
+        (
+            n_scores, 
+            dense_precursors.shape[3],
+            dense_precursors.shape[4]
+        ),
+        dtype=np.float32
+    )
+    for score_idx in range(n_scores):
+
+        fragment_mask = fragment_intensity[score_idx] > 0
+        precursor_mask = precursor_intensity[score_idx] > 0
+
+        current_smooth_fragment = smooth_fragment[fragment_mask]
+        current_smooth_precursor = smooth_precursor[precursor_mask]
+        current_fragment_intensity = fragment_intensity[score_idx][fragment_mask]
+        current_precursor_intensity = precursor_intensity[score_idx][precursor_mask]
+
+        precursor_kernel = current_precursor_intensity.reshape(-1, 1, 1)
+
+        precursor_dot = np.sum(current_smooth_precursor * precursor_kernel, axis=0)
+        precursor_dot_mean = np.mean(precursor_dot)
+        precursor_norm = precursor_dot/(precursor_dot_mean+0.001)
+        
+        fragment_kernel = current_fragment_intensity.reshape(-1, 1, 1)
+        fragment_dot = np.sum(current_smooth_fragment * fragment_kernel, axis=0)
+        fragment_dot_mean = np.mean(fragment_dot)
+        fragment_norm = fragment_dot/(fragment_dot_mean+0.001)
+
+        score[score_idx] = precursor_norm * fragment_norm
+
+    return score

@@ -2,6 +2,7 @@
 import math
 
 # alphadia imports
+from alphadia.extraction.numba import numeric
 
 # alpha family imports
 
@@ -10,6 +11,7 @@ import math
 import alphatims.utils
 import alphatims.bruker
 import numpy as np
+import numba as nb
 import logging
 from numba.core import types
 from numba.typed import Dict
@@ -20,7 +22,7 @@ class TimsTOFDIA_(alphatims.bruker.TimsTOF):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def jitclass(self):
+    def jitclass(self, transpose=False):
         return TimsTOFJIT(
             self._accumulation_times,
             self._cycle,
@@ -49,7 +51,8 @@ class TimsTOFDIA_(alphatims.bruker.TimsTOF):
             self._tof_indices,
             self._tof_max_index,
             self._use_calibrated_mz_values_as_default,
-            self._zeroth_frame
+            self._zeroth_frame,
+            transpose=transpose
         )
 
 @jitclass([('accumulation_times', types.float64[:]),
@@ -81,7 +84,13 @@ class TimsTOFDIA_(alphatims.bruker.TimsTOF):
             ('tof_max_index', types.int64),
             ('use_calibrated_mz_values_as_default', types.int64),
             ('zeroth_frame', types.boolean),
-            ('precursor_cycle_max_index', types.int64)
+            ('precursor_cycle_max_index', types.int64),
+
+            ('push_indices', types.uint32[::1]),
+            ('tof_indptr', types.int64[::1]),
+            ('intensity_values_t', types.uint16[::1]),
+
+
         ])
 class TimsTOFJIT(object):
     def __init__(
@@ -113,7 +122,8 @@ class TimsTOFJIT(object):
             tof_indices: types.uint32[::1],
             tof_max_index: types.int64,
             use_calibrated_mz_values_as_default: types.int64,
-            zeroth_frame: types.boolean
+            zeroth_frame: types.boolean,
+            transpose: types.boolean = False
         ):
 
         self.accumulation_times = accumulation_times
@@ -144,8 +154,25 @@ class TimsTOFJIT(object):
         self.tof_max_index = tof_max_index
         self.use_calibrated_mz_values_as_default = use_calibrated_mz_values_as_default
         self.zeroth_frame = zeroth_frame
-        
         self.precursor_cycle_max_index = frame_max_index // self.cycle.shape[1]
+
+        if transpose:
+
+            self.push_indices, self.tof_indptr, self.intensity_values_t = numeric.transpose(
+                self.tof_indices, 
+                self.push_indptr, 
+                self.intensity_values
+            )
+            self.tof_indices = np.zeros(0, np.uint32)
+            self.push_indptr = np.zeros(0, np.int64)
+            self.intensity_values = np.zeros(0, np.uint16)
+
+        else:
+            self.push_indices = np.zeros(0, np.uint32)
+            self.tof_indptr = np.zeros(0, np.int64)
+            self.intensity_values_t = np.zeros(0, np.uint16)
+
+        
 
     def return_frame_indices(
             self,
@@ -451,8 +478,6 @@ class TimsTOFJIT(object):
             y = np.array([np.int64(x) for x in range(0)])
             return x, y
             
-        
-
         # The precursor cycle is the 3rd dimension of the dense precursor representation
         # The 3rd axis could theoretically have the length of all existing precursor cycles
         # However, we only need to store the precursor cycles that are actually present in the data

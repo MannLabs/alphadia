@@ -122,7 +122,7 @@ class GaussianFilter:
     ):
         expected_peak_len_rt = self.peak_len_rt / rt_length
         # sigma = 1/3 rt at base
-        return expected_peak_len_rt / (2 * 2)
+        return expected_peak_len_rt / (2)# * 2)
     
     def determine_mobility_sigma(
         self,
@@ -130,7 +130,7 @@ class GaussianFilter:
     ):
         expected_peak_len_mobility = self.peak_len_mobility / mobility_len
         # sigma = 1/3 moblity at base
-        return expected_peak_len_mobility / (2 * 2)
+        return expected_peak_len_mobility / (2)# * 2)
 
     def get_kernel(
         self,
