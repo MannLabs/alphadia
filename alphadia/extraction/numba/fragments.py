@@ -213,7 +213,7 @@ def get_ion_group_mapping(
 
     # normalize each score group to 1
     for row in score_group_intensity:
-        if row.max() > 0:
+        if np.max(row) > 0:
             row /= row.max()
 
     if exclude_shared:
@@ -221,6 +221,10 @@ def get_ion_group_mapping(
 
         score_group_intensity = score_group_intensity[:, score_group_count <= 1]
         grouped_mz = grouped_mz[score_group_count <= 1]
+
+        # make sure to exit if all ions are shared
+        if len(grouped_mz) == 0:
+            return grouped_mz, score_group_intensity
 
         #normalization has to be done again
         # it was needed in the first place so np.ceil evaluates to 1

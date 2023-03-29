@@ -21,6 +21,8 @@ class Candidate:
     ):
         self.id = candidate_id
 
+candidate_type = Candidate.class_type.instance_type
+
 @nb.jit()
 def determine_candidates(
     i
@@ -47,23 +49,28 @@ def calculate_score(dense_precursors, dense_fragments, expected_intensity, kerne
 @nb.experimental.jitclass()
 class HybridElutionGroup:
 
+    # values which are shared by all precursors in the elution group
+    # (1)
     elution_group_idx: nb.uint32
-    precursor_idx: nb.uint32[::1]
-    channel: nb.uint32[::1]
-    frag_start_stop_idx: nb.uint32[:,::1]
-    
     rt: nb.float64
     mobility: nb.float64
     charge: nb.uint8
 
-    decoy: nb.uint8[::1]
-    mz: nb.float64[::1]
-    
-    #isotope_apex_offset: nb.int8[::1]
-    #top_isotope_mz: nb.float64[::1]
+    # values which are specific to each precursor in the elution group
+    # (n_precursor)
+    precursor_idx: nb.uint32[::1]
+    precursor_channel: nb.uint32[::1]
+    precursor_decoy: nb.uint8[::1]
+    precursor_mz: nb.float32[::1]
+    precursor_score_group: nb.int32[::1]
+    precursor_abundance: nb.float32[::1]
 
-    isotope_intensity: nb.float32[:, :]
-    isotope_mz: nb.float32[:, ::1]
+    # (n_precursor, 2)
+    precursor_frag_start_stop_idx: nb.uint32[:,::1]
+
+    # (n_precursor, n_isotopes)
+    precursor_isotope_intensity: nb.float32[:, :]
+    precursor_isotope_mz: nb.float32[:, ::1]
 
     frame_limits: nb.uint64[:, ::1]
     scan_limits: nb.uint64[:, ::1]
@@ -82,16 +89,18 @@ class HybridElutionGroup:
     candidate_frame_center: nb.int64[::1]
 
     fragments: fragments.FragmentContainer.class_type.instance_type
-    dense_fragments : nb.float32[:, :, :, :, ::1]
-    dense_precursors : nb.float32[:, :, :, :, ::1]
+    candidates: nb.types.ListType(candidate_type)
 
-    fragment_mz: nb.float32[::1]
-    precursor_mz: nb.float32[::1]
+    #only for debugging
 
-    precursor_intensity: nb.float32[:, ::1]
-    fragment_intensity: nb.float32[:, ::1]
+    dense_fragments : nb.float32[:, :, :, ::1]
+    dense_precursors : nb.float32[:, :, :, ::1]
 
-    candidates: nb.types.ListType(Candidate.class_type.instance_type)
+    score_group_fragment_mz: nb.float32[::1]
+    score_group_precursor_mz: nb.float32[::1]
+
+    score_group_precursor_intensity: nb.float32[:, ::1]
+    score_group_fragment_intensity: nb.float32[:, ::1]
 
 
     def __init__(
@@ -137,20 +146,19 @@ class HybridElutionGroup:
         isotope_apex_offset : numpy.ndarray
             array of integers indicating the offset of the isotope apex from the precursor m/z. 
         """
+        
 
         self.elution_group_idx = elution_group_idx
         self.precursor_idx = precursor_idx
         self.rt = rt
         self.mobility = mobility
         self.charge = charge
-        self.decoy = decoy
-        self.mz = mz
-        self.channel = channel
-        #self.isotope_apex_offset = isotope_apex_offset
-        #self.top_isotope_mz = mz + isotope_apex_offset * 1.0033548350700006 / charge
 
-        self.frag_start_stop_idx = frag_start_stop_idx
-        self.isotope_intensity = isotope_intensity
+        self.precursor_decoy = decoy
+        self.precursor_mz = mz
+        self.precursor_channel = channel
+        self.precursor_frag_start_stop_idx = frag_start_stop_idx
+        self.precursor_isotope_intensity = isotope_intensity
 
         
 
@@ -164,26 +172,24 @@ class HybridElutionGroup:
         Sort all precursor arrays by m/z
         
         """
-        mz_order = np.argsort(self.mz)
-        self.mz = self.mz[mz_order]
-        self.decoy = self.decoy[mz_order]
-        #self.isotope_apex_offset = self.isotope_apex_offset[mz_order]
-        #self.top_isotope_mz = self.top_isotope_mz[mz_order]
+        mz_order = np.argsort(self.precursor_mz)
+        self.precursor_mz = self.precursor_mz[mz_order]
+        self.precursor_decoy = self.precursor_decoy[mz_order]
         self.precursor_idx = self.precursor_idx[mz_order]
-        self.frag_start_stop_idx = self.frag_start_stop_idx[mz_order]
+        self.precursor_frag_start_stop_idx = self.precursor_frag_start_stop_idx[mz_order]
 
     def assemble_isotope_mz(self):
         """
         Assemble the isotope m/z values from the precursor m/z and the isotope
         offsets.
         """
-        offset = np.arange(self.isotope_intensity.shape[1]) * 1.0033548350700006 / self.charge
-        self.isotope_mz = np.expand_dims(self.mz, 1).astype(np.float32) + np.expand_dims(offset,0).astype(np.float32)
+        offset = np.arange(self.precursor_isotope_intensity.shape[1]) * 1.0033548350700006 / self.charge
+        self.precursor_isotope_mz = np.expand_dims(self.precursor_mz, 1).astype(np.float32) + np.expand_dims(offset,0).astype(np.float32)
 
     def trim_isotopes(self):
 
-        elution_group_isotopes = np.sum(self.isotope_intensity, axis=0)/self.isotope_intensity.shape[0]
-        self.isotope_intensity = self.isotope_intensity[:,elution_group_isotopes>0.1]
+        elution_group_isotopes = np.sum(self.precursor_isotope_intensity, axis=0)/self.precursor_isotope_intensity.shape[0]
+        self.precursor_isotope_intensity = self.precursor_isotope_intensity[:,elution_group_isotopes>0.1]
 
     def determine_frame_limits(
             self, 
@@ -263,7 +269,7 @@ class HybridElutionGroup:
             tolerance in part per million (ppm)
 
         """
-        precursor_mz_limits = utils.mass_range(self.mz, tolerance)
+        precursor_mz_limits = utils.mass_range(self.precursor_mz, tolerance)
         self.precursor_tof_limits = utils.make_slice_2d(jit_data.return_tof_indices(
             precursor_mz_limits
         ))
@@ -310,6 +316,61 @@ class HybridElutionGroup:
         _, _, scans = mask.nonzero()
 
         return scans.min(), scans.max()
+    
+    def build_candidates(
+        self,
+        dense_fragments,
+        dense_precursors,
+        kernel,
+        candidate_count,
+        jit_data
+    ):
+        candidates = nb.typed.List.empty_list(candidate_type)
+
+        # return empty list if no dense data was accumulated
+        if dense_fragments.shape[2] < kernel.shape[0] or dense_fragments.shape[3] < kernel.shape[1]:
+            return candidates
+
+        smooth_precursor = numeric.fourier_a0(dense_precursors[0], kernel)
+        smooth_fragment = numeric.fourier_a0(dense_fragments[0], kernel)
+        
+        if 1 > 2:
+            candidates.append(
+                Candidate(1)
+            )
+        
+        return candidates
+    
+    def determine_score_groups(
+        self,
+        score_grouped
+    ):
+        """
+        Determines how the different precursors are grouped for scoring.
+
+        Parameters
+        ----------
+
+        score_grouped : bool
+            If True, the precursors are grouped by their decoy status. If False, each precursor is scored individually.
+
+        Returns
+        -------
+        group_ids : np.ndarray, dtype=np.uint32
+            Array of group ids for each precursor (n_precursor).
+        
+        """
+
+        if score_grouped:
+            # The resulting score groups are expected to start with 0 and be consecutive
+            # As there can be decoy only groups, we need to reindex the decoy array
+            group_ids = np.unique(self.precursor_decoy)
+            group_ids_reverse = np.zeros(np.max(group_ids)+1, dtype=np.int32)
+            group_ids_reverse[group_ids] = np.arange(len(group_ids))
+            return group_ids_reverse[self.precursor_decoy]
+
+        else:
+            return np.arange(len(self.precursor_decoy), dtype=np.int32)
 
 
     def process(
@@ -321,7 +382,11 @@ class HybridElutionGroup:
         mobility_tolerance,
         mz_tolerance,
         candidate_count, 
-        debug
+        debug,
+        score_grouped,
+        exclude_shared_fragments,
+        top_k_fragments,
+        top_k_precursors,
     ):
 
         """
@@ -353,13 +418,17 @@ class HybridElutionGroup:
             Make sure to use debug mode only on a small number of elution groups (10) and with a single thread. 
         """
         
+        
+        precursor_abundance = np.ones((len(self.precursor_decoy)), dtype=np.float32)
+
+        self.precursor_abundance = precursor_abundance
 
         self.sort_by_mz()
         self.trim_isotopes()
         self.assemble_isotope_mz()
 
         fragment_idx_slices = utils.make_slice_2d(
-            self.frag_start_stop_idx
+            self.precursor_frag_start_stop_idx
         )
         self.fragments = fragment_container.slice(fragment_idx_slices)
         self.fragments.sort_by_mz()
@@ -368,39 +437,29 @@ class HybridElutionGroup:
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)
         self.determine_fragment_tof_limits(jit_data, mz_tolerance)
-
-        prior_abundance = np.ones((len(self.decoy)))
-
-        score_grouped = True
-        exclude_shared_fragments = False
-        top_k_fragments = 12
-        top_k_precursors = 3
-
-        if score_grouped:
-            group_ids = np.unique(self.decoy)
-            group_ids_reverse = np.zeros(np.max(group_ids)+1, dtype=np.int64)
-            group_ids_reverse[group_ids] = np.arange(len(group_ids))
-            score_groups = group_ids_reverse[self.decoy]
-
-        else:
-            score_groups = np.arange(len(self.decoy))
+        self.precursor_score_group = self.determine_score_groups(score_grouped)
 
         fragment_mz, fragment_intensity = fragments.get_ion_group_mapping(
             self.fragments.precursor_idx,
             self.fragments.mz,
             self.fragments.intensity,
-            prior_abundance,
-            score_groups,
+            self.precursor_abundance,
+            self.precursor_score_group,
             exclude_shared=exclude_shared_fragments,
             top_k = top_k_fragments
         )
 
-        self.fragment_mz = fragment_mz
-        self.fragment_intensity = fragment_intensity
+        # return if no valid fragments are left after grouping
+        if len (fragment_mz) == 0:
+            return
+        
+        # only for debugging
+        self.score_group_fragment_mz = fragment_mz
+        self.score_group_fragment_intensity = fragment_intensity
 
-        isotope_mz = self.isotope_mz.flatten()
-        isotope_intensity = self.isotope_intensity.flatten()
-        isotope_precursor = np.repeat(np.arange(0, self.isotope_mz.shape[0]), self.isotope_mz.shape[1])
+        isotope_mz = self.precursor_isotope_mz.flatten()
+        isotope_intensity = self.precursor_isotope_intensity.flatten()
+        isotope_precursor = np.repeat(np.arange(0, self.precursor_isotope_mz.shape[0]), self.precursor_isotope_mz.shape[1])
 
         order = np.argsort(isotope_mz)
         isotope_mz = isotope_mz[order]
@@ -411,14 +470,19 @@ class HybridElutionGroup:
             isotope_precursor, 
             isotope_mz,
             isotope_intensity,
-            prior_abundance,
-            score_groups,
-            exclude_shared=exclude_shared_fragments,
+            self.precursor_abundance,
+            self.precursor_score_group,
+            exclude_shared=False,
             top_k = top_k_precursors
         )
-        
-        self.precursor_mz = precursor_mz
-        self.precursor_intensity = precursor_intensity
+
+        # return if no valid precursors are left after grouping
+        if len(precursor_mz) == 0:
+            return
+
+        # only for debugging
+        self.score_group_precursor_mz = precursor_mz
+        self.score_group_precursor_intensity = precursor_intensity
 
         quadrupole_mz = calculate_score_group_limits(
             precursor_mz, 
@@ -460,7 +524,8 @@ class HybridElutionGroup:
             self.scan_limits,
             precursor_cycle_mask,
         )
-        
+
+        # (2, n_precursor_isotopes, n_scans, n_frames)
         dense_precursors = assemble_push(
             precursor_tof_limits,
             precursor_mz,
@@ -472,7 +537,7 @@ class HybridElutionGroup:
             self.scan_limits,
             mz_tolerance,
             jit_data
-        )
+        ).sum(axis=2)
 
         push_query, _absolute_precursor_index = get_push_indices(
             jit_data,
@@ -481,6 +546,7 @@ class HybridElutionGroup:
             fragment_cycle_mask,
         )
         
+        # (2, n_fragments, n_scans, n_frames)
         dense_fragments = assemble_push(
             fragment_tof_limits,
             fragment_mz,
@@ -492,11 +558,24 @@ class HybridElutionGroup:
             self.scan_limits,
             mz_tolerance,
             jit_data
-        )
+        ).sum(axis=2)
 
+        
         self.dense_fragments = dense_fragments
         self.dense_precursors = dense_precursors
 
+        return
+
+        self.candidates = self.build_candidates(
+            dense_fragments,
+            dense_precursors,
+            kernel,
+            candidate_count,
+            jit_data
+        )
+        
+
+        
        
 
         #candidate_precursor_idx = []
@@ -719,9 +798,11 @@ class HybridCandidateSelection(object):
             precursor_mz_column = 'mz_library',
             fragment_mz_column = 'mz_library',
             thread_count = 20,
-            kernel_sigma_rt = 5,
-            kernel_sigma_mobility = 12,
-            debug = False
+            debug = False,
+            score_grouped = False,
+            exclude_shared_fragments = True,
+            top_k_fragments = 12,
+            top_k_precursors = 3,
         ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -746,6 +827,27 @@ class HybridCandidateSelection(object):
         candidate_count : int, optional
             number of candidates to extract per precursor, by default 3
 
+        rt_column : str, optional
+            name of the rt column in the precursor dataframe, by default 'rt_library'
+
+        mobility_column : str, optional
+            name of the mobility column in the precursor dataframe, by default 'mobility_library'
+
+        precursor_mz_column : str, optional
+            name of the precursor mz column in the precursor dataframe, by default 'mz_library'
+
+        fragment_mz_column : str, optional
+            name of the fragment mz column in the fragment dataframe, by default 'mz_library'
+
+        thread_count : int, optional
+            number of threads to use, by default 20
+
+        debug : bool, optional
+            if True, debug plots will be shown, by default False
+
+        score_grouped : bool, optional
+            if True, the score will be calculated based on the grouped precursors. All non-decoy precursors and decoy-precursors are grouped together.
+            If False, the score will be calculated based on the individual precursors. This is the default behaviour of al
         Returns
         -------
 
@@ -776,6 +878,11 @@ class HybridCandidateSelection(object):
 
         self.available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
         self.available_isotope_columns = [f'i_{i}' for i in self.available_isotopes]
+
+        self.score_grouped = score_grouped
+        self.exclude_shared_fragments = exclude_shared_fragments
+        self.top_k_fragments = top_k_fragments
+        self.top_k_precursors = top_k_precursors
 
     def __call__(self):
         """
@@ -814,7 +921,11 @@ class HybridCandidateSelection(object):
             self.mobility_tolerance,
             self.mz_tolerance,
             self.candidate_count,
-            self.debug
+            self.debug,
+            self.score_grouped,
+            self.exclude_shared_fragments,
+            self.top_k_fragments,
+            self.top_k_precursors
         )
    
         #df = self.assemble_candidates(elution_group_container)
@@ -928,7 +1039,7 @@ class HybridCandidateSelection(object):
             precursors_sorted[self.mobility_column].values.astype(np.float64),
             precursors_sorted['charge'].values.astype(np.uint8),
             precursors_sorted['decoy'].values.astype(np.uint8),
-            precursors_sorted[self.precursor_mz_column].values.astype(np.float64),
+            precursors_sorted[self.precursor_mz_column].values.astype(np.float32),
             precursors_sorted[available_isotope_columns].values.copy().astype(np.float32),
         )
     
@@ -1074,7 +1185,11 @@ def _executor(
         mobility_tolerance,
         mz_tolerance,
         candidate_count, 
-        debug
+        debug,
+        score_grouped,
+        exclude_shared_fragments,
+        top_k_fragments,
+        top_k_precursors
     ):
     """
     Helper function.
@@ -1088,7 +1203,11 @@ def _executor(
         mobility_tolerance,
         mz_tolerance,
         candidate_count, 
-        debug
+        debug,
+        score_grouped,
+        exclude_shared_fragments,
+        top_k_fragments,
+        top_k_precursors
     )
 
 @nb.njit

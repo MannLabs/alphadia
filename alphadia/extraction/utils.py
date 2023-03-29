@@ -739,6 +739,20 @@ def amean0(array):
     return out
 
 @alphatims.utils.njit()
+def astd0(array):
+    out = np.zeros(array.shape[1])
+    for i in range(len(out)):
+        out[i] = np.std(array[:,i])
+    return out
+
+@alphatims.utils.njit()
+def astd1(array):
+    out = np.zeros(array.shape[0])
+    for i in range(len(out)):
+        out[i] = np.std(array[i])
+    return out
+
+@alphatims.utils.njit()
 def _and_envelope(input_profile, output_envelope):
     """
     Calculate the envelope of a profile spectrum.
