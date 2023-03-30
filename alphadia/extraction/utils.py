@@ -1158,3 +1158,55 @@ def fourier_filter(
     #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output
+
+
+def calculate_score_groups(
+        precursors_flat, 
+        group_channels = False
+    ):
+    """
+    Calculate score based on elution group and decoy status.
+
+    Parameters
+    ----------
+
+    precursors_flat : pandas.DataFrame
+        Precursor dataframe. Must contain columns 'elution_group_idx' and 'decoy'.
+
+    group_channels : bool
+        If True, all channels from a given precursor will be grouped together.
+
+    Returns
+    -------
+
+    score_groups : pandas.DataFrame
+        Updated precursor dataframe with score_group_idx column.
+    """
+
+    @nb.njit
+    def channel_score_groups(
+            elution_group_idx, 
+            decoy
+        ):
+        score_groups = np.zeros(len(elution_group_idx), dtype=np.int32)
+        current_group = 0
+        current_eg = elution_group_idx[0]
+        current_decoy = decoy[0]
+        
+        for i in range(len(elution_group_idx)):
+            if (elution_group_idx[i] != current_eg) or (decoy[i] != current_decoy):
+                current_group += 1
+                current_eg = elution_group_idx[i]
+                current_decoy = decoy[i]
+            
+            score_groups[i] = current_group
+        return score_groups
+
+    precursors_flat = precursors_flat.sort_values(by=['elution_group_idx', 'decoy'])
+
+    if group_channels:
+        precursors_flat['score_group_idx'] = channel_score_groups(precursors_flat['elution_group_idx'].values, precursors_flat['decoy'].values)
+    else:
+        precursors_flat['score_group_idx'] = np.arange(len(precursors_flat))
+
+    return precursors_flat.sort_values(by=['score_group_idx']).reset_index(drop=True)

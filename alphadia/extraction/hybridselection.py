@@ -51,6 +51,7 @@ class HybridElutionGroup:
 
     # values which are shared by all precursors in the elution group
     # (1)
+    score_group_idx: nb.uint32
     elution_group_idx: nb.uint32
     rt: nb.float64
     mobility: nb.float64
@@ -99,12 +100,13 @@ class HybridElutionGroup:
     score_group_fragment_mz: nb.float32[::1]
     score_group_precursor_mz: nb.float32[::1]
 
-    score_group_precursor_intensity: nb.float32[:, ::1]
-    score_group_fragment_intensity: nb.float32[:, ::1]
+    score_group_precursor_intensity: nb.float32[::1]
+    score_group_fragment_intensity: nb.float32[::1]
 
 
     def __init__(
             self, 
+            score_group_idx,
             elution_group_idx,
             precursor_idx,
             channel,
@@ -147,7 +149,7 @@ class HybridElutionGroup:
             array of integers indicating the offset of the isotope apex from the precursor m/z. 
         """
         
-
+        self.score_group_idx = score_group_idx
         self.elution_group_idx = elution_group_idx
         self.precursor_idx = precursor_idx
         self.rt = rt
@@ -383,7 +385,6 @@ class HybridElutionGroup:
         mz_tolerance,
         candidate_count, 
         debug,
-        score_grouped,
         exclude_shared_fragments,
         top_k_fragments,
         top_k_precursors,
@@ -420,6 +421,7 @@ class HybridElutionGroup:
         
         
         precursor_abundance = np.ones((len(self.precursor_decoy)), dtype=np.float32)
+        precursor_abundance[self.precursor_channel == 0] = 10
 
         self.precursor_abundance = precursor_abundance
 
@@ -437,17 +439,18 @@ class HybridElutionGroup:
         self.determine_scan_limits(jit_data, mobility_tolerance)
         self.determine_precursor_tof_limits(jit_data, mz_tolerance)
         self.determine_fragment_tof_limits(jit_data, mz_tolerance)
-        self.precursor_score_group = self.determine_score_groups(score_grouped)
+        #self.precursor_score_group = self.determine_score_groups(True)
 
         fragment_mz, fragment_intensity = fragments.get_ion_group_mapping(
             self.fragments.precursor_idx,
             self.fragments.mz,
             self.fragments.intensity,
+            self.fragments.cardinality,
             self.precursor_abundance,
-            self.precursor_score_group,
-            exclude_shared=exclude_shared_fragments,
-            top_k = top_k_fragments
+            top_k = top_k_fragments,
+            max_cardinality = 10
         )
+        
 
         # return if no valid fragments are left after grouping
         if len (fragment_mz) == 0:
@@ -456,6 +459,8 @@ class HybridElutionGroup:
         # only for debugging
         self.score_group_fragment_mz = fragment_mz
         self.score_group_fragment_intensity = fragment_intensity
+
+        
 
         isotope_mz = self.precursor_isotope_mz.flatten()
         isotope_intensity = self.precursor_isotope_intensity.flatten()
@@ -470,9 +475,8 @@ class HybridElutionGroup:
             isotope_precursor, 
             isotope_mz,
             isotope_intensity,
+            np.ones(len(isotope_mz), dtype=np.uint8),
             self.precursor_abundance,
-            self.precursor_score_group,
-            exclude_shared=False,
             top_k = top_k_precursors
         )
 
@@ -483,6 +487,8 @@ class HybridElutionGroup:
         # only for debugging
         self.score_group_precursor_mz = precursor_mz
         self.score_group_precursor_intensity = precursor_intensity
+
+        
 
         quadrupole_mz = calculate_score_group_limits(
             precursor_mz, 
@@ -514,6 +520,8 @@ class HybridElutionGroup:
             jit_data.cycle,
             quadrupole_mz
         )
+
+        
 
         # combines different quadrupole limits into one
         # push_query : (n_pushes) 
@@ -799,7 +807,7 @@ class HybridCandidateSelection(object):
             fragment_mz_column = 'mz_library',
             thread_count = 20,
             debug = False,
-            score_grouped = False,
+            group_channels = False,
             exclude_shared_fragments = True,
             top_k_fragments = 12,
             top_k_precursors = 3,
@@ -879,7 +887,7 @@ class HybridCandidateSelection(object):
         self.available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
         self.available_isotope_columns = [f'i_{i}' for i in self.available_isotopes]
 
-        self.score_grouped = score_grouped
+        self.group_channels = group_channels
         self.exclude_shared_fragments = exclude_shared_fragments
         self.top_k_fragments = top_k_fragments
         self.top_k_precursors = top_k_precursors
@@ -902,7 +910,7 @@ class HybridCandidateSelection(object):
             logging.info('starting candidate selection')
 
         # initialize input container
-        elution_group_container = self.assemble_elution_groups(self.precursors_flat)
+        elution_group_container = self.assemble_score_groups(self.precursors_flat, group_channels= self.group_channels)
         fragment_container = self.assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
@@ -922,7 +930,6 @@ class HybridCandidateSelection(object):
             self.mz_tolerance,
             self.candidate_count,
             self.debug,
-            self.score_grouped,
             self.exclude_shared_fragments,
             self.top_k_fragments,
             self.top_k_precursors
@@ -958,9 +965,10 @@ class HybridCandidateSelection(object):
                 cardinality
             )
 
-    def assemble_elution_groups(
+    def assemble_score_groups(
             self,
             precursors_flat,
+            group_channels=False,
         ):
     
         """
@@ -984,10 +992,11 @@ class HybridCandidateSelection(object):
         available_isotopes = utils.get_isotope_columns(precursors_flat.columns)
         available_isotope_columns = [f'i_{i}' for i in available_isotopes]
 
-        precursors_sorted = precursors_flat.sort_values('elution_group_idx').copy()
+        precursors_sorted = utils.calculate_score_groups(precursors_flat, group_channels).copy()
 
         @nb.njit(debug=True)
         def assemble_njit(
+            score_group_idx,
             elution_group_idx,
             precursor_idx,
             channel,
@@ -999,38 +1008,40 @@ class HybridCandidateSelection(object):
             precursor_mz,
             isotope_intensity
         ):
-            elution_group = elution_group_idx[0]
-            elution_group_start = 0
-            elution_group_stop = 0
+            score_group = score_group_idx[0]
+            score_group_start = 0
+            score_group_stop = 0
 
             eg_list = []
             
-            while elution_group_stop < len(elution_group_idx)-1:
+            while score_group_stop < len(score_group_idx)-1:
                 
-                elution_group_stop += 1
+                score_group_stop += 1
 
-                if elution_group_idx[elution_group_stop] != elution_group:
+                if score_group_idx[score_group_stop] != score_group:
                         
                     eg_list.append(HybridElutionGroup(    
-                        elution_group,
-                        precursor_idx[elution_group_start:elution_group_stop],
-                        channel[elution_group_start:elution_group_stop],
-                        flat_frag_start_stop_idx[elution_group_start:elution_group_stop],
-                        rt_values[elution_group_start],
-                        mobility_values[elution_group_start],
-                        charge[elution_group_start],
-                        decoy[elution_group_start:elution_group_stop],
-                        precursor_mz[elution_group_start:elution_group_stop],
-                        isotope_intensity[elution_group_start:elution_group_stop]
+                        score_group,
+                        elution_group_idx[score_group_start],
+                        precursor_idx[score_group_start:score_group_stop],
+                        channel[score_group_start:score_group_stop],
+                        flat_frag_start_stop_idx[score_group_start:score_group_stop],
+                        rt_values[score_group_start],
+                        mobility_values[score_group_start],
+                        charge[score_group_start],
+                        decoy[score_group_start:score_group_stop],
+                        precursor_mz[score_group_start:score_group_stop],
+                        isotope_intensity[score_group_start:score_group_stop]
                     ))
 
-                    elution_group_start = elution_group_stop
-                    elution_group = elution_group_idx[elution_group_start]
+                    score_group_start = score_group_stop
+                    score_group = score_group_idx[score_group_start]
                     
             egs = nb.typed.List(eg_list)
             return HybridElutionGroupContainer(egs)
 
         return assemble_njit(
+            precursors_sorted['score_group_idx'].values.astype(np.uint32),
             precursors_sorted['elution_group_idx'].values.astype(np.uint32),
             precursors_sorted['precursor_idx'].values.astype(np.uint32),
             precursors_sorted['channel'].values.astype(np.uint32),
@@ -1186,7 +1197,6 @@ def _executor(
         mz_tolerance,
         candidate_count, 
         debug,
-        score_grouped,
         exclude_shared_fragments,
         top_k_fragments,
         top_k_precursors
@@ -1204,7 +1214,6 @@ def _executor(
         mz_tolerance,
         candidate_count, 
         debug,
-        score_grouped,
         exclude_shared_fragments,
         top_k_fragments,
         top_k_precursors
@@ -1254,13 +1263,12 @@ def calculate_score_group_limits(
         precursor_intensity
     ):
 
-    quadrupole_mz = np.zeros((precursor_intensity.shape[0], 2))
+    quadrupole_mz = np.zeros((1, 2))
 
-    for i in range(len(quadrupole_mz)):
-        mask = precursor_intensity[i] > 0
+    mask = precursor_intensity > 0
 
-        quadrupole_mz[i,0] = precursor_mz[mask].min()
-        quadrupole_mz[i,1] = precursor_mz[mask].max()
+    quadrupole_mz[0] = precursor_mz[mask].min()
+    quadrupole_mz[1] = precursor_mz[mask].max()
 
     return quadrupole_mz
 
