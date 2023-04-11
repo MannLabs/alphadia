@@ -5,8 +5,9 @@ import os
 # alphadia imports
 from alphadia.extraction import utils
 from alphadia.extraction import features, plotting
+from alphadia.extraction import validate
 from alphadia.library import fdr_to_q_values
-from alphadia.extraction.numba.fragments import FragmentContainer
+from alphadia.extraction.numba import fragments
 
 # alpha family imports
 import alphatims
@@ -57,7 +58,7 @@ def fdr_correction(features,
             ],
         figure_path = None,
         neptune_run = None,
-        index_group = 'precursor_idx'
+        index_group = 'elution_group_idx'
     ):
     features = features.dropna().reset_index(drop=True).copy()
 
@@ -300,8 +301,6 @@ def or_envelope(x, res):
             res[i] = (x[i-1] + x[i+1]) / 2
 
 
-
-from alphadia.extraction.scoring import FragmentContainer
 from alphadia.extraction import features
 from alphadia.extraction import candidateselection
 from alphadia.extraction.plotting import plot_dia_cycle
@@ -349,7 +348,7 @@ class Candidate:
     template : nb.float64[:, :, :, ::1]
 
 
-    fragments: FragmentContainer.class_type.instance_type
+    fragments: fragments.FragmentContainer.class_type.instance_type
 
     features: nb.types.DictType(nb.types.unicode_type, nb.float32)
     fragment_features: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
@@ -729,6 +728,8 @@ class Candidate:
             debug
         ):
 
+        
+
         self.features = nb.typed.Dict.empty(
             key_type=nb.types.unicode_type,
             value_type=nb.types.float32,
@@ -761,6 +762,7 @@ class Candidate:
         if debug:
             self.visualize_window(quadrupole_calibration.cycle_calibrated)
 
+        
         dense_fragments, frag_precursor_index = jit_data.get_dense(
             self.frame_limit,
             self.scan_limit,
@@ -890,7 +892,7 @@ class MS2ExtractionWorkflow():
                    
         ):
 
-        self.dia_data = dia_data
+        self.dia_data = dia_data.jitclass()
         self.precursors_flat = precursors_flat.sort_values(by='precursor_idx')
         self.fragments_flat = fragments_flat
         self.candidates = candidates
@@ -927,13 +929,12 @@ class MS2ExtractionWorkflow():
         _executor(
             range(iterator_len),
             candidate_container,
-            self.dia_data.jitclass(),
+            self.dia_data,
             fragment_container,
             self.quadrupole_calibration.jit,
             self.precursor_mz_tolerance,
             self.fragment_mz_tolerance,
             self.debug
-
         )
 
         if self.debug:
@@ -953,12 +954,16 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup].astype(np.float32)
+        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
+        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+        candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup]
+
+        validate.candidates(candidates)
+
+
 
         for isotope_column in self.available_isotope_columns:
-            candidates[isotope_column] = self.precursors_flat[isotope_column].values[precursor_flat_lookup].astype(np.float32)
+            candidates[isotope_column] = self.precursors_flat[isotope_column].values[precursor_flat_lookup]
 
         candidate_list = []
 
@@ -986,23 +991,35 @@ class MS2ExtractionWorkflow():
             c['frame_center'].values[0],
             c['charge'].values[0],
             c['decoy'].values[0],
-            c['flat_frag_start_idx'].values,
-            c['flat_frag_stop_idx'].values,
-            c['mz'].values,
+            c['flat_frag_start_idx'].values.astype(np.uint32),
+            c['flat_frag_stop_idx'].values.astype(np.uint32),
+            c['mz'].values.astype(np.float32),
             c[self.available_isotope_columns].values.astype(np.float32),
         )
 
     def assemble_fragments(self):
+            
+        # set cardinality to 1 if not present
+        if 'cardinality' in self.fragments_flat.columns:
+            self.fragments_flat['cardinality'] = self.fragments_flat['cardinality'].values
+        
+        else:
+            logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
+            self.fragments_flat['cardinality'] = np.ones(len(self.fragments_flat), dtype=np.uint8)
+        
+        # validate dataframe schema and prepare jitclass compatible dtypes
+        validate.fragments_flat(self.fragments_flat)
 
-        return FragmentContainer(
-            self.fragments_flat['mz_library'].values.astype(np.float32),
-            self.fragments_flat[self.fragment_mz_column].values.astype(np.float32),
-            self.fragments_flat['intensity'].values.astype(np.float32),
-            self.fragments_flat['type'].values.astype(np.uint8),
-            self.fragments_flat['loss_type'].values.astype(np.uint8),
-            self.fragments_flat['charge'].values.astype(np.uint8),
-            self.fragments_flat['number'].values.astype(np.uint8),
-            self.fragments_flat['position'].values.astype(np.uint8)
+        return fragments.FragmentContainer(
+            self.fragments_flat['mz_library'].values,
+            self.fragments_flat[self.fragment_mz_column].values,
+            self.fragments_flat['intensity'].values,
+            self.fragments_flat['type'].values,
+            self.fragments_flat['loss_type'].values,
+            self.fragments_flat['charge'].values,
+            self.fragments_flat['number'].values,
+            self.fragments_flat['position'].values,
+            self.fragments_flat['cardinality'].values
         )
 
     def _collect_candidate(self, candidate):

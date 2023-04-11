@@ -163,6 +163,7 @@ class TimsTOFJIT(object):
                 self.push_indptr, 
                 self.intensity_values
             )
+
             self.tof_indices = np.zeros(0, np.uint32)
             self.push_indptr = np.zeros(0, np.int64)
             self.intensity_values = np.zeros(0, np.uint16)
@@ -171,8 +172,6 @@ class TimsTOFJIT(object):
             self.push_indices = np.zeros(0, np.uint32)
             self.tof_indptr = np.zeros(0, np.int64)
             self.intensity_values_t = np.zeros(0, np.uint16)
-
-        
 
     def return_frame_indices(
             self,

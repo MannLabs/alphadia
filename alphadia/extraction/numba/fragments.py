@@ -122,8 +122,65 @@ def slice(inst, slices):
 
             return f
         return impl
+
+@nb.njit()
+def slice_manual(inst, slices):
+    precursor_idx = []
+    fragments_mz_library = []
+    fragments_mz = []
+    fragments_intensity = []
+    fragments_type = []
+    fragments_loss_type = []
+    fragments_charge = []
+    fragments_number = []
+    fragments_position = []
+    fragments_cardinality = []
+
+    precursor = np.arange(len(slices), dtype=np.uint32)
+
+    for i, (start_idx, stop_idx, step) in enumerate(slices):
+        for j in range(start_idx, stop_idx):
+            
+            precursor_idx.append(precursor[i])
+            fragments_mz_library.append(inst.mz_library[j])
+            fragments_mz.append(inst.mz[j])
+            fragments_intensity.append(inst.intensity[j])
+            fragments_type.append(inst.type[j])
+            fragments_loss_type.append(inst.loss_type[j])
+            fragments_charge.append(inst.charge[j])
+            fragments_number.append(inst.number[j])
+            fragments_position.append(inst.position[j])
+            fragments_cardinality.append(inst.cardinality[j])
+
+    precursor_idx = np.array(precursor_idx, dtype=np.uint32)
+    fragments_mz_library = np.array(fragments_mz_library, dtype=np.float32)
+    fragment_mz = np.array(fragments_mz, dtype=np.float32)
+    fragment_intensity = np.array(fragments_intensity, dtype=np.float32)
+    fragment_type = np.array(fragments_type, dtype=np.uint8)
+    fragment_loss_type = np.array(fragments_loss_type, dtype=np.uint8)
+    fragment_charge = np.array(fragments_charge, dtype=np.uint8)
+    fragment_number = np.array(fragments_number, dtype=np.uint8)
+    fragment_position = np.array(fragments_position, dtype=np.uint8)
+    fragment_cardinality = np.array(fragments_cardinality, dtype=np.uint8)
+
+    f = FragmentContainer(
+        fragments_mz_library,
+        fragment_mz,
+        fragment_intensity,
+        fragment_type,
+        fragment_loss_type,
+        fragment_charge,
+        fragment_number,
+        fragment_position,
+        fragment_cardinality
+    )
+
+    f.precursor_idx = precursor_idx
+
+    return f
     
 import numba as nb
+
 @nb.njit
 def get_ion_group_mapping(
     ion_precursor, 
@@ -176,7 +233,7 @@ def get_ion_group_mapping(
     """
     
     if not len(ion_mz) == len(ion_intensity) == len(ion_precursor) == len(ion_cardinality):
-        raise ValueError('ion_mz, ion_intensity and ion_precursor must have the same length')
+        raise ValueError('ion_mz, ion_intensity, ion_precursor and ion cardinality must have the same length')
     
     cardinality_mask = ion_cardinality <= max_cardinality
     ion_mz = ion_mz[cardinality_mask]

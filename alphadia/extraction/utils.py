@@ -1188,7 +1188,7 @@ def calculate_score_groups(
             elution_group_idx, 
             decoy
         ):
-        score_groups = np.zeros(len(elution_group_idx), dtype=np.int32)
+        score_groups = np.zeros(len(elution_group_idx), dtype=np.uint32)
         current_group = 0
         current_eg = elution_group_idx[0]
         current_decoy = decoy[0]
@@ -1207,6 +1207,6 @@ def calculate_score_groups(
     if group_channels:
         precursors_flat['score_group_idx'] = channel_score_groups(precursors_flat['elution_group_idx'].values, precursors_flat['decoy'].values)
     else:
-        precursors_flat['score_group_idx'] = np.arange(len(precursors_flat))
+        precursors_flat['score_group_idx'] = np.arange(len(precursors_flat), dtype=np.uint32)
 
     return precursors_flat.sort_values(by=['score_group_idx']).reset_index(drop=True)

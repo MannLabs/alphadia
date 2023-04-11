@@ -209,6 +209,9 @@ class Plan:
         else:
             upper_rt = active_gradient_stop
 
+        # make sure values are really norm values
+        norm_values = np.interp(norm_values, [norm_values.min(),norm_values.max()], [0,1])
+
         # determine the mode based on the config or the function parameter
         if mode is None:
             mode = self.config['extraction']['norm_rt_mode'] if 'norm_rt_mode' in self.config['extraction'] else 'tic'
@@ -415,11 +418,7 @@ class Plan:
 
             elif rt_type == 'irt' or rt_type == 'norm':
 
-                # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
-                rt_min = self.config['extraction']['initial_rt_tolerance']/2
-                rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
-
-                precursor_df['rt_library'] = self.norm_to_rt(raw,precursor_df['rt_library'].values, active_gradient_start=rt_min, active_gradient_stop=rt_max) 
+                precursor_df['rt_library'] = self.norm_to_rt(raw, precursor_df['rt_library'].values) 
 
                 yield raw, precursor_df, self.speclib.fragment_df
                 
@@ -488,17 +487,21 @@ class Workflow:
 
 
         if neptune_token is not None:
+            
+            try:
+                self.run = neptune.init_run(
+                    project="MannLabs/alphaDIA",
+                    api_token=neptune_token
+                )
 
-            self.run = neptune.init_run(
-                project="MannLabs/alphaDIA",
-                api_token=neptune_token
-            )
-
-            self.run['version'] = self.config['version']
-            self.run["sys/tags"].add(neptune_tags)
-            self.run['host'] = socket.gethostname()
-            self.run['raw_file'] = self.raw_name
-            self.run['config'].upload(File.from_content(yaml.dump(self.config)))
+                self.run['version'] = self.config['version']
+                self.run["sys/tags"].add(neptune_tags)
+                self.run['host'] = socket.gethostname()
+                self.run['raw_file'] = self.raw_name
+                self.run['config'].upload(File.from_content(yaml.dump(self.config)))
+            except:
+                logger.error("initilizing neptune session failed!")
+                self.run = None
         else:
             self.run = None
 
@@ -748,6 +751,10 @@ class Workflow:
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
 
+        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+        batch_df.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_precursors_flat.tsv'), sep='\t', index=False)
+        self.fragments_flat.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_fragments_flat.tsv'), sep='\t', index=False)
+
         extraction = HybridCandidateSelection(
             self.dia_data,
             batch_df,
@@ -794,7 +801,7 @@ class Workflow:
         features_df, fragments_df = self.extract_batch(self.precursors_flat)
         #features_df = features_df[features_df['fragment_coverage'] > 0.1]
         precursor_df = self.fdr_correction(features_df)
-        precursor_df = self.fdr_correction(precursor_df)
+        #precursor_df = self.fdr_correction(precursor_df)
 
         if not keep_decoys:
             precursor_df = precursor_df[precursor_df['decoy'] == 0]

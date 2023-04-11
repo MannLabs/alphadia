@@ -7,15 +7,15 @@ extraction:
 
   initial_ms1_tolerance: 30
   initial_ms2_tolerance: 30
-  initial_mobility_tolerance: 0.06
-  initial_rt_tolerance: 360
+  initial_mobility_tolerance: 0.08
+  initial_rt_tolerance: 200
 
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.04
-  target_rt_tolerance: 60
+  target_mobility_tolerance: 0.05
+  target_rt_tolerance: 30
 
-  min_epochs: 5
+  min_epochs: 3
   max_epochs: 20
 
   rt_heuristic: 180

@@ -15,7 +15,7 @@ import numba as nb
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
-@alphatims.utils.njit()
+#@alphatims.utils.njit()
 def symetric_limits(
         array_1d, 
         center, 
@@ -43,7 +43,7 @@ def symetric_limits(
     return np.array([center-limit, center+limit], dtype='int32')
 
 
-@alphatims.utils.njit()
+#@alphatims.utils.njit()
 def peak_boundaries_symmetric(
         a, 
         scan_center, 
@@ -153,7 +153,7 @@ class GaussianFilter:
             logging.info(f'Expected peak length in RT is {self.peak_len_rt:.2f} seconds, sigma is {rt_sigma:.2f}')
             logging.info(f'Expected peak length in mobility is {self.peak_len_mobility:.2f} 1/K_0, sigma is {mobility_sigma:.2f}')
 
-        k = 20
+        k = 30
         return self.gaussian_kernel_2d(
             k,
             rt_sigma,
