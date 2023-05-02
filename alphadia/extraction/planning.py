@@ -754,11 +754,7 @@ class Workflow:
 
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
-
-        current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        batch_df.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_precursors_flat.tsv'), sep='\t', index=False)
-        self.fragments_flat.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_fragments_flat.tsv'), sep='\t', index=False)
-
+        
         config = HybridCandidateConfig()
         config.update(self.config['extraction']['HybridCandidateConfig'])
         config.update({
