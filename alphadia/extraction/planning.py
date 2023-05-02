@@ -15,20 +15,19 @@ if not 'progress' in dir(logger):
     processlogger.init_logging()
 
 # alphadia imports
-from alphadia.extraction.data import TimsTOFDIA_
+from alphadia.extraction import data
 from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
 from alphadia.extraction.quadrupole import SimpleQuadrupole
-from alphadia.extraction.hybridselection import HybridCandidateSelection
+from alphadia.extraction.hybridselection import HybridCandidateSelection, HybridCandidateConfig
 
 # alpha family imports
 import alphatims
 
 import alphabase.psm_reader
 import alphabase.peptide.precursor
-import alphabase.peptide.fragment
+from alphabase.peptide import fragment
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -209,6 +208,9 @@ class Plan:
         else:
             upper_rt = active_gradient_stop
 
+        # make sure values are really norm values
+        norm_values = np.interp(norm_values, [norm_values.min(),norm_values.max()], [0,1])
+
         # determine the mode based on the config or the function parameter
         if mode is None:
             mode = self.config['extraction']['norm_rt_mode'] if 'norm_rt_mode' in self.config['extraction'] else 'tic'
@@ -232,8 +234,10 @@ class Plan:
 
     def from_spec_lib_base(self, speclib_base):
 
-        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=12)
-        speclib.parse_base_library(speclib_base)
+        speclib_base._fragment_cardinality_df = fragment.calc_fragment_cardinality(speclib_base.precursor_df, speclib_base._fragment_mz_df)
+
+        speclib = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=100)
+        speclib.parse_base_library(speclib_base, custom_df={'cardinality':speclib_base._fragment_cardinality_df})
 
         self.from_spec_lib_flat(speclib)
 
@@ -285,10 +289,15 @@ class Plan:
         else:
             logger.warning(f'no proteins column was found')
 
-        if 'isotope_apex_offset' in self.speclib.precursor_df.columns:
-            logger.info(f'Isotope_apex_offset column found')
+        if 'channel' in self.speclib.precursor_df.columns:
+            channels = self.speclib.precursor_df['channel'].unique()
+            n_channels = len(channels)
+            logger.info(f'Number of channels: {n_channels:,} ({channels})')
+
         else:
-            logger.warning(f'No isotope_apex_offset column was found')
+            logger.warning(f'no channel column was found, will assume only one channel')
+
+        
         
         isotopes = utils.get_isotope_columns(self.speclib.precursor_df.columns)
 
@@ -367,6 +376,10 @@ class Plan:
             dataframe['elution_group_idx'] = self.get_elution_group_idx(dataframe, strategy='precursor')
             logger.warning(f'no elution_group_idx column found, creating one')
 
+        if not 'channel' in dataframe.columns:
+            dataframe['channel'] = 0
+            logger.warning(f'no channel column found, creating one')
+
     def get_elution_group_idx(self, dataframe, strategy='precursor'):
 
         if strategy == 'precursor':
@@ -388,29 +401,25 @@ class Plan:
 
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_file_list:
-            raw = TimsTOFDIA_(raw_location)
+            raw = data.TimsTOFTranspose(raw_location)
             raw_name = Path(raw_location).stem
 
             precursor_df = self.speclib.precursor_df.copy()
             precursor_df['raw_name'] = raw_name
 
             if rt_type == 'seconds' or rt_type == 'unknown':
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
             
             elif rt_type == 'minutes':
                 precursor_df['rt_library'] *= 60
 
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
 
             elif rt_type == 'irt' or rt_type == 'norm':
 
-                # the normalized rt is transformed to extend from the center of the lowest to the center of the highest rt window
-                rt_min = self.config['extraction']['initial_rt_tolerance']/2
-                rt_max = raw.rt_max_value - (self.config['extraction']['initial_rt_tolerance']/2)
+                precursor_df['rt_library'] = self.norm_to_rt(raw, precursor_df['rt_library'].values) 
 
-                precursor_df['rt_library'] = self.norm_to_rt(raw,precursor_df['rt_library'].values, active_gradient_start=rt_min, active_gradient_stop=rt_max) 
-
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
                 
     def run(self, 
             output_folder, 
@@ -477,17 +486,21 @@ class Workflow:
 
 
         if neptune_token is not None:
+            
+            try:
+                self.run = neptune.init_run(
+                    project="MannLabs/alphaDIA",
+                    api_token=neptune_token
+                )
 
-            self.run = neptune.init_run(
-                project="MannLabs/alphaDIA",
-                api_token=neptune_token
-            )
-
-            self.run['version'] = self.config['version']
-            self.run["sys/tags"].add(neptune_tags)
-            self.run['host'] = socket.gethostname()
-            self.run['raw_file'] = self.raw_name
-            self.run['config'].upload(File.from_content(yaml.dump(self.config)))
+                self.run['version'] = self.config['version']
+                self.run["sys/tags"].add(neptune_tags)
+                self.run['host'] = socket.gethostname()
+                self.run['raw_file'] = self.raw_name
+                self.run['config'].upload(File.from_content(yaml.dump(self.config)))
+            except:
+                logger.error("initilizing neptune session failed!")
+                self.run = None
         else:
             self.run = None
 
@@ -551,6 +564,8 @@ class Workflow:
             'accumulated_precursors': 0,
             'accumulated_precursors_0.01FDR': 0,
             'accumulated_precursors_0.001FDR': 0,
+            'fwhm_rt': 5,
+            'fwhm_mobility': 0.015
         }
 
     def start_of_epoch(self, current_epoch):
@@ -700,6 +715,8 @@ class Workflow:
         self.progress["rt_error"] = max(rt_99, self.config['extraction']['target_rt_tolerance'])
         self.progress["mobility_error"] = max(mobility_99, self.config['extraction']['target_mobility_tolerance'])
         self.progress["column_type"] = 'calibrated'
+        self.progress['fwhm_rt'] = precursor_df_filtered['fwhm_rt'].median()
+        self.progress['fwhm_mobility'] = precursor_df_filtered['fwhm_mobility'].median()
 
         if self.run is not None:
             precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
@@ -708,6 +725,7 @@ class Workflow:
             self.run['eval/99_ms2_error'].log(m2_99)
             self.run['eval/99_rt_error'].log(rt_99)
             self.run['eval/99_mobility_error'].log(mobility_99)
+
 
     
     def check_recalibration(self, precursor_df):
@@ -736,18 +754,27 @@ class Workflow:
 
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
-
+        
+        config = HybridCandidateConfig()
+        config.update(self.config['extraction']['HybridCandidateConfig'])
+        config.update({
+            'rt_tolerance':self.progress["rt_error"],
+            'mobility_tolerance': self.progress["mobility_error"],
+            'candidate_count': self.progress["num_candidates"],
+            'mz_tolerance': self.progress["ms1_error"]
+        })
+        
         extraction = HybridCandidateSelection(
             self.dia_data,
             batch_df,
             self.fragments_flat,
+            config.jitclass(),
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
-            rt_tolerance = self.progress["rt_error"],
-            mobility_tolerance = self.progress["mobility_error"],
-            candidate_count = self.progress["num_candidates"],
-            mz_tolerance = self.progress["ms1_error"],
+            fragment_mz_column = f'mz_{self.progress["column_type"]}',
+            fwhm_rt = self.progress['fwhm_rt'],
+            fwhm_mobility = self.progress['fwhm_mobility'],
             thread_count=self.config['thread_count']
         )
         candidates_df = extraction()
@@ -783,7 +810,7 @@ class Workflow:
         features_df, fragments_df = self.extract_batch(self.precursors_flat)
         #features_df = features_df[features_df['fragment_coverage'] > 0.1]
         precursor_df = self.fdr_correction(features_df)
-        precursor_df = self.fdr_correction(precursor_df)
+        #precursor_df = self.fdr_correction(precursor_df)
 
         if not keep_decoys:
             precursor_df = precursor_df[precursor_df['decoy'] == 0]

@@ -739,6 +739,20 @@ def amean0(array):
     return out
 
 @alphatims.utils.njit()
+def astd0(array):
+    out = np.zeros(array.shape[1])
+    for i in range(len(out)):
+        out[i] = np.std(array[:,i])
+    return out
+
+@alphatims.utils.njit()
+def astd1(array):
+    out = np.zeros(array.shape[0])
+    for i in range(len(out)):
+        out[i] = np.std(array[i])
+    return out
+
+@alphatims.utils.njit()
 def _and_envelope(input_profile, output_envelope):
     """
     Calculate the envelope of a profile spectrum.
@@ -800,9 +814,6 @@ def calculate_correlations(
         (N)
 
     """
-
-
-
 
     # F fragments and 1 precursors are concatenated, resulting in a (F+1, F+1) correlation matrix
     corr_frame = np.corrcoef(dense_fragments_profile, dense_template_profile)
@@ -920,7 +931,7 @@ def mass_range(
         ppm_tolerance
     ):
 
-    out_mz = np.zeros((len(mz_list),2))
+    out_mz = np.zeros((len(mz_list),2), dtype=mz_list.dtype)
     out_mz[:,0] = mz_list - ppm_tolerance * mz_list/(10**6)
     out_mz[:,1] = mz_list + ppm_tolerance * mz_list/(10**6)
     return out_mz
@@ -1035,7 +1046,7 @@ def make_slice_1d(
         Array of shape (1,3) containing the start, stop and step value.
 
     """
-    return np.array([[start_stop[0], start_stop[1],1]], dtype='uint64')
+    return np.array([[start_stop[0], start_stop[1],1]], dtype=start_stop.dtype)
 
 @alphatims.utils.njit
 def make_slice_2d(
@@ -1057,7 +1068,7 @@ def make_slice_2d(
 
     """
 
-    out = np.ones((start_stop.shape[0], 3), dtype='uint64')
+    out = np.ones((start_stop.shape[0], 3), dtype=start_stop.dtype)
     out[:,0] = start_stop[:,0]
     out[:,1] = start_stop[:,1]
     return out
@@ -1129,18 +1140,95 @@ def fourier_filter(
         frame_size,
     ), dtype='float32')
 
-    with nb.objmode(smooth_output='float32[:,:,:,:]'):
-        fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
-
-        for i in range(smooth_output.shape[0]):
-            for j in range(smooth_output.shape[1]):
-                layer = dense_stack[0,i,j,:scan_size,:frame_size]
     
-                smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
-                
+    fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
 
-        # roll back to original position
-        smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-        smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+    for i in range(smooth_output.shape[0]):
+        for j in range(smooth_output.shape[1]):
+            layer = dense_stack[0,i,j,:scan_size,:frame_size]
+
+            smooth_output[i,j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
+                
+    #with nb.objmode(smooth_output='float32[:,:,:,:]'):
+    #    # roll back to original position
+    #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
+    #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output
+
+
+def calculate_score_groups(
+        precursors_flat, 
+        group_channels = False
+    ):
+    """
+    Calculate score based on elution group and decoy status.
+
+    Parameters
+    ----------
+
+    precursors_flat : pandas.DataFrame
+        Precursor dataframe. Must contain columns 'elution_group_idx' and 'decoy'.
+
+    group_channels : bool
+        If True, all channels from a given precursor will be grouped together.
+
+    Returns
+    -------
+
+    score_groups : pandas.DataFrame
+        Updated precursor dataframe with score_group_idx column.
+    """
+
+    @nb.njit
+    def channel_score_groups(
+            elution_group_idx, 
+            decoy
+        ):
+        score_groups = np.zeros(len(elution_group_idx), dtype=np.uint32)
+        current_group = 0
+        current_eg = elution_group_idx[0]
+        current_decoy = decoy[0]
+        
+        for i in range(len(elution_group_idx)):
+            if (elution_group_idx[i] != current_eg) or (decoy[i] != current_decoy):
+                current_group += 1
+                current_eg = elution_group_idx[i]
+                current_decoy = decoy[i]
+            
+            score_groups[i] = current_group
+        return score_groups
+
+    precursors_flat = precursors_flat.sort_values(by=['elution_group_idx', 'decoy'])
+
+    if group_channels:
+        precursors_flat['score_group_idx'] = channel_score_groups(precursors_flat['elution_group_idx'].values, precursors_flat['decoy'].values)
+    else:
+        precursors_flat['score_group_idx'] = np.arange(len(precursors_flat), dtype=np.uint32)
+
+    return precursors_flat.sort_values(by=['score_group_idx']).reset_index(drop=True)
+
+
+@nb.njit()
+def profile_correlation(profile, tresh = 3, shift=2, kernel_size = 12):
+    mask = np.sum((profile >= tresh).astype(np.int8), axis=0)==profile.shape[0]
+
+    output = np.zeros(profile.shape, dtype=np.float32)
+
+    start_index = 0
+
+    while start_index < (len(mask) - kernel_size):
+
+        if not mask[start_index]:
+            start_index += shift
+            continue
+
+        slice = profile[:,start_index:start_index+kernel_size]
+        correlation = amean0(np.corrcoef(slice))
+
+        start = start_index+kernel_size//2-shift
+        end = start_index+kernel_size//2
+        output[:,start:start_index+end] = correlation.reshape(-1,1)
+        start_index += shift
+
+    return output
