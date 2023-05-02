@@ -418,6 +418,11 @@ def build_features(
         p_expected_frame_center
     ).reshape(n_precursors, n_isotopes)
 
+    # sum precursor
+    sum_precursor_intensity = np.sum(np.sum(dense_precursors[0], axis=-1), axis=-1).astype(np.float32)
+    sum_fragment_intensity = np.sum(np.sum(dense_fragments[0], axis=-1), axis=-1).astype(np.float32)
+    
+
     # (n_precursor, n_isotopes) 
     mass_error_array = (observed_precursor_mz - isotope_mz) / isotope_mz * 1e6
 

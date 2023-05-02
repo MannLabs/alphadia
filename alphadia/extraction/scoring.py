@@ -5,8 +5,9 @@ import os
 # alphadia imports
 from alphadia.extraction import utils
 from alphadia.extraction import features, plotting
+from alphadia.extraction import validate
 from alphadia.library import fdr_to_q_values
-from alphadia.extraction.numba.fragments import FragmentContainer
+from alphadia.extraction.numba import fragments
 
 # alpha family imports
 import alphatims
@@ -29,6 +30,7 @@ from sklearn.linear_model import LogisticRegression
 
 
 
+
 @nb.njit()
 def assign_best_candidate(sorted_index_values):
     best_candidate = -np.ones(np.max(sorted_index_values), dtype=np.int64)
@@ -41,7 +43,8 @@ def assign_best_candidate(sorted_index_values):
 
 def fdr_correction(features, 
         feature_columns = 
-            ['precursor_mass_error', 
+            ['precursor_mass_error',
+             'mz_observed',
             'precursor_isotope_correlation', 
             'fraction_fragments', 
             'intensity_correlation',
@@ -50,14 +53,25 @@ def fdr_correction(features,
             'mean_fragment_intensity',
             'mean_fragment_nonzero',
             'rt_error',
+            'rt_observed',
             'mobility_error',
+            'mobility_observed',
             'mean_observation_score',
             'var_observation_score',
-            'fragment_frame_correlation', 'fragment_scan_correlation', 'template_frame_correlation', 'template_scan_correlation'
+            'fragment_frame_correlation', 
+            'fragment_scan_correlation', 
+            'template_frame_correlation', 
+            'template_scan_correlation',
+            'fwhm_rt',
+            'fwhm_mobility',
+            'sum_b_ion_intensity',
+            'sum_y_ion_intensity',
+            'observed_difference_b_y',
+            'aggreement_b_y'
             ],
         figure_path = None,
         neptune_run = None,
-        index_group = 'precursor_idx'
+        index_group = 'elution_group_idx'
     ):
     features = features.dropna().reset_index(drop=True).copy()
 
@@ -169,8 +183,6 @@ def cosine_similarity_int(a, b):
     if div == 0:
         return 0
     return np.sum((a*b))/div
-
-
 
 @nb.njit
 def cosine_similarity_float(a, b):
@@ -300,8 +312,6 @@ def or_envelope(x, res):
             res[i] = (x[i-1] + x[i+1]) / 2
 
 
-
-from alphadia.extraction.scoring import FragmentContainer
 from alphadia.extraction import features
 from alphadia.extraction import candidateselection
 from alphadia.extraction.plotting import plot_dia_cycle
@@ -328,6 +338,7 @@ class Candidate:
 
     charge: nb.uint8
     decoy: nb.uint8
+    rank: nb.uint8
     
 
     frag_start_idx: nb.uint32[::1]
@@ -343,13 +354,13 @@ class Candidate:
     precursor_tof_limit : nb.uint64[:, ::1]
     fragment_quadrupole_limit : nb.float32[:, ::1]
 
-    dense_fragments : nb.float64[:, :, :, :, ::1]
-    dense_precursors : nb.float64[:, :, :, :, ::1]
+    dense_fragments : nb.float32[:, :, :, :, ::1]
+    dense_precursors : nb.float32[:, :, :, :, ::1]
     observation_importance : nb.float64[:, ::1]
     template : nb.float64[:, :, :, ::1]
 
 
-    fragments: FragmentContainer.class_type.instance_type
+    fragments: fragments.FragmentContainer.class_type.instance_type
 
     features: nb.types.DictType(nb.types.unicode_type, nb.float32)
     fragment_features: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
@@ -368,6 +379,7 @@ class Candidate:
 
             charge,
             decoy,
+            rank,
 
             frag_start_idx,
             frag_stop_idx,
@@ -387,6 +399,7 @@ class Candidate:
 
         self.charge = charge
         self.decoy = decoy
+        self.rank = rank
 
         self.frag_start_idx = frag_start_idx
         self.frag_stop_idx = frag_stop_idx
@@ -455,7 +468,7 @@ class Candidate:
 
         mz_limits = utils.mass_range(self.fragments.mz, fragment_mz_tolerance)
         self.fragment_tof_limit = utils.make_slice_2d(
-            jit_data.return_tof_indices(
+            jit_data.get_tof_indices(
                 mz_limits
             )
         )
@@ -469,7 +482,7 @@ class Candidate:
         
         mz_limits = utils.mass_range(self.isotope_mz.flatten(), precursor_mz_tolerance)
         self.precursor_tof_limit = utils.make_slice_2d(
-            jit_data.return_tof_indices(
+            jit_data.get_tof_indices(
                 mz_limits
             )
         )
@@ -607,12 +620,8 @@ class Candidate:
 
             fig, axs = plt.subplots(n_rows, n_cols, figsize=(px_width_figure, px_height_figure))
 
-            print(axs.shape)
-
             if len(axs.shape) == 1:
                 axs = axs.reshape(axs.shape[0],1)
-
-            print(axs.shape)
 
             for obs in range(n_observations):
                 dense_index = obs * 2
@@ -654,10 +663,11 @@ class Candidate:
 
     def build_correlation_features(
         self,
+        jit_data,
         debug
     ):
 
-        total_fragment_intensity = np.sum(np.sum(self.dense_fragments[0], axis=-1), axis=-1)
+        total_fragment_intensity = np.sum(np.sum(self.dense_fragments[0], axis=-1), axis=-1).astype(np.float32)
         total_template_intensity = np.sum(np.sum(self.template, axis=-1), axis=-1)
 
         fragment_mask_2d = (total_fragment_intensity > 0).astype(np.int8)
@@ -699,6 +709,47 @@ class Candidate:
             fragment_mask_2d,
         )
 
+        # calculate retention time FWHM
+
+        # (n_fragments, n_observations)
+        cycle_fwhm = np.zeros((
+            fragments_frame_profile.shape[0], 
+            fragments_frame_profile.shape[1], ),
+            dtype=np.float32
+        )
+
+        rt_width = jit_data.rt_values[self.frame_stop-1] - jit_data.rt_values[self.frame_start]
+
+        for i_fragment in range(fragments_frame_profile.shape[0]):
+            for i_observation in range(fragments_frame_profile.shape[1]):
+                max_intensity = np.max(fragments_frame_profile[i_fragment, i_observation])
+                half_max = max_intensity / 2
+                n_values_above = np.sum(fragments_frame_profile[i_fragment, i_observation] > half_max)
+                fraction_above = n_values_above / len(fragments_frame_profile[i_fragment, i_observation])
+
+                cycle_fwhm[i_fragment, i_observation] = fraction_above * rt_width
+
+        
+        # calculate mobility FWHM
+
+        # (n_fragments, n_observations)
+        mobility_fwhm = np.zeros((
+            fragments_scan_profile.shape[0], 
+            fragments_scan_profile.shape[1], ),
+            dtype=np.float32
+        )
+
+        mobility_width = jit_data.mobility_values[self.scan_start] - jit_data.mobility_values[self.scan_stop-1]
+
+        for i_fragment in range(fragments_scan_profile.shape[0]):
+            for i_observation in range(fragments_scan_profile.shape[1]):
+                max_intensity = np.max(fragments_scan_profile[i_fragment, i_observation])
+                half_max = max_intensity / 2
+                n_values_above = np.sum(fragments_scan_profile[i_fragment, i_observation] > half_max)
+                fraction_above = n_values_above / len(fragments_scan_profile[i_fragment, i_observation])
+
+                mobility_fwhm[i_fragment, i_observation] = fraction_above * mobility_width
+
         weights = self.fragments.intensity / np.sum(self.fragments.intensity)
 
         fragment_scan_mean_list = np.sum(fragment_scan_correlation * self.observation_importance, axis = -1)
@@ -718,6 +769,49 @@ class Candidate:
         self.features['template_frame_correlation'] = template_frame_mean_agg
 
         
+
+        fragment_cycle_fwhm_mean_list = np.sum(cycle_fwhm * self.observation_importance, axis = -1)
+        fragment_cycle_fwhm_mean_agg = np.sum(fragment_cycle_fwhm_mean_list * weights)
+        self.features['fwhm_rt'] = fragment_cycle_fwhm_mean_agg
+
+        fragment_scan_fwhm_mean_list = np.sum(mobility_fwhm * self.observation_importance, axis = -1)
+        fragment_scan_fwhm_mean_agg = np.sum(fragment_scan_fwhm_mean_list * weights)
+        self.features['fwhm_mobility'] = fragment_scan_fwhm_mean_agg
+
+        # calculate features based on b and y ions
+
+        # b = 98
+        # y = 121
+
+        b_ion_mask = self.fragments.type == 98
+        y_ion_mask = self.fragments.type == 121
+
+        intensity = self.fragments.intensity
+
+        weighted_b_ion_intensity = total_fragment_intensity[b_ion_mask] * self.observation_importance
+        if len(weighted_b_ion_intensity) > 0:
+            log10_b_ion_intensity = np.log10(np.dot(intensity[b_ion_mask], np.sum(weighted_b_ion_intensity, axis = -1).astype(np.float32)) +0.001)
+            expected_b_ion_intensity = np.log10(np.sum(intensity[b_ion_mask]) + 0.001)
+        else:
+            log10_b_ion_intensity = 0.001
+            expected_b_ion_intensity = 0.001
+
+        
+        weighted_y_ion_intensity = total_fragment_intensity[y_ion_mask] * self.observation_importance
+        if len(weighted_y_ion_intensity) > 0:
+            log10_y_ion_intensity = np.log10(np.dot(intensity[y_ion_mask], np.sum(weighted_y_ion_intensity, axis = -1).astype(np.float32)) +0.001)
+            expected_y_ion_intensity = np.log10(np.sum(intensity[y_ion_mask]) + 0.001)
+        else:
+            log10_y_ion_intensity = 0.001
+            expected_y_ion_intensity = 0.001
+
+        self.features['sum_b_ion_intensity'] = log10_b_ion_intensity
+        self.features['sum_y_ion_intensity'] = log10_y_ion_intensity
+        self.features['observed_difference_b_y'] = log10_b_ion_intensity - log10_y_ion_intensity
+        self.features['expected_difference_b_y'] = expected_b_ion_intensity - expected_y_ion_intensity
+        self.features['aggreement_b_y'] = np.abs(self.features['observed_difference_b_y'] - self.features['expected_difference_b_y'])
+
+        #print(self.features['sum_b_ion_intensity'], self.features['sum_y_ion_intensity'], self.features['observed_difference_b_y'], self.features['expected_difference_b_y'])
   
     def process(
             self, 
@@ -754,9 +848,10 @@ class Candidate:
         self.fragments.sort_by_mz()
 
         #self.assemble_fragment_information(fragment_container)
-        self.determine_fragment_tof_limit(jit_data, fragment_mz_tolerance)
-        self.determine_precursor_tof_limit(jit_data, precursor_mz_tolerance)
+        #self.determine_fragment_tof_limit(jit_data, fragment_mz_tolerance)
+        #self.determine_precursor_tof_limit(jit_data, precursor_mz_tolerance)
         self.determine_fragment_quadrupole_limit()
+
         
         if debug:
             self.visualize_window(quadrupole_calibration.cycle_calibrated)
@@ -764,10 +859,10 @@ class Candidate:
         dense_fragments, frag_precursor_index = jit_data.get_dense(
             self.frame_limit,
             self.scan_limit,
-            self.fragment_tof_limit,
+            self.fragments.mz,
+            fragment_mz_tolerance,
             self.fragment_quadrupole_limit,
-            False,
-            dia_mz_cycle = quadrupole_calibration.get_dia_mz_cycle(5,5)
+            absolute_masses = True
         )
 
         self.dense_fragments = dense_fragments
@@ -789,13 +884,15 @@ class Candidate:
         dense_precursors, prec_precursor_index = jit_data.get_dense(
             self.frame_limit,
             self.scan_limit,
-            self.precursor_tof_limit,
+            self.isotope_mz.flatten(),
+            precursor_mz_tolerance,
             np.array([[-1.,-1.]]),
-            False,
-            dia_mz_cycle = quadrupole_calibration.get_dia_mz_cycle(0,0)
+            absolute_masses = True
         )
 
         self.dense_precursors = dense_precursors
+
+        
 
         qtf = quadrupole_transfer_function(
             quadrupole_calibration,
@@ -819,6 +916,7 @@ class Candidate:
 
         observation_importance = calculate_observation_importance(
             template,
+
         )
         
         self.observation_importance = observation_importance
@@ -832,18 +930,18 @@ class Candidate:
             self.isotope_mz, 
             self.fragments
         )
-
+        
         coverage = np.sum(qtf, axis = 2)
         self.features['fragment_coverage'] = np.mean(coverage) 
-
-        self.build_correlation_features(debug)
+        
+        self.build_correlation_features(jit_data, debug)
+        
         self.add_fixed_features(jit_data)
-
+        
         if debug:
             
             self.visualize_fragments(dense_fragments, frag_precursor_index)
             
-
             
 
             #self.visualize_precursors(dense_precursors, prec_precursor_index)
@@ -890,7 +988,7 @@ class MS2ExtractionWorkflow():
                    
         ):
 
-        self.dia_data = dia_data
+        self.dia_data = dia_data#.jitclass()
         self.precursors_flat = precursors_flat.sort_values(by='precursor_idx')
         self.fragments_flat = fragments_flat
         self.candidates = candidates
@@ -927,13 +1025,12 @@ class MS2ExtractionWorkflow():
         _executor(
             range(iterator_len),
             candidate_container,
-            self.dia_data.jitclass(),
+            self.dia_data,
             fragment_container,
             self.quadrupole_calibration.jit,
             self.precursor_mz_tolerance,
             self.fragment_mz_tolerance,
             self.debug
-
         )
 
         if self.debug:
@@ -953,12 +1050,14 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup].astype(np.uint32)
-        candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup].astype(np.float32)
+        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
+        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+        candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup]
+
+        validate.candidates(candidates)
 
         for isotope_column in self.available_isotope_columns:
-            candidates[isotope_column] = self.precursors_flat[isotope_column].values[precursor_flat_lookup].astype(np.float32)
+            candidates[isotope_column] = self.precursors_flat[isotope_column].values[precursor_flat_lookup]
 
         candidate_list = []
 
@@ -986,23 +1085,36 @@ class MS2ExtractionWorkflow():
             c['frame_center'].values[0],
             c['charge'].values[0],
             c['decoy'].values[0],
-            c['flat_frag_start_idx'].values,
-            c['flat_frag_stop_idx'].values,
-            c['mz'].values,
+            c['rank'].values[0],
+            c['flat_frag_start_idx'].values.astype(np.uint32),
+            c['flat_frag_stop_idx'].values.astype(np.uint32),
+            c['mz'].values.astype(np.float32),
             c[self.available_isotope_columns].values.astype(np.float32),
         )
 
     def assemble_fragments(self):
+            
+        # set cardinality to 1 if not present
+        if 'cardinality' in self.fragments_flat.columns:
+            self.fragments_flat['cardinality'] = self.fragments_flat['cardinality'].values
+        
+        else:
+            logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
+            self.fragments_flat['cardinality'] = np.ones(len(self.fragments_flat), dtype=np.uint8)
+        
+        # validate dataframe schema and prepare jitclass compatible dtypes
+        validate.fragments_flat(self.fragments_flat)
 
-        return FragmentContainer(
-            self.fragments_flat['mz_library'].values.astype(np.float32),
-            self.fragments_flat[self.fragment_mz_column].values.astype(np.float32),
-            self.fragments_flat['intensity'].values.astype(np.float32),
-            self.fragments_flat['type'].values.astype(np.uint8),
-            self.fragments_flat['loss_type'].values.astype(np.uint8),
-            self.fragments_flat['charge'].values.astype(np.uint8),
-            self.fragments_flat['number'].values.astype(np.uint8),
-            self.fragments_flat['position'].values.astype(np.uint8)
+        return fragments.FragmentContainer(
+            self.fragments_flat['mz_library'].values,
+            self.fragments_flat[self.fragment_mz_column].values,
+            self.fragments_flat['intensity'].values,
+            self.fragments_flat['type'].values,
+            self.fragments_flat['loss_type'].values,
+            self.fragments_flat['charge'].values,
+            self.fragments_flat['number'].values,
+            self.fragments_flat['position'].values,
+            self.fragments_flat['cardinality'].values
         )
 
     def _collect_candidate(self, candidate):
@@ -1012,6 +1124,14 @@ class MS2ExtractionWorkflow():
         out_dict['elution_group_idx'] = candidate.elution_group_idx
         #out_dict['decoy'] = candidate.decoy
         out_dict['charge'] = candidate.charge
+        out_dict['rank'] = candidate.rank
+        
+        out_dict['scan_start'] = candidate.scan_start
+        out_dict['scan_stop'] = candidate.scan_stop
+        out_dict['scan_center'] = candidate.scan_center
+        out_dict['frame_start'] = candidate.frame_start
+        out_dict['frame_stop'] = candidate.frame_stop
+        out_dict['frame_center'] = candidate.frame_center
 
         out_dict.update(
             candidate.features
@@ -1090,6 +1210,9 @@ class MS2ExtractionWorkflow():
 
         if 'proteins' in self.precursors_flat.columns:
             df['proteins'] = self.precursors_flat['proteins'].values[precursor_flat_lookup]
+
+        if 'channel' in self.precursors_flat.columns:
+            df['channel'] = self.precursors_flat['channel'].values[precursor_flat_lookup]
 
         return df
    

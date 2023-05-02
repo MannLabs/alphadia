@@ -15,7 +15,7 @@ import numba as nb
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
-@alphatims.utils.njit()
+#@alphatims.utils.njit()
 def symetric_limits(
         array_1d, 
         center, 
@@ -43,7 +43,7 @@ def symetric_limits(
     return np.array([center-limit, center+limit], dtype='int32')
 
 
-@alphatims.utils.njit()
+#@alphatims.utils.njit()
 def peak_boundaries_symmetric(
         a, 
         scan_center, 
@@ -104,102 +104,7 @@ def peak_boundaries_symmetric(
 
     return mobility_limits, dia_cycle_limits
 
-class GaussianFilter:
 
-    def __init__(
-            self, 
-            dia_data,
-            peak_len_rt = 8,
-            peak_len_mobility = 0.02
-            ):
-        self.dia_data = dia_data
-        self.peak_len_rt = peak_len_rt
-        self.peak_len_mobility = peak_len_mobility
-
-    def determine_rt_sigma(
-        self,
-        rt_length
-    ):
-        expected_peak_len_rt = self.peak_len_rt / rt_length
-        # sigma = 1/3 rt at base
-        return expected_peak_len_rt / (2 * 2)
-    
-    def determine_mobility_sigma(
-        self,
-        mobility_len
-    ):
-        expected_peak_len_mobility = self.peak_len_mobility / mobility_len
-        # sigma = 1/3 moblity at base
-        return expected_peak_len_mobility / (2 * 2)
-
-    def get_kernel(
-        self,
-        verbose = True
-    ):
-        rt_datapoints = self.dia_data.cycle.shape[1]
-        rt_length = np.mean(np.diff(self.dia_data.rt_values[::rt_datapoints]))
-
-        mobility_datapoints = self.dia_data.cycle.shape[2]
-        mobility_len = np.mean(np.diff(self.dia_data.mobility_values[::-1]))
-
-        if verbose:
-            logging.info(f'Duty cycle consists of {rt_datapoints} frames, {rt_length:.2f} seconds cycle time')
-            logging.info(f'Duty cycle consists of {mobility_datapoints} scans, {mobility_len:.5f} 1/K_0 resolution')
-
-        rt_sigma = self.determine_rt_sigma(rt_length)
-        mobility_sigma = self.determine_mobility_sigma(mobility_len)
-
-        if verbose:
-            logging.info(f'Expected peak length in RT is {self.peak_len_rt:.2f} seconds, sigma is {rt_sigma:.2f}')
-            logging.info(f'Expected peak length in mobility is {self.peak_len_mobility:.2f} 1/K_0, sigma is {mobility_sigma:.2f}')
-
-        k = 20
-        return self.gaussian_kernel_2d(
-            k,
-            rt_sigma,
-            mobility_sigma
-        ).astype(np.float32)
-    
-    @staticmethod
-    def gaussian_kernel_2d(
-        size: int, 
-        sigma_x: float, 
-        sigma_y: float
-    ): 
-        """
-        Create a 2D gaussian kernel with a given size and standard deviation.
-
-        Parameters
-        ----------
-
-        size : int
-            Width and height of the kernel matrix.
-
-        sigma_x : float
-            Standard deviation of the gaussian kernel in x direction. This will correspond to the RT dimension.
-
-        sigma_y : float
-            Standard deviation of the gaussian kernel in y direction. This will correspond to the mobility dimension.
-
-        Returns
-        -------
-
-        weights : np.ndarray
-            2D gaussian kernel matrix of shape (size, size).
-
-        """
-        # create indicies [-2, -1, 0, 1 ...]
-        x, y = np.meshgrid(np.arange(-size//2,size//2),np.arange(-size//2,size//2))
-        xy = np.column_stack((x.flatten(), y.flatten())).astype('float32')
-
-        # mean is always zero
-        mu = np.array([[0., 0.]])
-
-        # sigma is set with no covariance
-        sigma_mat = np.array([[sigma_x,0.],[0.,sigma_y]])
-
-        weights = utils.multivariate_normal(xy, mu, sigma_mat)
-        return weights.reshape(size,size)
 
 
 
