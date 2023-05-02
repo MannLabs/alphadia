@@ -157,82 +157,6 @@ def convolve_fourier_a1(dense, kernel):
     return out
 
 @nb.njit
-def transpose(
-        tof_indices,
-        push_indptr,
-        values
-):
-    
-    """
-    The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
-    A lookup starts with a given push index p which points to the row. The start and stop indices of the row are accessed from dia_data.push_indptr[p] and dia_data.push_indptr[p+1].
-    The tof indices are then accessed from dia_data.tof_indices[start:stop] and the corresponding intensities from dia_data.intensity_values[start:stop].
-
-    The function transposes the data such that the tof indices are the rows and the pushes are the columns. 
-    This is usefull when accessing only a small number of tof indices (e.g. when extracting a single precursor) and the number of pushes is large (e.g. when extracting a whole run).
-
-    Parameters
-    ----------
-
-    tof_indices : np.ndarray
-        column indices (n_values)
-
-    push_indptr : np.ndarray
-        start stop values for each row (n_rows +1)
-
-    values : np.ndarray
-        values (n_values)
-
-    Returns
-    -------
-
-    push_indices : np.ndarray
-        row indices (n_values)
-
-    tof_indptr : np.ndarray
-        start stop values for each row (n_rows +1)
-
-    new_values : np.ndarray
-        values (n_values)
-
-    """
-    # this is one less than the old col count or the new row count
-    max_tof_index = tof_indices.max()
-    
-    tof_indcount = np.zeros((max_tof_index+1), dtype=np.int64)
-
-    # get new column counts
-    for v in tof_indices:
-        tof_indcount[v] += 1
-
-    # get new indptr
-    tof_indptr = np.zeros((max_tof_index + 1 + 1), dtype=np.int64)
-    for i in range(max_tof_index+1):
-        tof_indptr[i + 1] = tof_indptr[i] + tof_indcount[i]
-
-    tof_indcount = np.zeros((max_tof_index+1), dtype=np.uint32)
-
-    # get new values
-    push_indices = np.zeros((len(tof_indices)), dtype=np.uint32)
-
-    new_values = np.zeros_like(values)
-
-    for push_idx in range(len(push_indptr)-1):
-        start_push_indptr = push_indptr[push_idx]
-        stop_push_indptr = push_indptr[push_idx + 1]
-
-        for idx in range(start_push_indptr, stop_push_indptr):
- 
-            # new row
-            tof_index = tof_indices[idx]
-
-            push_indices[tof_indptr[tof_index] + tof_indcount[tof_index]] = push_idx
-            new_values[tof_indptr[tof_index] + tof_indcount[tof_index]] = values[idx]
-            tof_indcount[tof_index] += 1
-
-    return push_indices, tof_indptr, new_values
-
-@nb.njit
 def wrap0(
     value,
     limit,
@@ -241,7 +165,6 @@ def wrap0(
         return 0
     else:
         return min(value, limit)
-    
 
 @nb.njit
 def wrap1(

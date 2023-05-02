@@ -15,13 +15,12 @@ if not 'progress' in dir(logger):
     processlogger.init_logging()
 
 # alphadia imports
-from alphadia.extraction.data import TimsTOFDIA_
+from alphadia.extraction import data
 from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
 from alphadia.extraction.quadrupole import SimpleQuadrupole
-from alphadia.extraction.hybridselection import HybridCandidateSelection
+from alphadia.extraction.hybridselection import HybridCandidateSelection, HybridCandidateConfig
 
 # alpha family imports
 import alphatims
@@ -402,25 +401,25 @@ class Plan:
 
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_file_list:
-            raw = TimsTOFDIA_(raw_location)
+            raw = data.TimsTOFTranspose(raw_location)
             raw_name = Path(raw_location).stem
 
             precursor_df = self.speclib.precursor_df.copy()
             precursor_df['raw_name'] = raw_name
 
             if rt_type == 'seconds' or rt_type == 'unknown':
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
             
             elif rt_type == 'minutes':
                 precursor_df['rt_library'] *= 60
 
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
 
             elif rt_type == 'irt' or rt_type == 'norm':
 
                 precursor_df['rt_library'] = self.norm_to_rt(raw, precursor_df['rt_library'].values) 
 
-                yield raw, precursor_df, self.speclib.fragment_df
+                yield raw.jitclass(), precursor_df, self.speclib.fragment_df
                 
     def run(self, 
             output_folder, 
@@ -565,6 +564,8 @@ class Workflow:
             'accumulated_precursors': 0,
             'accumulated_precursors_0.01FDR': 0,
             'accumulated_precursors_0.001FDR': 0,
+            'fwhm_rt': 5,
+            'fwhm_mobility': 0.015
         }
 
     def start_of_epoch(self, current_epoch):
@@ -714,6 +715,8 @@ class Workflow:
         self.progress["rt_error"] = max(rt_99, self.config['extraction']['target_rt_tolerance'])
         self.progress["mobility_error"] = max(mobility_99, self.config['extraction']['target_mobility_tolerance'])
         self.progress["column_type"] = 'calibrated'
+        self.progress['fwhm_rt'] = precursor_df_filtered['fwhm_rt'].median()
+        self.progress['fwhm_mobility'] = precursor_df_filtered['fwhm_mobility'].median()
 
         if self.run is not None:
             precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
@@ -722,6 +725,7 @@ class Workflow:
             self.run['eval/99_ms2_error'].log(m2_99)
             self.run['eval/99_rt_error'].log(rt_99)
             self.run['eval/99_mobility_error'].log(mobility_99)
+
 
     
     def check_recalibration(self, precursor_df):
@@ -755,17 +759,26 @@ class Workflow:
         batch_df.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_precursors_flat.tsv'), sep='\t', index=False)
         self.fragments_flat.to_csv(os.path.join('/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_04_07_v1.0.2', f'last_fragments_flat.tsv'), sep='\t', index=False)
 
+        config = HybridCandidateConfig()
+        config.update(self.config['extraction']['HybridCandidateConfig'])
+        config.update({
+            'rt_tolerance':self.progress["rt_error"],
+            'mobility_tolerance': self.progress["mobility_error"],
+            'candidate_count': self.progress["num_candidates"],
+            'mz_tolerance': self.progress["ms1_error"]
+        })
+        
         extraction = HybridCandidateSelection(
             self.dia_data,
             batch_df,
             self.fragments_flat,
+            config.jitclass(),
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
-            rt_tolerance = self.progress["rt_error"],
-            mobility_tolerance = self.progress["mobility_error"],
-            candidate_count = self.progress["num_candidates"],
-            mz_tolerance = self.progress["ms1_error"],
+            fragment_mz_column = f'mz_{self.progress["column_type"]}',
+            fwhm_rt = self.progress['fwhm_rt'],
+            fwhm_mobility = self.progress['fwhm_mobility'],
             thread_count=self.config['thread_count']
         )
         candidates_df = extraction()

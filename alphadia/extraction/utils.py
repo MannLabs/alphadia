@@ -815,9 +815,6 @@ def calculate_correlations(
 
     """
 
-
-
-
     # F fragments and 1 precursors are concatenated, resulting in a (F+1, F+1) correlation matrix
     corr_frame = np.corrcoef(dense_fragments_profile, dense_template_profile)
     #corr_scan = np.corrcoef(fragment_scan_profile, precursor_scan_profile)
@@ -934,7 +931,7 @@ def mass_range(
         ppm_tolerance
     ):
 
-    out_mz = np.zeros((len(mz_list),2))
+    out_mz = np.zeros((len(mz_list),2), dtype=mz_list.dtype)
     out_mz[:,0] = mz_list - ppm_tolerance * mz_list/(10**6)
     out_mz[:,1] = mz_list + ppm_tolerance * mz_list/(10**6)
     return out_mz
@@ -1049,7 +1046,7 @@ def make_slice_1d(
         Array of shape (1,3) containing the start, stop and step value.
 
     """
-    return np.array([[start_stop[0], start_stop[1],1]], dtype='uint64')
+    return np.array([[start_stop[0], start_stop[1],1]], dtype=start_stop.dtype)
 
 @alphatims.utils.njit
 def make_slice_2d(
@@ -1071,7 +1068,7 @@ def make_slice_2d(
 
     """
 
-    out = np.ones((start_stop.shape[0], 3), dtype='uint64')
+    out = np.ones((start_stop.shape[0], 3), dtype=start_stop.dtype)
     out[:,0] = start_stop[:,0]
     out[:,1] = start_stop[:,1]
     return out
@@ -1210,3 +1207,28 @@ def calculate_score_groups(
         precursors_flat['score_group_idx'] = np.arange(len(precursors_flat), dtype=np.uint32)
 
     return precursors_flat.sort_values(by=['score_group_idx']).reset_index(drop=True)
+
+
+@nb.njit()
+def profile_correlation(profile, tresh = 3, shift=2, kernel_size = 12):
+    mask = np.sum((profile >= tresh).astype(np.int8), axis=0)==profile.shape[0]
+
+    output = np.zeros(profile.shape, dtype=np.float32)
+
+    start_index = 0
+
+    while start_index < (len(mask) - kernel_size):
+
+        if not mask[start_index]:
+            start_index += shift
+            continue
+
+        slice = profile[:,start_index:start_index+kernel_size]
+        correlation = amean0(np.corrcoef(slice))
+
+        start = start_index+kernel_size//2-shift
+        end = start_index+kernel_size//2
+        output[:,start:start_index+end] = correlation.reshape(-1,1)
+        start_index += shift
+
+    return output

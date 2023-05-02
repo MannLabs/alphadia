@@ -1,19 +1,395 @@
 from alphadia.extraction import utils
-from alphadia.extraction.numba import fragments, numeric
-from alphadia.extraction.utils import fourier_filter
-from alphadia.extraction import validate
-from alphadia.extraction.candidateselection import peak_boundaries_symmetric, GaussianFilter
+from alphadia.extraction.numba import fragments, numeric, config
+from alphadia.extraction import validate, data, utils
+from alphadia.extraction.candidateselection import peak_boundaries_symmetric
 import numba as nb
 import numpy as np
 import pandas as pd
 import logging
 import alphatims
+import os
+import time
+
+
+logger = logging.getLogger()
+if not 'progress' in dir(logger):
+    from alphadia.extraction import processlogger
+    processlogger.init_logging()
+
+#typeas union
+from typing import Union
 
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
+class GaussianFilter:
+    def __init__(
+            self, 
+            dia_data : Union[
+                data.TimsTOFTransposeJIT,
+                data.TimsTOFTranspose,
+            ],
+            fwhm_rt : float = 10.,
+            sigma_scale_rt : float = 1.,
+            fwhm_mobility : float = 0.03,
+            sigma_scale_mobility : float = 1.,
+            kernel_size : int = 30
+            ):
+        
+        """
+        Create a two-dimensional gaussian filter kernel for the RT and mobility dimensions of a DIA dataset.
+        First, the observed standard deviation is scaled by a linear factor. Second, the standard deviation is scaled by the resolution of the respective dimension.
+        
+        This results in sigma_scale to be independent of the resolution of the data and FWHM of the peaks.
+
+        Parameters
+        ----------
+
+        dia_data : Union[data.TimsTOFTransposeJIT, data.TimsTOFTranspose]
+            alphatims dia_data object. 
+
+        fwhm_rt : float
+            Full width at half maximum in RT dimension of the peaks in the spectrum.
+
+        sigma_scale_rt : float
+            Scaling factor for the standard deviation in RT dimension.
+
+        fwhm_mobility : float
+            Full width at half maximum in mobility dimension of the peaks in the spectrum.
+
+        sigma_scale_mobility : float
+            Scaling factor for the standard deviation in mobility dimension.
+
+        kernel_size : int
+            Kernel shape in pixel. The kernel will be a square of size (kernel_size, kernel_size).
+            Should be even and will be rounded up to the next even number if necessary.
+
+        """
+        self.dia_data = dia_data
+        self.fwhm_rt = fwhm_rt
+        self.sigma_scale_rt = sigma_scale_rt
+        self.fwhm_mobility = fwhm_mobility
+        self.sigma_scale_mobility = sigma_scale_mobility
+        self.kernel_size = int(np.ceil(kernel_size / 2) * 2) # make sure kernel size is even
+
+    def determine_rt_sigma(
+        self,
+        cycle_length_seconds : float
+    ):  
+        """
+        Determine the standard deviation of the gaussian kernel in RT dimension.
+        The standard deviation will be sclaed to the resolution of the raw data.
+        
+        Parameters
+        ----------
+
+        cycle_length_seconds : float
+            Cycle length of the duty cycle in seconds.
+
+        Returns
+        -------
+
+        float
+            Standard deviation of the gaussian kernel in RT dimension scaled to the resolution of the raw data.
+        """
+        # a normal distribution has a FWHM of 2.3548 sigma
+        sigma = self.fwhm_rt / 2.3548
+        sigma_scaled = sigma * self.sigma_scale_rt / cycle_length_seconds
+        return sigma_scaled
+    
+    def determine_mobility_sigma(
+        self,
+        mobility_resolution : float
+    ):  
+        """
+        Determine the standard deviation of the gaussian kernel in mobility dimension.
+        The standard deviation will be sclaed to the resolution of the raw data.
+
+        Parameters
+        ----------
+
+        mobility_resolution : float
+            Resolution of the mobility dimension in 1/K_0.
+
+        Returns
+        -------
+
+        float
+            Standard deviation of the gaussian kernel in mobility dimension scaled to the resolution of the raw data.
+        """
+        # a normal distribution has a FWHM of 2.3548 sigma
+        sigma = self.fwhm_mobility / 2.3548
+        sigma_scaled = sigma * self.sigma_scale_mobility / mobility_resolution
+        return sigma_scaled
+    
+    def get_kernel(
+        self,
+        verbose : bool = True
+    ):  
+        """
+        Calculate the gaussian kernel for the given data set and parameters.
+
+        Parameters
+        ----------
+
+        verbose : bool
+            If True, log information about the data set and the kernel.    
+
+        Returns
+        -------
+
+        np.ndarray
+            Two-dimensional gaussian kernel.
+
+        """
+
+
+   
+        rt_datapoints = self.dia_data.cycle.shape[1]
+        rt_resolution = np.mean(np.diff(self.dia_data.rt_values[::rt_datapoints]))
+
+        mobility_datapoints = self.dia_data.cycle.shape[2]
+        mobility_resolution = np.mean(np.diff(self.dia_data.mobility_values[::-1]))
+
+        if verbose:
+            pass
+            logger.info(f'Duty cycle consists of {rt_datapoints} frames, {rt_resolution:.2f} seconds cycle time')
+            logger.info(f'Duty cycle consists of {mobility_datapoints} scans, {mobility_resolution:.5f} 1/K_0 resolution')
+            
+
+        rt_sigma = self.determine_rt_sigma(rt_resolution)
+        mobility_sigma = self.determine_mobility_sigma(mobility_resolution)
+
+        if verbose:
+            pass
+            logger.info(f'FWHM in RT is {self.fwhm_rt:.2f} seconds, sigma is {rt_sigma:.2f}')
+            logger.info(f'FWHM in mobility is {self.fwhm_mobility:.3f} 1/K_0, sigma is {mobility_sigma:.2f}')
+
+        return self.gaussian_kernel_2d(
+            int(self.kernel_size),
+            rt_sigma,
+            mobility_sigma
+        ).astype(np.float32)
+    
+    @staticmethod
+    def gaussian_kernel_2d(
+        size: int, 
+        sigma_x: float, 
+        sigma_y: float
+    ): 
+        """
+        Create a 2D gaussian kernel with a given size and standard deviation.
+
+        Parameters
+        ----------
+
+        size : int
+            Width and height of the kernel matrix.
+
+        sigma_x : float
+            Standard deviation of the gaussian kernel in x direction. This will correspond to the RT dimension.
+
+        sigma_y : float
+            Standard deviation of the gaussian kernel in y direction. This will correspond to the mobility dimension.
+
+        Returns
+        -------
+
+        weights : np.ndarray, dtype=np.float32
+            2D gaussian kernel matrix of shape (size, size).
+
+        """
+        # create indicies [-2, -1, 0, 1 ...]
+        x, y = np.meshgrid(np.arange(-size//2,size//2),np.arange(-size//2,size//2))
+        xy = np.column_stack((x.flatten(), y.flatten())).astype('float32')
+
+        # mean is always zero
+        mu = np.array([[0., 0.]])
+
+        # sigma is set with no covariance
+        sigma_mat = np.array([[sigma_x,0.],[0.,sigma_y]])
+
+        weights = utils.multivariate_normal(xy, mu, sigma_mat)
+        return weights.reshape(size,size).astype(np.float32)
+
+@nb.experimental.jitclass()
+class HybridCandidateConfigJIT():
+
+    """
+    Numba compatible config object for the HybridCandidate class.
+    Please see the documentation of the HybridCandidateConfig class for more information on the parameters and their default values.
+    """
+
+    rt_tolerance: nb.float64
+    mz_tolerance: nb.float64
+    mobility_tolerance: nb.float64
+    isotope_tolerance: nb.float64
+
+    peak_len_rt: nb.float64
+    sigma_scale_rt: nb.float64
+    peak_len_mobility: nb.float64
+    sigma_scale_mobility: nb.float64
+
+    candidate_count: nb.int64
+    top_k_precursors: nb.int64
+    top_k_fragments: nb.int64
+    max_cardinality: nb.int64
+    kernel_size: nb.int64
+
+    f_mobility: nb.float64
+    f_rt: nb.float64
+    center_fraction: nb.float64
+    min_size_mobility: nb.int64
+    min_size_rt: nb.int64
+    max_size_mobility: nb.int64
+    max_size_rt: nb.int64
+
+    group_channels: nb.types.bool_
+    use_weighted_score: nb.types.bool_
+
+    join_close_candidates: nb.types.bool_
+    join_close_candidates_scan_threshold: nb.float64
+    join_close_candidates_cycle_threshold: nb.float64
+
+    feature_std: nb.float64[::1]
+    feature_mean: nb.float64[::1]
+    feature_weight: nb.float64[::1]
+
+    def __init__(
+            self, 
+
+            rt_tolerance,
+            mz_tolerance,
+            mobility_tolerance,
+            isotope_tolerance,
+
+            peak_len_rt,
+            sigma_scale_rt,
+            peak_len_mobility,
+            sigma_scale_mobility,
+
+            candidate_count,
+            top_k_precursors,
+            top_k_fragments,
+            max_cardinality,
+            kernel_size,
+
+            f_mobility,
+            f_rt,
+            center_fraction,
+            min_size_mobility,
+            min_size_rt,
+            max_size_mobility,
+            max_size_rt,
+
+            group_channels,
+            use_weighted_score,
+
+            join_close_candidates,
+            join_close_candidates_scan_threshold,
+            join_close_candidates_cycle_threshold,
+
+            feature_std,
+            feature_mean,
+            feature_weight
+
+        ):
+
+        self.rt_tolerance = rt_tolerance
+        self.mz_tolerance = mz_tolerance
+        self.mobility_tolerance = mobility_tolerance
+        self.isotope_tolerance = isotope_tolerance
+
+        self.peak_len_rt = peak_len_rt
+        self.sigma_scale_rt = sigma_scale_rt
+        self.peak_len_mobility = peak_len_mobility
+        self.sigma_scale_mobility = sigma_scale_mobility
+
+        self.candidate_count = candidate_count
+        self.top_k_precursors = top_k_precursors
+        self.top_k_fragments = top_k_fragments
+        self.max_cardinality = max_cardinality
+        self.kernel_size = kernel_size
+
+        self.f_mobility = f_mobility
+        self.f_rt = f_rt
+        self.center_fraction = center_fraction
+        self.min_size_mobility = min_size_mobility
+        self.min_size_rt = min_size_rt
+        self.max_size_mobility = max_size_mobility
+        self.max_size_rt = max_size_rt
+
+        self.group_channels = group_channels
+        self.use_weighted_score = use_weighted_score
+
+        self.join_close_candidates = join_close_candidates
+        self.join_close_candidates_scan_threshold = join_close_candidates_scan_threshold
+        self.join_close_candidates_cycle_threshold = join_close_candidates_cycle_threshold
+
+        self.feature_std = feature_std
+        self.feature_mean = feature_mean
+        self.feature_weight = feature_weight
+
+class HybridCandidateConfig(config.JITConfig):
+
+    jit_container = HybridCandidateConfigJIT
+
+    def __init__(self):
+
+        self.rt_tolerance = 60.
+        self.mz_tolerance = 15.
+        self.mobility_tolerance = 0.1
+        self.isotope_tolerance = 0.01
+
+        self.peak_len_rt = 10.
+        self.sigma_scale_rt = 0.1
+        self.peak_len_mobility = 0.013
+        self.sigma_scale_mobility = 1.
+
+        self.candidate_count = 5
+
+        self.top_k_precursors = 3
+        self.top_k_fragments = 12
+        self.max_cardinality = 10
+        self.kernel_size = 30
+
+        # parameters used during peak identification
+        self.f_mobility = 1.0
+        self.f_rt = 0.99
+        self.center_fraction = 0.1
+        self.min_size_mobility = 8
+        self.min_size_rt = 3
+        self.max_size_mobility = 50
+        self.max_size_rt = 15
+
+        self.group_channels = False
+        self.use_weighted_score = True
+
+        self.join_close_candidates = True
+        self.join_close_candidates_scan_threshold = 0.01
+        self.join_close_candidates_cycle_threshold = 0.6
+
+        #self.feature_std = np.array([ 1.2583724, 0.91052234, 1.2126098, 14.557817, 0.04327635, 0.24623954, 0.03225865, 1.2671406,1.,1,1,1 ], np.float64)
+        #self.feature_mean = np.array([ 2.967344, 1.2160938, 1.426444, 13.960179, 0.06620345, 0.44364494, 0.03138363, 3.1453438,1.,1,1,1 ], np.float64)
+        #self.feature_weight = np.array([ 0.43898424,  0.97879761,  0.72262148, 0., 0.0,  0.3174245, 0.30102549,  0.44892641, 1.,1,1,1], np.float64)
+
+        self.feature_std = np.array([1.57582333e+00, 4.86002185e-01, 5.75864457e-01, 5.88348741e+02,
+ 1.46839315e-02, 4.23830325e-02, 1.13689671e-02, 2.01410664e+00,
+ 1.58700245e-01, 9.42586444e-02, 9.42647912e-02, 9.44558672e-02], np.float64)
+        self.feature_mean = np.array([ 2.99270939,  1.81605299,  1.55059098, 20.70651981,  0.14824355,  0.45525489,
+  0.09375865,  4.17304869,  1.4260253,   0.51439743,  0.50651637,  0.49794463 ], np.float64)
+        self.feature_weight = np.array([0.41875882,  0.27491423,  0.04876592, -0.14647627, -3.603192,   -0.78340935,
+   8.3932487,  -0.79137032,  0.18170943,  0.71641092,  0.39434182,  0.09247331], np.float64)
+        
+        self.feature_weight = np.array([0.41875882,  0.27491423,  0.04876592, 0,0,0,
+   8.3932487, 0,  0.18170943,  0.71641092,  0.39434182,  0.09247331], np.float64)
+
 @nb.experimental.jitclass()
 class Candidate:
+
+    """ A candidate is a region in the rt, mobility space which likely contains a given precursor.
+    The class is numba JIT compatible and will receive all values during initialization.
+    """
 
     elution_group_idx: nb.int64
     score_group_idx: nb.int64
@@ -36,17 +412,21 @@ class Candidate:
 
     def __init__(
             self,
+
             elution_group_idx,
             score_group_idx,
             precursor_idx,
             rank,
+
             score,
             precursor_mz,
             decoy,
             features,
+
             scan_center,
             scan_start,
             scan_stop,
+            
             frame_center,
             frame_start,
             frame_stop,
@@ -66,6 +446,7 @@ class Candidate:
         self.frame_start = frame_start
         self.frame_stop = frame_stop
 
+# define the numba type of the class for use in other numba functions
 candidate_type = Candidate.class_type.instance_type
 
 @nb.experimental.jitclass()
@@ -78,6 +459,15 @@ class HybridElutionGroup:
     rt: nb.float32
     mobility: nb.float32
     charge: nb.uint8
+    status_code: nb.uint8
+    # 100: no fragment masses after grouping
+    # 101: no precursor masses after grouping
+    # 102: wrong quadrupole mz shape
+    # 103: empty dense precursor matrix
+    # 104: empty dense fragment matrix
+    # 105: dense precursor matrix not divisible by 2
+    # 106: dense fragment matrix not divisible by 2
+    # 107: precursor or fragment matrix smaller than convolution kernel
 
     # values which are specific to each precursor in the elution group
     # (n_precursor)
@@ -111,10 +501,12 @@ class HybridElutionGroup:
     candidate_scan_center: nb.int64[::1]
     candidate_frame_center: nb.int64[::1]
 
-    fragments: fragments.FragmentContainer.class_type.instance_type
+    
     candidates: nb.types.ListType(candidate_type)
 
     #only for debugging
+
+    fragment_lib: fragments.FragmentContainer.class_type.instance_type
 
     dense_fragments : nb.float32[:, :, :, ::1]
     dense_precursors : nb.float32[:, :, :, ::1]
@@ -138,7 +530,6 @@ class HybridElutionGroup:
             charge,
             decoy,
             mz,
-            #isotope_apex_offset,
             isotope_intensity
         ) -> None:
         """
@@ -185,6 +576,8 @@ class HybridElutionGroup:
         self.precursor_isotope_intensity = isotope_intensity
         self.candidates = nb.typed.List.empty_list(candidate_type)
 
+        self.status_code = 0
+
     def __str__(self):
         with nb.objmode(r='unicode_type'):
             r = f'ElutionGroup(\nelution_group_idx: {self.elution_group_idx},\nprecursor_idx: {self.precursor_idx}\n)'
@@ -217,194 +610,34 @@ class HybridElutionGroup:
             raise ZeroDivisionError('Cannot divide by zero')
         
         elution_group_isotopes = np.sum(self.precursor_isotope_intensity, axis=0)/divisor
-        self.precursor_isotope_intensity = self.precursor_isotope_intensity[:,elution_group_isotopes>0.1]
+        self.precursor_isotope_intensity = self.precursor_isotope_intensity[:,elution_group_isotopes>0.01]
 
-    def determine_frame_limits(
-            self, 
-            jit_data, 
-            tolerance
-        ):
-        """
-        Determine the frame limits for the elution group based on the retention time and rt tolerance.
+    def set_status(self, status_code, status_message=None):
+        if status_message is not None:
+            pass
+            #print(status_code, status_message)
+        self.status_code = status_code
 
-        Parameters
-        ----------
-        jit_data : alphadia.extraction.data.TimsTOFJIT
-            TimsTOFJIT object containing the raw data
-
-        tolerance : float
-            tolerance in seconds
-
-        """
-
-        rt_limits = np.array([
-            self.rt-tolerance, 
-            self.rt+tolerance
-        ])
-    
-        self.frame_limits = utils.make_slice_1d(
-            jit_data.return_frame_indices(
-                rt_limits,
-                True
-            )
-        )
-
-    def determine_scan_limits(
-            self, 
-            jit_data, 
-            tolerance
-        ):
-        """
-        Determine the scan limits for the elution group based on the mobility and mobility tolerance.
-
-        Parameters
-        ----------
-        jit_data : alphadia.extraction.data.TimsTOFJIT
-            TimsTOFJIT object containing the raw data
-
-        tolerance : float
-            tolerance in inverse mobility units
-        """
-
-        mobility_limits = np.array([
-            self.mobility+tolerance,
-            self.mobility-tolerance
-        ])
-
-        self.scan_limits = utils.make_slice_1d(
-
-            jit_data.return_scan_indices(
-                mobility_limits
-            )
-
-        )
-
-    def determine_precursor_tof_limits(
-            self, 
-            jit_data, 
-            tolerance
-        ):
-
-        """
-        Determine all tof limits for the elution group based on the top isotope m/z and m/z tolerance.
-
-        Parameters
-        ----------
-        jit_data : alphadia.extraction.data.TimsTOFJIT
-            TimsTOFJIT object containing the raw data
-
-        tolerance : float
-            tolerance in part per million (ppm)
-
-        """
-        precursor_mz_limits = utils.mass_range(self.precursor_mz, tolerance)
-        self.precursor_tof_limits = utils.make_slice_2d(jit_data.return_tof_indices(
-            precursor_mz_limits
-        ))
-
-    def determine_fragment_tof_limits(
-            self, 
-            jit_data, 
-            tolerance
-        ):
-
-        """
-        Determine all tof limits for the elution group based on the top isotope m/z and m/z tolerance.
-
-        Parameters
-        ----------
-        jit_data : alphadia.extraction.data.TimsTOFJIT
-            TimsTOFJIT object containing the raw data
-
-        tolerance : float
-            tolerance in part per million (ppm)
-
-        """
-
-        fragment_mz_limits = utils.mass_range(self.fragments.mz, tolerance)
-        self.fragment_tof_limits = utils.make_slice_2d(
-            jit_data.return_tof_indices(
-                fragment_mz_limits
-            )
-        )
-
-    def determine_fragment_scan_limits(
+    def calculate_score_group_limits(
         self,
-        quad_slices, 
-        dia_data
+            precursor_mz, 
+            precursor_intensity
         ):
-        quad_mask = alphatims.bruker.calculate_dia_cycle_mask(
-            dia_mz_cycle=dia_data.dia_mz_cycle,
-            quad_slices=np.array([[400.,402]]),
-            dia_precursor_cycle=dia_data.dia_precursor_cycle,
-            precursor_slices=None
-        )
 
-        mask = quad_mask.reshape(dia_data.cycle.shape[:3])
-        _, _, scans = mask.nonzero()
+        quadrupole_mz = np.zeros((1, 2))
 
-        return scans.min(), scans.max()
-    
-    def build_candidates(
-        self,
-        dense_fragments,
-        dense_precursors,
-        kernel,
-        candidate_count,
-        jit_data
-    ):
-        candidates = nb.typed.List.empty_list(candidate_type)
+        mask = precursor_intensity > 0
 
-        # return empty list if no dense data was accumulated
-        if dense_fragments.shape[2] < kernel.shape[0] or dense_fragments.shape[3] < kernel.shape[1]:
-            return candidates
+        quadrupole_mz[0,0] = precursor_mz[mask].min()
+        quadrupole_mz[0,1] = precursor_mz[mask].max()
 
-        smooth_precursor = numeric.fourier_a0(dense_precursors[0], kernel)
-        smooth_fragment = numeric.fourier_a0(dense_fragments[0], kernel)
-        
-        if 1 > 2:
-            candidates.append(
-                Candidate(1)
-            )
-        
-        return candidates
-    
-    def determine_score_groups(
-        self,
-        score_grouped
-    ):
-        """
-        Determines how the different precursors are grouped for scoring.
-
-        Parameters
-        ----------
-
-        score_grouped : bool
-            If True, the precursors are grouped by their decoy status. If False, each precursor is scored individually.
-
-        Returns
-        -------
-        group_ids : np.ndarray, dtype=np.uint32
-            Array of group ids for each precursor (n_precursor).
-        
-        """
-
-        if score_grouped:
-            # The resulting score groups are expected to start with 0 and be consecutive
-            # As there can be decoy only groups, we need to reindex the decoy array
-            group_ids = np.unique(self.precursor_decoy)
-            group_ids_reverse = np.zeros(np.max(group_ids)+1, dtype=np.int32)
-            group_ids_reverse[group_ids] = np.arange(len(group_ids))
-            return group_ids_reverse[self.precursor_decoy]
-
-        else:
-            return np.arange(len(self.precursor_decoy), dtype=np.int32)
-
+        return quadrupole_mz
 
     def process(
         self, 
         jit_data, 
         fragment_container,
+        config,
         kernel, 
         rt_tolerance,
         mobility_tolerance,
@@ -414,7 +647,10 @@ class HybridElutionGroup:
         exclude_shared_fragments,
         top_k_fragments,
         top_k_precursors,
+        use_weighted_score,
     ):
+        #print(self.precursor_idx)
+        #print(self.precursor_decoy)
 
         """
         Process the elution group and store the candidates.
@@ -445,8 +681,6 @@ class HybridElutionGroup:
             Make sure to use debug mode only on a small number of elution groups (10) and with a single thread. 
         """
         
-        
-        
         precursor_abundance = np.ones((len(self.precursor_decoy)), dtype=np.float32)
         precursor_abundance[self.precursor_channel == 0] = 10
 
@@ -460,39 +694,46 @@ class HybridElutionGroup:
             self.precursor_frag_start_stop_idx
         )
         
-        self.fragments = fragments.slice_manual(fragment_container,fragment_idx_slices)
-        self.fragments.sort_by_mz()
+        fragment_lib = fragments.slice_manual(fragment_container,fragment_idx_slices)
+        fragment_lib.sort_by_mz()
 
-        self.determine_frame_limits(jit_data, rt_tolerance)
-        self.determine_scan_limits(jit_data, mobility_tolerance)
-        self.determine_precursor_tof_limits(jit_data, mz_tolerance)
-        self.determine_fragment_tof_limits(jit_data, mz_tolerance)
-        #self.precursor_score_group = self.determine_score_groups(True)
+        if debug:
+            self.fragment_lib = fragment_lib
+
+        frame_limits = jit_data.get_frame_indices_tolerance(self.rt, config.rt_tolerance)
+        scan_limits = jit_data.get_scan_indices_tolerance(self.mobility, config.mobility_tolerance)
 
         fragment_mz, fragment_intensity = fragments.get_ion_group_mapping(
-            self.fragments.precursor_idx,
-            self.fragments.mz,
-            self.fragments.intensity,
-            self.fragments.cardinality,
+            fragment_lib.precursor_idx,
+            fragment_lib.mz,
+            fragment_lib.intensity,
+            fragment_lib.cardinality,
             self.precursor_abundance,
-            top_k = top_k_fragments,
-            max_cardinality = 10
+            top_k = config.top_k_fragments,
+            max_cardinality = config.max_cardinality,
         )
-        
 
         # return if no valid fragments are left after grouping
         if len (fragment_mz) == 0:
+            self.set_status(100, 'No fragment masses after grouping')
             return
         
-        # only for debugging
+        # FLAG: needed for debugging
         self.score_group_fragment_mz = fragment_mz
         self.score_group_fragment_intensity = fragment_intensity
 
-        
+        # shape = (n_fragments, 3, ), dtype = np.int64
+        #fragment_tof_limits = jit_data.get_tof_indices_tolerance(fragment_mz, mz_tolerance)
 
         isotope_mz = self.precursor_isotope_mz.flatten()
+
         isotope_intensity = self.precursor_isotope_intensity.flatten()
-        isotope_precursor = np.repeat(np.arange(0, self.precursor_isotope_mz.shape[0]), self.precursor_isotope_mz.shape[1])
+
+        # this is the precursor index for each isotope
+        isotope_precursor = np.repeat(
+            np.arange(0, self.precursor_isotope_mz.shape[0], dtype = np.int64), 
+            self.precursor_isotope_mz.shape[1]
+        )
 
         order = np.argsort(isotope_mz)
         isotope_mz = isotope_mz[order]
@@ -508,123 +749,117 @@ class HybridElutionGroup:
             top_k = top_k_precursors
         )
 
-        # return if no valid precursors are left after grouping
-        if len(precursor_mz) == 0:
-            return
-
-        # only for debugging
+        # FLAG: needed for debugging
         self.score_group_precursor_mz = precursor_mz
         self.score_group_precursor_intensity = precursor_intensity
 
-        return
+        # shape = (n_precursor_isotopes, 3, ), dtype = np.int64
+        #precursor_tof_limits = jit_data.get_tof_indices_tolerance(precursor_mz, mz_tolerance)
 
-        quadrupole_mz = calculate_score_group_limits(
+        quadrupole_mz = self.calculate_score_group_limits(
             precursor_mz, 
-            precursor_intensity
+            precursor_intensity,
+
         )
 
-        precursor_tof_limits = utils.make_slice_2d( 
-            jit_data.return_tof_indices( 
-                utils.mass_range(
-                    precursor_mz, mz_tolerance
-                )
-            )
-        )
+        # return if no valid precursors are left after grouping
+        if len(precursor_mz) == 0:
+            self.set_status(101, 'No precursor masses after grouping')
+            return
 
-        fragment_tof_limits = utils.make_slice_2d(
-            jit_data.return_tof_indices(
-                utils.mass_range(
-                    fragment_mz, mz_tolerance
-                )
-            )
-        )
-
-        precursor_cycle_mask = calculate_dia_cycle_mask(
-            jit_data.cycle,
-            np.array([[-1., -1.]])
-        )
-
-        fragment_cycle_mask = calculate_dia_cycle_mask(
-            jit_data.cycle,
-            quadrupole_mz
-        )
-
-        # combines different quadrupole limits into one
-        # push_query : (n_pushes) 
-        # push_indices : (n_pushes)
-        push_query, _absolute_precursor_index = get_push_indices(
-            jit_data,
-            self.frame_limits,
-            self.scan_limits,
-            precursor_cycle_mask,
-        )
-
-        # (2, n_precursor_isotopes, n_scans, n_frames)
-        dense_precursors = assemble_push(
-            precursor_tof_limits,
+        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+        _dense_precursors, _ = jit_data.get_dense(
+            frame_limits,
+            scan_limits,
             precursor_mz,
-            jit_data.push_indices,
-            jit_data.tof_indptr, 
-            push_query,
-            _absolute_precursor_index,
-            self.frame_limits,
-            self.scan_limits,
             mz_tolerance,
-            jit_data
-        ).sum(axis=2)
-
-        push_query, _absolute_precursor_index = get_push_indices(
-            jit_data,
-            self.frame_limits,
-            self.scan_limits,
-            fragment_cycle_mask,
+            np.array([[-1.,-1.]], dtype=np.float32)
         )
-        
-        # (2, n_fragments, n_scans, n_frames)
-        dense_fragments = assemble_push(
-            fragment_tof_limits,
-            fragment_mz,
-            jit_data.push_indices,
-            jit_data.tof_indptr, 
-            push_query,
-            _absolute_precursor_index,
-            self.frame_limits,
-            self.scan_limits,
-            mz_tolerance,
-            jit_data
-        ).sum(axis=2)
+        dense_precursors = _dense_precursors.sum(axis=2)
 
-        #self.dense_fragments = dense_fragments
+        # FLAG: needed for debugging
         #self.dense_precursors = dense_precursors
 
+        if not quadrupole_mz.shape == (1, 2,):
+            self.set_status(102, 'Unexpected quadrupole_mz.shape')
+            return
+
+        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+        _dense_fragments, _ = jit_data.get_dense(
+            frame_limits,
+            scan_limits,
+            fragment_mz,
+            mz_tolerance,
+            quadrupole_mz,
+            custom_cycle = jit_data.cycle
+        )
+        dense_fragments = _dense_fragments.sum(axis=2)
+
+        # FLAG: needed for debugging
+        #self.dense_fragments = dense_fragments
+
+        # perform sanity checks
         if dense_fragments.shape[0] == 0:
+            self.set_status(103, 'Empty dense fragment matrix')
             return
 
         if dense_precursors.shape[0] == 0:
+            self.set_status(104, 'Empty dense precursor matrix')
             return
         
         if not dense_fragments.shape[2] % 2 == 0:
+            self.set_status(105, 'Dense fragment matrix not divisible by 2')
             return
         
-        if not dense_fragments.shape[3] % 2 == 0:
+        if not dense_fragments.shape[2] % 2 == 0:
+            self.set_status(106, 'Dense fragment matrix not divisible by 2')
             return
+        
+        if dense_precursors.shape[2] < kernel.shape[0] or dense_precursors.shape[3] < kernel.shape[1]:
+            self.set_status(107, 'Precursor matrix smaller than convolution kernel')
+            return
+        
+        if dense_fragments.shape[2] < kernel.shape[0] or dense_fragments.shape[3] < kernel.shape[1]:
+            self.set_status(108, 'Fragment matrix smaller than convolution kernel')
+            return
+        
+        if config.use_weighted_score:
+ 
+            mean = config.feature_mean
+            std = config.feature_std
+            weights = config.feature_weight
 
-        if dense_fragments.shape[2] > kernel.shape[0] and dense_fragments.shape[3] > kernel.shape[1]:
+        else:
+            mean = None
+            std = None
+            weights = np.array([1,1,1,1,1,1,1,1], np.float64)
+    
+        self.candidates = build_candidates(
+            dense_precursors,
+            dense_fragments,
+            precursor_intensity,
+            fragment_intensity,
+            kernel,
+            jit_data,
+            config,
+            self.elution_group_idx,
+            self.score_group_idx,
+            self.precursor_idx,
+            self.precursor_decoy,
+            scan_limits,
+            frame_limits,
+            precursor_mz,
+            
+            candidate_count = config.candidate_count,
+            debug = debug,
+            weights = weights,
+            mean = mean,
+            std = std,
+        )
 
-            self.candidates = build_candidates(
-                dense_precursors,
-                dense_fragments,
-                self.score_group_precursor_intensity,
-                self.score_group_fragment_intensity,
-                self,
-                kernel,
-                jit_data,
-                candidate_count = candidate_count,
-                debug=debug,
-                weights = np.array([1,1,1,1,1,0.5,0.5,0.5]),
-            )
         return
 
+        
     def visualize_candidates(
         self, 
         smooth_dense
@@ -693,10 +928,6 @@ class HybridElutionGroup:
             fig.tight_layout()   
             plt.show()
 
-
-
-
-
 @nb.experimental.jitclass()
 class HybridElutionGroupContainer:
     
@@ -731,6 +962,7 @@ class HybridCandidateSelection(object):
             dia_data,
             precursors_flat, 
             fragments_flat,
+            config,
             rt_tolerance = 30,
             mobility_tolerance = 0.03,
             mz_tolerance = 120,
@@ -739,12 +971,16 @@ class HybridCandidateSelection(object):
             mobility_column = 'mobility_library',
             precursor_mz_column = 'mz_library',
             fragment_mz_column = 'mz_library',
+            fwhm_rt = 5.,
+            fwhm_mobility = 0.012,
             thread_count = 10,
             debug = False,
             group_channels = False,
             exclude_shared_fragments = True,
             top_k_fragments = 12,
             top_k_precursors = 3,
+            use_weighted_score = True,
+            feature_path = None,
         ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -796,7 +1032,7 @@ class HybridCandidateSelection(object):
         pandas.DataFrame
             dataframe containing the extracted candidates
         """
-        self.dia_data = dia_data.jitclass(transpose=True)
+        self.dia_data = dia_data
         self.precursors_flat = precursors_flat.sort_values('precursor_idx').reset_index(drop=True)
         self.fragments_flat = fragments_flat
 
@@ -814,35 +1050,27 @@ class HybridCandidateSelection(object):
         self.mobility_column = mobility_column
 
         gaussian_filter = GaussianFilter(
-            dia_data
+            dia_data,
+            fwhm_rt = fwhm_rt,
+            sigma_scale_rt = config.sigma_scale_rt,
+            fwhm_mobility = fwhm_mobility,
+            sigma_scale_mobility = config.sigma_scale_mobility,
+            kernel_size = config.kernel_size,
+
         )
         self.kernel = gaussian_filter.get_kernel()
 
         self.available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
         self.available_isotope_columns = [f'i_{i}' for i in self.available_isotopes]
 
-        self.group_channels = group_channels
+        #self.group_channels = group_channels
         self.exclude_shared_fragments = exclude_shared_fragments
         self.top_k_fragments = top_k_fragments
         self.top_k_precursors = top_k_precursors
+        self.use_weighted_score = use_weighted_score
 
-        print({
-            'rt_tolerance': rt_tolerance,
-            'mobility_tolerance': mobility_tolerance,
-            'mz_tolerance': mz_tolerance,
-            'candidate_count': candidate_count,
-            'rt_column': rt_column,
-            'mobility_column': mobility_column,
-            'precursor_mz_column': precursor_mz_column,
-            'fragment_mz_column': fragment_mz_column,
-            'thread_count': thread_count,
-            'debug': debug,
-            'group_channels': group_channels,
-            'exclude_shared_fragments': exclude_shared_fragments,
-            'top_k_fragments': top_k_fragments,
-            'top_k_precursors': top_k_precursors,
-
-        })
+        self.config = config
+        self.feature_path = feature_path
 
     def __call__(self):
         """
@@ -862,7 +1090,7 @@ class HybridCandidateSelection(object):
             logging.info('starting candidate selection')
 
         # initialize input container
-        elution_group_container = self.assemble_score_groups(self.precursors_flat, group_channels = self.group_channels)
+        elution_group_container = self.assemble_score_groups(self.precursors_flat)
         fragment_container = self.assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
@@ -875,7 +1103,8 @@ class HybridCandidateSelection(object):
             range(iterator_len), 
             elution_group_container,
             self.dia_data, 
-            fragment_container, 
+            fragment_container,
+            self.config,
             self.kernel, 
             self.rt_tolerance,
             self.mobility_tolerance,
@@ -884,11 +1113,15 @@ class HybridCandidateSelection(object):
             self.debug,
             self.exclude_shared_fragments,
             self.top_k_fragments,
-            self.top_k_precursors
+            self.top_k_precursors,
+            self.use_weighted_score
         )
 
         if self.debug: 
             return elution_group_container
+            pass
+            
+        #return elution_group_container
    
         df = self.assemble_candidates(elution_group_container)
         df = self.append_precursor_information(df)
@@ -922,8 +1155,7 @@ class HybridCandidateSelection(object):
 
     def assemble_score_groups(
             self,
-            precursors_flat,
-            group_channels=False,
+            precursors_flat
         ):
     
         """
@@ -947,7 +1179,7 @@ class HybridCandidateSelection(object):
         available_isotopes = utils.get_isotope_columns(precursors_flat.columns)
         available_isotope_columns = [f'i_{i}' for i in available_isotopes]
 
-        precursors_sorted = utils.calculate_score_groups(precursors_flat, group_channels).copy()
+        precursors_sorted = utils.calculate_score_groups(precursors_flat, self.config.group_channels).copy()
 
         # validate dataframe schema and prepare jitclass compatible dtypes
         validate.precursors_flat(precursors_sorted)
@@ -1038,9 +1270,19 @@ class HybridCandidateSelection(object):
                 candidates.append(elution_group_container[i].candidates[j])
     
         attributes = ['elution_group_idx', 'score_group_idx', 'precursor_idx', 'rank','score','precursor_mz', 'decoy', 'scan_center', 'scan_start', 'scan_stop', 'frame_center', 'frame_start', 'frame_stop']
-        candidates = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in attributes})
+        candidate_df = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in attributes})
 
-        return candidates
+        if self.feature_path is not None:
+            feature_matrix = np.zeros((len(candidates), len(candidates[0].features)), dtype=np.float32)
+            for i in range(len(candidates)):
+                feature_matrix[i,:] = candidates[i].features
+        
+            np.save(os.path.join(self.feature_path, 'features.npy'), feature_matrix)
+
+            sub_df = candidate_df[['elution_group_idx', 'score_group_idx', 'precursor_idx', 'rank','score', 'decoy']]
+            sub_df.to_csv(os.path.join(self.feature_path, 'candidates.tsv'), index=False, sep='\t')
+
+        return candidate_df
     
     def append_precursor_information(
             self, 
@@ -1096,6 +1338,7 @@ def _executor(
         eg_container,
         jit_data, 
         fragment_container,
+        config,
         kernel, 
         rt_tolerance,
         mobility_tolerance,
@@ -1104,16 +1347,18 @@ def _executor(
         debug,
         exclude_shared_fragments,
         top_k_fragments,
-        top_k_precursors
+        top_k_precursors,
+        use_weighted_score
     ):
     """
     Helper function.
-    Is decorated with alphatims.utils.pjit to enable parallel execution.
+    Is decorated with alphatims.utils.pjit to enable parallel execution of HybridElutionGroup.process.
     """
 
     eg_container[i].process(
         jit_data, 
         fragment_container,
+        config,
         kernel, 
         rt_tolerance,
         mobility_tolerance,
@@ -1122,386 +1367,13 @@ def _executor(
         debug,
         exclude_shared_fragments,
         top_k_fragments,
-        top_k_precursors
-    )
-
-@nb.njit
-def calculate_dia_cycle_mask(
-        cycle : np.ndarray,
-        quad_slices : np.ndarray
-    ):
-
-    """ Calculate the DIA cycle quadrupole mask for each score group.
-
-    Parameters
-    ----------
-
-    cycle : np.ndarray
-        The DIA mz cycle as part of the bruker.TimsTOF object. (n_frames * n_scans)
-
-    quad_slices : np.ndarray
-        The quadrupole slices for each score group. (n_score_groups, 2)
-
-    Returns
-    -------
-
-    np.ndarray
-        The DIA cycle quadrupole mask for each score group. (n_score_groups, n_frames * n_scans)
-    """
-
-    n_score_groups = quad_slices.shape[0]
-
-    dia_mz_cycle = cycle.reshape(-1, 2)
-
-    mz_mask = np.zeros((n_score_groups, len(dia_mz_cycle)), dtype=np.bool_)
-    for i, (mz_start, mz_stop) in enumerate(dia_mz_cycle):
-        for j, (quad_mz_start, quad_mz_stop) in enumerate(quad_slices):
-            if (quad_mz_start <= mz_stop) and (quad_mz_stop >= mz_start):
-                mz_mask[j, i] = True
-
-    return mz_mask
-
-
-
-@nb.njit
-def calculate_score_group_limits(
-        precursor_mz, 
-        precursor_intensity
-    ):
-
-    quadrupole_mz = np.zeros((1, 2))
-
-    mask = precursor_intensity > 0
-
-    quadrupole_mz[0,0] = precursor_mz[mask].min()
-    quadrupole_mz[0,1] = precursor_mz[mask].max()
-
-    return quadrupole_mz
-
-@nb.njit
-def get_push_indices(
-        jit_data,
-        frame_limits,
-        scan_limits,
-        cycle_mask,
-    ):
-
-    n_score_groups = cycle_mask.shape[0]
-
-    push_indices = []
-    #score_group = []
-    absolute_precursor_cycle = []
-    len_dia_mz_cycle = len(jit_data.dia_mz_cycle)
-    
-
-    frame_start, frame_stop, frame_step = frame_limits[0]
-    scan_start, scan_stop, scan_step = scan_limits[0]
-    for frame_index in range(frame_start, frame_stop, frame_step):
-
-        for scan_index in range(scan_start, scan_stop, scan_step):
-
-            push_index = frame_index * jit_data.scan_max_index + scan_index
-            # subtract a whole frame if the first frame is zero
-            if jit_data.zeroth_frame:
-                cyclic_push_index = push_index - jit_data.scan_max_index
-            else:
-                cyclic_push_index = push_index
-
-            # gives the scan index in the dia mz cycle
-            scan_in_dia_mz_cycle = cyclic_push_index % len_dia_mz_cycle
-
-            # check fragment push indices
-            for i in range(n_score_groups):
-                if cycle_mask[i,scan_in_dia_mz_cycle]:
-                    precursor_cycle = jit_data.dia_precursor_cycle[scan_in_dia_mz_cycle]
-                    absolute_precursor_cycle.append(precursor_cycle)
-                    push_indices.append(push_index)
-                    #score_group.append(i+1)
-
-    return np.array(push_indices), np.array(absolute_precursor_cycle)
-
-# deprecated
-@nb.njit()
-def get_dense_hybrid(
-        jit_data,
-        frame_limits,
-        scan_limits,
-        precursor_mz,
-        precursor_ppm,
-        fragment_mz,
-        fragment_ppm,
-        quadrupole_mz
-):
-    precursor_cycle_mask = calculate_dia_cycle_mask(
-        jit_data.cycle,
-        np.array([[-1., -1.]])
-    )
-
-    fragment_cycle_mask = calculate_dia_cycle_mask(
-        jit_data.cycle,
-        quadrupole_mz
-    )
-
-    push_indices, source_indices, absolute_precursor_index = get_push_indices(
-        jit_data,
-        frame_limits,
-        scan_limits,
-        fragment_cycle_mask,
-        precursor_cycle_mask,
-    )
-
-    precursor_tof_limits = utils.make_slice_2d( 
-        jit_data.return_tof_indices( 
-            utils.mass_range(
-                precursor_mz, precursor_ppm
-            )
-        )
-    )
-
-    fragment_tof_limits = utils.make_slice_2d(
-        jit_data.return_tof_indices(
-            utils.mass_range(
-                fragment_mz, fragment_ppm
-            )
-        )
+        top_k_precursors,
+        use_weighted_score
     )
 
 
-    precursor_index = np.unique(absolute_precursor_index)
-    n_precursor_indices = len(precursor_index)
-    precursor_index_reverse = np.zeros(np.max(precursor_index)+1, dtype=np.int64)
-    precursor_index_reverse[precursor_index] = np.arange(len(precursor_index))
-
-    mobility_len = scan_limits[0,1] - scan_limits[0,0]
-
-    cycle_start = int(frame_limits[0,0]//jit_data.cycle.shape[1])
-    cycle_stop = int(frame_limits[0,1]//jit_data.cycle.shape[1])
-    cycle_len =  cycle_stop - cycle_start
-    n_precursors = len(precursor_tof_limits)
-    n_fragments = len(fragment_tof_limits)
-
-    precursor_dense = np.zeros(
-        (
-            2, 
-            n_precursors,
-            1,
-            mobility_len,
-            cycle_len
-        ),
-        dtype=np.float32
-    )
-
-    precursor_dense[1] = precursor_ppm
-
-    fragments_dense = np.zeros(
-        (
-            2,
-            n_fragments,
-            n_precursor_indices,
-            mobility_len,
-            cycle_len
-        ),
-        dtype=np.float32
-    )
-
-    fragments_dense[1] = fragment_ppm
-    
-    for push_index, source_index, absolute_precursor_index in zip(push_indices, source_indices, absolute_precursor_index):
-        
-        start = jit_data.push_indptr[push_index]
-        end = jit_data.push_indptr[push_index + 1]
-        idx = start
-
-        if jit_data.zeroth_frame:
-            cycle_index = push_index - jit_data.scan_max_index
-        else:
-            cycle_index = push_index
-
-        absolute_cycle_index = cycle_index // (jit_data.scan_max_index * jit_data.cycle.shape[1])
-        relative_cycle_index = absolute_cycle_index - cycle_start
-
-        absolute_scan_index = push_index % jit_data.scan_max_index
-        relative_scan_index = absolute_scan_index - scan_limits[0,0]
-
-        relative_precursor_index = precursor_index_reverse[absolute_precursor_index]
-
-        if source_index == 0:
-            tof_limits = precursor_tof_limits[:3]
-            output_matrix = precursor_dense
-        else:
-            tof_limits = fragment_tof_limits[:12]
-            output_matrix = fragments_dense
-
-        # precursor
-        
-        for i, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
-            # Instead of leaving it at the end of the first tof slice it's reset to the start to allow for 
-            # Overlap of tof slices
-            start_idx = np.searchsorted(jit_data.tof_indices[idx: end], tof_start)
-            idx += start_idx
-            tof_value = jit_data.tof_indices[idx]
-
-            intensity = 0
-            weighted_error = 0
-
-            while (tof_value < tof_stop) and (idx < end):
-                if tof_value in range(tof_start, tof_stop, tof_step):
-
-                    intensity += jit_data.intensity_values[idx]
-                    mz = jit_data.mz_values[tof_value]
-                    weighted_error += (mz - precursor_mz[i])/mz * 1e6 * jit_data.intensity_values[idx]
-
-                idx += 1
-                tof_value = jit_data.tof_indices[idx]
-
-            if intensity > 0:
-                pass
-                output_matrix[0,i,relative_precursor_index,relative_scan_index, relative_cycle_index] = intensity
-                output_matrix[1,i,relative_precursor_index,relative_scan_index, relative_cycle_index] = weighted_error / intensity
-    
-        idx = start + start_idx
-
-    return precursor_dense, fragments_dense
-
-# deprecated
-@nb.njit
-def filter_push(
-    tof_limits, 
-    push_index,
-    tof_indptr, 
-    push_query,
-    precursor_index
-    
-):
-    
-    tof_slice = []
-    values = []
-    push_indices = []
-    precursor_indices = []
-    tof_indices= []
-
-    for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
-        
-        for tof_index in range(tof_start, tof_stop, tof_step):
-            
-            start = tof_indptr[tof_index]
-            stop = tof_indptr[tof_index + 1]
-
-            i = 0
-            idx = int(start)
-
-            while (idx < stop) and (i < len(push_query)):
-                    
-                    if push_query[i] < push_index[idx]:
-                        i += 1
-
-                    else:
-                        if push_query[i] == push_index[idx]:
-                            tof_slice.append(j)
-                            values.append(idx)
-                            push_indices.append(push_index[idx])
-                            precursor_indices.append(precursor_index[i])
-                            tof_indices.append(tof_index)
-                        
-                        idx = idx + 1
 
 
-        
-        
-
-    return np.array(tof_slice), np.array(values), np.array(push_indices), np.array(precursor_indices), np.array(tof_indices)
-
-@nb.njit
-def assemble_push(
-    tof_limits, 
-    mz_values,
-    push_index,
-    tof_indptr, 
-    push_query,
-    precursor_index,
-    frame_limits,
-    scan_limits,
-    ppm_background,
-    jit_data
-):  
-    if len(precursor_index) == 0:
-         return np.empty((0,0,0,0,0),dtype=np.float32)
-    
-    unique_precursor_index = np.unique(precursor_index)
-    precursor_index_reverse = np.zeros(np.max(unique_precursor_index)+1, dtype=np.int64)
-    precursor_index_reverse[unique_precursor_index] = np.arange(len(unique_precursor_index))
-
-    relative_precursor_index = precursor_index_reverse[precursor_index]
-
-    n_precursor_indices = len(unique_precursor_index)
-    n_tof_slices = len(tof_limits)
-
-    # scan valuesa
-    mobility_start = int(scan_limits[0,0])
-    mobility_stop = int(scan_limits[0,1])
-    mobility_len = mobility_stop - mobility_start
-
-    # cycle values
-    precursor_cycle_start = int(frame_limits[0,0]-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
-    precursor_cycle_stop = int(frame_limits[0,1]-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
-    precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
-
-    dense_output = np.zeros(
-        (
-            2, 
-            n_tof_slices,
-            n_precursor_indices,
-            mobility_len,
-            precursor_cycle_len
-        ), 
-        dtype=np.float32
-    )
-
-    dense_output[1,:,:,:,:] = ppm_background
-
-    for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
-
-        library_mz_value = mz_values[j]
-        
-        for tof_index in range(tof_start, tof_stop, tof_step):
-
-            measured_mz_value = jit_data.mz_values[tof_index]
-            
-            start = tof_indptr[tof_index]
-            stop = tof_indptr[tof_index + 1]
-
-            i = 0
-            idx = int(start)
-
-            while (idx < stop) and (i < len(push_query)):
-                    
-                    if push_query[i] < push_index[idx]:
-                        i += 1
-
-                    else:
-                        if push_query[i] == push_index[idx]:
-                            
-                            frame_index = push_index[idx] // jit_data.scan_max_index
-                            scan_index = push_index[idx] % jit_data.scan_max_index
-                            precursor_cycle_index = (frame_index-jit_data.zeroth_frame)//jit_data.cycle.shape[1]
-
-                            relative_scan = scan_index - mobility_start
-                            relative_precursor = precursor_cycle_index - precursor_cycle_start
-
-                            accumulated_intensity = dense_output[0,j,relative_precursor_index[i],relative_scan,relative_precursor]
-                            accumulated_error = dense_output[1,j,relative_precursor_index[i],relative_scan,relative_precursor]
-
-                            new_intensity = jit_data.intensity_values_t[idx]
-                            new_error = (measured_mz_value - library_mz_value) / library_mz_value * 10**6
-
-                            weighted_error = (accumulated_error * accumulated_intensity + new_error * new_intensity)/(accumulated_intensity + new_intensity)
-                            
-                            dense_output[0,j,relative_precursor_index[i],relative_scan,relative_precursor] = accumulated_intensity + new_intensity
-                            dense_output[1,j,relative_precursor_index[i],relative_scan,relative_precursor] = weighted_error
-                        
-                        idx = idx + 1
-
-    return dense_output
 
 @nb.njit
 def build_features(
@@ -1511,7 +1383,7 @@ def build_features(
     fragment_intensity
 ):
     
-    n_features = 8
+    n_features = 12
 
     features = np.zeros(
         (
@@ -1523,8 +1395,13 @@ def build_features(
         dtype=np.float32
     )
 
+    # top fragment
+    frag_order = np.argsort(fragment_intensity)[::-1]
+
     precursor_kernel = precursor_intensity.reshape(-1, 1, 1)
-    fragment_kernel = fragment_intensity.reshape(-1, 1, 1)
+    fragment_kernel = fragment_intensity[frag_order].reshape(-1, 1, 1)
+
+    smooth_fragment = smooth_fragment[:,frag_order]
 
     fragment_binary = smooth_fragment[0] > 2
     #fragment_binary_sum = np.sum(fragment_binary, axis=0)
@@ -1536,7 +1413,7 @@ def build_features(
 
     precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
     precursor_dot_mean = np.mean(precursor_dot)
-    precursor_norm = precursor_dot/(precursor_dot_mean+0.0001)
+    precursor_norm = precursor_dot/(precursor_dot_mean+0.001)
 
     fragment_dot = np.sum(smooth_fragment[0] * fragment_kernel, axis=0)
     fragment_dot_mean = np.mean(fragment_dot)
@@ -1550,17 +1427,34 @@ def build_features(
     precursor_mass_error_max = np.max(precursor_mass_error)
     precursor_mass_error_norm = 1-(precursor_mass_error/precursor_mass_error_max)
 
-    # top fragment
-    frag_order = np.argsort(fragment_intensity)
+    # isotope score
+
+    isotope_score = np.zeros(smooth_precursor.shape[2:], dtype=np.float32)
+    n_isotopes = precursor_intensity.shape[0]
+    for i in range(n_isotopes-1):
+        if precursor_intensity[i] <= precursor_intensity[i+1]:
+            isotope_score += smooth_precursor[0,i] <= smooth_precursor[0,i+1]
+        else:
+            isotope_score += smooth_precursor[0,i] >= smooth_precursor[0,i+1]
+
+    
+
+    #profile correlation
+    top3_profiles = np.sum(smooth_fragment[0,:3], axis=1)
+    top3_correlation = utils.profile_correlation(top3_profiles)
 
     features[0] = fragment_binary_weighted
-    features[1] = fragment_norm
-    features[2] = fragment_mass_error_norm
-    features[3] = smooth_fragment[0, frag_order[0]]
-    features[4] = smooth_fragment[0][frag_order[:3]].sum(axis=0)
-    features[5] = precursor_binary_weighted
-    features[6] = precursor_norm
-    features[7] = precursor_mass_error_norm
+    features[1] = np.log(fragment_norm +1)
+    features[2] = np.log(precursor_norm +1)
+    features[3] = fragment_norm + precursor_norm
+    features[4] = fragment_mass_error_norm
+    features[5] = precursor_mass_error_norm
+    features[6] = fragment_mass_error_norm * precursor_mass_error_norm
+    features[7] = np.log(smooth_fragment[0][:3].sum(axis=0) + 1)
+    features[8] = isotope_score
+    features[9] = top3_correlation[0] * fragment_binary[0]
+    features[10] = top3_correlation[1] * fragment_binary[0]
+    features[11] = top3_correlation[2] * fragment_binary[0]
 
     return features
 
@@ -1573,7 +1467,30 @@ def join_close_peaks(
     cycle_tolerance
     ):
     """
-    find peaks that are close in scan and cycle and return
+    Join peaks that are close in scan and cycle space.
+
+    Parameters
+    ----------
+
+    peak_scan_list : np.ndarray
+        List of scan indices for each peak
+
+    peak_cycle_list : np.ndarray
+        List of cycle indices for each peak
+
+    peak_score_list : np.ndarray
+        List of scores for each peak
+
+    scan_tolerance : int
+        Maximum number of scans that two peaks can be apart to be considered close
+
+    cycle_tolerance : int
+        Maximum number of cycles that two peaks can be apart to be considered close
+
+    Returns
+    -------
+
+    peak_mask : np.ndarray, dtype=np.bool_
     """
     n_peaks = peak_scan_list.shape[0]
     peak_mask = np.ones(n_peaks, dtype=np.bool_)
@@ -1594,14 +1511,100 @@ def join_close_peaks(
                     peak_mask[other_peak_idx] = False
                 else:
                     peak_mask[peak_idx] = False
-                    break
 
     return peak_mask
 
+@nb.njit()
+def join_overlapping_candidates(
+        scan_limits_list, 
+        cycle_limits_list, 
+        p_scan_overlap = 0.01, 
+        p_cycle_overlap = 0.6
+    ):
+
+    """
+    Identify overlapping candidates and join them into a single candidate.
+    The limits of the candidates are updated in-place.
+     
+    Parameters
+    ----------
+
+    scan_limits_list : np.ndarray
+        List of scan limits for each candidate
+
+    cycle_limits_list : np.ndarray
+        List of cycle limits for each candidate
+
+    p_scan_overlap : float
+        Minimum percentage of scan overlap to join two candidates
+
+    p_cycle_overlap : float
+        Minimum percentage of cycle overlap to join two candidates
+
+    Returns
+    -------
+
+    joined_mask : np.ndarray, dtype=np.bool_
+        Mask that indicates which candidates were joined
+    """
+
+    joined_mask = np.ones(len(scan_limits_list), dtype=np.bool_)    
+
+    for i in range(len(scan_limits_list)):
+
+        # check if the candidate is already joined
+        if joined_mask[i] == 0:
+            continue
+
+        # check if the candidate overlaps with any other candidate
+        for j in range(i+1, len(scan_limits_list)):
+            # check if the candidate is already joined
+            if joined_mask[j] == 0:
+                continue
+
+            # calculate the overlap of the area of the two candidates
+
+            cycle_len = cycle_limits_list[i,1] - cycle_limits_list[i,0]
+            cycle_overlap = (min(cycle_limits_list[i,1], cycle_limits_list[j,1]) - max(cycle_limits_list[i,0], cycle_limits_list[j,0]))/cycle_len
+
+            scan_len = scan_limits_list[i,1] - scan_limits_list[i,0]
+            scan_overlap = (min(scan_limits_list[i,1], scan_limits_list[j,1]) - max(scan_limits_list[i,0], scan_limits_list[j,0]))/scan_len
+
+            # overlap must be positive in both dimensions
+            if scan_overlap < 0 or cycle_overlap < 0:
+                continue
+        
+            if cycle_overlap > p_cycle_overlap and scan_overlap > p_scan_overlap:
+                # join the candidates
+                scan_limits_list[i,0] = min(scan_limits_list[i,0], scan_limits_list[j,0])
+                scan_limits_list[i,1] = max(scan_limits_list[i,1], scan_limits_list[j,1])
+                cycle_limits_list[i,0] = min(cycle_limits_list[i,0], cycle_limits_list[j,0])
+                cycle_limits_list[i,1] = max(cycle_limits_list[i,1], cycle_limits_list[j,1])
+                joined_mask[j] = 0
+
+    return joined_mask
 
 
-def plot_candidates(score, candidates, jit_data, scan_limits, frame_limits):
-    plt.imshow(score)
+
+
+def plot_candidates(
+        score, 
+        candidates, 
+        jit_data, 
+        scan_limits, 
+        frame_limits
+    ):
+
+    if len(candidates) == 0:
+        return
+    print('plotting candidates:', candidates[0].precursor_idx)
+    
+    plt.imshow(score, cmap='coolwarm', interpolation='none')
+    plt.xticks([])
+    plt.yticks([])
+    plt.ylabel('mobility')
+    plt.xlabel('retention time')
+    
     
     absolute_scan = np.array([c.scan_center for c in candidates])
     absolute_frame = np.array([c.frame_center for c in candidates])
@@ -1620,19 +1623,28 @@ def plot_candidates(score, candidates, jit_data, scan_limits, frame_limits):
     relative_scan_stop = absolute_scan_stop - scan_limits[0,0]
     relative_frame_start = (absolute_frame_start - frame_limits[0,0])//jit_data.cycle.shape[1]
     relative_frame_stop = (absolute_frame_stop - frame_limits[0,0])//jit_data.cycle.shape[1]
-
     
     ax = plt.gca()
     for i in range(len(candidates)):
         rect = patches.Rectangle(
             (relative_frame_start[i], relative_scan_start[i]),
-            relative_frame_stop[i]-relative_frame_start[i],
-            relative_scan_stop[i]-relative_scan_start[i],
+            relative_frame_stop[i]-relative_frame_start[i]-1,
+            relative_scan_stop[i]-relative_scan_start[i]-1,
             linewidth=1,
             edgecolor='r',
             facecolor='none'
         )
         ax.add_patch(rect)
+        # align the rank i at the top right corner of the box
+        ax.text(
+            relative_frame_stop[i]+3,
+            relative_scan_start[i],
+            f'{i}',
+            horizontalalignment='left',
+            verticalalignment='top',
+            color='red',
+        )
+
     plt.show()
 
 @nb.njit
@@ -1641,9 +1653,17 @@ def build_candidates(
     dense_fragments,
     precursor_intensity,
     fragment_intensity,
-    eg,
     kernel,
     jit_data,
+    config,
+    elution_group_idx,
+    score_group_idx,
+    precursor_idx,
+    precursor_decoy,
+    scan_limits,
+    frame_limits,
+    precursor_mz,
+    
     candidate_count = 3,
     debug = False,
     weights = None,
@@ -1662,7 +1682,6 @@ def build_candidates(
 
     feature_weights = feature_weights.reshape(-1,1,1)
 
-
     smooth_precursor = numeric.convolve_fourier_a1(dense_precursors, kernel)
     smooth_fragment = numeric.convolve_fourier_a1(dense_fragments, kernel)
 
@@ -1672,19 +1691,6 @@ def build_candidates(
     if not smooth_fragment.shape == dense_fragments.shape:
         print(smooth_fragment.shape, dense_fragments.shape)
         print('smooth_fragment shape does not match dense_fragments shape')
-
-    # works until here
-    
-
-    #with nb.objmode:
-    #    for i in range(smooth_fragment.shape[1]):
-    #        plt.imshow(smooth_fragment[0,i])
-    #        plt.show()
-
-    #    for i in range(smooth_precursor.shape[1]):
-    #        plt.imshow(smooth_precursor[0,i])
-    #        plt.show()
-    
 
     feature_matrix = build_features(
         smooth_precursor,
@@ -1697,16 +1703,16 @@ def build_candidates(
     # if trained, use the mean and std from training
     # otherwise calculate the mean and std from the current data
     if mean is None:
-        feature_mean = utils.amean1(feature_matrix)
+        feature_mean = utils.amean1(feature_matrix).reshape(-1,1,1)
     else:
-        feature_mean = mean
-    feature_mean = feature_mean.reshape(-1,1,1)
+        feature_mean = mean.reshape(-1,1,1)
+    #feature_mean = feature_mean.reshape(-1,1,1)
 
     if std is None:
         feature_std = utils.astd1(feature_matrix).reshape(-1,1,1)
     else:
-        feature_std = std
-    feature_std = feature_std.reshape(-1,1,1)
+        feature_std = std.reshape(-1,1,1)
+    #feature_std = feature_std.reshape(-1,1,1)
 
     # make sure that mean, std and weights have the same shape
     if not (feature_std.shape == feature_mean.shape == feature_weights.shape):
@@ -1714,6 +1720,7 @@ def build_candidates(
     
 
     feature_matrix_norm = feature_weights * (feature_matrix - feature_mean)/(feature_std+1e-6)
+    
     score = np.sum(feature_matrix_norm, axis=0)
 
     peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks(
@@ -1721,7 +1728,13 @@ def build_candidates(
     )
 
 
-    peak_mask = join_close_peaks(peak_scan_list, peak_cycle_list, peak_score_list, 3, 3)
+    peak_mask = join_close_peaks(
+        peak_scan_list, 
+        peak_cycle_list, 
+        peak_score_list, 
+        3, 
+        3
+    )
     
     peak_scan_list = peak_scan_list[peak_mask]
     peak_cycle_list = peak_cycle_list[peak_mask]
@@ -1729,31 +1742,65 @@ def build_candidates(
 
     # works until here
 
-    
+    scan_limits_list = np.zeros((peak_scan_list.shape[0], 2), dtype='int32')
+    cycle_limits_list = np.zeros((peak_cycle_list.shape[0], 2), dtype='int32')
 
-    for candidate_rank, (scan_relative, cycle_relative, candidate_score) in enumerate(zip(peak_scan_list, peak_cycle_list, peak_score_list)):
+    for candidate_rank, (scan_relative, cycle_relative, candidate_score) in enumerate(
+        zip(
+            peak_scan_list, 
+            peak_cycle_list, 
+            peak_score_list
+            )
+        ):
 
-        
         scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
             score, 
             scan_relative, 
             cycle_relative, 
-            f_mobility = 0.99,
-            f_rt = 0.99,
-            center_fraction = 0.05,
-            min_size_mobility = 10,
-            min_size_rt = 5,
-            max_size_mobility = 40,
-            max_size_rt = 30,
+            f_mobility = config.f_mobility,
+            f_rt = config.f_rt,
+            center_fraction = config.center_fraction,
+            min_size_mobility = config.min_size_mobility,
+            min_size_rt = config.min_size_rt,
+            max_size_mobility = config.max_size_mobility,
+            max_size_rt = config.max_size_rt,
         )
+
+        scan_limits_list[candidate_rank] = scan_limits_relative
+        cycle_limits_list[candidate_rank] = cycle_limits_relative
+
+    # check if candidates overlapping candidates should be joined
+    if config.join_close_candidates:
+        mask = join_overlapping_candidates(
+            scan_limits_list,
+            cycle_limits_list,
+            p_scan_overlap=config.join_close_candidates_scan_threshold,
+            p_cycle_overlap=config.join_close_candidates_cycle_threshold,
+        )
+
+        peak_scan_list = peak_scan_list[mask]
+        peak_cycle_list = peak_cycle_list[mask]
+        peak_score_list = peak_score_list[mask]
+        scan_limits_list = scan_limits_list[mask]
+        cycle_limits_list = cycle_limits_list[mask]
+
+    for candidate_rank, (scan_relative, cycle_relative, candidate_score, scan_limits_relative, cycle_limits_relative) in enumerate(
+        zip(
+            peak_scan_list, 
+            peak_cycle_list, 
+            peak_score_list, 
+            scan_limits_list, 
+            cycle_limits_list
+            )
+        ):
 
     # does not work anymore
 
-        scan_limits_absolute = numeric.wrap1(scan_limits_relative + eg.scan_limits[0,0], jit_data.scan_max_index)
-        frame_limits_absolute = numeric.wrap1(cycle_limits_relative * cycle_length + eg.frame_limits[0,0], jit_data.frame_max_index)
+        scan_limits_absolute = numeric.wrap1(scan_limits_relative + scan_limits[0,0], jit_data.scan_max_index)
+        frame_limits_absolute = numeric.wrap1(cycle_limits_relative * cycle_length + frame_limits[0,0], jit_data.frame_max_index)
 
-        scan_absolute = numeric.wrap0(scan_relative + eg.scan_limits[0,0], jit_data.scan_max_index)
-        frame_absolute = numeric.wrap0(cycle_relative * cycle_length + eg.frame_limits[0,0], jit_data.frame_max_index)
+        scan_absolute = numeric.wrap0(scan_relative + scan_limits[0,0], jit_data.scan_max_index)
+        frame_absolute = numeric.wrap0(cycle_relative * cycle_length + frame_limits[0,0], jit_data.frame_max_index)
 
         features = np.zeros(feature_matrix.shape[0], dtype='float32')
         for j in range(feature_matrix.shape[0]):
@@ -1764,17 +1811,17 @@ def build_candidates(
             mass_error[j] = numeric.get_mean_sparse0(smooth_precursor[1,j], scan_relative, cycle_relative, 110)
 
         # iterate all precursors within this score group
-        for precursor_idx in eg.precursor_idx:
+        for i, pidx in enumerate(precursor_idx):
 
             candidates.append(
                 Candidate(
-                    eg.elution_group_idx,
-                    eg.score_group_idx,
-                    precursor_idx,
+                    elution_group_idx,
+                    score_group_idx,
+                    pidx,
                     candidate_rank,
                     candidate_score,
-                    eg.precursor_mz[0],
-                    eg.precursor_decoy[0],
+                    precursor_mz[i],
+                    precursor_decoy[i],
                     features,
                     scan_absolute,
                     scan_limits_absolute[0],
@@ -1787,6 +1834,6 @@ def build_candidates(
 
     if debug:
         with nb.objmode():
-            plot_candidates(score, candidates, jit_data, eg.scan_limits, eg.frame_limits)
+            plot_candidates(score, candidates, jit_data, scan_limits, frame_limits)
 
     return candidates
