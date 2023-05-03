@@ -184,12 +184,18 @@ candidates = Schema(
     "precursors_flat",
     [
         Required('elution_group_idx', np.uint32),
-        Required('score_group_idx', np.uint32),
+        Optional('score_group_idx', np.uint32),
         Required('precursor_idx', np.uint32),
         Required('rank', np.uint8),
         Optional('channel', np.uint8),
         Required('decoy', np.uint8),
         Required('flat_frag_start_idx', np.uint32),
-        Required('flat_frag_stop_idx', np.uint32)
+        Required('flat_frag_stop_idx', np.uint32),
+        Required('scan_start', np.int64),
+        Required('scan_stop', np.int64),
+        Required('scan_center', np.int64),
+        Required('frame_start', np.int64),
+        Required('frame_stop', np.int64),
+        Required('frame_center', np.int64),
     ]
 )

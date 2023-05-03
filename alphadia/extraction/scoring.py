@@ -988,7 +988,7 @@ class MS2ExtractionWorkflow():
                    
         ):
 
-        self.dia_data = dia_data#.jitclass()
+        self.dia_data = dia_data
         self.precursors_flat = precursors_flat.sort_values(by='precursor_idx')
         self.fragments_flat = fragments_flat
         self.candidates = candidates
@@ -1033,13 +1033,16 @@ class MS2ExtractionWorkflow():
             self.debug
         )
 
-        if self.debug:
-            return candidate_container#, feature_df, fragment_df
+        
         feature_df, fragment_df = self.collect_dataframes(candidate_container)
         
         
         feature_df = self.append_precursor_information(feature_df)
         self.log_stats(feature_df)
+
+        if self.debug:
+            return candidate_container, feature_df, fragment_df
+        
         return feature_df.dropna(), fragment_df.dropna()
 
     def assemble_candidates(self, n):
@@ -1050,8 +1053,12 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
-        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+        if 'flat_frag_start_idx' not in candidates.columns:
+            candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
+
+        if 'flat_frag_stop_idx' not in candidates.columns:
+            candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+
         candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup]
 
         validate.candidates(candidates)

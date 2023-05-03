@@ -761,7 +761,8 @@ class Workflow:
             'rt_tolerance':self.progress["rt_error"],
             'mobility_tolerance': self.progress["mobility_error"],
             'candidate_count': self.progress["num_candidates"],
-            'mz_tolerance': self.progress["ms1_error"]
+            'precursor_mz_tolerance': self.progress["ms1_error"],
+            'fragment_mz_tolerance': self.progress["ms2_error"]
         })
         
         extraction = HybridCandidateSelection(

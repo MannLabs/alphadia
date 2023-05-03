@@ -41,7 +41,7 @@ extraction:
 
     f_mobility: 1.0
     f_rt: 0.99
-    center_fraction: 0.1
+    center_fraction: 0.5
     min_size_mobility: 8
     min_size_rt: 3
     max_size_mobility: 50
