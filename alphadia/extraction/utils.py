@@ -925,6 +925,9 @@ def get_isotope_columns(colnames):
 
     return isotopes
 
+def get_isotope_column_names(colnames):
+    return [f'i_{i}' for i in get_isotope_columns(colnames)]
+
 @alphatims.utils.njit()
 def mass_range(
         mz_list,

@@ -84,9 +84,14 @@ class JITConfig():
     
     def jitclass(self):
 
+        self.validate()
+
         return self.jit_container(
             *self.__dict__.values()
         )
+    
+    def validate(self):
+        raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method.')
 
     def update(self, dict):
         for key, value in dict.items():

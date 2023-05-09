@@ -339,7 +339,6 @@ class Candidate:
     charge: nb.uint8
     decoy: nb.uint8
     rank: nb.uint8
-    
 
     frag_start_idx: nb.uint32[::1]
     frag_stop_idx: nb.uint32[::1]
@@ -944,7 +943,7 @@ class Candidate:
             
             
 
-            #self.visualize_precursors(dense_precursors, prec_precursor_index)
+            self.visualize_precursors(dense_precursors, prec_precursor_index)
 
 @nb.experimental.jitclass()
 class CandidateContainer:

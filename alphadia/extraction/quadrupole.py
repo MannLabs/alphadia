@@ -256,6 +256,50 @@ class SimpleQuadrupole(BaseEstimator, RegressorMixin):
 
         return new_cycle
 
+@alphatims.utils.njit
+def quadrupole_transfer_function_single(
+    quadrupole_calibration_jit,
+    observation_indices,
+    scan_indices,
+    isotope_mz
+):  
+    """
+    Calculate quadrupole transfer function for a given set of observations and scans.
+
+    Parameters
+    ----------
+    quadrupole_calibration_jit : alphadia.extraction.quadrupole.SimpleQuadrupoleJit
+        Quadrupole calibration jit object
+
+    observation_indices : np.ndarray
+        Array of observation indices, shape (n_observations,)
+
+    scan_indices : np.ndarray
+        Array of scan indices, shape (n_scans,)
+
+    isotope_mz : np.ndarray
+        Array of precursor isotope m/z values, shape (n_isotopes)
+
+    Returns
+    -------
+
+    intensity : np.ndarray
+        Array of predicted intensity values, shape (n_isotopes, n_observations, n_scans)
+
+    """
+
+    n_isotopes = isotope_mz.shape[0]
+    n_observations = observation_indices.shape[0]
+    n_scans = scan_indices.shape[0]
+
+
+    mz_column = np.repeat(isotope_mz, n_scans * n_observations)
+    observation_column = utils.tile(np.repeat(observation_indices, n_scans), n_isotopes)
+    scan_column = utils.tile(scan_indices, n_isotopes * n_observations)
+
+    intensity = quadrupole_calibration_jit.predict(observation_column, scan_column, mz_column)
+    return intensity.reshape(n_isotopes, n_observations, n_scans)
+
 
 
 
@@ -338,11 +382,51 @@ def calculate_template(
     return template
 
 @nb.njit
+def calculate_template_single(
+        qtf,
+        dense_precursor_mz,
+        isotope_intensity
+    ):
+
+    n_isotopes = qtf.shape[0]
+    n_observations = qtf.shape[1]
+    n_scans = qtf.shape[2]
+    n_frames = dense_precursor_mz.shape[-1]
+
+    # select only the intensity channel
+    # expand observation dimension to the number of fragment observations
+    (n_isotopes, n_observations, n_scans, n_frames)
+    precursor_mz = dense_precursor_mz[0]
+
+    # unravel precursors and isotopes
+    #precursor_mz = precursor_mz.reshape(n_isotopes, 1, n_scans, n_frames)
+
+    # expand add frame dimension to qtf
+    #(n_isotopes, n_observations, n_scans, n_frames)
+    qtf_exp = np.expand_dims(qtf, axis=-1)
+
+    #(n_isotopes, n_observations, n_scans, n_frames)
+    isotope_exp = isotope_intensity.reshape(-1,1,1,1)
+
+    template = precursor_mz * isotope_exp * qtf_exp
+    template = template.sum(axis=0) 
+
+    #(n_observations, n_scans, n_frames)
+    return template.astype(np.float32)
+
+@nb.njit
 def calculate_observation_importance(
     template,
 ):
     observation_importance = np.sum(np.sum(template, axis=2), axis=2)
     return observation_importance / np.sum(observation_importance, axis = 1).reshape(-1,1)
+
+@nb.njit
+def calculate_observation_importance_single(
+    template,
+):
+    observation_importance = np.sum(np.sum(template, axis=-1), axis=-1)
+    return observation_importance / np.sum(observation_importance)
 
 @nb.njit
 def expand_cycle(cycle, lower_mz, upper_mz):

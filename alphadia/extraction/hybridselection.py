@@ -384,6 +384,9 @@ class HybridCandidateConfig(config.JITConfig):
         #self.feature_mean = np.array([ 2.967344, 1.2160938, 1.426444, 13.960179, 0.06620345, 0.44364494, 0.03138363, 3.1453438,1.,1,1,1 ], np.float64)
         #self.feature_weight = np.array([ 0.43898424,  0.97879761,  0.72262148, 0., 0.0,  0.3174245, 0.30102549,  0.44892641, 1.,1,1,1], np.float64)
 
+    def validate(self):
+        pass
+
 @nb.experimental.jitclass()
 class Candidate:
 
@@ -1028,6 +1031,7 @@ class HybridCandidateSelection(object):
         self.fragments_flat = fragments_flat
 
         self.debug = debug
+
         self.thread_count = thread_count
 
         self.rt_column = rt_column
