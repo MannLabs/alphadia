@@ -402,6 +402,7 @@ class Candidate:
     score: nb.float64
     precursor_mz: nb.float64
     decoy: nb.int8
+    channel: nb.uint32
     features: nb.float32[::1]
 
     scan_center: nb.int64
@@ -424,6 +425,7 @@ class Candidate:
             score,
             precursor_mz,
             decoy,
+            channel,
             features,
 
             scan_center,
@@ -441,6 +443,7 @@ class Candidate:
         self.score = score
         self.precursor_mz = precursor_mz
         self.decoy = decoy
+        self.channel = channel
         self.features = features
         self.scan_center = scan_center
         self.scan_start = scan_start
@@ -841,6 +844,7 @@ class HybridElutionGroup:
             self.score_group_idx,
             self.precursor_idx,
             self.precursor_decoy,
+            self.precursor_channel,
             scan_limits,
             frame_limits,
             precursor_mz,
@@ -1247,9 +1251,37 @@ class HybridCandidateSelection(object):
             for j in range(len(elution_group_container[i].candidates)):
                 candidates.append(elution_group_container[i].candidates[j])
     
-        attributes = ['elution_group_idx', 'score_group_idx', 'precursor_idx', 'rank','score','precursor_mz', 'decoy', 'scan_center', 'scan_start', 'scan_stop', 'frame_center', 'frame_start', 'frame_stop']
-        candidate_df = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in attributes})
+        candidate_attributes = ['elution_group_idx', 
+                      'score_group_idx', 
+                      'precursor_idx', 
+                      'rank',
+                      'score',
+                      'precursor_mz', 
+                      'decoy', 
+                      'channel',
+                      'scan_center', 
+                      'scan_start', 
+                      'scan_stop', 
+                      'frame_center', 
+                      'frame_start', 
+                      'frame_stop'
+                    ]
+        candidate_df = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in candidate_attributes})
+        candidate_df = candidate_df.sort_values(by='precursor_idx')
 
+        # add additiuonal columns for precursor information
+        precursor_attributes = ['mz_calibrated',
+                                'mz_library']
+        
+        precursor_pidx = self.precursors_flat['precursor_idx'].values
+        candidate_pidx = candidate_df['precursor_idx'].values
+        precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
+
+        for attr in precursor_attributes:
+            if attr in self.precursors_flat.columns:
+                candidate_df[attr] = self.precursors_flat[attr].values[precursor_flat_lookup]
+
+        # save features for training if desired.
         if self.feature_path is not None:
             feature_matrix = np.zeros((len(candidates), len(candidates[0].features)), dtype=np.float32)
             for i in range(len(candidates)):
@@ -1622,6 +1654,7 @@ def build_candidates(
     score_group_idx,
     precursor_idx,
     precursor_decoy,
+    precursor_channel,
     scan_limits,
     frame_limits,
     precursor_mz,
@@ -1784,6 +1817,7 @@ def build_candidates(
                     candidate_score,
                     precursor_mz[i],
                     precursor_decoy[i],
+                    precursor_channel[i],
                     features,
                     scan_absolute,
                     scan_limits_absolute[0],

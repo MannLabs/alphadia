@@ -1161,20 +1161,25 @@ def fourier_filter(
 
 
 def calculate_score_groups(
-        precursors_flat, 
-        group_channels = False
+        input_df : pd.DataFrame, 
+        group_channels : bool = False,
+
     ):
     """
     Calculate score based on elution group and decoy status.
+    Score groups are used both on the candidate selection and on the scoring level.
+
+    On the candidate selection level, score groups are used to group ions across channels.
+    On the scoring level, score groups are used to group channels of the same precursor and rank together.
 
     Parameters
     ----------
 
-    precursors_flat : pandas.DataFrame
-        Precursor dataframe. Must contain columns 'elution_group_idx' and 'decoy'.
+    input_df : pandas.DataFrame
+        Precursor dataframe. Must contain columns 'elution_group_idx' and 'decoy'. Can contain 'rank' column.
 
     group_channels : bool
-        If True, all channels from a given precursor will be grouped together.
+        If True, precursors from the same elution group will be grouped together while seperating different ranks and decoy status.
 
     Returns
     -------
@@ -1186,30 +1191,66 @@ def calculate_score_groups(
     @nb.njit
     def channel_score_groups(
             elution_group_idx, 
-            decoy
+            decoy,
+            rank
         ):
+        """
+        Calculate score groups for channel grouping.
+
+        Parameters
+        ----------
+
+        elution_group_idx : numpy.ndarray
+            Elution group indices.
+
+        decoy : numpy.ndarray
+            Decoy status.
+
+        rank : numpy.ndarray
+            Rank of precursor.
+
+        Returns
+        -------
+
+        score_groups : numpy.ndarray
+            Score groups.
+        """
         score_groups = np.zeros(len(elution_group_idx), dtype=np.uint32)
         current_group = 0
         current_eg = elution_group_idx[0]
         current_decoy = decoy[0]
+        current_rank = rank[0]
         
         for i in range(len(elution_group_idx)):
-            if (elution_group_idx[i] != current_eg) or (decoy[i] != current_decoy):
+            # if elution group, decoy status or rank changes, increase score group
+            if (elution_group_idx[i] != current_eg) or (decoy[i] != current_decoy) or (rank[i] != current_rank):
                 current_group += 1
                 current_eg = elution_group_idx[i]
                 current_decoy = decoy[i]
+                current_rank = rank[i]
             
             score_groups[i] = current_group
         return score_groups
 
-    precursors_flat = precursors_flat.sort_values(by=['elution_group_idx', 'decoy'])
+    # sort by elution group, decoy and rank
+    # if no rank is present, pretend rank 0
+    if 'rank' in input_df.columns:
+        input_df = input_df.sort_values(by=['elution_group_idx', 'decoy','rank'])
+        rank_values = input_df['rank'].values
+    else:
+        input_df = input_df.sort_values(by=['elution_group_idx', 'decoy'])
+        rank_values = np.zeros(len(input_df), dtype=np.uint32)
 
     if group_channels:
-        precursors_flat['score_group_idx'] = channel_score_groups(precursors_flat['elution_group_idx'].values, precursors_flat['decoy'].values)
+        input_df['score_group_idx'] = channel_score_groups(
+            input_df['elution_group_idx'].values, 
+            input_df['decoy'].values,
+            rank_values
+            )
     else:
-        precursors_flat['score_group_idx'] = np.arange(len(precursors_flat), dtype=np.uint32)
+        input_df['score_group_idx'] = np.arange(len(input_df), dtype=np.uint32)
 
-    return precursors_flat.sort_values(by=['score_group_idx']).reset_index(drop=True)
+    return input_df.sort_values(by=['score_group_idx']).reset_index(drop=True)
 
 
 @nb.njit()

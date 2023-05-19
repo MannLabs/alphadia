@@ -6,13 +6,18 @@ import unittest
 
 # local
 from alphadia.extraction.utils import (
-        join_left, amean0, amean1, calculate_correlations, calc_isotopes_center
+        join_left, 
+        amean0, 
+        amean1, 
+        calc_isotopes_center, 
+        calculate_score_groups
     )
 
 
 
 # global
 import numpy as np
+import pandas as pd
 
 def test_join_left():
 
@@ -79,3 +84,50 @@ def test_calc_isotopes_center():
     # charge 0 should result in charge 1
     isotopes = calc_isotopes_center(mz, 0, 1)
     assert np.allclose(isotopes, np.array([500.]))
+
+def test_score_groups():
+
+    sample_df = pd.DataFrame({
+        'precursor_idx': np.arange(10),
+        'elution_group_idx': np.array([0,0,0,0,0,1,1,1,1,1]),
+        'channel': np.array([0,1,2,3,0,0,1,2,3,0]),
+        'decoy' : np.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+    })
+
+    sample_df = calculate_score_groups(sample_df)
+
+    assert np.allclose(sample_df['score_group_idx'].values, np.arange(10))
+
+    sample_df = pd.DataFrame({
+        'precursor_idx': np.arange(10),
+        'elution_group_idx': np.array([0,0,0,0,0,1,1,1,1,1]),
+        'channel': np.array([0,1,2,3,0,0,1,2,3,0]),
+        'decoy' : np.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
+    })
+
+    sample_df = calculate_score_groups(sample_df, group_channels=True)
+
+    assert np.allclose(sample_df['score_group_idx'].values, np.array([0,0,0,0,1,2,2,2,2,3]))
+
+    sample_df = pd.DataFrame({
+        'precursor_idx': np.arange(10),
+        'elution_group_idx': np.array([0,0,0,0,0,1,1,1,1,1]),
+        'channel': np.array([0,1,2,3,0,0,1,2,3,0]),
+        'decoy' : np.array([0, 0, 0, 0, 1, 0, 0, 0, 0, 1]),
+        'rank' : np.array([0, 1, 2, 3, 4, 0, 1, 2, 3, 4])
+    })
+
+    sample_df = calculate_score_groups(sample_df, group_channels=True)
+    assert np.allclose(sample_df['score_group_idx'].values, np.arange(10))
+
+    sample_df = pd.DataFrame({
+        'precursor_idx': np.arange(10),
+        'elution_group_idx': np.array([0,0,0,0,1,1,1,1,0,0]),
+        'channel': np.array([0,0,1,1,0,0,1,1,0,0]),
+        'decoy' : np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1]),
+        'rank' : np.array([0, 1, 0, 1, 0, 1, 0, 1, 0, 1])
+    })
+
+    sample_df = calculate_score_groups(sample_df, group_channels=True)
+
+    assert np.allclose(sample_df['score_group_idx'].values, np.array([0,0,1,1,2,3,4,4,5,5]))

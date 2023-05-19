@@ -93,6 +93,9 @@ def fdr_correction(features,
     X = features[feature_columns].values
     y = features['decoy'].values
 
+    print(X.shape)
+    print(y.shape)
+
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     pipeline.fit(X_train, y_train)
     
@@ -684,13 +687,14 @@ class Candidate:
         
         if debug:
             with nb.objmode:
-                plotting.plot_fragment_profile(
-                    self.template,
-                    fragments_scan_profile,
-                    fragments_frame_profile,
-                    template_frame_profile,
-                    template_scan_profile,
-                )
+                pass
+                #plotting.plot_fragment_profile(
+                #    self.template,
+                #    fragments_scan_profile,
+                #    fragments_frame_profile,
+                #    template_frame_profile,
+                #    template_scan_profile,
+                #)
         
 
         # (n_fragments, n_observations)

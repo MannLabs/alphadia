@@ -426,7 +426,10 @@ def calculate_observation_importance_single(
     template,
 ):
     observation_importance = np.sum(np.sum(template, axis=-1), axis=-1)
-    return observation_importance / np.sum(observation_importance)
+    if np.sum(observation_importance) == 0:
+        return np.ones_like(observation_importance) / observation_importance.shape[0]
+    else:
+        return observation_importance / np.sum(observation_importance)
 
 @nb.njit
 def expand_cycle(cycle, lower_mz, upper_mz):

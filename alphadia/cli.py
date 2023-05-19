@@ -25,10 +25,10 @@ from alphadia.extraction import processlogger
 @click.pass_context
 @click.version_option(alphadia.__version__, "-v", "--version")
 def run(ctx, **kwargs):
-    click.echo('      _   _      _         ___ ___   _   ')
-    click.echo('     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
-    click.echo('    / _ \| | \'_ \\ \' \/ _` | |) | | / _ \ ')
-    click.echo('   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\')
+    click.echo(r'      _   _      _         ___ ___   _   ')
+    click.echo(r'     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
+    click.echo(r'    / _ \| | \'_ \\ \' \/ _` | |) | | / _ \ ')
+    click.echo(r'   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\')
     click.echo(f'           |_|              version: {alphadia.__version__}')
     click.echo('')
 
