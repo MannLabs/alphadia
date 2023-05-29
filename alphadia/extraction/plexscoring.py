@@ -695,6 +695,7 @@ class ScoreGroupContainer:
             """
             idx = 0
             current_score_group_idx = -1
+            current_precursor_idx = -1
 
             # iterate over all candidates
             # whenever a new score group is encountered, create a new score group
@@ -709,6 +710,7 @@ class ScoreGroupContainer:
 
                     # update current score group
                     current_score_group_idx = score_group_idx[idx]
+                    current_precursor_idx = -1
 
                 if len(precursor_isotopes[idx]) == 0:
                     raise ValueError('precursor isotopes empty')
@@ -731,6 +733,13 @@ class ScoreGroupContainer:
                     precursor_isotopes[idx].copy()
                 ))
 
+                # check if precursor_idx is unique within a score group
+                # if not, some weird "ValueError: unable to broadcast argument 1 to output array" will be raised.
+                # Numba bug which took 4h to find :'(
+                if current_precursor_idx == precursor_idx[idx]:
+                    raise ValueError('precursor_idx must be unique within a score group')
+                
+                current_precursor_idx = precursor_idx[idx]
                 idx += 1
 
         def collect_to_df(
