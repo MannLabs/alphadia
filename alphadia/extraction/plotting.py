@@ -243,7 +243,7 @@ def plot_fragment_profile(
     images = []
 
     for i_observation in range(n_observations):
-        fig, ax = plt.subplots(3, 3, figsize=(n_frames*0.2*1.2, n_scans*0.12*1.2), sharey='row',sharex='col', gridspec_kw=grid_spec)
+        fig, ax = plt.subplots(3, 3, figsize=(n_frames*0.2*2, n_scans*0.12*2), sharey='row',sharex='col', gridspec_kw=grid_spec)
 
         ax[2, 0].imshow(template[i_observation])
         ax[2, 1].plot(template_scan_profile[i_observation],scan_indices)
@@ -281,7 +281,7 @@ def plot_fragment_profile(
         fig.suptitle(f'Observation {i_observation}')
 
         
-        #fig.tight_layout()
+        fig.tight_layout()
         fig.set_dpi(200)
         fig.canvas.draw()
         image_from_plot = np.frombuffer(fig.canvas.tostring_rgb(), dtype=np.uint8)

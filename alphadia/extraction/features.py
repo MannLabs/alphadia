@@ -590,6 +590,8 @@ def precursor_features(
     # (n_isotopes)
     weighted_sum_precursor_intensity = np.sum(sum_precursor_intensity * observation_importance_reshaped, axis=-1).astype(np.float32)
 
+    
+
     feature_dict['mono_ms1_intensity'] = weighted_sum_precursor_intensity[0]
     feature_dict['top_ms1_intensity'] = weighted_sum_precursor_intensity[np.argmax(isotope_intensity)]
     feature_dict['sum_ms1_intensity'] = np.sum(weighted_sum_precursor_intensity)

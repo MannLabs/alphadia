@@ -234,13 +234,15 @@ class Candidate:
         self.fragments.filter_top_k(config.top_k_fragments)
         self.fragments.sort_by_mz()
 
-        self.assemble_isotope_mz()
+        self.assemble_isotope_mz(config)
 
-    def assemble_isotope_mz(self):
+    def assemble_isotope_mz(self, config):
         """
         Assemble the isotope m/z values from the precursor m/z and the isotope
         offsets.
         """
+        n_isotopes = min(self.isotope_intensity.shape[0], config.top_k_isotopes)
+        self.isotope_intensity = self.isotope_intensity[:n_isotopes]
         offset = np.arange(self.isotope_intensity.shape[0]) * 1.0033548350700006 / self.charge
         self.isotope_mz = offset.astype(nb.float32) + self.precursor_mz
 
@@ -270,6 +272,9 @@ class Candidate:
         quadrupole_calibration,
         debug
     ) -> None:
+        
+        if debug:
+            print('precursor', self.precursor_idx, 'channel', self.channel)
         
         frame_limit = np.array(
             [[
