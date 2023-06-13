@@ -3,6 +3,8 @@ import os
 import logging
 from unittest.mock import DEFAULT
 import yaml 
+import typing
+import pickle
 
 # alphadia imports
 from alphadia.extraction.utils import density_scatter
@@ -23,14 +25,43 @@ from sklearn.linear_model import LinearRegression
 
 class Calibration():
     def __init__(self, 
-                name=None ,
-                function  = None,
-                input_columns=[],
-                target_columns=[],
-                output_columns=[],
-                transform_deviation = None,
-                is_fitted = False,
+                name : str = '',
+                function : object = None,
+                input_columns : typing.List[str] = [],
+                target_columns : typing.List[str] = [],
+                output_columns : typing.List[str] = [],
+                transform_deviation : typing.List[typing.Union[None, float]] = [],
+                is_fitted : bool = False,
                 **kwargs):
+        """A single estimator for a property (mz, rt, etc.).
+
+        Parameters
+        ----------
+
+        name : str
+            Name of the estimator for logging and plotting e.g. 'mz'
+        
+        function : object
+            The estimator object instance which must have a fit and predict method.
+            This will usually be a sklearn estimator or a custom estimator.
+
+        input_columns : list of str
+            The columns of the dataframe that are used as input for the estimator e.g. ['mz_library']
+
+        target_columns : list of str
+            The columns of the dataframe that are used as target for the estimator e.g. ['mz_observed']
+
+        output_columns : list of str
+            The columns of the dataframe that are used as output for the estimator e.g. ['mz_calibrated']
+        
+        transform_deviation : typing.List[Union[None, float]]
+            If set to a valid float, the deviation is expressed as a fraction of the input value e.g. 1e6 for ppm.
+            If set to None, the deviation is expressed in absolute units.
+
+        is_fitted : bool
+            If True, the estimator has been fitted and can be used for prediction.
+
+        """
         
         self.name = name
         self.function = function
@@ -38,27 +69,72 @@ class Calibration():
         self.target_columns = target_columns
         self.output_columns = output_columns
 
-        try:    
-            self.transform_deviation = float(transform_deviation)
-        except:
-            self.transform_deviation = None
+        if len(input_columns) > 0:
+            if len(transform_deviation) == len(input_columns):
+                self.transform_deviation = transform_deviation
+            else:
+                self.transform_deviation = [None] * len(input_columns)
 
         self.is_fitted = is_fitted
+
+    def save(self, file_name):
+        """Save the estimator to pickle file.
+
+        Parameters
+        ----------
+
+        file_name : str
+            Path to the pickle file
+
+        """
+
+        with open(file_name, 'wb') as f:
+            pickle.dump(self, f)
+
+    def load(self, file_name):
+        """Load the estimator from pickle file.
+
+        Parameters
+        ----------
+
+        file_name : str
+            Path to the pickle file
+
+        Returns
+        -------
+
+        Calibration
+            The loaded estimator
+
+        """
+
+        with open(file_name, 'rb') as f:
+            return pickle.load(f)
 
     def validate_columns(
             self, 
             dataframe
         ):
+        """Validate that the input and target columns are present in the dataframe.
+
+        Parameters
+        ----------
+        dataframe : pandas.DataFrame
+            Dataframe containing the input and target columns
+
+        Returns
+        -------
+        bool
+            True if all columns are present, False otherwise
+
+        """
 
         valid = True
 
-        if len (self.input_columns) != 1:
-            logging.warning('Only one input column supported')
-            valid = False
-
-        if len (self.target_columns) != 1:
+        if len(self.target_columns) > 1 :
             logging.warning('Only one target column supported')
             valid = False
+
         required_columns = set(self.input_columns + self.target_columns)
         if not required_columns.issubset(dataframe.columns):
             logging.warning(f'{self.name}, at least one column {required_columns} not found in dataframe')
@@ -73,9 +149,33 @@ class Calibration():
             report_ci=0.95, 
             **kwargs
         ):
+        """Fit the estimator based on the input and target columns of the dataframe.
+
+        Parameters
+        ----------
+
+        dataframe : pandas.DataFrame
+            Dataframe containing the input and target columns
+
+        plot : bool, default=False
+            If True, a plot of the calibration is generated.
+
+        report_ci : float, default=0.95
+            return the mean absolute deviation of the residual deviation at the given confidence interval
+
+        
+        Returns
+        -------
+
+        np.ndarray
+            Array of shape (n_input_columns, ) containing the mean absolute deviation of the residual deviation at the given confidence interval
+
+        """
+
         if not self.validate_columns(dataframe):
             logging.warning(f'{self.name} calibration was skipped')
             return
+        
 
         if self.function is None:
             raise ValueError('No estimator function provided')
@@ -91,7 +191,7 @@ class Calibration():
 
         return self.ci(dataframe, float(report_ci))
 
-    def predict(self, dataframe, inplace=False):
+    def predict(self, dataframe, inplace=True):
         if self.is_fitted == False:
             logging.warning(f'{self.name} prediction was skipped as it has not been fitted yet')
             return
@@ -125,18 +225,24 @@ class Calibration():
         """
 
         input_values = dataframe[self.input_columns].values
-        target_value = dataframe[self.target_columns].values
+        target_values = dataframe[self.target_columns].values
+
+        # so far only one target dim supported
+        target_dim = target_values[:, 0]
+
         calibrated_values = self.predict(dataframe, inplace=False)
+        if calibrated_values.ndim == 1:
+            calibrated_values = calibrated_values[:, np.newaxis]
+
+        calibrated_dim = calibrated_values[:, 0]
 
         deviation_list = []
 
         for dimension in range(input_values.shape[1]):
             input_dim = input_values[:, dimension]
-            target_dim = target_value[:, dimension]
-            calibrated_dim = calibrated_values
+            input_transform = self.transform_deviation[dimension]
 
             order = np.argsort(input_dim)
-
             input_dim = input_dim[order]
             target_dim = target_dim[order]
             calibrated_dim = calibrated_dim[order]
@@ -144,13 +250,13 @@ class Calibration():
             # by default the observed deviation of the (measured) target value from the input value is expressed in absolute units
             # if transform_deviation is set to a valid float like 10e6, the deviation is expressed as a fraction of the input value
             observed_deviation = target_dim - input_dim
-            if self.transform_deviation is not None:
-                observed_deviation = observed_deviation/input_dim * float(self.transform_deviation)
+            if input_transform is not None:
+                observed_deviation = observed_deviation/input_dim * float(input_transform)
 
             # calibrated deviation is the part of the deviation that is explained by the calibration
             calibrated_deviation = calibrated_dim - input_dim
-            if self.transform_deviation is not None:
-                calibrated_deviation = calibrated_deviation/input_dim * float(self.transform_deviation)
+            if input_transform is not None:
+                calibrated_deviation = calibrated_deviation/input_dim * float(input_transform)
 
             # residual deviation is the part of the deviation that is not explained by the calibration
             residual_deviation = observed_deviation - calibrated_deviation
@@ -169,14 +275,14 @@ class Calibration():
         residual_deviation = deviation[:, 5, :]
         return np.mean(np.abs(np.percentile(residual_deviation, ci_percentile, axis=1)), axis=0)
 
-    def get_transform_unit(self):
-        if self.transform_deviation is not None:
-            if np.isclose(self.transform_deviation,1e6):
+    def get_transform_unit(self, transform_deviation):
+        if transform_deviation is not None:
+            if np.isclose(transform_deviation,1e6):
                 return '(ppm)'
-            elif np.isclose(self.transform_deviation,1e2):
+            elif np.isclose(transform_deviation,1e2):
                 return '(%)'
             else:
-                return f'({self.transform_deviation})'
+                return f'({transform_deviation})'
         else:
             return '(absolute)'
 
@@ -222,9 +328,11 @@ class Calibration():
                 s=1
             )
 
+            transform_unit = self.get_transform_unit(self.transform_deviation[input_property])
+
             for ax, dim in zip(axs[input_property, :],[3,5]):
                 ax.set_xlabel(self.input_columns[input_property])
-                ax.set_ylabel(f'observed deviation {self.get_transform_unit()}')
+                ax.set_ylabel(f'observed deviation {transform_unit}')
                 
                 # get absolute y value and set limites to plus minus absolute y
                 y = deviation[input_property, dim, :] 
