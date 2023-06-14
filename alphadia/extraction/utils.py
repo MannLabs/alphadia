@@ -17,7 +17,7 @@ import numba as nb
 import matplotlib.patches as patches
 import matplotlib.patheffects as patheffects
 import matplotlib.pyplot as plt
-from scipy.stats import gaussian_kde
+
 
 ISOTOPE_DIFF = 1.0032999999999674
 
@@ -49,20 +49,7 @@ def recursive_update(
             else:
                 full_dict[key] = value
 
-def density_scatter(x, y, axis=None, **kwargs):
 
-    if axis is None:
-        axis = plt.gca()
-
-    # Calculate the point density
-    xy = np.vstack([x,y])
-    z = gaussian_kde(xy)(xy)
-
-    # Sort the points by density, so that the densest points are plotted last
-    idx = z.argsort()
-    x, y, z = x[idx], y[idx], z[idx]
-
-    axis.scatter(x, y, c=z, **kwargs)
 
 
 def rt_to_frame_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):

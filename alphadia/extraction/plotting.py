@@ -1,4 +1,5 @@
 # native imports
+import typing
 
 # alphadia imports
 from alphadia.extraction.quadrupole import calculate_observation_importance
@@ -11,7 +12,75 @@ from alphadia.extraction import quadrupole
 from matplotlib import cm
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+from scipy.stats import gaussian_kde
 
+def density_scatter(
+        x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
+        y: typing.Union[np.ndarray, pd.Series, pd.DataFrame], 
+        axis : plt.Axes = None, 
+        s : float = 1,
+        **kwargs):
+    
+    """
+    Scatter plot colored by kerneld density estimation
+
+    Parameters
+    ----------
+
+    x : np.ndarray, pd.Series, pd.DataFrame
+        x values
+
+    y : np.ndarray, pd.Series, pd.DataFrame
+        y values
+
+    axis : plt.Axes, optional
+        axis to plot on. If None, the current axis is used
+
+    s : float, default 1
+        size of the points
+
+    **kwargs
+        additional arguments passed to plt.scatter
+
+    Examples
+    --------
+
+    Example using two-dimensional data normal distributed data:
+
+    ```python
+    x = np.random.normal(0, 1, 1000)
+    y = np.random.normal(0, 1, 1000)
+
+    density_scatter(x, y)
+    ```
+
+    """
+    
+    if not isinstance(x, np.ndarray):
+        x = x.to_numpy()
+    
+    if x.ndim > 1:
+        raise ValueError('x must be 1-dimensional')
+    
+    if not isinstance(y, np.ndarray):
+        y = y.to_numpy()
+
+    if y.ndim > 1:
+        raise ValueError('y must be 1-dimensional')
+
+    if axis is None:
+        axis = plt.gca()
+
+    # Calculate the point density
+    xy = np.vstack([x,y])
+    z = gaussian_kde(xy)(xy)
+
+    # Sort the points by density, so that the densest points are plotted last
+    idx = z.argsort()
+    x, y, z = x[idx], y[idx], z[idx]
+
+    axis.scatter(x, y, c=z, s=s, **kwargs)
 
 def _generate_slice_collection(
     fragment_cycle : np.ndarray, 
