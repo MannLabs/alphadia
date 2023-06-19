@@ -7,7 +7,6 @@ if not 'progress' in dir(logger):
     processlogger.init_logging()
 
 class JITConfig():
-
     """
     Base class for creating numba compatible config objects.
 
@@ -17,72 +16,69 @@ class JITConfig():
     Defining a config object tends to be verbose due to the strict typing requirements of numba.
     It requires to define a numba jitclass with the correct types for each attribute and a __init__ method.
     
-    ```python
+    .. code-block:: python
 
-    @nb.experimental.jitclass()
-    class HybridCandidateConfigJIT():
+        @nb.experimental.jitclass()
+        class HybridCandidateConfigJIT():
+            rt_tolerance: nb.float64
+            def __init__(
+                    self, 
+                    rt_tolerance,
+                ):
+                self.rt_tolerance = rt_tolerance
 
-        rt_tolerance: nb.float64
-
-        def __init__(
-                self, 
-                rt_tolerance,
-            ):
-
-            self.rt_tolerance = rt_tolerance
-
-    ```
 
     For defining default values and updating the config object, the JITConfig class is used as base class.
     The config object must contain a class attribute `jit_container` pointing to the matching numba jitclass.
     The config object must implement a __init__ method where all parameters are initialized in the same order as they appear in the numba constructor.
 
-    ```python
+    .. code-block:: python
 
-    class HybridCandidateConfig(JITConfig):
-    
-        jit_container = HybridCandidateConfigJIT
+        class HybridCandidateConfig(JITConfig):
+            jit_container = HybridCandidateConfigJIT
+            def __init__(self):
+                self.rt_tolerance = 0.5
 
-        def __init__(self):
-            
-            self.rt_tolerance = 0.5
+        config = HybridCandidateConfig()
 
-    config = HybridCandidateConfig()
-
-    ```
 
     Default paramters can also be passed during construction.
 
-    ```python
+    .. code-block:: python
 
-    class HybridCandidateConfig(JITConfig):
-    
-        jit_container = HybridCandidateConfigJIT
-
-        def __init__(self, rt_tolerance = 0.5):
-            
-            self.rt_tolerance = rt_tolerance
-
-    config = HybridCandidateConfig(rt_tolerance = 0.1)
-
-    ```
+        class HybridCandidateConfig(JITConfig):
+            jit_container = HybridCandidateConfigJIT
+            def __init__(self, rt_tolerance = 0.5):
+                self.rt_tolerance = rt_tolerance
+                
+        config = HybridCandidateConfig(rt_tolerance = 0.1)
 
     The jit config can then retrived by calling the `jitclass` method.
 
-    ```python
+    .. code-block:: python
 
-    config = HybridCandidateConfig()
-    jit_config = config.jitclass()
-    print(jit_config.rt_tolerance)
-    >> 0.5
+        config = HybridCandidateConfig()
+        jit_config = config.jitclass()
+        print(jit_config.rt_tolerance)
+        >> 0.5
 
-    ```
     """
 
     def __init__(self):
+        """Base class for creating numba compatible config objects.
+        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method."""
+
         raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method.')
     
     def jitclass(self):
+        """Returns a numba jitclass object.
+        
+        Returns
+        -------
+        
+        jitclass : numba.experimental.jitclass.boxing.XXX
+            Numba jitclass object with the type as defined in the jit_container class attribute.
+        """
 
         self.validate()
 
@@ -91,9 +87,35 @@ class JITConfig():
         )
     
     def validate(self):
+        """Validates the config object.
+        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method."""
+
         raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method.')
 
-    def update(self, dict):
+    def update(self, dict : dict):
+        """Updates the config object with a dictionary of parameters.
+        Can be used to update config object safely with a dictionary of parameters.
+
+        Parameters
+        ----------
+
+        dict : dict
+            Dictionary of parameters to update the config object.
+
+        Example
+        -------
+
+        .. code-block:: python
+
+            class HybridCandidateConfig(JITConfig):
+                jit_container = HybridCandidateConfigJIT
+                def __init__(self):
+                    self.rt_tolerance = 0.5
+
+            config = HybridCandidateConfig()
+            config.update({'rt_tolerance': 0.1})
+
+        """
         for key, value in dict.items():
 
             # check if attribute exists
@@ -127,7 +149,9 @@ class JITConfig():
             setattr(self, key, value)
 
     def __repr__(self) -> str:
-        repr = ""
+        repr = f'<{self.__class__.__name__}, \n'
         for key, value in self.__dict__.items():
-            repr += f'{key}: {value} \n'
+            repr += f'{key}={value} \n'
+
+        repr += f'>'
         return repr

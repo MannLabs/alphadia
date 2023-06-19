@@ -71,7 +71,7 @@ class Calibration():
         self.input_columns = input_columns
         self.target_columns = target_columns
         self.output_columns = output_columns
-        self.transform_deviation = transform_deviation
+        self.transform_deviation = float(transform_deviation) if transform_deviation is not None else None
         self.is_fitted = False
 
     def __repr__(self) -> str:
@@ -466,32 +466,33 @@ class CalibrationManager():
 
         Create a calibration manager with a single group and a single estimator:
 
-        ```python
-        calibration_manager = calibration.CalibrationManager()
-        calibration_manager.load_config([{
-            'name': 'mz_calibration',
-            'estimators': [
-                {
-                    'name': 'mz',
-                    'model': 'LOESSRegression',
-                    'model_args': {
-                        'n_kernels': 2
+        .. code-block:: python
+
+            calibration_manager = calibration.CalibrationManager()
+            calibration_manager.load_config([{
+                'name': 'mz_calibration',
+                'estimators': [
+                    {
+                        'name': 'mz',
+                        'model': 'LOESSRegression',
+                        'model_args': {
+                            'n_kernels': 2
+                        },
+                        'input_columns': ['mz_library'],
+                        'target_columns': ['mz_observed'],
+                        'output_columns': ['mz_calibrated'],
+                        'transform_deviation': 1e6
                     },
-                    'input_columns': ['mz_library'],
-                    'target_columns': ['mz_observed'],
-                    'output_columns': ['mz_calibrated'],
-                    'transform_deviation': 1e6
-                },
-                
-            ]
-        }])
-
-        ```
+                    
+                ]
+            }])
+        
         """
-
+        logging.info('========= Calibration Manager =========')
+        logging.info('loading calibration config')
         logging.info(f'found {len(config)} calibration groups')
         for group in config:
-            logging.info(f'({group["name"]}) found {len(group["estimators"])} estimator(s)')
+            logging.info(f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)')
             for estimator in group['estimators']:
                 try:
                     template = calibration_model_provider.get_model(estimator['model'])
@@ -503,6 +504,8 @@ class CalibrationManager():
             group_copy = {'name': group['name']} 
             group_copy['estimators'] = [Calibration(**x) for x in group['estimators']]
             self.estimator_groups.append(group_copy)
+
+        logging.info('======================================')
 
     def save(self, file_name: str):
         """Save the calibration manager state to pickle file.
@@ -545,7 +548,7 @@ class CalibrationManager():
         return [x['name'] for x in self.estimator_groups]
 
     def get_group(self, group_name : str):
-        """
+        """Get the calibration group by name.
 
         Parameters
         ----------

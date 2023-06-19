@@ -2,6 +2,10 @@ Modules
 ========
 
 .. toctree::
-   :maxdepth: 1
+    :maxdepth: 1
 
-   extraction/calibration
+    extraction/calibration
+    extraction/data
+    extraction/quadrupole
+    extraction/scoring
+    extraction/config

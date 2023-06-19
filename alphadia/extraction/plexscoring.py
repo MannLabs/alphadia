@@ -1,4 +1,4 @@
-from alphadia.extraction import validate, utils, features, plotting, quadrupole
+from alphadia.extraction import validate, utils, features, plotting, quadrupole, data
 from alphadia.extraction.numba import fragments
 
 import alphatims.utils
@@ -64,8 +64,11 @@ def assemble_fragments(fragments_flat, fragment_mz_column='mz_calibrated'):
 
 from alphadia.extraction.numba import config
 
+
+
 @nb.experimental.jitclass()
 class CandidateConfigJIT:
+    
      
     score_grouped: nb.boolean
     max_cardinality: nb.uint8
@@ -87,6 +90,11 @@ class CandidateConfigJIT:
             precursor_mz_tolerance: nb.float32,
             fragment_mz_tolerance: nb.float32
         ) -> None:
+        """Numba JIT compatible config object for CandidateScoring.
+        Will be emitted when `CandidateConfig.jitclass()` is called.
+
+        Please refer to :class:`.alphadia.extraction.plexscoring.CandidateConfig` for documentation.
+        """
 
         self.score_grouped = score_grouped
         self.max_cardinality = max_cardinality
@@ -100,20 +108,100 @@ class CandidateConfigJIT:
 candidate_config_type = CandidateConfigJIT.class_type.instance_type
 
 class CandidateConfig(config.JITConfig):
-
-    jit_container = CandidateConfigJIT
+    """Config object for CandidateScoring."""
 
     def __init__(self):
-        self.score_grouped = True
+        """Create default config for CandidateScoring"""
+        self.score_grouped = False
         self.max_cardinality = 10
         self.top_k_fragments = 16
         self.top_k_isotopes = 4
-        self.reference_channel = 0
-
+        self.reference_channel = -1
         self.precursor_mz_tolerance = 10
         self.fragment_mz_tolerance = 15
+
+    @property
+    def jit_container(self):
+        """The numba jitclass for this config object."""
+        return CandidateConfigJIT
+
+    @property
+    def score_grouped(self) -> bool:
+        """When multiplexing is used, some grouped features are calculated taking into account all channels. 
+        Default: `score_grouped = False`"""
+        return self._score_groupe
+    
+    @score_grouped.setter
+    def score_grouped(self, value):
+        self._score_groupe = value
+
+    @property
+    def max_cardinality(self) -> int:
+        """When multiplexing is used, some fragments are shared for the same peptide with different labels.
+        This setting removes fragments who are shared by more than max_cardinality precursors. 
+        Default: `max_cardinality = 10`"""
+        return self._max_cardinality
+    
+    @max_cardinality.setter
+    def max_cardinality(self, value):
+        self._max_cardinality = value
+
+    @property
+    def top_k_fragments(self) -> int:
+        """The number of fragments to consider for scoring. The top_k_fragments most intense fragments are used. 
+        Default: `top_k_fragments = 16`"""
+        return self._top_k_fragments
+    
+    @top_k_fragments.setter
+    def top_k_fragments(self, value):
+        self._top_k_fragments = value
+
+    @property
+    def top_k_isotopes(self) -> int:
+        """The number of precursor isotopes to consider for scoring. The first top_k_isotopes most intense isotopes are used. 
+        Default: `top_k_isotopes = 4`"""
+        return self._top_k_isotopes
+    
+    @top_k_isotopes.setter
+    def top_k_isotopes(self, value):
+        self._top_k_isotopes = value
+
+    @property
+    def reference_channel(self) -> int:
+        """When multiplexing is being used, a reference channel can be defined for calculating reference channel deopendent features.
+        The channel information is used as defined in the `channel` column in the precursor dataframe. If set to -1, no reference channel is used. 
+        Default: `reference_channel = -1`"""
+        return self._reference_channel
+    
+    @reference_channel.setter
+    def reference_channel(self, value):
+        self._reference_channel = value
+        
+    @property
+    def precursor_mz_tolerance(self) -> float:
+        """The precursor m/z tolerance in ppm.
+        Default: `precursor_mz_tolerance = 10`"""
+        return self._precursor_mz_tolerance
+    
+    @precursor_mz_tolerance.setter
+    def precursor_mz_tolerance(self, value):
+        self._precursor_mz_tolerance = value
+
+    @property
+    def fragment_mz_tolerance(self) -> float:
+        """The fragment m/z tolerance in ppm.
+        Default: `fragment_mz_tolerance = 15`"""
+        return self._fragment_mz_tolerance
+    
+    @fragment_mz_tolerance.setter
+    def fragment_mz_tolerance(self, value):
+        self._fragment_mz_tolerance = value
     
     def validate(self):
+        """Validate all properties of the config object.
+        Should be called whenever a property is changed."""
+
+        assert isinstance(self.score_grouped, bool), 'score_grouped must be a boolean'
         assert self.max_cardinality > 0, 'max_cardinality must be greater than 0'
         assert self.top_k_fragments > 0, 'top_k_fragments must be greater than 0'
         assert self.top_k_isotopes > 0, 'top_k_isotopes must be greater than 0'
@@ -775,3 +863,209 @@ def _executor(
         debug
     )
 
+class CandidateScoring():
+    """Calculate features for each precursor candidate used in scoring."""
+    def __init__(self, 
+                dia_data : data.TimsTOFTransposeJIT,
+                precursors_flat : pd.DataFrame,
+                fragments_flat : pd.DataFrame,
+                quadrupole_calibration : quadrupole.SimpleQuadrupole = None,
+                config : CandidateConfig = None,
+                rt_column : str = 'rt_library',
+                mobility_column : str = 'mobility_library',
+                precursor_mz_column : str = 'mz_library',
+                fragment_mz_column : str = 'mz_library'
+                ):
+        
+        """Iterate over a list of candidates and calculate features for each candidate.
+        The features can then be used for scoring, calibration and quantification.
+
+        Parameters
+        ----------
+
+        dia_data : data.TimsTOFTransposeJIT
+            The raw mass spec data as a TimsTOFTransposeJIT object.
+
+        precursors_flat : pd.DataFrame
+            A DataFrame containing precursor information. 
+            The DataFrame will be validated by using the `alphadia.extraction.validate.precursors_flat` schema.
+
+        fragments_flat : pd.DataFrame
+            A DataFrame containing fragment information.
+            The DataFrame will be validated by using the `alphadia.extraction.validate.fragments_flat` schema.
+
+        quadrupole_calibration : quadrupole.SimpleQuadrupole, default=None
+            An object containing the quadrupole calibration information.
+            If None, an uncalibrated quadrupole will be used.
+            The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
+
+        config : CandidateConfig, default = None
+            A Numba jit compatible object containing the configuration for the candidate scoring.
+            If None, the default configuration will be used.
+
+        rt_column : str, default='rt_library'
+            The name of the column in `precursors_flat` containing the RT information.
+            This property needs to be changed to `rt_calibrated` if the data has been calibrated.
+
+        mobility_column : str, default='mobility_library'
+            The name of the column in `precursors_flat` containing the mobility information.
+            This property needs to be changed to `mobility_calibrated` if the data has been calibrated.
+
+        precursor_mz_column : str, default='mz_library'
+            The name of the column in `precursors_flat` containing the precursor m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
+
+        fragment_mz_column : str, default='mz_library'
+            The name of the column in `fragments_flat` containing the fragment m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
+        """
+        
+        self._dia_data = dia_data
+        self.precursors_flat = precursors_flat
+        
+        # validate fragments_flat
+        validate.fragments_flat(fragments_flat)
+        self.fragments_flat = fragments_flat
+
+        # check if a valid quadrupole calibration is provided
+        if quadrupole_calibration is None:
+            self.quadrupole_calibration = quadrupole.SimpleQuadrupole(dia_data.cycle)
+        else:
+            self.quadrupole_calibration = quadrupole_calibration
+
+        # check if a valid config is provided
+        if config is None:
+            self.config = CandidateConfig()
+        else:
+            self.config = config
+
+        self.rt_column = rt_column
+        self.mobility_column = mobility_column
+        self.precursor_mz_column = precursor_mz_column
+        self.fragment_mz_column = fragment_mz_column
+
+    @property
+    def dia_data(self):
+        """Get the raw mass spec data as a TimsTOFTransposeJIT object."""
+        return self._dia_data
+
+    @property
+    def precursors_flat_df(self):
+        """Get the DataFrame containing precursor information."""
+        return self._precursors_flat
+    
+    @precursors_flat_df.setter
+    def precursors_flat_df(self, precursors_flat):
+        validate.precursors_flat(precursors_flat)
+        self._precursors_flat = precursors_flat.sort_values(by='precursor_idx')
+    
+    @property
+    def fragments_flat_df(self):
+        """Get the DataFrame containing fragment information."""
+        return self._fragments_flat
+    
+    @fragments_flat_df.setter
+    def fragments_flat_df(self, fragments_flat):
+        validate.fragments_flat(fragments_flat)
+        self._fragments_flat = fragments_flat
+
+    @property
+    def quadrupole_calibration(self):
+        """Get the quadrupole calibration object."""
+        return self._quadrupole_calibration
+    
+    @quadrupole_calibration.setter
+    def quadrupole_calibration(self, quadrupole_calibration):
+        if not hasattr(quadrupole_calibration, 'jit'):
+            raise AttributeError('quadrupole_calibration must have a jit method')
+        self._quadrupole_calibration = quadrupole_calibration
+
+    @property
+    def config(self):
+        """Get the configuration object."""
+        return self._config
+    
+    @config.setter
+    def config(self, config):
+        config.validate()
+        self._config = config
+
+    def assemble_score_group_container(self, candidates_df):
+
+        if not 'rank' in candidates_df.columns:
+            candidates_df['rank'] = np.zeros(len(candidates_df), dtype=np.in64)
+
+        candidates_df = utils.calculate_score_groups(
+            candidates_df, 
+            group_channels=self.config.score_grouped
+            )
+
+        score_group_container = ScoreGroupContainer()
+        score_group_container.build_from_df(
+            candidates_df['elution_group_idx'].values.astype(np.uint32),
+            candidates_df['score_group_idx'].values.astype(np.uint32),
+            candidates_df['precursor_idx'].values.astype(np.uint32),
+            candidates_df['channel'].values.astype(np.uint8),
+            candidates_df['flat_frag_start_idx'].values.astype(np.uint32),
+            candidates_df['flat_frag_stop_idx'].values.astype(np.uint32),
+
+            candidates_df['scan_start'].values,
+            candidates_df['scan_stop'].values,
+            candidates_df['scan_center'].values,
+            candidates_df['frame_start'].values,
+            candidates_df['frame_stop'].values,
+            candidates_df['frame_center'].values,
+
+            candidates_df['charge'].values,
+            candidates_df['mz_calibrated'].values.astype(np.float32),
+            candidates_df[utils.get_isotope_column_names(candidates_df.columns)].values.astype(np.float32),
+        )
+
+        return score_group_container
+
+    def assemble_fragments(self):
+            
+        # set cardinality to 1 if not present
+        if 'cardinality' in self.fragments_flat.columns:
+            pass
+        
+        else:
+            logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
+            self.fragments_flat['cardinality'] = np.ones(len(self.fragments_flat), dtype=np.uint8)
+        
+        # validate dataframe schema and prepare jitclass compatible dtypes
+        validate.fragments_flat(self.fragments_flat)
+
+        return fragments.FragmentContainer(
+            self.fragments_flat['mz_library'].values,
+            self.fragments_flat[self.fragment_mz_column].values,
+            self.fragments_flat['intensity'].values,
+            self.fragments_flat['type'].values,
+            self.fragments_flat['loss_type'].values,
+            self.fragments_flat['charge'].values,
+            self.fragments_flat['number'].values,
+            self.fragments_flat['position'].values,
+            self.fragments_flat['cardinality'].values
+        )
+
+    def __call__(self, candidates_df, thread_count=1, debug=False):
+
+        score_group_container = self.assemble_score_group_container(candidates_df)
+        fragment_container = self.assemble_fragments()
+
+        # if debug mode, only iterate over 10 elution groups
+        iterator_len = min(10,len(candidates_df)) if debug else len(candidates_df)
+        thread_count = 1 if debug else thread_count
+
+        alphatims.utils.set_threads(thread_count)
+        _executor(
+            range(iterator_len), 
+            score_group_container,
+            fragment_container,
+            self.dia_data,
+            self.config.jitclass(),
+            self.quadrupole_calibration.jit,
+            debug
+        )
+
+        return score_group_container

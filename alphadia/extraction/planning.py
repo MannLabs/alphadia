@@ -16,7 +16,7 @@ if not 'progress' in dir(logger):
 
 # alphadia imports
 from alphadia.extraction import data
-from alphadia.extraction.calibration import RunCalibration
+from alphadia.extraction.calibration import CalibrationManager
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
 from alphadia.extraction.quadrupole import SimpleQuadrupole
@@ -504,6 +504,27 @@ class Workflow:
         else:
             self.run = None
 
+        self.calibration_manager = CalibrationManager()
+        self.calibration_manager.load_config(self.config['calibration'])
+
+        # initialize the progress dict
+        self.progress = {
+            'current_epoch': 0,
+            'current_step': 0,
+            'ms1_error': self.config['extraction']['initial_ms1_tolerance'],
+            'ms2_error': self.config['extraction']['initial_ms2_tolerance'],
+            'rt_error': self.config['extraction']['initial_rt_tolerance'],
+            'mobility_error': self.config['extraction']['initial_mobility_tolerance'],
+            'column_type': 'library',
+            'num_candidates': self.config['extraction']['initial_num_candidates'],
+            'recalibration_target': self.config['extraction']['recalibration_target'],
+            'accumulated_precursors': 0,
+            'accumulated_precursors_0.01FDR': 0,
+            'accumulated_precursors_0.001FDR': 0,
+            'fwhm_rt': 5,
+            'fwhm_mobility': 0.015
+        }
+
     @property
     def config(
             self
@@ -546,27 +567,9 @@ class Workflow:
 
     def start_of_calibration(self):
 
-        self.calibration_manager = RunCalibration()
-        self.calibration_manager.load_config(self.config)
         self.batch_plan = self.get_batch_plan()
 
-        # initialize the progress dict
-        self.progress = {
-            'current_epoch': 0,
-            'current_step': 0,
-            'ms1_error': self.config['extraction']['initial_ms1_tolerance'],
-            'ms2_error': self.config['extraction']['initial_ms2_tolerance'],
-            'rt_error': self.config['extraction']['initial_rt_tolerance'],
-            'mobility_error': self.config['extraction']['initial_mobility_tolerance'],
-            'column_type': 'library',
-            'num_candidates': self.config['extraction']['initial_num_candidates'],
-            'recalibration_target': self.config['extraction']['recalibration_target'],
-            'accumulated_precursors': 0,
-            'accumulated_precursors_0.01FDR': 0,
-            'accumulated_precursors_0.001FDR': 0,
-            'fwhm_rt': 5,
-            'fwhm_mobility': 0.015
-        }
+        
 
     def start_of_epoch(self, current_epoch):
         self.progress['current_epoch'] = current_epoch
@@ -685,12 +688,12 @@ class Workflow:
             neptune_run = self.run
         )
 
-        m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)[0]
-        m1_99 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.95)[0]
-        rt_70 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.70)[0]
-        rt_99 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.95)[0]
-        mobility_70 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.70)[0]
-        mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)[0]
+        m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)
+        m1_99 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.95)
+        rt_70 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.70)
+        rt_99 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.95)
+        mobility_70 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.70)
+        mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)
 
         #top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
         median_precursor_intensity = precursor_df_filtered['sum_precursor_intensity'].median()
@@ -707,8 +710,8 @@ class Workflow:
             neptune_run = self.run
         )
 
-        m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)[0]
-        m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.95)[0]
+        m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)
+        m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.95)
 
         self.progress["ms1_error"] = max(m1_99, self.config['extraction']['target_ms1_tolerance'])
         self.progress["ms2_error"] = max(m2_99, self.config['extraction']['target_ms2_tolerance'])
@@ -807,6 +810,14 @@ class Workflow:
                 self.run[f"eval/{key}"].log(value)
 
         self.progress["num_candidates"] = self.config['extraction']['target_num_candidates']
+        self.progress["ms1_error"] = self.config['extraction']['target_ms1_tolerance']
+        self.progress["ms2_error"] = self.config['extraction']['target_ms2_tolerance']
+        self.progress["rt_error"] = self.config['extraction']['target_rt_tolerance']
+        self.progress["mobility_error"] = self.config['extraction']['target_mobility_tolerance']
+        self.progress["column_type"] = 'calibrated'
+
+        self.calibration_manager.predict(self.precursors_flat, 'precursor')
+        self.calibration_manager.predict(self.fragments_flat, 'fragment')
 
         features_df, fragments_df = self.extract_batch(self.precursors_flat)
         #features_df = features_df[features_df['fragment_coverage'] > 0.1]

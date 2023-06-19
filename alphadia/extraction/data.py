@@ -22,6 +22,7 @@ from numba.typed import Dict
 from numba.experimental import jitclass
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
+    """Transposed TimsTOF data structure."""
     def __init__(self, 
             bruker_d_folder_name: str,
             *,
@@ -158,7 +159,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             self._push_indices,
             self._tof_indptr
         )
-
 @jitclass([('accumulation_times', types.float64[:]),
             ('cycle', types.float64[:, :, :, ::1]),
             ('dia_mz_cycle', types.float64[:, ::1]),
@@ -193,6 +193,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         ])
 
 class TimsTOFTransposeJIT(object):
+    """Numba compatible transposed TimsTOF data structure."""
     def __init__(
             self, 
             accumulation_times: types.float64[::1],
@@ -226,6 +227,15 @@ class TimsTOFTransposeJIT(object):
             push_indices: types.uint32[::1],
             tof_indptr: types.int64[::1],
         ):
+        """Numba compatible transposed TimsTOF data structure.
+
+        Parameters
+        ----------
+
+        accumulation_times : np.ndarray, shape = (n_frames,), dtype = float64
+            array of accumulation times
+        
+        """
 
         
 

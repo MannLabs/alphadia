@@ -18,13 +18,42 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from scipy.optimize import curve_fit
 
 @alphatims.utils.njit
-def logistic(x, mu, sigma):
+def logistic(
+    x : np.array, 
+    mu : float, 
+    sigma : float):
+    """Numba implementation of the logistic function
+
+    Parameters
+    ----------
+
+    x : np.array
+        Input array of shape `(n_samples,)`
+
+    mu : float
+        Mean of the logistic function
+
+    sigma : float
+        Standard deviation of the logistic function
+
+    Returns
+    -------
+
+    np.array
+        Logistic function evaluated for every element in x of shape `(n_samples,)`
+    
+    """
     a = (x-mu)/sigma
     y = 1/(1+np.exp(-a))
     return y
 
 @alphatims.utils.njit
-def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
+def logistic_rectangle(
+    mu1, 
+    mu2,
+    sigma1, 
+    sigma2, 
+    x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y
 
