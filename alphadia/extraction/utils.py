@@ -1153,11 +1153,13 @@ def calculate_score_groups(
 
     ):
     """
-    Calculate score based on elution group and decoy status.
-    Score groups are used both on the candidate selection and on the scoring level.
+    Calculate score groups for DIA multiplexing.
 
     On the candidate selection level, score groups are used to group ions across channels.
     On the scoring level, score groups are used to group channels of the same precursor and rank together.
+
+    This function makes sure that all precursors within a score group have the same `elution_group_idx`, `decoy` status and `rank` if available.
+    If `group_channels` is True, different channels of the same precursor will be grouped together.   
 
     Parameters
     ----------
@@ -1173,6 +1175,52 @@ def calculate_score_groups(
 
     score_groups : pandas.DataFrame
         Updated precursor dataframe with score_group_idx column.
+
+    Example
+    -------
+
+    A precursor with the same `elution_group_idx` might be grouped with other precursors if only the `channel` is different.
+    Different `rank` and `decoy` status will always lead to different score groups.
+
+    .. list-table::
+        :widths: 25 25 25 25 25 25
+        :header-rows: 1
+
+        * - elution_group_idx
+          - rank
+          - decoy
+          - channel
+          - group_channels = False
+          - group_channels = True
+
+        * - 0
+          - 0
+          - 0
+          - 0
+          - 0
+          - 0
+
+        * - 0
+          - 0
+          - 0
+          - 4
+          - 1
+          - 0
+
+        * - 0
+          - 1
+          - 0
+          - 0
+          - 2
+          - 1
+
+        * - 0
+          - 1
+          - 1
+          - 0
+          - 3
+          - 2
+          
     """
 
     @nb.njit
@@ -1233,7 +1281,7 @@ def calculate_score_groups(
             input_df['elution_group_idx'].values, 
             input_df['decoy'].values,
             rank_values
-            )
+        )
     else:
         input_df['score_group_idx'] = np.arange(len(input_df), dtype=np.uint32)
 

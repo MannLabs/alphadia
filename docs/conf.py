@@ -29,6 +29,7 @@ extensions = [
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+napoleon_custom_sections = ['Schema']
 
 
 # -- Options for HTML output -------------------------------------------------
@@ -47,3 +48,4 @@ autodoc_default_options = {
     'autosummary': True,
     'special-members': '__init__',  # Include __init__ methods.
 }
+

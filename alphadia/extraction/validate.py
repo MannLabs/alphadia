@@ -5,6 +5,7 @@ import numpy as np
 logger = logging.getLogger()
 
 class Property():
+    """Column property base class"""
     def __init__(self, name, type):
         """
         Base class for all properties
@@ -23,6 +24,7 @@ class Property():
         self.type = type
 
 class Optional(Property):
+    """Optional property"""
     def __init__(self, name, type):
         """
         Optional property
@@ -62,6 +64,7 @@ class Optional(Property):
         return True
 
 class Required(Property):
+    """Required property"""
     def __init__(self, name, type):
         """
         Required property
@@ -142,9 +145,38 @@ class Schema():
         for property in self.schema:
             if not property(df, logging = logging):
                 raise ValueError(f"Validation of {self.name} failed: Column {property.name} is not present in the dataframe")
-
             
-precursors_flat = Schema(
+    def docstring(self) -> str:
+        """Automatically generate a docstring for the schema.
+
+        Returns
+        -------
+        str
+            Docstring for the schema
+        """
+
+        docstring = f"""
+    Schema
+    ------
+
+    .. list-table::
+        :widths: 1 1 1
+        :header-rows: 1
+
+        * - Name 
+          - Required
+          - Type
+"""
+        for property in self.schema:
+            emphasis = "**" if isinstance(property, Required) else ""
+            docstring += f"""
+        * - {property.name}
+          - {emphasis}{property.__class__.__name__}{emphasis}
+          - {property.type.__name__}
+        """
+        return docstring
+
+precursors_flat_schema = Schema(
     "precursors_flat",
     [
         Required('elution_group_idx', np.uint32),
@@ -165,7 +197,30 @@ precursors_flat = Schema(
     ]
 )
 
-fragments_flat = Schema(
+def precursors_flat(df : pd.DataFrame, logging : bool = True):
+    """Validate flat precursor dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Precursor dataframe
+
+    logging : bool, optional
+        If True, log the validation results, by default True
+
+    Raises
+    ------
+
+    ValueError
+        If validation fails
+
+    """
+
+    precursors_flat_schema(df, logging = logging)
+
+precursors_flat.__doc__ += precursors_flat_schema.docstring()
+
+fragments_flat_schema = Schema(
     "fragments_flat",
     [
         Required('mz_library', np.float32),
@@ -180,7 +235,30 @@ fragments_flat = Schema(
     ]
 )
 
-candidates = Schema(
+def fragments_flat(df : pd.DataFrame, logging : bool = True):
+    """Validate flat fragment dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Fragment dataframe
+
+    logging : bool, optional
+        If True, log the validation results, by default True
+
+    Raises
+    ------
+
+    ValueError
+        If validation fails
+
+    """
+
+    fragments_flat_schema(df, logging = logging)
+
+fragments_flat.__doc__ += fragments_flat_schema.docstring()
+
+candidates_schema = Schema(
     "precursors_flat",
     [
         Required('elution_group_idx', np.uint32),
@@ -197,9 +275,34 @@ candidates = Schema(
         Required('frame_start', np.int64),
         Required('frame_stop', np.int64),
         Required('frame_center', np.int64),
+        Optional('mz_library', np.float32),
+        Optional('mz_calibrated', np.float32),
+        *[Optional(f'i_{i}', np.float32) for i in range(10)]
     ]
 )
 
+def candidates(df : pd.DataFrame, logging : bool = True):
+    """Validate candidate dataframe
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Candidate dataframe
+
+    logging : bool, optional
+        If True, log the validation results, by default True
+
+    Raises
+    ------
+
+    ValueError
+        If validation fails
+
+    """
+
+    candidates_schema(df, logging = logging)
+
+candidates.__doc__ += candidates_schema.docstring()
 
 def check_critical_values(input_df):
 

@@ -685,9 +685,7 @@ score_group_type = ScoreGroup.class_type.instance_type
 
 @nb.experimental.jitclass()
 class ScoreGroupContainer:
-        
-        """
-        Container for managing the scoring of precursors with defined boundaries.
+        """Container for managing the scoring of precursors with defined boundaries.
 
         The `ScoreGroupContainer` contains all precursors that are to be scored.
         It consists of a list of `ScoreGroup` objects, which in turn contain a list of `Candidate` objects.
@@ -696,19 +694,19 @@ class ScoreGroupContainer:
         For multi channel experiments, each `ScoreGroup` contains a `Candidate` object for each channel, including decoy channels.
 
         Structure:
-        ```
-        ScoreGroupContainer
-            ScoreGroup
-                Candidate
-                Candidate
-                Candidate
-                Candidate
-            ScoreGroup
-                Candidate
-                Candidate
-                Candidate
-                Candidate
-        ```
+        .. code-block:: none
+
+            ScoreGroupContainer
+                ScoreGroup
+                    Candidate
+                    Candidate
+                    Candidate
+                    Candidate
+                ScoreGroup
+                    Candidate
+                    Candidate
+                    Candidate
+                    Candidate
 
         The `ScoreGroupContainer` is initialized by passing the validated columns of a candidate dataframe to the `build_from_df` method.
 
@@ -719,6 +717,13 @@ class ScoreGroupContainer:
         score_groups : nb.types.ListType(score_group_type)
             List of score groups.
 
+        Methods
+        -------
+
+        __getitem__(self, idx: int): 
+            Get a score group by index.
+
+
         """
     
         score_groups: nb.types.ListType(score_group_type)
@@ -726,23 +731,19 @@ class ScoreGroupContainer:
         def __init__(
                 self,
             ) -> None:
-
-            """
-            Initialize the `ScoreGroupContainer` object without any score groups.
+            """Initialize the `ScoreGroupContainer` object without any score groups.
             """
 
             self.score_groups = nb.typed.List.empty_list(score_group_type)
 
         def __getitem__(self, idx):
-            """
-            Get a score group by index.
+            """Get a score group by index.
             """
 
             return self.score_groups[idx]
 
         def __len__(self):
-            """
-            Get the number of score groups.
+            """Get the number of score groups.
             """
             return len(self.score_groups)
         
@@ -766,9 +767,7 @@ class ScoreGroupContainer:
             precursor_mz : nb.float32,
             precursor_isotopes : nb.float32[:,::1]
         ):
-            
-            """
-            Build the `ScoreGroupContainer` from a candidate dataframe.
+            """Build the `ScoreGroupContainer` from a candidate dataframe.
             All relevant columns of the candidate dataframe are passed to this method as numpy arrays.
 
             Note
@@ -779,6 +778,12 @@ class ScoreGroupContainer:
 
             Parameters
             ----------
+
+            elution_group_idx : nb.uint32
+                The elution group index of each precursor candidate.
+
+            score_group_idx : nb.uint32
+                The score group index of each precursor candidate.
 
             """
             idx = 0
@@ -838,7 +843,8 @@ class ScoreGroupContainer:
                     yield score_group.elution_group_idx, score_group.score_group_idx, candidate.precursor_idx, candidate.channel
 
         
-        
+ScoreGroupContainer.__module__ = 'alphatims.extraction.plexscoring'
+
 @alphatims.utils.pjit()
 def _executor(
         i,
@@ -877,7 +883,7 @@ class CandidateScoring():
                 fragment_mz_column : str = 'mz_library'
                 ):
         
-        """Iterate over a list of candidates and calculate features for each candidate.
+        """Initialize candidate scoring step.
         The features can then be used for scoring, calibration and quantification.
 
         Parameters
@@ -990,7 +996,32 @@ class CandidateScoring():
         config.validate()
         self._config = config
 
-    def assemble_score_group_container(self, candidates_df):
+    def assemble_score_group_container(
+        self, 
+        candidates_df : pd.DataFrame
+        ) -> ScoreGroupContainer:
+        """Assemble the Numba JIT compatible score group container from a candidate dataframe.
+
+        If not present, the `rank` column will be added to the candidate dataframe.
+        Then score groups are calculated using :func:`.calculate_score_groups` function.
+        If configured in :attr:`.CandidateConfig.score_grouped`, all channels will be grouped into a single score group.
+        Otherwise, each channel will be scored separately.
+
+        The candidate dataframe is validated using the :func:`.validate.candidates` schema.
+        
+        Parameters
+        ----------
+        
+        candidates_df : pd.DataFrame
+            A DataFrame containing the candidates.
+
+        Returns
+        -------
+
+        score_group_container : ScoreGroupContainer
+            A Numba JIT compatible score group container.
+        
+        """
 
         if not 'rank' in candidates_df.columns:
             candidates_df['rank'] = np.zeros(len(candidates_df), dtype=np.in64)
@@ -998,16 +1029,19 @@ class CandidateScoring():
         candidates_df = utils.calculate_score_groups(
             candidates_df, 
             group_channels=self.config.score_grouped
-            )
+        )
+
+        # validate dataframe schema and prepare jitclass compatible dtypes
+        validate.candidates(candidates_df)
 
         score_group_container = ScoreGroupContainer()
         score_group_container.build_from_df(
-            candidates_df['elution_group_idx'].values.astype(np.uint32),
-            candidates_df['score_group_idx'].values.astype(np.uint32),
-            candidates_df['precursor_idx'].values.astype(np.uint32),
-            candidates_df['channel'].values.astype(np.uint8),
-            candidates_df['flat_frag_start_idx'].values.astype(np.uint32),
-            candidates_df['flat_frag_stop_idx'].values.astype(np.uint32),
+            candidates_df['elution_group_idx'].values,
+            candidates_df['score_group_idx'].values,
+            candidates_df['precursor_idx'].values,
+            candidates_df['channel'].values,
+            candidates_df['flat_frag_start_idx'].values,
+            candidates_df['flat_frag_stop_idx'].values,
 
             candidates_df['scan_start'].values,
             candidates_df['scan_stop'].values,
@@ -1017,14 +1051,25 @@ class CandidateScoring():
             candidates_df['frame_center'].values,
 
             candidates_df['charge'].values,
-            candidates_df['mz_calibrated'].values.astype(np.float32),
-            candidates_df[utils.get_isotope_column_names(candidates_df.columns)].values.astype(np.float32),
+            candidates_df[self.precursor_mz_column].values,
+            candidates_df[utils.get_isotope_column_names(candidates_df.columns)].values,
         )
 
         return score_group_container
 
-    def assemble_fragments(self):
-            
+    def assemble_fragments(self) -> fragments.FragmentContainer:
+        """Assemble the Numba JIT compatible fragment container from a fragment dataframe.
+
+        If not present, the `cardinality` column will be added to the fragment dataframe and set to 1.
+        Then the fragment dataframe is validated using the :func:`.validate.fragments_flat` schema.
+
+        Returns
+        -------
+
+        fragment_container : fragments.FragmentContainer
+            A Numba JIT compatible fragment container.
+        """
+
         # set cardinality to 1 if not present
         if 'cardinality' in self.fragments_flat.columns:
             pass

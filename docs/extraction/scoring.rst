@@ -10,3 +10,7 @@ The data module provides classes which handle the raw data storage and access.
 
 .. autoclass:: alphadia.extraction.plexscoring.CandidateConfigJIT
     :autosummary:
+
+.. autoclass:: alphadia.extraction.plexscoring.ScoreGroupContainer
+    :autosummary:
+    :undoc-members:
