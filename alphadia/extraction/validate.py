@@ -180,7 +180,7 @@ precursors_flat_schema = Schema(
     "precursors_flat",
     [
         Required('elution_group_idx', np.uint32),
-        Required('score_group_idx', np.uint32),
+        Optional('score_group_idx', np.uint32),
         Required('precursor_idx', np.uint32),
         Required('channel', np.uint32),
         Required('decoy', np.uint8),
@@ -259,7 +259,7 @@ def fragments_flat(df : pd.DataFrame, logging : bool = True):
 fragments_flat.__doc__ += fragments_flat_schema.docstring()
 
 candidates_schema = Schema(
-    "precursors_flat",
+    "candidates",
     [
         Required('elution_group_idx', np.uint32),
         Optional('score_group_idx', np.uint32),

@@ -226,6 +226,7 @@ class Candidate:
     # input columns
     precursor_idx: nb.uint32
     channel: nb.uint8
+    rank: nb.uint8
 
     frag_start_idx: nb.uint32
     frag_stop_idx: nb.uint32
@@ -265,6 +266,7 @@ class Candidate:
             self,
             precursor_idx: nb.uint32,
             channel: nb.uint8,
+            rank: nb.uint8,
 
             frag_start_idx: nb.uint32,
             frag_stop_idx: nb.uint32,
@@ -283,6 +285,7 @@ class Candidate:
 
         self.precursor_idx = precursor_idx
         self.channel = channel
+        self.rank = rank
 
         self.frag_start_idx = frag_start_idx
         self.frag_stop_idx = frag_stop_idx
@@ -753,6 +756,8 @@ class ScoreGroupContainer:
             score_group_idx : nb.uint32,
             precursor_idx : nb.uint32,
             channel : nb.uint8,
+            rank : nb.uint8,
+
             flat_frag_start_idx : nb.uint32,
             flat_frag_stop_idx : nb.uint32,
 
@@ -811,6 +816,8 @@ class ScoreGroupContainer:
                 self.score_groups[-1].candidates.append(Candidate(
                     precursor_idx[idx],
                     channel[idx],
+                    rank[idx],
+
                     flat_frag_start_idx[idx],
                     flat_frag_stop_idx[idx],
 
@@ -835,13 +842,117 @@ class ScoreGroupContainer:
                 current_precursor_idx = precursor_idx[idx]
                 idx += 1
 
-        def collect_to_df(
-            self,
-        ):
-            for score_group in self.score_groups:
-                for candidate in score_group.candidates:
-                    yield score_group.elution_group_idx, score_group.score_group_idx, candidate.precursor_idx, candidate.channel
+        def get_feature_columns(self):
+            """Iterate all score groups and candidates and return a list of all feature names
 
+            Is based on the assumption that each set of features has a distinct length.
+
+            Parameters
+            ----------
+
+            score_group_continer : list
+                List of score groups
+
+            Returns
+            -------
+
+            list
+                List of feature names
+            
+            """
+
+            known_feature_lengths = [0]
+            known_feature_lengths.clear()
+            known_columns = ['']
+            known_columns.clear()
+
+            for i in range(len(self)):
+                for j in range(len(self[i].candidates)):
+                    candidate = self[i].candidates[j]
+                    if len(candidate.features) not in known_feature_lengths:
+                        known_feature_lengths += [len(candidate.features)]
+                        # add all new features to the list of known columns
+                        for key in candidate.features.keys():
+                            if key not in known_columns:
+                                known_columns += [key]
+            return known_columns
+
+        def get_candidate_count(self):
+            """Iterate all score groups and candidates and return the total number of candidates
+
+            Parameters
+            ----------
+
+            score_group_continer : list
+                List of score groups
+
+
+            Returns
+            -------
+
+            int
+            
+            """
+
+            candidate_count = 0
+            for i in range(len(self)):
+                candidate_count += len(self[i].candidates)
+            return candidate_count
+
+        def assemble_features(self):
+            """Iterate all score groups and candidates and return a numpy array of all features
+
+            Parameters
+            ----------
+
+            score_group_continer : list
+                List of score groups
+
+            Returns
+            -------
+
+            np.array
+                Array of features
+
+            np.array
+                Array of precursor indices
+
+            list
+                List of feature names
+            
+            """
+
+            feature_columns = self.get_feature_columns()
+            candidate_count = self.get_candidate_count()
+
+            feature_array = np.empty((candidate_count, len(feature_columns)), dtype=np.float32)
+            feature_array[:] = np.nan
+
+            precursor_idx_array = np.empty(candidate_count, dtype=np.uint32)
+            precursor_idx_array[:] = np.nan
+
+            rank_array = np.empty(candidate_count, dtype=np.uint8)
+            rank_array[:] = np.nan
+
+            candidate_idx = 0
+            for i in range(len(self)):
+                for j in range(len(self[i].candidates)):
+                    candidate = self[i].candidates[j]
+
+                    # iterate all features and add them to the feature array
+                    for key, value in candidate.features.items():
+                            
+                            # get the column index for the feature
+                            for k in range(len(feature_columns)):
+                                if feature_columns[k] == key:
+                                    feature_array[candidate_idx, k] = value
+                                    break
+
+                    precursor_idx_array[candidate_idx] = candidate.precursor_idx
+                    rank_array[candidate_idx] = candidate.rank
+                    candidate_idx += 1
+
+            return feature_array, precursor_idx_array, rank_array, feature_columns
         
 ScoreGroupContainer.__module__ = 'alphatims.extraction.plexscoring'
 
@@ -927,7 +1038,7 @@ class CandidateScoring():
         """
         
         self._dia_data = dia_data
-        self.precursors_flat = precursors_flat
+        self.precursors_flat_df = precursors_flat
         
         # validate fragments_flat
         validate.fragments_flat(fragments_flat)
@@ -958,12 +1069,12 @@ class CandidateScoring():
     @property
     def precursors_flat_df(self):
         """Get the DataFrame containing precursor information."""
-        return self._precursors_flat
+        return self._precursors_flat_df
     
     @precursors_flat_df.setter
-    def precursors_flat_df(self, precursors_flat):
-        validate.precursors_flat(precursors_flat)
-        self._precursors_flat = precursors_flat.sort_values(by='precursor_idx')
+    def precursors_flat_df(self, precursors_flat_df):
+        validate.precursors_flat(precursors_flat_df)
+        self._precursors_flat_df = precursors_flat_df.sort_values(by='precursor_idx')
     
     @property
     def fragments_flat_df(self):
@@ -1040,6 +1151,8 @@ class CandidateScoring():
             candidates_df['score_group_idx'].values,
             candidates_df['precursor_idx'].values,
             candidates_df['channel'].values,
+            candidates_df['rank'].values,
+
             candidates_df['flat_frag_start_idx'].values,
             candidates_df['flat_frag_stop_idx'].values,
 
@@ -1092,6 +1205,45 @@ class CandidateScoring():
             self.fragments_flat['position'].values,
             self.fragments_flat['cardinality'].values
         )
+    
+    def collect_candidates(
+        self,
+        candidates_df : pd.DataFrame,
+        score_group_container : ScoreGroupContainer
+        ) -> pd.DataFrame:
+        """Collect the features from the score group container and return a DataFrame.
+
+        Parameters
+        ----------
+
+        score_group_container : ScoreGroupContainer
+            A Numba JIT compatible score group container.
+
+        candidates_df : pd.DataFrame
+            A DataFrame containing the features for each candidate.
+
+        Returns
+        -------
+
+        candidates_psm_df : pd.DataFrame
+            A DataFrame containing the features for each candidate.
+        """
+
+        feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.assemble_features()
+        df = pd.DataFrame(feature_array, columns=feature_columns)
+        df['precursor_idx'] = precursor_idx_array
+        df['rank'] = rank_array
+
+        candidate_df_columns = ['precursor_idx','rank','elution_group_idx','scan_center','scan_start','scan_stop','frame_center','frame_start','frame_stop']
+        precursor_df_columns = ['precursor_idx','mz_calibrated','rt_calibrated','rt_library','mobility_calibrated','mobility_library','charge','decoy','channel',]
+        df = df.merge(candidates_df[candidate_df_columns], on=['precursor_idx','rank'], how='left')
+        df = df.merge(self.precursors_flat_df[precursor_df_columns], on=['precursor_idx'], how='left')
+
+        df.drop(columns=['top3_b_ion_correlation','top3_y_ion_correlation'], inplace=True)
+
+        return df
+
+
 
     def __call__(self, candidates_df, thread_count=1, debug=False):
 
@@ -1113,4 +1265,4 @@ class CandidateScoring():
             debug
         )
 
-        return score_group_container
+        return self.collect_candidates(candidates_df, score_group_container)
