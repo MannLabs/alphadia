@@ -505,6 +505,8 @@ def build_features(
     fragment_mask_2d = total_fragment_intensity > 0
     fragment_mask_1d = np.sum(fragment_mask_2d, axis=-1) > 0
 
+    print(fragment_mask_2d, )
+
     # get the observed fragment mz and intensity
     # (n_fragments, n_observations)
     observed_fragment_mz = weighted_center_mean_2d(
@@ -709,8 +711,17 @@ def fragment_features(
     # create fragment masks for filtering
     # (n_fragments, n_observations)
     sum_fragment_intensity = np.sum(np.sum(dense_fragments[0], axis=-1), axis=-1)
+
+    # create fragment intensity mask
+    fragment_intensity_mask_2d = sum_fragment_intensity > 0
+    fragment_intensity_weights_2d = fragment_intensity_mask_2d * observation_importance_reshaped
+    
+    # (n_fragments, n_observations)
+    # normalize rows to 1
+    fragment_intensity_weights_2d = fragment_intensity_weights_2d / (np.sum(fragment_intensity_weights_2d, axis=-1).reshape(-1, 1)+1e-20)
+   
     # (n_fragments)
-    observed_fragment_intensity = np.sum(sum_fragment_intensity*observation_importance_reshaped, axis=-1)
+    observed_fragment_intensity = weighted_mean_a1(sum_fragment_intensity, fragment_intensity_weights_2d)
 
     # (n_observations)
     sum_template_intensity = np.sum(np.sum(template, axis=-1), axis=-1)
@@ -722,8 +733,6 @@ def fragment_features(
         f_expected_scan_center,
         f_expected_frame_center
     )
-    # (n_fragments)
-    observed_fragment_mz_mean = np.sum(observed_fragment_mz*observation_importance_reshaped, axis=-1)
     
     # (n_fragments, n_observations)
     o_fragment_height = weighted_center_mean_2d(
@@ -731,10 +740,27 @@ def fragment_features(
         f_expected_scan_center,
         f_expected_frame_center
     )
-    # (n_fragments)
-    observed_fragment_height = np.sum(o_fragment_height*observation_importance_reshaped, axis=-1)
 
-    if np.sum(observed_fragment_intensity) == 0.0:
+    # (n_fragments, n_observations)
+    fragment_height_mask_2d = o_fragment_height > 0
+
+    # (n_fragments)
+    fragment_height_mask_1d = np.sum(fragment_height_mask_2d, axis=-1) > 0
+
+    # (n_fragments, n_observations)
+    fragment_height_weights_2d = fragment_height_mask_2d * observation_importance_reshaped
+
+    # (n_fragments, n_observations)
+    # normalize rows to 1
+    fragment_height_weights_2d = fragment_height_weights_2d / (np.sum(fragment_height_weights_2d, axis=-1).reshape(-1, 1)+1e-20)
+
+    # (n_fragments)
+    observed_fragment_mz_mean = weighted_mean_a1(observed_fragment_mz, fragment_height_weights_2d)
+
+    # (n_fragments)
+    observed_fragment_height = weighted_mean_a1(o_fragment_height, fragment_height_weights_2d)
+
+    if np.sum(fragment_height_mask_1d) == 0.0:
         feature_dict['intensity_correlation'] = 0.0
     else:
         feature_dict['intensity_correlation'] = np.corrcoef(
@@ -770,8 +796,6 @@ def fragment_features(
             ).astype(np.float32)
         feature_dict['mean_observation_score'] = np.mean(observation_score)
 
-    
-
     # ============= FRAGMENT TYPE FEATURES =============
 
     b_ion_mask = fragments.type == 98
@@ -782,20 +806,18 @@ def fragment_features(
 
     feature_dict['sum_b_ion_intensity'] = np.log(np.sum(weighted_b_ion_intensity)+1) if len(weighted_b_ion_intensity) > 0 else 0.0
     feature_dict['sum_y_ion_intensity'] = np.log(np.sum(weighted_y_ion_intensity)+1) if len(weighted_y_ion_intensity) > 0 else 0.0
-    feature_dict['diff_b_y_ion_intensity'] =feature_dict['sum_b_ion_intensity'] - feature_dict['sum_y_ion_intensity']
+    feature_dict['diff_b_y_ion_intensity'] = feature_dict['sum_b_ion_intensity'] - feature_dict['sum_y_ion_intensity']
 
     # ============= FRAGMENT FEATURES =============
 
-    mz_mask = observed_fragment_mz_mean > 0.0
-    
     mass_error = (observed_fragment_mz_mean - fragments.mz) / fragments.mz * 1e6
 
-    fragment_feature_dict['mz_library'] = fragments.mz_library
-    fragment_feature_dict['mz_observed'] = observed_fragment_mz_mean[mz_mask].astype(np.float32)
-    fragment_feature_dict['mass_error'] = mass_error[mz_mask].astype(np.float32)
-    fragment_feature_dict['height'] = observed_fragment_height[mz_mask].astype(np.float32)
-    fragment_feature_dict['intensity'] = observed_fragment_intensity[mz_mask].astype(np.float32)
-    fragment_feature_dict['type'] = fragments.type[mz_mask].astype(np.float32)
+    fragment_feature_dict['mz_library'] = fragments.mz_library[fragment_height_mask_1d].astype(np.float32)
+    fragment_feature_dict['mz_observed'] = observed_fragment_mz_mean[fragment_height_mask_1d].astype(np.float32)
+    fragment_feature_dict['mass_error'] = mass_error[fragment_height_mask_1d].astype(np.float32)
+    fragment_feature_dict['height'] = observed_fragment_height[fragment_height_mask_1d].astype(np.float32)
+    fragment_feature_dict['intensity'] = observed_fragment_intensity[fragment_height_mask_1d].astype(np.float32)
+    fragment_feature_dict['type'] = fragments.type[fragment_height_mask_1d].astype(np.float32)
     
     return feature_dict, fragment_feature_dict
 

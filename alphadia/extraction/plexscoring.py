@@ -8,6 +8,108 @@ import numpy as np
 import numba as nb
 import logging
 
+import typing
+
+def candidate_features_to_candidates(
+    candidate_features_df : pd.DataFrame,
+    ):
+    """create candidates_df from candidate_features_df
+
+    Parameters
+    ----------
+
+    candidate_features_df : pd.DataFrame
+        candidate_features_df
+
+    Returns
+    -------
+
+    candidate_df : pd.DataFrame
+        candidates_df
+    """
+
+    # validate candidate_features_df input
+    validate.candidate_features_df(candidate_features_df)
+
+    required_columns = [
+        'elution_group_idx',
+        'precursor_idx',
+        'rank',
+        'scan_start',
+        'scan_stop',
+        'scan_center',
+        'frame_start',
+        'frame_stop',
+        'frame_center'
+    ]
+
+    # select required columns
+    candidate_df = candidate_features_df[required_columns].copy()
+
+    # validate candidate_df output
+    validate.candidates_df(candidate_df)
+
+    return candidate_df
+
+def multiplex_candidates(
+    candidates_df: pd.DataFrame,
+    precursors_flat_df: pd.DataFrame,
+    remove_decoys: bool = True,
+    channels: typing.List[int] = [0,4,8,12],
+    ):
+
+    """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
+
+    Parameters
+    ----------
+
+    candidates_df : pd.DataFrame
+        Candidates dataframe as returned by `hybridselection.HybridCandidateSelection`
+
+    precursors_flat_df : pd.DataFrame
+        Precursors dataframe
+
+    remove_decoys : bool, optional
+        If True, remove decoys from the precursors dataframe, by default True
+
+    channels : typing.List[int], optional
+        List of channels to include in the multiplexed candidates dataframe, by default [0,4,8,12]
+
+    Returns
+    -------
+
+    pd.DataFrame
+        Multiplexed candidates dataframe
+    
+    """
+
+    validate.candidates_df(candidates_df)
+    validate.precursors_flat(precursors_flat_df)
+
+    precursors_flat_view = precursors_flat_df
+    candidates_view = candidates_df.copy()
+
+    # remove decoys if requested
+    if remove_decoys:
+        precursors_flat_view = precursors_flat_df[precursors_flat_df['decoy'] == 0]
+
+    # get all candidate elution group 
+    candidate_elution_group_idxs = candidates_view['elution_group_idx'].unique()
+
+    # restrict precursors to channels and candidate elution groups
+    precursors_flat_view = precursors_flat_view[precursors_flat_view['channel'].isin(channels)]
+    precursors_flat_view = precursors_flat_view[precursors_flat_view['elution_group_idx'].isin(candidate_elution_group_idxs)]
+    precursors_flat_view = precursors_flat_view[['elution_group_idx','precursor_idx','channel']]
+
+    # reduce precursors to the elution group level
+    candidates_view = candidates_view.drop(columns=['precursor_idx'])
+
+    # merge candidates and precursors
+    multiplexed_candidates_df = precursors_flat_view.merge(candidates_view, on='elution_group_idx', how='left')
+    validate.candidates_df(multiplexed_candidates_df)
+
+    return multiplexed_candidates_df
+
 class Multiplexer():
 
     def __init__(self,
@@ -129,11 +231,11 @@ class CandidateConfig(config.JITConfig):
     def score_grouped(self) -> bool:
         """When multiplexing is used, some grouped features are calculated taking into account all channels. 
         Default: `score_grouped = False`"""
-        return self._score_groupe
+        return self._score_grouped
     
     @score_grouped.setter
     def score_grouped(self, value):
-        self._score_groupe = value
+        self._score_grouped = value
 
     @property
     def max_cardinality(self) -> int:
@@ -213,6 +315,8 @@ class CandidateConfig(config.JITConfig):
         assert self.fragment_mz_tolerance >= 0, 'fragment_mz_tolerance must be greater than or equal to 0'
         assert self.fragment_mz_tolerance < 200, 'fragment_mz_tolerance must be less than 200'
 
+float_array = nb.types.float32[:]
+
 @nb.experimental.jitclass()
 class Candidate:
 
@@ -247,6 +351,7 @@ class Candidate:
     
     # object properties
     fragments: fragments.FragmentContainer.class_type.instance_type
+
     features: nb.types.DictType(nb.types.unicode_type, nb.float32)
     fragment_feature_dict: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
 
@@ -315,9 +420,16 @@ class Candidate:
             config
         ):
         
+        # initialize all required dicts
+        # accessing uninitialized dicts in numba will result in a kernel crash :)
         self.features = nb.typed.Dict.empty(
             key_type=nb.types.unicode_type,
             value_type=nb.types.float32,
+        )
+
+        self.fragment_feature_dict = nb.typed.Dict.empty(
+            key_type=nb.types.unicode_type,
+            value_type=float_array
         )
 
         self.fragments = fragment_container.slice(np.array([[self.frag_start_idx, self.frag_stop_idx, 1]]))
@@ -441,6 +553,7 @@ class Candidate:
             np.arange(int(self.scan_start), int(self.scan_stop)),
             self.isotope_mz
         )
+
 
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
@@ -688,271 +801,332 @@ score_group_type = ScoreGroup.class_type.instance_type
 
 @nb.experimental.jitclass()
 class ScoreGroupContainer:
-        """Container for managing the scoring of precursors with defined boundaries.
+    """Container for managing the scoring of precursors with defined boundaries.
 
-        The `ScoreGroupContainer` contains all precursors that are to be scored.
-        It consists of a list of `ScoreGroup` objects, which in turn contain a list of `Candidate` objects.
+    The `ScoreGroupContainer` contains all precursors that are to be scored.
+    It consists of a list of `ScoreGroup` objects, which in turn contain a list of `Candidate` objects.
 
-        For single channel experiments, each `ScoreGroup` contains a single `Candidate` object.
-        For multi channel experiments, each `ScoreGroup` contains a `Candidate` object for each channel, including decoy channels.
+    For single channel experiments, each `ScoreGroup` contains a single `Candidate` object.
+    For multi channel experiments, each `ScoreGroup` contains a `Candidate` object for each channel, including decoy channels.
 
-        Structure:
-        .. code-block:: none
+    Structure:
+    .. code-block:: none
 
-            ScoreGroupContainer
-                ScoreGroup
-                    Candidate
-                    Candidate
-                    Candidate
-                    Candidate
-                ScoreGroup
-                    Candidate
-                    Candidate
-                    Candidate
-                    Candidate
+        ScoreGroupContainer
+            ScoreGroup
+                Candidate
+                Candidate
+                Candidate
+                Candidate
+            ScoreGroup
+                Candidate
+                Candidate
+                Candidate
+                Candidate
 
-        The `ScoreGroupContainer` is initialized by passing the validated columns of a candidate dataframe to the `build_from_df` method.
+    The `ScoreGroupContainer` is initialized by passing the validated columns of a candidate dataframe to the `build_from_df` method.
 
-        
-        Attributes
+    
+    Attributes
+    ----------
+
+    score_groups : nb.types.ListType(score_group_type)
+        List of score groups.
+
+    Methods
+    -------
+
+    __getitem__(self, idx: int): 
+        Get a score group by index.
+
+
+    """
+
+    score_groups: nb.types.ListType(score_group_type)
+
+    def __init__(
+            self,
+        ) -> None:
+        """Initialize the `ScoreGroupContainer` object without any score groups.
+        """
+
+        self.score_groups = nb.typed.List.empty_list(score_group_type)
+
+    def __getitem__(self, idx):
+        """Get a score group by index.
+        """
+
+        return self.score_groups[idx]
+
+    def __len__(self):
+        """Get the number of score groups.
+        """
+        return len(self.score_groups)
+    
+    def build_from_df(
+        self,
+        elution_group_idx : nb.uint32,
+        score_group_idx : nb.uint32,
+        precursor_idx : nb.uint32,
+        channel : nb.uint8,
+        rank : nb.uint8,
+
+        flat_frag_start_idx : nb.uint32,
+        flat_frag_stop_idx : nb.uint32,
+
+        scan_start : nb.uint32,
+        scan_stop : nb.uint32,
+        scan_center : nb.uint32,
+        frame_start : nb.uint32,
+        frame_stop : nb.uint32,
+        frame_center : nb.uint32,
+
+        precursor_charge : nb.uint8,
+        precursor_mz : nb.float32,
+        precursor_isotopes : nb.float32[:,::1]
+    ):
+        """Build the `ScoreGroupContainer` from a candidate dataframe.
+        All relevant columns of the candidate dataframe are passed to this method as numpy arrays.
+
+        Note
+        ----
+
+        All columns of the candidate_df need to be validated for the correct type using the `extraction.validate.candidates` schema.
+        columns musst be sorted by `score_group_idx` in ascending order.
+
+        Parameters
         ----------
 
-        score_groups : nb.types.ListType(score_group_type)
-            List of score groups.
+        elution_group_idx : nb.uint32
+            The elution group index of each precursor candidate.
 
-        Methods
-        -------
-
-        __getitem__(self, idx: int): 
-            Get a score group by index.
-
+        score_group_idx : nb.uint32
+            The score group index of each precursor candidate.
 
         """
-    
-        score_groups: nb.types.ListType(score_group_type)
-    
-        def __init__(
-                self,
-            ) -> None:
-            """Initialize the `ScoreGroupContainer` object without any score groups.
-            """
+        idx = 0
+        current_score_group_idx = -1
+        current_precursor_idx = -1
 
-            self.score_groups = nb.typed.List.empty_list(score_group_type)
+        # iterate over all candidates
+        # whenever a new score group is encountered, create a new score group
+        for idx in range(len(score_group_idx)):
 
-        def __getitem__(self, idx):
-            """Get a score group by index.
-            """
+            if score_group_idx[idx] != current_score_group_idx:
 
-            return self.score_groups[idx]
-
-        def __len__(self):
-            """Get the number of score groups.
-            """
-            return len(self.score_groups)
-        
-        def build_from_df(
-            self,
-            elution_group_idx : nb.uint32,
-            score_group_idx : nb.uint32,
-            precursor_idx : nb.uint32,
-            channel : nb.uint8,
-            rank : nb.uint8,
-
-            flat_frag_start_idx : nb.uint32,
-            flat_frag_stop_idx : nb.uint32,
-
-            scan_start : nb.uint32,
-            scan_stop : nb.uint32,
-            scan_center : nb.uint32,
-            frame_start : nb.uint32,
-            frame_stop : nb.uint32,
-            frame_center : nb.uint32,
-
-            precursor_charge : nb.uint8,
-            precursor_mz : nb.float32,
-            precursor_isotopes : nb.float32[:,::1]
-        ):
-            """Build the `ScoreGroupContainer` from a candidate dataframe.
-            All relevant columns of the candidate dataframe are passed to this method as numpy arrays.
-
-            Note
-            ----
-
-            All columns of the candidate_df need to be validated for the correct type using the `extraction.validate.candidates` schema.
-            columns musst be sorted by `score_group_idx` in ascending order.
-
-            Parameters
-            ----------
-
-            elution_group_idx : nb.uint32
-                The elution group index of each precursor candidate.
-
-            score_group_idx : nb.uint32
-                The score group index of each precursor candidate.
-
-            """
-            idx = 0
-            current_score_group_idx = -1
-            current_precursor_idx = -1
-
-            # iterate over all candidates
-            # whenever a new score group is encountered, create a new score group
-            for idx in range(len(score_group_idx)):
-
-                if score_group_idx[idx] != current_score_group_idx:
-
-                    self.score_groups.append(ScoreGroup(
-                        elution_group_idx[idx],
-                        score_group_idx[idx]
-                    ))
-
-                    # update current score group
-                    current_score_group_idx = score_group_idx[idx]
-                    current_precursor_idx = -1
-
-                if len(precursor_isotopes[idx]) == 0:
-                    raise ValueError('precursor isotopes empty')
-
-                self.score_groups[-1].candidates.append(Candidate(
-                    precursor_idx[idx],
-                    channel[idx],
-                    rank[idx],
-
-                    flat_frag_start_idx[idx],
-                    flat_frag_stop_idx[idx],
-
-                    scan_start[idx],
-                    scan_stop[idx],
-                    scan_center[idx],
-                    frame_start[idx],
-                    frame_stop[idx],
-                    frame_center[idx],
-
-                    precursor_charge[idx],
-                    precursor_mz[idx],
-                    precursor_isotopes[idx].copy()
+                self.score_groups.append(ScoreGroup(
+                    elution_group_idx[idx],
+                    score_group_idx[idx]
                 ))
 
-                # check if precursor_idx is unique within a score group
-                # if not, some weird "ValueError: unable to broadcast argument 1 to output array" will be raised.
-                # Numba bug which took 4h to find :'(
-                if current_precursor_idx == precursor_idx[idx]:
-                    raise ValueError('precursor_idx must be unique within a score group')
+                # update current score group
+                current_score_group_idx = score_group_idx[idx]
+                current_precursor_idx = -1
+
+            if len(precursor_isotopes[idx]) == 0:
+                raise ValueError('precursor isotopes empty')
+
+            self.score_groups[-1].candidates.append(Candidate(
+                precursor_idx[idx],
+                channel[idx],
+                rank[idx],
+
+                flat_frag_start_idx[idx],
+                flat_frag_stop_idx[idx],
+
+                scan_start[idx],
+                scan_stop[idx],
+                scan_center[idx],
+                frame_start[idx],
+                frame_stop[idx],
+                frame_center[idx],
+
+                precursor_charge[idx],
+                precursor_mz[idx],
+                precursor_isotopes[idx].copy()
+            ))
+
+            # check if precursor_idx is unique within a score group
+            # if not, some weird "ValueError: unable to broadcast argument 1 to output array" will be raised.
+            # Numba bug which took 4h to find :'(
+            if current_precursor_idx == precursor_idx[idx]:
+                raise ValueError('precursor_idx must be unique within a score group')
+            
+            current_precursor_idx = precursor_idx[idx]
+            idx += 1
+
+    def get_feature_columns(self):
+        """Iterate all score groups and candidates and return a list of all feature names
+
+        Is based on the assumption that each set of features has a distinct length.
+
+        Parameters
+        ----------
+
+        score_group_continer : list
+            List of score groups
+
+        Returns
+        -------
+
+        list
+            List of feature names
+        
+        """
+
+        known_feature_lengths = [0]
+        known_feature_lengths.clear()
+        known_columns = ['']
+        known_columns.clear()
+
+        for i in range(len(self)):
+            for j in range(len(self[i].candidates)):
+                candidate = self[i].candidates[j]
+                if len(candidate.features) not in known_feature_lengths:
+                    known_feature_lengths += [len(candidate.features)]
+                    # add all new features to the list of known columns
+                    for key in candidate.features.keys():
+                        if key not in known_columns:
+                            known_columns += [key]
+        return known_columns
+
+    def get_candidate_count(self):
+        """Iterate all score groups and candidates and return the total number of candidates
+
+        Parameters
+        ----------
+
+        score_group_continer : list
+            List of score groups
+
+
+        Returns
+        -------
+
+        int
+        
+        """
+
+        candidate_count = 0
+        for i in range(len(self)):
+            candidate_count += len(self[i].candidates)
+        return candidate_count
+
+    def collect_features(self):
+        """Iterate all score groups and candidates and return a numpy array of all features
+
+        Parameters
+        ----------
+
+        score_group_continer : list
+            List of score groups
+
+        Returns
+        -------
+
+        np.array
+            Array of features
+
+        np.array
+            Array of precursor indices
+
+        list
+            List of feature names
+        
+        """
+
+        feature_columns = self.get_feature_columns()
+        candidate_count = self.get_candidate_count()
+
+        feature_array = np.empty((candidate_count, len(feature_columns)), dtype=np.float32)
+        feature_array[:] = np.nan
+
+        precursor_idx_array = np.zeros(candidate_count, dtype=np.uint32)
+
+        rank_array = np.zeros(candidate_count, dtype=np.uint8)
+
+        candidate_idx = 0
+        for i in range(len(self)):
+            for j in range(len(self[i].candidates)):
+                candidate = self[i].candidates[j]
+
+                # iterate all features and add them to the feature array
+                for key, value in candidate.features.items():
+                        
+                        # get the column index for the feature
+                        for k in range(len(feature_columns)):
+                            if feature_columns[k] == key:
+                                feature_array[candidate_idx, k] = value
+                                break
+
+                precursor_idx_array[candidate_idx] = candidate.precursor_idx
+                rank_array[candidate_idx] = candidate.rank
+                candidate_idx += 1
+
+        return feature_array, precursor_idx_array, rank_array, feature_columns
+        
+    def get_fragment_count(self):
+        """Iterate all score groups and candidates and return the total number of fragments
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        int
+            Number of fragments in the score group container
+        
+        """
+
+        fragment_count = 0
+        for i in range(len(self)):
+            for j in range(len(self[i].candidates)):
+                if 'mz_library' in self[i].candidates[j].fragment_feature_dict:
+                    fragment_count += len(self[i].candidates[j].fragment_feature_dict['mz_library'])
+        return fragment_count
+
+    def collect_fragments(self):
+        """Iterate all score groups and candidates and accumulate the fragment-level data in a single array
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        list
+        
+        """
+
+        fragment_columns = ['mz_library','mz_observed','mass_error','height','intensity']
+        fragment_count = self.get_fragment_count()
+        fragment_array = np.zeros((fragment_count, len(fragment_columns)))
+        fragment_array[:] = np.nan
+
+        precursor_idx_array = np.zeros(fragment_count, dtype=np.uint32)
+
+        rank_array = np.zeros(fragment_count, dtype=np.uint8)
+
+        fragment_start_idx = 0
+
+        # iterate all score groups and candidates
+        for i in range(len(self)):
+            for j in range(len(self[i].candidates)):
+                candidate = self[i].candidates[j]
                 
-                current_precursor_idx = precursor_idx[idx]
-                idx += 1
+                # if the candidate has fragments, add them to the array
+                if 'mz_library' in candidate.fragment_feature_dict:
+                    
+                    candidate_fragment_count = len(candidate.fragment_feature_dict['mz_library'])
+                    for k, col in enumerate(fragment_columns):
+                        fragment_array[fragment_start_idx:fragment_start_idx+candidate_fragment_count, k] = candidate.fragment_feature_dict[col]
+                        precursor_idx_array[fragment_start_idx:fragment_start_idx+candidate_fragment_count] = candidate.precursor_idx
+                        rank_array[fragment_start_idx:fragment_start_idx+candidate_fragment_count] = candidate.rank
+                
+                    fragment_start_idx += candidate_fragment_count
 
-        def get_feature_columns(self):
-            """Iterate all score groups and candidates and return a list of all feature names
-
-            Is based on the assumption that each set of features has a distinct length.
-
-            Parameters
-            ----------
-
-            score_group_continer : list
-                List of score groups
-
-            Returns
-            -------
-
-            list
-                List of feature names
-            
-            """
-
-            known_feature_lengths = [0]
-            known_feature_lengths.clear()
-            known_columns = ['']
-            known_columns.clear()
-
-            for i in range(len(self)):
-                for j in range(len(self[i].candidates)):
-                    candidate = self[i].candidates[j]
-                    if len(candidate.features) not in known_feature_lengths:
-                        known_feature_lengths += [len(candidate.features)]
-                        # add all new features to the list of known columns
-                        for key in candidate.features.keys():
-                            if key not in known_columns:
-                                known_columns += [key]
-            return known_columns
-
-        def get_candidate_count(self):
-            """Iterate all score groups and candidates and return the total number of candidates
-
-            Parameters
-            ----------
-
-            score_group_continer : list
-                List of score groups
-
-
-            Returns
-            -------
-
-            int
-            
-            """
-
-            candidate_count = 0
-            for i in range(len(self)):
-                candidate_count += len(self[i].candidates)
-            return candidate_count
-
-        def assemble_features(self):
-            """Iterate all score groups and candidates and return a numpy array of all features
-
-            Parameters
-            ----------
-
-            score_group_continer : list
-                List of score groups
-
-            Returns
-            -------
-
-            np.array
-                Array of features
-
-            np.array
-                Array of precursor indices
-
-            list
-                List of feature names
-            
-            """
-
-            feature_columns = self.get_feature_columns()
-            candidate_count = self.get_candidate_count()
-
-            feature_array = np.empty((candidate_count, len(feature_columns)), dtype=np.float32)
-            feature_array[:] = np.nan
-
-            precursor_idx_array = np.empty(candidate_count, dtype=np.uint32)
-            precursor_idx_array[:] = np.nan
-
-            rank_array = np.empty(candidate_count, dtype=np.uint8)
-            rank_array[:] = np.nan
-
-            candidate_idx = 0
-            for i in range(len(self)):
-                for j in range(len(self[i].candidates)):
-                    candidate = self[i].candidates[j]
-
-                    # iterate all features and add them to the feature array
-                    for key, value in candidate.features.items():
-                            
-                            # get the column index for the feature
-                            for k in range(len(feature_columns)):
-                                if feature_columns[k] == key:
-                                    feature_array[candidate_idx, k] = value
-                                    break
-
-                    precursor_idx_array[candidate_idx] = candidate.precursor_idx
-                    rank_array[candidate_idx] = candidate.rank
-                    candidate_idx += 1
-
-            return feature_array, precursor_idx_array, rank_array, feature_columns
+        return fragment_array, precursor_idx_array, rank_array, fragment_columns
         
 ScoreGroupContainer.__module__ = 'alphatims.extraction.plexscoring'
 
@@ -1038,6 +1212,9 @@ class CandidateScoring():
         """
         
         self._dia_data = dia_data
+
+        # validate precursors_flat
+        validate.precursors_flat(precursors_flat)
         self.precursors_flat_df = precursors_flat
         
         # validate fragments_flat
@@ -1134,16 +1311,46 @@ class CandidateScoring():
         
         """
 
-        if not 'rank' in candidates_df.columns:
-            candidates_df['rank'] = np.zeros(len(candidates_df), dtype=np.in64)
+        validate.candidates_df(candidates_df)
 
+        precursor_columns = [
+            'channel',
+            'flat_frag_start_idx',
+            'flat_frag_stop_idx',
+            'charge',
+            'decoy',
+            'channel',
+            self.precursor_mz_column
+        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+
+        candidates_df = utils.merge_missing_columns(
+            candidates_df,
+            self.precursors_flat_df,
+            precursor_columns,
+            on = ['precursor_idx'],
+            how = 'left'
+        )
+
+        # check if rank column is present
+        if not 'rank' in candidates_df.columns:
+            candidates_df['rank'] = np.zeros(len(candidates_df), dtype=np.uint8)
+
+        # check if channel column is present
+        if not 'channel' in candidates_df.columns:
+            candidates_df['channel'] = np.zeros(len(candidates_df), dtype=np.uint8)
+
+        # check if monoisotopic abundance column is present
+        if not 'i_0' in candidates_df.columns:
+            candidates_df['i_0'] = np.ones(len(candidates_df), dtype=np.float32)
+
+        # calculate score groups
         candidates_df = utils.calculate_score_groups(
             candidates_df, 
             group_channels=self.config.score_grouped
         )
 
         # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.candidates(candidates_df)
+        validate.candidates_df(candidates_df)
 
         score_group_container = ScoreGroupContainer()
         score_group_container.build_from_df(
@@ -1229,29 +1436,135 @@ class CandidateScoring():
             A DataFrame containing the features for each candidate.
         """
 
-        feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.assemble_features()
+        feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.collect_features()
+        
         df = pd.DataFrame(feature_array, columns=feature_columns)
         df['precursor_idx'] = precursor_idx_array
         df['rank'] = rank_array
 
-        candidate_df_columns = ['precursor_idx','rank','elution_group_idx','scan_center','scan_start','scan_stop','frame_center','frame_start','frame_stop']
-        precursor_df_columns = ['precursor_idx','mz_calibrated','rt_calibrated','rt_library','mobility_calibrated','mobility_library','charge','decoy','channel',]
-        df = df.merge(candidates_df[candidate_df_columns], on=['precursor_idx','rank'], how='left')
-        df = df.merge(self.precursors_flat_df[precursor_df_columns], on=['precursor_idx'], how='left')
+        # join candidate columns
+        candidate_df_columns = [
+            'elution_group_idx',
+            'scan_center',
+            'scan_start',
+            'scan_stop',
+            'frame_center',
+            'frame_start',
+            'frame_stop'
+        ]
+        df = utils.merge_missing_columns(
+            df,
+            candidates_df,
+            candidate_df_columns,
+            on = ['precursor_idx','rank'],
+            how = 'left'
+        )
+
+        # join precursor columns
+        precursor_df_columns = [
+            'rt_library',
+            'mobility_library',
+            'mz_library',
+            'charge',
+            'decoy',
+            'channel',
+            'flat_frag_start_idx',
+            'flat_frag_stop_idx'
+        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+        df = utils.merge_missing_columns(
+            df,
+            self.precursors_flat_df,
+            precursor_df_columns,
+            on = ['precursor_idx'],
+            how = 'left'
+        )
 
         df.drop(columns=['top3_b_ion_correlation','top3_y_ion_correlation'], inplace=True)
 
         return df
+    
+    def collect_fragments(
+        self,
+        candidates_df : pd.DataFrame,
+        score_group_container : ScoreGroupContainer
+        ) -> pd.DataFrame:
+        """Collect the fragment-level features from the score group container and return a DataFrame.
 
+        Parameters
+        ----------
 
+        score_group_container : ScoreGroupContainer
+            A Numba JIT compatible score group container.
 
-    def __call__(self, candidates_df, thread_count=1, debug=False):
+        candidates_df : pd.DataFrame
+            A DataFrame containing the features for each candidate.
+
+        Returns
+        -------
+
+        fragment_psm_df : pd.DataFrame
+            A DataFrame containing the features for each fragment.
+        
+        """
+
+        fragment_array, precursor_idx_array, rank_array, fragment_columns = score_group_container.collect_fragments()
+
+        df = pd.DataFrame(fragment_array, columns=fragment_columns)
+        df['precursor_idx'] = precursor_idx_array
+        df['rank'] = rank_array
+
+        # join precursor columns
+        precursor_df_columns = [
+            'elution_group_idx',
+            'decoy',
+        ]
+        df = utils.merge_missing_columns(
+            df,
+            self.precursors_flat_df,
+            precursor_df_columns,
+            on = ['precursor_idx'],
+            how = 'left'
+        )
+
+        return df
+
+    def __call__(
+            self, 
+            candidates_df, 
+            thread_count = 10, 
+            debug = False
+        ):
+
+        """Calculate features for each precursor candidate used for scoring.
+
+        Parameters
+        ----------
+
+        candidates_df : pd.DataFrame
+            A DataFrame containing the candidates.
+
+        thread_count : int, default=10
+            The number of threads to use for parallel processing.
+
+        debug : bool, default=False
+            Process only the first 10 elution groups and display full debug information.
+
+        Returns
+        -------
+
+        candidate_features_df : pd.DataFrame
+            A DataFrame containing the features for each candidate.
+
+        fragment_features_df : pd.DataFrame
+            A DataFrame containing the features for each fragment.
+
+        """
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         fragment_container = self.assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
-        iterator_len = min(10,len(candidates_df)) if debug else len(candidates_df)
+        iterator_len = min(10,len(score_group_container)) if debug else len(score_group_container)
         thread_count = 1 if debug else thread_count
 
         alphatims.utils.set_threads(thread_count)
@@ -1265,4 +1578,9 @@ class CandidateScoring():
             debug
         )
 
-        return self.collect_candidates(candidates_df, score_group_container)
+        candidate_features_df = self.collect_candidates(candidates_df, score_group_container)
+        validate.candidate_features_df(candidate_features_df)
+        fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
+        validate.fragment_features_df(fragment_features_df)
+
+        return candidate_features_df, fragment_features_df

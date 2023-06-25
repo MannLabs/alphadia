@@ -1311,3 +1311,70 @@ def profile_correlation(profile, tresh = 3, shift=2, kernel_size = 12):
         start_index += shift
 
     return output
+
+
+def merge_missing_columns(
+        left_df : pd.DataFrame,
+        right_df : pd.DataFrame,
+        right_columns : list,
+        on : list = None,
+        how : str = 'left'
+):
+    """Merge missing columns from right_df into left_df.
+
+    Merging is performed only for columns not yet present in left_df.
+
+    Parameters
+    ----------
+
+    left_df : pandas.DataFrame
+        Left dataframe
+
+    right_df : pandas.DataFrame
+        Right dataframe
+
+    right_columns : list
+        List of columns to merge from right_df into left_df
+
+    on : list, optional
+        List of columns to merge on, by default None
+
+    how : str, optional
+        How to merge, by default 'left'
+
+    Returns
+    -------
+    pandas.DataFrame
+        Merged left dataframe
+    
+    """
+
+    missing_columns = list(set(right_columns) - set(left_df.columns))
+
+    if type(on) == str:
+        on = [on]
+
+    if type(missing_columns) == str:
+        missing_columns = [missing_columns]
+
+    if len(missing_columns) == 0:
+        return left_df
+    
+    # check conditions
+    if not all([col in right_df.columns for col in missing_columns]):
+        raise ValueError(f'Columns {missing_columns} must be present in right_df')
+    
+    if on is None:
+        raise ValueError(f'Parameter on must be specified')
+    
+    if not all([col in left_df.columns for col in on]):
+        raise ValueError(f'Columns {on} must be present in left_df')
+    
+    if not all([col in right_df.columns for col in on]):
+        raise ValueError(f'Columns {on} must be present in right_df')
+    
+    if how not in ['left', 'right', 'inner', 'outer']:
+        raise ValueError(f'Parameter how must be one of left, right, inner, outer')
+    
+    # merge
+    return left_df.merge(right_df[on + missing_columns], on=on, how=how)
