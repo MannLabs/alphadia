@@ -15,7 +15,7 @@ if not 'progress' in dir(logger):
     processlogger.init_logging()
 
 # alphadia imports
-from alphadia.extraction import data
+from alphadia.extraction import data, plexscoring
 from alphadia.extraction.calibration import CalibrationManager
 from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
 from alphadia.extraction import utils
@@ -521,8 +521,8 @@ class Workflow:
             'accumulated_precursors': 0,
             'accumulated_precursors_0.01FDR': 0,
             'accumulated_precursors_0.001FDR': 0,
-            'fwhm_rt': 5,
-            'fwhm_mobility': 0.015
+            'cycle_fwhm': 5,
+            'mobility_fwhm': 0.015
         }
 
     @property
@@ -696,8 +696,8 @@ class Workflow:
         mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)
 
         #top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
-        median_precursor_intensity = precursor_df_filtered['sum_precursor_intensity'].median()
-        top_intensity_precursors = precursor_df_filtered[precursor_df_filtered['sum_precursor_intensity'] > median_precursor_intensity]
+        median_precursor_intensity = precursor_df_filtered['weighted_ms1_intensity'].median()
+        top_intensity_precursors = precursor_df_filtered[precursor_df_filtered['weighted_ms1_intensity'] > median_precursor_intensity]
         fragments_df_filtered = fragments_df[fragments_df['precursor_idx'].isin(top_intensity_precursors['precursor_idx'])]
         median_fragment_intensity = fragments_df_filtered['intensity'].median()
         fragments_df_filtered = fragments_df_filtered[fragments_df_filtered['intensity'] > median_fragment_intensity].head(50000)
@@ -718,8 +718,8 @@ class Workflow:
         self.progress["rt_error"] = max(rt_99, self.config['extraction']['target_rt_tolerance'])
         self.progress["mobility_error"] = max(mobility_99, self.config['extraction']['target_mobility_tolerance'])
         self.progress["column_type"] = 'calibrated'
-        self.progress['fwhm_rt'] = precursor_df_filtered['fwhm_rt'].median()
-        self.progress['fwhm_mobility'] = precursor_df_filtered['fwhm_mobility'].median()
+        self.progress['cycle_fwhm'] = precursor_df_filtered['cycle_fwhm'].median()
+        self.progress['mobility_fwhm'] = precursor_df_filtered['mobility_fwhm'].median()
 
         if self.run is not None:
             precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
@@ -759,7 +759,7 @@ class Workflow:
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
         
         config = HybridCandidateConfig()
-        config.update(self.config['extraction']['HybridCandidateConfig'])
+        config.update(self.config['extraction']['SelectionConfig'])
         config.update({
             'rt_tolerance':self.progress["rt_error"],
             'mobility_tolerance': self.progress["mobility_error"],
@@ -777,30 +777,32 @@ class Workflow:
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
             fragment_mz_column = f'mz_{self.progress["column_type"]}',
-            fwhm_rt = self.progress['fwhm_rt'],
-            fwhm_mobility = self.progress['fwhm_mobility'],
+            fwhm_rt = self.progress['cycle_fwhm'],
+            fwhm_mobility = self.progress['mobility_fwhm'],
             thread_count=self.config['thread_count']
         )
         candidates_df = extraction()
 
-        quad = SimpleQuadrupole(self.dia_data.cycle)
+        config = plexscoring.CandidateConfig()
+        config.update(self.config['extraction']['ScoringConfig'])
+        config.update({
+            'precursor_mz_tolerance': self.progress["ms1_error"],
+            'fragment_mz_tolerance': self.progress["ms2_error"]
+        })
 
-        extraction = MS2ExtractionWorkflow(
+        candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data,
-            batch_df,
+            self.precursors_flat,
             self.fragments_flat,
-            candidates_df,
-            quadrupole_calibration = quad,
+            config = config,
             rt_column = f'rt_{self.progress["column_type"]}',
             mobility_column = f'mobility_{self.progress["column_type"]}',
             precursor_mz_column = f'mz_{self.progress["column_type"]}',
             fragment_mz_column = f'mz_{self.progress["column_type"]}',
-            precursor_mz_tolerance = self.progress["ms1_error"],
-            fragment_mz_tolerance = self.progress["ms2_error"],
-            thread_count=self.config['thread_count']
         )
-        features_df, fragments_df = extraction()
-        
+
+        features_df, fragments_df = candidate_scoring(candidates_df, thread_count=10, debug=False)
+
         return features_df, fragments_df
        
     def extraction(self, keep_decoys=False):
