@@ -8,7 +8,7 @@
   "scripts": {
     "build": "webpack && cross-env NODE_ENV=dev electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "make": "electron-forge make"
+    "make": "webpack && electron-forge make"
   },
   "keywords": ["proteomics", "DIA", "MS", "mass spectrometry"],
   "author": "Georg Wallmann, Sander Willems, Wen-Feng Zeng, Constantin Ammar & Mann Labs",

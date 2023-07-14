@@ -9,6 +9,9 @@ const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, han
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
 const { getEnvironmentStatus, lineBreakTransform, CondaEnvironment} = require('./modules/cmd');
 
+// Handle creating/removing shortcuts on Windows when installing/uninstalling.
+if (require('electron-squirrel-startup')) app.quit();
+
 let mainWindow;
 let workflows;
 let environment;
