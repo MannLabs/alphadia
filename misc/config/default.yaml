@@ -72,22 +72,6 @@ extraction:
     mobility_library: ['mobility']
   fragment_columns:
     mz_library: ['mz','predicted_mz']
-  
-  output_columns:
-    - 'elution_group_idx'
-    - 'precursor_idx'
-    - 'decoy' 
-    - 'flat_frag_start_idx'
-    - 'flat_frag_stop_idx' 
-    - 'charge'
-    - 'rt_library'
-    - 'mobility_library'
-    - 'mz_library'
-    - 'sequence'
-    - 'genes'
-    - 'proteins'
-    - 'uniprot_ids'
-    - 'channel'
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
