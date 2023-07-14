@@ -252,7 +252,23 @@ class Plan:
 
         self.add_precursor_columns(self.speclib.precursor_df)
 
-        output_columns = self.config['extraction']['output_columns']
+        output_columns = [
+            'elution_group_idx'
+            'precursor_idx'
+            'decoy' 
+            'flat_frag_start_idx'
+            'flat_frag_stop_idx' 
+            'charge'
+            'rt_library'
+            'mobility_library'
+            'mz_library'
+            'sequence'
+            'genes'
+            'proteins'
+            'uniprot_ids'
+            'channel'
+        ]
+        
         existing_columns = self.speclib.precursor_df.columns
         output_columns += [f'i_{i}' for i in utils.get_isotope_columns(existing_columns)]
         existing_output_columns = [c for c in output_columns if c in existing_columns]
