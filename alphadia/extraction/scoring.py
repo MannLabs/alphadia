@@ -43,32 +43,21 @@ def assign_best_candidate(sorted_index_values):
 
 def fdr_correction(features, 
         feature_columns = 
-            ['precursor_mass_error',
-             'mz_observed',
-            'precursor_isotope_correlation', 
-            'fraction_fragments', 
-            'intensity_correlation',
-            'sum_precursor_intensity',
-            'sum_fragment_intensity',
-            'mean_fragment_intensity',
-            'mean_fragment_nonzero',
-            'rt_error',
-            'rt_observed',
-            'mobility_error',
-            'mobility_observed',
-            'mean_observation_score',
-            'var_observation_score',
-            'fragment_frame_correlation', 
-            'fragment_scan_correlation', 
-            'template_frame_correlation', 
-            'template_scan_correlation',
-            'fwhm_rt',
-            'fwhm_mobility',
-            'sum_b_ion_intensity',
-            'sum_y_ion_intensity',
-            'observed_difference_b_y',
-            'aggreement_b_y'
-            ],
+        ['base_width_mobility', 'base_width_rt', 'cycle_fwhm',
+        'diff_b_y_ion_intensity', 'fragment_frame_correlation',
+        'fragment_scan_correlation', 'height_correlation', 'height_fraction',
+        'height_fraction_weighted', 'intensity_correlation',
+        'intensity_fraction', 'intensity_fraction_weighted',
+        'isotope_height_correlation', 'isotope_intensity_correlation',
+        'mean_observation_score', 'mobility_fwhm', 'mobility_observed',
+        'mono_ms1_height', 'mono_ms1_intensity', 'mz_library', 'mz_observed',
+        'n_observations', 'rt_observed', 'sum_b_ion_intensity',
+        'sum_ms1_height', 'sum_ms1_intensity', 'sum_y_ion_intensity',
+        'template_frame_correlation', 'template_scan_correlation',
+        'top3_frame_correlation',
+        'top3_scan_correlation', 'top_ms1_height',
+        'top_ms1_intensity', 'weighted_mass_deviation', 'weighted_mass_error',
+        'weighted_ms1_height', 'weighted_ms1_intensity'],
         figure_path = None,
         neptune_run = None,
         index_group = 'elution_group_idx'
@@ -92,6 +81,9 @@ def fdr_correction(features,
 
     X = features[feature_columns].values
     y = features['decoy'].values
+
+    print(X.shape)
+    print(y.shape)
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     pipeline.fit(X_train, y_train)
@@ -339,7 +331,6 @@ class Candidate:
     charge: nb.uint8
     decoy: nb.uint8
     rank: nb.uint8
-    
 
     frag_start_idx: nb.uint32[::1]
     frag_stop_idx: nb.uint32[::1]
@@ -685,13 +676,14 @@ class Candidate:
         
         if debug:
             with nb.objmode:
-                plotting.plot_fragment_profile(
-                    self.template,
-                    fragments_scan_profile,
-                    fragments_frame_profile,
-                    template_frame_profile,
-                    template_scan_profile,
-                )
+                pass
+                #plotting.plot_fragment_profile(
+                #    self.template,
+                #    fragments_scan_profile,
+                #    fragments_frame_profile,
+                #    template_frame_profile,
+                #    template_scan_profile,
+                #)
         
 
         # (n_fragments, n_observations)
@@ -944,7 +936,7 @@ class Candidate:
             
             
 
-            #self.visualize_precursors(dense_precursors, prec_precursor_index)
+            self.visualize_precursors(dense_precursors, prec_precursor_index)
 
 @nb.experimental.jitclass()
 class CandidateContainer:
@@ -988,7 +980,7 @@ class MS2ExtractionWorkflow():
                    
         ):
 
-        self.dia_data = dia_data#.jitclass()
+        self.dia_data = dia_data
         self.precursors_flat = precursors_flat.sort_values(by='precursor_idx')
         self.fragments_flat = fragments_flat
         self.candidates = candidates
@@ -1033,13 +1025,16 @@ class MS2ExtractionWorkflow():
             self.debug
         )
 
-        if self.debug:
-            return candidate_container#, feature_df, fragment_df
+        
         feature_df, fragment_df = self.collect_dataframes(candidate_container)
         
         
         feature_df = self.append_precursor_information(feature_df)
         self.log_stats(feature_df)
+
+        if self.debug:
+            return candidate_container, feature_df, fragment_df
+        
         return feature_df.dropna(), fragment_df.dropna()
 
     def assemble_candidates(self, n):
@@ -1050,8 +1045,12 @@ class MS2ExtractionWorkflow():
         candidate_pidx = candidates['precursor_idx'].values
         precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
 
-        candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
-        candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+        if 'flat_frag_start_idx' not in candidates.columns:
+            candidates['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
+
+        if 'flat_frag_stop_idx' not in candidates.columns:
+            candidates['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
+
         candidates['mz'] = self.precursors_flat[self.precursor_mz_column].values[precursor_flat_lookup]
 
         validate.candidates(candidates)

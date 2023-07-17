@@ -1,10 +1,16 @@
+# User defined:
+AlphaDIA/logs
+
+*.DS_Store
+*sandbox*
+.neptune
+nbs/mono_crash*
+.coverage
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
-# neptune ai
-.neptune
 
 # C extensions
 *.so
@@ -131,10 +137,21 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# User defined:
-AlphaDIA/logs
-*.DS_Store
-*sandbox*
-.neptune
-nbs/mono_crash*
-.coverage
+######################
+# OS generated files #
+######################
+.DS_Store
+.AppleDouble
+.LSOverride
+
+##################
+# JavaScript GUI #
+##################
+node_modules
+jspm_packages
+
+gui/dist/
+gui/out/
+
+
+

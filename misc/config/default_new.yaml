@@ -1,0 +1,138 @@
+# configuration for the extraction plan
+version: 1
+
+general:
+  thread_count: 10
+  reuse_calibration: false
+  reuse_quant: false
+
+library_loading:
+  rt_heuristic: 180
+  norm_rt_mode: 'tic'
+  # rt_type: 'norm'
+  channel_filter: ''
+
+calibration:
+  min_epochs: 5
+  max_epochs: 20
+  batch_size: 4000
+  recalibration_target: 200
+  final_full_calibration: False
+  # active_gradient_start 
+  # active_gradient_stop
+
+extraction_target:
+  target_num_candidates: 5
+  target_ms1_tolerance: 15
+  target_ms2_tolerance: 15
+  target_mobility_tolerance: 0.04
+  target_rt_tolerance: 30
+
+extraction_initial:
+  initial_num_candidates: 2
+  initial_ms1_tolerance: 30
+  initial_ms2_tolerance: 30
+  initial_mobility_tolerance: 0.08
+  initial_rt_tolerance: 240
+
+selection_config:
+  peak_len_rt: 10.
+  sigma_scale_rt: 0.5
+  peak_len_mobility: 0.01
+  sigma_scale_mobility: 1.
+
+  top_k_precursors: 3
+  top_k_fragments: 12
+  max_cardinality: 10
+  kernel_size: 30
+
+  f_mobility: 1.0
+  f_rt: 0.99
+  center_fraction: 0.5
+  min_size_mobility: 8
+  min_size_rt: 3
+  max_size_mobility: 50
+  max_size_rt: 15
+
+  group_channels: False
+  use_weighted_score: True
+
+  join_close_candidates: True
+  join_close_candidates_scan_threshold: 0.01
+  join_close_candidates_cycle_threshold: 0.6
+
+scoring_config:
+  score_grouped: false
+  max_cardinality: 10
+  top_k_fragments: 12
+  top_k_isotopes: 3
+  reference_channel: -1
+  precursor_mz_tolerance: 10
+  fragment_mz_tolerance: 15
+
+fdr:
+  fdr: 0.01
+  decoy_strategy: mutation
+  competetive_scoring: true
+
+# to be removed
+library_parsing:
+  precursor_columns:
+    mz_library: ['mz','precursor_mz']
+    rt_library: ['rt','rt_norm']
+    mobility_library: ['mobility']
+  fragment_columns:
+    mz_library: ['mz','predicted_mz']
+
+# configuration for the calibration manager
+# the config has to start with the calibration keyword and consists of a list of calibration groups.
+# each group consists of datapoints which have multiple properties.
+# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
+calibration_manager:
+  - name: fragment
+    estimators: 
+      - name: mz
+        model: LOESSRegression
+        model_args:
+          n_kernels: 2
+        input_columns: 
+          - mz_library
+        target_columns:
+          - mz_observed
+        output_columns:
+          - mz_calibrated
+        transform_deviation: 1e6
+  - name: precursor
+    estimators: 
+        - name: mz
+          model: LOESSRegression
+          model_args:
+            n_kernels: 2
+          input_columns: 
+            - mz_library
+          target_columns:
+            - mz_observed
+          output_columns:
+            - mz_calibrated
+          transform_deviation: 1e6
+        - name: rt
+          model: LOESSRegression
+          model_args:
+            n_kernels: 6
+            uniform: True
+          input_columns: 
+            - rt_library
+          target_columns:
+            - rt_observed
+          output_columns:
+            - rt_calibrated
+        - name: mobility
+          model: LOESSRegression
+          model_args:
+            n_kernels: 2
+          input_columns: 
+            - mobility_library
+          target_columns:
+            - mobility_observed
+          output_columns:
+            - mobility_calibrated

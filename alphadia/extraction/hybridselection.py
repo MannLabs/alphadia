@@ -221,7 +221,8 @@ class HybridCandidateConfigJIT():
     """
 
     rt_tolerance: nb.float64
-    mz_tolerance: nb.float64
+    precursor_mz_tolerance: nb.float64
+    fragment_mz_tolerance: nb.float64
     mobility_tolerance: nb.float64
     isotope_tolerance: nb.float64
 
@@ -259,7 +260,8 @@ class HybridCandidateConfigJIT():
             self, 
 
             rt_tolerance,
-            mz_tolerance,
+            precursor_mz_tolerance,
+            fragment_mz_tolerance,
             mobility_tolerance,
             isotope_tolerance,
 
@@ -296,7 +298,8 @@ class HybridCandidateConfigJIT():
         ):
 
         self.rt_tolerance = rt_tolerance
-        self.mz_tolerance = mz_tolerance
+        self.precursor_mz_tolerance = precursor_mz_tolerance
+        self.fragment_mz_tolerance = fragment_mz_tolerance
         self.mobility_tolerance = mobility_tolerance
         self.isotope_tolerance = isotope_tolerance
 
@@ -337,7 +340,8 @@ class HybridCandidateConfig(config.JITConfig):
     def __init__(self):
 
         self.rt_tolerance = 60.
-        self.mz_tolerance = 15.
+        self.precursor_mz_tolerance = 10.
+        self.fragment_mz_tolerance = 15.
         self.mobility_tolerance = 0.1
         self.isotope_tolerance = 0.01
 
@@ -356,10 +360,10 @@ class HybridCandidateConfig(config.JITConfig):
         # parameters used during peak identification
         self.f_mobility = 1.0
         self.f_rt = 0.99
-        self.center_fraction = 0.1
+        self.center_fraction = 0.5
         self.min_size_mobility = 8
         self.min_size_rt = 3
-        self.max_size_mobility = 50
+        self.max_size_mobility = 30
         self.max_size_rt = 15
 
         self.group_channels = False
@@ -370,19 +374,18 @@ class HybridCandidateConfig(config.JITConfig):
         self.join_close_candidates_cycle_threshold = 0.6
 
         #self.feature_std = np.array([ 1.2583724, 0.91052234, 1.2126098, 14.557817, 0.04327635, 0.24623954, 0.03225865, 1.2671406,1.,1,1,1 ], np.float64)
+        self.feature_std = np.ones(1, np.float64)
+        self.feature_mean = np.zeros(1, np.float64)
+        self.feature_weight = np.ones(1, np.float64)
+        #self.feature_weight[2] = 1.
+        #self.feature_weight[1] = 1.
+        
+        #self.feature_weight[11] = 1.
         #self.feature_mean = np.array([ 2.967344, 1.2160938, 1.426444, 13.960179, 0.06620345, 0.44364494, 0.03138363, 3.1453438,1.,1,1,1 ], np.float64)
         #self.feature_weight = np.array([ 0.43898424,  0.97879761,  0.72262148, 0., 0.0,  0.3174245, 0.30102549,  0.44892641, 1.,1,1,1], np.float64)
 
-        self.feature_std = np.array([1.57582333e+00, 4.86002185e-01, 5.75864457e-01, 5.88348741e+02,
- 1.46839315e-02, 4.23830325e-02, 1.13689671e-02, 2.01410664e+00,
- 1.58700245e-01, 9.42586444e-02, 9.42647912e-02, 9.44558672e-02], np.float64)
-        self.feature_mean = np.array([ 2.99270939,  1.81605299,  1.55059098, 20.70651981,  0.14824355,  0.45525489,
-  0.09375865,  4.17304869,  1.4260253,   0.51439743,  0.50651637,  0.49794463 ], np.float64)
-        self.feature_weight = np.array([0.41875882,  0.27491423,  0.04876592, -0.14647627, -3.603192,   -0.78340935,
-   8.3932487,  -0.79137032,  0.18170943,  0.71641092,  0.39434182,  0.09247331], np.float64)
-        
-        self.feature_weight = np.array([0.41875882,  0.27491423,  0.04876592, 0,0,0,
-   8.3932487, 0,  0.18170943,  0.71641092,  0.39434182,  0.09247331], np.float64)
+    def validate(self):
+        pass
 
 @nb.experimental.jitclass()
 class Candidate:
@@ -399,6 +402,7 @@ class Candidate:
     score: nb.float64
     precursor_mz: nb.float64
     decoy: nb.int8
+    channel: nb.uint32
     features: nb.float32[::1]
 
     scan_center: nb.int64
@@ -421,6 +425,7 @@ class Candidate:
             score,
             precursor_mz,
             decoy,
+            channel,
             features,
 
             scan_center,
@@ -438,6 +443,7 @@ class Candidate:
         self.score = score
         self.precursor_mz = precursor_mz
         self.decoy = decoy
+        self.channel = channel
         self.features = features
         self.scan_center = scan_center
         self.scan_start = scan_start
@@ -639,15 +645,7 @@ class HybridElutionGroup:
         fragment_container,
         config,
         kernel, 
-        rt_tolerance,
-        mobility_tolerance,
-        mz_tolerance,
-        candidate_count, 
-        debug,
-        exclude_shared_fragments,
-        top_k_fragments,
-        top_k_precursors,
-        use_weighted_score,
+        debug
     ):
         #print(self.precursor_idx)
         #print(self.precursor_decoy)
@@ -746,7 +744,7 @@ class HybridElutionGroup:
             isotope_intensity,
             np.ones(len(isotope_mz), dtype=np.uint8),
             self.precursor_abundance,
-            top_k = top_k_precursors
+            top_k = config.top_k_precursors
         )
 
         # FLAG: needed for debugging
@@ -772,7 +770,7 @@ class HybridElutionGroup:
             frame_limits,
             scan_limits,
             precursor_mz,
-            mz_tolerance,
+            config.precursor_mz_tolerance,
             np.array([[-1.,-1.]], dtype=np.float32)
         )
         dense_precursors = _dense_precursors.sum(axis=2)
@@ -789,7 +787,7 @@ class HybridElutionGroup:
             frame_limits,
             scan_limits,
             fragment_mz,
-            mz_tolerance,
+            config.fragment_mz_tolerance,
             quadrupole_mz,
             custom_cycle = jit_data.cycle
         )
@@ -846,6 +844,7 @@ class HybridElutionGroup:
             self.score_group_idx,
             self.precursor_idx,
             self.precursor_decoy,
+            self.precursor_channel,
             scan_limits,
             frame_limits,
             precursor_mz,
@@ -965,7 +964,6 @@ class HybridCandidateSelection(object):
             config,
             rt_tolerance = 30,
             mobility_tolerance = 0.03,
-            mz_tolerance = 120,
             candidate_count = 3,
             rt_column = 'rt_library',  
             mobility_column = 'mobility_library',
@@ -1037,10 +1035,6 @@ class HybridCandidateSelection(object):
         self.fragments_flat = fragments_flat
 
         self.debug = debug
-        self.mz_tolerance = mz_tolerance
-        self.rt_tolerance = rt_tolerance
-        self.mobility_tolerance = mobility_tolerance
-        self.candidate_count = candidate_count
 
         self.thread_count = thread_count
 
@@ -1062,12 +1056,6 @@ class HybridCandidateSelection(object):
 
         self.available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
         self.available_isotope_columns = [f'i_{i}' for i in self.available_isotopes]
-
-        #self.group_channels = group_channels
-        self.exclude_shared_fragments = exclude_shared_fragments
-        self.top_k_fragments = top_k_fragments
-        self.top_k_precursors = top_k_precursors
-        self.use_weighted_score = use_weighted_score
 
         self.config = config
         self.feature_path = feature_path
@@ -1099,6 +1087,8 @@ class HybridCandidateSelection(object):
 
         alphatims.utils.set_threads(thread_count)
 
+        print(iterator_len)
+
         _executor(
             range(iterator_len), 
             elution_group_container,
@@ -1106,26 +1096,18 @@ class HybridCandidateSelection(object):
             fragment_container,
             self.config,
             self.kernel, 
-            self.rt_tolerance,
-            self.mobility_tolerance,
-            self.mz_tolerance,
-            self.candidate_count,
             self.debug,
-            self.exclude_shared_fragments,
-            self.top_k_fragments,
-            self.top_k_precursors,
-            self.use_weighted_score
         )
 
-        if self.debug: 
-            return elution_group_container
-            pass
             
         #return elution_group_container
    
         df = self.assemble_candidates(elution_group_container)
         df = self.append_precursor_information(df)
         #self.log_stats(df)
+        if self.debug: 
+            return elution_group_container, df
+            
         return df
     
     def assemble_fragments(self):
@@ -1204,7 +1186,7 @@ class HybridCandidateSelection(object):
 
             eg_list = []
             
-            while score_group_stop < len(score_group_idx)-1:
+            while score_group_stop < len(score_group_idx):
                 
                 score_group_stop += 1
 
@@ -1269,9 +1251,37 @@ class HybridCandidateSelection(object):
             for j in range(len(elution_group_container[i].candidates)):
                 candidates.append(elution_group_container[i].candidates[j])
     
-        attributes = ['elution_group_idx', 'score_group_idx', 'precursor_idx', 'rank','score','precursor_mz', 'decoy', 'scan_center', 'scan_start', 'scan_stop', 'frame_center', 'frame_start', 'frame_stop']
-        candidate_df = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in attributes})
+        candidate_attributes = ['elution_group_idx', 
+                      'score_group_idx', 
+                      'precursor_idx', 
+                      'rank',
+                      'score',
+                      'precursor_mz', 
+                      'decoy', 
+                      'channel',
+                      'scan_center', 
+                      'scan_start', 
+                      'scan_stop', 
+                      'frame_center', 
+                      'frame_start', 
+                      'frame_stop'
+                    ]
+        candidate_df = pd.DataFrame({attr: [getattr(c, attr) for c in candidates] for attr in candidate_attributes})
+        candidate_df = candidate_df.sort_values(by='precursor_idx')
 
+        # add additiuonal columns for precursor information
+        precursor_attributes = ['mz_calibrated',
+                                'mz_library']
+        
+        precursor_pidx = self.precursors_flat['precursor_idx'].values
+        candidate_pidx = candidate_df['precursor_idx'].values
+        precursor_flat_lookup = np.searchsorted(precursor_pidx, candidate_pidx, side='left')
+
+        for attr in precursor_attributes:
+            if attr in self.precursors_flat.columns:
+                candidate_df[attr] = self.precursors_flat[attr].values[precursor_flat_lookup]
+
+        # save features for training if desired.
         if self.feature_path is not None:
             feature_matrix = np.zeros((len(candidates), len(candidates[0].features)), dtype=np.float32)
             for i in range(len(candidates)):
@@ -1340,15 +1350,7 @@ def _executor(
         fragment_container,
         config,
         kernel, 
-        rt_tolerance,
-        mobility_tolerance,
-        mz_tolerance,
-        candidate_count, 
         debug,
-        exclude_shared_fragments,
-        top_k_fragments,
-        top_k_precursors,
-        use_weighted_score
     ):
     """
     Helper function.
@@ -1359,16 +1361,8 @@ def _executor(
         jit_data, 
         fragment_container,
         config,
-        kernel, 
-        rt_tolerance,
-        mobility_tolerance,
-        mz_tolerance,
-        candidate_count, 
-        debug,
-        exclude_shared_fragments,
-        top_k_fragments,
-        top_k_precursors,
-        use_weighted_score
+        kernel,
+        debug
     )
 
 
@@ -1383,7 +1377,7 @@ def build_features(
     fragment_intensity
 ):
     
-    n_features = 12
+    n_features = 1#2
 
     features = np.zeros(
         (
@@ -1419,23 +1413,23 @@ def build_features(
     fragment_dot_mean = np.mean(fragment_dot)
     fragment_norm = fragment_dot/(fragment_dot_mean+0.001)
 
-    fragment_mass_error = np.sum(np.abs(smooth_fragment[1]), axis=0)
-    fragment_mass_error_max = np.max(fragment_mass_error)
-    fragment_mass_error_norm = 1-(fragment_mass_error/fragment_mass_error_max)
+    #fragment_mass_error = np.sum(np.abs(smooth_fragment[1]), axis=0)
+    #fragment_mass_error_max = np.max(fragment_mass_error)
+    #fragment_mass_error_norm = 1-(fragment_mass_error/fragment_mass_error_max)
 
-    precursor_mass_error = np.sum(np.abs(smooth_precursor[1]), axis=0)
-    precursor_mass_error_max = np.max(precursor_mass_error)
-    precursor_mass_error_norm = 1-(precursor_mass_error/precursor_mass_error_max)
+    #precursor_mass_error = np.sum(np.abs(smooth_precursor[1]), axis=0)
+    #precursor_mass_error_max = np.max(precursor_mass_error)
+    #precursor_mass_error_norm = 1-(precursor_mass_error/precursor_mass_error_max)
 
     # isotope score
 
-    isotope_score = np.zeros(smooth_precursor.shape[2:], dtype=np.float32)
-    n_isotopes = precursor_intensity.shape[0]
-    for i in range(n_isotopes-1):
-        if precursor_intensity[i] <= precursor_intensity[i+1]:
-            isotope_score += smooth_precursor[0,i] <= smooth_precursor[0,i+1]
-        else:
-            isotope_score += smooth_precursor[0,i] >= smooth_precursor[0,i+1]
+    #isotope_score = np.zeros(smooth_precursor.shape[2:], dtype=np.float32)
+    #n_isotopes = precursor_intensity.shape[0]
+    #for i in range(n_isotopes-1):
+    #    if precursor_intensity[i] <= precursor_intensity[i+1]:
+    #        isotope_score += smooth_precursor[0,i] <= smooth_precursor[0,i+1]
+    #    else:
+    #        isotope_score += smooth_precursor[0,i] >= smooth_precursor[0,i+1]
 
     
 
@@ -1443,18 +1437,18 @@ def build_features(
     top3_profiles = np.sum(smooth_fragment[0,:3], axis=1)
     top3_correlation = utils.profile_correlation(top3_profiles)
 
-    features[0] = fragment_binary_weighted
-    features[1] = np.log(fragment_norm +1)
-    features[2] = np.log(precursor_norm +1)
-    features[3] = fragment_norm + precursor_norm
-    features[4] = fragment_mass_error_norm
-    features[5] = precursor_mass_error_norm
-    features[6] = fragment_mass_error_norm * precursor_mass_error_norm
-    features[7] = np.log(smooth_fragment[0][:3].sum(axis=0) + 1)
-    features[8] = isotope_score
-    features[9] = top3_correlation[0] * fragment_binary[0]
-    features[10] = top3_correlation[1] * fragment_binary[0]
-    features[11] = top3_correlation[2] * fragment_binary[0]
+    #features[0] = fragment_binary_weighted
+    #features[1] = np.log(fragment_norm +1)
+    #features[2] = np.log(precursor_norm +1)
+    features[0] = np.log(fragment_norm +1) + np.log(precursor_norm +1)
+    #features[4] = fragment_mass_error_norm
+    #features[5] = precursor_mass_error_norm
+    #features[6] = fragment_mass_error_norm * precursor_mass_error_norm
+    #features[7] = np.log(smooth_fragment[0][:3].sum(axis=0) + 1)
+    #features[8] = isotope_score
+    #features[9] = top3_correlation[0] * fragment_binary[0]
+    #features[10] = top3_correlation[1] * fragment_binary[0]
+    #eatures[11] = top3_correlation[2] * fragment_binary[0]
 
     return features
 
@@ -1660,6 +1654,7 @@ def build_candidates(
     score_group_idx,
     precursor_idx,
     precursor_decoy,
+    precursor_channel,
     scan_limits,
     frame_limits,
     precursor_mz,
@@ -1822,6 +1817,7 @@ def build_candidates(
                     candidate_score,
                     precursor_mz[i],
                     precursor_decoy[i],
+                    precursor_channel[i],
                     features,
                     scan_absolute,
                     scan_limits_absolute[0],

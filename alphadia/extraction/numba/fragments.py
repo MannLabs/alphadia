@@ -42,11 +42,16 @@ class FragmentContainer:
 
     def __len__(self):
         return len(self.mz)
+    
+    def __repr__(self) -> str:
+        return f"FragmentContainer with {len(self)} fragments"
+    
+    def __str__(self) -> str:
+        return f"FragmentContainer with {len(self)} fragments"
 
     def sort_by_mz(self):
         """
-        Sort all arrays by m/z
-        
+        Sort the fragments in-place by m/z        
         """
         mz_order = np.argsort(self.mz)
         self.precursor_idx = self.precursor_idx[mz_order]
@@ -59,7 +64,38 @@ class FragmentContainer:
         self.number = self.number[mz_order]
         self.position = self.position[mz_order]
         self.cardinality = self.cardinality[mz_order]
-        
+
+    def filter_by_cardinality(self, max_cardinality: nb.uint8):
+        """
+        Remove fragements which appear in more than max_cardinality precursors
+        """
+        mask = self.cardinality <= max_cardinality
+        self.precursor_idx = self.precursor_idx[mask]
+        self.mz_library = self.mz_library[mask]
+        self.mz = self.mz[mask]
+        self.intensity = self.intensity[mask]
+        self.type = self.type[mask]
+        self.loss_type = self.loss_type[mask]
+        self.charge = self.charge[mask]
+        self.number = self.number[mask]
+        self.position = self.position[mask]
+        self.cardinality = self.cardinality[mask]
+
+    def filter_top_k(self, top_k):
+        """
+        Filter out all fragments that are not of cardinality 1 or 2
+        """
+        mask = self.intensity.argsort()[::-1][:top_k]
+        self.precursor_idx = self.precursor_idx[mask]
+        self.mz_library = self.mz_library[mask]
+        self.mz = self.mz[mask]
+        self.intensity = self.intensity[mask]
+        self.type = self.type[mask]
+        self.loss_type = self.loss_type[mask]
+        self.charge = self.charge[mask]
+        self.number = self.number[mask]
+        self.position = self.position[mask]
+        self.cardinality = self.cardinality[mask]
 
 @overload_method(nb.types.misc.ClassInstanceType, 'slice', )
 def slice(inst, slices):

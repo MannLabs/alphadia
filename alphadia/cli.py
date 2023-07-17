@@ -5,6 +5,7 @@
 import logging
 import time
 import sys
+import yaml
 
 # external
 import click
@@ -25,14 +26,7 @@ from alphadia.extraction import processlogger
 @click.pass_context
 @click.version_option(alphadia.__version__, "-v", "--version")
 def run(ctx, **kwargs):
-    click.echo('      _   _      _         ___ ___   _   ')
-    click.echo('     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
-    click.echo('    / _ \| | \'_ \\ \' \/ _` | |) | | / _ \ ')
-    click.echo('   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\')
-    click.echo(f'           |_|              version: {alphadia.__version__}')
-    click.echo('')
-
-    
+   
     if ctx.invoked_subcommand is None:
         click.echo(run.get_help(ctx))
 
@@ -48,7 +42,7 @@ def gui():
 @click.argument(
     "output-location",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    required=True,
+    required=False,
 )
 @click.option(
     '--file',
@@ -78,13 +72,13 @@ def gui():
     show_default=True,
 )
 @click.option(
-    "--config-path",
-    help='DO NOT TOUCH - Default config yaml. If not specified, the default config will be used.',
+    "--config",
+    help='Config yaml which will be used to update the default config.',
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
 )
 @click.option(
-    "--config-update-path",
-    help='Config yaml which will be used to update the default config.',
+    "--config-base",
+    help='DO NOT TOUCH - Default config yaml. If not specified, the default config will be used.',
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
 )
 @click.option(
@@ -110,23 +104,62 @@ def gui():
     help="If specified, directory will be used to store calibration figures.",
     type=click.Path(exists=True, file_okay=False, dir_okay=True)
 )
-def extract(**kwargs):   
-    processlogger.init_logging(kwargs['output_location'])
+def extract(**kwargs):
 
-    if kwargs['file'] is None:
-        logging.error("No input file specified.")
+    kwargs['neptune_tag'] = list(kwargs['neptune_tag'])
+
+    # load config file if specified
+    config_update = None
+    if kwargs['config'] is not None:
+        with open(kwargs['config'], 'r') as f:
+            config_update = yaml.safe_load(f)
+
+    output_location = None
+    if kwargs['output_location'] is not None:
+        output_location = kwargs['output_location']
+
+    if "output" in config_update:
+        output_location = config_update['output']
+
+    if output_location is None:
+        logging.error("No output location specified.")
         return
-    else:
-        kwargs['file'] = list(kwargs['file'])
 
-    if kwargs['library'] is None:
+    processlogger.init_logging(kwargs['output_location'])
+    logger = logging.getLogger()
+
+    # assert input files have been specified
+    files = None
+    if kwargs['file'] is not None:
+        files = list(kwargs['file'])
+    
+    if "files" in config_update:
+        files = config_update['files'] if type(config_update['files']) is list else [config_update['files']]
+
+    if (files is None) or (len(files) == 0):
+        logging.error("No files specified.")
+        return
+    
+    # assert library has been specified
+    library = None
+    if kwargs['library'] is not None:
+        library = kwargs['library']
+
+    if "library" in config_update:
+        library = config_update['library']
+
+    if library is None:
         logging.error("No library specified.")
         return
-    
-    kwargs['neptune_tag'] = list(kwargs['neptune_tag'])
+ 
+    logger.progress(f"Extracting from {len(files)} files:")
+    for f in files:
+        logger.progress(f"  {f}")
+    logger.progress(f"Using library {library}.")
+    logger.progress(f"Saving output to {output_location}.")
     
     try:
-        print (kwargs)
+
         import matplotlib
         # important to supress matplotlib output
         matplotlib.use('Agg')
@@ -135,21 +168,21 @@ def extract(**kwargs):
         from alphadia.extraction.planning import Plan
 
         lib = SpecLibBase()
-        lib.load_hdf(kwargs['library'], load_mod_seq=True)
+        lib.load_hdf(library, load_mod_seq=True)
         #lib._precursor_df['elution_group_idx'] = lib._precursor_df['precursor_idx']
 
-        config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
-        
+        #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
+
         plan = Plan(
-            kwargs['file'],
-            kwargs['config_path'],
-            kwargs['config_update_path'],
+            files,
+            None,
+            None,
             config_update
             )
         plan.from_spec_lib_base(lib)
 
         plan.run(
-            kwargs['output_location'], 
+            output_location, 
             keep_decoys = kwargs['keep_decoys'], 
             fdr = kwargs['fdr'], 
             figure_path = kwargs['figure_path'],
