@@ -3,7 +3,7 @@
     "library": {
         "active": true,
         "required": false,
-        "path": ""
+        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/libraries/marvin_scp/MSfragger_library_mod_noLossType_d0_d4_d8_d12_shared_eg_n_fragments.hdf"
     },
     "fasta": {
         "active": false,
@@ -14,12 +14,13 @@
         "active": true,
         "required": false,
         "path": [
+            "/Users/georgwallmann/Documents/data/alphadia_benchmarking/raw_data/2023_04_27_synchroPasef_mDIA/20230422_TIMS05_PaSk_MCT_SA_HeLa_mDIA_SyP_8dig_scans_S2-C4_1_1808.d"
         ]
     },
     "output": {
         "active": true,
         "required": true,
-        "path": ""
+        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_07_15_gui_benchmark"
     },
     "config": [
         {
@@ -51,17 +52,25 @@
             ]
         },
         {
+            "id": "library_loading",
+            "name": "Spectral Library",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "channel_filter",
+                    "name": "Channel Filter",
+                    "value": "0",
+                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
+                    "type": "string"          
+                }
+            ]
+
+        },
+        {
             "id": "extraction_target",
             "name": "Search Settings",
             "hidden": false,
             "parameters": [
-                {
-                    "id": "fdr",
-                    "name": "FDR",
-                    "value": 0.01,
-                    "description": "Maximum false discovery rate for PSMs.",
-                    "type": "number"
-                },
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
@@ -96,6 +105,37 @@
                     "value": 30,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "number"
+                }
+            ]
+        },
+        {
+            "id": "fdr",
+            "name": "False Discovery Rate Correction",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "fdr",
+                    "name": "FDR",
+                    "value": 0.01,
+                    "description": "Maximum false discovery rate for PSMs.",
+                    "type": "number"
+                },
+                {
+                    "id": "decoy_strategy",
+                    "name": "Decoy Strategy",
+                    "value": "mutation",
+                    "description": "Strategy to generate decoy sequences. 'mutation' will use DIA-NN style decoys where the second and second to last amino acid are mutated.",
+                    "type": "dropdown",
+                    "options": [
+                        "mutation"
+                    ]
+                },
+                {
+                    "id": "competetive_scoring",
+                    "name": "Competetive Scoring",
+                    "value": true,
+                    "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
+                    "type": "boolean"
                 }
             ]
         },
@@ -138,13 +178,6 @@
                     "value": 240,
                     "description": "Initial retention time tolerance in seconds.",
                     "type": "number"
-                },
-                {
-                    "id": "competetive_scoring",
-                    "name": "Competetive Scoring",
-                    "value": false,
-                    "description": "Targets and decoys compete against each other.",
-                    "type": "boolean"
                 }
             ]
         },

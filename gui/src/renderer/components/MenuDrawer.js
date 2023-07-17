@@ -90,8 +90,8 @@ const MenuDrawer = ({
         </Box>
 
         <ListStyled>
-
             <ListItemButtonStyled 
+                key={"home"}
                 component={NavLink} 
                 to="/" 
                 activeClassName="Mui-selected">
@@ -104,6 +104,7 @@ const MenuDrawer = ({
                 Method Setup
             </ListSubheader>
             <ListItemButtonStyled 
+                key={"files"}
                 component={NavLink} 
                 to="/files" 
                 activeClassName="Mui-selected" >
@@ -113,6 +114,7 @@ const MenuDrawer = ({
                 <ListItemText primary="Input Files" />
             </ListItemButtonStyled >
             <ListItemButtonStyled 
+                key={"method"}
                 component={NavLink}
                 to="/method"
                 activeClassName="Mui-selected" >
@@ -122,6 +124,7 @@ const MenuDrawer = ({
             <ListItemText primary="Method Settings" />
             </ListItemButtonStyled>
             <ListItemButtonStyled 
+                key={"output"}
                 component={NavLink}
                 to="/output"
                 activeClassName="Mui-selected" >

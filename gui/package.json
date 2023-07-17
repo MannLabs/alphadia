@@ -6,11 +6,17 @@
   "main": "dist/electron.js",
   "homepage": "./",
   "scripts": {
-    "build": "webpack && cross-env NODE_ENV=dev electron .",
+    "build": "webpack && electron .",
+    "dev": "webpack --mode development && cross-env NODE_ENV=dev electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
     "make": "webpack && electron-forge make"
   },
-  "keywords": ["proteomics", "DIA", "MS", "mass spectrometry"],
+  "keywords": [
+    "proteomics",
+    "DIA",
+    "MS",
+    "mass spectrometry"
+  ],
   "author": "Georg Wallmann, Sander Willems, Wen-Feng Zeng, Constantin Ammar & Mann Labs",
   "license": "MIT",
   "dependencies": {
@@ -56,6 +62,7 @@
     "cross-env": "^7.0.3",
     "css-loader": "^6.8.1",
     "electron": "^25.3.0",
+    "electron-devtools-installer": "^3.2.0",
     "file-loader": "^6.2.0",
     "html-webpack-plugin": "^5.5.3",
     "mini-css-extract-plugin": "^2.7.6",

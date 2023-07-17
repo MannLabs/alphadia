@@ -175,16 +175,18 @@ const CondaEnvironment = class {
                 return;
             }
             
-            const myTransform = lineBreakTransform();
+            
             const PATH = process.env.PATH + ":" + this.pathUpdate
             const tokens = cmd.split(" ")
             const cmdp = spawn(tokens[0], tokens.slice(1), { env:{...process.env, PATH}});
-
-            cmdp.stdout.pipe(myTransform).on('data', (data) => {
+            
+            const stdoutTransform = lineBreakTransform();
+            cmdp.stdout.pipe(stdoutTransform).on('data', (data) => {
                 this.std.push(data.toString())
             });
-
-            cmdp.stderr.on('data', (data) => {
+            
+            const stderrTransform = lineBreakTransform();
+            cmdp.stderr.pipe(stderrTransform).on('data', (data) => {
                 this.std.push(data.toString())
             });
 

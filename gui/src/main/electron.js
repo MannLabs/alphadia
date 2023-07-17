@@ -31,14 +31,14 @@ function createWindow() {
         preload: path.join(__dirname, 'preload.js')
     },
   });
-  
-    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
-    // Open the DevTools.
-    mainWindow.webContents.openDevTools({ mode: "detach" });
-
-    // set title
     mainWindow.setTitle("alphaDIA");
+    mainWindow.removeMenu()
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
 
+    // Open the DevTools if NODE_ENV=dev
+    if (process.env.NODE_ENV === "dev"){
+        mainWindow.webContents.openDevTools({ mode: "detach" });
+    }
     environment = new CondaEnvironment("alpha")
     workflows = discoverWorkflows(mainWindow)
 }
@@ -78,17 +78,18 @@ function handleStartWorkflow(workflow) {
         return Promise.resolve("Workflow failed to start.")
     }
 
+    const configPath = path.join(workflowFolder, "config.yaml")
     // save config.yaml in workflow folder
-    writeYamlFile.sync(path.join(workflowFolder, "config.yaml"), config)
+    writeYamlFile.sync(configPath, config, {lineWidth: -1})
     
-    return environment.spawn("conda run --no-capture-output python /Users/georgwallmann/Documents/git/notebooks/python_stuff/benchmark_timer.py")
+    return environment.spawn(`conda run -n ${environment.envName} --no-capture-output alphadia extract --config ${configPath}`)
 }
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-
+    
     console.log(app.getLocale())
     console.log(app.getSystemLocale())
     createWindow(); 

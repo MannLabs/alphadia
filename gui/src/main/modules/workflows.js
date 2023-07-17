@@ -90,6 +90,10 @@ function workflowToConfig(workflow) {
         output["files"] = workflow.files.path
     }
 
+    if (workflow.output.path != "") {
+        output["output"] = workflow.output.path
+    }
+    
     workflow.config.forEach((config) => {
         output[config.id] = {}
         config.parameters.forEach((parameter) => {

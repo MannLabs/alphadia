@@ -147,8 +147,8 @@ dmypy.json
 ##################
 # JavaScript GUI #
 ##################
-node_modules/
-jspm_packages/
+node_modules
+jspm_packages
 
 gui/dist/
 gui/out/

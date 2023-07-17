@@ -1,6 +1,7 @@
 import * as React from 'react'
 
 import { useMethod } from '../logic/context'
+import { useTheme } from "@mui/material";
 import { useRef, useEffect } from 'react'
 import { FixedSizeList } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -8,16 +9,79 @@ import InfiniteLoader from 'react-window-infinite-loader';
 
 import { Box, TextField } from '@mui/material'
 
+function parseConsoleOutput(input, theme) {
+    const escapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
+    const matches = input.matchAll(escapeRegex);
+  
+    if (!matches || matches.length === 0) {
+      return input; // No escape character pairs found, return original string
+    }
+  
+    let result = [];
+    let currentIndex = 0;
+  
+    for (const match of matches) {
+      const startIndex = match.index;
+      const text = match[2];
+      const spanStyle = {color: getColorCode(match[1], theme), fontFamily: "Roboto Mono"}
+
+      console.log(match)
+  
+      // Push the text before the escape character pair
+      if (startIndex > currentIndex) {
+        const plainText = input.substring(currentIndex, startIndex);
+        result.push(plainText);
+      }
+  
+      // Push the colored span with the text
+      result.push(
+        <span key={startIndex} style={spanStyle}>
+          {text}
+        </span>
+      );
+  
+      currentIndex = startIndex + match[0].length;
+    }
+  
+    // Push any remaining plain text after the last escape character pair
+    if (currentIndex < input.length) {
+      const remainingText = input.substring(currentIndex);
+      result.push(remainingText);
+    }
+  
+    return result;
+  }
+
+  function getColorCode(colorCode, theme) {
+    // Map color codes to actual colors
+    const colorMap = {
+      '30;20': 'black',
+      '31;20': theme.palette.mode === 'light' ? "rgb(200, 1, 0)" : 'rgb(250, 150, 136)' ,
+      '32;20': theme.palette.mode === 'light' ?'rgb(76 211 26)' : 'rgb(168, 219, 114)',
+      '33;20': theme.palette.mode === 'light' ?'rgb(253 167 0)' : 'rgb(254, 219, 119',
+      '34;20': 'blue',
+      '35;20': 'magenta',
+      '36;20': 'cyan',
+      '37;20': 'white',
+      '38;20': 'inherit',
+    };
+  
+    return colorMap[colorCode] || 'inherit'; // Default color is black
+  }
+
 const Output = () => {
 
     const [cmd, setCmd] = React.useState("")
 
     const method  = useMethod();
+    const theme = useTheme();
 
     const [items, setItems] = React.useState([])
     const currentLengthRef = useRef(0);
     const [listRef, setListRef] = React.useState(null)
     const [scrollAttached, setScrollAttached] = React.useState(true)
+
+    
 
     useEffect(() => {
         currentLengthRef.current = items.length;
@@ -85,7 +149,7 @@ const Output = () => {
     }, [listRef, items.length])
 
     const Row = ({ index, style }) => {
-        const content = (index >= items.length) ? "" : items[index];
+        const content = parseConsoleOutput((index >= items.length) ? "" : items[index], theme);
         return (
             <Box style={style} sx={{fontSize: "inherit", fontFamily: "Roboto Mono", lineHeight: "1.0rem", textWrap: "nowrap", overflow: "hidden"}}>
                 {content}

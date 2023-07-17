@@ -88,6 +88,7 @@ const RunButton = ({
     return (
         <>
         <ListItemButton
+            key="run"
             disabled={profile.running}
             sx={runStyle}
             onClick={handleRunClick}
@@ -98,6 +99,7 @@ const RunButton = ({
             <ListItemText primary={runText} />
         </ListItemButton>
         <ListItemButton
+            key="abort"
             disabled={!profile.running}
             sx={abortStyle}
             onClick={handleAbortClick}

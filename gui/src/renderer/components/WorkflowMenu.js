@@ -51,9 +51,10 @@ const WorkflowMenu = ({
                     }}
 
                 >
-                    {workflows.map((workflowName) => {
+                    {workflows.map((workflowName, index) => {
                         return (
-                            <MenuItem 
+                            <MenuItem
+                                key={index} 
                                 onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
                                 sx={{color: theme.palette.success.main}}
                             >
@@ -63,7 +64,7 @@ const WorkflowMenu = ({
                     })}
                                 
                     <Divider />
-                    <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
+                    <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >
                         <ListItemIcon>
                             <MenuBookIcon fontSize="small" />
                         </ListItemIcon>
