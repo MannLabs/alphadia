@@ -69,16 +69,31 @@ const CondaEnvironment = class {
             this.exists.conda = true;
             
         }).then(() => {
-            return Promise.all([
-                this.checkCondaVersion(),
-                this.checkPythonVersion(),
-                this.checkAlphadiaVersion(),
-            ])
+            return this.checkCondaVersion().then((info) => {
+
+                
+                // executing conda run -n envName in an alreadt activated conda environment causes an error
+                // this is a workaround
+                // check if info exist and active_prefix is not null
+                if (info != null){
+                    if (info["active_prefix"] != null){
+                        if (path.basename(info["active_prefix"]) == this.envName){
+                            //dialog.showErrorBox("Conda environment already activated", "The conda environment " + this.envName + " is already activated. Please deactivate the environment and restart alphaDIA.")
+                            return Promise.reject("Conda environment already activated")
+                        }
+                    }
+                }
+                return Promise.all([
+                    this.checkPythonVersion(),
+                    this.checkAlphadiaVersion(),
+                ])
+            })
         }).then(() => {
             this.ready = [this.exists.conda, this.exists.python, this.exists.alphadia].every(Boolean);
             this.initPending = false;
+            
         }).catch((error) => {
-            dialog.showErrorBox("Conda not found", "Conda could not be found on your system. Please make sure conda is installed and added to your PATH.")
+            dialog.showErrorBox("Conda not found", "Conda could not be found on your system. Please make sure conda is installed and added to your PATH." + error)
         })
     }
     
@@ -103,11 +118,12 @@ const CondaEnvironment = class {
     checkCondaVersion(){
         return new Promise((resolve, reject) => {
             this.exec('conda info --json', (err, stdout, stderr) => {
-                if (err) {return;}
+                if (err) {console.log(err); reject(err); return;}
                 const info = JSON.parse(stdout);
+                console.log(info)
                 this.versions.conda = info["conda_version"];
                 this.exists.conda = true;
-                resolve();
+                resolve(info);
             });
         })
     }
@@ -115,7 +131,7 @@ const CondaEnvironment = class {
     checkPythonVersion(){
         return new Promise((resolve, reject) => {
             this.exec(`conda run -n ${this.envName} python --version`, (err, stdout, stderr) => {
-                if (err) {return;}
+                if (err) {console.log(err); reject(err); return;}
                 const versionPattern = /\d+\.\d+\.\d+/;
                 const versionList = stdout.match(versionPattern);
 
@@ -131,7 +147,7 @@ const CondaEnvironment = class {
     checkAlphadiaVersion(){
         return new Promise((resolve, reject) => {
             this.exec(`conda list -n ${this.envName} --json`, (err, stdout, stderr) => {
-                if (err) {return;}
+                if (err) {console.log(err); reject(err); return;}
                 const info = JSON.parse(stdout);
                 const packageInfo = info.filter((p) => p.name == "alphadia");
                 if (packageInfo.length == 0){return;}
@@ -178,7 +194,7 @@ const CondaEnvironment = class {
             
             const PATH = process.env.PATH + ":" + this.pathUpdate
             const tokens = cmd.split(" ")
-            const cmdp = spawn(tokens[0], tokens.slice(1), { env:{...process.env, PATH}});
+            const cmdp = spawn(tokens[0], tokens.slice(1), { env:{...process.env, PATH}, shell: true});
             
             const stdoutTransform = lineBreakTransform();
             cmdp.stdout.pipe(stdoutTransform).on('data', (data) => {
