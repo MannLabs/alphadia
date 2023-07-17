@@ -14,8 +14,6 @@ import click
 import alphadia
 from alphadia.extraction import processlogger
 
-
-
 @click.group(
     context_settings=dict(
         help_option_names=['-h', '--help'],
@@ -174,6 +172,7 @@ def extract(**kwargs):
         #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
 
         plan = Plan(
+            output_location,
             files,
             None,
             None,
@@ -182,7 +181,6 @@ def extract(**kwargs):
         plan.from_spec_lib_base(lib)
 
         plan.run(
-            output_location, 
             keep_decoys = kwargs['keep_decoys'], 
             fdr = kwargs['fdr'], 
             figure_path = kwargs['figure_path'],

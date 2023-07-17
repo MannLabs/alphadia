@@ -16,30 +16,23 @@ function parseConsoleOutput(input, theme) {
     if (!matches || matches.length === 0) {
       return input; // No escape character pairs found, return original string
     }
-  
     let result = [];
     let currentIndex = 0;
-  
     for (const match of matches) {
       const startIndex = match.index;
       const text = match[2];
       const spanStyle = {color: getColorCode(match[1], theme), fontFamily: "Roboto Mono"}
-
-      console.log(match)
-  
       // Push the text before the escape character pair
       if (startIndex > currentIndex) {
         const plainText = input.substring(currentIndex, startIndex);
         result.push(plainText);
       }
-  
       // Push the colored span with the text
       result.push(
         <span key={startIndex} style={spanStyle}>
           {text}
         </span>
       );
-  
       currentIndex = startIndex + match[0].length;
     }
   
@@ -94,8 +87,6 @@ const Output = () => {
     }
     
     React.useEffect(() => {
-        console.log(method);
-
         setInterval(() => {
             window.electronAPI.getOutputLength().then((length) => {
                 if (length > currentLengthRef.current) {

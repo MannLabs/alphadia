@@ -10,9 +10,8 @@ import hashlib
 from typing import Union, List, Dict, Tuple, Optional
 
 logger = logging.getLogger()
-if not 'progress' in dir(logger):
-    from alphadia.extraction import processlogger
-    processlogger.init_logging()
+from alphadia.extraction import processlogger
+    
 
 # alphadia imports
 from alphadia.extraction import data, plexscoring
@@ -43,6 +42,7 @@ import os, psutil
 class Plan:
 
     def __init__(self, 
+            output_folder : str,
             raw_file_list: List,
             config_path : Union[str, None] = None,
             config_update_path : Union[str, None] = None,
@@ -67,6 +67,10 @@ class Plan:
             dict to update the default config. Can be used for debugging purposes etc.
 
         """
+
+        self.output_folder = output_folder
+        processlogger.init_logging(self.output_folder)
+        logger = logging.getLogger()
 
         logger.progress('      _   _      _         ___ ___   _   ')
         logger.progress('     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
@@ -449,7 +453,6 @@ class Plan:
                 yield raw.jitclass(), precursor_df, self.speclib.fragment_df
                 
     def run(self, 
-            output_folder, 
             figure_path = None,
             neptune_token = None, 
             neptune_tags = [],
@@ -489,7 +492,7 @@ class Plan:
                 continue
 
         out_df = pd.concat(dataframes)
-        out_df.to_csv(os.path.join(output_folder, f'alpha_psms.tsv'), sep='\t', index=False)
+        out_df.to_csv(os.path.join(self.output_folder, f'alpha_psms.tsv'), sep='\t', index=False)
 
 class Workflow:
     def __init__(
