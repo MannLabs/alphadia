@@ -10,7 +10,7 @@ library_loading:
   rt_heuristic: 180
   norm_rt_mode: 'tic'
   # rt_type: 'norm'
-  channel_filter: ''
+  channel_filter: '0'
 
 calibration:
   min_epochs: 5

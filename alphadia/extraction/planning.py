@@ -16,25 +16,20 @@ from alphadia.extraction import processlogger
 # alphadia imports
 from alphadia.extraction import data, plexscoring
 from alphadia.extraction.calibration import CalibrationManager
-from alphadia.extraction.scoring import fdr_correction, MS2ExtractionWorkflow
-from alphadia.extraction import utils
-from alphadia.extraction.quadrupole import SimpleQuadrupole
+from alphadia.extraction.scoring import fdr_correction
+from alphadia.extraction import utils, validate
 from alphadia.extraction.hybridselection import HybridCandidateSelection, HybridCandidateConfig
 import alphadia
 
 # alpha family imports
 import alphatims
 
-import alphabase.psm_reader
-import alphabase.peptide.precursor
 from alphabase.peptide import fragment
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
 import numpy as np
 import pandas as pd 
-from matplotlib.style import library
 import neptune.new as neptune
 from neptune.new.types import File
 import os, psutil
@@ -283,15 +278,6 @@ class Plan:
         self.speclib.precursor_df = self.speclib.precursor_df.sort_values('elution_group_idx')
         self.speclib.precursor_df = self.speclib.precursor_df.reset_index(drop=True)
 
-        if 'channel_filter' in self.config['library_loading']:
-            try:
-                channels = self.config['library_loading']['channel_filter'].split(',')
-                channels = [int(c) for c in channels]
-                self.speclib._precursor_df = self.speclib._precursor_df[self.speclib._precursor_df['channel'].isin(channels)]
-                logger.info(f'filtering for channels {channels}')
-            except:
-                logger.error(f'could not parse channel filter {self.config["library_loading"]["channel_filter"]}')
-
     def log_library_stats(self):
 
         logger.info(f'========= Library Stats =========')
@@ -480,8 +466,11 @@ class Plan:
    
                 workflow.calibration()
 
-                df = workflow.extraction(keep_decoys=keep_decoys)
+                df = workflow.extraction(keep_decoys = keep_decoys)
                 df = df[df['qval'] <= fdr]
+
+                df = workflow.multiplexed_extraction(df)
+
                 df['run'] = raw_name
                 dataframes.append(df)
 
@@ -509,7 +498,16 @@ class Workflow:
         self.config = config
         self.dia_data = dia_data
         self.raw_name = precursors_flat.iloc[0]['raw_name']
-        self.precursors_flat = precursors_flat
+
+        
+        if self.config["library_loading"]["channel_filter"] == '':
+            allowed_channels = precursors_flat['channel'].unique()
+        else:
+            allowed_channels = [int(c) for c in self.config["library_loading"]["channel_filter"].split(',')]
+            logger.progress(f'Applying channel filter using only: {allowed_channels}')
+        
+        self.precursors_flat_raw = precursors_flat
+        self.precursors_flat = self.precursors_flat_raw[self.precursors_flat_raw['channel'].isin(allowed_channels)]
         self.fragments_flat = fragments_flat
 
         self.figure_path = figure_path
@@ -834,7 +832,9 @@ class Workflow:
 
         return features_df, fragments_df
        
-    def extraction(self, keep_decoys=False):
+    def extraction(
+            self,
+            keep_decoys=False):
 
         if self.run is not None:
             for key, value in self.progress.items():
@@ -868,3 +868,60 @@ class Workflow:
         logger.progress(f'=== extraction finished, 0.05 FDR: {precursors_05:,}, 0.01 FDR: {precursors_01:,}, 0.001 FDR: {precursors_001:,} ===')
 
         return precursor_df   
+
+    def requantify(
+            self,
+            psm_df
+        ):
+
+        self.calibration_manager.predict(self.precursors_flat, 'precursor')
+        self.calibration_manager.predict(self.fragments_flat, 'fragment')
+
+        reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
+        print(reference_candidates.columns)
+        if not 'multiplexing' in self.config:
+            raise ValueError('no multiplexing config found')
+        
+        logger.progress(f'=== Multiplexing {len(reference_candidates):,} precursors ===')
+
+        original_channels = psm_df['channel'].unique().tolist()
+        logger.progress(f'original channels: {original_channels}')
+        
+        reference_channel = self.config['multiplexing']['reference_channel']
+        logger.progress(f'reference channel: {reference_channel}')
+
+        target_channels = self.config['multiplexing']['target_channels']
+        logger.progress(f'target channels: {target_channels}')
+
+        decoy_channel = self.config['multiplexing']['decoy_channels']
+        logger.progress(f'decoy channel: {decoy_channel}')
+
+        channels = list(set(original_channels + [reference_channel] + target_channels + [decoy_channel]))
+        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.precursors_flat, channels=channels)
+        
+        channel_count_lib = self.precursors_flat['channel'].value_counts()
+        channel_count_multiplexed = multiplexed_candidates['channel'].value_counts()
+        ## log channels with less than 100 precursors
+        for channel in channels:
+            if channel not in channel_count_lib:
+                logger.warning(f'channel {channel} not found in library')
+            if channel not in channel_count_multiplexed:
+                logger.warning(f'channel {channel} could not be mapped to existing IDs.')        
+
+        logger.progress(f'=== Requantifying {len(multiplexed_candidates):,} precursors ===')
+
+        config = plexscoring.CandidateConfig()
+        config.max_cardinality = 1
+        config.score_grouped = True
+        config.reference_channel = 0
+
+        scoring = plexscoring.CandidateScoring(
+            self.dia_data,
+            self.precursors_flat,
+            self.fragments_flat,
+            config=config
+        )
+
+        multiplexed_features, fragments = scoring(multiplexed_candidates)
+
+        return scoring.channel_fdr_correction(multiplexed_features)

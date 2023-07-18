@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy.stats import gaussian_kde
+from matplotlib import patches
 
 def density_scatter(
         x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
@@ -116,7 +117,7 @@ def _generate_slice_collection(
     
     return slice_collection
 
-from matplotlib import patches
+
 
 def _plot_slice_collection(slice_collection, ax, alpha=0.5, **kwargs):
     
@@ -153,129 +154,13 @@ def plot_dia_cycle(cycle,ax=None, cmap_name='YlOrRd', **kwargs):
     ax.set_xlabel('Quadrupole m/z')
     ax.set_ylabel('Scan')
 
-def plot_all_precursors(
-    dense_precursors,
-    qtf,
-    template,
-    isotope_intensity
-):
-
-
-    n_precursors = qtf.shape[0]
-    n_isotopes = qtf.shape[1]
-    n_observations = qtf.shape[2]
-    n_scans = qtf.shape[3]
-
-    # figure parameters
-    n_cols = n_isotopes * 2 + 1
-    n_rows = n_observations
-    width_ratios = np.append(np.tile([2, 0.8], n_isotopes),[2])
-
-    
-
-    scan_range = np.arange(n_scans)
-    observation_importance = calculate_observation_importance(
-        template,
-    )
-
-    # iterate over precursors
-    # each precursor will be a separate figure
-    for i_precursor in range(n_precursors):
-
-        v_min_dense = np.min(dense_precursors)
-        v_max_dense = np.max(dense_precursors)
-
-        v_min_template = np.min(template)
-        v_max_template = np.max(template)
-
-        fig, axs = plt.subplots(
-            n_rows, 
-            n_cols, 
-            figsize = (n_cols * 1, n_rows*2), 
-            gridspec_kw = {'width_ratios': width_ratios}, 
-            sharey='row'
-        )
-        # expand axes if there is only one row
-        if len(axs.shape) == 1:
-            axs = axs.reshape(1, axs.shape[0])
-
-        # iterate over observations, observations will be rows
-        for i_observation in range(n_observations):
-
-            # iterate over isotopes, isotopes will be columns
-            for i_isotope in range(n_isotopes):
-                
-                # each even column will be a dense precursor
-                i_dense = 2*i_isotope
-                # each odd column will be a qtf
-                i_qtf = 2*i_isotope+1
-
-                # as precursors and isotopes are stored in a flat array, we need to calculate the index
-                dense_p_index = i_precursor * n_isotopes + i_isotope
-
-                # plot dense precursor
-                axs[i_observation,i_dense].imshow(
-                    dense_precursors[0,dense_p_index,0],
-                    vmin=v_min_dense,
-                    vmax=v_max_dense,
-                )
-                axs[0,i_dense].set_title(f'isotope {i_isotope}')
-                # add text with relative isotope intensity
-                axs[i_observation,i_dense].text(
-                    0.05, 
-                    0.95, 
-                    f'{isotope_intensity[i_precursor,i_isotope]*100:.2f} %', 
-                    horizontalalignment='left', 
-                    verticalalignment='top', 
-                    transform=axs[i_observation,i_dense].transAxes, 
-                    color='white'
-                )
-
-                # plot qtf and weighted qtf
-                axs[i_observation,i_qtf].plot(
-                    qtf[i_precursor,i_isotope,i_observation],
-                    scan_range
-                )
-                axs[i_observation,i_qtf].plot(
-                    qtf[i_precursor,i_isotope,i_observation] * isotope_intensity[i_precursor,i_isotope],
-                    scan_range
-                )
-                axs[i_observation,i_qtf].set_xlim(0, 1)
-                axs[-1,i_dense].set_xlabel(f'frame')
- 
-            # remove xticks from all but last row
-            if i_observation < n_observations - 1:
-                for ax in axs[i_observation,:].flat:
-                    ax.set_xticks([])
-                    
-            # bold title
-            axs[0,-1].set_title(f'template', fontweight='bold')
-
-            axs[i_observation,-1].imshow(
-                template[i_precursor,i_observation],
-                vmin=v_min_template,
-                vmax=v_max_template,
-            )
-
-            axs[i_observation,-1].text(
-                0.05, 
-                0.95, 
-                f'{observation_importance[i_precursor,i_observation]*100:.2f} %', 
-                horizontalalignment='left', 
-                verticalalignment='top', 
-                transform=axs[i_observation,-1].transAxes, 
-                color='white'
-            )
-            axs[i_observation,0].set_ylabel(f'observation {i_observation}\nscan')
-        
-        fig.tight_layout()
-        plt.show()
-
 def plot_image_collection(
-    images
+    images: typing.List[np.ndarray],
+    image_width: float = 4,
+    image_height: float = 6
 ):
     n_images = len(images)
-    fig, ax = plt.subplots(1, n_images, figsize=(n_images*4, 6))
+    fig, ax = plt.subplots(1, n_images, figsize=(n_images*image_width, image_height))
 
     if n_images == 1:
         ax = [ax]
