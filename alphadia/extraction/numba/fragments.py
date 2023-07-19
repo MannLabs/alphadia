@@ -43,8 +43,8 @@ class FragmentContainer:
     def __len__(self):
         return len(self.mz)
     
-    def __repr__(self) -> str:
-        return f"FragmentContainer with {len(self)} fragments"
+    #def __repr__(self) -> str:
+    #    return f"FragmentContainer with {len(self)} fragments"
     
     def __str__(self) -> str:
         return f"FragmentContainer with {len(self)} fragments"
