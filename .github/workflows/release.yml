@@ -45,7 +45,7 @@ jobs:
 
   Create_MacOS_GUI:
     runs-on: macos-latest
-    needs: Create_Draft_On_GitHub
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
     steps:
     - name : Checkout code
       uses: actions/checkout@v3
@@ -73,7 +73,7 @@ jobs:
         asset_content_type: application/zip
   Create_Win_GUI:
     runs-on: windows-latest
-    needs: Create_Draft_On_GitHub
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
     steps:
     - name : Checkout code
       uses: actions/checkout@v3
