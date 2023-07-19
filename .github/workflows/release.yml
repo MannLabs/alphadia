@@ -24,8 +24,7 @@ jobs:
         run: |
           cd misc
           . ./check_version.sh
-          echo "$current_version"
-          echo "{version}={$current_version}" >> $GITHUB_OUTPUT
+          echo "version=$current_version" >> $GITHUB_OUTPUT
   Print_Version:
     runs-on: ubuntu-latest
     needs: Version_Bumped
