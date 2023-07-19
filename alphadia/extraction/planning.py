@@ -16,7 +16,7 @@ from alphadia.extraction import processlogger
 # alphadia imports
 from alphadia.extraction import data, plexscoring
 from alphadia.extraction.calibration import CalibrationManager
-from alphadia.extraction.scoring import fdr_correction
+from alphadia.extraction.scoring import fdr_correction, channel_fdr_correction
 from alphadia.extraction import utils, validate
 from alphadia.extraction.hybridselection import HybridCandidateSelection, HybridCandidateConfig
 import alphadia
@@ -79,7 +79,7 @@ class Plan:
         # default config path is not defined in the function definition to account for for different path separators on different OS
         if config_path is None:
             # default yaml config location under /misc/config/config.yaml
-            config_path = os.path.join(os.path.dirname(__file__), '..','..','misc','config','default_new.yaml')
+            config_path = os.path.join(os.path.dirname(__file__), '..','..','misc','config','default.yaml')
 
         # 1. load default config
         with open(config_path, 'r') as f:
@@ -469,7 +469,8 @@ class Plan:
                 df = workflow.extraction(keep_decoys = keep_decoys)
                 df = df[df['qval'] <= fdr]
 
-                df = workflow.multiplexed_extraction(df)
+                if self.config['multiplexing']['multiplexed_quant']:
+                    df = workflow.requantify(df)
 
                 df['run'] = raw_name
                 dataframes.append(df)
@@ -506,8 +507,8 @@ class Workflow:
             allowed_channels = [int(c) for c in self.config["library_loading"]["channel_filter"].split(',')]
             logger.progress(f'Applying channel filter using only: {allowed_channels}')
         
-        self.precursors_flat_raw = precursors_flat
-        self.precursors_flat = self.precursors_flat_raw[self.precursors_flat_raw['channel'].isin(allowed_channels)]
+        self.precursors_flat_raw = precursors_flat.copy()
+        self.precursors_flat = self.precursors_flat_raw[self.precursors_flat_raw['channel'].isin(allowed_channels)].copy()
         self.fragments_flat = fragments_flat
 
         self.figure_path = figure_path
@@ -874,11 +875,11 @@ class Workflow:
             psm_df
         ):
 
-        self.calibration_manager.predict(self.precursors_flat, 'precursor')
+        self.calibration_manager.predict(self.precursors_flat_raw, 'precursor')
         self.calibration_manager.predict(self.fragments_flat, 'fragment')
 
         reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
-        print(reference_candidates.columns)
+
         if not 'multiplexing' in self.config:
             raise ValueError('no multiplexing config found')
         
@@ -890,16 +891,16 @@ class Workflow:
         reference_channel = self.config['multiplexing']['reference_channel']
         logger.progress(f'reference channel: {reference_channel}')
 
-        target_channels = self.config['multiplexing']['target_channels']
+        target_channels = [int(c) for c in self.config['multiplexing']['target_channels'].split(',')]
         logger.progress(f'target channels: {target_channels}')
 
-        decoy_channel = self.config['multiplexing']['decoy_channels']
+        decoy_channel = self.config['multiplexing']['decoy_channel']
         logger.progress(f'decoy channel: {decoy_channel}')
 
         channels = list(set(original_channels + [reference_channel] + target_channels + [decoy_channel]))
-        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.precursors_flat, channels=channels)
+        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.precursors_flat_raw, channels=channels)
         
-        channel_count_lib = self.precursors_flat['channel'].value_counts()
+        channel_count_lib = self.precursors_flat_raw['channel'].value_counts()
         channel_count_multiplexed = multiplexed_candidates['channel'].value_counts()
         ## log channels with less than 100 precursors
         for channel in channels:
@@ -915,13 +916,13 @@ class Workflow:
         config.score_grouped = True
         config.reference_channel = 0
 
-        scoring = plexscoring.CandidateScoring(
+        multiplexed_scoring = plexscoring.CandidateScoring(
             self.dia_data,
-            self.precursors_flat,
+            self.precursors_flat_raw,
             self.fragments_flat,
             config=config
         )
 
-        multiplexed_features, fragments = scoring(multiplexed_candidates)
+        multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)
 
-        return scoring.channel_fdr_correction(multiplexed_features)
+        return channel_fdr_correction(multiplexed_features)

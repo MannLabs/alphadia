@@ -233,4 +233,92 @@ def channel_fdr_correction(
     reference_channel = 0,
     target_channels = [4,8],
     ):
+    features = features[feature_columns + ['decoy', 'channel']]
+    features = features[features['decoy'] == 0]
+    features = features[features['channel'] != reference_channel]
     features = features.dropna().reset_index(drop=True).copy()
+    
+    output_dfs = []
+    
+    for target_channel in target_channels:
+        channel_df = features[features['channel'].isin([target_channel, decoy_channel])]
+        channel_df['decoy'] = np.zeros(len(channel_df))
+        channel_df.loc[channel_df['channel'] == decoy_channel, 'decoy'] = 1
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('GBC',MLPClassifier(
+                hidden_layer_sizes=(50, 25, 5), 
+                max_iter=1000, 
+                alpha=0.1, 
+                learning_rate='adaptive', 
+                learning_rate_init=0.001, 
+                early_stopping=True, tol=1e-6
+            ))
+        ])
+
+        X = channel_df[feature_columns].values
+        y = channel_df['decoy'].values
+
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+        pipeline.fit(X_train, y_train)
+        
+        y_test_proba = pipeline.predict_proba(X_test)[:,1]
+        y_test_pred = np.round(y_test_proba)
+
+        y_train_proba = pipeline.predict_proba(X_train)[:,1]
+        y_train_pred = np.round(y_train_proba)
+
+        channel_df['proba'] = pipeline.predict_proba(X)[:,1]
+        # subset to the best candidate for every precursor
+        channel_df = channel_df.sort_values(by=['proba'], ascending=True)
+        features_best_df = channel_df
+
+
+        # ROC curve
+        fpr_test, tpr_test, _ = roc_curve(y_test, y_test_proba)
+        roc_auc_test = auc(fpr_test, tpr_test)
+
+        fpr_train, tpr_train, _ = roc_curve(y_train, y_train_proba)
+        roc_auc_train = auc(fpr_train, tpr_train)
+
+        # plotting
+
+        fig, axs = plt.subplots(ncols=3, figsize=(12,3.5))
+
+        axs[0].plot(fpr_test, tpr_test,label="ROC test (area = %0.2f)" % roc_auc_test)
+        axs[0].plot(fpr_train, tpr_train,label="ROC train (area = %0.2f)" % roc_auc_train)
+
+        axs[0].plot([0, 1], [0, 1], color="k", linestyle="--")
+        axs[0].set_xlim([0.0, 1.0])
+        axs[0].set_ylim([0.0, 1.05])
+        axs[0].set_xlabel("false positive rate")
+        axs[0].set_ylabel("true positive rate")
+        axs[0].set_title("ROC Curve")
+        axs[0].legend(loc="lower right")
+        
+        sns.histplot(data=features_best_df, x='proba', hue='decoy', bins=30, element="step", fill=False, ax=axs[1])
+        axs[1].set_xlabel('score')
+        axs[1].set_ylabel('number of precursors')
+        axs[1].set_title("Score Distribution")
+
+        features_best_df = features_best_df.sort_values(['proba'], ascending=True)
+        target_values = 1-features_best_df['decoy'].values
+        decoy_cumsum = np.cumsum(features_best_df['decoy'].values)
+        target_cumsum = np.cumsum(target_values)
+        fdr_values = decoy_cumsum/target_cumsum
+        features_best_df['qval'] = fdr_to_q_values(fdr_values)
+        q_val = features_best_df[features_best_df['qval'] <0.05 ]['qval'].values
+
+        ids = np.arange(0, len(q_val), 1)
+        axs[2].plot(q_val, ids)
+        axs[2].set_xlim(-0.001, 0.05)
+        axs[2].set_xlabel('q-value')
+        axs[2].set_ylabel('number of precursors')
+        axs[2].set_title("Identifications")
+
+        fig.tight_layout()
+        plt.show()
+
+        output_dfs.append(features_best_df[features_best_df['qval'] <=0.01])
+    return pd.concat(output_dfs)
