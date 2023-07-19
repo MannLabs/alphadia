@@ -36,7 +36,7 @@ jobs:
         id: draft_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.Version_Bumped.outputs.version }}
           release_name: v${{ needs.Version_Bumped.outputs.version }}
@@ -62,41 +62,12 @@ jobs:
     - name: List output files
       run: |
         ls out/make/zip/darwin/arm64
-    - name: Upload GUI
+    - name: Upload a Release Asset
       uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: out/make/zip/darwin/arm64/alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
-          asset_name: alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
-          asset_content_type: application/octet-stream
-
-Create_Windows_GUI:
-  runs-on: windows-latest
-  needs: Create_Draft_On_GitHub
-  steps:
-  - name : Checkout code
-    uses: actions/checkout@v3
-  - name: Setup Node.js
-    uses: actions/setup-node@v2
-  - name: Install dependencies
-    run: |
-      cd gui
-      npm install
-  - name: Build GUI
-    run: |
-      cd gui
-      npm run make
-  - name: List output files
-      run: |
-        ls -R out/make
-  - name: Upload GUI
-    uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: out/make/zip/darwin/arm64/alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-          asset_name: alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-          asset_content_type: application/octet-stream
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+        asset_path: out/make/zip/darwin/arm64/alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
+        asset_name: alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
+        asset_content_type: application/zip
