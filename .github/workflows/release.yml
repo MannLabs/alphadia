@@ -59,8 +59,44 @@ jobs:
       run: |
         cd gui
         npm run make
+    - name: List output files
+      run: |
+        ls out/make/zip/darwin/arm64
     - name: Upload GUI
-      uses: actions/upload-artifact@v2
-      with:
-        name: MacOS_GUI
-        path: gui/out/make/*
+      uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: out/make/zip/darwin/arm64/alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
+          asset_name: alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
+          asset_content_type: application/octet-stream
+
+Create_Windows_GUI:
+  runs-on: windows-latest
+  needs: Create_Draft_On_GitHub
+  steps:
+  - name : Checkout code
+    uses: actions/checkout@v3
+  - name: Setup Node.js
+    uses: actions/setup-node@v2
+  - name: Install dependencies
+    run: |
+      cd gui
+      npm install
+  - name: Build GUI
+    run: |
+      cd gui
+      npm run make
+  - name: List output files
+      run: |
+        ls -R out/make
+  - name: Upload GUI
+    uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: out/make/zip/darwin/arm64/alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
+          asset_name: alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
+          asset_content_type: application/octet-stream
