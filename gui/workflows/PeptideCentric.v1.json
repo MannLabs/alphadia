@@ -182,6 +182,41 @@
             ]
         },
         {
+            "id": "multiplexing",
+            "name": "Multiplexing",
+            "hidden": false,
+            "parameters": [
+                {   
+                    "id": "multiplexed_quant",
+                    "name": "Enable Multiplexing",
+                    "value": false,
+                    "description": "Quantify and score identification across non-isobaric labled channels.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "target_channels",
+                    "name": "Target Channels",
+                    "value": "4,8",
+                    "description": "Target channels contain regular samples and are used for quantification.",
+                    "type": "string"
+                },
+                {
+                    "id": "decoy_channel",
+                    "name": "Decoy Channel",
+                    "value": 12,
+                    "description": "Non-existant channel used for decoy identifications.",
+                    "type": "number"
+                },
+                {
+                    "id": "reference_channel",
+                    "name": "Reference Channel",
+                    "value": 0,
+                    "description": "The reference channel is only used for guiding identification and is not used for quantification. Some features will be calculated with respect to the reference channel.",
+                    "type": "number"
+                }
+            ]
+        },
+        {
             "id": "selection_config",
             "name": "Selection Configuration",
             "hidden": true,
