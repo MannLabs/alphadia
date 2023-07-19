@@ -96,6 +96,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-        asset_path: gui/out/make/squirrel.windows/x64/alphaDIA-${{ needs.Version_Bumped.outputs.version }} Setup.exe
-        asset_name: alphaDIA-${{ needs.Version_Bumped.outputs.version }} Setup.exe
+        asset_path: gui/out/make/zip/win32/x64/alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
+        asset_name: alphaDIA-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
         asset_content_type: application/zip
