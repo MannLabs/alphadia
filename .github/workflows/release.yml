@@ -27,18 +27,40 @@ jobs:
           echo "version=$current_version" >> $GITHUB_OUTPUT
    
   Create_Draft_On_GitHub:
-      runs-on: ubuntu-latest
-      needs: Version_Bumped
-      outputs:
-        upload_url: ${{ steps.draft_release.outputs.upload_url }}
-      steps:
-        - name: Draft Release
-          id: draft_release
-          uses: actions/create-release@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
-          with:
-            tag_name: ${{ needs.Version_Bumped.outputs.version }}
-            release_name: Release version ${{ needs.Version_Bumped.outputs.version }}
-            draft: true
-            prerelease: false
+    runs-on: ubuntu-latest
+    needs: Version_Bumped
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}
+    steps:
+      - name: Draft Release
+        id: draft_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+        with:
+          tag_name: ${{ needs.Version_Bumped.outputs.version }}
+          release_name: v${{ needs.Version_Bumped.outputs.version }}
+          draft: true
+          prerelease: false
+
+  Create_MacOS_GUI:
+    runs-on: macos-latest
+    needs: Create_Draft_On_GitHub
+    steps:
+    - name : Checkout code
+      uses: actions/checkout@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+    - name: Install dependencies
+      run: |
+        cd gui
+        npm install
+    - name: Build GUI
+      run: |
+        cd gui
+        npm run make
+    - name: Upload GUI
+      uses: actions/upload-artifact@v2
+      with:
+        name: MacOS_GUI
+        path: gui/out/make/*
