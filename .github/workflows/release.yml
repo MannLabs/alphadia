@@ -61,15 +61,15 @@ jobs:
         npm run make
     - name: List output files
       run: |
-        ls gui/out/make/zip/darwin/arm64
+        ls gui/out/make/zip/darwin/x64
     - name: Upload a Release Asset
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-        asset_path: gui/out/make/zip/darwin/arm64/alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
-        asset_name: alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
+        asset_path: gui/out/make/zip/darwin/x64/alphaDIA-darwin-x64-${{ needs.Version_Bumped.outputs.version }}.zip
+        asset_name: alphaDIA-darwin-x64-${{ needs.Version_Bumped.outputs.version }}.zip
         asset_content_type: application/zip
   Create_Win_GUI:
     runs-on: windows-latest
