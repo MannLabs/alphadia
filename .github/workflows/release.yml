@@ -24,6 +24,7 @@ jobs:
         run: |
           cd misc
           . ./check_version.sh
+          echo "$current_version"
           echo "version=$current_version" >> $GITHUB_OUTPUT
   Print_Version:
     runs-on: ubuntu-latest
@@ -33,3 +34,8 @@ jobs:
         shell: bash -l {0}
         run: |
           echo "Version: ${{ needs.Version_Bumped.outputs.version }}"
+      - name: Set color
+        id: random-color-generator
+        run: echo "SELECTED_COLOR=green" >> $GITHUB_OUTPUT
+      - name: Get color
+        run: echo "The selected color is ${{ steps.random-color-generator.outputs.SELECTED_COLOR }}"
