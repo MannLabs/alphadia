@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 
-name: Publish on PyPi and release on GitHub
+name: Release on GitHub
 
 jobs:
   Version_Bumped:
