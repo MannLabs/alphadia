@@ -71,3 +71,22 @@ jobs:
         asset_path: out/make/zip/darwin/arm64/alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
         asset_name: alphaDIA-darwin-arm64-${{ needs.Version_Bumped.outputs.version }}.zip
         asset_content_type: application/zip
+  Create_Win_GUI:
+    runs-on: windows-latest
+    needs: Create_Draft_On_GitHub
+    steps:
+    - name : Checkout code
+      uses: actions/checkout@v3
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+    - name: Install dependencies
+      run: |
+        cd gui
+        npm install
+    - name: Build GUI
+      run: |
+        cd gui
+        npm run make
+    - name: List output files
+      run: |
+        ls -R out/make
