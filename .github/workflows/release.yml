@@ -26,7 +26,7 @@ jobs:
           . ./check_version.sh
           echo "$current_version"
           echo "version=$current_version" >> $GITHUB_OUTPUT
-      - name Print version
+      - name: Print version
         shell: bash -l {0}
         run: |
           echo "Version: ${{ steps.master_version_bumped.outputs.version }}"
