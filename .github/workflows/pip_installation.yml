@@ -1,8 +1,8 @@
 on:
   push:
-    branches: [ main, development ]
+    #branches: [ main, development ]
   pull_request:
-    branches: [ main, development ]
+    #branches: [ main, development ]
   workflow_dispatch:
 
 name: Default installation and tests
