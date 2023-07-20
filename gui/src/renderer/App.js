@@ -116,7 +116,7 @@ const App = () => {
                 <UtilMonitor sx={{ marginLeft: "auto"}}/>
             </Box>
             <Routes>
-                <Route path="/" element={ <Home/> } />
+                <Route path="/" element={ <Home environment={profile.environment}/> } />
                 <Route path="/files" element={ <Files/> } />
                 <Route path="/method" element={ <Method/> } />
                 <Route path="/output" element={ <Output/> } />
