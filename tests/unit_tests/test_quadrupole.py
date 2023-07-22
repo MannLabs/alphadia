@@ -47,7 +47,7 @@ def test_qtf():
             
     quad = SimpleQuadrupole(fake_cycle)
 
-    isotope_mz = np.array([[800., 800.1, 800.2],[802.42944, 802.9311, 803.1]])
+    isotope_mz = np.array([800., 800.1, 800.2, 802.42944, 802.9311, 803.1])
     observation_indices = np.array([0,1])
     scan_indices = np.array(np.arange(2,9))
 
@@ -59,8 +59,8 @@ def test_qtf():
         isotope_mz
     )
 
-    assert qtf.shape == (2, 3, 2, 7)
-    assert np.all(qtf[0,:,0,:] > 0.9) 
-    assert np.all(qtf[0,:,1,:] < 0.1)
-    assert np.all(qtf[1,:,0,:] < 0.1)
-    assert np.all(qtf[1,:,1,:] > 0.9)
+    assert qtf.shape == (6, 2, 7)
+    assert np.all(qtf[:3,0,:] > 0.9) 
+    assert np.all(qtf[:3:,1,:] < 0.1)
+    assert np.all(qtf[3:,0,:] < 0.1)
+    assert np.all(qtf[3:,1,:] > 0.9)

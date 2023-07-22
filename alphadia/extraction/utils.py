@@ -49,119 +49,6 @@ def recursive_update(
             else:
                 full_dict[key] = value
 
-def rt_to_frame_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):
-    """converts retention time limits to frame limits while including full precursor cycles"""
-    
-    # the indices are defined in a way that all precursor cycles which have at least a frame within the limits are included
-
-    # FUTURE, sloooooooow.... numba this
-    # FUTURE, calculate precursor cycle ones
-    cycle_length = dia_data.cycle.shape[1]
-
-    frames = dia_data.frames.copy()
-    frames['PrecursorCycle'] = (frames['Id']-dia_data.zeroth_frame)//cycle_length
-
-    lowest_precursor_cycle = frames[frames['Time'] >= limits[0]]['PrecursorCycle'].min()
-    lowest_frame_index = frames[frames['PrecursorCycle'] == lowest_precursor_cycle]['Id'].min()
-
-
-    highest_precursor_cycle = frames[frames['Time'] <= limits[1]]['PrecursorCycle'].max()
-    next_highest_precursor_cycle = highest_precursor_cycle + 1
-    next_highest_frame_index = frames[frames['PrecursorCycle'] == next_highest_precursor_cycle]['Id'].min()
-
-    return (int(lowest_frame_index), int(next_highest_frame_index))
-
-def im_to_scan_index(limits: Tuple, dia_data: alphatims.bruker.TimsTOF):
-    # the indices are defined in a way that all scan within the limits are included, second index is exclusive
-    lowest_scan_index = np.argmin(dia_data.mobility_values >= limits[1])
-    next_highest_scan_index = np.argmin(dia_data.mobility_values > limits[0])    
-
-    return (int(lowest_scan_index), int(next_highest_scan_index))
-
-def calculate_mass_slice(mz, ppm):
-    diff = mz / (10**6) * ppm
-    return mz-diff, mz+diff
-
-@alphatims.utils.njit(nogil=True)
-def join_left(
-    left: np.ndarray, 
-    right: np.ndarray
-    ):
-    """joins all values in the left array to the values in the right array. 
-    The index to the element in the right array is returned. 
-    If the value wasn't found, -1 is returned. If the element appears more than once, the last appearance is used.
-
-    Parameters
-    ----------
-
-    left: numpy.ndarray
-        left array which should be matched
-
-    right: numpy.ndarray
-        right array which should be matched to
-
-    Returns
-    -------
-    numpy.ndarray, dtype = int64
-        array with length of the left array which indices pointing to the right array
-        -1 is returned if values could not be found in the right array
-    """
-    left_indices = np.argsort(left)
-    left_sorted = left[left_indices]
-
-    right_indices = np.argsort(right)
-    right_sorted = right[right_indices]
-
-    joined_index = -np.ones(len(left), dtype='int64')
-    
-    # from hereon sorted arrays are expected
-    lower_right = 0
-
-    for i in range(len(joined_index)):
-
-        for k in range(lower_right, len(right)):
-
-            if left_sorted[i] >= right_sorted[k]:
-                if left_sorted[i] == right_sorted[k]:
-                    joined_index[i] = k
-                    lower_right = k
-            else:
-                break
-
-    # the joined_index_sorted connects indices from the sorted left array with the sorted right array
-    # to get the original indices, the order of both sides needs to be restored
-    # First, the indices pointing to the right side are restored by masking the array for hits and looking up the right side
-    joined_index[joined_index >= 0] = right_indices[joined_index[joined_index >= 0]]
-
-    # Next, the left side is restored by arranging the items
-    joined_index[left_indices] =  joined_index
-
-    return joined_index
-
-def test_join_left():
-
-    left = np.random.randint(0,10,20)
-    right = np.arange(0,10)
-    joined = join_left(left, right)
-
-    assert all(left==joined)
-
-test_join_left()
-
-alphatims.utils.njit()
-def make_np_slice(a):
-    """Creates a numpy style slice from ondimensional array.
-        [start, stop] => [[start, stop, 1]]
-
-        [[start, stop],    [[start, stop, 1],
-         [start, stop]] =>  [start, stop, 1]]
-    """
-
-    if len(a.shape) == 1:
-        return np.array([[a[...,0],a[...,1],1]], dtype='int64')
-    else:
-        return np.array([a[...,0],a[...,1],np.ones_like(a[...,1])], dtype='int64').T
-
 
 def normal(x, mu, sigma):
     """
@@ -277,44 +164,9 @@ def astd1(array):
         out[i] = np.std(array[i])
     return out
 
-@alphatims.utils.njit()
-def _and_envelope(input_profile, output_envelope):
-    """
-    Calculate the envelope of a profile spectrum.
-    """
-    
-    for i in range(1, len(input_profile) - 2):
-        if (input_profile[i] < input_profile[i-1]) & (input_profile[i] < input_profile[i+1]):
-            output_envelope[i] = (input_profile[i-1] + input_profile[i+1]) / 2
 
-@alphatims.utils.njit()
-def _or_envelope(input_profile, output_envelope):
-    """
-    Calculate the envelope of a profile spectrum.
-    """
-    
-    for i in range(1, len(input_profile) - 2):
-        if (input_profile[i] < input_profile[i-1]) or (input_profile[i] < input_profile[i+1]):
-            output_envelope[i] = (input_profile[i-1] + input_profile[i+1]) / 2
-       
 
-@alphatims.utils.njit()
-def and_envelope(profile):
-    envelope = profile.copy()
 
-    for i in range(len(profile)):
-        _and_envelope(profile[i],envelope[i])
-
-    return envelope
-
-@alphatims.utils.njit()
-def or_envelope(profile):
-    envelope = profile.copy()
-
-    for i in range(len(profile)):
-        _or_envelope(profile[i],envelope[i])
-
-    return envelope
 
 def get_isotope_columns(colnames):
     isotopes = []
@@ -411,29 +263,6 @@ def make_slice_2d(
     out[:,0] = start_stop[:,0]
     out[:,1] = start_stop[:,1]
     return out
-
-@alphatims.utils.njit
-def expand_if_odd(
-        limits
-    ):
-    """Numba helper function to expand a range if the difference between the start and stop value is odd.
-
-        e.g. expand_if_odd([0, 11]) -> np.array([0, 12])
-
-    Parameters
-    ----------
-    limits : np.ndarray
-        Array of shape (2,) containing the start and stop value.
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (2,) containing the expanded start and stop value.
-
-    """
-    if (limits[1] - limits[0])%2 == 1:
-        limits[1] += 1
-    return limits
 
 @alphatims.utils.njit
 def fourier_filter(
