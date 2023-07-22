@@ -1,6 +1,6 @@
 ![Pip installation](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
 ![GUI and PyPi releases](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
-![Coverage](https://github.com/MannLabs/alphadia/blob/dev_gw/coverage.svg)
+![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
 
 # AlphaDIA
 An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann). To enable all hyperlinks in this document, please view it at [GitHub](https://github.com/MannLabs/alphadia).
