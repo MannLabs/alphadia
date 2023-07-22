@@ -8,8 +8,7 @@ import unittest
 from alphadia.extraction.utils import (
         join_left, 
         amean0, 
-        amean1, 
-        calc_isotopes_center, 
+        amean1,
         calculate_score_groups
     )
 
@@ -68,22 +67,6 @@ def test_amean1():
     np_mean = np.mean(test_array, axis=1)
 
     assert np.allclose(numba_mean, np_mean)
-
-def test_calc_isotopes_center():
-
-    mz = 500
-    charge = 2
-    num_isotopes = 3
-
-    isotopes = calc_isotopes_center(mz, charge, num_isotopes)
-    assert np.allclose(isotopes, np.array([500., 500.50165, 501.0033 ]))
-
-    isotopes = calc_isotopes_center(mz, charge, 0)
-    assert np.allclose(isotopes, np.empty(0))
-
-    # charge 0 should result in charge 1
-    isotopes = calc_isotopes_center(mz, 0, 1)
-    assert np.allclose(isotopes, np.array([500.]))
 
 def test_score_groups():
 

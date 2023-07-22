@@ -110,60 +110,7 @@ def multiplex_candidates(
 
     return multiplexed_candidates_df
 
-class Multiplexer():
-
-    def __init__(self,
-        precursors_flat: pd.DataFrame,
-        fragments_flat: pd.DataFrame,
-        psm_df: pd.DataFrame,
-        mz_column: str = 'mz_calibrated',
-        ) -> None:
-
-        self.precursors_flat = precursors_flat
-        self.fragments_flat = fragments_flat
-        self.psm_df = psm_df
-
-        self.mz_column = mz_column
-
-    def __call__(self):
-        # make sure input psm's have all required columns
-        self.psm_df = self.psm_df[self.psm_df['decoy'] == 0].copy()
-        anchor_ids = self.psm_df[['elution_group_idx', 'scan_start' ,'scan_stop', 'scan_center', 'frame_start', 'frame_stop', 'frame_center','rank']]
-        
-        candidates_df = self.precursors_flat[(self.precursors_flat['decoy'] == 0)]
-        candidates_df = candidates_df[candidates_df['elution_group_idx'].isin(anchor_ids['elution_group_idx'])]
-        candidates_df = candidates_df[['precursor_idx', 'elution_group_idx', 'channel', 'decoy','flat_frag_start_idx','flat_frag_stop_idx','charge',self.mz_column]+utils.get_isotope_column_names(candidates_df.columns)]
-
-        candidates_df = candidates_df.merge(anchor_ids, on='elution_group_idx', how='outer')
-        candidates_df = candidates_df.sort_values('precursor_idx')
-        validate.candidates(candidates_df)
-        return candidates_df
     
-def assemble_fragments(fragments_flat, fragment_mz_column='mz_calibrated'):
-            
-    # set cardinality to 1 if not present
-    if 'cardinality' in fragments_flat.columns:
-        pass
-    
-    else:
-        logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
-        fragments_flat['cardinality'] = np.ones(len(fragments_flat), dtype=np.uint8)
-    
-    # validate dataframe schema and prepare jitclass compatible dtypes
-    validate.fragments_flat(fragments_flat)
-
-    return fragments.FragmentContainer(
-        fragments_flat['mz_library'].values,
-        fragments_flat[fragment_mz_column].values,
-        fragments_flat['intensity'].values,
-        fragments_flat['type'].values,
-        fragments_flat['loss_type'].values,
-        fragments_flat['charge'].values,
-        fragments_flat['number'].values,
-        fragments_flat['position'].values,
-        fragments_flat['cardinality'].values
-    )
-
 from alphadia.extraction.numba import config
 
 

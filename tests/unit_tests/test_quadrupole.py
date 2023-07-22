@@ -1,4 +1,4 @@
-from alphadia.extraction.quadrupole import SimpleQuadrupole, logistic_rectangle, quadrupole_transfer_function
+from alphadia.extraction.quadrupole import SimpleQuadrupole, logistic_rectangle, quadrupole_transfer_function_single
 
 # global
 import numpy as np
@@ -52,7 +52,7 @@ def test_qtf():
     scan_indices = np.array(np.arange(2,9))
 
 
-    qtf = quadrupole_transfer_function(
+    qtf = quadrupole_transfer_function_single(
         quad.jit,
         observation_indices,
         scan_indices,

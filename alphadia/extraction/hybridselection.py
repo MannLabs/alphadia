@@ -1,7 +1,6 @@
 from alphadia.extraction import utils
 from alphadia.extraction.numba import fragments, numeric, config
 from alphadia.extraction import validate, data, utils
-from alphadia.extraction.candidateselection import peak_boundaries_symmetric
 import numba as nb
 import numpy as np
 import pandas as pd
