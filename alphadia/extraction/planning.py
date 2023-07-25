@@ -920,7 +920,11 @@ class Workflow:
             self.dia_data,
             self.precursors_flat_raw,
             self.fragments_flat,
-            config=config
+            config=config,
+            precursor_mz_column='mz_calibrated',
+            fragment_mz_column='mz_calibrated',
+            rt_column='rt_calibrated',
+            mobility_column='mobility_calibrated'
         )
 
         multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)

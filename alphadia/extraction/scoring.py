@@ -232,6 +232,7 @@ def channel_fdr_correction(
     decoy_channel = 12,
     reference_channel = 0,
     target_channels = [4,8],
+    classifier_type = 'neural_network'
     ):
     features = features[feature_columns + ['decoy', 'channel']]
     features = features[features['decoy'] == 0]
@@ -245,16 +246,27 @@ def channel_fdr_correction(
         channel_df['decoy'] = np.zeros(len(channel_df))
         channel_df.loc[channel_df['channel'] == decoy_channel, 'decoy'] = 1
 
-        pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ('GBC',MLPClassifier(
+        print(channel_df['decoy'].value_counts())
+
+        if classifier_type == 'logistic_regression':
+            classifier = LogisticRegression(
+                max_iter=10000,
+                tol=1e-6,
+            )
+        elif classifier_type == 'neural_network':
+            classifier = MLPClassifier(
                 hidden_layer_sizes=(50, 25, 5), 
                 max_iter=1000, 
                 alpha=0.1, 
                 learning_rate='adaptive', 
                 learning_rate_init=0.001, 
                 early_stopping=True, tol=1e-6
-            ))
+            )
+
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('GBC',classifier)
         ])
 
         X = channel_df[feature_columns].values

@@ -166,7 +166,7 @@ class CandidateConfig(config.JITConfig):
         self.top_k_fragments = 16
         self.top_k_isotopes = 4
         self.reference_channel = -1
-        self.precursor_mz_tolerance = 10
+        self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
 
     @property
@@ -1382,6 +1382,8 @@ class CandidateScoring():
         candidates_psm_df : pd.DataFrame
             A DataFrame containing the features for each candidate.
         """
+
+
 
         feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.collect_features()
         
