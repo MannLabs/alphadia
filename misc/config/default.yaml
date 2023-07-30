@@ -22,7 +22,7 @@ calibration:
   # active_gradient_stop
 
 extraction_target:
-  target_num_candidates: 5
+  target_num_candidates: 2
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
   target_mobility_tolerance: 0.04

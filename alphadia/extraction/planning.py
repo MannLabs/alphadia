@@ -778,10 +778,8 @@ class Workflow:
 
         return perform_recalibration
 
-    
     def fdr_correction(self, features_df):
-        return fdr_correction(features_df, figure_path=self.figure_path, neptune_run=self.run)
-        
+        return fdr_correction(features_df, figure_path=self.figure_path, neptune_run=self.run, competetive_scoring=self.config['fdr']['competetive_scoring'])
 
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.progress["ms1_error"]}, MS2 error: {self.progress["ms2_error"]}, RT error: {self.progress["rt_error"]}, Mobility error: {self.progress["mobility_error"]}')
@@ -793,7 +791,8 @@ class Workflow:
             'mobility_tolerance': self.progress["mobility_error"],
             'candidate_count': self.progress["num_candidates"],
             'precursor_mz_tolerance': self.progress["ms1_error"],
-            'fragment_mz_tolerance': self.progress["ms2_error"]
+            'fragment_mz_tolerance': self.progress["ms2_error"],
+            
         })
         
         extraction = HybridCandidateSelection(

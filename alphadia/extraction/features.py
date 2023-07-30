@@ -486,7 +486,7 @@ def build_features(
     total_precursor_intensity = np.sum(observed_precursor_intensity * isotope_intensity, axis=-1)
 
     features['precursor_mass_error'] = np.mean(mass_error.astype(np.float32))
-    features['mz_library'] = isotope_mz[0,0]
+    
     features['mz_observed'] = isotope_mz[0,0] + features['precursor_mass_error'] * 1e-6 * isotope_mz[0,0]
     features['precursor_isotope_correlation'] = np.corrcoef(isotope_intensity.flatten(), observed_precursor_intensity.flatten())[0,1]
     features['sum_precursor_intensity'] = np.log10(total_precursor_intensity[0])
@@ -624,7 +624,7 @@ def precursor_features(
 
     feature_dict['weighted_mass_deviation'] = weighted_mass_error
     feature_dict['weighted_mass_error'] = np.abs(weighted_mass_error)
-    feature_dict['mz_library'] = isotope_mz[0]
+    
     feature_dict['mz_observed'] = isotope_mz[0] + weighted_mass_error * 1e-6 * isotope_mz[0]
 
     feature_dict['mono_ms1_height'] = observed_precursor_height[0]
