@@ -115,6 +115,13 @@ app.whenReady().then(() => {
         console.log("Theme changed to: " + nativeTheme)
         mainWindow.webContents.send('theme-change', nativeTheme.shouldUseDarkColors)
     })
+
+    powerMonitor.on("lock-screen", () => {
+        powerSaveBlocker.start("prevent-display-sleep");
+    });
+    powerMonitor.on("suspend", () => {
+        powerSaveBlocker.start("prevent-app-suspension");
+    });
 });
 
 app.on('window-all-closed', () => {
