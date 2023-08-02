@@ -438,14 +438,60 @@ class Calibration():
         
 class CalibrationManager():
 
-    def __init__(self):
+    def __init__(
+            self,
+            config : typing.Union[None, dict] = None,
+            path : typing.Union[None, str] = None,
+            load_calibration : bool = True):
 
         """Contains, updates and applies all calibrations for a single run.
 
         Calibrations are grouped into calibration groups. Each calibration group is applied to a single data structure (precursor dataframe, fragment fataframe, etc.). Each calibration group contains multiple estimators which each calibrate a single property (mz, rt, etc.). Each estimator is a `Calibration` object which contains the estimator function.
+        
+        Parameters
+        ----------
+
+        config : typing.Union[None, dict], default=None
+            Calibration config dict. If None, the default config is used.
+
+        path : str, default=None
+            Path where the current parameter set is saved to and loaded from.
+
+        load_calibration : bool, default=True
+            If True, the calibration manager is loaded from the given path.
+        
+        """
+        self._is_loaded_from_file = False
+        self.estimator_groups = []
+        self.path = path
+
+        logging.info('========= Initializing Calibration Manager =========')
+
+        self.load_config(config)
+        if load_calibration:
+            self.load()
+
+        logging.info('====================================================')
+
+    @property
+    def is_loaded_from_file(self):
+        """Check if the calibration manager was loaded from file.
+        """
+        return self._is_loaded_from_file
+    
+    @property
+    def is_fitted(self):
+        """Check if all estimators in all calibration groups are fitted.
         """
 
-        self.estimator_groups = []
+        is_fitted = True
+        for group in self.estimator_groups:
+            for estimator in group['estimators']:
+                if not estimator.is_fitted:
+                    is_fitted = False
+                    break
+        
+        return is_fitted and len(self.estimator_groups) > 0
 
     def load_config(self, config : dict):
         """Load calibration config from config Dict.
@@ -487,7 +533,7 @@ class CalibrationManager():
             }])
         
         """
-        logging.info('========= Calibration Manager =========')
+        
         logging.info('loading calibration config')
         logging.info(f'found {len(config)} calibration groups')
         for group in config:
@@ -504,36 +550,28 @@ class CalibrationManager():
             group_copy['estimators'] = [Calibration(**x) for x in group['estimators']]
             self.estimator_groups.append(group_copy)
 
-        logging.info('======================================')
-
-    def save(self, file_name: str):
+    def save(self):
         """Save the calibration manager state to pickle file.
-
-        Parameters
-        ----------
-
-        file_name : str
-            Path to the pickle file
-
         """
+        if self.path is not None:
+            with open(self.path, 'wb') as f:
+                pickle.dump(self, f)
 
-        with open(file_name, 'wb') as f:
-            pickle.dump(self, f)
-
-    def load(self, file_name: str):
+    def load(self):
         """Load the calibration manager from pickle file.
-
-        Parameters
-        ----------
-
-        file_name : str
-            Path to the pickle file
-
         """
-
-        with open(file_name, 'rb') as f:
-            loaded_state = pickle.load(f)
-            self.__dict__.update(loaded_state.__dict__)
+        if self.path is not None and os.path.exists(self.path):
+            try:
+                with open(self.path, 'rb') as f:
+                    loaded_state = pickle.load(f)
+                    self.__dict__.update(loaded_state.__dict__)
+                    self._is_loaded_from_file = True
+            except:
+                logging.warning(f'Could not load calibration manager from {self.path}')
+            else:
+                logging.info(f'Loaded calibration manager from {self.path}')
+        else:
+            logging.warning(f'Calibration manager path {self.path} does not exist')
 
     def get_group_names(self):
         """Get the names of all calibration groups.

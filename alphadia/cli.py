@@ -174,11 +174,9 @@ def extract(**kwargs):
         plan = Plan(
             output_location,
             files,
-            None,
-            None,
-            config_update
+            lib,
+            config_update = config_update
             )
-        plan.from_spec_lib_base(lib)
 
         plan.run(
             keep_decoys = kwargs['keep_decoys'], 

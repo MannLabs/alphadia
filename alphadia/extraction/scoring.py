@@ -109,7 +109,6 @@ def fdr_correction(features,
     else:
         group_columns = ['channel', 'precursor_idx']
 
-    features.to_csv('features_latest.tsv', sep='\t')
     features_best_df = keep_best(features, group_columns=group_columns)
     
 

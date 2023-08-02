@@ -38,7 +38,7 @@
                 {
                     "id": "reuse_calibration",
                     "name": "Reuse Calibration",
-                    "value": false,
+                    "value": true,
                     "description": "AlphaDIA will save the calibration parameters in the project file. If this option is enabled, the calibration parameters will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
@@ -47,6 +47,13 @@
                     "name": "Reuse Ion Quantities",
                     "value": false,
                     "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantiitative features will be reused for subsequent searches of the same file.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "save_figures",
+                    "name": "Save Figures",
+                    "value": false,
+                    "description": "AlphaDIA will save figures during calibration. This can be useful for debugging.",
                     "type": "boolean"
                 }
             ]

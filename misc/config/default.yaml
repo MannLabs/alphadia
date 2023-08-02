@@ -5,6 +5,7 @@ general:
   thread_count: 10
   reuse_calibration: false
   reuse_quant: false
+  save_figures: false
 
 library_loading:
   rt_heuristic: 180
@@ -89,6 +90,12 @@ library_parsing:
     mobility_library: ['mobility']
   fragment_columns:
     mz_library: ['mz','predicted_mz']
+
+# configuration for the optimization manager
+# initial parameters, will nbe optimized
+optimization_manager:
+  fwhm_rt: 5
+  fwhm_mobility: 0.01
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
