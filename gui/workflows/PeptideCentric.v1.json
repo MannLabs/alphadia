@@ -69,6 +69,13 @@
                     "value": "0",
                     "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
                     "type": "string"          
+                },
+                {
+                    "id": "exclude_shared_ions",
+                    "name": "Exclude Shared Ions",
+                    "value": true,
+                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
+                    "type": "boolean"
                 }
             ]
 
@@ -267,13 +274,6 @@
                     "id": "top_k_fragments",
                     "name": "top_k_fragments",
                     "value": 12,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "max_cardinality",
-                    "name": "max_cardinality",
-                    "value": 10,
                     "description": "",
                     "type": "number"
                 },

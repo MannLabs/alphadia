@@ -364,7 +364,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         logger.progress(f'=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===')
 
-        logger.progress(f'Accumulated precursors: {self.com.accumulated_precursors}, 0.01 FDR: {self.com.accumulated_precursors_01FDR}, 0.001 FDR: {self.com.accumulated_precursors_001FDR}')
+        self.log_precursor_df(precursor_df)
 
         perform_recalibration = False
 
@@ -389,7 +389,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'mobility_tolerance': self.com.mobility_error,
             'candidate_count': self.com.num_candidates,
             'precursor_mz_tolerance': self.com.ms1_error,
-            'fragment_mz_tolerance': self.com.ms2_error
+            'fragment_mz_tolerance': self.com.ms2_error,
+            'exclude_shared_ions': self.config['library_loading']['exclude_shared_ions']
         })
         
         extraction = hybridselection.HybridCandidateSelection(
@@ -411,7 +412,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config['scoring_config'])
         config.update({
             'precursor_mz_tolerance': self.com.ms1_error,
-            'fragment_mz_tolerance': self.com.ms2_error
+            'fragment_mz_tolerance': self.com.ms2_error,
+            'exclude_shared_ions': self.config['library_loading']['exclude_shared_ions']
         })
 
         candidate_scoring = plexscoring.CandidateScoring(
@@ -456,17 +458,39 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         if not keep_decoys:
             precursor_df = precursor_df[precursor_df['decoy'] == 0]
-        precursors_05 = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0)])
+
+        self.log_precursor_df(precursor_df)
+        
+        #precursors_05 = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0)])
         precursors_01 = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
-        precursors_001 = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0)])
+        #precursors_001 = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0)])
 
         if self.run is not None:
             self.run["eval/precursors"].log(precursors_01)
             self.run.stop()
 
-        logger.progress(f'=== extraction finished, 0.05 FDR: {precursors_05:,}, 0.01 FDR: {precursors_01:,}, 0.001 FDR: {precursors_001:,} ===')
 
-        return precursor_df   
+        return precursor_df
+    
+    def log_precursor_df(self, precursor_df):
+        total_precursors = len(precursor_df)
+
+        target_precursors = len(precursor_df[precursor_df['decoy'] == 0])
+        target_precursors_percentages = target_precursors / total_precursors * 100
+        decoy_precursors = len(precursor_df[precursor_df['decoy'] == 1])
+        decoy_precursors_percentages = decoy_precursors / total_precursors * 100
+
+        logger.progress(f'========================= Precursor FDR =========================')
+        logger.progress(f'Total precursors accumulated: {total_precursors:,}')
+  
+        for channel in precursor_df['channel'].unique():
+            precursor_05fdr = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
+            precursor_01fdr = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
+            precursor_001fdr = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
+
+            logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}')
+
+        logger.progress(f'=================================================================')
 
     def requantify(
             self,
