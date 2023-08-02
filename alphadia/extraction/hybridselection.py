@@ -233,7 +233,7 @@ class HybridCandidateConfigJIT():
     candidate_count: nb.int64
     top_k_precursors: nb.int64
     top_k_fragments: nb.int64
-    max_cardinality: nb.int64
+    exclude_shared_ions: nb.types.bool_
     kernel_size: nb.int64
 
     f_mobility: nb.float64
@@ -272,7 +272,7 @@ class HybridCandidateConfigJIT():
             candidate_count,
             top_k_precursors,
             top_k_fragments,
-            max_cardinality,
+            exclude_shared_ions,
             kernel_size,
 
             f_mobility,
@@ -310,7 +310,7 @@ class HybridCandidateConfigJIT():
         self.candidate_count = candidate_count
         self.top_k_precursors = top_k_precursors
         self.top_k_fragments = top_k_fragments
-        self.max_cardinality = max_cardinality
+        self.exclude_shared_ions = exclude_shared_ions
         self.kernel_size = kernel_size
 
         self.f_mobility = f_mobility
@@ -353,7 +353,7 @@ class HybridCandidateConfig(config.JITConfig):
 
         self.top_k_precursors = 3
         self.top_k_fragments = 12
-        self.max_cardinality = 10
+        self.exclude_shared_ions = True
         self.kernel_size = 30
 
         # parameters used during peak identification
@@ -692,28 +692,40 @@ class HybridElutionGroup:
         )
         
         fragment_lib = fragments.slice_manual(fragment_container,fragment_idx_slices)
+        if config.exclude_shared_ions:
+            fragment_lib.filter_by_cardinality(1)
         fragment_lib.sort_by_mz()
+
+        if len(fragment_lib.precursor_idx) <= 3:
+            self.set_status(100, 'No fragment masses after grouping')
+            return
+
+        #print('fragment_lib.precursor_idx',len(fragment_lib.precursor_idx))
 
         if debug:
             self.fragment_lib = fragment_lib
 
         frame_limits = jit_data.get_frame_indices_tolerance(self.rt, config.rt_tolerance)
         scan_limits = jit_data.get_scan_indices_tolerance(self.mobility, config.mobility_tolerance)
-
+        
+        #with nb.objmode():
         fragment_mz, fragment_intensity = fragments.get_ion_group_mapping(
             fragment_lib.precursor_idx,
             fragment_lib.mz,
             fragment_lib.intensity,
             fragment_lib.cardinality,
             self.precursor_abundance,
-            top_k = config.top_k_fragments,
-            max_cardinality = config.max_cardinality,
+            top_k = config.top_k_fragments
         )
 
+            #print(nb.typeof(fragment_mz), fragment_mz.shape)
+            #print(nb.typeof(fragment_intensity), fragment_intensity.shape)
+            
+        
+
         # return if no valid fragments are left after grouping
-        if len (fragment_mz) == 0:
-            self.set_status(100, 'No fragment masses after grouping')
-            return
+        
+        
         
         # FLAG: needed for debugging
         self.score_group_fragment_mz = fragment_mz
