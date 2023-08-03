@@ -486,7 +486,7 @@ def build_features(
     total_precursor_intensity = np.sum(observed_precursor_intensity * isotope_intensity, axis=-1)
 
     features['precursor_mass_error'] = np.mean(mass_error.astype(np.float32))
-    features['mz_library'] = isotope_mz[0,0]
+    
     features['mz_observed'] = isotope_mz[0,0] + features['precursor_mass_error'] * 1e-6 * isotope_mz[0,0]
     features['precursor_isotope_correlation'] = np.corrcoef(isotope_intensity.flatten(), observed_precursor_intensity.flatten())[0,1]
     features['sum_precursor_intensity'] = np.log10(total_precursor_intensity[0])
@@ -624,7 +624,7 @@ def precursor_features(
 
     feature_dict['weighted_mass_deviation'] = weighted_mass_error
     feature_dict['weighted_mass_error'] = np.abs(weighted_mass_error)
-    feature_dict['mz_library'] = isotope_mz[0]
+    
     feature_dict['mz_observed'] = isotope_mz[0] + weighted_mass_error * 1e-6 * isotope_mz[0]
 
     feature_dict['mono_ms1_height'] = observed_precursor_height[0]
@@ -962,6 +962,20 @@ def profile_features(
     mobility_fwhm_mean_agg = np.sum(mobility_fwhm_mean_list[fragment_mask_1d] * non_zero_fragment_norm)
 
     feature_dict['mobility_fwhm'] = mobility_fwhm_mean_agg
+
+    # ============= RT SHIFT =============
+
+    # (n_fragments, n_observations)
+    frame_peak = np.argmax(fragments_frame_profile, axis = 2)
+    
+    # (n_observations)
+    median_frame_peak = np.zeros((n_observations), dtype=np.float32)
+    for i_observation in range(n_observations):
+        median_frame_peak[i_observation] = np.median(frame_peak[:, i_observation])
+
+    # (n_observations)
+    delta_frame_peak = median_frame_peak - np.floor(fragments_frame_profile.shape[-1]/2)
+    feature_dict['delta_frame_peak'] = np.sum(delta_frame_peak * observation_importance)
 
     return feature_dict
 

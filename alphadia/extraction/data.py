@@ -61,6 +61,10 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     mmap_detector_events,
                 )
 
+                if self._cycle.shape[0] != 1:
+                    logging.error('Unexpected cycle shape. Will only retain first frame group')
+                    raise ValueError('Unexpected cycle shape. Will only retain first frame group')
+                
                 self.transpose()
         elif bruker_d_folder_name.endswith(".hdf"):
             self._import_data_from_hdf_file(

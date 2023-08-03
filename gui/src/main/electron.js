@@ -115,6 +115,22 @@ app.whenReady().then(() => {
         console.log("Theme changed to: " + nativeTheme)
         mainWindow.webContents.send('theme-change', nativeTheme.shouldUseDarkColors)
     })
+
+    powerMonitor.on("lock-screen", () => {
+        powerSaveBlocker.start("prevent-display-sleep");
+    });
+    powerMonitor.on("suspend", () => {
+        powerSaveBlocker.start("prevent-app-suspension");
+    });
+
+    mainWindow.webContents.on('render-process-gone', function (event, detailed) {
+        console.log("!crashed, reason: " + detailed.reason + ", exitCode = " + detailed.exitCode)
+        if (detailed.reason == "crashed"){
+            // relaunch app
+            app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
+            app.exit(0)
+        }
+    })
 });
 
 app.on('window-all-closed', () => {

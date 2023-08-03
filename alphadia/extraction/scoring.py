@@ -28,7 +28,12 @@ from sklearn.pipeline import Pipeline
 from sklearn.neural_network import MLPClassifier
 from sklearn.linear_model import LogisticRegression
 
-
+def keep_best(df, score_column = 'proba', group_columns = ['channel', 'elution_group_idx']):
+    temp_df = df.reset_index(drop=True)
+    temp_df = temp_df.sort_values(score_column, ascending=True)
+    temp_df = temp_df.groupby(group_columns).head(1)
+    temp_df = temp_df.sort_index().reset_index(drop=True)
+    return temp_df
 
 
 @nb.njit()
@@ -60,7 +65,7 @@ def fdr_correction(features,
         'weighted_ms1_height', 'weighted_ms1_intensity'],
         figure_path = None,
         neptune_run = None,
-        index_group = 'elution_group_idx'
+        competetive_scoring = False,
     ):
     features = features.dropna().reset_index(drop=True).copy()
 
@@ -98,9 +103,14 @@ def fdr_correction(features,
     features['proba'] = pipeline.predict_proba(X)[:,1]
     # subset to the best candidate for every precursor
     features = features.sort_values(by=['proba'], ascending=True)
-    best_candidates = assign_best_candidate(features[index_group].values)
-    features_best_df = features.iloc[best_candidates].copy()
 
+    if competetive_scoring:
+        group_columns = ['channel', 'elution_group_idx']
+    else:
+        group_columns = ['channel', 'precursor_idx']
+
+    features_best_df = keep_best(features, group_columns=group_columns)
+    
 
     # ROC curve
     fpr_test, tpr_test, _ = roc_curve(y_test, y_test_proba)
@@ -232,6 +242,7 @@ def channel_fdr_correction(
     decoy_channel = 12,
     reference_channel = 0,
     target_channels = [4,8],
+    classifier_type = 'neural_network'
     ):
     features = features[feature_columns + ['decoy', 'channel']]
     features = features[features['decoy'] == 0]
@@ -245,16 +256,27 @@ def channel_fdr_correction(
         channel_df['decoy'] = np.zeros(len(channel_df))
         channel_df.loc[channel_df['channel'] == decoy_channel, 'decoy'] = 1
 
-        pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ('GBC',MLPClassifier(
+        print(channel_df['decoy'].value_counts())
+
+        if classifier_type == 'logistic_regression':
+            classifier = LogisticRegression(
+                max_iter=10000,
+                tol=1e-6,
+            )
+        elif classifier_type == 'neural_network':
+            classifier = MLPClassifier(
                 hidden_layer_sizes=(50, 25, 5), 
                 max_iter=1000, 
                 alpha=0.1, 
                 learning_rate='adaptive', 
                 learning_rate_init=0.001, 
                 early_stopping=True, tol=1e-6
-            ))
+            )
+
+
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('GBC',classifier)
         ])
 
         X = channel_df[feature_columns].values

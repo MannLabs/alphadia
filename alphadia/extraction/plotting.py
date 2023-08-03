@@ -16,6 +16,33 @@ import pandas as pd
 from scipy.stats import gaussian_kde
 from matplotlib import patches
 
+def lighten_color(color, amount=0.5):
+    """
+    Lightens the given color by multiplying (1-luminosity) by the given amount.
+    Input can be matplotlib color string, hex string, or RGB tuple.
+
+    Parameters
+    ----------
+    color : str, tuple
+        color to lighten
+
+    amount : float, default 0.5
+        amount to lighten the color
+
+    Returns
+    -------
+    tuple
+        lightened color
+    """
+    import matplotlib.colors as mc
+    import colorsys
+    try:
+        c = mc.cnames[color]
+    except:
+        c = color
+    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
+    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
+
 def density_scatter(
         x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
         y: typing.Union[np.ndarray, pd.Series, pd.DataFrame], 
@@ -117,8 +144,6 @@ def _generate_slice_collection(
     
     return slice_collection
 
-
-
 def _plot_slice_collection(slice_collection, ax, alpha=0.5, **kwargs):
     
     for element in slice_collection:
@@ -172,7 +197,6 @@ def plot_image_collection(
         ax[i_image].set_yticks([])
     fig.tight_layout()
     plt.show()
-
 
 def plot_fragment_profile(
     template,
@@ -483,22 +507,3 @@ def plot_template(
     
     fig.tight_layout()
     plt.show()
-
-def lighten_color(color, amount=0.5):
-    """
-    Lightens the given color by multiplying (1-luminosity) by the given amount.
-    Input can be matplotlib color string, hex string, or RGB tuple.
-
-    Examples:
-    >> lighten_color('g', 0.3)
-    >> lighten_color('#F034A3', 0.6)
-    >> lighten_color((.3,.55,.1), 0.5)
-    """
-    import matplotlib.colors as mc
-    import colorsys
-    try:
-        c = mc.cnames[color]
-    except:
-        c = color
-    c = colorsys.rgb_to_hls(*mc.to_rgb(c))
-    return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])

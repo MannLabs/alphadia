@@ -3,7 +3,7 @@
     "library": {
         "active": true,
         "required": false,
-        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/libraries/marvin_scp/MSfragger_library_mod_noLossType_d0_d4_d8_d12_shared_eg_n_fragments.hdf"
+        "path": ""
     },
     "fasta": {
         "active": false,
@@ -14,13 +14,13 @@
         "active": true,
         "required": false,
         "path": [
-            "/Users/georgwallmann/Documents/data/alphadia_benchmarking/raw_data/2023_04_27_synchroPasef_mDIA/20230422_TIMS05_PaSk_MCT_SA_HeLa_mDIA_SyP_8dig_scans_S2-C4_1_1808.d"
+            ""
         ]
     },
     "output": {
         "active": true,
         "required": true,
-        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_07_15_gui_benchmark"
+        "path": ""
     },
     "config": [
         {
@@ -38,7 +38,7 @@
                 {
                     "id": "reuse_calibration",
                     "name": "Reuse Calibration",
-                    "value": false,
+                    "value": true,
                     "description": "AlphaDIA will save the calibration parameters in the project file. If this option is enabled, the calibration parameters will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
@@ -47,6 +47,13 @@
                     "name": "Reuse Ion Quantities",
                     "value": false,
                     "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantiitative features will be reused for subsequent searches of the same file.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "save_figures",
+                    "name": "Save Figures",
+                    "value": false,
+                    "description": "AlphaDIA will save figures during calibration. This can be useful for debugging.",
                     "type": "boolean"
                 }
             ]
@@ -62,6 +69,13 @@
                     "value": "0",
                     "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
                     "type": "string"          
+                },
+                {
+                    "id": "exclude_shared_ions",
+                    "name": "Exclude Shared Ions",
+                    "value": true,
+                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
+                    "type": "boolean"
                 }
             ]
 
@@ -260,13 +274,6 @@
                     "id": "top_k_fragments",
                     "name": "top_k_fragments",
                     "value": 12,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "max_cardinality",
-                    "name": "max_cardinality",
-                    "value": 10,
                     "description": "",
                     "type": "number"
                 },

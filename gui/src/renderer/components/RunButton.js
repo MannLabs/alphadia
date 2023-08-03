@@ -68,8 +68,12 @@ const RunButton = ({
 
     function handleRunClick() {
         const validation = validateMethod(method);
+        if (profile.running) {
+            navigate("/run");
+            return;
+        }
         if (!validation.valid) {
-            alert(validation.message);
+            alert(validation.message);        
         } else {
             onSetRunningState(true)
             navigate("/run");
@@ -89,7 +93,6 @@ const RunButton = ({
         <>
         <ListItemButton
             key="run"
-            disabled={profile.running}
             sx={runStyle}
             onClick={handleRunClick}
             >

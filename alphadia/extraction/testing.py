@@ -22,7 +22,7 @@ from typing import Union
 
 import shutil
 
-class Progress():
+class Progress(): # pragma: no cover
     """Class to report the download progress of a file to the console.
     """
     def __init__(self):
@@ -39,7 +39,7 @@ class Progress():
         else:
             self.pbar.finish()
 
-def encode_url_onedrive(sharing_url: str) -> str:
+def encode_url_onedrive(sharing_url: str) -> str: # pragma: no cover
     """encode onedrive sharing link as url for downloading files
 
     Parameters
@@ -58,7 +58,7 @@ def encode_url_onedrive(sharing_url: str) -> str:
     encoded_url = f'https://api.onedrive.com/v1.0/shares/u!{b64_string.replace("=", "")}/root/content'
     return encoded_url
 
-def filename_onedrive(sharing_url: str) -> str:
+def filename_onedrive(sharing_url: str) -> str: # pragma: no cover
     """get filename from onedrive sharing link
 
     Parameters
@@ -85,7 +85,7 @@ def filename_onedrive(sharing_url: str) -> str:
     value, params = cgi.parse_header(info)
     return params["filename"]
 
-def download_onedrive(sharing_url: str, output_dir: str) -> Union[str, None]:
+def download_onedrive(sharing_url: str, output_dir: str) -> Union[str, None]: # pragma: no cover
     """download file from onedrive sharing link
 
     Parameters
@@ -114,7 +114,7 @@ def download_onedrive(sharing_url: str, output_dir: str) -> Union[str, None]:
         logging.info(f'Could not download {filename} from onedrive')
         return None
 
-def update_onedrive(sharing_url: str, output_dir: str, unzip: bool = True) -> None:
+def update_onedrive(sharing_url: str, output_dir: str, unzip: bool = True) -> None: # pragma: no cover
     """download file from onedrive sharing link if it does not yet exist
 
     Parameters
@@ -146,7 +146,7 @@ def update_onedrive(sharing_url: str, output_dir: str, unzip: bool = True) -> No
     else:
         logging.info(f'{filename} already exists')
 
-def encode_url_datashare(sharing_url: str) -> str:
+def encode_url_datashare(sharing_url: str) -> str: # pragma: no cover
     """encode datashare sharing link as url for downloading files
 
     Parameters
@@ -165,7 +165,7 @@ def encode_url_datashare(sharing_url: str) -> str:
     return encoded_url
 
 
-def filename_datashare(sharing_url: str, tar=False) -> str:
+def filename_datashare(sharing_url: str, tar=False) -> str: # pragma: no cover
     """get filename from onedrive sharing link
 
     Parameters
@@ -193,7 +193,7 @@ def filename_datashare(sharing_url: str, tar=False) -> str:
     filename = params["filename"]
     return filename
 
-def download_datashare(sharing_url: str, output_dir: str) -> Union[str, None]:
+def download_datashare(sharing_url: str, output_dir: str) -> Union[str, None]: # pragma: no cover
     """download file from datashare sharing link
 
     Parameters
@@ -225,7 +225,7 @@ def download_datashare(sharing_url: str, output_dir: str) -> Union[str, None]:
 
         return None
     
-def update_datashare(sharing_url: str, output_dir: str, force=False) -> None:
+def update_datashare(sharing_url: str, output_dir: str, force=False) -> None: # pragma: no cover
     """download file from datashare sharing link if it does not yet exist
 
     Parameters

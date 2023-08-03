@@ -90,39 +90,6 @@ def convolve_fourier_a0(dense, kernel):
 
     return out
 
-#@nb.njit
-def convolve_fourier_a1_pyfunc(dense, kernel):
-    """
-    Numba helper function to apply a gaussian filter to a dense stack.
-
-    Parameters
-    ----------
-
-    dense : np.ndarray
-        Array of shape (n_tofs, n_observations, n_scans, n_frames)
-
-    kernel : np.ndarray
-        Array of shape (n_scans, n_frames)
-
-    Returns
-    -------
-
-    np.ndarray
-        Array of shape (n_tofs, n_observations, n_scans, n_frames) containing the filtered dense stack.
-
-    """
-
-    k0, k1 = kernel.shape
-
-    out = np.zeros_like(dense, dtype='float32')
-
-    fourier_filter = np.fft.rfft2(kernel, dense.shape[2:])
-    for i in range(dense.shape[0]):
-        for j in range(dense.shape[1]):
-            out[i, j] = roll(np.fft.irfft2(np.fft.rfft2(dense[i, j]) * fourier_filter), -k0//2, -k1//2)
-
-    return out
-
 @nb.njit
 def convolve_fourier_a1(dense, kernel):
     """

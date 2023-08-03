@@ -5,15 +5,17 @@ general:
   thread_count: 10
   reuse_calibration: false
   reuse_quant: false
+  save_figures: false
 
 library_loading:
   rt_heuristic: 180
   norm_rt_mode: 'tic'
   # rt_type: 'norm'
   channel_filter: '0'
+  exclude_shared_ions: True
 
 calibration:
-  min_epochs: 5
+  min_epochs: 3
   max_epochs: 20
   batch_size: 4000
   recalibration_target: 200
@@ -22,7 +24,7 @@ calibration:
   # active_gradient_stop
 
 extraction_target:
-  target_num_candidates: 5
+  target_num_candidates: 2
   target_ms1_tolerance: 15
   target_ms2_tolerance: 15
   target_mobility_tolerance: 0.04
@@ -43,7 +45,6 @@ selection_config:
 
   top_k_precursors: 3
   top_k_fragments: 12
-  max_cardinality: 10
   kernel_size: 30
 
   f_mobility: 1.0
@@ -63,7 +64,6 @@ selection_config:
 
 scoring_config:
   score_grouped: false
-  max_cardinality: 10
   top_k_fragments: 12
   top_k_isotopes: 3
   reference_channel: -1
@@ -89,6 +89,12 @@ library_parsing:
     mobility_library: ['mobility']
   fragment_columns:
     mz_library: ['mz','predicted_mz']
+
+# configuration for the optimization manager
+# initial parameters, will nbe optimized
+optimization_manager:
+  fwhm_rt: 5
+  fwhm_mobility: 0.01
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.

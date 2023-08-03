@@ -110,60 +110,7 @@ def multiplex_candidates(
 
     return multiplexed_candidates_df
 
-class Multiplexer():
-
-    def __init__(self,
-        precursors_flat: pd.DataFrame,
-        fragments_flat: pd.DataFrame,
-        psm_df: pd.DataFrame,
-        mz_column: str = 'mz_calibrated',
-        ) -> None:
-
-        self.precursors_flat = precursors_flat
-        self.fragments_flat = fragments_flat
-        self.psm_df = psm_df
-
-        self.mz_column = mz_column
-
-    def __call__(self):
-        # make sure input psm's have all required columns
-        self.psm_df = self.psm_df[self.psm_df['decoy'] == 0].copy()
-        anchor_ids = self.psm_df[['elution_group_idx', 'scan_start' ,'scan_stop', 'scan_center', 'frame_start', 'frame_stop', 'frame_center','rank']]
-        
-        candidates_df = self.precursors_flat[(self.precursors_flat['decoy'] == 0)]
-        candidates_df = candidates_df[candidates_df['elution_group_idx'].isin(anchor_ids['elution_group_idx'])]
-        candidates_df = candidates_df[['precursor_idx', 'elution_group_idx', 'channel', 'decoy','flat_frag_start_idx','flat_frag_stop_idx','charge',self.mz_column]+utils.get_isotope_column_names(candidates_df.columns)]
-
-        candidates_df = candidates_df.merge(anchor_ids, on='elution_group_idx', how='outer')
-        candidates_df = candidates_df.sort_values('precursor_idx')
-        validate.candidates(candidates_df)
-        return candidates_df
     
-def assemble_fragments(fragments_flat, fragment_mz_column='mz_calibrated'):
-            
-    # set cardinality to 1 if not present
-    if 'cardinality' in fragments_flat.columns:
-        pass
-    
-    else:
-        logging.warning('Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1.')
-        fragments_flat['cardinality'] = np.ones(len(fragments_flat), dtype=np.uint8)
-    
-    # validate dataframe schema and prepare jitclass compatible dtypes
-    validate.fragments_flat(fragments_flat)
-
-    return fragments.FragmentContainer(
-        fragments_flat['mz_library'].values,
-        fragments_flat[fragment_mz_column].values,
-        fragments_flat['intensity'].values,
-        fragments_flat['type'].values,
-        fragments_flat['loss_type'].values,
-        fragments_flat['charge'].values,
-        fragments_flat['number'].values,
-        fragments_flat['position'].values,
-        fragments_flat['cardinality'].values
-    )
-
 from alphadia.extraction.numba import config
 
 
@@ -173,7 +120,7 @@ class CandidateConfigJIT:
     
      
     score_grouped: nb.boolean
-    max_cardinality: nb.uint8
+    exclude_shared_ions: nb.boolean
     top_k_fragments: nb.uint32
     top_k_isotopes: nb.uint32
     reference_channel: nb.int16
@@ -184,7 +131,7 @@ class CandidateConfigJIT:
 
     def __init__(self,
             score_grouped: nb.boolean,
-            max_cardinality: nb.uint8,
+            exclude_shared_ions: nb.types.bool_,
             top_k_fragments: nb.uint32,
             top_k_isotopes: nb.uint32,
             reference_channel: nb.int16,
@@ -199,7 +146,7 @@ class CandidateConfigJIT:
         """
 
         self.score_grouped = score_grouped
-        self.max_cardinality = max_cardinality
+        self.exclude_shared_ions = exclude_shared_ions
         self.top_k_fragments = top_k_fragments
         self.top_k_isotopes = top_k_isotopes
         self.reference_channel = reference_channel
@@ -215,11 +162,11 @@ class CandidateConfig(config.JITConfig):
     def __init__(self):
         """Create default config for CandidateScoring"""
         self.score_grouped = False
-        self.max_cardinality = 10
+        self.exclude_shared_ions = True
         self.top_k_fragments = 16
         self.top_k_isotopes = 4
         self.reference_channel = -1
-        self.precursor_mz_tolerance = 10
+        self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
 
     @property
@@ -238,15 +185,15 @@ class CandidateConfig(config.JITConfig):
         self._score_grouped = value
 
     @property
-    def max_cardinality(self) -> int:
+    def exclude_shared_ions(self) -> int:
         """When multiplexing is used, some fragments are shared for the same peptide with different labels.
-        This setting removes fragments who are shared by more than max_cardinality precursors. 
-        Default: `max_cardinality = 10`"""
-        return self._max_cardinality
+        This setting removes fragments who are shared by more than one channel. 
+        Default: `exclude_shared_ions = True`"""
+        return self._exclude_shared_ions
     
-    @max_cardinality.setter
-    def max_cardinality(self, value):
-        self._max_cardinality = value
+    @exclude_shared_ions.setter
+    def exclude_shared_ions(self, value):
+        self._exclude_shared_ions = value
 
     @property
     def top_k_fragments(self) -> int:
@@ -304,7 +251,6 @@ class CandidateConfig(config.JITConfig):
         Should be called whenever a property is changed."""
 
         assert isinstance(self.score_grouped, bool), 'score_grouped must be a boolean'
-        assert self.max_cardinality > 0, 'max_cardinality must be greater than 0'
         assert self.top_k_fragments > 0, 'top_k_fragments must be greater than 0'
         assert self.top_k_isotopes > 0, 'top_k_isotopes must be greater than 0'
         assert self.reference_channel >= -1, 'reference_channel must be greater than or equal to -1'
@@ -433,7 +379,8 @@ class Candidate:
         )
 
         self.fragments = fragment_container.slice(np.array([[self.frag_start_idx, self.frag_stop_idx, 1]]))
-        self.fragments.filter_by_cardinality(config.max_cardinality)
+        if config.exclude_shared_ions:
+            self.fragments.filter_by_cardinality(1)
         self.fragments.filter_top_k(config.top_k_fragments)
         self.fragments.sort_by_mz()
 
@@ -475,6 +422,10 @@ class Candidate:
         quadrupole_calibration,
         debug
     ) -> None:
+        
+        if len(self.fragments.mz) <= 3:
+            self.failed = True
+            return
         
         if debug:
             print('precursor', self.precursor_idx, 'channel', self.channel)
@@ -1435,6 +1386,8 @@ class CandidateScoring():
         candidates_psm_df : pd.DataFrame
             A DataFrame containing the features for each candidate.
         """
+
+
 
         feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.collect_features()
         
