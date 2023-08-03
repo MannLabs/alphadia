@@ -15,7 +15,7 @@ from alphadia.extraction import processlogger
 
 # alphadia imports
 from alphadia.extraction import data, validate, utils
-from alphadia.extraction.workflow import peptidecentric
+from alphadia.extraction.workflow import peptidecentric, base
 
 import alphadia
 
@@ -304,8 +304,6 @@ class Plan:
             fdr = 0.01,
             ):
 
-        dataframes = []
-
         for raw_name, dia_path, speclib in self.get_run_data():
             try:
                 workflow = peptidecentric.PeptideCentricWorkflow(
@@ -320,17 +318,53 @@ class Plan:
                 df = workflow.extraction(keep_decoys = keep_decoys)
                 df = df[df['qval'] <= fdr]
 
+                
+
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)
 
                 df['run'] = raw_name
-                dataframes.append(df)
 
+                df.to_csv(os.path.join(workflow.path, 'psm.tsv'), sep='\t', index=False)
                 del workflow
             
             except Exception as e:
                 logger.exception(e)
                 continue
 
-        out_df = pd.concat(dataframes)
-        out_df.to_csv(os.path.join(self.output_folder, f'alpha_psms.tsv'), sep='\t', index=False)
+        self.build_output()
+
+    def build_output(self):
+
+        output_path = self.config['output']
+        temp_path = os.path.join(output_path, base.TEMP_FOLDER)
+
+        psm_df = []
+        stat_df = []
+
+        for raw_name, dia_path, speclib in self.get_run_data():
+            run_path = os.path.join(temp_path, raw_name)
+            run_df = pd.read_csv(os.path.join(run_path, 'psm.tsv'), sep='\t')
+            
+            psm_df.append(run_df)
+            stat_df.append(build_stat_df(run_df))
+
+        psm_df = pd.concat(psm_df)
+        stat_df = pd.concat(stat_df)
+
+        psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False)
+        stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False)
+
+
+def build_stat_df(run_df):
+
+    run_stat_df = []
+    for name, group in run_df.groupby('channel'):
+        run_stat_df.append({
+            'run': run_df['run'].iloc[0],
+            'channel': name,
+            'precursors': np.sum(group['qval'] <= 0.01),
+        })
+    
+    return pd.DataFrame(run_stat_df)
+            

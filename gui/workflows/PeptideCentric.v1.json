@@ -3,7 +3,7 @@
     "library": {
         "active": true,
         "required": false,
-        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/libraries/marvin_scp/MSfragger_library_mod_noLossType_d0_d4_d8_d12_shared_eg_n_fragments.hdf"
+        "path": ""
     },
     "fasta": {
         "active": false,
@@ -14,13 +14,13 @@
         "active": true,
         "required": false,
         "path": [
-            "/Users/georgwallmann/Documents/data/alphadia_benchmarking/raw_data/2023_04_27_synchroPasef_mDIA/20230422_TIMS05_PaSk_MCT_SA_HeLa_mDIA_SyP_8dig_scans_S2-C4_1_1808.d"
+            ""
         ]
     },
     "output": {
         "active": true,
         "required": true,
-        "path": "/Users/georgwallmann/Documents/data/alphadia_benchmarking/alphadia_runs/2023_07_15_gui_benchmark"
+        "path": ""
     },
     "config": [
         {

@@ -66,7 +66,7 @@ class FileFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt)
         return f'{elapsed} {formatter.format(record)}'
     
-def get_log_name(log_folder: str) -> str:
+def get_log_name(log_folder: str, overwrite=True) -> str:
     """get log name.if there is a log.txt, iterate integers log_0.txt, log_1txt, etc until a new log name is found.
 
     Parameters
@@ -81,6 +81,10 @@ def get_log_name(log_folder: str) -> str:
 
     """
     log_name = os.path.join(log_folder, 'log.txt')
+
+    if overwrite:
+        return log_name
+    
     i = 0
     while os.path.exists(log_name):
         log_name = os.path.join(log_folder, f'log_{i}.txt')
