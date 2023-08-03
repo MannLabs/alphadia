@@ -10,11 +10,13 @@ from alphadia.extraction.workflow import manager
 
 from alphabase.spectral_library.base import SpecLibBase
 
+TEMP_FOLDER = ".progress"
+
 class WorkflowBase():
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
-    TEMP_FOLDER = ".progress"
+    
     CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
     OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
     FDR_MANAGER_PATH = "fdr_manager.pkl"
@@ -42,7 +44,7 @@ class WorkflowBase():
         """
         self.run = None
         self._instance_name = instance_name
-        self._parent_path = os.path.join(config['output'],self.TEMP_FOLDER)
+        self._parent_path = os.path.join(config['output'],TEMP_FOLDER)
         self._config = config
         
         if not os.path.exists(self.parent_path):
