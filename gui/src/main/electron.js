@@ -122,6 +122,15 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
+
+    mainWindow.webContents.on('render-process-gone', function (event, detailed) {
+        console.log("!crashed, reason: " + detailed.reason + ", exitCode = " + detailed.exitCode)
+        if (detailed.reason == "crashed"){
+            // relaunch app
+            app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
+            app.exit(0)
+        }
+    })
 });
 
 app.on('window-all-closed', () => {
