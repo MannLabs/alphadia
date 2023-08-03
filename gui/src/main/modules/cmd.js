@@ -336,22 +336,18 @@ function lineBreakTransform () {
         var list = this._last.split(/\n/);          
         this._last = list.pop();
         for (var i = 0; i < list.length; i++) {
-            this.push( list[i] );
+            this.push( list[i].slice(0, 1000) );
         }
         cb();
     },
     
     flush(cb) {
         this._last += decoder.end()
-        if (this._last) { this.push(this._last) }
+        if (this._last) { this.push(this._last.slice(0, 1000)) }
         cb()
     }
     });
 }
-
-
-
-
 
 
 
