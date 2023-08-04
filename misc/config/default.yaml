@@ -6,6 +6,7 @@ general:
   reuse_calibration: false
   reuse_quant: false
   save_figures: false
+  mmap_detector_events: false
 
 library_loading:
   rt_heuristic: 180

@@ -469,7 +469,8 @@ class Candidate:
             absolute_masses = True
         )
 
-        self.dense_fragments = dense_fragments
+        # DEBUG only used for debugging
+        #self.dense_fragments = dense_fragments
 
         # check if an empty array is returned
         # scan and quadrupole limits of the fragments candidate are outside the acquisition range
@@ -491,7 +492,8 @@ class Candidate:
             absolute_masses = True
         )
 
-        self.dense_precursors = dense_precursors
+        # DEBUG only used for debugging
+        #self.dense_precursors = dense_precursors
 
         if debug:
             #self.visualize_precursor(dense_precursors)
@@ -526,7 +528,9 @@ class Candidate:
         )
         
         self.observation_importance = observation_importance
-        self.template = template
+
+        # DEBUG only used for debugging
+        #self.template = template
 
         self.build_profiles(
             dense_fragments,

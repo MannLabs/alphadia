@@ -55,6 +55,13 @@
                     "value": false,
                     "description": "AlphaDIA will save figures during calibration. This can be useful for debugging.",
                     "type": "boolean"
+                },
+                {
+                    "id": "mmap_detector_events",
+                    "name": "Use Memory Mapped Files",
+                    "value": false,
+                    "description": "AlphaDIA will use memory mapped files to load detector events. This can allow processing large files even if the system does not have enough memory.",
+                    "type": "boolean"
                 }
             ]
         },

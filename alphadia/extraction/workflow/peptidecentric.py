@@ -403,10 +403,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column = f'mz_{self.com.column_type}',
             fragment_mz_column = f'mz_{self.com.column_type}',
             fwhm_rt = self.optimization_manager.fwhm_rt,
-            fwhm_mobility = self.optimization_manager.fwhm_mobility,
+            fwhm_mobility = self.optimization_manager.fwhm_mobility
+        )
+        candidates_df = extraction(
             thread_count=self.config['general']['thread_count']
         )
-        candidates_df = extraction()
 
         config = plexscoring.CandidateConfig()
         config.update(self.config['scoring_config'])
@@ -427,7 +428,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragment_mz_column = f'mz_{self.com.column_type}',
         )
 
-        features_df, fragments_df = candidate_scoring(candidates_df, thread_count=10, debug=False)
+        features_df, fragments_df = candidate_scoring(
+            candidates_df, 
+            thread_count=self.config['general']['thread_count']
+        )
 
         return features_df, fragments_df
        
