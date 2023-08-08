@@ -152,9 +152,6 @@ class Plan:
         ) -> None:
         self._spectral_library = spectral_library
 
-    
-
-
     def from_spec_lib_base(self, speclib_base):
 
         speclib_base._fragment_cardinality_df = fragment.calc_fragment_cardinality(speclib_base.precursor_df, speclib_base._fragment_mz_df)
@@ -314,11 +311,8 @@ class Plan:
                 )
    
                 workflow.calibration()
-
-                df = workflow.extraction(keep_decoys = keep_decoys)
-                df = df[df['qval'] <= fdr]
-
-                
+                df = workflow.extraction()
+                df = df[df['qval'] <= fdr]               
 
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)

@@ -377,7 +377,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return perform_recalibration
 
     def fdr_correction(self, features_df):
-        return scoring.fdr_correction(features_df, competetive_scoring=self.config['fdr']['competetive_scoring'])
+        return scoring.fdr_correction(
+            features_df, 
+            competetive_scoring=self.config['fdr']['competetive_scoring'],
+            channel_wise_fdr=self.config['fdr']['channel_wise_fdr']
+            )
 
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.com.ms1_error}, MS2 error: {self.com.ms2_error}, RT error: {self.com.rt_error}, Mobility error: {self.com.mobility_error}')
@@ -435,9 +439,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return features_df, fragments_df
        
-    def extraction(
-            self,
-            keep_decoys=False):
+    def extraction(self):
 
         if self.run is not None:
             for key, value in self.com.__dict__.items():
@@ -456,23 +458,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
 
         features_df, fragments_df = self.extract_batch(self.spectral_library._precursor_df)
-        #features_df = features_df[features_df['fragment_coverage'] > 0.1]
         precursor_df = self.fdr_correction(features_df)
-        #precursor_df = self.fdr_correction(precursor_df)
 
-        if not keep_decoys:
+        if not self.config['fdr']['keep_decoys']:
             precursor_df = precursor_df[precursor_df['decoy'] == 0]
 
+        precursor_df = precursor_df[precursor_df['qval'] <= self.config['fdr']['fdr']]
         self.log_precursor_df(precursor_df)
-        
-        #precursors_05 = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0)])
-        precursors_01 = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
-        #precursors_001 = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0)])
-
-        if self.run is not None:
-            self.run["eval/precursors"].log(precursors_01)
-            self.run.stop()
-
 
         return precursor_df
     
@@ -524,9 +516,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         logger.progress(f'decoy channel: {decoy_channel}')
 
         channels = list(set(original_channels + [reference_channel] + target_channels + [decoy_channel]))
-        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.precursors_flat_raw, channels=channels)
+        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.spectral_library.precursor_df_unfiltered, channels=channels)
         
-        channel_count_lib = self.precursors_flat_raw['channel'].value_counts()
+        channel_count_lib = self.spectral_library.precursor_df_unfiltered['channel'].value_counts()
         channel_count_multiplexed = multiplexed_candidates['channel'].value_counts()
         ## log channels with less than 100 precursors
         for channel in channels:
@@ -538,8 +530,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         logger.progress(f'=== Requantifying {len(multiplexed_candidates):,} precursors ===')
 
         config = plexscoring.CandidateConfig()
-        config.max_cardinality = 1
         config.score_grouped = True
+        config.exclude_shared_ions = True
         config.reference_channel = 0
 
         multiplexed_scoring = plexscoring.CandidateScoring(

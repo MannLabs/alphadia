@@ -29,7 +29,7 @@ def candidate_features_to_candidates(
     """
 
     # validate candidate_features_df input
-    validate.candidate_features_df(candidate_features_df)
+    validate.candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
         'elution_group_idx',
@@ -40,12 +40,16 @@ def candidate_features_to_candidates(
         'scan_center',
         'frame_start',
         'frame_stop',
-        'frame_center'
+        'frame_center',
+    ]
+    optional_columns = [
+        'proba',
+        'channel',
+        'decoy',
     ]
 
     # select required columns
-    candidate_df = candidate_features_df[required_columns].copy()
-
+    candidate_df = candidate_features_df[required_columns+optional_columns]
     # validate candidate_df output
     validate.candidates_df(candidate_df)
 
@@ -59,6 +63,7 @@ def multiplex_candidates(
     ):
 
     """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
+    All original candidates will be retained. For missing candidates, the best scoring candidate in the elution group will be used and multiplexed across all missing channels.
 
     Parameters
     ----------
@@ -92,20 +97,33 @@ def multiplex_candidates(
     # remove decoys if requested
     if remove_decoys:
         precursors_flat_view = precursors_flat_df[precursors_flat_df['decoy'] == 0]
+        if 'decoy' in candidates_view.columns:
+            candidates_view = candidates_view[candidates_view['decoy'] == 0]
+
+    # original precursors are forbidden as they will be concatenated in the end
+    forbidden_precursor_idxs = candidates_view['precursor_idx'].unique()
+
+    # the candidate used for multiplexing is the best scoring candidate in each elution group
+    best_candidate_view = candidates_view.sort_values('proba').groupby('elution_group_idx').first().reset_index()
 
     # get all candidate elution group 
-    candidate_elution_group_idxs = candidates_view['elution_group_idx'].unique()
-
+    candidate_elution_group_idxs = best_candidate_view['elution_group_idx'].unique()
+    
     # restrict precursors to channels and candidate elution groups
     precursors_flat_view = precursors_flat_view[precursors_flat_view['channel'].isin(channels)]
+    
     precursors_flat_view = precursors_flat_view[precursors_flat_view['elution_group_idx'].isin(candidate_elution_group_idxs)]
+    # remove original precursors
+    precursors_flat_view = precursors_flat_view[~precursors_flat_view['precursor_idx'].isin(forbidden_precursor_idxs)]
     precursors_flat_view = precursors_flat_view[['elution_group_idx','precursor_idx','channel']]
-
     # reduce precursors to the elution group level
-    candidates_view = candidates_view.drop(columns=['precursor_idx'])
+    best_candidate_view = best_candidate_view.drop(columns=['precursor_idx','channel'])
 
     # merge candidates and precursors
-    multiplexed_candidates_df = precursors_flat_view.merge(candidates_view, on='elution_group_idx', how='left')
+    multiplexed_candidates_df = precursors_flat_view.merge(best_candidate_view, on='elution_group_idx', how='left')
+    
+    # append original candidates
+    multiplexed_candidates_df = pd.concat([multiplexed_candidates_df, candidates_view]).sort_values('precursor_idx')
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df

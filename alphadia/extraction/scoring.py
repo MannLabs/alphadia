@@ -66,6 +66,7 @@ def fdr_correction(features,
         figure_path = None,
         neptune_run = None,
         competetive_scoring = False,
+        channel_wise_fdr=False,
     ):
     features = features.dropna().reset_index(drop=True).copy()
 
@@ -78,7 +79,6 @@ def fdr_correction(features,
     if 'top_precursor_intensity' in features.columns:
         features['log_top_precursor_intensity'] = np.log10(features['top_precursor_intensity'])
 
-
     pipeline = Pipeline([
         ('scaler', StandardScaler()),
         ('GBC', MLPClassifier(hidden_layer_sizes=(50, 25, 5), max_iter=1000, alpha=0.1, learning_rate='adaptive', learning_rate_init=0.001, early_stopping=True, tol=1e-6))
@@ -87,13 +87,9 @@ def fdr_correction(features,
     X = features[feature_columns].values
     y = features['decoy'].values
 
-    print(X.shape)
-    print(y.shape)
-
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
     pipeline.fit(X_train, y_train)
     
-
     y_test_proba = pipeline.predict_proba(X_test)[:,1]
     y_test_pred = np.round(y_test_proba)
 
@@ -111,7 +107,6 @@ def fdr_correction(features,
 
     features_best_df = keep_best(features, group_columns=group_columns)
     
-
     # ROC curve
     fpr_test, tpr_test, _ = roc_curve(y_test, y_test_proba)
     roc_auc_test = auc(fpr_test, tpr_test)
@@ -119,9 +114,7 @@ def fdr_correction(features,
     fpr_train, tpr_train, _ = roc_curve(y_train, y_train_proba)
     roc_auc_train = auc(fpr_train, tpr_train)
 
-
     # plotting
-
     fig, axs = plt.subplots(ncols=3, figsize=(12,3.5))
 
     axs[0].plot(fpr_test, tpr_test,label="ROC test (area = %0.2f)" % roc_auc_test)
