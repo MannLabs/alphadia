@@ -316,6 +316,7 @@ class Plan:
 
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)
+                    df = df[df['qval'] <= fdr]
 
                 df['run'] = raw_name
 

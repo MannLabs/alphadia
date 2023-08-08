@@ -237,19 +237,20 @@ def channel_fdr_correction(
     target_channels = [4,8],
     classifier_type = 'neural_network'
     ):
-    features = features[feature_columns + ['decoy', 'channel']]
+
+    available_columns = list(set(features.columns).intersection(set(feature_columns)))
+
+    features = features[available_columns + ['decoy', 'channel']]
     features = features[features['decoy'] == 0]
     features = features[features['channel'] != reference_channel]
     features = features.dropna().reset_index(drop=True).copy()
     
     output_dfs = []
-    
+
     for target_channel in target_channels:
         channel_df = features[features['channel'].isin([target_channel, decoy_channel])]
         channel_df['decoy'] = np.zeros(len(channel_df))
         channel_df.loc[channel_df['channel'] == decoy_channel, 'decoy'] = 1
-
-        print(channel_df['decoy'].value_counts())
 
         if classifier_type == 'logistic_regression':
             classifier = LogisticRegression(
@@ -258,8 +259,8 @@ def channel_fdr_correction(
             )
         elif classifier_type == 'neural_network':
             classifier = MLPClassifier(
-                hidden_layer_sizes=(50, 25, 5), 
-                max_iter=1000, 
+                hidden_layer_sizes=(20, 10, 5), 
+                max_iter=300, 
                 alpha=0.1, 
                 learning_rate='adaptive', 
                 learning_rate_init=0.001, 
@@ -272,7 +273,7 @@ def channel_fdr_correction(
             ('GBC',classifier)
         ])
 
-        X = channel_df[feature_columns].values
+        X = channel_df[available_columns].values
         y = channel_df['decoy'].values
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
@@ -335,5 +336,5 @@ def channel_fdr_correction(
         fig.tight_layout()
         plt.show()
 
-        output_dfs.append(features_best_df[features_best_df['qval'] <=0.01])
+        output_dfs.append(features_best_df[features_best_df['channel'] == target_channel])
     return pd.concat(output_dfs)

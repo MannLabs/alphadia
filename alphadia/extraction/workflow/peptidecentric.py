@@ -532,7 +532,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = plexscoring.CandidateConfig()
         config.score_grouped = True
         config.exclude_shared_ions = True
-        config.reference_channel = 0
+        config.reference_channel = self.config["multiplexing"]["reference_channel"]
 
         multiplexed_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
@@ -545,6 +545,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column='mobility_calibrated'
         )
 
+        multiplexed_candidates['rank'] = 0
+
         multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)
 
-        return scoring.channel_fdr_correction(multiplexed_features)
+        target_channels = [int(c) for c in self.config["multiplexing"]["target_channels"].split(',')]
+        print('target_channels', target_channels)
+        reference_channel = self.config["multiplexing"]["reference_channel"]
+
+        psm_df = scoring.channel_fdr_correction(
+                multiplexed_features,
+                reference_channel=reference_channel,
+                target_channels=target_channels,
+                decoy_channel=decoy_channel,
+            )
+        
+        self.log_precursor_df(psm_df)
+
+        return psm_df

@@ -101,7 +101,7 @@ def multiplex_candidates(
             candidates_view = candidates_view[candidates_view['decoy'] == 0]
 
     # original precursors are forbidden as they will be concatenated in the end
-    forbidden_precursor_idxs = candidates_view['precursor_idx'].unique()
+    #forbidden_precursor_idxs = candidates_view['precursor_idx'].unique()
 
     # the candidate used for multiplexing is the best scoring candidate in each elution group
     best_candidate_view = candidates_view.sort_values('proba').groupby('elution_group_idx').first().reset_index()
@@ -114,16 +114,16 @@ def multiplex_candidates(
     
     precursors_flat_view = precursors_flat_view[precursors_flat_view['elution_group_idx'].isin(candidate_elution_group_idxs)]
     # remove original precursors
-    precursors_flat_view = precursors_flat_view[~precursors_flat_view['precursor_idx'].isin(forbidden_precursor_idxs)]
+    #precursors_flat_view = precursors_flat_view[~precursors_flat_view['precursor_idx'].isin(forbidden_precursor_idxs)]
     precursors_flat_view = precursors_flat_view[['elution_group_idx','precursor_idx','channel']]
     # reduce precursors to the elution group level
     best_candidate_view = best_candidate_view.drop(columns=['precursor_idx','channel'])
 
     # merge candidates and precursors
     multiplexed_candidates_df = precursors_flat_view.merge(best_candidate_view, on='elution_group_idx', how='left')
-    
+
     # append original candidates
-    multiplexed_candidates_df = pd.concat([multiplexed_candidates_df, candidates_view]).sort_values('precursor_idx')
+    #multiplexed_candidates_df = pd.concat([multiplexed_candidates_df, candidates_view]).sort_values('precursor_idx')
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
@@ -272,7 +272,7 @@ class CandidateConfig(config.JITConfig):
         assert self.top_k_fragments > 0, 'top_k_fragments must be greater than 0'
         assert self.top_k_isotopes > 0, 'top_k_isotopes must be greater than 0'
         assert self.reference_channel >= -1, 'reference_channel must be greater than or equal to -1'
-        assert not (self.score_grouped == True and self.reference_channel == -1), 'for grouped scoring, reference_channel must be set to a valid channel'
+        #assert not (self.score_grouped == True and self.reference_channel == -1), 'for grouped scoring, reference_channel must be set to a valid channel'
 
         assert self.precursor_mz_tolerance >= 0, 'precursor_mz_tolerance must be greater than or equal to 0'
         assert self.precursor_mz_tolerance < 200, 'precursor_mz_tolerance must be less than 200'
@@ -548,7 +548,7 @@ class Candidate:
         self.observation_importance = observation_importance
 
         # DEBUG only used for debugging
-        #self.template = template
+        self.template = template
 
         self.build_profiles(
             dense_fragments,
@@ -729,7 +729,6 @@ class ScoreGroup:
         
         # get refrerence channel index
         if config.reference_channel >= 0:
-
             reference_channel_idx = -1
             for idx, candidate in enumerate(self.candidates):
                 if candidate.channel == config.reference_channel:
@@ -765,7 +764,6 @@ class ScoreGroup:
                 )
 
                 # update rank features
-
                 candidate.features.update(
                     features.rank_features(idx, self.candidates)
                 )
