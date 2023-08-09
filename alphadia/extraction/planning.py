@@ -312,11 +312,11 @@ class Plan:
    
                 workflow.calibration()
                 df = workflow.extraction()
-                df = df[df['qval'] <= fdr]               
+                df = df[df['qval'] <= self.config['fdr']['fdr']]               
 
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)
-                    df = df[df['qval'] <= fdr]
+                    df = df[df['qval'] <= self.config['fdr']['fdr']]
 
                 df['run'] = raw_name
 
