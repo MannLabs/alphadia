@@ -752,7 +752,7 @@ class ScoreGroup:
                 quadrupole_calibration,
                 debug
             )
-
+        
         # process reference channel features
         if config.reference_channel >= 0:
         

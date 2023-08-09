@@ -259,8 +259,8 @@ def channel_fdr_correction(
             )
         elif classifier_type == 'neural_network':
             classifier = MLPClassifier(
-                hidden_layer_sizes=(20, 10, 5), 
-                max_iter=300, 
+                hidden_layer_sizes=(100, 25, 5), 
+                max_iter=1000, 
                 alpha=0.1, 
                 learning_rate='adaptive', 
                 learning_rate_init=0.001, 
