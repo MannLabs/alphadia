@@ -111,7 +111,7 @@ def perform_fdr(
 def keep_best(
         df : pd.DataFrame,
         score_column : str = 'proba',
-        group_columns : list[str] = ['channel', 'precursor_idx']
+        group_columns : List[str] = ['channel', 'precursor_idx']
     ):
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
     This function is used to select the best candidate PSM for each precursor.
