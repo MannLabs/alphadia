@@ -9,9 +9,10 @@ import sklearn
 import matplotlib.pyplot as plt
 import matplotlib
 
+from typing import Union, Optional, Tuple, List
 def perform_fdr(
         classifier : sklearn.base.BaseEstimator,
-        available_columns : list[str],
+        available_columns : List[str],
         df_target : pd.DataFrame,
         df_decoy : pd.DataFrame,
         competetive : bool = False,
