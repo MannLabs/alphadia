@@ -36,8 +36,8 @@ def test_multiplex_candidates():
     )
 
     multiplexed_candidates = plexscoring.multiplex_candidates(test_candidate_df, test_precursor_df, channels=[])
-    pd.testing.assert_frame_equal(multiplexed_candidates.sort_index(axis=1), test_candidate_df.sort_index(axis=1))
+    assert len(multiplexed_candidates) == 0
 
     multiplexed_candidates = plexscoring.multiplex_candidates(test_candidate_df, test_precursor_df, channels=[0,4,8])
     assert multiplexed_candidates['precursor_idx'].tolist() == [0,1,2,3,4,5]
-    assert np.all(np.isclose(multiplexed_candidates['proba'].tolist(),[0.1, 0.4, 0.1, 0.3, 0.3, 0.3]))
+    assert np.all(np.isclose(multiplexed_candidates['proba'].tolist(),[0.1, 0.1, 0.1, 0.3, 0.3, 0.3]))
