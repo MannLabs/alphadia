@@ -1308,8 +1308,9 @@ class HybridCandidateSelection(object):
 
         df['flat_frag_start_idx'] = self.precursors_flat['flat_frag_start_idx'].values[precursor_flat_lookup]
         df['flat_frag_stop_idx'] = self.precursors_flat['flat_frag_stop_idx'].values[precursor_flat_lookup]
-
         df['charge'] = self.precursors_flat['charge'].values[precursor_flat_lookup]
+        df['proteins'] = self.precursors_flat['proteins'].values[precursor_flat_lookup]
+        df['genes'] = self.precursors_flat['genes'].values[precursor_flat_lookup]
 
         available_isotopes = utils.get_isotope_columns(self.precursors_flat.columns)
         available_isotope_columns = [f'i_{i}' for i in available_isotopes]

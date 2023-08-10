@@ -556,7 +556,7 @@ class FDRManager(BaseManager):
             classifier = self.classifier_store[classifier_hash]
         else:
             classifier = sklearn.base.clone(self.classifier_base)
-        
+        return classifier
         if isinstance(classifier, sklearn.pipeline.Pipeline):
             for step in classifier.steps:
                 if hasattr(step[1], 'warm_start'):
