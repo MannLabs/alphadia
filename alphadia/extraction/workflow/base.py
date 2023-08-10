@@ -138,8 +138,14 @@ class WorkflowBase():
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
-            return data.TimsTOFTranspose(dia_data_path)
+            return data.TimsTOFTranspose(
+                dia_data_path,
+                mmap_detector_events = self.config['general']['mmap_detector_events']
+                )
         elif file_extension == '.hdf':
-            return data.TimsTOFTranspose(dia_data_path)
+            return data.TimsTOFTranspose(
+                dia_data_path,
+                mmap_detector_events = self.config['general']['mmap_detector_events']
+                )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')

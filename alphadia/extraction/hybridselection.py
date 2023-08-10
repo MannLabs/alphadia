@@ -973,22 +973,12 @@ class HybridCandidateSelection(object):
             precursors_flat, 
             fragments_flat,
             config,
-            rt_tolerance = 30,
-            mobility_tolerance = 0.03,
-            candidate_count = 3,
             rt_column = 'rt_library',  
             mobility_column = 'mobility_library',
             precursor_mz_column = 'mz_library',
             fragment_mz_column = 'mz_library',
             fwhm_rt = 5.,
             fwhm_mobility = 0.012,
-            thread_count = 10,
-            debug = False,
-            group_channels = False,
-            exclude_shared_fragments = True,
-            top_k_fragments = 12,
-            top_k_precursors = 3,
-            use_weighted_score = True,
             feature_path = None,
         ):
         """select candidates for MS2 extraction based on MS1 features
@@ -1002,18 +992,6 @@ class HybridCandidateSelection(object):
         precursors_flat : pandas.DataFrame
             flattened precursor dataframe
 
-        rt_tolerance : float, optional
-            rt tolerance in seconds, by default 30
-
-        mobility_tolerance : float, optional
-            mobility tolerance, by default 0.03
-
-        mz_tolerance : float, optional
-            mz tolerance in ppm, by default 120
-
-        candidate_count : int, optional
-            number of candidates to extract per precursor, by default 3
-
         rt_column : str, optional
             name of the rt column in the precursor dataframe, by default 'rt_library'
 
@@ -1026,15 +1004,6 @@ class HybridCandidateSelection(object):
         fragment_mz_column : str, optional
             name of the fragment mz column in the fragment dataframe, by default 'mz_library'
 
-        thread_count : int, optional
-            number of threads to use, by default 20
-
-        debug : bool, optional
-            if True, debug plots will be shown, by default False
-
-        score_grouped : bool, optional
-            if True, the score will be calculated based on the grouped precursors. All non-decoy precursors and decoy-precursors are grouped together.
-            If False, the score will be calculated based on the individual precursors. This is the default behaviour of al
         Returns
         -------
 
@@ -1044,10 +1013,6 @@ class HybridCandidateSelection(object):
         self.dia_data = dia_data
         self.precursors_flat = precursors_flat.sort_values('precursor_idx').reset_index(drop=True)
         self.fragments_flat = fragments_flat
-
-        self.debug = debug
-
-        self.thread_count = thread_count
 
         self.rt_column = rt_column
         self.precursor_mz_column = precursor_mz_column
@@ -1071,7 +1036,10 @@ class HybridCandidateSelection(object):
         self.config = config
         self.feature_path = feature_path
 
-    def __call__(self):
+    def __call__(self,
+            thread_count = 10,
+            debug = False
+        ):
         """
         Perform candidate extraction workflow. 
         1. First, elution groups are assembled based on the annotation in the flattened precursor dataframe.
@@ -1085,7 +1053,7 @@ class HybridCandidateSelection(object):
         assembled into a pandas.DataFrame and precursor information is appended.
         """
 
-        if self.debug:
+        if debug:
             logging.info('starting candidate selection')
 
         # initialize input container
@@ -1093,8 +1061,8 @@ class HybridCandidateSelection(object):
         fragment_container = self.assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
-        iterator_len = min(10,len(elution_group_container)) if self.debug else len(elution_group_container)
-        thread_count = 1 if self.debug else self.thread_count
+        iterator_len = min(10,len(elution_group_container)) if debug else len(elution_group_container)
+        thread_count = 1 if debug else thread_count
 
         alphatims.utils.set_threads(thread_count)
 
@@ -1107,7 +1075,7 @@ class HybridCandidateSelection(object):
             fragment_container,
             self.config,
             self.kernel, 
-            self.debug,
+            debug,
         )
 
             
@@ -1116,7 +1084,7 @@ class HybridCandidateSelection(object):
         df = self.assemble_candidates(elution_group_container)
         df = self.append_precursor_information(df)
         #self.log_stats(df)
-        if self.debug: 
+        if debug: 
             return elution_group_container, df
             
         return df

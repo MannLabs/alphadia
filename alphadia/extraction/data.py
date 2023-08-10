@@ -22,6 +22,7 @@ from numba.typed import Dict
 from numba.experimental import jitclass
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
+    
     """Transposed TimsTOF data structure."""
     def __init__(self, 
             bruker_d_folder_name: str,
@@ -35,6 +36,8 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             drop_polarity: bool = True,
             convert_polarity_to_int: bool = True
         ):
+
+        self.mmap_detector_events = mmap_detector_events
 
         if bruker_d_folder_name.endswith("/"):
             bruker_d_folder_name = bruker_d_folder_name[:-1]
@@ -111,9 +114,14 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         self._tof_indices = np.zeros(1, np.uint32)
         self._push_indptr = np.zeros(1, np.int64)
 
-        self._push_indices = tm.clone(push_indices)
-        self._tof_indptr = tm.clone(tof_indptr)
-        self._intensity_values = tm.clone(intensity_values)
+        if self.mmap_detector_events:
+            self._push_indices = tm.clone(push_indices)
+            self._tof_indptr = tm.clone(tof_indptr)
+            self._intensity_values = tm.clone(intensity_values)
+        else:
+            self._push_indices = push_indices
+            self._tof_indptr = tof_indptr
+            self._intensity_values = intensity_values
 
     def _import_data_from_hdf_file(
         self,

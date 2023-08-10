@@ -9,6 +9,7 @@ from alphadia.extraction import utils
 import numpy as np
 import numba as nb 
 
+import time
 
 @nb.njit
 def center_of_mass(
@@ -1003,7 +1004,9 @@ def reference_features(
     n_fragments = reference_fragments_scan_profile.shape[0]
     fragment_idx_sorted = np.argsort(fragment_lib_intensity)[::-1]
 
-    if reference_fragments_scan_profile.shape[0] == 0 or fragments_scan_profile.shape[0] == 0:
+    if (reference_fragments_scan_profile.shape[0] == 0 or 
+        fragments_scan_profile.shape[0] == 0 or 
+        reference_fragments_scan_profile.shape[0] != fragments_scan_profile.shape[0]):
         feature_dict['reference_intensity_correlation'] = 0
 
         feature_dict['mean_reference_scan_cosine'] = 0
@@ -1026,12 +1029,14 @@ def reference_features(
 
     reference_intensity_correlation = 0
 
-    if total_fragment_intensity > 0:
-        reference_intensity_correlation = correlation = np.corrcoef(
+    if total_fragment_intensity > 1 and np.sum(reference_fragment_intensity) > 1:
+        #print('reference_fragment_intensity',reference_fragment_intensity, reference_fragment_intensity.shape)
+        #print('fragment_intensity',fragment_intensity, fragment_intensity.shape)
+        reference_intensity_correlation = np.corrcoef(
             reference_fragment_intensity,
             fragment_intensity
         )[0,1]
-
+    
     feature_dict['reference_intensity_correlation'] = reference_intensity_correlation
 
     # ============= Fragment Profile =============

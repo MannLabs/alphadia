@@ -29,7 +29,7 @@ def candidate_features_to_candidates(
     """
 
     # validate candidate_features_df input
-    validate.candidate_features_df(candidate_features_df)
+    validate.candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
         'elution_group_idx',
@@ -40,12 +40,14 @@ def candidate_features_to_candidates(
         'scan_center',
         'frame_start',
         'frame_stop',
-        'frame_center'
+        'frame_center',
+    ]
+    optional_columns = [
+        'proba',
     ]
 
     # select required columns
-    candidate_df = candidate_features_df[required_columns].copy()
-
+    candidate_df = candidate_features_df[required_columns+optional_columns].copy()
     # validate candidate_df output
     validate.candidates_df(candidate_df)
 
@@ -59,6 +61,7 @@ def multiplex_candidates(
     ):
 
     """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
+    All original candidates will be retained. For missing candidates, the best scoring candidate in the elution group will be used and multiplexed across all missing channels.
 
     Parameters
     ----------
@@ -83,29 +86,42 @@ def multiplex_candidates(
     
     """
 
-    validate.candidates_df(candidates_df)
-    validate.precursors_flat(precursors_flat_df)
+    precursors_flat_view = precursors_flat_df.copy()
+    best_candidate_view = candidates_df.copy()
 
-    precursors_flat_view = precursors_flat_df
-    candidates_view = candidates_df.copy()
+    validate.precursors_flat(precursors_flat_view)
+    validate.candidates_df(best_candidate_view)
+    
 
     # remove decoys if requested
     if remove_decoys:
         precursors_flat_view = precursors_flat_df[precursors_flat_df['decoy'] == 0]
+        if 'decoy' in best_candidate_view.columns:
+            best_candidate_view = best_candidate_view[best_candidate_view['decoy'] == 0]
+
+    # original precursors are forbidden as they will be concatenated in the end
+    # the candidate used for multiplexing is the best scoring candidate in each elution group
+    best_candidate_view = best_candidate_view.sort_values('proba').groupby('elution_group_idx').first().reset_index()
 
     # get all candidate elution group 
-    candidate_elution_group_idxs = candidates_view['elution_group_idx'].unique()
-
+    candidate_elution_group_idxs = best_candidate_view['elution_group_idx'].unique()
+    
     # restrict precursors to channels and candidate elution groups
     precursors_flat_view = precursors_flat_view[precursors_flat_view['channel'].isin(channels)]
+    
     precursors_flat_view = precursors_flat_view[precursors_flat_view['elution_group_idx'].isin(candidate_elution_group_idxs)]
+    # remove original precursors
     precursors_flat_view = precursors_flat_view[['elution_group_idx','precursor_idx','channel']]
-
     # reduce precursors to the elution group level
-    candidates_view = candidates_view.drop(columns=['precursor_idx'])
+    best_candidate_view = best_candidate_view.drop(columns=['precursor_idx'])
+    if 'channel' in best_candidate_view.columns:
+        best_candidate_view = best_candidate_view.drop(columns=['channel'])
 
     # merge candidates and precursors
-    multiplexed_candidates_df = precursors_flat_view.merge(candidates_view, on='elution_group_idx', how='left')
+    multiplexed_candidates_df = precursors_flat_view.merge(best_candidate_view, on='elution_group_idx', how='left')
+
+    # append original candidates
+    #multiplexed_candidates_df = pd.concat([multiplexed_candidates_df, candidates_view]).sort_values('precursor_idx')
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
@@ -254,7 +270,7 @@ class CandidateConfig(config.JITConfig):
         assert self.top_k_fragments > 0, 'top_k_fragments must be greater than 0'
         assert self.top_k_isotopes > 0, 'top_k_isotopes must be greater than 0'
         assert self.reference_channel >= -1, 'reference_channel must be greater than or equal to -1'
-        assert not (self.score_grouped == True and self.reference_channel == -1), 'for grouped scoring, reference_channel must be set to a valid channel'
+        #assert not (self.score_grouped == True and self.reference_channel == -1), 'for grouped scoring, reference_channel must be set to a valid channel'
 
         assert self.precursor_mz_tolerance >= 0, 'precursor_mz_tolerance must be greater than or equal to 0'
         assert self.precursor_mz_tolerance < 200, 'precursor_mz_tolerance must be less than 200'
@@ -469,7 +485,8 @@ class Candidate:
             absolute_masses = True
         )
 
-        self.dense_fragments = dense_fragments
+        # DEBUG only used for debugging
+        #self.dense_fragments = dense_fragments
 
         # check if an empty array is returned
         # scan and quadrupole limits of the fragments candidate are outside the acquisition range
@@ -491,7 +508,8 @@ class Candidate:
             absolute_masses = True
         )
 
-        self.dense_precursors = dense_precursors
+        # DEBUG only used for debugging
+        #self.dense_precursors = dense_precursors
 
         if debug:
             #self.visualize_precursor(dense_precursors)
@@ -526,6 +544,8 @@ class Candidate:
         )
         
         self.observation_importance = observation_importance
+
+        # DEBUG only used for debugging
         self.template = template
 
         self.build_profiles(
@@ -707,7 +727,6 @@ class ScoreGroup:
         
         # get refrerence channel index
         if config.reference_channel >= 0:
-
             reference_channel_idx = -1
             for idx, candidate in enumerate(self.candidates):
                 if candidate.channel == config.reference_channel:
@@ -731,7 +750,7 @@ class ScoreGroup:
                 quadrupole_calibration,
                 debug
             )
-
+        
         # process reference channel features
         if config.reference_channel >= 0:
         
@@ -743,7 +762,6 @@ class ScoreGroup:
                 )
 
                 # update rank features
-
                 candidate.features.update(
                     features.rank_features(idx, self.candidates)
                 )

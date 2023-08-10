@@ -247,7 +247,7 @@ def test_workflow_base():
 
     assert my_workflow.config['output'] == config['output']
     assert my_workflow.instance_name == workflow_name
-    assert my_workflow.parent_path == os.path.join(config['output'], my_workflow.TEMP_FOLDER)
+    assert my_workflow.parent_path == os.path.join(config['output'], base.TEMP_FOLDER)
     assert my_workflow.path == os.path.join(my_workflow.parent_path, workflow_name)
 
     assert os.path.exists(my_workflow.path)
