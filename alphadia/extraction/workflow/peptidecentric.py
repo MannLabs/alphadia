@@ -457,9 +457,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         if self.com.accumulated_precursors_001FDR > self.com.recalibration_target:
             perform_recalibration = True
-           
-        if self.com.current_step == len(self.batch_plan) -1:
-            perform_recalibration = True
 
         return perform_recalibration
 

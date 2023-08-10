@@ -339,6 +339,10 @@ class Plan:
 
         for raw_name, dia_path, speclib in self.get_run_data():
             run_path = os.path.join(temp_path, raw_name)
+            psm_path = os.path.join(run_path, 'psm.tsv')
+            if not os.path.exists(psm_path):
+                logger.warning(f'no psm file found for {raw_name}')
+                continue
             run_df = pd.read_csv(os.path.join(run_path, 'psm.tsv'), sep='\t')
             
             psm_df.append(run_df)
