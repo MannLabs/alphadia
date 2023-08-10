@@ -6,9 +6,86 @@ from typing import Union
 import numpy as np
 import pandas as pd
 
-from alphadia.extraction import plexscoring, scoring, hybridselection
+from alphadia.extraction import plexscoring, hybridselection
 from alphadia.extraction.workflow import manager, base
 from alphabase.spectral_library.base import SpecLibBase
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPClassifier
+
+
+feature_columns = [
+    'reference_intensity_correlation',
+    'mean_reference_scan_cosine',
+    'top3_reference_scan_cosine',
+    'mean_reference_frame_cosine',
+    'top3_reference_frame_cosine',
+    'mean_reference_template_scan_cosine',
+    'mean_reference_template_frame_cosine',
+    'mean_reference_template_frame_cosine_rank',
+    'mean_reference_template_scan_cosine_rank',
+    'mean_reference_frame_cosine_rank',
+    'mean_reference_scan_cosine_rank',
+    'reference_intensity_correlation_rank',
+    'top3_b_ion_correlation_rank',
+    'top3_y_ion_correlation_rank',
+    'top3_frame_correlation_rank',
+    'fragment_frame_correlation_rank',
+    'weighted_ms1_intensity_rank',
+    'isotope_intensity_correlation_rank',
+    'isotope_pattern_correlation_rank',
+    'mono_ms1_intensity_rank',
+    'weighted_mass_error_rank',
+    'base_width_mobility',
+    'base_width_rt',
+    'rt_observed',
+    'mobility_observed',
+    'mono_ms1_intensity',
+    'top_ms1_intensity',
+    'sum_ms1_intensity',
+    'weighted_ms1_intensity',
+    'weighted_mass_deviation',
+    'weighted_mass_error',
+    'mz_library',
+    'mz_observed',
+    'mono_ms1_height',
+    'top_ms1_height',
+    'sum_ms1_height',
+    'weighted_ms1_height',
+    'isotope_intensity_correlation',
+    'isotope_height_correlation',
+    'n_observations',
+    'intensity_correlation',
+    'height_correlation',
+    'intensity_fraction',
+    'height_fraction',
+    'intensity_fraction_weighted',
+    'height_fraction_weighted',
+    'mean_observation_score',
+    'sum_b_ion_intensity',
+    'sum_y_ion_intensity',
+    'diff_b_y_ion_intensity',
+    'fragment_scan_correlation',
+    'top3_scan_correlation',
+    'fragment_frame_correlation',
+    'top3_frame_correlation',
+    'template_scan_correlation',
+    'template_frame_correlation',
+    'cycle_fwhm',
+    'mobility_fwhm'
+]
+
+classifier_base = Pipeline([
+    ('scaler', StandardScaler()),
+    ('GBC', MLPClassifier(
+        hidden_layer_sizes=(100, 25, 5), 
+        max_iter=50, 
+        alpha=0.1, 
+        learning_rate='adaptive', 
+        learning_rate_init=0.001, 
+        early_stopping=True, tol=1e-6,
+    ))
+])
 
 class PeptideCentricWorkflow(base.WorkflowBase):
     
@@ -31,6 +108,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.init_neptune()
         self.init_calibration_optimization_manager()
+        self.init_fdr_manager()
         self.init_spectral_library()
         
     @property
@@ -63,6 +141,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'accumulated_precursors_01FDR': 0,
             'accumulated_precursors_001FDR': 0,
         })
+
+    def init_fdr_manager(self):
+        self.fdr_manager = manager.FDRManager(
+            feature_columns=feature_columns,
+            classifier_base=classifier_base,
+        )
 
     def init_spectral_library(self):
         # apply channel filter
@@ -377,7 +461,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return perform_recalibration
 
     def fdr_correction(self, features_df):
-        return scoring.fdr_correction(features_df, competetive_scoring=self.config['fdr']['competetive_scoring'])
+        return self.fdr_manager.fit_predict(
+            features_df,
+            decoy_strategy='precursor_channel_wise' if self.config['fdr']['channel_wise_fdr'] else 'precursor',
+            competetive = self.config['fdr']['competetive_scoring'],
+        )
 
     def extract_batch(self, batch_df):
         logger.progress(f'MS1 error: {self.com.ms1_error}, MS2 error: {self.com.ms2_error}, RT error: {self.com.rt_error}, Mobility error: {self.com.mobility_error}')
@@ -403,10 +491,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column = f'mz_{self.com.column_type}',
             fragment_mz_column = f'mz_{self.com.column_type}',
             fwhm_rt = self.optimization_manager.fwhm_rt,
-            fwhm_mobility = self.optimization_manager.fwhm_mobility,
+            fwhm_mobility = self.optimization_manager.fwhm_mobility
+        )
+        candidates_df = extraction(
             thread_count=self.config['general']['thread_count']
         )
-        candidates_df = extraction()
 
         config = plexscoring.CandidateConfig()
         config.update(self.config['scoring_config'])
@@ -427,13 +516,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragment_mz_column = f'mz_{self.com.column_type}',
         )
 
-        features_df, fragments_df = candidate_scoring(candidates_df, thread_count=10, debug=False)
+        features_df, fragments_df = candidate_scoring(
+            candidates_df, 
+            thread_count=self.config['general']['thread_count']
+        )
 
         return features_df, fragments_df
        
-    def extraction(
-            self,
-            keep_decoys=False):
+    def extraction(self):
 
         if self.run is not None:
             for key, value in self.com.__dict__.items():
@@ -452,23 +542,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
 
         features_df, fragments_df = self.extract_batch(self.spectral_library._precursor_df)
-        #features_df = features_df[features_df['fragment_coverage'] > 0.1]
         precursor_df = self.fdr_correction(features_df)
-        #precursor_df = self.fdr_correction(precursor_df)
 
-        if not keep_decoys:
+        if not self.config['fdr']['keep_decoys']:
             precursor_df = precursor_df[precursor_df['decoy'] == 0]
 
+        precursor_df = precursor_df[precursor_df['qval'] <= self.config['fdr']['fdr']]
         self.log_precursor_df(precursor_df)
-        
-        #precursors_05 = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0)])
-        precursors_01 = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
-        #precursors_001 = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0)])
-
-        if self.run is not None:
-            self.run["eval/precursors"].log(precursors_01)
-            self.run.stop()
-
 
         return precursor_df
     
@@ -520,9 +600,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         logger.progress(f'decoy channel: {decoy_channel}')
 
         channels = list(set(original_channels + [reference_channel] + target_channels + [decoy_channel]))
-        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.precursors_flat_raw, channels=channels)
+        multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.spectral_library.precursor_df_unfiltered, channels=channels)
         
-        channel_count_lib = self.precursors_flat_raw['channel'].value_counts()
+        channel_count_lib = self.spectral_library.precursor_df_unfiltered['channel'].value_counts()
         channel_count_multiplexed = multiplexed_candidates['channel'].value_counts()
         ## log channels with less than 100 precursors
         for channel in channels:
@@ -534,9 +614,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         logger.progress(f'=== Requantifying {len(multiplexed_candidates):,} precursors ===')
 
         config = plexscoring.CandidateConfig()
-        config.max_cardinality = 1
         config.score_grouped = True
-        config.reference_channel = 0
+        config.exclude_shared_ions = True
+        config.reference_channel = self.config["multiplexing"]["reference_channel"]
 
         multiplexed_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
@@ -549,6 +629,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column='mobility_calibrated'
         )
 
+        multiplexed_candidates['rank'] = 0
+
         multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)
 
-        return scoring.channel_fdr_correction(multiplexed_features)
+        target_channels = [int(c) for c in self.config["multiplexing"]["target_channels"].split(',')]
+        print('target_channels', target_channels)
+        reference_channel = self.config["multiplexing"]["reference_channel"]
+
+        psm_df = self.fdr_manager.fit_predict(
+            multiplexed_features,
+            decoy_strategy='channel',
+            competetive = self.config['fdr']['competetive_scoring'],
+            decoy_channel=decoy_channel,
+        )
+        
+        self.log_precursor_df(psm_df)
+
+        return psm_df

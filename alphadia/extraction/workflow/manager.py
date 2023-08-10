@@ -2,13 +2,24 @@ import os
 import typing
 import pickle
 import logging
+from typing import Literal
 
 import pandas as pd
 import numpy as np
+import xxhash
+import numba as nb
+
+
 logger = logging.getLogger()
+if not 'progress' in dir(logger):
+    from alphadia.extraction import processlogger
+    processlogger.init_logging()
 
 import alphadia
-from alphadia.extraction import calibration
+from alphadia.extraction import calibration, fdr
+import sklearn
+import matplotlib.pyplot as plt
+import matplotlib
 
 class BaseManager():
 
@@ -432,3 +443,144 @@ class OptimizationManager(BaseManager):
         self.fit(update_dict)
         return self.predict()
     
+class FDRManager(BaseManager):
+
+    def __init__(
+        self,
+        feature_columns : list,
+        classifier_base,
+        path : typing.Union[None, str] = None,
+        load_from_file : bool = True
+    ):
+
+        logging.info('========= Initializing FDR Manager =========')
+        super().__init__(path=path, load_from_file=load_from_file)
+
+        if not self.is_loaded_from_file:
+            self.feature_columns = feature_columns
+            self.classifier_store = {}
+            self.classifier_base = classifier_base
+        
+        logging.info('====================================================')
+
+    def fit_predict(
+            self,
+            features_df : pd.DataFrame,
+            decoy_strategy : Literal['precursor', 'precursor_channel_wise', 'channel'] = 'precursor',
+            competetive : bool = True,
+            decoy_channel : int = -1
+            ):
+        """Update the parameters dict with the values in update_dict.
+        """
+        available_columns = list(set(features_df.columns).intersection(set(self.feature_columns)))
+
+        # perform sanity checks
+        if len(available_columns) == 0:
+            raise ValueError('No feature columns found in features_df')
+
+        if decoy_strategy == 'precursor' or decoy_strategy == 'precursor_channel_wise':
+            if 'decoy' not in features_df.columns:
+                raise ValueError('decoy column not found in features_df')
+        
+        if decoy_strategy == 'precursor_channel_wise' or decoy_strategy == 'channel':
+            if 'channel' not in features_df.columns:
+                raise ValueError('channel column not found in features_df')
+            
+        if decoy_strategy == 'channel' and decoy_channel == -1:
+            raise ValueError('decoy_channel must be set if decoy_type is channel')
+
+        if (decoy_strategy == 'precursor' or decoy_strategy == 'precursor_channel_wise')and decoy_channel > -1:
+            logging.warning('decoy_channel is ignored if decoy_type is precursor')
+            decoy_channel = -1
+
+        if decoy_strategy == 'channel' and decoy_channel > -1:
+            if decoy_channel not in features_df['channel'].unique():
+                raise ValueError(f'decoy_channel {decoy_channel} not found in features_df')
+        
+        logging.info(f'performing {decoy_strategy} FDR with {len(available_columns)} features')
+        logging.info(f'Decoy channel: {decoy_channel}')
+        logging.info(f'Competetive: {competetive}')
+
+        classifier = self.get_classifier(available_columns)
+        if decoy_strategy == 'precursor':
+            psm_df = fdr.perform_fdr(
+                classifier,
+                available_columns,
+                features_df[features_df['decoy'] == 0].copy(),
+                features_df[features_df['decoy'] == 1].copy(),
+                competetive=competetive,
+                group_channels = True
+            )
+        elif decoy_strategy == 'precursor_channel_wise':
+            channels = features_df['channel'].unique()
+            psm_df_list = []
+            for channel in channels:
+                channel_df = features_df[features_df['channel'].isin([channel, decoy_channel])].copy()
+                psm_df_list.append(fdr.perform_fdr(
+                    classifier,
+                    available_columns,
+                    channel_df[channel_df['decoy'] == 0].copy(),
+                    channel_df[channel_df['decoy'] == 1].copy(),
+                    competetive=competetive,
+                    group_channels = True
+                ))
+            psm_df = pd.concat(psm_df_list)
+        elif decoy_strategy == 'channel':
+            channels = list(set(features_df['channel'].unique()) - set([decoy_channel]))
+            psm_df_list = []
+            for channel in channels:
+                channel_df = features_df[features_df['channel'].isin([channel, decoy_channel])].copy()
+                psm_df_list.append(fdr.perform_fdr(
+                    classifier,
+                    available_columns,
+                    channel_df[channel_df['channel'] != decoy_channel].copy(),
+                    channel_df[channel_df['channel'] == decoy_channel].copy(),
+                    competetive=competetive,
+                    group_channels = False
+                ))
+            
+            psm_df = pd.concat(psm_df_list)
+            psm_df = psm_df[psm_df['channel'] != decoy_channel].copy()
+        else:
+            raise ValueError(f'Invalid decoy_strategy: {decoy_strategy}')
+        
+        self.is_fitted = True
+        self.classifier_store[column_hash(available_columns)] = classifier
+        self.save()
+            
+        return psm_df
+        
+    def get_classifier(self, available_columns):
+        classifier_hash = column_hash(available_columns)
+        if classifier_hash in self.classifier_store:
+            classifier = self.classifier_store[classifier_hash]
+        else:
+            classifier = sklearn.base.clone(self.classifier_base)
+        
+        if isinstance(classifier, sklearn.pipeline.Pipeline):
+            for step in classifier.steps:
+                if hasattr(step[1], 'warm_start'):
+                    step[1].warm_start = True
+                else:
+                    logging.warning(f'Classifier {step[1].__class__.__name__} does not support warm_start. Will retrain classifier for each column combination.')
+        else:
+            if not hasattr(classifier, 'warm_start'):
+                logging.warning(f'Classifier {classifier.__class__.__name__} does not support warm_start. Will retrain classifier for each column combination.')
+            else:
+                classifier.warm_start = True
+
+        return classifier
+
+    def predict(self):
+        """Return the parameters dict.
+        """
+        raise NotImplementedError(f'predict() not implemented for {self.__class__.__name__}')
+    
+    def fit(self, update_dict):
+        """Update the parameters dict with the values in update_dict and return the parameters dict.
+        """
+        raise NotImplementedError(f'fit() not implemented for {self.__class__.__name__}')
+        
+def column_hash(columns):
+    columns.sort()
+    return xxhash.xxh64_hexdigest(''.join(columns))

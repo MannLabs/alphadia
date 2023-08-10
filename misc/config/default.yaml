@@ -6,6 +6,7 @@ general:
   reuse_calibration: false
   reuse_quant: false
   save_figures: false
+  mmap_detector_events: false
 
 library_loading:
   rt_heuristic: 180
@@ -72,8 +73,9 @@ scoring_config:
 
 fdr:
   fdr: 0.01
-  decoy_strategy: mutation
-  competetive_scoring: true
+  competetive_scoring: true,
+  keep_decoys: false,
+  channel_wise_fdr: false,
 
 multiplexing:
   multiplexed_quant: True

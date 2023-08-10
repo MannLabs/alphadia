@@ -55,6 +55,13 @@
                     "value": false,
                     "description": "AlphaDIA will save figures during calibration. This can be useful for debugging.",
                     "type": "boolean"
+                },
+                {
+                    "id": "mmap_detector_events",
+                    "name": "Use Memory Mapped Files",
+                    "value": false,
+                    "description": "AlphaDIA will use memory mapped files to load detector events. This can allow processing large files even if the system does not have enough memory.",
+                    "type": "boolean"
                 }
             ]
         },
@@ -66,7 +73,7 @@
                 {
                     "id": "channel_filter",
                     "name": "Channel Filter",
-                    "value": "0",
+                    "value": "",
                     "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
                     "type": "string"          
                 },
@@ -135,20 +142,24 @@
                     "type": "number"
                 },
                 {
-                    "id": "decoy_strategy",
-                    "name": "Decoy Strategy",
-                    "value": "mutation",
-                    "description": "Strategy to generate decoy sequences. 'mutation' will use DIA-NN style decoys where the second and second to last amino acid are mutated.",
-                    "type": "dropdown",
-                    "options": [
-                        "mutation"
-                    ]
-                },
-                {
                     "id": "competetive_scoring",
                     "name": "Competetive Scoring",
                     "value": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "channel_wise_fdr",
+                    "name": "Channel wise FDR",
+                    "value": false,
+                    "description": "In the initial pass before propagating identifications the FDR is calculated for each channel separately. This can be usefull if the composition of the channels differs drastically.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "keep_decoys",
+                    "name": "Keep Decoys",
+                    "value": false,
+                    "description": "If enabled, decoy PSMs will be retained in the output.",
                     "type": "boolean"
                 }
             ]
