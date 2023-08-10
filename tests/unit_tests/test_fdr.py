@@ -31,8 +31,8 @@ feature_columns = ['base_width_mobility', 'base_width_rt', 'cycle_fwhm',
 classifier_base = Pipeline([
     ('scaler', StandardScaler()),
     ('GBC', MLPClassifier(
-        hidden_layer_sizes=(100, 25, 5), 
-        max_iter=200, 
+        hidden_layer_sizes=(50, 25, 5), 
+        max_iter=10, 
         alpha=0.1, 
         learning_rate='adaptive', 
         learning_rate_init=0.001, 
@@ -58,7 +58,41 @@ def test_keep_best():
     assert best_df.shape[0] == 6
     assert np.allclose(best_df['proba'].values, np.array([0.1, 0.3, 0.4, 0.5, 0.7, 0.9]))
 
-test_keep_best()
+def test_keep_best():
+    test_df = pd.DataFrame({
+        'channel': [0,0,0,4,4,4,8,8,8],
+        'elution_group_idx': [0,1,2,0,1,2,0,1,2],
+        'proba': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.1, 0.2, 0.3]
+    })
+
+    result_df = fdr.keep_best(test_df, group_columns=['channel', 'elution_group_idx'])
+    pd.testing.assert_frame_equal(result_df, test_df)
+
+    test_df = pd.DataFrame({
+        'channel': [0,0,0,4,4,4,8,8,8],
+        'elution_group_idx': [0,0,1,0,0,1,0,0,1],
+        'proba': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.1, 0.2, 0.3]
+    })
+    result_df = fdr.keep_best(test_df, group_columns=['channel', 'elution_group_idx'])
+    result_expected = pd.DataFrame({
+        'channel': [0,0,4,4,8,8],
+        'elution_group_idx': [0,1,0,1,0,1],
+        'proba': [0.1, 0.3, 0.4, 0.6, 0.1, 0.3]
+    })
+    pd.testing.assert_frame_equal(result_df, result_expected)
+
+    test_df = pd.DataFrame({
+        'channel': [0,0,0,4,4,4,8,8,8],
+        'precursor_idx': [0,0,1,0,0,1,0,0,1],
+        'proba': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.1, 0.2, 0.3]
+    })
+    result_df = fdr.keep_best(test_df, group_columns = ['channel', 'precursor_idx'])
+    result_expected = pd.DataFrame({
+        'channel': [0,0,4,4,8,8],
+        'precursor_idx': [0,1,0,1,0,1],
+        'proba': [0.1, 0.3, 0.4, 0.6, 0.1, 0.3]
+    })
+    pd.testing.assert_frame_equal(result_df, result_expected)
 
 def test_fdr_to_q_values():
 
@@ -67,8 +101,6 @@ def test_fdr_to_q_values():
     test_q_values = fdr.fdr_to_q_values(test_fdr)
 
     assert np.allclose(test_q_values, np.array([0.05, 0.05, 0.05, 0.25, 0.25, 0.25, 0.5 ]))
-
-test_fdr_to_q_values()
 
 
 def test_get_q_values():
@@ -82,9 +114,6 @@ def test_get_q_values():
     test_df = fdr.get_q_values(test_df, 'proba', '_decoy')
 
     assert np.allclose(test_df['qval'].values, np.array([0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.8, 1.0]))
-
-
-test_get_q_values()
 
 def test_fdr():
     matplotlib.use('Agg')

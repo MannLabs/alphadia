@@ -71,7 +71,14 @@ def perform_fdr(
     y = np.concatenate([y_target, y_decoy])
 
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.2)
+
+    if hasattr(classifier.steps[1][1], 'n_iter_'):
+        logger.info(f'Pre FDR iterations: {classifier.steps[1][1].n_iter_}')
+
     classifier.fit(X_train, y_train)
+
+    if hasattr(classifier.steps[1][1], 'n_iter_'):
+        logger.info(f'Post FDR iterations: {classifier.steps[1][1].n_iter_}')
 
     psm_df = pd.concat([
         df_target,
