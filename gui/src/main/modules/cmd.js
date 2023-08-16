@@ -22,6 +22,10 @@ function condaPATH(username, platform){
             "C:\\Users\\" + username + "\\anaconda3\\Scripts\\",
             "C:\\Users\\" + username + "\\miniconda\\Scripts\\",
             "C:\\Users\\" + username + "\\anaconda\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda\\Scripts\\"
         ]
     } else {
         return [
