@@ -1440,7 +1440,9 @@ class CandidateScoring():
             'decoy',
             'channel',
             'flat_frag_start_idx',
-            'flat_frag_stop_idx'
+            'flat_frag_stop_idx',
+            'proteins',
+            'genes'
         ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
         df = utils.merge_missing_columns(
             df,

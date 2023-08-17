@@ -171,7 +171,8 @@ def fdr_to_q_values(
 def get_q_values(
         _df : pd.DataFrame,
         score_column : str = 'proba',
-        decoy_column : str = '_decoy'
+        decoy_column : str = '_decoy',
+        qval_column : str = 'qval'
     ):
     """Calculates q-values for a dataframe containing PSMs.
     
@@ -189,6 +190,9 @@ def get_q_values(
         The name of the column containing the decoy information. 
         Decoys are expected to be 1 and targets 0.
 
+    qval_column : str, default='qval'
+        The name of the column to store the q-values in.
+
     Returns
     -------
 
@@ -201,7 +205,7 @@ def get_q_values(
     decoy_cumsum = np.cumsum(_df[decoy_column].values)
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum/target_cumsum
-    _df['qval'] = fdr_to_q_values(fdr_values)
+    _df[qval_column] = fdr_to_q_values(fdr_values)
     return _df
 
 def plot_fdr(

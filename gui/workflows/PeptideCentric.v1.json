@@ -238,6 +238,13 @@
                     "value": 0,
                     "description": "The reference channel is only used for guiding identification and is not used for quantification. Some features will be calculated with respect to the reference channel.",
                     "type": "number"
+                },
+                {
+                    "id": "competetive_scoring",
+                    "name": "Competetive Scoring",
+                    "value": true,
+                    "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
+                    "type": "boolean"
                 }
             ]
         },

@@ -359,8 +359,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.recalibration(precursor_df, fragments_df)
                     break
                 else:
-                    pass
-            
+                    # check if last step has been reached
+                    if current_step == len(self.batch_plan) - 1:
+                        logger.info('Searched all data without finding recalibration target')
+                        raise RuntimeError('Searched all data without finding recalibration target')
+
             self.end_of_epoch()
 
         if 'final_full_calibration' in self.config['calibration']:
@@ -453,9 +456,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         perform_recalibration = False
 
         if self.com.accumulated_precursors_001FDR > self.com.recalibration_target:
-            perform_recalibration = True
-           
-        if self.com.current_step == len(self.batch_plan) -1:
             perform_recalibration = True
 
         return perform_recalibration
@@ -640,7 +640,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         psm_df = self.fdr_manager.fit_predict(
             multiplexed_features,
             decoy_strategy='channel',
-            competetive = self.config['fdr']['competetive_scoring'],
+            competetive = self.config['multiplexing']['competetive_scoring'],
             decoy_channel=decoy_channel,
         )
         

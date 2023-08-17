@@ -714,7 +714,51 @@ class TimsTOFTransposeJIT(object):
             absolute_masses = absolute_masses
         )
 
-@nb.njit()
+import numba as nb
+@alphatims.utils.pjit()
+def transpose_chunk(
+        chunk_idx,
+        chunks,
+        push_indices,
+        push_indptr,
+        tof_indices,
+        tof_indptr,
+        values,
+        new_values,
+        tof_indcount
+    ):
+
+    tof_index_chunk_start = chunks[chunk_idx]
+    tof_index_chunk_stop = chunks[chunk_idx+1]
+
+    for push_idx in range(len(push_indptr)-1):
+        start_push_indptr = push_indptr[push_idx]
+        stop_push_indptr = push_indptr[push_idx + 1]
+
+        for idx in range(start_push_indptr, stop_push_indptr):
+            # new row
+            tof_index = tof_indices[idx]
+            if tof_index_chunk_start <= tof_index and tof_index < tof_index_chunk_stop:
+                push_indices[tof_indptr[tof_index] + tof_indcount[tof_index]] = push_idx
+                new_values[tof_indptr[tof_index] + tof_indcount[tof_index]] = values[idx]
+                tof_indcount[tof_index] += 1
+
+@nb.njit
+def build_chunks(number_of_elements, num_chunks):
+    # Calculate the number of chunks needed
+    chunk_size = (number_of_elements + num_chunks - 1) // num_chunks
+    
+    chunks = [0]
+    start = 0
+    
+    for _ in range(num_chunks):
+        stop = min(start + chunk_size, number_of_elements)
+        chunks.append(stop)
+        start = stop
+    
+    return np.array(chunks)
+
+@nb.njit
 def transpose(
         tof_indices,
         push_indptr,
@@ -740,6 +784,9 @@ def transpose(
 
     values : np.ndarray
         values (n_values)
+
+    threads : int
+        number of threads to use
 
     Returns
     -------
@@ -774,18 +821,23 @@ def transpose(
     # get new values
     push_indices = np.zeros((len(tof_indices)), dtype=np.uint32)
     new_values = np.zeros_like(values)
+    
+    chunks = build_chunks(max_tof_index+1, 20)
 
-    for push_idx in range(len(push_indptr)-1):
-        start_push_indptr = push_indptr[push_idx]
-        stop_push_indptr = push_indptr[push_idx + 1]
+    with nb.objmode:
+        alphatims.utils.set_threads(20)
 
-        for idx in range(start_push_indptr, stop_push_indptr):
- 
-            # new row
-            tof_index = tof_indices[idx]
-
-            push_indices[tof_indptr[tof_index] + tof_indcount[tof_index]] = push_idx
-            new_values[tof_indptr[tof_index] + tof_indcount[tof_index]] = values[idx]
-            tof_indcount[tof_index] += 1
+        transpose_chunk(
+            range(len(chunks)-1),
+            chunks,
+            push_indices,
+            push_indptr,
+            tof_indices,
+            tof_indptr,
+            values,
+            new_values,
+            tof_indcount,
+            
+        )
 
     return push_indices, tof_indptr, new_values

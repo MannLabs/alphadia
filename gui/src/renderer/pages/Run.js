@@ -87,14 +87,20 @@ const Output = () => {
     }
     
     React.useEffect(() => {
+        setItems([]);
+        currentLengthRef.current = 0;
+
         let isMounted = true;
         
         const interval = setInterval(() => {
             window.electronAPI.getOutputLength().then((length) => {
                 if (isMounted){
                     if (length > currentLengthRef.current) {
-                        console.log("updating items")
                         updateItems(currentLengthRef.current);
+                    }
+                    if (length < currentLengthRef.current) {
+                        setItems([]);
+                        currentLengthRef.current = 0;
                     }
                 }
             });
@@ -104,6 +110,8 @@ const Output = () => {
             isMounted = false;
             clearInterval(interval);
         }
+
+
         
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);

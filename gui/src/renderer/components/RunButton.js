@@ -69,7 +69,6 @@ const RunButton = ({
     function handleRunClick() {
         const validation = validateMethod(method);
         if (profile.running) {
-            navigate("/run");
             return;
         }
         if (!validation.valid) {

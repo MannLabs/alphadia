@@ -6,3 +6,4 @@ progressbar
 neptune-client
 seaborn
 rocket_fft
+xxhash

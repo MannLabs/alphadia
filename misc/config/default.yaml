@@ -82,6 +82,7 @@ multiplexing:
   target_channels: '4,8'
   decoy_channel: 12
   reference_channel: 0
+  competetive_scoring: True
 
 # to be removed
 library_parsing:
