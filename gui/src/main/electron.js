@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, nativeTheme } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme } = require('electron')
 const osu = require('node-os-utils')
 const path = require("path");
 const writeYamlFile = require('write-yaml-file')
@@ -8,6 +8,8 @@ const os = require('os')
 const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles} = require('./modules/dialogHandler')
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
 const { getEnvironmentStatus, lineBreakTransform, CondaEnvironment} = require('./modules/cmd');
+const { buildMenu } = require('./modules/menu')
+const { Profile } = require('./modules/profile')
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) app.quit();
@@ -15,6 +17,7 @@ if (require('electron-squirrel-startup')) app.quit();
 let mainWindow;
 let workflows;
 let environment;
+let profile;
 
 function createWindow() {
   // Create the browser window.
@@ -32,14 +35,18 @@ function createWindow() {
     },
   });
     mainWindow.setTitle("alphaDIA");
-    mainWindow.removeMenu()
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+
+    profile = new Profile()
+
+    Menu.setApplicationMenu(buildMenu(mainWindow, profile));
 
     // Open the DevTools if NODE_ENV=dev
     if (process.env.NODE_ENV === "dev"){
         mainWindow.webContents.openDevTools({ mode: "detach" });
     }
-    environment = new CondaEnvironment("alpha")
+    
+    environment = new CondaEnvironment(profile)
     workflows = discoverWorkflows(mainWindow)
 }
 
