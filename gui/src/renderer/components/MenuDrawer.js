@@ -9,6 +9,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import FolderIcon from '@mui/icons-material/Folder';
 import SettingsApplicationsIcon from '@mui/icons-material/SettingsApplications';
 import SaveIcon from '@mui/icons-material/Save';
+import TerminalIcon from '@mui/icons-material/Terminal';
 
 const DrawerContainer = styled('div')(({ theme }) => ({
     width: 240,
@@ -133,11 +134,24 @@ const MenuDrawer = ({
                 </ListItemIcon>
                 <ListItemText primary="Output Files" />
             </ListItemButtonStyled>
+            
+        </ListStyled>
+        <List sx={{padding: 0, position: "absolute", bottom: 0, width: "100%"}}>
+            <ListItemButtonStyled 
+                key={"console"}
+                component={NavLink} 
+                to="/run" 
+                activeClassName="Mui-selected" >
+                <ListItemIcon>
+                    <TerminalIcon />
+                </ListItemIcon>
+                <ListItemText primary="Console Output" />
+            </ListItemButtonStyled >
             <RunButton
                 onSetRunningState={onSetRunningState}
                 profile={profile}
             />
-        </ListStyled>
+        </List>
         </Drawer>
     </DrawerContainer>
 )
