@@ -7,7 +7,7 @@ const os = require('os')
 
 const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles} = require('./modules/dialogHandler')
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
-const { getEnvironmentStatus, lineBreakTransform, CondaEnvironment} = require('./modules/cmd');
+const { CondaEnvironment} = require('./modules/cmd');
 const { buildMenu } = require('./modules/menu')
 const { Profile } = require('./modules/profile')
 
@@ -89,7 +89,7 @@ function handleStartWorkflow(workflow) {
     // save config.yaml in workflow folder
     writeYamlFile.sync(configPath, config, {lineWidth: -1})
     
-    return environment.spawn(`conda run -n ${environment.envName} --no-capture-output alphadia extract --config ${configPath}`)
+    return environment.spawn(`conda run -n ${profile.config.conda.envName} --no-capture-output alphadia extract --config ${configPath}`)
 }
 
 // This method will be called when Electron has finished
@@ -129,15 +129,6 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
-
-    mainWindow.webContents.on('render-process-gone', function (event, detailed) {
-        console.log("!crashed, reason: " + detailed.reason + ", exitCode = " + detailed.exitCode)
-        if (detailed.reason == "crashed"){
-            // relaunch app
-            app.relaunch({ args: process.argv.slice(1).concat(['--relaunch']) })
-            app.exit(0)
-        }
-    })
 });
 
 app.on('window-all-closed', () => {

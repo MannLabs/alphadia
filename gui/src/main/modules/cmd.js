@@ -120,11 +120,9 @@ const CondaEnvironment = class {
 
     checkCondaVersion(){
         return new Promise((resolve, reject) => {
-      
             this.exec('conda info --json', (err, stdout, stderr) => {
                 if (err) {console.log(err); reject(err); return;}
                 const info = JSON.parse(stdout);
-                console.log(info)
                 this.versions.conda = info["conda_version"];
                 this.exists.conda = true;
                 resolve(info);
@@ -190,6 +188,7 @@ const CondaEnvironment = class {
 
     spawn(cmd){
         console.log(cmd)
+        this.std = [];
         return new Promise((resolve, reject) => {
             if (!this.ready){
                 reject("Environment not ready");
@@ -241,94 +240,6 @@ const CondaEnvironment = class {
 
 }
 
-
-function getCondaInfo() {
-    return new Promise((resolve, reject) => {
-        exec('conda info --json', (err, stdout, stderr) => {
-            if (err) {
-                reject(err);
-            }
-            const info = JSON.parse(stdout);
-            resolve(info);
-        });
-    });
-}
-
-function getPythonVersion(envName){
-    return new Promise((resolve, reject) => {
-        exec(`conda run -n ${envName} python --version`, (err, stdout, stderr) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-            const versionPattern = /\d+\.\d+\.\d+/;
-            const versionList = stdout.match(versionPattern);
-            // check if versionList is null
-            if (versionList == null){
-                reject("Python version not found");
-                return;
-            }
-            if (versionList.length == 0){
-                reject("Python version not found");
-                return;
-            }
-            resolve(versionList[0]);
-        });
-    });
-}
-
-function getPackageVersion(envName, packageName){
-    return new Promise((resolve, reject) => {
-        exec(`conda list -n ${envName} --json`, (err, stdout, stderr) => {
-            if (err) {
-                reject(err);
-            }
-            const info = JSON.parse(stdout);
-            const packageInfo = info.filter((package) => package.name == packageName);
-            if (packageInfo.length == 0){
-                reject(`Package ${packageName} not found in environment ${envName}`);
-            }
-            resolve(packageInfo[0].version);
-        });
-    });
-}
-
-function getEnvironmentStatus(envName){
-    environment = {
-        envName: envName,
-        hasConda: false,
-        condaVersion: "",
-        hasEnv: false,
-        hasPython: false,
-        pythonVersion: "",
-        hasAlphadia: false,
-        alphadiaVersion: "",
-        ready: false
-    }
-
-    return getCondaInfo().then((info) => {
-        environment.hasConda = true;
-        environment.condaVersion = info["conda_version"];
-        environment.hasEnv = info["envs"].map((env) => path.basename(env)).includes(envName);
-        return getPythonVersion(envName).then((version) => {
-            environment.hasPython = true;
-            environment.pythonVersion = version;
-            return getPackageVersion(envName, "alphadia").then((version) => {
-                environment.hasAlphadia = true;
-                environment.alphadiaVersion = version;
-                environment.ready = [environment.hasConda, environment.hasEnv, environment.hasPython, environment.hasAlphadia].every(Boolean);
-                return environment
-            }).catch((error) => {
-                return environment
-            })
-        }).catch((error) => {
-            return environment
-        })
-    }).catch((error) => {
-        return environment
-    })
-}
-
 function lineBreakTransform () {
 
     // https://stackoverflow.com/questions/40781713/getting-chunks-by-newline-in-node-js-data-stream
@@ -360,12 +271,6 @@ function lineBreakTransform () {
 
 
 module.exports = {
-    getCondaInfo,
-    getPythonVersion,
-    getPackageVersion,
-    getEnvironmentStatus,
-    lineBreakTransform,
-    testCommand,
     CondaEnvironment
 }
 
