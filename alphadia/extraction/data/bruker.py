@@ -189,7 +189,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             ('quad_indptr', types.int64[::1]),
             ('quad_max_mz_value', types.float64),
             ('quad_min_mz_value', types.float64),
-            ('quad_min_mz_value', types.float64),
             ('quad_mz_values', types.float64[::1,:]),
             ('raw_quad_indptr', types.int64[::1]),
             ('rt_values', types.float64[::1]),
@@ -341,7 +340,9 @@ class TimsTOFTransposeJIT(object):
         #precursor_cycle_limits[1] += 1
         # convert back to frame indices
         frame_limits = optimal_cycle_limits*self.cycle.shape[1]+self.zeroth_frame
-        return frame_limits
+        return utils.make_slice_1d(
+            frame_limits
+        )
     
     def get_frame_indices_tolerance(
             self,
@@ -375,13 +376,12 @@ class TimsTOFTransposeJIT(object):
             rt-tolerance, 
             rt+tolerance
         ], dtype=np.float32)
-    
-        return utils.make_slice_1d(
-            self.get_frame_indices(
-                rt_limits,
-                optimize_size = optimize_size
-            )
+
+        self.get_frame_indices(
+            rt_limits,
+            optimize_size = optimize_size
         )
+        
 
     def get_scan_indices(
             self,
