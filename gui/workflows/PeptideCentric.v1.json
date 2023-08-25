@@ -62,6 +62,13 @@
                     "value": false,
                     "description": "AlphaDIA will use memory mapped files to load detector events. This can allow processing large files even if the system does not have enough memory.",
                     "type": "boolean"
+                },
+                {
+                    "id": "astral_ms1",
+                    "name": "Use Astral MS1",
+                    "value": false,
+                    "description": "AlphaDIA will use the Astral detector for MS1 information, if available.",
+                    "type": "boolean"
                 }
             ]
         },
