@@ -1,5 +1,6 @@
-from alphadia.extraction import validate, utils, features, plotting, quadrupole, data
+from alphadia.extraction import validate, utils, features, plotting, quadrupole
 from alphadia.extraction.numba import fragments
+from alphadia.extraction.data import bruker, thermo
 
 import alphatims.utils
 
@@ -1126,7 +1127,7 @@ def _executor(
 class CandidateScoring():
     """Calculate features for each precursor candidate used in scoring."""
     def __init__(self, 
-                dia_data : data.TimsTOFTransposeJIT,
+                dia_data : typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT],
                 precursors_flat : pd.DataFrame,
                 fragments_flat : pd.DataFrame,
                 quadrupole_calibration : quadrupole.SimpleQuadrupole = None,

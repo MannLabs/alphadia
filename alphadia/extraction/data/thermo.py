@@ -3,6 +3,7 @@ import numpy as np
 import numba as nb
 import pandas as pd
 import math
+import os
 
 from alphadia.extraction import utils
 
@@ -108,6 +109,8 @@ class Thermo(alpharaw.thermo.ThermoRawData):
         ):
         super().__init__()
         self.load_raw(path)
+
+        self.sample_name = os.path.basename(self.raw_file_path)
         
         self.astral_ms1 = astral_ms1
         self.filter_spectra()
@@ -445,4 +448,4 @@ class ThermoJIT(object):
                         
                         idx += 1
                         
-        return dense_output
+        return dense_output, precursor_idx_list

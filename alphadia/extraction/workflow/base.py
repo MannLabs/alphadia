@@ -4,8 +4,9 @@ logger = logging.getLogger()
 import tempfile
 import numpy as np
 import pandas as pd
+import typing
 
-from alphadia.extraction import data
+from alphadia.extraction.data import bruker, thermo
 from alphadia.extraction.workflow import manager
 
 from alphabase.spectral_library.base import SpecLibBase
@@ -113,14 +114,14 @@ class WorkflowBase():
         return self._spectral_library
     
     @property
-    def dia_data(self) -> data.TimsTOFTransposeJIT:
+    def dia_data(self) -> typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT]:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
     
     def _get_dia_data_object(
             self, 
             dia_data_path: str
-        ) -> data.TimsTOFTranspose:
+        ) -> typing.Union[bruker.TimsTOFTranspose, thermo.Thermo]:
         """ Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -131,21 +132,26 @@ class WorkflowBase():
 
         Returns
         -------
-        data.TimsTOFTranspose
+        typing.Union[bruker.TimsTOFTranspose, thermo.Thermo],
             TimsTOFTranspose object containing the DIA data
         
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
-            return data.TimsTOFTranspose(
+            return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-                )
+            )
         elif file_extension == '.hdf':
-            return data.TimsTOFTranspose(
+            return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-                )
+            )
+        elif file_extension == '.raw':
+            return thermo.Thermo(
+                dia_data_path,
+                astral_ms1= self.config['general']['astral_ms1']
+            )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')

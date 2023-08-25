@@ -5,12 +5,13 @@ import numpy as np
 import pandas as pd
 import yaml
 import pytest
+from pathlib import Path
 
 from alphadia.extraction import calibration
 from sklearn.linear_model import LinearRegression
 from alphabase.statistics.regression import LOESSRegression
 from alphadia.extraction.workflow import manager, base
-from alphadia.extraction import data
+from alphadia.extraction.data import bruker, thermo
 
 
 def test_base_manager():
@@ -226,36 +227,36 @@ def test_workflow_base():
     if pytest.test_data is None:
         pytest.skip("No test data found")
         return
-
     
-    dia_data_path = pytest.test_data.bruker_d_folder_name
+    for name, file_list in pytest.test_data.items():
+        for file in file_list:
 
-    config_path = os.path.join(os.path.dirname(__file__), '..','..','misc','config','default.yaml')
-    with open(config_path, 'r') as f:
-        config = yaml.safe_load(f)
+            config_path = os.path.join(os.path.dirname(__file__), '..','..','misc','config','default.yaml')
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
 
-    config['output'] = tempfile.gettempdir()
+            config['output'] = tempfile.gettempdir()
 
-    workflow_name = pytest.test_data.sample_name
+            workflow_name = Path(file).stem
 
-    my_workflow = base.WorkflowBase(
-        workflow_name,
-        config,
-        dia_data_path,
-        pd.DataFrame({})
-    )
+            my_workflow = base.WorkflowBase(
+                workflow_name,
+                config,
+                file,
+                pd.DataFrame({})
+            )
 
-    assert my_workflow.config['output'] == config['output']
-    assert my_workflow.instance_name == workflow_name
-    assert my_workflow.parent_path == os.path.join(config['output'], base.TEMP_FOLDER)
-    assert my_workflow.path == os.path.join(my_workflow.parent_path, workflow_name)
+            assert my_workflow.config['output'] == config['output']
+            assert my_workflow.instance_name == workflow_name
+            assert my_workflow.parent_path == os.path.join(config['output'], base.TEMP_FOLDER)
+            assert my_workflow.path == os.path.join(my_workflow.parent_path, workflow_name)
 
-    assert os.path.exists(my_workflow.path)
+            assert os.path.exists(my_workflow.path)
 
-    assert isinstance(my_workflow.dia_data, data.TimsTOFTranspose)
-    assert isinstance(my_workflow.calibration_manager, manager.CalibrationManager)
-    assert isinstance(my_workflow.optimization_manager, manager.OptimizationManager)
-    
-    os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
-    os.rmdir(os.path.join(my_workflow.path))
-    os.rmdir(os.path.join(my_workflow.parent_path))
+            assert isinstance(my_workflow.dia_data, bruker.TimsTOFTranspose) or isinstance(my_workflow.dia_data, thermo.Thermo)
+            assert isinstance(my_workflow.calibration_manager, manager.CalibrationManager)
+            assert isinstance(my_workflow.optimization_manager, manager.OptimizationManager)
+            
+            os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
+            os.rmdir(os.path.join(my_workflow.path))
+            os.rmdir(os.path.join(my_workflow.parent_path))
