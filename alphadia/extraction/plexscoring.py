@@ -507,7 +507,7 @@ class Candidate:
             self.failed = True
             return
 
-        dense_precursors, prec_precursor_index = jit_data.get_dense(
+        _dense_precursors, prec_precursor_index = jit_data.get_dense(
             frame_limit,
             scan_limit,
             self.isotope_mz,
@@ -516,6 +516,21 @@ class Candidate:
             absolute_masses = True
         )
 
+        # sum precursors to remove multiple observations
+        dense_precursors = np.zeros((2, _dense_precursors.shape[1], 1, _dense_precursors.shape[3], _dense_precursors.shape[4]), dtype=np.float32)
+        for i in range(_dense_precursors.shape[1]):
+            dense_precursors[0,i,0] = np.sum(_dense_precursors[0,i], axis=0)
+            for k in range(_dense_precursors.shape[3]):
+                for l in range(_dense_precursors.shape[4]):
+                    sum = 0
+                    count = 0
+                    for j in range(_dense_precursors.shape[2]):
+                        sum += _dense_precursors[1,i,j,k,l]
+                        if _dense_precursors[1,i,j,k,l] > 0:
+                            count += 1
+                    dense_precursors[1,i,0,k,l] = sum / (count + 1e-6)
+
+                        
         # DEBUG only used for debugging
         #self.dense_precursors = dense_precursors
 
@@ -576,6 +591,7 @@ class Candidate:
                 self.fragments_frame_profile,
                 self.template_frame_profile,
                 self.template_scan_profile,
+                jit_data.has_mobility
             )
         
         

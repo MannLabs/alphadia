@@ -10,6 +10,7 @@ def plot_fragment_profile(
     fragment_frame_profile,
     template_frame_profile,
     template_scan_profile,
+    has_mobility,
 ):
 
     n_fragments = fragment_scan_profile.shape[0]
@@ -19,15 +20,23 @@ def plot_fragment_profile(
 
     scan_indices = np.arange(n_scans)
 
-    grid_spec = dict(
-        height_ratios=[0.2, 0.2,1],
-        width_ratios=[1,0.5,0.5],
-    )
+    if has_mobility:
+        figsize = (n_frames*0.2*2, n_scans*0.12*2)
+        grid_spec = dict(
+            height_ratios=[0.2, 0.2,1],
+            width_ratios=[1,0.5,0.5],
+        )
+    else:
+        figsize = (n_frames*0.2*2, 5)
+        grid_spec = dict(
+            height_ratios=[1,1,0.5],
+            width_ratios=[1,0.5,0.5],
+        )
 
     images = []
 
     for i_observation in range(n_observations):
-        fig, ax = plt.subplots(3, 3, figsize=(n_frames*0.2*2, n_scans*0.12*2), sharey='row',sharex='col', gridspec_kw=grid_spec)
+        fig, ax = plt.subplots(3, 3, figsize=figsize, sharey='row',sharex='col', gridspec_kw=grid_spec)
 
         ax[2, 0].imshow(template[i_observation])
         ax[2, 1].plot(template_scan_profile[i_observation],scan_indices)
@@ -117,8 +126,8 @@ def plot_fragments(
         dense_fragments : np.ndarray,
         fragments,
 ):
-    #v_min = np.min(dense_fragments)
-    #v_max = np.max(dense_fragments)
+    v_min = np.min(dense_fragments)
+    v_max = np.max(dense_fragments)
 
     dpi = 20
 
@@ -149,7 +158,7 @@ def plot_fragments(
             frag_number = fragments.number[frag]
 
             axs[dense_index, frag].set_title(f"{frag_type}{frag_number} z{frag_charge}")
-            axs[dense_index, frag].imshow(dense_fragments[0, frag, obs])#, vmin=v_min, vmax=v_max)
+            axs[dense_index, frag].imshow(dense_fragments[0, frag, obs], vmin=v_min, vmax=v_max)
 
             masked = np.ma.masked_where(dense_fragments[1, frag, obs] == 0, dense_fragments[1, frag, obs])
             axs[mass_index, frag].imshow(masked, cmap='RdBu')

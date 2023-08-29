@@ -201,6 +201,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             ('push_indices', types.uint32[::1]),
             ('tof_indptr', types.int64[::1]),
         ('intensity_values', types.uint16[::1]),
+        ('has_mobility', types.boolean),
         ])
 
 class TimsTOFTransposeJIT(object):
@@ -288,6 +289,8 @@ class TimsTOFTransposeJIT(object):
         self.push_indices = push_indices
         self.tof_indptr = tof_indptr
         self.intensity_values = intensity_values
+
+        self.has_mobility = True
 
     def get_frame_indices(
             self,
