@@ -278,8 +278,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def start_of_epoch(self, current_epoch):
         self.com.current_epoch = current_epoch
 
-        if self.run is not None:
-            self.run["eval/epoch"].log(current_epoch)
+        if self.neptune is not None:
+            self.neptune["eval/epoch"].log(current_epoch)
 
         self.elution_group_order = self.spectral_library.precursor_df['elution_group_idx'].sample(frac=1).values
 
@@ -293,11 +293,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def start_of_step(self, current_step, start_index, stop_index):
         self.com.current_step = current_step
-        if self.run is not None:
-            self.run["eval/step"].log(current_step)
+        if self.neptune is not None:
+            self.neptune["eval/step"].log(current_step)
 
             for key, value in self.progress.items():
-                self.run[f"eval/{key}"].log(value)
+                self.neptune[f"eval/{key}"].log(value)
 
         logger.progress(f'=== Epoch {self.com.current_epoch}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===')
 
@@ -395,7 +395,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'precursor', 
             plot = True, 
             #figure_path = self.figure_path,
-            #neptune_run = self.run
+            #neptune_run = self.neptune
         )
 
         m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)
@@ -417,7 +417,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'fragment', 
             plot=True, 
             #figure_path = self.figure_path,
-            #neptune_run = self.run
+            #neptune_run = self.neptune
         )
 
         m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)
@@ -437,13 +437,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'fwhm_mobility': precursor_df_filtered['mobility_fwhm'].median(),
         })
 
-        if self.run is not None:
+        if self.neptune is not None:
             precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
-            self.run["eval/precursors"].log(len(precursor_df_fdr))
-            self.run['eval/99_ms1_error'].log(m1_99)
-            self.run['eval/99_ms2_error'].log(m2_99)
-            self.run['eval/99_rt_error'].log(rt_99)
-            self.run['eval/99_mobility_error'].log(mobility_99)
+            self.neptune["eval/precursors"].log(len(precursor_df_fdr))
+            self.neptune['eval/99_ms1_error'].log(m1_99)
+            self.neptune['eval/99_ms2_error'].log(m2_99)
+            self.neptune['eval/99_rt_error'].log(rt_99)
+            self.neptune['eval/99_mobility_error'].log(mobility_99)
     
     def check_recalibration(self, precursor_df):
         self.com.accumulated_precursors = len(precursor_df)
@@ -526,9 +526,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
        
     def extraction(self):
 
-        if self.run is not None:
+        if self.neptune is not None:
             for key, value in self.com.__dict__.items():
-                self.run[f"eval/{key}"].log(value)
+                if key is not None:
+                    self.neptune[f"eval/{key}"].log(value)
 
         self.com.fit({
             'num_candidates': self.config['extraction_target']['target_num_candidates'],
@@ -584,10 +585,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             proteins_001fdr = precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
 
             logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}')
-
+            
         logger.progress(f'=========================================================================')
-        
 
+        precursor_01fdr = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
+        proteins_01fdr = precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)]['proteins'].nunique()
+
+        if self.neptune is not None:
+            self.neptune['precursors'].log(precursor_01fdr)
+            self.neptune['proteins'].log(proteins_01fdr)
+        
     def requantify(
             self,
             psm_df

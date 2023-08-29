@@ -5,7 +5,10 @@ import tempfile
 import numpy as np
 import pandas as pd
 import typing
+import neptune
+import platform
 
+import alphadia
 from alphadia.extraction.data import bruker, thermo
 from alphadia.extraction.workflow import manager
 
@@ -43,10 +46,22 @@ class WorkflowBase():
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self.run = None
+        self.neptune = None
         self._instance_name = instance_name
         self._parent_path = os.path.join(config['output'],TEMP_FOLDER)
         self._config = config
+
+        # initialize neptune if available
+        neptune_token = os.environ.get('NEPTUNE_TOKEN')
+        neptune_project = os.environ.get('NEPTUNE_PROJECT')
+        if neptune_token is not None and neptune_project is not None:
+            self.neptune = neptune.init_run(
+                project = neptune_project,
+                api_token = neptune_token
+            )
+            self.neptune['host'] = platform.node()
+            self.neptune['version'] = alphadia.__version__
+            self.neptune['raw_file'] = self.instance_name
         
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
@@ -77,6 +92,7 @@ class WorkflowBase():
             path = os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file = config['general']['reuse_calibration']
         )
+        
 
     @property
     def instance_name(self) -> str:
@@ -139,16 +155,24 @@ class WorkflowBase():
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
+            if neptune is not None:
+                self.neptune['data_type'].log('bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
+            
+            
         elif file_extension == '.hdf':
+            if neptune is not None:
+                self.neptune['data_type'].log('bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
         elif file_extension == '.raw':
+            if neptune is not None:
+                self.neptune['data_type'].log('thermo')
             return thermo.Thermo(
                 dia_data_path,
                 astral_ms1= self.config['general']['astral_ms1'],
@@ -156,3 +180,4 @@ class WorkflowBase():
             )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')
+        

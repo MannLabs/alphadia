@@ -317,10 +317,11 @@ class Plan:
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)
                     df = df[df['qval'] <= self.config['fdr']['fdr']]
-
                 df['run'] = raw_name
-
                 df.to_csv(os.path.join(workflow.path, 'psm.tsv'), sep='\t', index=False)
+
+                if workflow.neptune is not None:
+                    workflow.neptune.stop()
                 del workflow
             
             except Exception as e:
