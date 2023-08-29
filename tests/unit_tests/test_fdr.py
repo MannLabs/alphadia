@@ -2,6 +2,7 @@ import os
 import warnings
 import numpy as np
 import pandas as pd
+import pytest
 
 from alphadia.extraction import fdr
 from alphadia.extraction.workflow import manager
@@ -115,6 +116,7 @@ def test_get_q_values():
 
     assert np.allclose(test_df['qval'].values, np.array([0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.8, 1.0]))
 
+@pytest.mark.slow
 def test_fdr():
     matplotlib.use('Agg')
 

@@ -79,7 +79,7 @@ fdr:
   channel_wise_fdr: false,
 
 multiplexing:
-  multiplexed_quant: True
+  multiplexed_quant: False
   target_channels: '4,8'
   decoy_channel: 12
   reference_channel: 0

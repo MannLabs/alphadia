@@ -198,19 +198,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         """
 
-        # retrive the converted absolute intensities
-        data = dia_data.frames.query('MsMsType == 0')[[
-            'Time', 'SummedIntensities']
-        ]
-        time = data['Time'].values
-        intensity = data['SummedIntensities'].values
-
+        
         # determine if the gradient start and stop are defined in the config
         if active_gradient_start is None:
             if 'active_gradient_start' in self.config['calibration']:
                 lower_rt = self.config['calibration']['active_gradient_start']
             else:
-                lower_rt = time[0] + self.config['extraction_initial']['initial_rt_tolerance']/2
+                lower_rt = dia_data.rt_values[0] + self.config['extraction_initial']['initial_rt_tolerance']/2
         else:
             lower_rt = active_gradient_start
 
@@ -218,7 +212,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if 'active_gradient_stop' in self.config['calibration']:
                 upper_rt = self.config['calibration']['active_gradient_stop']
             else:
-                upper_rt = time[-1] - (self.config['extraction_initial']['initial_rt_tolerance']/2)
+                upper_rt = dia_data.rt_values[-1] - (self.config['extraction_initial']['initial_rt_tolerance']/2)
         else:
             upper_rt = active_gradient_stop
 
@@ -235,6 +229,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return np.interp(norm_values, [0,1], [lower_rt,upper_rt])
             
         elif mode == 'tic':
+            # retrive the converted absolute intensities
+            data = dia_data.frames.query('MsMsType == 0')[[
+                'Time', 'SummedIntensities']
+            ]
+            time = data['Time'].values
+            intensity = data['SummedIntensities'].values
+
             # get lower and upper rt slice
             lower_idx = np.searchsorted(time, lower_rt)
             upper_idx = np.searchsorted(time, upper_rt, side='right')
@@ -386,7 +387,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.001]
+        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.01]
         precursor_df_filtered = precursor_df_filtered[precursor_df_filtered['decoy'] == 0]
 
         self.calibration_manager.fit(

@@ -56,7 +56,7 @@ def calculate_cycle(spectrum_df):
     if not np.allclose(first_cycle, second_cycle):
         raise ValueError('No DIA cycle pattern found in the data.')
 
-    cycle = np.zeros((1,cycle_length,1,2), dtype=np.float32)
+    cycle = np.zeros((1,cycle_length,1,2), dtype=np.float64)
     cycle[0,:,0,0] = spectrum_df.isolation_lower_mz.values[:cycle_length]
     cycle[0,:,0,1] = spectrum_df.isolation_upper_mz.values[:cycle_length]
 
@@ -102,12 +102,15 @@ def calculate_valid_scans(
 
 class Thermo(alpharaw.thermo.ThermoRawData):
 
+    has_mobility = False
+
     def __init__(
         self, 
         path, 
-        astral_ms1=False
+        astral_ms1=False,
+        **kwargs
         ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.load_raw(path)
 
         self.sample_name = os.path.basename(self.raw_file_path)
@@ -119,7 +122,7 @@ class Thermo(alpharaw.thermo.ThermoRawData):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
         self.precursor_cycle_max_index = len(self.rt_values)//self.cycle.shape[1]
-        self.mobility_values = np.array([-1, 1], dtype=np.float32)
+        self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
 
         self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
         self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
@@ -131,6 +134,9 @@ class Thermo(alpharaw.thermo.ThermoRawData):
         self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
         self.mz_values = self.peak_df.mz.values.astype(np.float32)
         self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
+
+        self.scan_max_index = 1
+        self.frame_max_index = len(self.rt_values)-1
 
     def filter_spectra(self):
         if self.astral_ms1:
@@ -159,12 +165,15 @@ class Thermo(alpharaw.thermo.ThermoRawData):
             self.peak_start_idx_list,
             self.peak_stop_idx_list,
             self.mz_values,
-            self.intensity_values
+            self.intensity_values,
+            self.scan_max_index,
+            self.frame_max_index
         )
     
 
 @nb.experimental.jitclass([
-            ('cycle', nb.core.types.float32[:, :, :, ::1]),
+            ('has_mobility', nb.core.types.boolean),
+            ('cycle', nb.core.types.float64[:, :, :, ::1]),
             ('rt_values', nb.core.types.float32[::1]),
             ('mobility_values', nb.core.types.float32[::1]),
             ('zeroth_frame', nb.core.types.boolean),
@@ -177,14 +186,17 @@ class Thermo(alpharaw.thermo.ThermoRawData):
             ('peak_start_idx_list', nb.core.types.int64[::1]),
             ('peak_stop_idx_list', nb.core.types.int64[::1]),
             ('mz_values', nb.core.types.float32[::1]),
-            ('intensity_values', nb.core.types.float32[::1])
+            ('intensity_values', nb.core.types.float32[::1]),
+            ('scan_max_index', nb.core.types.int64),
+            ('frame_max_index', nb.core.types.int64),
         ])
 
 class ThermoJIT(object):
     """Numba compatible Thermo data structure."""
+
     def __init__(
             self, 
-            cycle: nb.core.types.float32[:, :, :, ::1],
+            cycle: nb.core.types.float64[:, :, :, ::1],
             rt_values: nb.core.types.float32[::1],
             mobility_values: nb.core.types.float32[::1],
             zeroth_frame: nb.core.types.boolean,
@@ -198,10 +210,15 @@ class ThermoJIT(object):
             peak_stop_idx_list: nb.core.types.int64[::1],
             mz_values: nb.core.types.float32[::1],
             intensity_values: nb.core.types.float32[::1],
+
+            scan_max_index: nb.core.types.int64,
+            frame_max_index: nb.core.types.int64,
         ):
 
         """Numba compatible Thermo data structure.
         """
+
+        self.has_mobility = False
         
         self.cycle = cycle
         self.rt_values = rt_values
@@ -217,6 +234,11 @@ class ThermoJIT(object):
         self.peak_stop_idx_list = peak_stop_idx_list
         self.mz_values = mz_values
         self.intensity_values = intensity_values
+
+        self.scan_max_index = scan_max_index
+        self.frame_max_index = frame_max_index
+
+
 
     def get_frame_indices(
         self,

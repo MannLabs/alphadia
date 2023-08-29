@@ -6,7 +6,7 @@ import typing
 import pickle
 
 # alphadia imports
-from alphadia.extraction.plotting import density_scatter
+from alphadia.extraction.plotting.utils import density_scatter
 
 # alpha family imports
 import alphatims.bruker

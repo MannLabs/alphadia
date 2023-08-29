@@ -18,6 +18,7 @@ def test_transpose():
     assert np.allclose(tof_indptr, _tof_indptr)
     assert np.allclose(intensity_values, _intensity_values)
 
+@pytest.mark.slow
 def test_raw_data():
     if pytest.test_data is None:
         pytest.skip("No test data found")

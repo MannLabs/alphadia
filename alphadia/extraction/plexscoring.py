@@ -1,6 +1,13 @@
-from alphadia.extraction import validate, utils, features, plotting, quadrupole
+from alphadia.extraction import validate, utils, features, quadrupole
 from alphadia.extraction.numba import fragments
 from alphadia.extraction.data import bruker, thermo
+from alphadia.extraction.plotting.cycle import plot_cycle
+from alphadia.extraction.plotting.debug import (
+    plot_fragment_profile,
+    plot_precursor,
+    plot_fragments,
+    plot_template
+)
 
 import alphatims.utils
 
@@ -473,8 +480,8 @@ class Candidate:
         if debug:
             self.visualize_window(
                 quadrupole_calibration.cycle_calibrated,
-                self.scan_start, self.scan_stop,
-                quadrupole_limit[0,0], quadrupole_limit[0,1]
+                quadrupole_limit[0,0], quadrupole_limit[0,1],
+                self.scan_start, self.scan_stop
                 )
             
         dense_fragments, frag_precursor_index = jit_data.get_dense(
@@ -650,7 +657,7 @@ class Candidate:
             *args
         ):
         with nb.objmode:
-            plotting.plot_dia_window(
+            plot_cycle(
                 *args
             )
 
@@ -660,7 +667,7 @@ class Candidate:
         ):
 
         with nb.objmode:
-            plotting.plot_precursor(
+            plot_precursor(
                 *args
             )
 
@@ -669,7 +676,7 @@ class Candidate:
             *args
         ):
         with nb.objmode:
-            plotting.plot_fragments(
+            plot_fragments(
                 *args
             )
 
@@ -678,7 +685,7 @@ class Candidate:
         *args
     ):
         with nb.objmode:
-            plotting.plot_template(
+            plot_template(
                 *args
             )
 
@@ -687,7 +694,7 @@ class Candidate:
         *args
     ):
         with nb.objmode:
-            plotting.plot_fragment_profile(
+            plot_fragment_profile(
                 *args
             )
 
@@ -1453,7 +1460,11 @@ class CandidateScoring():
             how = 'left'
         )
 
-        df.drop(columns=['top3_b_ion_correlation','top3_y_ion_correlation'], inplace=True)
+        for col in ['top3_b_ion_correlation','top3_y_ion_correlation']:
+            if col in df.columns:
+                df.drop(col, axis=1, inplace=True)
+        if self.dia_data.cycle.shape[2] == 1:
+            df.drop(['fragment_scan_correlation','top3_scan_correlation','template_scan_correlation','delta_frame_peak'], axis=1, inplace=True)
 
         return df
     
