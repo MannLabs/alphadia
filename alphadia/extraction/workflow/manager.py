@@ -26,7 +26,8 @@ class BaseManager():
     def __init__(
             self,
             path : typing.Union[None, str] = None,
-            load_from_file : bool = True
+            load_from_file : bool = True,
+            figure_path : typing.Union[None, str] = None,
         ):
 
         """Base class for all managers which handle parts of the workflow.
@@ -44,7 +45,7 @@ class BaseManager():
         self._path = path
         self.is_loaded_from_file = False
         self.is_fitted = False
-
+        self.figure_path = figure_path
         self._version = alphadia.__version__
 
         if load_from_file:
@@ -101,7 +102,8 @@ class BaseManager():
                             self.is_loaded_from_file = True
                         else:
                             logging.warning(f'Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.')
-                except:
+                except Exception as e:
+                    print(e)
                     logging.error(f'Failed to load {self.__class__.__name__} from {self.path}')
                 else:
                     logging.info(f'Loaded {self.__class__.__name__} from {self.path}')
@@ -130,7 +132,8 @@ class CalibrationManager(BaseManager):
             self,
             config : typing.Union[None, dict] = None,
             path : typing.Union[None, str] = None,
-            load_from_file : bool = True
+            load_from_file : bool = True,
+            **kwargs
         ):
 
         """Contains, updates and applies all calibrations for a single run.
@@ -151,7 +154,7 @@ class CalibrationManager(BaseManager):
         
         """
         logging.info('========= Initializing Calibration Manager =========')
-        super().__init__(path=path, load_from_file=load_from_file)
+        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         if not self.is_loaded_from_file:
             self.estimator_groups = []
@@ -312,7 +315,8 @@ class CalibrationManager(BaseManager):
     def fit(
         self, 
         df : pd.DataFrame, 
-        group_name : str, 
+        group_name : str,
+        neptune_run = None,
         *args,
         **kwargs
         ):
@@ -340,7 +344,7 @@ class CalibrationManager(BaseManager):
         for group in group_idx:
             for estimator in self.estimator_groups[group]['estimators']:
                 logging.info(f'calibration group: {group_name}, fitting {estimator.name} estimator ')
-                estimator.fit(df, *args, neptune_key=f'{group_name}_{estimator.name}', **kwargs)
+                estimator.fit(df, *args, neptune_key=f'{group_name}_{estimator.name}', neptune_run = neptune_run, **kwargs)
 
         is_fitted = True
         # check if all estimators are fitted
@@ -411,11 +415,12 @@ class OptimizationManager(BaseManager):
         self,
         initial_parameters : dict,
         path : typing.Union[None, str] = None,
-        load_from_file : bool = True
+        load_from_file : bool = True,
+        **kwargs
     ):
 
         logging.info('========= Initializing Optimization Manager =========')
-        super().__init__(path=path, load_from_file=load_from_file)
+        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         if not self.is_loaded_from_file:
             self.__dict__.update(initial_parameters)
@@ -450,11 +455,12 @@ class FDRManager(BaseManager):
         feature_columns : list,
         classifier_base,
         path : typing.Union[None, str] = None,
-        load_from_file : bool = True
+        load_from_file : bool = True,
+        **kwargs
     ):
 
         logging.info('========= Initializing FDR Manager =========')
-        super().__init__(path=path, load_from_file=load_from_file)
+        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         if not self.is_loaded_from_file:
             self.feature_columns = feature_columns
@@ -468,7 +474,8 @@ class FDRManager(BaseManager):
             features_df : pd.DataFrame,
             decoy_strategy : Literal['precursor', 'precursor_channel_wise', 'channel'] = 'precursor',
             competetive : bool = True,
-            decoy_channel : int = -1
+            decoy_channel : int = -1,
+            neptune_run = None,
             ):
         """Update the parameters dict with the values in update_dict.
         """
@@ -509,7 +516,9 @@ class FDRManager(BaseManager):
                 features_df[features_df['decoy'] == 0].copy(),
                 features_df[features_df['decoy'] == 1].copy(),
                 competetive=competetive,
-                group_channels = True
+                group_channels = True,
+                figure_path = self.figure_path,
+                neptune_run = neptune_run
             )
         elif decoy_strategy == 'precursor_channel_wise':
             channels = features_df['channel'].unique()
@@ -522,7 +531,9 @@ class FDRManager(BaseManager):
                     channel_df[channel_df['decoy'] == 0].copy(),
                     channel_df[channel_df['decoy'] == 1].copy(),
                     competetive=competetive,
-                    group_channels = True
+                    group_channels = True,
+                    figure_path = self.figure_path,
+                    neptune_run = neptune_run
                 ))
             psm_df = pd.concat(psm_df_list)
         elif decoy_strategy == 'channel':
@@ -536,7 +547,9 @@ class FDRManager(BaseManager):
                     channel_df[channel_df['channel'] != decoy_channel].copy(),
                     channel_df[channel_df['channel'] == decoy_channel].copy(),
                     competetive=competetive,
-                    group_channels = False
+                    group_channels = False,
+                    figure_path = self.figure_path,
+                    neptune_run = neptune_run
                 ))
             
             psm_df = pd.concat(psm_df_list)

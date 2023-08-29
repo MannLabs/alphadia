@@ -296,7 +296,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if self.neptune is not None:
             self.neptune["eval/step"].log(current_step)
 
-            for key, value in self.progress.items():
+            for key, value in self.com.__dict__.items():
                 self.neptune[f"eval/{key}"].log(value)
 
         logger.progress(f'=== Epoch {self.com.current_epoch}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===')
@@ -387,15 +387,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.01]
+        precursor_df_filtered = precursor_df[precursor_df['qval'] < 0.001]
         precursor_df_filtered = precursor_df_filtered[precursor_df_filtered['decoy'] == 0]
 
         self.calibration_manager.fit(
             precursor_df_filtered,
             'precursor', 
             plot = True, 
-            #figure_path = self.figure_path,
-            #neptune_run = self.neptune
+            neptune_run = self.neptune
         )
 
         m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)
@@ -416,8 +415,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragments_df_filtered,
             'fragment', 
             plot=True, 
-            #figure_path = self.figure_path,
-            #neptune_run = self.neptune
+            neptune_run = self.neptune
         )
 
         m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)
@@ -466,6 +464,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             features_df,
             decoy_strategy='precursor_channel_wise' if self.config['fdr']['channel_wise_fdr'] else 'precursor',
             competetive = self.config['fdr']['competetive_scoring'],
+            neptune_run=self.neptune
         )
 
     def extract_batch(self, batch_df):

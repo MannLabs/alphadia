@@ -29,7 +29,6 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd 
-import neptune.new as neptune
 from neptune.new.types import File
 import os, psutil
 

@@ -431,8 +431,7 @@ class Calibration():
 
             fig.savefig(file_name)
             
-        else:
-            plt.show()  
+        plt.show()  
 
         plt.close()
         

@@ -84,13 +84,15 @@ class WorkflowBase():
         self._calibration_manager = manager.CalibrationManager(
             config['calibration_manager'],
             path = os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration']
+            load_from_file = config['general']['reuse_calibration'],
+            figure_path = os.path.join(self.path, self.FIGURE_PATH),
         )
         # initialize the optimization manager
         self._optimization_manager = manager.OptimizationManager(
             config['optimization_manager'],
             path = os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration']
+            load_from_file = config['general']['reuse_calibration'],
+            figure_path = os.path.join(self.path, self.FIGURE_PATH),
         )
         
 
