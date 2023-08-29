@@ -561,8 +561,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         decoy_precursors = len(precursor_df[precursor_df['decoy'] == 1])
         decoy_precursors_percentages = decoy_precursors / total_precursors * 100
 
-        logger.progress(f'========================= Precursor FDR =========================')
+        logger.progress(f'============================= Precursor FDR =============================')
         logger.progress(f'Total precursors accumulated: {total_precursors:,}')
+        logger.progress(f'Target precursors: {target_precursors:,} ({target_precursors_percentages:.2f}%)')
+        logger.progress(f'Decoy precursors: {decoy_precursors:,} ({decoy_precursors_percentages:.2f}%)')
+
+        logger.progress(f'')
+        logger.progress(f'Precursor Summary:')
   
         for channel in precursor_df['channel'].unique():
             precursor_05fdr = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
@@ -570,8 +575,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_001fdr = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
 
             logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}')
+        logger.progress('')
+        logger.progress(f'Protein Summary:')
 
-        logger.progress(f'=================================================================')
+        for channel in precursor_df['channel'].unique():
+            proteins_05fdr = precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
+            proteins_01fdr = precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
+            proteins_001fdr = precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
+
+            logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}')
+
+        logger.progress(f'=========================================================================')
+        
 
     def requantify(
             self,
