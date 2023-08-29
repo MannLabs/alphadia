@@ -11,7 +11,6 @@ general:
 
 library_loading:
   rt_heuristic: 180
-  norm_rt_mode: 'tic'
   # rt_type: 'norm'
   channel_filter: '0'
   exclude_shared_ions: True
@@ -22,6 +21,7 @@ calibration:
   batch_size: 4000
   recalibration_target: 200
   final_full_calibration: False
+  norm_rt_mode: 'linear'
   # active_gradient_start 
   # active_gradient_stop
 

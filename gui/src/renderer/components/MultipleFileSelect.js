@@ -12,7 +12,7 @@ const MultipleFileSelect = ({
     const color = active ? "primary" : "divider";
 
     const handleSelect = () => {
-        window.electronAPI.getMultipleFolders().then((files) => {
+        window.electronAPI.getMultiple().then((files) => {
             onChange(files);
         }).catch((err) => {
             console.log(err);

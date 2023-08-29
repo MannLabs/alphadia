@@ -5,7 +5,7 @@ const writeYamlFile = require('write-yaml-file')
 const fs = require('fs')
 const os = require('os')
 
-const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles} = require('./modules/dialogHandler')
+const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles, handleGetMultiple } = require('./modules/dialogHandler')
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
 const { CondaEnvironment} = require('./modules/cmd');
 const { buildMenu } = require('./modules/menu')
@@ -105,6 +105,7 @@ app.whenReady().then(() => {
     ipcMain.handle('get-multiple-folders', handleGetMultipleFolders(mainWindow))
     ipcMain.handle('get-single-file', handleGetSingleFile(mainWindow))
     ipcMain.handle('get-multiple-files', handleGetMultipleFiles(mainWindow))
+    ipcMain.handle('get-multiple', handleGetMultiple(mainWindow))
     ipcMain.handle('get-utilisation', handleGetUtilisation)
     ipcMain.handle('get-workflows', () => workflows)
 
