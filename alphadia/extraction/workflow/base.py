@@ -157,7 +157,7 @@ class WorkflowBase():
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
-            if neptune is not None:
+            if self.neptune is not None:
                 self.neptune['data_type'].log('bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
@@ -166,14 +166,14 @@ class WorkflowBase():
             
             
         elif file_extension == '.hdf':
-            if neptune is not None:
+            if self.neptune is not None:
                 self.neptune['data_type'].log('bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
         elif file_extension == '.raw':
-            if neptune is not None:
+            if self.neptune is not None:
                 self.neptune['data_type'].log('thermo')
             return thermo.Thermo(
                 dia_data_path,
