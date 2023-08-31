@@ -2,20 +2,13 @@ module.exports = {
   packagerConfig: {
     asar: true,
     icon: 'assets/alphadia',
+    executableName: 'alphadia-gui',
   },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-zip',
-      platforms: ['darwin', 'win32'],
-    },
-    {
-      name: '@electron-forge/maker-deb',
-      config: {},
-    },
-    {
-      name: '@electron-forge/maker-rpm',
-      config: {},
+      platforms: ['darwin', 'win32','linux'],
     },
   ],
   plugins: [
