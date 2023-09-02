@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme } = require('electron')
+const contextMenu = require('electron-context-menu');
 const osu = require('node-os-utils')
 const path = require("path");
 const writeYamlFile = require('write-yaml-file')
@@ -10,6 +11,14 @@ const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
 const { CondaEnvironment} = require('./modules/cmd');
 const { buildMenu } = require('./modules/menu')
 const { Profile } = require('./modules/profile')
+
+contextMenu({
+	showSaveImageAs: false,
+    showCopyLink: false,
+    showInspectElement: false,
+    showSearchWithGoogle: false,
+    showLookUpSelection: false,
+});
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (require('electron-squirrel-startup')) app.quit();
