@@ -29,7 +29,6 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd 
-import neptune.new as neptune
 from neptune.new.types import File
 import os, psutil
 
@@ -317,10 +316,11 @@ class Plan:
                 if self.config['multiplexing']['multiplexed_quant']:
                     df = workflow.requantify(df)
                     df = df[df['qval'] <= self.config['fdr']['fdr']]
-
                 df['run'] = raw_name
-
                 df.to_csv(os.path.join(workflow.path, 'psm.tsv'), sep='\t', index=False)
+
+                if workflow.neptune is not None:
+                    workflow.neptune.stop()
                 del workflow
             
             except Exception as e:
@@ -351,8 +351,8 @@ class Plan:
         psm_df = pd.concat(psm_df)
         stat_df = pd.concat(stat_df)
 
-        psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False)
-        stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False)
+        psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False, float_format='%.6f')
+        stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False, float_format='%.6f')
 
 
 def build_stat_df(run_df):
@@ -363,7 +363,10 @@ def build_stat_df(run_df):
             'run': run_df['run'].iloc[0],
             'channel': name,
             'precursors': np.sum(group['qval'] <= 0.01),
+            'proteins': group[group['qval'] <= 0.01]['proteins'].nunique(),
+            'ms1_accuracy': np.mean(group['weighted_mass_error']),
+            'fwhm_rt': np.mean(group['cycle_fwhm']),
+            'fwhm_mobility': np.mean(group['mobility_fwhm']),
         })
     
     return pd.DataFrame(run_stat_df)
-            

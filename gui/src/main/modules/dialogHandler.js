@@ -72,9 +72,28 @@ function handleGetMultipleFiles(window) {
     }
 }
 
+/* return array of files or folders */
+function handleGetMultiple(window) {
+    return (event) => {
+        return dialog.showOpenDialog(window, {
+            properties: ['openFile','openDirectory','multiSelections','createDirectory']
+        }).then((result) => {
+            if (result.canceled) {
+                return []
+            } else {
+                return result.filePaths
+            }
+        }).catch((err) => {
+            alert(err)
+            return []
+        })
+    }
+}
+
 module.exports = {
     handleGetSingleFolder,
     handleGetMultipleFolders,
     handleGetSingleFile,
-    handleGetMultipleFiles
+    handleGetMultipleFiles,
+    handleGetMultiple
 }

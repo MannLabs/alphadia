@@ -6,7 +6,7 @@ import typing
 import pickle
 
 # alphadia imports
-from alphadia.extraction.plotting import density_scatter
+from alphadia.extraction.plotting.utils import density_scatter
 
 # alpha family imports
 import alphatims.bruker
@@ -431,8 +431,7 @@ class Calibration():
 
             fig.savefig(file_name)
             
-        else:
-            plt.show()  
+        plt.show()  
 
         plt.close()
         

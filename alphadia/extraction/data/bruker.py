@@ -189,7 +189,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             ('quad_indptr', types.int64[::1]),
             ('quad_max_mz_value', types.float64),
             ('quad_min_mz_value', types.float64),
-            ('quad_min_mz_value', types.float64),
             ('quad_mz_values', types.float64[::1,:]),
             ('raw_quad_indptr', types.int64[::1]),
             ('rt_values', types.float64[::1]),
@@ -202,6 +201,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             ('push_indices', types.uint32[::1]),
             ('tof_indptr', types.int64[::1]),
         ('intensity_values', types.uint16[::1]),
+        ('has_mobility', types.boolean),
         ])
 
 class TimsTOFTransposeJIT(object):
@@ -290,6 +290,8 @@ class TimsTOFTransposeJIT(object):
         self.tof_indptr = tof_indptr
         self.intensity_values = intensity_values
 
+        self.has_mobility = True
+
     def get_frame_indices(
             self,
             rt_values : np.array,
@@ -341,7 +343,9 @@ class TimsTOFTransposeJIT(object):
         #precursor_cycle_limits[1] += 1
         # convert back to frame indices
         frame_limits = optimal_cycle_limits*self.cycle.shape[1]+self.zeroth_frame
-        return frame_limits
+        return utils.make_slice_1d(
+            frame_limits
+        )
     
     def get_frame_indices_tolerance(
             self,
@@ -375,13 +379,12 @@ class TimsTOFTransposeJIT(object):
             rt-tolerance, 
             rt+tolerance
         ], dtype=np.float32)
-    
-        return utils.make_slice_1d(
-            self.get_frame_indices(
-                rt_limits,
-                optimize_size = optimize_size
-            )
+
+        return self.get_frame_indices(
+            rt_limits,
+            optimize_size = optimize_size
         )
+        
 
     def get_scan_indices(
             self,
@@ -430,7 +433,9 @@ class TimsTOFTransposeJIT(object):
             if optimal_scan_limits[0] > self.scan_max_index:
                 optimal_scan_limits[0] = self.scan_max_index
                 
-        return optimal_scan_limits
+        return utils.make_slice_1d(
+            optimal_scan_limits
+        )
     
     def get_scan_indices_tolerance(
             self, 
@@ -466,13 +471,9 @@ class TimsTOFTransposeJIT(object):
             mobility-tolerance
         ], dtype=np.float32)
 
-        return utils.make_slice_1d(
-
-            self.get_scan_indices(
-                mobility_limits,
-                optimize_size = optimize_size
-            )
-
+        return self.get_scan_indices(
+            mobility_limits,
+            optimize_size = optimize_size
         )
 
     def get_tof_indices(
@@ -573,7 +574,7 @@ class TimsTOFTransposeJIT(object):
                         absolute_precursor_cycle.append(precursor_cycle)
                         push_indices.append(push_index)
 
-        return np.array(push_indices, dtype=np.uint32), np.array(absolute_precursor_cycle, dtype=np.uint8)
+        return np.array(push_indices, dtype=np.uint32), np.array(absolute_precursor_cycle, dtype=np.int64)
     
     def assemble_push(
         self,
@@ -587,7 +588,7 @@ class TimsTOFTransposeJIT(object):
         absolute_masses = False
     ):  
         if len(precursor_index) == 0:
-            return np.empty((0,0,0,0,0),dtype=np.float32), np.empty((0), dtype=np.uint8)
+            return np.empty((0,0,0,0,0),dtype=np.float32), np.empty((0), dtype=np.int64)
         
         unique_precursor_index = np.unique(precursor_index)
         precursor_index_reverse = np.zeros(np.max(unique_precursor_index)+1, dtype=np.uint8)

@@ -104,11 +104,40 @@ def plt_limits(mobility_limits, dia_cycle_limits):
     return rect
 
 @alphatims.utils.njit()
-def find_peaks(a, top_n=3):
+def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks
     
     """
 
+    scan = []
+    dia_cycle = []
+    intensity = []
+
+    for p in range(2,a.shape[1]-2):
+        isotope_is_peak = (a[0,p-2] < a[0,p-1] < a[0,p] > a[0,p+1] > a[0,p+2])
+
+        if isotope_is_peak:
+            intensity.append(a[0,p])
+            scan.append(0)
+            dia_cycle.append(p)
+    
+    scan = np.array(scan)
+    dia_cycle = np.array(dia_cycle)
+    intensity = np.array(intensity)
+
+    idx = np.argsort(intensity)[::-1][:top_n]
+
+    scan = scan[idx]
+    dia_cycle = dia_cycle[idx]
+    intensity = intensity[idx]
+
+    return scan, dia_cycle, intensity
+
+@alphatims.utils.njit()
+def find_peaks_2d(a, top_n=3):
+    """accepts a dense representation and returns the top three peaks
+    
+    """
     scan = []
     dia_cycle = []
     intensity = []

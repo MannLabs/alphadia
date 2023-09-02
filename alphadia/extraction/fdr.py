@@ -8,6 +8,8 @@ logger = logging.getLogger()
 import sklearn
 import matplotlib.pyplot as plt
 import matplotlib
+import neptune
+import os
 
 from typing import Union, Optional, Tuple, List
 def perform_fdr(
@@ -16,7 +18,9 @@ def perform_fdr(
         df_target : pd.DataFrame,
         df_decoy : pd.DataFrame,
         competetive : bool = False,
-        group_channels : bool = True
+        group_channels : bool = True,
+        figure_path : Optional[str] = None,
+        neptune_run  = None
     ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -103,7 +107,9 @@ def perform_fdr(
         X_train, X_test,
         y_train, y_test,
         classifier,
-        psm_df['qval']
+        psm_df['qval'],
+        figure_path=figure_path,
+        neptune_run=neptune_run
     )
     
     return psm_df
@@ -215,6 +221,8 @@ def plot_fdr(
         y_test : np.ndarray,
         classifier : sklearn.base.BaseEstimator,
         qval : np.ndarray,
+        figure_path : Optional[str] = None,
+        neptune_run  = None
     ):
     """Plots statistics on the fdr corrected PSMs.
 
@@ -289,4 +297,11 @@ def plot_fdr(
 
     fig.tight_layout()
     plt.show()
+
+    if figure_path is not None:
+        fig.savefig(os.path.join(figure_path, 'fdr.pdf'))
+    
+    if neptune_run is not None:
+        neptune_run['eval/fdr'].log(fig)
+
     plt.close()

@@ -153,5 +153,7 @@ jspm_packages
 gui/dist/
 gui/out/
 
-
-
+###################
+# mono crash logs #
+###################
+mono_crash*
