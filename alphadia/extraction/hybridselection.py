@@ -1067,8 +1067,7 @@ class HybridCandidateSelection(object):
         assembled into a pandas.DataFrame and precursor information is appended.
         """
 
-        if debug:
-            logging.info('starting candidate selection')
+        logging.info('Starting candidate selection')
 
         # initialize input container
         elution_group_container = self.assemble_score_groups(self.precursors_flat)
@@ -1098,6 +1097,8 @@ class HybridCandidateSelection(object):
         #self.log_stats(df)
         if debug: 
             return elution_group_container, df
+        
+        logging.info('Finished candidate selection')
             
         return df
     

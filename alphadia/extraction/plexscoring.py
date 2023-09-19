@@ -1560,6 +1560,7 @@ class CandidateScoring():
             A DataFrame containing the features for each fragment.
 
         """
+        logging.info('Starting candidate scoring')
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         fragment_container = self.assemble_fragments()
@@ -1583,5 +1584,7 @@ class CandidateScoring():
         validate.candidate_features_df(candidate_features_df)
         fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
         validate.fragment_features_df(fragment_features_df)
+
+        logging.info('Finished candidate scoring')
 
         return candidate_features_df, fragment_features_df
