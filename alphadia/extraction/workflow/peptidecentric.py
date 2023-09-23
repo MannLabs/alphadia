@@ -439,7 +439,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.com.fit({
                 'mobility_error': max(mobility_99, self.config['extraction_target']['target_mobility_tolerance']),
             })
-            self.neptune['eval/99_mobility_error'].log(mobility_99)
+
+            if self.neptune is not None:
+                self.neptune['eval/99_mobility_error'].log(mobility_99)
 
         self.optimization_manager.fit({
             'fwhm_rt': precursor_df_filtered['cycle_fwhm'].median(),
