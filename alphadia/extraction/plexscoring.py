@@ -546,7 +546,6 @@ class Candidate:
             self.isotope_mz
         )
 
-
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
             qtf,
@@ -569,7 +568,7 @@ class Candidate:
         self.observation_importance = observation_importance
 
         # DEBUG only used for debugging
-        self.template = template
+        #self.template = template
 
         self.build_profiles(
             dense_fragments,
@@ -594,7 +593,6 @@ class Candidate:
                 jit_data.has_mobility
             )
         
-        
         self.features.update(
             features.location_features(
                 jit_data,
@@ -606,7 +604,7 @@ class Candidate:
                 self.frame_center,
             )
         )
-        
+    
         self.features.update(
             features.precursor_features(
                 self.isotope_mz, 
@@ -616,7 +614,7 @@ class Candidate:
                 template
             )
         )
-        
+    
         feature_dict, self.fragment_feature_dict = features.fragment_features(
                 dense_fragments,
                 observation_importance,
@@ -628,6 +626,9 @@ class Candidate:
             feature_dict
         )
         
+        
+        
+
         
         self.features.update(
             features.profile_features(
@@ -645,7 +646,6 @@ class Candidate:
                 self.frame_stop,
             )
         )
-        
         
     def process_reference_channel(
         self,
@@ -1476,11 +1476,14 @@ class CandidateScoring():
             how = 'left'
         )
 
-        for col in ['top3_b_ion_correlation','top3_y_ion_correlation']:
+        for col in ['delta_frame_peak']:
             if col in df.columns:
                 df.drop(col, axis=1, inplace=True)
-        if self.dia_data.cycle.shape[2] == 1:
-            df.drop(['fragment_scan_correlation','top3_scan_correlation','template_scan_correlation','delta_frame_peak'], axis=1, inplace=True)
+
+        if self.dia_data.has_mobility:
+            for col in ['fragment_scan_correlation','top3_scan_correlation','template_scan_correlation']:
+                if col in df.columns:
+                    df.drop(col, axis=1, inplace=True)
 
         return df
     

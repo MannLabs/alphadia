@@ -87,6 +87,11 @@ class WorkflowBase():
             load_from_file = config['general']['reuse_calibration'],
             figure_path = os.path.join(self.path, self.FIGURE_PATH),
         )
+        
+        if not self._dia_data.has_mobility:
+            logging.info('Disabling ion mobility calibration')
+            self._calibration_manager.disable_mobility_calibration()
+
         # initialize the optimization manager
         self._optimization_manager = manager.OptimizationManager(
             config['optimization_manager'],

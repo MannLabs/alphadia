@@ -173,6 +173,14 @@ class CalibrationManager(BaseManager):
     def estimator_groups(self, value):
         self._estimator_groups = value
 
+    def disable_mobility_calibration(self):
+        """Iterate all estimators and remove the mobility estimator from each group.
+        """
+        for group in self.estimator_groups:
+            for estimator in group['estimators']:
+                if estimator.name == 'mobility':
+                    group['estimators'].remove(estimator)
+                    logging.info(f'removed mobility estimator from group {group["name"]}')
 
     def load_config(self, config : dict):
         """Load calibration config from config Dict.

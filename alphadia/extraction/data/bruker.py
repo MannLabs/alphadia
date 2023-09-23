@@ -37,6 +37,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             convert_polarity_to_int: bool = True
         ):
 
+        self.has_mobility = True
         self.mmap_detector_events = mmap_detector_events
 
         if bruker_d_folder_name.endswith("/"):

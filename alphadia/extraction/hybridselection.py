@@ -1591,10 +1591,10 @@ def plot_candidates(
     has_mobility = height_px > 2
     
     if has_mobility:
-        fig_size = (width_px/500 * 8, height_px/500 * 4)
+        fig_size = (max(width_px/500 * 8,5), height_px/500 * 5 )
         gridspec_kw = {'height_ratios': [1,9]}
     else:
-        fig_size = (width_px/500 * 8, 4)
+        fig_size = (max(width_px/500 * 8,5), 5)
         gridspec_kw = {'height_ratios': [19,1]}
 
     fig, axs = plt.subplots(nrows=2, ncols=1, figsize=fig_size, gridspec_kw=gridspec_kw, sharex=True)

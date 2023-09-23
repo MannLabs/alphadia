@@ -1,5 +1,6 @@
 import tempfile
 import os
+import shutil
 import pickle
 import numpy as np
 import pandas as pd
@@ -260,4 +261,4 @@ def test_workflow_base():
             
             os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
             os.rmdir(os.path.join(my_workflow.path))
-            os.rmdir(os.path.join(my_workflow.parent_path))
+            shutil.rmtree(os.path.join(my_workflow.parent_path))

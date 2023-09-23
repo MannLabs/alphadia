@@ -71,6 +71,11 @@ feature_columns = [
     'top3_frame_correlation',
     'template_scan_correlation',
     'template_frame_correlation',
+    'top3_b_ion_correlation',
+    'top3_y_ion_correlation',
+    'n_b_ions',
+    'n_y_ions',
+    'f_masked',
     'cycle_fwhm',
     'mobility_fwhm'
 ]
@@ -401,8 +406,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         m1_99 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.95)
         rt_70 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.70)
         rt_99 = self.calibration_manager.get_estimator('precursor', 'rt').ci(precursor_df_filtered, 0.95)
-        mobility_70 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.70)
-        mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)
+
+        
 
         #top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
         median_precursor_intensity = precursor_df_filtered['weighted_ms1_intensity'].median()
@@ -425,10 +430,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'ms1_error': max(m1_99, self.config['extraction_target']['target_ms1_tolerance']),
             'ms2_error': max(m2_99, self.config['extraction_target']['target_ms2_tolerance']),
             'rt_error': max(rt_99, self.config['extraction_target']['target_rt_tolerance']),
-            'mobility_error': max(mobility_99, self.config['extraction_target']['target_mobility_tolerance']),
             'column_type': 'calibrated',
             'num_candidates': self.config['extraction_target']['target_num_candidates'],
         })
+
+        if self.dia_data.has_mobility:
+            mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)
+            self.com.fit({
+                'mobility_error': max(mobility_99, self.config['extraction_target']['target_mobility_tolerance']),
+            })
+            self.neptune['eval/99_mobility_error'].log(mobility_99)
 
         self.optimization_manager.fit({
             'fwhm_rt': precursor_df_filtered['cycle_fwhm'].median(),
@@ -441,7 +452,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.neptune['eval/99_ms1_error'].log(m1_99)
             self.neptune['eval/99_ms2_error'].log(m2_99)
             self.neptune['eval/99_rt_error'].log(rt_99)
-            self.neptune['eval/99_mobility_error'].log(mobility_99)
+            
     
     def check_recalibration(self, precursor_df):
         self.com.accumulated_precursors = len(precursor_df)
@@ -487,7 +498,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library.fragment_df,
             config.jitclass(),
             rt_column = f'rt_{self.com.column_type}',
-            mobility_column = f'mobility_{self.com.column_type}',
+            mobility_column = f'mobility_{self.com.column_type}' if self.dia_data.has_mobility else 'mobility_library',
             precursor_mz_column = f'mz_{self.com.column_type}',
             fragment_mz_column = f'mz_{self.com.column_type}',
             fwhm_rt = self.optimization_manager.fwhm_rt,
@@ -511,7 +522,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library._fragment_df,
             config = config,
             rt_column = f'rt_{self.com.column_type}',
-            mobility_column = f'mobility_{self.com.column_type}',
+            mobility_column = f'mobility_{self.com.column_type}'  if self.dia_data.has_mobility else 'mobility_library',
             precursor_mz_column = f'mz_{self.com.column_type}',
             fragment_mz_column = f'mz_{self.com.column_type}',
         )

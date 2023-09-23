@@ -171,8 +171,12 @@ class Calibration():
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
 
-        self.function.fit(input_values, target_value)
-        self.is_fitted = True
+        try:
+            self.function.fit(input_values, target_value)
+            self.is_fitted = True
+        except Exception as e:
+            logging.error(f'Could not fit estimator {self.name}: {e}')
+            return
 
         if plot == True:
             self.plot(dataframe, **kwargs)
@@ -305,6 +309,9 @@ class Calibration():
         
         if not 0 < ci < 1:
             raise ValueError('Confidence interval must be between 0 and 1')
+        
+        if not self.is_fitted:
+            return 0
 
         ci_percentile = [100*(1-ci)/2, 100*(1+ci)/2]
         
