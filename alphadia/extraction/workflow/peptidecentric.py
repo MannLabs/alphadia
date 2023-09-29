@@ -319,8 +319,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if self.com.rt_error > self.config['extraction_target']['target_rt_tolerance']:
             continue_calibration = True
 
-        if self.com.mobility_error > self.config['extraction_target']['target_mobility_tolerance']:
-            continue_calibration = True
+        if self.dia_data.has_mobility:
+            if self.com.mobility_error > self.config['extraction_target']['target_mobility_tolerance']:
+                continue_calibration = True
 
         if self.com.current_epoch < self.config['calibration']['min_epochs']:
             continue_calibration = True

@@ -1390,13 +1390,13 @@ def build_features(
 
     smooth_fragment = smooth_fragment[:,frag_order]
 
-    fragment_binary = smooth_fragment[0] > 2
+    #fragment_binary = smooth_fragment[0] > 2
     #fragment_binary_sum = np.sum(fragment_binary, axis=0)
-    fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
+    #fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
 
-    precursor_binary = smooth_precursor[0] > 2
+    #precursor_binary = smooth_precursor[0] > 2
     #precursor_binary_sum = np.sum(precursor_binary, axis=0)
-    precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
+    #precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
 
     precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
     precursor_dot_mean = np.mean(precursor_dot)
