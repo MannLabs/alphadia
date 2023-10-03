@@ -1,7 +1,7 @@
 
 import typing
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, List, Type, Union
 
 import matplotlib
@@ -13,7 +13,134 @@ import base64
 from io import BytesIO
 
 import traceback
+import alphadia.extraction.processlogger as default_processlogger
+import logging, os, time
 
+# global variable which tracks if any logger has been initiated
+# As soon as its instantiated the default logger will be configured with a path to save the log file
+__is_initiated__ = False
+
+# Add a new logging level to the default logger
+# This has to happen at load time to make the .progress() method available even if no logger is instantiated
+PROGRESS_LEVELV_NUM = 100
+logging.PROGRESS = PROGRESS_LEVELV_NUM
+logging.addLevelName(PROGRESS_LEVELV_NUM, "PROGRESS")
+def progress(self, message, *args, **kws):
+    if self.isEnabledFor(PROGRESS_LEVELV_NUM):
+        # Yes, logger takes its '*args' as 'args'.
+        self._log(PROGRESS_LEVELV_NUM, message, args, **kws) 
+logging.Logger.progress = progress
+
+class DefaultFormatter(logging.Formatter):
+
+    template = "%(levelname)s: %(message)s"
+
+    grey = "\x1b[38;20m"
+    yellow = "\x1b[33;20m"
+    red = "\x1b[31;20m"
+    bold_red = "\x1b[31;1m"
+    green = "\x1b[32;20m"
+    reset = "\x1b[0m"
+    
+    def __init__(
+            self, 
+            use_ansi : bool = True
+        ):
+        """
+        Default formatter adding elapsed time and optional ANSI colors.
+
+        Parameters
+        ----------
+
+        use_ansi : bool, default True
+            Whether to use ANSI escape codes to color the output.
+
+        """
+        self.start_time = time.time()
+        
+        if use_ansi:
+            self.formatter = {
+                logging.DEBUG: logging.Formatter(self.template),
+                logging.INFO: logging.Formatter(self.template),
+                logging.PROGRESS: logging.Formatter(self.green + self.template + self.reset),
+                logging.WARNING: logging.Formatter(self.yellow + self.template + self.reset),
+                logging.ERROR: logging.Formatter(self.red + self.template + self.reset),
+                logging.CRITICAL: logging.Formatter(self.bold_red + self.template + self.reset)
+            }
+        else:
+            self.formatter = {
+                logging.DEBUG: logging.Formatter(self.template),
+                logging.INFO: logging.Formatter(self.template),
+                logging.PROGRESS: logging.Formatter(self.template),
+                logging.WARNING: logging.Formatter(self.template),
+                logging.ERROR: logging.Formatter(self.template),
+                logging.CRITICAL: logging.Formatter(self.template)
+            }
+
+    def format(
+            self, 
+            record : logging.LogRecord
+        ):
+        """Format the log record.
+
+        Parameters
+        ----------
+
+        record : logging.LogRecord
+            Log record to format.
+
+        Returns
+        -------
+        str
+            Formatted log record.
+        """
+
+        elapsed_seconds = record.created - self.start_time
+        elapsed = timedelta(seconds = elapsed_seconds)
+
+        return f'{elapsed} {self.formatter[record.levelno].format(record)}'
+
+def init_logging(
+        log_folder: str = None, 
+        log_level: int = logging.INFO
+    ):
+    """Initialize the default logger.
+    Sets the formatter and the console and file handlers.
+
+    Parameters
+    ----------
+
+    log_folder : str, default None
+        Path to the folder where the log file will be saved. If None, the log file will not be saved.
+
+    log_level : int, default logging.INFO
+        Log level to use. Can be logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR or logging.CRITICAL.
+    """
+
+    global __is_initiated__
+
+    logger = logging.getLogger()
+    logger.handlers = []
+    logger.setLevel(log_level)
+
+    # create console handler with a higher log level
+    ch = logging.StreamHandler()
+    ch.setLevel(log_level)
+    ch.setFormatter(DefaultFormatter(use_ansi=True))
+
+    # add the handlers to the logger
+    logger.addHandler(ch)
+
+    if log_folder is not None:
+
+        log_name = os.path.join(log_folder, 'log.txt')
+        # create file handler which logs even debug messages
+        fh = logging.FileHandler(log_name)
+        fh.setLevel(log_level)
+        fh.setFormatter(DefaultFormatter(use_ansi=False))
+        logger.addHandler(fh)
+
+    __is_initiated__ = True
 
 class Backend():
     """Generic backend for logging metrics, plots and strings.
@@ -377,13 +504,30 @@ class JSONLBackend(Backend):
 class NeptuneBackend(Backend):
     pass
 
-class StdoutBackend(Backend):
+class LogBackend(Backend):
 
-    def log_string(self, name : str, value : str):
-        print(f"{name}: {value}")
+    def __init__(self, path : str = None) -> None:
 
-    def log_metric(self, name : str, value : float):
-        print(f"{name}: {value}")
+        init_logging(path)
+
+        self.logger = logging.getLogger()
+        super().__init__()
+
+    def log_string(self, value : str, verbosity : str = 'info'):
+        if verbosity == 'progress':
+            self.logger.progress(value)
+        elif verbosity == 'info':
+            self.logger.info(value)
+        elif verbosity == 'debug':
+            self.logger.debug(value)
+        elif verbosity == 'warning':
+            self.logger.warning(value)
+        elif verbosity == 'error':
+            self.logger.error(value)
+        elif verbosity == 'critical':
+            self.logger.critical(value)
+        else:
+            raise ValueError(f"Unknown verbosity level {verbosity}")
 
 class Context():
     
@@ -407,18 +551,18 @@ class Context():
         
         return self.parent.__exit__(exc_type, exc_value, exc_traceback)
 
-class MetricLogger():
+class Pipeline():
 
     def __init__(
             self,
-            backends : List[Type[Backend]] = [StdoutBackend()],
+            backends : List[Type[Backend]] = [],
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
         Parameters
         ----------
 
-        backends : List[Type[Backend]], default [StdoutBackend]
+        backends : List[Type[Backend]], default [LogBackend]
             List of backends to use. Each backend must be a class inheriting from Backend.
         """
         
@@ -448,9 +592,9 @@ class MetricLogger():
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
 
-    def log_string(self, name : str, value : str, *args, **kwargs):
+    def log_string(self, value : str, *args, **kwargs):
         for backend in self.backends:
-            backend.log_string(name, value, *args, **kwargs)
+            backend.log_string(value, *args, **kwargs)
 
     def log_data(self, name : str, value : Any, *args, **kwargs):
         for backend in self.backends:
