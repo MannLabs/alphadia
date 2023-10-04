@@ -1,7 +1,6 @@
 import os
 import typing
 import pickle
-import logging
 from typing import Literal
 
 import pandas as pd
@@ -10,16 +9,13 @@ import xxhash
 import numba as nb
 
 
-logger = logging.getLogger()
-if not 'progress' in dir(logger):
-    from alphadia.extraction import processlogger
-    processlogger.init_logging()
-
 import alphadia
 from alphadia.extraction import calibration, fdr
+from alphadia.extraction.workflow import reporting
 import sklearn
 import matplotlib.pyplot as plt
 import matplotlib
+
 
 class BaseManager():
 
@@ -28,6 +24,7 @@ class BaseManager():
             path : typing.Union[None, str] = None,
             load_from_file : bool = True,
             figure_path : typing.Union[None, str] = None,
+            reporter : typing.Union[None, reporting.Pipeline, reporting.Backend] = None,
         ):
 
         """Base class for all managers which handle parts of the workflow.
@@ -47,6 +44,7 @@ class BaseManager():
         self.is_fitted = False
         self.figure_path = figure_path
         self._version = alphadia.__version__
+        self.reporter = reporting.LogBackend() if reporter is None else reporter
 
         if load_from_file:
             self.load()
@@ -85,8 +83,8 @@ class BaseManager():
                 with open(self.path, 'wb') as f:
                     pickle.dump(self, f)
             except:
-                logging.error(f'Failed to save {self.__class__.__name__} to {self.path}')
-
+                self.reporter.log_string(f'Failed to save {self.__class__.__name__} to {self.path}', verbosity='error')
+                
     def load(self):
 
         """Load the state from pickle file.
@@ -101,14 +99,13 @@ class BaseManager():
                             self.__dict__.update(loaded_state.__dict__)
                             self.is_loaded_from_file = True
                         else:
-                            logging.warning(f'Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.')
+                            self.reporter.log_string(f'Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.', verbosity='warning')
                 except Exception as e:
-                    print(e)
-                    logging.error(f'Failed to load {self.__class__.__name__} from {self.path}')
+                    self.reporter.log_string(f'Failed to load {self.__class__.__name__} from {self.path}', verbosity='error')
                 else:
-                    logging.info(f'Loaded {self.__class__.__name__} from {self.path}')
+                    self.reporter.log_string(f'Loaded {self.__class__.__name__} from {self.path}')
             else:
-                logging.warning(f'{self.__class__.__name__} not found at: {self.path}')
+                self.reporter.log_string(f'{self.__class__.__name__} not found at: {self.path}', verbosity='warning')
 
     
     def fit(self):
@@ -153,14 +150,16 @@ class CalibrationManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         
         """
-        logging.info('========= Initializing Calibration Manager =========')
+        
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+
+        self.reporter.log_string(f'Initializing {self.__class__.__name__}')
+        self.reporter.log_event('initializing', {'name': f'{self.__class__.__name__}'})
 
         if not self.is_loaded_from_file:
             self.estimator_groups = []
             self.load_config(config)
         
-        logging.info('====================================================')
 
 
     @property
@@ -180,7 +179,7 @@ class CalibrationManager(BaseManager):
             for estimator in group['estimators']:
                 if estimator.name == 'mobility':
                     group['estimators'].remove(estimator)
-                    logging.info(f'removed mobility estimator from group {group["name"]}')
+                    self.reporter.log_string(f'removed mobility estimator from group {group["name"]}')
 
     def load_config(self, config : dict):
         """Load calibration config from config Dict.
@@ -222,18 +221,17 @@ class CalibrationManager(BaseManager):
             }])
         
         """
-        
-        logging.info('loading calibration config')
-        logging.info(f'found {len(config)} calibration groups')
+        self.reporter.log_string('Loading calibration config')
+        self.reporter.log_string(f'Calibration config: {config}')
         for group in config:
-            logging.info(f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)')
+            self.reporter.log_string(f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)')
             for estimator in group['estimators']:
                 try:
                     template = calibration.calibration_model_provider.get_model(estimator['model'])
                     model_args = estimator['model_args'] if 'model_args' in estimator else {}
                     estimator['function'] = template(**model_args)
                 except Exception as e:
-                    logging.error(f'Could not load estimator {estimator["name"]}: {e}')
+                    self.reporter.log_string(f'Could not load estimator {estimator["name"]}: {e}', verbosity='error')
 
             group_copy = {'name': group['name']} 
             group_copy['estimators'] = [calibration.Calibration(**x) for x in group['estimators']]
@@ -269,7 +267,7 @@ class CalibrationManager(BaseManager):
             if group['name'] == group_name:
                 return group
 
-        logging.error(f'could not get_group: {group_name}')
+        self.reporter.log_string(f'could not get_group: {group_name}', verbosity='error')
         return None
     
     def get_estimator_names(self, group_name : str):
@@ -290,7 +288,7 @@ class CalibrationManager(BaseManager):
         group = self.get_group(group_name)
         if group is not None:
             return [x.name for x in group['estimators']]
-        logging.error(f'could not get_estimator_names: {group_name}')
+        self.reporter.log_string(f'could not get_estimator_names: {group_name}', verbosity='error')
         return None
 
     def get_estimator(self, group_name : str, estimator_name : str):
@@ -317,14 +315,14 @@ class CalibrationManager(BaseManager):
             for estimator in group['estimators']:
                 if estimator.name == estimator_name:
                     return estimator
-        logging.error(f'could not get_estimator: {group_name}, {estimator_name}')
+                
+        self.reporter.log_string(f'could not get_estimator: {group_name}, {estimator_name}', verbosity='error')
         return None
 
     def fit(
         self, 
         df : pd.DataFrame, 
         group_name : str,
-        neptune_run = None,
         *args,
         **kwargs
         ):
@@ -351,8 +349,8 @@ class CalibrationManager(BaseManager):
         # only iterate over the first group with the given name
         for group in group_idx:
             for estimator in self.estimator_groups[group]['estimators']:
-                logging.info(f'calibration group: {group_name}, fitting {estimator.name} estimator ')
-                estimator.fit(df, *args, neptune_key=f'{group_name}_{estimator.name}', neptune_run = neptune_run, **kwargs)
+                self.reporter.log_string(f'calibration group: {group_name}, fitting {estimator.name} estimator ')
+                estimator.fit(df, *args, neptune_key=f'{group_name}_{estimator.name}', **kwargs)
 
         is_fitted = True
         # check if all estimators are fitted
@@ -390,7 +388,7 @@ class CalibrationManager(BaseManager):
             raise ValueError(f'No group named {group_name} found')
         for group in group_idx:
             for estimator in self.estimator_groups[group]['estimators']:
-                logging.info(f'calibration group: {group_name}, predicting {estimator.name}')
+                self.reporter.log_string(f'calibration group: {group_name}, predicting {estimator.name}')
                 estimator.predict(df, inplace=True, *args, **kwargs)
 
     def fit_predict(
@@ -427,16 +425,15 @@ class OptimizationManager(BaseManager):
         **kwargs
     ):
 
-        logging.info('========= Initializing Optimization Manager =========')
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+        self.reporter.log_string(f'Initializing {self.__class__.__name__}')
+        self.reporter.log_event('initializing', {'name': f'{self.__class__.__name__}'})
 
         if not self.is_loaded_from_file:
             self.__dict__.update(initial_parameters)
             
             for key, value in initial_parameters.items():
-                logging.info(f'initial parameter: {key} = {value}')
-        
-        logging.info('====================================================')
+                self.reporter.log_string(f'initial parameter: {key} = {value}')
 
     def fit(self, update_dict):
         """Update the parameters dict with the values in update_dict.
@@ -467,15 +464,14 @@ class FDRManager(BaseManager):
         **kwargs
     ):
 
-        logging.info('========= Initializing FDR Manager =========')
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+        self.reporter.log_string(f'Initializing {self.__class__.__name__}')
+        self.reporter.log_event('initializing', {'name': f'{self.__class__.__name__}'})
 
         if not self.is_loaded_from_file:
             self.feature_columns = feature_columns
             self.classifier_store = {}
             self.classifier_base = classifier_base
-        
-        logging.info('====================================================')
 
     def fit_predict(
             self,
@@ -483,7 +479,6 @@ class FDRManager(BaseManager):
             decoy_strategy : Literal['precursor', 'precursor_channel_wise', 'channel'] = 'precursor',
             competetive : bool = True,
             decoy_channel : int = -1,
-            neptune_run = None,
             ):
         """Update the parameters dict with the values in update_dict.
         """
@@ -505,16 +500,16 @@ class FDRManager(BaseManager):
             raise ValueError('decoy_channel must be set if decoy_type is channel')
 
         if (decoy_strategy == 'precursor' or decoy_strategy == 'precursor_channel_wise')and decoy_channel > -1:
-            logging.warning('decoy_channel is ignored if decoy_type is precursor')
+            self.reporter.log_string('decoy_channel is ignored if decoy_type is precursor', verbosity='warning')
             decoy_channel = -1
 
         if decoy_strategy == 'channel' and decoy_channel > -1:
             if decoy_channel not in features_df['channel'].unique():
                 raise ValueError(f'decoy_channel {decoy_channel} not found in features_df')
         
-        logging.info(f'performing {decoy_strategy} FDR with {len(available_columns)} features')
-        logging.info(f'Decoy channel: {decoy_channel}')
-        logging.info(f'Competetive: {competetive}')
+        self.reporter.log_string(f'performing {decoy_strategy} FDR with {len(available_columns)} features')
+        self.reporter.log_string(f'Decoy channel: {decoy_channel}')
+        self.reporter.log_string(f'Competetive: {competetive}')
 
         classifier = self.get_classifier(available_columns)
         if decoy_strategy == 'precursor':
@@ -526,7 +521,6 @@ class FDRManager(BaseManager):
                 competetive=competetive,
                 group_channels = True,
                 figure_path = self.figure_path,
-                neptune_run = neptune_run
             )
         elif decoy_strategy == 'precursor_channel_wise':
             channels = features_df['channel'].unique()
@@ -541,7 +535,6 @@ class FDRManager(BaseManager):
                     competetive=competetive,
                     group_channels = True,
                     figure_path = self.figure_path,
-                    neptune_run = neptune_run
                 ))
             psm_df = pd.concat(psm_df_list)
         elif decoy_strategy == 'channel':
@@ -557,7 +550,6 @@ class FDRManager(BaseManager):
                     competetive=competetive,
                     group_channels = False,
                     figure_path = self.figure_path,
-                    neptune_run = neptune_run
                 ))
             
             psm_df = pd.concat(psm_df_list)
@@ -577,19 +569,6 @@ class FDRManager(BaseManager):
             classifier = self.classifier_store[classifier_hash]
         else:
             classifier = sklearn.base.clone(self.classifier_base)
-        return classifier
-        if isinstance(classifier, sklearn.pipeline.Pipeline):
-            for step in classifier.steps:
-                if hasattr(step[1], 'warm_start'):
-                    step[1].warm_start = True
-                else:
-                    logging.warning(f'Classifier {step[1].__class__.__name__} does not support warm_start. Will retrain classifier for each column combination.')
-        else:
-            if not hasattr(classifier, 'warm_start'):
-                logging.warning(f'Classifier {classifier.__class__.__name__} does not support warm_start. Will retrain classifier for each column combination.')
-            else:
-                classifier.warm_start = True
-
         return classifier
 
     def predict(self):

@@ -5,12 +5,11 @@ import tempfile
 import numpy as np
 import pandas as pd
 import typing
-import neptune
 import platform
 
 import alphadia
 from alphadia.extraction.data import bruker, thermo
-from alphadia.extraction.workflow import manager
+from alphadia.extraction.workflow import manager, reporting
 
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -46,22 +45,9 @@ class WorkflowBase():
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self.neptune = None
         self._instance_name = instance_name
         self._parent_path = os.path.join(config['output'],TEMP_FOLDER)
         self._config = config
-
-        # initialize neptune if available
-        neptune_token = os.environ.get('NEPTUNE_TOKEN')
-        neptune_project = os.environ.get('NEPTUNE_PROJECT')
-        if neptune_token is not None and neptune_project is not None:
-            self.neptune = neptune.init_run(
-                project = neptune_project,
-                api_token = neptune_token
-            )
-            self.neptune['host'] = platform.node()
-            self.neptune['version'] = alphadia.__version__
-            self.neptune['raw_file'] = self.instance_name
         
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
@@ -71,11 +57,20 @@ class WorkflowBase():
             logger.info(f"Creating workflow folder for {self.instance_name} at {self.path}")
             os.mkdir(self.path)
 
-        if not os.path.exists(os.path.join(self.path, self.FIGURE_PATH)):
-            os.mkdir(os.path.join(self.path, self.FIGURE_PATH))
+        self.reporter = reporting.Pipeline(
+            backends=[
+                reporting.LogBackend(),
+                reporting.JSONLBackend(path = self.path),
+                reporting.FigureBackend(path = self.path)
+            ]
+        )
+        self.reporter.context.__enter__()
+        self.reporter.log_event("section_start", {"name": "Initialize Workflow"})
 
+        self.reporter.log_event("loading_data", {'progress': 0})
         # load the raw data
         self._dia_data = self._get_dia_data_object(dia_data_path)
+        self.reporter.log_event("loading_data", {'progress': 1})
 
         # load the spectral library
         self._spectral_library = spectral_library.copy()
@@ -85,7 +80,7 @@ class WorkflowBase():
             config['calibration_manager'],
             path = os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
             load_from_file = config['general']['reuse_calibration'],
-            figure_path = os.path.join(self.path, self.FIGURE_PATH),
+            reporter = self.reporter
         )
         
         if not self._dia_data.has_mobility:
@@ -98,7 +93,10 @@ class WorkflowBase():
             path = os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file = config['general']['reuse_calibration'],
             figure_path = os.path.join(self.path, self.FIGURE_PATH),
+            reporter = self.reporter
         )
+
+        self.reporter.log_event("section_stop", {})
         
 
     @property
@@ -162,8 +160,7 @@ class WorkflowBase():
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
-            if self.neptune is not None:
-                self.neptune['data_type'].log('bruker')
+            self.reporter.log_metric('raw_data_type', 'bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
@@ -171,15 +168,13 @@ class WorkflowBase():
             
             
         elif file_extension == '.hdf':
-            if self.neptune is not None:
-                self.neptune['data_type'].log('bruker')
+            self.reporter.log_metric('raw_data_type', 'bruker')
             return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
         elif file_extension == '.raw':
-            if self.neptune is not None:
-                self.neptune['data_type'].log('thermo')
+            self.reporter.log_metric('raw_data_type', 'thermo')
             return thermo.Thermo(
                 dia_data_path,
                 astral_ms1= self.config['general']['astral_ms1'],

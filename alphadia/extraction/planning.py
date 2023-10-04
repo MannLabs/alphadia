@@ -9,18 +9,12 @@ from datetime import datetime
 import hashlib
 from typing import Union, List, Dict, Tuple, Optional
 
-logger = logging.getLogger()
-from alphadia.extraction import processlogger
-    
-
 # alphadia imports
 from alphadia.extraction import data, validate, utils
-from alphadia.extraction.workflow import peptidecentric, base
-
+from alphadia.extraction.workflow import peptidecentric, base, reporting
 import alphadia
 
-# alpha family imports
-import alphatims
+logger = logging.getLogger()
 
 from alphabase.peptide import fragment
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -29,7 +23,6 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd 
-from neptune.new.types import File
 import os, psutil
 
 class Plan:
@@ -62,8 +55,7 @@ class Plan:
 
         """
         self.output_folder = output_folder
-        processlogger.init_logging(self.output_folder)
-        logger = logging.getLogger()
+        reporting.init_logging(self.output_folder)
 
         logger.progress('      _   _      _         ___ ___   _   ')
         logger.progress('     /_\ | |_ __| |_  __ _|   \_ _| /_\  ')
@@ -301,6 +293,7 @@ class Plan:
             ):
 
         for raw_name, dia_path, speclib in self.get_run_data():
+            workflow = None
             try:
                 workflow = peptidecentric.PeptideCentricWorkflow(
                     raw_name,
@@ -319,12 +312,13 @@ class Plan:
                 df['run'] = raw_name
                 df.to_csv(os.path.join(workflow.path, 'psm.tsv'), sep='\t', index=False)
 
-                if workflow.neptune is not None:
-                    workflow.neptune.stop()
+                workflow.reporter.log_string(f'Finished workflow for {raw_name}')
+                workflow.reporter.context.__exit__(None, None, None)
                 del workflow
             
             except Exception as e:
-                logger.exception(e)
+                print(e)
+                logger.error(f'Workflow failed for {raw_name} with error {e}')
                 continue
 
         self.build_output()
@@ -353,6 +347,8 @@ class Plan:
 
         psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False, float_format='%.6f')
         stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False, float_format='%.6f')
+
+        logger.info(f'Finished building output')
 
 
 def build_stat_df(run_df):

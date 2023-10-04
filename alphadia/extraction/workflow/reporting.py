@@ -13,7 +13,6 @@ import base64
 from io import BytesIO
 
 import traceback
-import alphadia.extraction.processlogger as default_processlogger
 import logging, os, time
 
 # global variable which tracks if any logger has been initiated
@@ -102,7 +101,8 @@ class DefaultFormatter(logging.Formatter):
 
 def init_logging(
         log_folder: str = None, 
-        log_level: int = logging.INFO
+        log_level: int = logging.INFO,
+        overwrite: bool = True
     ):
     """Initialize the default logger.
     Sets the formatter and the console and file handlers.
@@ -115,6 +115,9 @@ def init_logging(
 
     log_level : int, default logging.INFO
         Log level to use. Can be logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR or logging.CRITICAL.
+
+    overwrite : bool, default True
+        Whether to overwrite the log file if it already exists.
     """
 
     global __is_initiated__
@@ -134,6 +137,10 @@ def init_logging(
     if log_folder is not None:
 
         log_name = os.path.join(log_folder, 'log.txt')
+        # check if log file exists
+        if os.path.exists(log_name) and overwrite:
+            # if it does, delete it
+            os.remove(log_name)
         # create file handler which logs even debug messages
         fh = logging.FileHandler(log_name)
         fh.setLevel(log_level)
@@ -154,19 +161,19 @@ class Backend():
 
     REQUIRES_CONTEXT = False
     
-    def log_figure(self, name : str, figure : Any):
+    def log_figure(self, name : str, figure : Any, *args, **kwargs):
         pass
 
-    def log_metric(self, name : str, value : float):
+    def log_metric(self, name : str, value : float, *args, **kwargs):
         pass
 
-    def log_string(self, value : str):
+    def log_string(self, value : str, *args, **kwargs):
         pass
 
-    def log_data(self, name : str, value : Any):
+    def log_data(self, name : str, value : Any, *args, **kwargs):
         pass
 
-    def log_event(self, name : str, value : Any):
+    def log_event(self, name : str, value : Any, *args, **kwargs):
         pass
 
 class FigureBackend(Backend):
@@ -422,7 +429,7 @@ class JSONLBackend(Backend):
     def log_string(
             self, 
             value: str, 
-            verbosity: int = 0
+            verbosity: int = 'info'
         ):
         """Log a string to the `events.jsonl` file.
 
@@ -508,7 +515,8 @@ class LogBackend(Backend):
 
     def __init__(self, path : str = None) -> None:
 
-        init_logging(path)
+        if not __is_initiated__ or path is not None:
+            init_logging(path)
 
         self.logger = logging.getLogger()
         super().__init__()
@@ -581,7 +589,6 @@ class Pipeline():
     def __exit__(self, exc_type, exc_value, exc_traceback):
         for backend in self.backends:
             if backend.REQUIRES_CONTEXT:
-                
                 backend.__exit__(exc_type, exc_value, exc_traceback)
 
     def log_figure(self, name : str, figure : Any, *args, **kwargs):
@@ -592,9 +599,9 @@ class Pipeline():
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
 
-    def log_string(self, value : str, *args, **kwargs):
+    def log_string(self, value : str, *args, verbosity='info',**kwargs):
         for backend in self.backends:
-            backend.log_string(value, *args, **kwargs)
+            backend.log_string(value, *args, verbosity = verbosity, **kwargs)
 
     def log_data(self, name : str, value : Any, *args, **kwargs):
         for backend in self.backends:

@@ -109,9 +109,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             spectral_library,
         )
 
-        logger.progress(f'Initializing workflow {self.instance_name}')
+        self.reporter.log_string(f'Initializing workflow {self.instance_name}', verbosity='progress')
 
-        self.init_neptune()
         self.init_calibration_optimization_manager()
         self.init_fdr_manager()
         self.init_spectral_library()
@@ -128,9 +127,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """alias for calibration_optimization_manager"""
         return self.calibration_optimization_manager
     
-    def init_neptune(self):
-        pass
-
     def init_calibration_optimization_manager(self):
         self._calibration_optimization_manager = manager.OptimizationManager({
             'current_epoch': 0,
@@ -159,7 +155,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             allowed_channels = self.spectral_library.precursor_df['channel'].unique()
         else:
             allowed_channels = [int(c) for c in self.config["library_loading"]["channel_filter"].split(',')]
-            logger.progress(f'Applying channel filter using only: {allowed_channels}')
+            self.reporter.log_string(f'Applying channel filter using only: {allowed_channels}', verbosity='progress')
 
         # normalize spectral library rt to file specific TIC profile
         self.spectral_library._precursor_df['rt_library'] = self.norm_to_rt(self.dia_data, self.spectral_library._precursor_df['rt_library'].values) 
@@ -283,8 +279,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def start_of_epoch(self, current_epoch):
         self.com.current_epoch = current_epoch
 
-        if self.neptune is not None:
-            self.neptune["eval/epoch"].log(current_epoch)
+        #if self.neptune is not None:
+        #    self.neptune["eval/epoch"].log(current_epoch)
 
         self.elution_group_order = self.spectral_library.precursor_df['elution_group_idx'].sample(frac=1).values
 
@@ -298,13 +294,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def start_of_step(self, current_step, start_index, stop_index):
         self.com.current_step = current_step
-        if self.neptune is not None:
-            self.neptune["eval/step"].log(current_step)
+        #if self.neptune is not None:
+        #    self.neptune["eval/step"].log(current_step)
 
-            for key, value in self.com.__dict__.items():
-                self.neptune[f"eval/{key}"].log(value)
+        #    for key, value in self.com.__dict__.items():
+        #        self.neptune[f"eval/{key}"].log(value)
 
-        logger.progress(f'=== Epoch {self.com.current_epoch}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===')
+        self.reporter.log_string(f'=== Epoch {self.com.current_epoch}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===', verbosity='progress')
 
     def check_epoch_conditions(self):
 
@@ -331,7 +327,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def calibration(self):
         
         if self.calibration_manager.is_fitted and self.calibration_manager.is_loaded_from_file:
-            logger.progress('Skipping calibration as existing calibration was found')
+            self.reporter.log_string('Skipping calibration as existing calibration was found', verbosity='progress')
             return
         
         self.start_of_calibration()
@@ -358,7 +354,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 features_df = pd.concat(features)
                 fragments_df = pd.concat(fragments)
 
-                logger.info(f'number of dfs in features: {len(features)}, total number of features: {len(features_df)}')
+                self.reporter.log_string(f'=== Epoch {self.com.current_epoch}, step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===', verbosity='progress')
                 precursor_df = self.fdr_correction(features_df)
                 #precursor_df = self.fdr_correction(precursor_df)
 
@@ -368,14 +364,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 else:
                     # check if last step has been reached
                     if current_step == len(self.batch_plan) - 1:
-                        logger.info('Searched all data without finding recalibration target')
+                        self.reporter.log_string('Searched all data without finding recalibration target', verbosity='error')
                         raise RuntimeError('Searched all data without finding recalibration target')
 
             self.end_of_epoch()
 
         if 'final_full_calibration' in self.config['calibration']:
             if self.config['calibration']['final_full_calibration']:
-                logger.info('Performing final calibration with all precursors')
+                self.reporter.log_string('Performing final calibration with all precursors', verbosity='progress')
                 features_df, fragments_df = self.extract_batch(self.spectral_library._precursor_df)
                 precursor_df = self.fdr_correction(features_df)
                 self.recalibration(precursor_df, fragments_df)
@@ -400,7 +396,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df_filtered,
             'precursor', 
             plot = True, 
-            neptune_run = self.neptune
+            #neptune_run = self.neptune
         )
 
         m1_70 = self.calibration_manager.get_estimator('precursor', 'mz').ci(precursor_df_filtered, 0.70)
@@ -421,7 +417,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragments_df_filtered,
             'fragment', 
             plot=True, 
-            neptune_run = self.neptune
+            #neptune_run = self.neptune
         )
 
         m2_70 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.70)
@@ -441,20 +437,20 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 'mobility_error': max(mobility_99, self.config['extraction_target']['target_mobility_tolerance']),
             })
 
-            if self.neptune is not None:
-                self.neptune['eval/99_mobility_error'].log(mobility_99)
+            #if self.neptune is not None:
+            #    self.neptune['eval/99_mobility_error'].log(mobility_99)
 
         self.optimization_manager.fit({
             'fwhm_rt': precursor_df_filtered['cycle_fwhm'].median(),
             'fwhm_mobility': precursor_df_filtered['mobility_fwhm'].median(),
         })
 
-        if self.neptune is not None:
-            precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
-            self.neptune["eval/precursors"].log(len(precursor_df_fdr))
-            self.neptune['eval/99_ms1_error'].log(m1_99)
-            self.neptune['eval/99_ms2_error'].log(m2_99)
-            self.neptune['eval/99_rt_error'].log(rt_99)
+        #if self.neptune is not None:
+            #precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
+            #self.neptune["eval/precursors"].log(len(precursor_df_fdr))
+            #self.neptune['eval/99_ms1_error'].log(m1_99)
+            #self.neptune['eval/99_ms2_error'].log(m2_99)
+            #self.neptune['eval/99_rt_error'].log(rt_99)
             
     
     def check_recalibration(self, precursor_df):
@@ -462,7 +458,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.com.accumulated_precursors_01FDR = len(precursor_df[precursor_df['qval'] < 0.01])
         self.com.accumulated_precursors_001FDR = len(precursor_df[precursor_df['qval'] < 0.001])
 
-        logger.progress(f'=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===')
+        self.reporter.log_string(f'=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===', verbosity='progress')
 
         self.log_precursor_df(precursor_df)
 
@@ -478,11 +474,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             features_df,
             decoy_strategy='precursor_channel_wise' if self.config['fdr']['channel_wise_fdr'] else 'precursor',
             competetive = self.config['fdr']['competetive_scoring'],
-            neptune_run=self.neptune
+            #neptune_run=self.neptune
         )
 
     def extract_batch(self, batch_df):
-        logger.progress(f'MS1 error: {self.com.ms1_error}, MS2 error: {self.com.ms2_error}, RT error: {self.com.rt_error}, Mobility error: {self.com.mobility_error}')
+        self.reporter.log_string(f'Extracting batch of {len(batch_df)} precursors', verbosity='progress')
         
         config = hybridselection.HybridCandidateConfig()
         config.update(self.config['selection_config'])
@@ -539,10 +535,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
        
     def extraction(self):
 
-        if self.neptune is not None:
-            for key, value in self.com.__dict__.items():
-                if key is not None:
-                    self.neptune[f"eval/{key}"].log(value)
+        #if self.neptune is not None:
+        #    for key, value in self.com.__dict__.items():
+        #        if key is not None:
+        #            self.neptune[f"eval/{key}"].log(value)
 
         self.com.fit({
             'num_candidates': self.config['extraction_target']['target_num_candidates'],
@@ -575,38 +571,37 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         decoy_precursors = len(precursor_df[precursor_df['decoy'] == 1])
         decoy_precursors_percentages = decoy_precursors / total_precursors * 100
 
-        logger.progress(f'============================= Precursor FDR =============================')
-        logger.progress(f'Total precursors accumulated: {total_precursors:,}')
-        logger.progress(f'Target precursors: {target_precursors:,} ({target_precursors_percentages:.2f}%)')
-        logger.progress(f'Decoy precursors: {decoy_precursors:,} ({decoy_precursors_percentages:.2f}%)')
+        self.reporter.log_string(f'============================= Precursor FDR =============================', verbosity='progress')
+        self.reporter.log_string(f'Total precursors accumulated: {total_precursors:,}', verbosity='progress')
+        self.reporter.log_string(f'Target precursors: {target_precursors:,} ({target_precursors_percentages:.2f}%)', verbosity='progress')
+        self.reporter.log_string(f'Decoy precursors: {decoy_precursors:,} ({decoy_precursors_percentages:.2f}%)', verbosity='progress')
 
-        logger.progress(f'')
-        logger.progress(f'Precursor Summary:')
+        self.reporter.log_string(f'', verbosity='progress')
+        self.reporter.log_string(f'Precursor Summary:', verbosity='progress')
   
         for channel in precursor_df['channel'].unique():
             precursor_05fdr = len(precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
             precursor_01fdr = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
             precursor_001fdr = len(precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)])
-
-            logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}')
-        logger.progress('')
-        logger.progress(f'Protein Summary:')
+            self.reporter.log_string(f'Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}', verbosity='progress')
+        
+        self.reporter.log_string(f'', verbosity='progress')
+        self.reporter.log_string(f'Protein Summary:', verbosity='progress')
 
         for channel in precursor_df['channel'].unique():
             proteins_05fdr = precursor_df[(precursor_df['qval'] < 0.05) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
             proteins_01fdr = precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
             proteins_001fdr = precursor_df[(precursor_df['qval'] < 0.001) & (precursor_df['decoy'] == 0) & (precursor_df['channel'] == channel)]['proteins'].nunique()
+            self.reporter.log_string(f'Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}', verbosity='progress')
 
-            logger.progress(f'Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}')
-            
-        logger.progress(f'=========================================================================')
+        self.reporter.log_string(f'=========================================================================', verbosity='progress')
 
         precursor_01fdr = len(precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)])
         proteins_01fdr = precursor_df[(precursor_df['qval'] < 0.01) & (precursor_df['decoy'] == 0)]['proteins'].nunique()
 
-        if self.neptune is not None:
-            self.neptune['precursors'].log(precursor_01fdr)
-            self.neptune['proteins'].log(proteins_01fdr)
+        #if self.neptune is not None:
+        #    self.neptune['precursors'].log(precursor_01fdr)
+        #    self.neptune['proteins'].log(proteins_01fdr)
         
     def requantify(
             self,
@@ -620,21 +615,20 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         if not 'multiplexing' in self.config:
             raise ValueError('no multiplexing config found')
-        
-        logger.progress(f'=== Multiplexing {len(reference_candidates):,} precursors ===')
+        self.reporter.log_string(f'=== Multiplexing {len(reference_candidates):,} precursors ===', verbosity='progress')
 
         original_channels = psm_df['channel'].unique().tolist()
-        logger.progress(f'original channels: {original_channels}')
+        self.reporter.log_string(f'original channels: {original_channels}', verbosity='progress')
         
         reference_channel = self.config['multiplexing']['reference_channel']
-        logger.progress(f'reference channel: {reference_channel}')
-
+        self.reporter.log_string(f'reference channel: {reference_channel}', verbosity='progress')
+ 
         target_channels = [int(c) for c in self.config['multiplexing']['target_channels'].split(',')]
-        logger.progress(f'target channels: {target_channels}')
+        self.reporter.log_string(f'target channels: {target_channels}', verbosity='progress')
 
         decoy_channel = self.config['multiplexing']['decoy_channel']
-        logger.progress(f'decoy channel: {decoy_channel}')
-
+        self.reporter.log_string(f'decoy channel: {decoy_channel}', verbosity='progress')
+ 
         channels = list(set(original_channels + [reference_channel] + target_channels + [decoy_channel]))
         multiplexed_candidates = plexscoring.multiplex_candidates(reference_candidates, self.spectral_library.precursor_df_unfiltered, channels=channels)
         
@@ -643,11 +637,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ## log channels with less than 100 precursors
         for channel in channels:
             if channel not in channel_count_lib:
-                logger.warning(f'channel {channel} not found in library')
+                self.reporter.log_string(f'channel {channel} not found in library', verbosity='warning')
             if channel not in channel_count_multiplexed:
-                logger.warning(f'channel {channel} could not be mapped to existing IDs.')        
+                self.reporter.log_string(f'channel {channel} could not be mapped to existing IDs.', verbosity='warning')
 
-        logger.progress(f'=== Requantifying {len(multiplexed_candidates):,} precursors ===')
+        self.reporter.log_string(f'=== Requantifying {len(multiplexed_candidates):,} precursors ===', verbosity='progress')
 
         config = plexscoring.CandidateConfig()
         config.score_grouped = True
