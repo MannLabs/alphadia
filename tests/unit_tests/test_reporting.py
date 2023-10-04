@@ -3,6 +3,7 @@ import numpy as np
 import tempfile
 import os
 import logging
+import time
 
 from alphadia.extraction.workflow import reporting
 
@@ -24,8 +25,9 @@ def test_logging():
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
     with open(os.path.join(tempfolder, "log.txt"), "r") as f:
         assert len(f.readlines()) == 5
-
+    time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
+    time.sleep(1)
 
 test_logging()
 
@@ -52,6 +54,7 @@ def test_figure_backend():
 
     assert os.path.exists(os.path.join(tempfile.gettempdir(), figure_backend.FIGURE_PATH, "scatter.png"))
     os.remove(os.path.join(tempfile.gettempdir(), figure_backend.FIGURE_PATH, "scatter.png"))
+    time.sleep(1)
 
 test_figure_backend()
 
@@ -65,7 +68,9 @@ def test_jsonl_backend():
     assert os.path.exists(os.path.join(tempfile.gettempdir(), "events.jsonl"))
     with open(os.path.join(tempfile.gettempdir(), "events.jsonl"), "r") as f:
         assert len(f.readlines()) == 5
+    time.sleep(1)
     os.remove(os.path.join(tempfile.gettempdir(), "events.jsonl"))
+    time.sleep(1)
 
 test_jsonl_backend()
 
@@ -86,6 +91,8 @@ def test_log_backend():
     assert os.path.exists(os.path.join(tempdir, "log.txt"))
     with open(os.path.join(tempdir, "log.txt"), "r") as f:
         assert len(f.readlines()) == 5
+    time.sleep(1)
+    os.remove(os.path.join(tempdir, "log.txt"))
 
 test_log_backend()
 
@@ -115,5 +122,12 @@ def test_pipeline():
     assert os.path.exists(os.path.join(tempdir, "log.txt"))
     assert os.path.exists(os.path.join(tempdir, "events.jsonl"))
     assert os.path.exists(os.path.join(tempdir, "figures", "scatter.png"))
+
+    os.remove(os.path.join(tempdir, "log.txt"))
+    os.remove(os.path.join(tempdir, "events.jsonl"))
+    os.remove(os.path.join(tempdir, "figures", "scatter.png"))
+
+    # sleep 1 second to ensure that the file has been deleted
+    time.sleep(1)
 
 test_pipeline()
