@@ -1,4 +1,4 @@
-import alpharaw.thermo
+
 import numpy as np
 import numba as nb
 import pandas as pd
@@ -100,75 +100,79 @@ def calculate_valid_scans(
 
     return np.array(precursor_idx_list)
 
-class Thermo(alpharaw.thermo.ThermoRawData):
+def Thermo(*args, **kwargs):
+    import alpharaw.thermo
+    class Thermo(alpharaw.thermo.ThermoRawData):
 
-    has_mobility = False
+        has_mobility = False
 
-    def __init__(
-        self, 
-        path, 
-        astral_ms1=False,
-        **kwargs
-        ):
-        super().__init__(**kwargs)
-        self.load_raw(path)
+        def __init__(
+            self, 
+            path, 
+            astral_ms1=False,
+            **kwargs
+            ):
+            super().__init__(**kwargs)
+            self.load_raw(path)
 
-        self.sample_name = os.path.basename(self.raw_file_path)
+            self.sample_name = os.path.basename(self.raw_file_path)
+            
+            self.astral_ms1 = astral_ms1
+            self.filter_spectra()
+
+            self.cycle = calculate_cycle(self.spectrum_df)
+            self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+            self.zeroth_frame = 0
+            self.precursor_cycle_max_index = len(self.rt_values)//self.cycle.shape[1]
+            self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
+
+            self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
+            self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
+
+            self.quad_max_mz_value = self.spectrum_df[self.spectrum_df['ms_level'] == 2].isolation_upper_mz.max().astype(np.float32)
+            self.quad_min_mz_value = self.spectrum_df[self.spectrum_df['ms_level'] == 2].isolation_lower_mz.min().astype(np.float32)
+
+            self.peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(np.int64)
+            self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
+            self.mz_values = self.peak_df.mz.values.astype(np.float32)
+            self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
+
+            self.scan_max_index = 1
+            self.frame_max_index = len(self.rt_values)-1
+
+        def filter_spectra(self):
+            if self.astral_ms1:
+                self.spectrum_df = self.spectrum_df[self.spectrum_df['nce'] > 0.1]
+                self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'ms_level'] = 1
+                self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'precursor_mz'] = -1.0
+                self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_lower_mz'] = -1.0
+                self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_upper_mz'] = -1.0
+                self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
+            else:
+                self.spectrum_df = self.spectrum_df[(self.spectrum_df['nce'] < 0.1) | (self.spectrum_df['nce'] > 1.1)]
+                self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
+
+        def jitclass(self):
+            return ThermoJIT(
+                self.cycle,
+                self.rt_values,
+                self.mobility_values,
+                self.zeroth_frame,
+                self.max_mz_value,
+                self.min_mz_value,
+                self.quad_max_mz_value,
+                self.quad_min_mz_value,
+                self.precursor_cycle_max_index,
+
+                self.peak_start_idx_list,
+                self.peak_stop_idx_list,
+                self.mz_values,
+                self.intensity_values,
+                self.scan_max_index,
+                self.frame_max_index
+            )
         
-        self.astral_ms1 = astral_ms1
-        self.filter_spectra()
-
-        self.cycle = calculate_cycle(self.spectrum_df)
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
-        self.zeroth_frame = 0
-        self.precursor_cycle_max_index = len(self.rt_values)//self.cycle.shape[1]
-        self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
-
-        self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
-        self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
-
-        self.quad_max_mz_value = self.spectrum_df[self.spectrum_df['ms_level'] == 2].isolation_upper_mz.max().astype(np.float32)
-        self.quad_min_mz_value = self.spectrum_df[self.spectrum_df['ms_level'] == 2].isolation_lower_mz.min().astype(np.float32)
-
-        self.peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(np.int64)
-        self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
-        self.mz_values = self.peak_df.mz.values.astype(np.float32)
-        self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
-
-        self.scan_max_index = 1
-        self.frame_max_index = len(self.rt_values)-1
-
-    def filter_spectra(self):
-        if self.astral_ms1:
-            self.spectrum_df = self.spectrum_df[self.spectrum_df['nce'] > 0.1]
-            self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'ms_level'] = 1
-            self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'precursor_mz'] = -1.0
-            self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_lower_mz'] = -1.0
-            self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_upper_mz'] = -1.0
-            self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
-        else:
-            self.spectrum_df = self.spectrum_df[(self.spectrum_df['nce'] < 0.1) | (self.spectrum_df['nce'] > 1.1)]
-            self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
-
-    def jitclass(self):
-        return ThermoJIT(
-            self.cycle,
-            self.rt_values,
-            self.mobility_values,
-            self.zeroth_frame,
-            self.max_mz_value,
-            self.min_mz_value,
-            self.quad_max_mz_value,
-            self.quad_min_mz_value,
-            self.precursor_cycle_max_index,
-
-            self.peak_start_idx_list,
-            self.peak_stop_idx_list,
-            self.mz_values,
-            self.intensity_values,
-            self.scan_max_index,
-            self.frame_max_index
-        )
+    return Thermo(*args, **kwargs)
     
 
 @nb.experimental.jitclass([

@@ -21,13 +21,13 @@ def plot_fragment_profile(
     scan_indices = np.arange(n_scans)
 
     if has_mobility:
-        figsize = (n_frames*0.2*2, n_scans*0.12*2)
+        figsize = (max(n_frames*0.2*2,5), n_scans*0.12*2)
         grid_spec = dict(
             height_ratios=[0.2, 0.2,1],
             width_ratios=[1,0.5,0.5],
         )
     else:
-        figsize = (n_frames*0.2*2, 5)
+        figsize = (max(n_frames*0.2*2,5), 5)
         grid_spec = dict(
             height_ratios=[1,1,0.5],
             width_ratios=[1,0.5,0.5],

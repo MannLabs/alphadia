@@ -96,6 +96,22 @@ class FragmentContainer:
         self.number = self.number[mask]
         self.position = self.position[mask]
         self.cardinality = self.cardinality[mask]
+    
+    def filter_by_min_mz(self, min_mz):
+        """
+        Remove all fragments with m/z below min_mz
+        """
+        mask = self.mz >= min_mz
+        self.precursor_idx = self.precursor_idx[mask]
+        self.mz_library = self.mz_library[mask]
+        self.mz = self.mz[mask]
+        self.intensity = self.intensity[mask]
+        self.type = self.type[mask]
+        self.loss_type = self.loss_type[mask]
+        self.charge = self.charge[mask]
+        self.number = self.number[mask]
+        self.position = self.position[mask]
+        self.cardinality = self.cardinality[mask]
 
 @overload_method(nb.types.misc.ClassInstanceType, 'slice', )
 def slice(inst, slices):

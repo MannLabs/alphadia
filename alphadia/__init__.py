@@ -2,7 +2,7 @@
 
 
 __project__ = "alphadia"
-__version__ = "1.3.1"
+__version__ = "1.3.2"
 __license__ = "Apache"
 __description__ = "An open-source Python package of the AlphaPept ecosystem"
 __author__ = "Mann Labs"

@@ -1067,8 +1067,7 @@ class HybridCandidateSelection(object):
         assembled into a pandas.DataFrame and precursor information is appended.
         """
 
-        if debug:
-            logging.info('starting candidate selection')
+        logging.info('Starting candidate selection')
 
         # initialize input container
         elution_group_container = self.assemble_score_groups(self.precursors_flat)
@@ -1098,6 +1097,8 @@ class HybridCandidateSelection(object):
         #self.log_stats(df)
         if debug: 
             return elution_group_container, df
+        
+        logging.info('Finished candidate selection')
             
         return df
     
@@ -1389,13 +1390,13 @@ def build_features(
 
     smooth_fragment = smooth_fragment[:,frag_order]
 
-    fragment_binary = smooth_fragment[0] > 2
+    #fragment_binary = smooth_fragment[0] > 2
     #fragment_binary_sum = np.sum(fragment_binary, axis=0)
-    fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
+    #fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
 
-    precursor_binary = smooth_precursor[0] > 2
+    #precursor_binary = smooth_precursor[0] > 2
     #precursor_binary_sum = np.sum(precursor_binary, axis=0)
-    precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
+    #precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
 
     precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
     precursor_dot_mean = np.mean(precursor_dot)
@@ -1590,10 +1591,10 @@ def plot_candidates(
     has_mobility = height_px > 2
     
     if has_mobility:
-        fig_size = (width_px/500 * 8, height_px/500 * 4)
+        fig_size = (max(width_px/500 * 8,5), height_px/500 * 5 )
         gridspec_kw = {'height_ratios': [1,9]}
     else:
-        fig_size = (width_px/500 * 8, 4)
+        fig_size = (max(width_px/500 * 8,5), 5)
         gridspec_kw = {'height_ratios': [19,1]}
 
     fig, axs = plt.subplots(nrows=2, ncols=1, figsize=fig_size, gridspec_kw=gridspec_kw, sharex=True)

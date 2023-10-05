@@ -1,5 +1,6 @@
 import tempfile
 import os
+import shutil
 import pickle
 import numpy as np
 import pandas as pd
@@ -258,6 +259,6 @@ def test_workflow_base():
             assert isinstance(my_workflow.calibration_manager, manager.CalibrationManager)
             assert isinstance(my_workflow.optimization_manager, manager.OptimizationManager)
             
-            os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
-            os.rmdir(os.path.join(my_workflow.path))
-            os.rmdir(os.path.join(my_workflow.parent_path))
+            #os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
+            #os.rmdir(os.path.join(my_workflow.path))
+            shutil.rmtree(os.path.join(my_workflow.parent_path))

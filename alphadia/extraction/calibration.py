@@ -171,8 +171,12 @@ class Calibration():
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
 
-        self.function.fit(input_values, target_value)
-        self.is_fitted = True
+        try:
+            self.function.fit(input_values, target_value)
+            self.is_fitted = True
+        except Exception as e:
+            logging.error(f'Could not fit estimator {self.name}: {e}')
+            return
 
         if plot == True:
             self.plot(dataframe, **kwargs)
@@ -305,6 +309,9 @@ class Calibration():
         
         if not 0 < ci < 1:
             raise ValueError('Confidence interval must be between 0 and 1')
+        
+        if not self.is_fitted:
+            return 0
 
         ci_percentile = [100*(1-ci)/2, 100*(1+ci)/2]
         
@@ -346,8 +353,8 @@ class Calibration():
             self, 
             dataframe : pd.DataFrame, 
             figure_path : str = None,
-            neptune_run : str = None, 
-            neptune_key :str = None, 
+            #neptune_run : str = None, 
+            #neptune_key :str = None, 
             **kwargs
         ):
 
@@ -418,18 +425,18 @@ class Calibration():
         fig.tight_layout()
 
         # log figure to neptune ai
-        if neptune_run is not None and neptune_key is not None:
-            neptune_run[f'calibration/{neptune_key}'].log(fig)
+        #if neptune_run is not None and neptune_key is not None:
+        #    neptune_run[f'calibration/{neptune_key}'].log(fig)
 
-        if figure_path is not None:
+        #if figure_path is not None:
             
-            i = 0
-            file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-            while os.path.exists(file_name):
-                file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-                i += 1
+        #    i = 0
+        #    file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
+        #    while os.path.exists(file_name):
+        #        file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
+        #        i += 1
 
-            fig.savefig(file_name)
+        #    fig.savefig(file_name)
             
         plt.show()  
 
