@@ -4,6 +4,8 @@ import tempfile
 import os
 import logging
 import time
+import sys
+import pytest
 
 from alphadia.extraction.workflow import reporting
 
@@ -15,6 +17,7 @@ def _random_tempfolder():
     os.mkdir(path)
     return path
 
+@pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_logging():
     
     tempfolder = _random_tempfolder()
@@ -37,8 +40,7 @@ def test_logging():
     os.remove(os.path.join(tempfolder, "log.txt"))
     time.sleep(1)
 
-test_logging()
-
+@pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_backend():
 
     backend = reporting.Backend()
@@ -84,8 +86,7 @@ def test_jsonl_backend():
     os.remove(os.path.join(tempfolder, "events.jsonl"))
     time.sleep(1)
 
-test_jsonl_backend()
-
+@pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_log_backend():
 
     tempfolder = _random_tempfolder()
@@ -106,8 +107,7 @@ def test_log_backend():
     time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
 
-test_log_backend()
-
+@pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_pipeline():
 
     tempfolder = _random_tempfolder()
@@ -141,5 +141,3 @@ def test_pipeline():
 
     # sleep 1 second to ensure that the file has been deleted
     time.sleep(1)
-
-test_pipeline()
