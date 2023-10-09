@@ -5,10 +5,10 @@ import numba as nb
 import logging
 logger = logging.getLogger()
 
-import sklearn
 import matplotlib.pyplot as plt
 import matplotlib
 import os
+import sklearn
 
 from typing import Union, Optional, Tuple, List
 def perform_fdr(
@@ -75,13 +75,7 @@ def perform_fdr(
 
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(X, y, test_size=0.2)
 
-    if hasattr(classifier.steps[1][1], 'n_iter_'):
-        logger.info(f'Pre FDR iterations: {classifier.steps[1][1].n_iter_}')
-
     classifier.fit(X_train, y_train)
-
-    if hasattr(classifier.steps[1][1], 'n_iter_'):
-        logger.info(f'Post FDR iterations: {classifier.steps[1][1].n_iter_}')
 
     psm_df = pd.concat([
         df_target,
@@ -171,6 +165,50 @@ def fdr_to_q_values(
             min_q_value = fdr
         q_values[i] = min_q_value
     return q_values
+
+def q_values(
+        scores : np.ndarray,
+        decoy_labels : np.ndarray,
+
+        #score_column : str = 'proba',
+        #decoy_column : str = '_decoy',
+        #qval_column : str = 'qval'
+    ):
+    """Calculates q-values for a dataframe containing PSMs.
+    
+    Parameters
+    ----------
+    
+    _df : pd.DataFrame
+        The dataframe containing the PSMs.
+        
+    score_column : str, default='proba'
+        The name of the column containing the score to use for the selection.
+        Ascending sorted values are expected.
+
+    decoy_column : str, default='_decoy'
+        The name of the column containing the decoy information. 
+        Decoys are expected to be 1 and targets 0.
+
+    qval_column : str, default='qval'
+        The name of the column to store the q-values in.
+
+    Returns
+    -------
+
+    pd.DataFrame
+        The dataframe containing the q-values in column qval.
+    
+    """
+
+    decoy_labels = decoy_labels[scores.argsort()]
+    target_values = 1-decoy_labels
+    decoy_cumsum = np.cumsum(decoy_labels)
+    target_cumsum = np.cumsum(target_values)
+    fdr_values = decoy_cumsum/target_cumsum
+    q_vals = fdr_to_q_values(fdr_values)
+    # restore original order
+    return q_vals
 
 def get_q_values(
         _df : pd.DataFrame,

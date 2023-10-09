@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.extraction import plexscoring, hybridselection
+from alphadia.extraction import fdrexperimental as fdrx
 from alphadia.extraction.workflow import manager, base
 from alphabase.spectral_library.base import SpecLibBase
 from sklearn.pipeline import Pipeline
@@ -80,17 +81,9 @@ feature_columns = [
     'mobility_fwhm'
 ]
 
-classifier_base = Pipeline([
-    ('scaler', StandardScaler()),
-    ('GBC', MLPClassifier(
-        hidden_layer_sizes=(100, 25, 5), 
-        max_iter=50, 
-        alpha=0.1, 
-        learning_rate='adaptive', 
-        learning_rate_init=0.001, 
-        early_stopping=True, tol=1e-6,
-    ))
-])
+classifier_base = fdrx.BinaryClassifier(
+    test_size = 0.001,
+)
 
 class PeptideCentricWorkflow(base.WorkflowBase):
     
@@ -198,7 +191,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             If None, the value from the config is used which should be 'tic' by default
 
         """
-
         
         # determine if the gradient start and stop are defined in the config
         if active_gradient_start is None:
