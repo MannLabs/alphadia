@@ -104,7 +104,7 @@ def test_log_backend():
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
     with open(os.path.join(tempfolder, "log.txt"), "r") as f:
         assert len(f.readlines()) == 5
-    time.sleep(1)
+    #time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")

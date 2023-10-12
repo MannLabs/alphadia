@@ -15,6 +15,7 @@ from alphadia.extraction.workflow import reporting
 import sklearn
 import matplotlib.pyplot as plt
 import matplotlib
+from copy import deepcopy
 
 
 class BaseManager():
@@ -568,7 +569,7 @@ class FDRManager(BaseManager):
         if classifier_hash in self.classifier_store:
             classifier = self.classifier_store[classifier_hash]
         else:
-            classifier = sklearn.base.clone(self.classifier_base)
+            classifier = deepcopy(self.classifier_base)
         return classifier
 
     def predict(self):
