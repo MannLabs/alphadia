@@ -153,7 +153,7 @@ class SimpleQuadrupoleJit:
         expanded_cycle = expand_cycle(self.cycle_calibrated, lower_mz, upper_mz)
         return np.reshape(expanded_cycle, (expanded_cycle.shape[1] * expanded_cycle.shape[2], 2))
 
-class SimpleQuadrupole(BaseEstimator, RegressorMixin):
+class SimpleQuadrupole():
 
     def __init__(
             self,
@@ -174,7 +174,7 @@ class SimpleQuadrupole(BaseEstimator, RegressorMixin):
             Jitclass for predicting quadrupole transfer efficiency.
 
         """
-
+        self.cycle = cycle
         self.jit = SimpleQuadrupoleJit(cycle)
         self.jit.set_cycle_calibrated(self.get_calibrated_cycle())
 

@@ -3,7 +3,7 @@ import styled from '@emotion/styled'
 import { useMethod, useMethodDispatch } from '../logic/context'
 
 import { Box } from '@mui/material'
-import { SingleSelect, MultipleFileSelect, FileViewer } from '../components'
+import { SingleSelect, InputFileSelect, FileViewer } from '../components'
 
 const FullWidthBox = styled(Box)(({ theme }) => ({
     width: '100%'
@@ -40,11 +40,9 @@ const Files = () => {
                     />
                 </FullWidthBox>
                 <FullWidthBox>
-                    <MultipleFileSelect
-                            label="Input Files"
+                    <InputFileSelect
                             active={method.files.active}
                             path={method.files.path}
-                            tooltipText="Select the Bruker .d folders which you would like to process."
                             onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}
                     />
                 </FullWidthBox>

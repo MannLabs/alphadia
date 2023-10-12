@@ -4,9 +4,12 @@ logger = logging.getLogger()
 import tempfile
 import numpy as np
 import pandas as pd
+import typing
+import platform
 
-from alphadia.extraction import data
-from alphadia.extraction.workflow import manager
+import alphadia
+from alphadia.extraction.data import bruker, thermo
+from alphadia.extraction.workflow import manager, reporting
 
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -42,7 +45,6 @@ class WorkflowBase():
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self.run = None
         self._instance_name = instance_name
         self._parent_path = os.path.join(config['output'],TEMP_FOLDER)
         self._config = config
@@ -55,11 +57,20 @@ class WorkflowBase():
             logger.info(f"Creating workflow folder for {self.instance_name} at {self.path}")
             os.mkdir(self.path)
 
-        if not os.path.exists(os.path.join(self.path, self.FIGURE_PATH)):
-            os.mkdir(os.path.join(self.path, self.FIGURE_PATH))
+        self.reporter = reporting.Pipeline(
+            backends=[
+                reporting.LogBackend(),
+                reporting.JSONLBackend(path = self.path),
+                reporting.FigureBackend(path = self.path)
+            ]
+        )
+        self.reporter.context.__enter__()
+        self.reporter.log_event("section_start", {"name": "Initialize Workflow"})
 
+        self.reporter.log_event("loading_data", {'progress': 0})
         # load the raw data
         self._dia_data = self._get_dia_data_object(dia_data_path)
+        self.reporter.log_event("loading_data", {'progress': 1})
 
         # load the spectral library
         self._spectral_library = spectral_library.copy()
@@ -68,14 +79,25 @@ class WorkflowBase():
         self._calibration_manager = manager.CalibrationManager(
             config['calibration_manager'],
             path = os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration']
+            load_from_file = config['general']['reuse_calibration'],
+            reporter = self.reporter
         )
+        
+        if not self._dia_data.has_mobility:
+            logging.info('Disabling ion mobility calibration')
+            self._calibration_manager.disable_mobility_calibration()
+
         # initialize the optimization manager
         self._optimization_manager = manager.OptimizationManager(
             config['optimization_manager'],
             path = os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration']
+            load_from_file = config['general']['reuse_calibration'],
+            figure_path = os.path.join(self.path, self.FIGURE_PATH),
+            reporter = self.reporter
         )
+
+        self.reporter.log_event("section_stop", {})
+        
 
     @property
     def instance_name(self) -> str:
@@ -113,14 +135,14 @@ class WorkflowBase():
         return self._spectral_library
     
     @property
-    def dia_data(self) -> data.TimsTOFTransposeJIT:
+    def dia_data(self) -> typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT]:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
     
     def _get_dia_data_object(
             self, 
             dia_data_path: str
-        ) -> data.TimsTOFTranspose:
+        ) -> typing.Union[bruker.TimsTOFTranspose, thermo.Thermo]:
         """ Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -131,21 +153,33 @@ class WorkflowBase():
 
         Returns
         -------
-        data.TimsTOFTranspose
+        typing.Union[bruker.TimsTOFTranspose, thermo.Thermo],
             TimsTOFTranspose object containing the DIA data
         
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension == '.d':
-            return data.TimsTOFTranspose(
+            self.reporter.log_metric('raw_data_type', 'bruker')
+            return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-                )
+            )
+            
+            
         elif file_extension == '.hdf':
-            return data.TimsTOFTranspose(
+            self.reporter.log_metric('raw_data_type', 'bruker')
+            return bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-                )
+            )
+        elif file_extension == '.raw':
+            self.reporter.log_metric('raw_data_type', 'thermo')
+            return thermo.Thermo(
+                dia_data_path,
+                astral_ms1= self.config['general']['astral_ms1'],
+                process_count = self.config['general']['thread_count'],
+            )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')
+        

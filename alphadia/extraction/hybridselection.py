@@ -1,6 +1,7 @@
 from alphadia.extraction import utils
 from alphadia.extraction.numba import fragments, numeric, config
-from alphadia.extraction import validate, data, utils
+from alphadia.extraction import validate, utils
+from alphadia.extraction.data import bruker, thermo
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -20,19 +21,21 @@ from typing import Union
 
 import matplotlib.pyplot as plt
 from matplotlib import patches
+import matplotlib as mpl
 
 class GaussianFilter:
     def __init__(
             self, 
             dia_data : Union[
-                data.TimsTOFTransposeJIT,
-                data.TimsTOFTranspose,
+                bruker.TimsTOFTransposeJIT,
+                bruker.TimsTOFTranspose,
             ],
             fwhm_rt : float = 10.,
             sigma_scale_rt : float = 1.,
             fwhm_mobility : float = 0.03,
             sigma_scale_mobility : float = 1.,
-            kernel_size : int = 30
+            kernel_height : int = 30,
+            kernel_width : int = 30,
             ):
         
         """
@@ -44,7 +47,7 @@ class GaussianFilter:
         Parameters
         ----------
 
-        dia_data : Union[data.TimsTOFTransposeJIT, data.TimsTOFTranspose]
+        dia_data : Union[bruker.TimsTOFTransposeJIT, bruker.TimsTOFTranspose]
             alphatims dia_data object. 
 
         fwhm_rt : float
@@ -69,7 +72,9 @@ class GaussianFilter:
         self.sigma_scale_rt = sigma_scale_rt
         self.fwhm_mobility = fwhm_mobility
         self.sigma_scale_mobility = sigma_scale_mobility
-        self.kernel_size = int(np.ceil(kernel_size / 2) * 2) # make sure kernel size is even
+        
+        self.kernel_height = int(np.ceil(kernel_height / 2) * 2) # make sure kernel size is even
+        self.kernel_width = int(np.ceil(kernel_width / 2) * 2) # make sure kernel size is even
 
     def determine_rt_sigma(
         self,
@@ -116,6 +121,10 @@ class GaussianFilter:
         float
             Standard deviation of the gaussian kernel in mobility dimension scaled to the resolution of the raw data.
         """
+
+        if not self.dia_data.has_mobility:
+            return 1.
+        
         # a normal distribution has a FWHM of 2.3548 sigma
         sigma = self.fwhm_mobility / 2.3548
         sigma_scaled = sigma * self.sigma_scale_mobility / mobility_resolution
@@ -165,14 +174,16 @@ class GaussianFilter:
             logger.info(f'FWHM in mobility is {self.fwhm_mobility:.3f} 1/K_0, sigma is {mobility_sigma:.2f}')
 
         return self.gaussian_kernel_2d(
-            int(self.kernel_size),
+            self.kernel_width,
+            self.kernel_height,
             rt_sigma,
             mobility_sigma
         ).astype(np.float32)
     
     @staticmethod
     def gaussian_kernel_2d(
-        size: int, 
+        size_x: int,
+        size_y: int, 
         sigma_x: float, 
         sigma_y: float
     ): 
@@ -199,7 +210,7 @@ class GaussianFilter:
 
         """
         # create indicies [-2, -1, 0, 1 ...]
-        x, y = np.meshgrid(np.arange(-size//2,size//2),np.arange(-size//2,size//2))
+        x, y = np.meshgrid(np.arange(-size_x//2,size_x//2),np.arange(-size_y//2,size_y//2))
         xy = np.column_stack((x.flatten(), y.flatten())).astype('float32')
 
         # mean is always zero
@@ -209,7 +220,7 @@ class GaussianFilter:
         sigma_mat = np.array([[sigma_x,0.],[0.,sigma_y]])
 
         weights = utils.multivariate_normal(xy, mu, sigma_mat)
-        return weights.reshape(size,size).astype(np.float32)
+        return weights.reshape(size_y,size_x).astype(np.float32)
 
 @nb.experimental.jitclass()
 class HybridCandidateConfigJIT():
@@ -655,7 +666,7 @@ class HybridElutionGroup:
         Parameters
         ----------
 
-        jit_data : alphadia.extraction.data.TimsTOFJIT
+        jit_data : alphadia.extraction.bruker.TimsTOFJIT
             TimsTOFJIT object containing the raw data
 
         kernel : np.ndarray
@@ -842,6 +853,8 @@ class HybridElutionGroup:
             mean = None
             std = None
             weights = np.array([1,1,1,1,1,1,1,1], np.float64)
+
+        
     
         self.candidates = build_candidates(
             dense_precursors,
@@ -986,7 +999,7 @@ class HybridCandidateSelection(object):
         Parameters
         ----------
 
-        dia_data : alphadia.extraction.data.TimsTOFDIA
+        dia_data : alphadia.extraction.data.bruker.TimsTOFDIA
             dia data object
 
         precursors_flat : pandas.DataFrame
@@ -1025,7 +1038,8 @@ class HybridCandidateSelection(object):
             sigma_scale_rt = config.sigma_scale_rt,
             fwhm_mobility = fwhm_mobility,
             sigma_scale_mobility = config.sigma_scale_mobility,
-            kernel_size = config.kernel_size,
+            kernel_width = config.kernel_size,
+            kernel_height = min(config.kernel_size, dia_data.scan_max_index+1)
 
         )
         self.kernel = gaussian_filter.get_kernel()
@@ -1053,8 +1067,7 @@ class HybridCandidateSelection(object):
         assembled into a pandas.DataFrame and precursor information is appended.
         """
 
-        if debug:
-            logging.info('starting candidate selection')
+        logging.info('Starting candidate selection')
 
         # initialize input container
         elution_group_container = self.assemble_score_groups(self.precursors_flat)
@@ -1065,8 +1078,6 @@ class HybridCandidateSelection(object):
         thread_count = 1 if debug else thread_count
 
         alphatims.utils.set_threads(thread_count)
-
-        print(iterator_len)
 
         _executor(
             range(iterator_len), 
@@ -1086,6 +1097,8 @@ class HybridCandidateSelection(object):
         #self.log_stats(df)
         if debug: 
             return elution_group_container, df
+        
+        logging.info('Finished candidate selection')
             
         return df
     
@@ -1377,13 +1390,13 @@ def build_features(
 
     smooth_fragment = smooth_fragment[:,frag_order]
 
-    fragment_binary = smooth_fragment[0] > 2
+    #fragment_binary = smooth_fragment[0] > 2
     #fragment_binary_sum = np.sum(fragment_binary, axis=0)
-    fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
+    #fragment_binary_weighted = np.sum(fragment_binary * fragment_kernel, axis=0)
 
-    precursor_binary = smooth_precursor[0] > 2
+    #precursor_binary = smooth_precursor[0] > 2
     #precursor_binary_sum = np.sum(precursor_binary, axis=0)
-    precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
+    #precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
 
     precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
     precursor_dot_mean = np.mean(precursor_dot)
@@ -1558,12 +1571,10 @@ def join_overlapping_candidates(
 
     return joined_mask
 
-
-
-
 def plot_candidates(
         score, 
-        candidates, 
+        dense_fragments,
+        candidates,
         jit_data, 
         scan_limits, 
         frame_limits
@@ -1572,13 +1583,38 @@ def plot_candidates(
     if len(candidates) == 0:
         return
     print('plotting candidates:', candidates[0].precursor_idx)
+
+    height_px = score.shape[0]
+    width_px = score.shape[1]
+
+    # if mobility information is present, the 2d plot is more prominent
+    has_mobility = height_px > 2
     
-    plt.imshow(score, cmap='coolwarm', interpolation='none')
-    plt.xticks([])
-    plt.yticks([])
-    plt.ylabel('mobility')
-    plt.xlabel('retention time')
-    
+    if has_mobility:
+        fig_size = (max(width_px/500 * 8,5), height_px/500 * 5 )
+        gridspec_kw = {'height_ratios': [1,9]}
+    else:
+        fig_size = (max(width_px/500 * 8,5), 5)
+        gridspec_kw = {'height_ratios': [19,1]}
+
+    fig, axs = plt.subplots(nrows=2, ncols=1, figsize=fig_size, gridspec_kw=gridspec_kw, sharex=True)
+    axs0_twin = axs[0].twinx()
+    # 1d plot
+    axs[0].plot(np.sum(score, axis=0))
+
+    fragment_profiles = dense_fragments[0].sum(axis=1)
+    colors = mpl.cm.jet(np.linspace(0,1,fragment_profiles.shape[0]))
+    for i, profile in enumerate(fragment_profiles):
+        axs0_twin.plot(profile, color=colors[i])
+
+    # 2d plot
+    axs[1].imshow(score, cmap='coolwarm', interpolation='none')
+    axs[1].set_ylabel('mobility')
+    axs[1].set_xlabel('retention time')
+
+    axs0_ylim = axs[0].get_ylim()
+    axs[0].set_ylim(0, axs0_ylim[1])
+    axs0_ylim = axs[0].get_ylim()
     
     absolute_scan = np.array([c.scan_center for c in candidates])
     absolute_frame = np.array([c.frame_center for c in candidates])
@@ -1598,7 +1634,7 @@ def plot_candidates(
     relative_frame_start = (absolute_frame_start - frame_limits[0,0])//jit_data.cycle.shape[1]
     relative_frame_stop = (absolute_frame_stop - frame_limits[0,0])//jit_data.cycle.shape[1]
     
-    ax = plt.gca()
+    ax = axs[1]
     for i in range(len(candidates)):
         rect = patches.Rectangle(
             (relative_frame_start[i], relative_scan_start[i]),
@@ -1608,11 +1644,30 @@ def plot_candidates(
             edgecolor='r',
             facecolor='none'
         )
-        ax.add_patch(rect)
+        axs[1].add_patch(rect)
         # align the rank i at the top right corner of the box
-        ax.text(
+        axs[1].text(
             relative_frame_stop[i]+3,
             relative_scan_start[i],
+            f'{i}',
+            horizontalalignment='left',
+            verticalalignment='top',
+            color='red',
+        )
+
+        rect = patches.Rectangle(
+            (relative_frame_start[i], 0),
+            relative_frame_stop[i]-relative_frame_start[i]-1,
+            axs0_ylim[1],
+            linewidth=1,
+            edgecolor='r',
+            facecolor='none'
+        )
+        axs[0].add_patch(rect)
+        # align the rank i at the top right corner of the box
+        axs[0].text(
+            relative_frame_stop[i]+3,
+            axs0_ylim[1],
             f'{i}',
             horizontalalignment='left',
             verticalalignment='top',
@@ -1698,10 +1753,15 @@ def build_candidates(
     
     score = np.sum(feature_matrix_norm, axis=0)
 
-    peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks(
-        score, top_n=candidate_count
-    )
-
+    #  check if there is a real ion mobility dimension
+    if score.shape[0] <= 2:
+        peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks_1d(
+            score, top_n=candidate_count
+        )
+    else:
+        peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks_2d(
+            score, top_n=candidate_count
+        )
 
     peak_mask = join_close_peaks(
         peak_scan_list, 
@@ -1810,6 +1870,6 @@ def build_candidates(
 
     if debug:
         with nb.objmode():
-            plot_candidates(score, candidates, jit_data, scan_limits, frame_limits)
+            plot_candidates(score, dense_fragments, candidates, jit_data, scan_limits, frame_limits)
 
     return candidates

@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getMultipleFolders: () => ipcRenderer.invoke('get-multiple-folders'),
     getSingleFile: () => ipcRenderer.invoke('get-single-file'),
     getMultipleFiles: () => ipcRenderer.invoke('get-multiple-files'),
+    getMultiple: () => ipcRenderer.invoke('get-multiple'),
     getUtilisation: () => ipcRenderer.invoke('get-utilisation'),
     getWorkflows: () => ipcRenderer.invoke('get-workflows'),
 

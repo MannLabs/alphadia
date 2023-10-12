@@ -12,7 +12,7 @@ import click
 
 # local
 import alphadia
-from alphadia.extraction import processlogger
+from alphadia.extraction.workflow import reporting
 
 @click.group(
     context_settings=dict(
@@ -123,7 +123,7 @@ def extract(**kwargs):
         logging.error("No output location specified.")
         return
 
-    processlogger.init_logging(kwargs['output_location'])
+    reporting.init_logging(kwargs['output_location'])
     logger = logging.getLogger()
 
     # assert input files have been specified
@@ -182,8 +182,6 @@ def extract(**kwargs):
             keep_decoys = kwargs['keep_decoys'], 
             fdr = kwargs['fdr'], 
             figure_path = kwargs['figure_path'],
-            neptune_token = kwargs['neptune_token'],
-            neptune_tags = kwargs['neptune_tag'] 
         )
 
     except Exception as e:

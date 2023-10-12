@@ -2,13 +2,18 @@ import os
 import warnings
 import numpy as np
 import pandas as pd
+import pytest
+import tempfile
 
 from alphadia.extraction import fdr
+from alphadia.extraction import fdrexperimental as fdrx
 from alphadia.extraction.workflow import manager
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.neural_network import MLPClassifier
+
+import torch
 
 import matplotlib
 
@@ -28,17 +33,9 @@ feature_columns = ['base_width_mobility', 'base_width_rt', 'cycle_fwhm',
         'top_ms1_intensity', 'weighted_mass_deviation', 'weighted_mass_error',
         'weighted_ms1_height', 'weighted_ms1_intensity']
 
-classifier_base = Pipeline([
-    ('scaler', StandardScaler()),
-    ('GBC', MLPClassifier(
-        hidden_layer_sizes=(50, 25, 5), 
-        max_iter=10, 
-        alpha=0.1, 
-        learning_rate='adaptive', 
-        learning_rate_init=0.001, 
-        early_stopping=True, tol=1e-6,
-    ))
-])
+classifier_base = fdrx.BinaryClassifier(
+    test_size = 0.001,
+)
 
 def test_keep_best():
 
@@ -115,6 +112,7 @@ def test_get_q_values():
 
     assert np.allclose(test_df['qval'].values, np.array([0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.8, 1.0]))
 
+#@pytest.mark.slow
 def test_fdr():
     matplotlib.use('Agg')
 
@@ -180,3 +178,65 @@ def test_fdr():
 
     assert d0_ids > 100
     assert d4_ids < 100
+
+def gen_data_np(
+        n_features=10,
+        n_samples=10000,
+        max_mean=100,
+        max_var=0.1,
+    ):
+
+    mean = np.random.random(n_features*2) * max_mean
+    var = np.random.random(n_features*2) * max_var
+    data = np.random.multivariate_normal(mean, np.eye(n_features*2)*var, size=n_samples)
+
+
+    return data.reshape(-1, n_features), np.tile([0, 1], n_samples)
+
+def test_feed_forward():
+
+    x, y = gen_data_np()
+
+    classifier = fdrx.BinaryClassifier(
+        batch_size=100,
+        learning_rate=0.001,
+        epochs=20,
+    )
+
+    classifier.fit(x, y)
+    assert classifier.metrics['test_accuracy'][-1] > 0.99
+    assert classifier.metrics['train_accuracy'][-1] > 0.99
+
+    y_pred = classifier.predict(x)
+    assert np.all(y_pred == y)
+
+    y_proba = classifier.predict_proba(x)[:,1]
+    assert np.all(np.round(y_proba) == y)
+
+test_feed_forward()
+
+def test_feed_forward_save():
+
+    tempfolder = tempfile.gettempdir()
+    x, y = gen_data_np()
+
+    classifier = fdrx.BinaryClassifier(
+        batch_size=100,
+        learning_rate=0.001,
+        epochs=20,
+    )
+
+    classifier.fit(x, y)
+
+    torch.save(classifier.to_state_dict(), os.path.join(tempfolder, 'test_feed_forward_save.pth'))
+
+    new_classifier = fdrx.BinaryClassifier()
+    new_classifier.from_state_dict(torch.load(os.path.join(tempfolder, 'test_feed_forward_save.pth')))
+
+    y_pred = new_classifier.predict(x)
+    assert np.all(y_pred == y)
+    assert new_classifier.batch_size == 100
+    assert new_classifier.learning_rate == 0.001
+    assert new_classifier.epochs == 20
+
+test_feed_forward_save()

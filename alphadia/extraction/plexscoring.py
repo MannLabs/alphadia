@@ -1,5 +1,13 @@
-from alphadia.extraction import validate, utils, features, plotting, quadrupole, data
+from alphadia.extraction import validate, utils, features, quadrupole
 from alphadia.extraction.numba import fragments
+from alphadia.extraction.data import bruker, thermo
+from alphadia.extraction.plotting.cycle import plot_cycle
+from alphadia.extraction.plotting.debug import (
+    plot_fragment_profile,
+    plot_precursor,
+    plot_fragments,
+    plot_template
+)
 
 import alphatims.utils
 
@@ -472,8 +480,8 @@ class Candidate:
         if debug:
             self.visualize_window(
                 quadrupole_calibration.cycle_calibrated,
-                self.scan_start, self.scan_stop,
-                quadrupole_limit[0,0], quadrupole_limit[0,1]
+                quadrupole_limit[0,0], quadrupole_limit[0,1],
+                self.scan_start, self.scan_stop
                 )
             
         dense_fragments, frag_precursor_index = jit_data.get_dense(
@@ -499,7 +507,7 @@ class Candidate:
             self.failed = True
             return
 
-        dense_precursors, prec_precursor_index = jit_data.get_dense(
+        _dense_precursors, prec_precursor_index = jit_data.get_dense(
             frame_limit,
             scan_limit,
             self.isotope_mz,
@@ -508,6 +516,21 @@ class Candidate:
             absolute_masses = True
         )
 
+        # sum precursors to remove multiple observations
+        dense_precursors = np.zeros((2, _dense_precursors.shape[1], 1, _dense_precursors.shape[3], _dense_precursors.shape[4]), dtype=np.float32)
+        for i in range(_dense_precursors.shape[1]):
+            dense_precursors[0,i,0] = np.sum(_dense_precursors[0,i], axis=0)
+            for k in range(_dense_precursors.shape[3]):
+                for l in range(_dense_precursors.shape[4]):
+                    sum = 0
+                    count = 0
+                    for j in range(_dense_precursors.shape[2]):
+                        sum += _dense_precursors[1,i,j,k,l]
+                        if _dense_precursors[1,i,j,k,l] > 0:
+                            count += 1
+                    dense_precursors[1,i,0,k,l] = sum / (count + 1e-6)
+
+                        
         # DEBUG only used for debugging
         #self.dense_precursors = dense_precursors
 
@@ -522,7 +545,6 @@ class Candidate:
             np.arange(int(self.scan_start), int(self.scan_stop)),
             self.isotope_mz
         )
-
 
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
@@ -546,7 +568,7 @@ class Candidate:
         self.observation_importance = observation_importance
 
         # DEBUG only used for debugging
-        self.template = template
+        #self.template = template
 
         self.build_profiles(
             dense_fragments,
@@ -568,8 +590,8 @@ class Candidate:
                 self.fragments_frame_profile,
                 self.template_frame_profile,
                 self.template_scan_profile,
+                jit_data.has_mobility
             )
-        
         
         self.features.update(
             features.location_features(
@@ -582,7 +604,7 @@ class Candidate:
                 self.frame_center,
             )
         )
-        
+    
         self.features.update(
             features.precursor_features(
                 self.isotope_mz, 
@@ -592,7 +614,7 @@ class Candidate:
                 template
             )
         )
-        
+    
         feature_dict, self.fragment_feature_dict = features.fragment_features(
                 dense_fragments,
                 observation_importance,
@@ -604,6 +626,9 @@ class Candidate:
             feature_dict
         )
         
+        
+        
+
         
         self.features.update(
             features.profile_features(
@@ -621,7 +646,6 @@ class Candidate:
                 self.frame_stop,
             )
         )
-        
         
     def process_reference_channel(
         self,
@@ -649,7 +673,7 @@ class Candidate:
             *args
         ):
         with nb.objmode:
-            plotting.plot_dia_window(
+            plot_cycle(
                 *args
             )
 
@@ -659,7 +683,7 @@ class Candidate:
         ):
 
         with nb.objmode:
-            plotting.plot_precursor(
+            plot_precursor(
                 *args
             )
 
@@ -668,7 +692,7 @@ class Candidate:
             *args
         ):
         with nb.objmode:
-            plotting.plot_fragments(
+            plot_fragments(
                 *args
             )
 
@@ -677,7 +701,7 @@ class Candidate:
         *args
     ):
         with nb.objmode:
-            plotting.plot_template(
+            plot_template(
                 *args
             )
 
@@ -686,7 +710,7 @@ class Candidate:
         *args
     ):
         with nb.objmode:
-            plotting.plot_fragment_profile(
+            plot_fragment_profile(
                 *args
             )
 
@@ -1126,7 +1150,7 @@ def _executor(
 class CandidateScoring():
     """Calculate features for each precursor candidate used in scoring."""
     def __init__(self, 
-                dia_data : data.TimsTOFTransposeJIT,
+                dia_data : typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT],
                 precursors_flat : pd.DataFrame,
                 fragments_flat : pd.DataFrame,
                 quadrupole_calibration : quadrupole.SimpleQuadrupole = None,
@@ -1452,7 +1476,14 @@ class CandidateScoring():
             how = 'left'
         )
 
-        df.drop(columns=['top3_b_ion_correlation','top3_y_ion_correlation'], inplace=True)
+        for col in ['delta_frame_peak']:
+            if col in df.columns:
+                df.drop(col, axis=1, inplace=True)
+
+        if self.dia_data.has_mobility:
+            for col in ['fragment_scan_correlation','top3_scan_correlation','template_scan_correlation']:
+                if col in df.columns:
+                    df.drop(col, axis=1, inplace=True)
 
         return df
     
@@ -1532,6 +1563,7 @@ class CandidateScoring():
             A DataFrame containing the features for each fragment.
 
         """
+        logging.info('Starting candidate scoring')
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         fragment_container = self.assemble_fragments()
@@ -1555,5 +1587,7 @@ class CandidateScoring():
         validate.candidate_features_df(candidate_features_df)
         fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
         validate.fragment_features_df(fragment_features_df)
+
+        logging.info('Finished candidate scoring')
 
         return candidate_features_df, fragment_features_df

@@ -1,10 +1,8 @@
 import numba as nb
 import numpy as np
 import logging
-logger = logging.getLogger()
-if not 'progress' in dir(logger):
-    from alphadia.extraction import processlogger
-    processlogger.init_logging()
+
+from alphadia.extraction.workflow import reporting
 
 class JITConfig():
     """
@@ -67,7 +65,11 @@ class JITConfig():
     def __init__(self):
         """Base class for creating numba compatible config objects.
         Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method."""
-
+        self.reporter = reporting.Pipeline(
+            backends=[
+                reporting.LogBackend(),
+            ]
+        )
         raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method.')
     
     def jitclass(self):
@@ -120,7 +122,7 @@ class JITConfig():
 
             # check if attribute exists
             if not hasattr(self, key):
-                logger.error(f'Parameter {key} does not exist in HybridCandidateConfig')
+                self.reporter.log_string(f'Parameter {key} does not exist in HybridCandidateConfig', verbosity='error')
                 continue
 
             # check if types match
@@ -128,7 +130,7 @@ class JITConfig():
                 try:
                     value = type(getattr(self, key))(value)
                 except:
-                    logger.error(f'Parameter {key} has wrong type {type(value)}')
+                    self.reporter.log_string(f'Parameter {key} has wrong type {type(value)}', verbosity='error')
 
             # check if dtype matches
             if isinstance(value, np.ndarray):
@@ -136,13 +138,13 @@ class JITConfig():
                     try:
                         value = value.astype(getattr(self, key).dtype)
                     except:
-                        logger.error(f'Parameter {key} has wrong dtype {value.dtype}')
+                        self.reporter.log_string(f'Parameter {key} has wrong dtype {value.dtype}', verbosity='error')
                         continue
             
             # check if dimensions match
             if isinstance(value, np.ndarray):
                 if value.shape != getattr(self, key).shape:
-                    logger.error(f'Parameter {key} has wrong shape {value.shape}')
+                    self.reporter.log_string(f'Parameter {key} has wrong shape {value.shape}', verbosity='error')
                     continue
 
             # update attribute
