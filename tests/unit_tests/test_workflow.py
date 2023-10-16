@@ -8,11 +8,11 @@ import yaml
 import pytest
 from pathlib import Path
 
-from alphadia.extraction import calibration
+from alphadia import calibration
 from sklearn.linear_model import LinearRegression
 from alphabase.statistics.regression import LOESSRegression
-from alphadia.extraction.workflow import manager, base
-from alphadia.extraction.data import bruker, thermo
+from alphadia.workflow import manager, base
+from alphadia.data import bruker, thermo
 
 
 def test_base_manager():

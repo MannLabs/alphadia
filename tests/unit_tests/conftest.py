@@ -1,7 +1,7 @@
 import pytest
 import os
 import re
-from alphadia.extraction import data
+from alphadia import data
 
 def pytest_configure(config):
     test_data_path = os.environ.get('TEST_DATA_DIR', None)

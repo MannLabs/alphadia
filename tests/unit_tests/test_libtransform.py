@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 
-from alphadia.extraction import libtransform
+from alphadia import libtransform
 
 def test_library_transform():
 

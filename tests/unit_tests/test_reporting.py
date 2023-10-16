@@ -7,7 +7,7 @@ import time
 import sys
 import pytest
 
-from alphadia.extraction.workflow import reporting
+from alphadia.workflow import reporting
 
 def _random_tempfolder():
     tempdir = tempfile.gettempdir()

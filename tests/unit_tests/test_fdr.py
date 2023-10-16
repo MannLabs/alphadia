@@ -5,9 +5,9 @@ import pandas as pd
 import pytest
 import tempfile
 
-from alphadia.extraction import fdr
-from alphadia.extraction import fdrexperimental as fdrx
-from alphadia.extraction.workflow import manager
+from alphadia import fdr
+from alphadia import fdrexperimental as fdrx
+from alphadia.workflow import manager
 
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler

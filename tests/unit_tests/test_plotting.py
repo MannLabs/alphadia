@@ -2,11 +2,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
-from alphadia.extraction.plotting.utils import (
+from alphadia.plotting.utils import (
     lighten_color
 )
 
-from alphadia.extraction.plotting.cycle import (
+from alphadia.plotting.cycle import (
     plot_cycle
 )
 
