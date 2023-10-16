@@ -85,14 +85,9 @@ multiplexing:
   reference_channel: 0
   competetive_scoring: True
 
-# to be removed
-library_parsing:
-  precursor_columns:
-    mz_library: ['mz','precursor_mz']
-    rt_library: ['rt','rt_norm']
-    mobility_library: ['mobility']
-  fragment_columns:
-    mz_library: ['mz','predicted_mz']
+library:
+  isotopes: 4
+  save_hdf: False
 
 # configuration for the optimization manager
 # initial parameters, will nbe optimized
