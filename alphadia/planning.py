@@ -165,7 +165,7 @@ class Plan:
         ])
 
         speclib = import_pipeline(spec_lib_path)
-        if self.config['library']['save_hdf']:
+        if self.config['library_loading']['save_hdf']:
             speclib.save_hdf(os.path.join(self.output_folder, 'speclib.hdf'))
 
         self.spectral_library = prepare_pipeline(speclib)
@@ -177,9 +177,10 @@ class Plan:
             raise ValueError('no spectral library loaded')
 
         # iterate over raw files and yield raw data and spectral library
-        for raw_location in self.raw_file_list:
-
+        for i, raw_location in enumerate(self.raw_file_list):
             raw_name = Path(raw_location).stem
+            logger.progress(f'Loading raw file {i+1}/{len(self.raw_file_list)}: {raw_name}')
+
             yield raw_name, raw_location, self.spectral_library
                 
     def run(self, 
