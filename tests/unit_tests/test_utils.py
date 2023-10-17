@@ -5,7 +5,7 @@
 import unittest
 
 # local
-from alphadia.extraction.utils import (
+from alphadia.utils import (
 
         amean0, 
         amean1,

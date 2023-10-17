@@ -1,4 +1,4 @@
-from alphadia.extraction import calibration
+from alphadia import calibration
 
 from sklearn.linear_model import LinearRegression
 from alphabase.statistics.regression import LOESSRegression
