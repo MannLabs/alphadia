@@ -1,4 +1,4 @@
-from alphadia.extraction.data import bruker, thermo
+from alphadia.data import bruker, thermo
 
 import pytest
 import numpy as np

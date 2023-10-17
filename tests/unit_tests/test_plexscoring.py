@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.extraction import plexscoring
+from alphadia import plexscoring
 
 def test_multiplex_candidates():
 

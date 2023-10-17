@@ -2,12 +2,12 @@
 import numpy as np
 
 # local
-from alphadia.extraction import utils
-from alphadia.extraction.numba.fragments import (
+from alphadia import utils
+from alphadia.numba.fragments import (
         get_ion_group_mapping
     )
 
-from alphadia.extraction.numba.numeric import (
+from alphadia.numba.numeric import (
         symetric_limits_1d, symetric_limits_2d, convolve_fourier, save_corrcoeff, fragment_correlation, fragment_correlation_different
     )
 
