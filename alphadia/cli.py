@@ -172,11 +172,7 @@ def extract(**kwargs):
         # important to supress matplotlib output
         matplotlib.use('Agg')
 
-        from alphabase.spectral_library.base import SpecLibBase
         from alphadia.planning import Plan
-
-        lib = SpecLibBase()
-        lib.load_hdf(library, load_mod_seq=True)
         #lib._precursor_df['elution_group_idx'] = lib._precursor_df['precursor_idx']
 
         #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
@@ -184,7 +180,7 @@ def extract(**kwargs):
         plan = Plan(
             output_location,
             files,
-            lib,
+            library,
             config_update = config_update
             )
 
