@@ -4,6 +4,7 @@
 import logging
 import time
 import yaml
+import os
 
 # alphadia imports
 import alphadia
@@ -48,6 +49,12 @@ def gui():
     help="Raw data input files.",
     multiple=True,
     type=click.Path(exists=True, file_okay=True, dir_okay=True),
+)
+@click.option(
+    '--directory',
+    '-d',
+    help="Directory containing raw data input files.",
+    type=click.Path(exists=True, file_okay=False, dir_okay=True),
 )
 @click.option(
     '--library',
@@ -130,9 +137,12 @@ def extract(**kwargs):
     files = None
     if kwargs['file'] is not None:
         files = list(kwargs['file'])
+
+    if kwargs['directory'] is not None:
+        files += [os.path.join(kwargs['directory'], f) for f in os.listdir(kwargs['directory'])]
     
     if "files" in config_update:
-        files = config_update['files'] if type(config_update['files']) is list else [config_update['files']]
+        files += config_update['files'] if type(config_update['files']) is list else [config_update['files']]
 
     if (files is None) or (len(files) == 0):
         logging.error("No files specified.")
