@@ -165,6 +165,7 @@ class AnnotateFasta(ProcessingStep):
     def __init__(self, 
                 fasta_path_list: typing.List[str],
                 drop_unannotated: bool = True,
+                drop_decoy: bool = True,
                 ) -> None:
         """Annotate the precursor dataframe with protein information from a FASTA file.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
@@ -183,6 +184,7 @@ class AnnotateFasta(ProcessingStep):
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
+        self.drop_decoy = drop_decoy
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object and that all FASTA files exist."""
@@ -201,6 +203,11 @@ class AnnotateFasta(ProcessingStep):
         protein_df = fasta.load_fasta_list_as_protein_df(
             self.fasta_path_list
         )
+
+        if self.drop_decoy and 'decoy' in input.precursor_df.columns:
+            logger.info(f'Dropping decoys from input library before annotation')
+            input._precursor_df = input._precursor_df[input._precursor_df['decoy'] == 0]
+            
         input._precursor_df = fasta.annotate_precursor_df(input.precursor_df, protein_df)
 
         if self.drop_unannotated and 'cardinality' in input._precursor_df.columns:
