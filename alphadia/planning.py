@@ -216,6 +216,10 @@ class Plan:
                 del workflow
             
             except Exception as e:
+                # get full traceback
+                import traceback
+                traceback.print_exc()
+                
                 print(e)
                 logger.error(f'Workflow failed for {raw_name} with error {e}')
                 continue

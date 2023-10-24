@@ -1,6 +1,8 @@
 # native imports
 import math
 import os
+import logging
+logger = logging.getLogger()
 
 # alphadia imports
 from alphadia import utils
@@ -114,6 +116,7 @@ def Thermo(*args, **kwargs):
             self, 
             path, 
             astral_ms1=False,
+            cv=None,
             **kwargs
             ):
             super().__init__(**kwargs)
@@ -122,6 +125,7 @@ def Thermo(*args, **kwargs):
             self.sample_name = os.path.basename(self.raw_file_path)
             
             self.astral_ms1 = astral_ms1
+            self.cv = cv
             self.filter_spectra()
 
             self.cycle = calculate_cycle(self.spectrum_df)
@@ -145,16 +149,29 @@ def Thermo(*args, **kwargs):
             self.frame_max_index = len(self.rt_values)-1
 
         def filter_spectra(self):
+
+            print(self.cv, 'cv' in self.spectrum_df.columns)
+
+            # filter for astral MS1
             if self.astral_ms1:
                 self.spectrum_df = self.spectrum_df[self.spectrum_df['nce'] > 0.1]
                 self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'ms_level'] = 1
                 self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'precursor_mz'] = -1.0
                 self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_lower_mz'] = -1.0
                 self.spectrum_df.loc[self.spectrum_df['nce'] < 1.1, 'isolation_upper_mz'] = -1.0
-                self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
             else:
                 self.spectrum_df = self.spectrum_df[(self.spectrum_df['nce'] < 0.1) | (self.spectrum_df['nce'] > 1.1)]
-                self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
+
+            # filter for cv
+            if self.cv is not None:
+                if 'cv' in self.spectrum_df.columns:
+                    # use np.isclose to account for floating point errors
+                    logger.info(f"Filtering for CV {self.cv}")
+                    logger.info(f"Before: {len(self.spectrum_df)}")
+                    self.spectrum_df = self.spectrum_df[np.isclose(self.spectrum_df['cv'], self.cv, atol=0.1)]
+                    logger.info(f"After: {len(self.spectrum_df)}")
+                
+            self.spectrum_df['spec_idx'] = np.arange(len(self.spectrum_df))
 
         def jitclass(self):
             return ThermoJIT(

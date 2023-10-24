@@ -175,10 +175,17 @@ class WorkflowBase():
             )
         elif file_extension == '.raw':
             self.reporter.log_metric('raw_data_type', 'thermo')
+            # check if cv selection exists
+            cv = None
+            if 'raw_data_loading' in self.config:
+                if 'cv' in self.config['raw_data_loading']:
+                    cv = self.config['raw_data_loading']['cv']
+
             return thermo.Thermo(
                 dia_data_path,
                 astral_ms1= self.config['general']['astral_ms1'],
                 process_count = self.config['general']['thread_count'],
+                cv=cv,
             )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')

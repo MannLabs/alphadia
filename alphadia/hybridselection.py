@@ -1591,7 +1591,7 @@ def plot_candidates(
     has_mobility = height_px > 2
     
     if has_mobility:
-        fig_size = (max(width_px/500 * 8,5), height_px/500 * 5 )
+        fig_size = (max(width_px/500 * 8,5), height_px/100 * 5 )
         gridspec_kw = {'height_ratios': [1,9]}
     else:
         fig_size = (max(width_px/500 * 8,5), 5)

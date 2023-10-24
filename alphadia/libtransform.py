@@ -303,6 +303,15 @@ class RTNormalization(ProcessingStep):
         if len(input.precursor_df) == 0:
             logger.warning(f'Input library has no precursor information. Skipping RT normalization')
             return input
+        
+        if 'rt' not in input.precursor_df.columns:
+            if 'rt_norm' in input.precursor_df.columns:
+                logger.warning(f'Input library already contains normalized RT information. Skipping RT normalization')
+                return input
+            else:
+                logger.warning(f'Input library has no RT information. Skipping RT normalization')
+                return input
+        
         percentiles = np.percentile(input.precursor_df['rt'], [0.1,99.9])
         input._precursor_df['rt'] = np.clip(input._precursor_df['rt'], percentiles[0], percentiles[1])
 
