@@ -24,5 +24,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onStderrData: (callback) => ipcRenderer.on('stderr-data', callback),
     onCloseCode: (callback) => ipcRenderer.on('close-code', callback),
 
-    onThemeChange: (callback) => ipcRenderer.on('theme-change', callback)
+    onThemeChange: (callback) => ipcRenderer.on('theme-change', callback),
+
+    getEngineStatus: () => ipcRenderer.invoke('get-engine-status')
 })

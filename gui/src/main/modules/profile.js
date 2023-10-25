@@ -12,6 +12,14 @@ const Profile = class {
             "path": ""
         },
         "clippy": false,
+        "WSLExecutionEngine": {
+            "envName": "alpha",
+        },
+        "CMDExecutionEngine": {
+            "envName": "alpha",
+        },
+        "DockerExecutionEngine": {
+        },
     }
 
     constructor() {

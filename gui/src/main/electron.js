@@ -9,6 +9,7 @@ const os = require('os')
 const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles, handleGetMultiple } = require('./modules/dialogHandler')
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
 const { CondaEnvironment} = require('./modules/cmd');
+const { ExecutionManager } = require('./modules/engine')
 const { buildMenu } = require('./modules/menu')
 const { Profile } = require('./modules/profile')
 
@@ -27,6 +28,7 @@ let mainWindow;
 let workflows;
 let environment;
 let profile;
+let executionManager;
 
 function createWindow() {
   // Create the browser window.
@@ -54,6 +56,8 @@ function createWindow() {
     if (process.env.NODE_ENV === "dev"){
         mainWindow.webContents.openDevTools({ mode: "detach" });
     }
+
+    executionManager = new ExecutionManager(profile)
     
     environment = new CondaEnvironment(profile)
     workflows = discoverWorkflows(mainWindow)
@@ -110,6 +114,8 @@ app.whenReady().then(() => {
     console.log(app.getSystemLocale())
     createWindow(); 
 
+    ipcMain.handle('get-engine-status', () => executionManager.getEngineStatus())
+
     ipcMain.handle('get-single-folder', handleGetSingleFolder(mainWindow))
     ipcMain.handle('get-multiple-folders', handleGetMultipleFolders(mainWindow))
     ipcMain.handle('get-single-file', handleGetSingleFile(mainWindow))
@@ -117,6 +123,7 @@ app.whenReady().then(() => {
     ipcMain.handle('get-multiple', handleGetMultiple(mainWindow))
     ipcMain.handle('get-utilisation', handleGetUtilisation)
     ipcMain.handle('get-workflows', () => workflows)
+
 
     ipcMain.handle('get-environment', () => environment.getEnvironmentStatus())
 
@@ -139,6 +146,9 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
+
+    
+
 });
 
 app.on('window-all-closed', () => {
