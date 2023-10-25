@@ -23,14 +23,10 @@ import click
 )
 
 @click.pass_context
-@click.version_option(alphadia.__version__, "-v", "--version")
+@click.version_option(alphadia.__version__, "-v", "--version", message="%(version)s")
 def run(ctx, **kwargs):
-   
     if ctx.invoked_subcommand is None:
         click.echo(run.get_help(ctx))
-
-# add -v and --version to the root command
-run.add_command(click.version_option(alphadia.__version__, "-v", "--version"))
 
 @run.command("gui", help="Start graphical user interface.")
 def gui():
