@@ -116,22 +116,20 @@ def perform_grouping(
     unique_decoys = upsm["_decoy"].unique()
     if len(unique_decoys) == 1:
         upsm["_decoy"] = -1
-        upsm[str("parsimony_" + genes_or_proteins)], upsm[str("parsimony_" + genes_or_proteins + "_groups")] = group_and_parsimony(upsm.precursor_idx.values, upsm[genes_or_proteins].values) 
-        upsm = upsm[["precursor_idx", str("parsimony_" + genes_or_proteins), str("parsimony_" + genes_or_proteins + "_groups")]]
+        upsm["pg_master"], upsm["pg"] = group_and_parsimony(upsm.precursor_idx.values, upsm[genes_or_proteins].values) 
+        upsm = upsm[["precursor_idx", "pg_master", "pg"]]
     else:
         target_mask = upsm["_decoy"] == 0
         decoy_mask = upsm["_decoy"] == 1
 
         t_df = upsm[target_mask].copy()
         new_columns = group_and_parsimony(t_df.precursor_idx.values, t_df[genes_or_proteins].values) 
-        t_df[str("parsimony_" + genes_or_proteins)], t_df[str("parsimony_" + genes_or_proteins + "_groups")] = new_columns
+        t_df["pg_master"], t_df["pg"] = new_columns
         
         d_df = upsm[decoy_mask].copy()
         new_columns = group_and_parsimony(d_df.precursor_idx.values, d_df[genes_or_proteins].values) 
-        d_df[str("parsimony_" + genes_or_proteins)], d_df[str("parsimony_" + genes_or_proteins + "_groups")] = new_columns
+        d_df["pg_master"], d_df["pg"] = new_columns
         
-        upsm = pd.concat([t_df, d_df])[["precursor_idx", str("parsimony_" + genes_or_proteins), str("parsimony_" + genes_or_proteins + "_groups")]]
+        upsm = pd.concat([t_df, d_df])[["precursor_idx", "pg_master", "pg"]]
 
     return psm.merge(upsm, on = "precursor_idx", how = "left")
-
-
