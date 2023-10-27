@@ -10,6 +10,7 @@ import { usePopupState, bindTrigger, bindMenu } from 'material-ui-popup-state/ho
 import { ButtonBase, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
+import CircularProgress from '@mui/material/CircularProgress';
 
 
 const ExecutionEngineItem = ({
@@ -50,13 +51,13 @@ const ExecutionEngineItem = ({
 
 const ExecutionEngine = ({ environment = {}, sx = []}) => {
 
-    
-
     const popupState = usePopupState({ variant: 'popover', popupId: 'demoMenu' })
     const theme = useTheme();
 
     const profileDispatch = useProfileDispatch();
     const profile = useProfile();
+
+    const [isLoading, setIsLoading] = useState(true);
 
     const activeName = profile.activeIdx >= 0 ? profile.executionEngines[profile.activeIdx].name : "None"
 
@@ -71,6 +72,7 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
                 type: 'setExecutionEngineIdx',
                 idx: result.findIndex((item) => item.available)
             });
+            setIsLoading(false);
 
         }).catch((error) => {
             alert(error);
@@ -78,13 +80,8 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
 
     }, []);
 
-  return (
-    <Box
-      sx={[
-        { display: 'flex' },
-        ...(Array.isArray(sx) ? sx : [sx]),
-      ]}
-    >
+    const menu = (
+        <>
         <ButtonBase {...bindTrigger(popupState)}>
             {
                 popupState.isOpen ? <ArrowDropDownIcon/> : <ArrowRightIcon/>
@@ -93,8 +90,7 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
                 {activeName}
             </Typography>
         </ButtonBase>
-
-      <Menu
+        <Menu
         {...bindMenu(popupState)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
         transformOrigin={{ vertical: 'top', horizontal: 'left' }}
@@ -157,13 +153,27 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
                             })}
                             </Grid>
                         </Grid>
-                            
-              
                     </ExecutionEngineItem>
                 )}
             )}
-
         </Menu>
+        </>
+    );
+
+  return (
+    <Box
+      sx={[
+        { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
+    >
+        {isLoading ? 
+            <>
+            <CircularProgress size={13} sx={{color: theme.palette.text.secondary, marginRight: theme.spacing(1)}}/>
+            <Typography component="div" sx={{fontFamily:"Roboto Mono", fontSize:"0.85rem", fontWeight: 500}}>
+                Loading...
+            </Typography>
+            </> : menu}
     </Box>
   );
 };

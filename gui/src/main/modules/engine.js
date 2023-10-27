@@ -270,15 +270,15 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             return hasWSL().then(
                 hasWSLConda
             ).then((conda_version) => {
-                this.versions['conda'] = conda_version
+                this.versions.push({"name": "conda", "version": conda_version})
             }).then(() => {
                 return hasWSLCondaEnv(this.config.envName)
             }).then(() => {
-                this.versions['environment'] = this.config.envName
+                this.versions.push({"name": "python", "version": "3.8.5"})
             }).then(() => {
                 return hasWSLAlphaDIA(this.config.envName)
             }).then((alphadia_version) => {
-                this.versions['alphadia'] = alphadia_version
+                this.versions.push({"name": "alphadia", "version": alphadia_version})
             }).then(() => {
                 this.available = true
                 console.log(this.config)
@@ -292,7 +292,6 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             })
         })
     }
-
 }
 
 class ExecutionManager {
