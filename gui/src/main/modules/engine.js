@@ -1,20 +1,18 @@
 const { exec, spawn } = require('child_process');
+const os = require('os');
 
 class BaseExecutionEngine {
 
-    valid_plattforms = [
-    ]
-
-    status = {
-        available: false,
-        error: "",
-        versions: {}
-    }
+    name = ""
+    valid_plattforms = []
+    available = false
+    errorMessage = ""
+    description = ""
+    versions = []
 
     config = {}
 
     constructor(config){
-        console.log(config)
         this.config = {...this.config, ...config}
     }
 
@@ -24,38 +22,168 @@ class BaseExecutionEngine {
     }
     
     getStatus(){
-        return this.status
+        return {
+            name: this.name,
+            available: this.available,
+            error: this.errorMessage,
+            description: this.description,
+            versions: this.versions
+        }
     }
 }
 
+function testCommand(command, pathUpdate){
+    const PATH = process.env.PATH + ":" + pathUpdate
+    return new Promise((resolve, reject) => {
+        exec(command, {env: {...process.env, PATH}}, () => {}).on('exit', (code) => {resolve(code)});
+    });
+}
+
+function buildCondaPATH(username, platform){
+    if (platform == "darwin"){
+        return [
+            "/Users/" + username + "/miniconda3/bin/",
+            "/Users/" + username + "/anaconda3/bin/",
+            "/Users/" + username + "/miniconda/bin/",
+            "/Users/" + username + "/anaconda/bin/",
+            "/anaconda/bin/", 
+        ]
+    } else if (platform == "win32"){
+        return [
+            "C:\\Users\\" + username + "\\miniconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\anaconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\miniconda\\Scripts\\",
+            "C:\\Users\\" + username + "\\anaconda\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda3\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda\\Scripts\\",
+            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda\\Scripts\\"
+        ]
+    } else {
+        return [
+            "/opt/conda/bin/",
+            "/usr/local/bin/",
+            "/usr/local/anaconda/bin/",
+        ]
+    }
+}
+
+function hasConda(profileCondaPath){
+    return new Promise((resolve, reject) => {
+
+        const paths = [profileCondaPath, ...buildCondaPATH(os.userInfo().username, os.platform())]
+
+        Promise.all(paths.map((path) => {
+            return testCommand("conda", path)
+            })).then((codes) => {
+                const index = codes.findIndex((code) => code == 0)
+
+                if (index == -1){
+                    reject("Conda not found. Please set conda path manually in the settings.")
+                } else {
+                    resolve(paths[index])
+                }
+        })
+    })
+}
+
+function execPATH(command, pathUpdate, callback){
+    const PATH = process.env.PATH + ":" + pathUpdate
+    exec(command, {env: {...process.env, PATH}}, callback);
+}
+
+function condaVersion(condaPath){
+    console.log(condaPath)
+    return new Promise((resolve, reject) => {
+        execPATH("conda info --json", condaPath, (err, stdout, stderr) => {
+            if (err) {console.log(err); reject(err); return;}
+            const info = JSON.parse(stdout);
+            resolve(info["conda_version"]);
+        });
+    })
+}
+
+function hasPython(envName, condaPath){
+    return new Promise((resolve, reject) => {
+        try {
+            execPATH(`conda run -n ${envName} python --version` , condaPath, (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
+                resolve(stdout.trim())
+            })
+        } catch (err) {
+            console.log(err)
+            reject(err)
+        }
+    })
+}
+
+function hasAlphaDIA(envName, condaPath){
+    return new Promise((resolve, reject) => {
+        try {
+            execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("alphaDIA not found within WSL"); return;}
+                resolve(stdout.trim())
+            }
+        )} catch (err) {
+            console.log(err)
+            reject(err)
+        }
+    })
+}
 class CMDExecutionEngine extends BaseExecutionEngine {
 
+    name = "CMDExecutionEngine"
+    description = "The command line interface (CMD) is being used to run alphaDIA. Recommended execution engine for Linux and MacOS users."
     valid_plattforms = [
         "win32",
         "linux",
         "darwin"
     ]
+
+    discoveredCondaPath = ""
+
     checkAvailability(){
         return new Promise((resolve, reject) => {
             
             if (this.valid_plattforms.indexOf(process.platform) == -1){
-                this.status.available
-                this.status.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
-                resolve(this.status)
+                this.available = false
+                this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
+                resolve(this)
             }
-
-            this.status.available = false
-            this.status.error = "CMD not yet implemented"
-
-            console.log(this.constructor.name + ": status = " + JSON.stringify(this.status))
-            resolve(this.status)
+            
+            console.log(this.config)
+            return hasConda(this.config.condaPath).then((conda_path) => {
+                this.discoveredCondaPath = conda_path
+            }).then(() => {
+                return condaVersion(this.discoveredCondaPath)
+            }).then((conda_version) => {
+                this.versions.push({"name": "conda", "version": conda_version})
+            }).then(() => {
+                return hasPython(this.config.envName, this.discoveredCondaPath)
+            }).then((python_version) => {
+                this.versions.push({"name": "python", "version": python_version})
+            }).then(() => {
+                return hasAlphaDIA(this.config.envName, this.discoveredCondaPath)
+            }).then((alphadia_version) => {
+                this.versions.push({"name": "alphadia", "version": alphadia_version})
+            }).then(() => {
+                this.available = true
+                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+                resolve(this)
+            }).catch((err) => {
+                this.available = false
+                this.error = err
+                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+                resolve(this)
+            })
         })
     }
-
 }
 
 class DockerExecutionEngine extends BaseExecutionEngine {
 
+    name = "DockerExecutionEngine"
+    description = "Local or remote Docker containers are being used to run alphaDIA. Recommended for running alphaDIA in a containerized environment."
     valid_plattforms = [
         "win32",
         "linux",
@@ -66,16 +194,16 @@ class DockerExecutionEngine extends BaseExecutionEngine {
         return new Promise((resolve, reject) => {
 
             if (this.valid_plattforms.indexOf(process.platform) == -1){
-                this.status.available = false
-                this.status.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
-                resolve(this.status)
+                this.available = false
+                this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
+                resolve(this)
             }
 
-            this.status.available = false
-            this.status.error = "Docker not yet implemented"
+            this.available = false
+            this.error = "Docker not yet implemented"
 
-            console.log(this.constructor.name + ": status = " + JSON.stringify(this.status))
-            resolve(this.status)
+            console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+            resolve(this)
         })
     }
 }
@@ -120,9 +248,10 @@ function hasWSLAlphaDIA(envName){
     })
 }
 
-
 class WSLExecutionEngine extends BaseExecutionEngine {
 
+    name = "WSLExecutionEngine"
+    description = "Windows subsystem for Linux (WSL) is being used to run alphaDIA. Recommended execution engine for Windows users."
     valid_plattforms = [
         "win32"
     ]
@@ -131,9 +260,9 @@ class WSLExecutionEngine extends BaseExecutionEngine {
         return new Promise((resolve, reject) => {
 
             if (this.valid_plattforms.indexOf(process.platform) == -1){
-                this.status.available = false
-                this.status.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
-                resolve(this.status)
+                this.available = false
+                this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
+                resolve(this)
             }
 
             // check the status code of the command "wsl --list"
@@ -141,35 +270,30 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             return hasWSL().then(
                 hasWSLConda
             ).then((conda_version) => {
-                this.status.available = true
-                this.status.versions['conda'] = conda_version
+                this.versions['conda'] = conda_version
             }).then(() => {
                 return hasWSLCondaEnv(this.config.envName)
             }).then(() => {
-                this.status.available = true
-                this.status.versions['environment'] = this.config.envName
+                this.versions['environment'] = this.config.envName
             }).then(() => {
                 return hasWSLAlphaDIA(this.config.envName)
             }).then((alphadia_version) => {
-                this.status.available = true
-                this.status.versions['alphadia'] = alphadia_version
+                this.versions['alphadia'] = alphadia_version
             }).then(() => {
+                this.available = true
                 console.log(this.config)
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this.status))
-                resolve(this.status)
+                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+                resolve(this)
             }).catch((err) => {
-                this.status.available = false
-                this.status.error = err
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this.status))
-                resolve(this.status)
+                this.available = false
+                this.error = err
+                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+                resolve(this)
             })
         })
     }
 
 }
-
-
-
 
 class ExecutionManager {
 
@@ -200,19 +324,18 @@ class ExecutionManager {
     getEngineStatus(){
         if (this.initResolved){
             return new Promise((resolve, reject) => {
-                
-                let status_array = {}
-                this.executionEngines.forEach((engine) => {
-                    status_array[engine.constructor.name] = engine.getStatus()
-                })
-
-                resolve(status_array)
+                resolve(
+                    this.executionEngines.map((engine) => {
+                        return engine.getStatus()
+                    })
+                )
             })
         }
         return this.initPromise.then(() => {
-            return this.getEngineStatuss()
+            return this.getEngineStatus()
         })
     }
+
 }
 
 module.exports = {

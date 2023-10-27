@@ -9,7 +9,7 @@ import styled from '@emotion/styled';
 import './App.css';
 
 import { Box, CssBaseline } from '@mui/material';
-import { MenuDrawer, UtilMonitor, EnvironmentMonitor } from './components';
+import { MenuDrawer, UtilMonitor, ExecutionEngine } from './components';
 import { Home, Files, Method, Output, Run } from './pages';
 
 // Define the styles for the layout
@@ -112,7 +112,10 @@ const App = () => {
             />
         <ContentContainer>
             <Box sx={{marginBottom:1, display: "flex", minHeight:"40px"}}>
-                <EnvironmentMonitor environment={profile.environment} sx={{ marginRight: "auto"}}/>
+                <ExecutionEngine environment={profile.environment} sx={{ marginRight: "auto"}}/>
+                {
+                    //<EnvironmentMonitor environment={profile.environment} sx={{ marginRight: "auto"}}/>
+                }
                 <UtilMonitor sx={{ marginLeft: "auto"}}/>
             </Box>
             <Routes>

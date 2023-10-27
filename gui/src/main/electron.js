@@ -146,9 +146,7 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
-
     
-
 });
 
 app.on('window-all-closed', () => {
