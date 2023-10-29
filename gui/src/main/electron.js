@@ -109,12 +109,17 @@ function handleStartWorkflow(workflow) {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-    
+
     console.log(app.getLocale())
     console.log(app.getSystemLocale())
     createWindow(); 
 
     ipcMain.handle('get-engine-status', () => executionManager.getEngineStatus())
+
+    ipcMain.handle('start-workflow-new', (event, workflow, engineIdx) => executionManager.startWorkflow(workflow, engineIdx))
+    ipcMain.handle('abort-workflow-new', (event, runIdx) => executionManager.abortWorkflow(runIdx))
+    ipcMain.handle('get-output-length-new', (event, runIdx) => executionManager.getOutputLength(runIdx))
+    ipcMain.handle('get-output-rows-new', (event, runIdx, {limit, offset}) => executionManager.getOutputRows(runIdx, limit, offset))
 
     ipcMain.handle('get-single-folder', handleGetSingleFolder(mainWindow))
     ipcMain.handle('get-multiple-folders', handleGetMultipleFolders(mainWindow))
@@ -123,7 +128,6 @@ app.whenReady().then(() => {
     ipcMain.handle('get-multiple', handleGetMultiple(mainWindow))
     ipcMain.handle('get-utilisation', handleGetUtilisation)
     ipcMain.handle('get-workflows', () => workflows)
-
 
     ipcMain.handle('get-environment', () => environment.getEnvironmentStatus())
 
@@ -146,7 +150,7 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
-    
+
 });
 
 app.on('window-all-closed', () => {

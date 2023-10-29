@@ -89,7 +89,7 @@ const ParameterInput = ({
             sx={{minHeight: "30px"}}
             >
             <Tooltip title = {parameter.description} disableInteractive>
-                <Typography component="Box" sx={{fontWeight: 400, fontSize: "12px"}}>
+                <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>
             </Tooltip>

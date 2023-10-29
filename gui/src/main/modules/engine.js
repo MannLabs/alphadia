@@ -1,5 +1,39 @@
 const { exec, spawn } = require('child_process');
+const StringDecoder = require('string_decoder').StringDecoder;
+const Transform = require('stream').Transform;
+
+const { dialog } = require('electron');
+const writeYamlFile = require('write-yaml-file')
+
+const { workflowToConfig } = require('./workflows');
 const os = require('os');
+const fs = require('fs');
+const path = require('path');
+
+function lineBreakTransform () {
+
+    // https://stackoverflow.com/questions/40781713/getting-chunks-by-newline-in-node-js-data-stream
+    const decoder = new StringDecoder('utf8');
+
+    return new Transform({
+        transform(chunk, encoding, cb) {
+        if ( this._last === undefined ) { this._last = "" }
+        this._last += decoder.write(chunk);
+        var list = this._last.split(/\n/);          
+        this._last = list.pop();
+        for (var i = 0; i < list.length; i++) {
+            this.push( list[i].slice(0, 1000) );
+        }
+        cb();
+    },
+    
+    flush(cb) {
+        this._last += decoder.end()
+        if (this._last) { this.push(this._last.slice(0, 1000)) }
+        cb()
+    }
+    });
+}
 
 class BaseExecutionEngine {
 
@@ -106,9 +140,9 @@ function condaVersion(condaPath){
 function hasPython(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
-            execPATH(`conda run -n ${envName} python --version` , condaPath, (err, stdout, stderr) => {
+            execPATH("conda run -n " + envName + " python -c \"print(__import__('sys').version)\"" , condaPath, (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
-                resolve(stdout.trim())
+                resolve(stdout.trim().split(" ")[0])
             })
         } catch (err) {
             console.log(err)
@@ -168,18 +202,83 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                 this.versions.push({"name": "alphadia", "version": alphadia_version})
             }).then(() => {
                 this.available = true
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
-                resolve(this)
             }).catch((err) => {
                 this.available = false
                 this.error = err
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+            }).finally(() => {
+                console.log(this.constructor.name + " status")
+                console.log(this)
                 resolve(this)
             })
         })
     }
-}
 
+    saveWorkflow(workflow){
+        return new Promise((resolve, reject) => {
+            const workflowFolder = workflow.output.path
+            const config = workflowToConfig(workflow)
+            if (!fs.existsSync(workflowFolder)) {
+                reject("Output folder " + workflowFolder + " does not exist.")
+            }
+            const configPath = path.join(workflowFolder, "config.yaml")
+            // save config.yaml in workflow folder
+            writeYamlFile.sync(configPath, config, {lineWidth: -1})
+            resolve()
+        })
+    }
+
+    startWorkflow(workflow){
+
+        let run = {
+            name: workflow.name,
+            path: workflow.output.path,
+            std: [],
+            pid: -1,
+            code: -1,
+            process : null,
+            activePromise: null,
+        }
+
+        run.activePromise = this.saveWorkflow(workflow).then(() => {
+
+            const PATH = process.env.PATH + ":" + this.discoveredCondaPath
+            run.process = spawn("conda", ["env", "list"] , { env:{...process.env, PATH}, shell: true});
+
+            const stdoutTransform = lineBreakTransform();
+            run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
+                console.log(data.toString())
+                run.std.push(data.toString())
+            });
+
+            const stderrTransform = lineBreakTransform();
+            run.process.stderr.pipe(stderrTransform).on('data', (data) => {
+                console.log(data.toString())
+                run.std.push(data.toString())
+            });
+
+            run.pid = run.process.pid;
+
+            return new Promise((resolve, reject) => {
+                run.process.on('close', (code) => {
+                    run.process = null
+                    run.code = code
+                    resolve(code);
+                });
+            })
+        }).catch((err) => {
+            console.log(err)
+            dialog.showMessageBox({
+                type: 'error',
+                title: 'Error while starting workflow',
+                message: `Could not start workflow. ${err}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+        })
+        return run
+    }
+}
+        
 class DockerExecutionEngine extends BaseExecutionEngine {
 
     name = "DockerExecutionEngine"
@@ -202,7 +301,8 @@ class DockerExecutionEngine extends BaseExecutionEngine {
             this.available = false
             this.error = "Docker not yet implemented"
 
-            console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+            console.log(this.constructor.name + " status")
+            console.log(this)
             resolve(this)
         })
     }
@@ -274,20 +374,19 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             }).then(() => {
                 return hasWSLCondaEnv(this.config.envName)
             }).then(() => {
-                this.versions.push({"name": "python", "version": "3.8.5"})
+                this.versions.push({"name": "python", "version": ""})
             }).then(() => {
                 return hasWSLAlphaDIA(this.config.envName)
             }).then((alphadia_version) => {
                 this.versions.push({"name": "alphadia", "version": alphadia_version})
             }).then(() => {
                 this.available = true
-                console.log(this.config)
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
-                resolve(this)
             }).catch((err) => {
                 this.available = false
                 this.error = err
-                console.log(this.constructor.name + ": status = " + JSON.stringify(this))
+            }).finally(() => {
+                console.log(this.constructor.name + " status")
+                console.log(this)
                 resolve(this)
             })
         })
@@ -298,6 +397,8 @@ class ExecutionManager {
 
     initResolved = false;
     initPromise = null;
+
+    runList = []
 
     constructor(profile){
 
@@ -335,6 +436,56 @@ class ExecutionManager {
         })
     }
 
+    startWorkflow(workflow, engineIdx){
+        if (this.initResolved){
+            return new Promise((resolve, reject) => {
+                const engine = this.executionEngines[engineIdx]
+                if (engine.available){
+
+                    // a new run will be added to the runList
+                    this.runList.push(engine.startWorkflow(workflow))
+
+                    // return the promise of the last run in the runList
+                    // the promise will resolve when the run is finished
+                    return this.runList[this.runList.length - 1].activePromise.then((code) => {
+                        resolve(code)
+                    })
+
+                } else {
+                    reject(engine.error)
+                }
+            })
+        }
+        return this.initPromise.then(() => {
+            return this.startWorkflow(workflow, engineIdx)
+        })
+    }
+
+    getOutputLength(runIdx){
+        if (runIdx == -1){
+            runIdx = this.runList.length - 1
+        }
+        return new Promise((resolve, reject) => {
+            if (runIdx < 0 || runIdx >= this.runList.length){
+                reject("Run index out of bounds")
+            }
+            resolve(this.runList[runIdx].std.length)
+        })
+    }
+
+    getOutputRows(runIdx, limit, offset){
+        if (runIdx == -1){
+            runIdx = this.runList.length - 1
+        }
+        return new Promise((resolve, reject) => {
+            if (runIdx < 0 || runIdx >= this.runList.length){
+                reject("Run index out of bounds")
+            }
+            const startIndex = offset
+            const stopIndex = Math.min(offset + limit, this.runList[runIdx].std.length)
+            resolve(this.runList[runIdx].std.slice(startIndex, stopIndex))
+        })
+    }
 }
 
 module.exports = {
