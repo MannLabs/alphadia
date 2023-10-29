@@ -242,7 +242,16 @@ class CMDExecutionEngine extends BaseExecutionEngine {
         run.activePromise = this.saveWorkflow(workflow).then(() => {
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
-            run.process = spawn("conda", ["env", "list"] , { env:{...process.env, PATH}, shell: true});
+
+            run.process = spawn("conda", ["run", 
+                                        "-n" , 
+                                        this.config.envName, 
+                                        "--no-capture-output", 
+                                        "alphadia", 
+                                        "extract", 
+                                        "--config", 
+                                        path.join(workflow.output.path, "config.yaml")
+                                    ] , { env:{...process.env, PATH}, shell: true});
 
             const stdoutTransform = lineBreakTransform();
             run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
