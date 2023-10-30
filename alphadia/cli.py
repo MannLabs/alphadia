@@ -68,7 +68,7 @@ def gui():
     help="Run alphadia using WSL. Windows paths will be converted to WSL paths.",
     type=bool,
     default=False,
-    show_default=True,
+    is_flag=True,
 )
 @click.option(
     "--fdr",
