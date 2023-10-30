@@ -9,6 +9,7 @@ import os
 # alphadia imports
 import alphadia
 from alphadia.workflow import reporting
+from alphadia import utils
 
 # alpha family imports
 
@@ -60,6 +61,14 @@ def gui():
     '-l',
     help="Spectral library in AlphaBase hdf5 format.",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.option(
+    '--wsl',
+    '-w',
+    help="Run alphadia using WSL. Windows paths will be converted to WSL paths.",
+    type=bool,
+    default=False,
+    show_default=True,
 )
 @click.option(
     "--fdr",
@@ -128,10 +137,18 @@ def extract(**kwargs):
     if output_location is None:
         logging.error("No output location specified.")
         return
+    
+    # convert windows paths to wsl paths
+    if kwargs['wsl']:
+        output_location = utils.windows_to_wsl(output_location)
+        kwargs['file'] = [utils.windows_to_wsl(f) for f in kwargs['file']]
+        kwargs['directory'] = utils.windows_to_wsl(kwargs['directory'])
+        kwargs['library'] = utils.windows_to_wsl(kwargs['library'])
+        kwargs['figure_path'] = utils.windows_to_wsl(kwargs['figure_path'])
 
-    reporting.init_logging(kwargs['output_location'])
+    reporting.init_logging(output_location)
     logger = logging.getLogger()
-
+    
     # assert input files have been specified
     files = None
     if kwargs['file'] is not None:
