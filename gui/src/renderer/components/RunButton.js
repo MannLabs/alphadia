@@ -95,13 +95,12 @@ const RunButton = ({
         navigate("/run");
         window.electronAPI.startWorkflowNew(method, profileNew.activeIdx).then((result) => {
             onSetRunningState(false)
-            console.log(result);
         })
     }
 
     function handleAbortClick() {
         onSetRunningState(!profile.running)
-        window.electronAPI.abortWorkflow();
+        window.electronAPI.abortWorkflowNew(-1);
     }
 
     return (

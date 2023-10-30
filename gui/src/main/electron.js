@@ -118,6 +118,7 @@ app.whenReady().then(() => {
 
     ipcMain.handle('start-workflow-new', (event, workflow, engineIdx) => executionManager.startWorkflow(workflow, engineIdx))
     ipcMain.handle('abort-workflow-new', (event, runIdx) => executionManager.abortWorkflow(runIdx))
+    
     ipcMain.handle('get-output-length-new', (event, runIdx) => executionManager.getOutputLength(runIdx))
     ipcMain.handle('get-output-rows-new', (event, runIdx, {limit, offset}) => executionManager.getOutputRows(runIdx, limit, offset))
 

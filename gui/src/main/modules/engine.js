@@ -9,6 +9,7 @@ const { workflowToConfig } = require('./workflows');
 const os = require('os');
 const fs = require('fs');
 const path = require('path');
+var kill = require('tree-kill');
 
 function lineBreakTransform () {
 
@@ -228,18 +229,17 @@ class CMDExecutionEngine extends BaseExecutionEngine {
     }
 
     startWorkflow(workflow){
+        return this.saveWorkflow(workflow).then(() => {
 
-        let run = {
-            name: workflow.name,
-            path: workflow.output.path,
-            std: [],
-            pid: -1,
-            code: -1,
-            process : null,
-            activePromise: null,
-        }
-
-        run.activePromise = this.saveWorkflow(workflow).then(() => {
+            let run = {
+                name: workflow.name,
+                path: workflow.output.path,
+                std: [],
+                pid: null,
+                code: -1,
+                process : null,
+                activePromise: null,
+            }
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
 
@@ -252,28 +252,29 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "--config", 
                                         path.join(workflow.output.path, "config.yaml")
                                     ] , { env:{...process.env, PATH}, shell: true});
+            run.pid = run.process.pid
 
             const stdoutTransform = lineBreakTransform();
             run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
-                console.log(data.toString())
                 run.std.push(data.toString())
             });
 
             const stderrTransform = lineBreakTransform();
             run.process.stderr.pipe(stderrTransform).on('data', (data) => {
-                console.log(data.toString())
                 run.std.push(data.toString())
             });
 
-            run.pid = run.process.pid;
-
-            return new Promise((resolve, reject) => {
+            run.activePromise = new Promise((resolve, reject) => {
                 run.process.on('close', (code) => {
                     run.process = null
                     run.code = code
                     resolve(code);
                 });
             })
+
+            console.log(run)
+
+            return run
         }).catch((err) => {
             console.log(err)
             dialog.showMessageBox({
@@ -284,7 +285,6 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                 console.log(err)
             })
         })
-        return run
     }
 }
         
@@ -447,27 +447,32 @@ class ExecutionManager {
 
     startWorkflow(workflow, engineIdx){
         if (this.initResolved){
-            return new Promise((resolve, reject) => {
-                const engine = this.executionEngines[engineIdx]
-                if (engine.available){
 
-                    // a new run will be added to the runList
-                    this.runList.push(engine.startWorkflow(workflow))
-
-                    // return the promise of the last run in the runList
-                    // the promise will resolve when the run is finished
-                    return this.runList[this.runList.length - 1].activePromise.then((code) => {
-                        resolve(code)
-                    })
-
-                } else {
-                    reject(engine.error)
-                }
-            })
+            const engine = this.executionEngines[engineIdx]
+            return engine.startWorkflow(workflow).then((run) => {
+                    console.log(run)
+                    this.runList.push(run)
+                    return run.activePromise
+                }).catch((err) => {
+                    console.log(err)
+                })
         }
         return this.initPromise.then(() => {
             return this.startWorkflow(workflow, engineIdx)
         })
+    }
+
+    abortWorkflow(runIdx){
+        console.log("Aborting workflow " + runIdx)
+        console.log(this.runList)
+        if (runIdx == -1){
+            runIdx = this.runList.length - 1
+        }
+        console.log("runIdx: " + runIdx)
+        if (this.runList[runIdx].pid != null){
+            console.log(`Killing process ${this.runList[runIdx].pid}`)
+            kill(this.runList[runIdx].pid);
+        }
     }
 
     getOutputLength(runIdx){
@@ -475,9 +480,12 @@ class ExecutionManager {
             runIdx = this.runList.length - 1
         }
         return new Promise((resolve, reject) => {
-            if (runIdx < 0 || runIdx >= this.runList.length){
+            if (runIdx >= this.runList.length){
                 reject("Run index out of bounds")
+            } else if (runIdx == -1){
+                resolve(0)
             }
+
             resolve(this.runList[runIdx].std.length)
         })
     }
@@ -487,8 +495,10 @@ class ExecutionManager {
             runIdx = this.runList.length - 1
         }
         return new Promise((resolve, reject) => {
-            if (runIdx < 0 || runIdx >= this.runList.length){
+            if (runIdx >= this.runList.length){
                 reject("Run index out of bounds")
+            } else if (runIdx == -1){
+                resolve([])
             }
             const startIndex = offset
             const stopIndex = Math.min(offset + limit, this.runList[runIdx].std.length)

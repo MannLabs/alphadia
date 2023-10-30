@@ -14,13 +14,14 @@ const WorkflowMenu = ({
     workflows=[],
     currentWorkflow="",
     onWorkflowChange=() => {},
+    key=0,
 }) => {
 
     const popupState = usePopupState({ variant: 'popover', popupId: 'demoMenu' })
     const theme = useTheme();
 
     return (
-        <Box display="flex" flexDirection="row" alignItems="center" padding={1}
+        <Box display="flex" flexDirection="row" alignItems="center" padding={1} key={key}
         sx={[
             {
 
@@ -43,7 +44,7 @@ const WorkflowMenu = ({
                     {...bindMenu(popupState)}
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-                    dense
+                    dense="true"
                     sx={{
                         fontFamily: "Roboto Mono",
                         fontSize: "0.8rem",
