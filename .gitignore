@@ -138,7 +138,7 @@ dmypy.json
 .pyre/
 
 # Data
-.testdata/
+testdata/
 
 ######################
 # OS generated files #
