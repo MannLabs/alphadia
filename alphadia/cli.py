@@ -129,9 +129,13 @@ def extract(**kwargs):
 
     output_location = None
     if kwargs['output_location'] is not None:
+        if kwargs['wsl']:
+            kwargs['output_location'] = utils.windows_to_wsl(kwargs['output_location'])
         output_location = kwargs['output_location']
 
     if "output" in config_update:
+        if kwargs['wsl']:
+            config_update['output'] = utils.windows_to_wsl(config_update['output'])
         output_location = config_update['output']
 
     if output_location is None:
