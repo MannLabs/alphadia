@@ -166,6 +166,7 @@ class WorkflowBase():
             tmp_path = "/tmp"
             tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
             shutil.copyfile(dia_data_path, tmp_dia_data_path)
+            dia_data_path = tmp_dia_data_path
 
         if file_extension == '.d':
             self.reporter.log_metric('raw_data_type', 'bruker')
