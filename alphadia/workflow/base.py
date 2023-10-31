@@ -159,6 +159,14 @@ class WorkflowBase():
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
+        if self.config['wsl']:
+            # copy file to /tmp
+            import shutil
+            import tempfile
+            tmp_path = "/tmp"
+            tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
+            shutil.copyfile(dia_data_path, tmp_dia_data_path)
+
         if file_extension == '.d':
             self.reporter.log_metric('raw_data_type', 'bruker')
             return bruker.TimsTOFTranspose(

@@ -187,6 +187,9 @@ def extract(**kwargs):
         logger.progress(f"  {f}")
     logger.progress(f"Using library {library}.")
     logger.progress(f"Saving output to {output_location}.")
+
+    if kwargs['wsl']:
+        config_update['wsl'] = True
     
     try:
 
