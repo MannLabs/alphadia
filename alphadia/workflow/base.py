@@ -170,18 +170,18 @@ class WorkflowBase():
 
         if file_extension == '.d':
             self.reporter.log_metric('raw_data_type', 'bruker')
-            return bruker.TimsTOFTranspose(
+            dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-            )
-            
+            )           
             
         elif file_extension == '.hdf':
             self.reporter.log_metric('raw_data_type', 'bruker')
-            return bruker.TimsTOFTranspose(
+            dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
+            
         elif file_extension == '.raw':
             self.reporter.log_metric('raw_data_type', 'thermo')
             # check if cv selection exists
@@ -190,7 +190,7 @@ class WorkflowBase():
                 if 'cv' in self.config['raw_data_loading']:
                     cv = self.config['raw_data_loading']['cv']
 
-            return thermo.Thermo(
+            dia_data = thermo.Thermo(
                 dia_data_path,
                 astral_ms1= self.config['general']['astral_ms1'],
                 process_count = self.config['general']['thread_count'],
@@ -198,4 +198,9 @@ class WorkflowBase():
             )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')
+        
+        # remove tmp file if wsl
+        if self.config['wsl']:
+            os.remove(tmp_dia_data_path)
+        return dia_data
         
