@@ -232,6 +232,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
         return this.saveWorkflow(workflow).then(() => {
 
             let run = {
+                engine: this.constructor.name,
                 name: workflow.name,
                 path: workflow.output.path,
                 std: [],
@@ -348,6 +349,15 @@ function hasWSLCondaEnv(envName){
     })
 }
 
+function hasWSLAlphaPython(envName){
+    return new Promise((resolve, reject) => {
+        exec("wsl bash -ic \"conda activate " + envName + " && python -c \\\"print(__import__('sys').version)\\\"\"", (err, stdout, stderr) => {
+            if (err) {console.log(err); reject("Python not found in environment " + envName + " within WSL"); return;}
+            resolve(stdout.trim().split(" ")[0])
+        })
+    })
+}
+
 function hasWSLAlphaDIA(envName){
     return new Promise((resolve, reject) => {
         exec("wsl bash -ic \"conda activate " + envName + " && alphadia --version\"", (err, stdout, stderr) => {
@@ -383,7 +393,9 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             }).then(() => {
                 return hasWSLCondaEnv(this.config.envName)
             }).then(() => {
-                this.versions.push({"name": "python", "version": ""})
+                return hasWSLAlphaPython(this.config.envName)
+            }).then((python_version) => {
+                this.versions.push({"name": "python", "version": python_version})
             }).then(() => {
                 return hasWSLAlphaDIA(this.config.envName)
             }).then((alphadia_version) => {
@@ -400,6 +412,78 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             })
         })
     }
+
+    saveWorkflow(workflow){
+        return new Promise((resolve, reject) => {
+            const workflowFolder = workflow.output.path
+            const config = workflowToConfig(workflow)
+            if (!fs.existsSync(workflowFolder)) {
+                reject("Output folder " + workflowFolder + " does not exist.")
+            }
+            const configPath = path.join(workflowFolder, "config.yaml")
+            // save config.yaml in workflow folder
+            writeYamlFile.sync(configPath, config, {lineWidth: -1})
+            resolve()
+        })
+    }
+
+    startWorkflow(workflow){
+        return this.saveWorkflow(workflow).then(() => {
+
+            let run = {
+                engine: this.constructor.name,
+                name: workflow.name,
+                path: workflow.output.path,
+                std: [],
+                pid: null,
+                code: -1,
+                process : null,
+                activePromise: null,
+            }
+
+            const winOutputPath = path.join(workflow.output.path, "config.yaml")
+            const wslOutputPath = "/mnt/" + winOutputPath.replace(/\\/g, "/").replace(":", "").toLowerCase()
+
+            run.process = spawn("wsl", ["bash",
+                                        "-ic",
+                                        "\"conda run -n " + this.config.envName + " --no-capture-output alphadia extract -w --config " + wslOutputPath + "\""], { shell: true });
+            run.pid = run.process.pid
+
+            const stdoutTransform = lineBreakTransform();
+            run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
+                run.std.push(data.toString())
+            });
+
+            const stderrTransform = lineBreakTransform();
+            run.process.stderr.pipe(stderrTransform).on('data', (data) => {
+                run.std.push(data.toString())
+            });
+
+            run.activePromise = new Promise((resolve, reject) => {
+                run.process.on('close', (code) => {
+                    run.process = null
+                    run.code = code
+                    resolve(code);
+                });
+            })
+
+            console.log(run)
+
+            return run
+        }).catch((err) => {
+            console.log(err)
+            dialog.showMessageBox({
+                type: 'error',
+                title: 'Error while starting workflow',
+                message: `Could not start workflow. ${err}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+        })
+    }
+
+
+
 }
 
 class ExecutionManager {

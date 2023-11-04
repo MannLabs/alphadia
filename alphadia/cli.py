@@ -9,6 +9,7 @@ import os
 # alphadia imports
 import alphadia
 from alphadia.workflow import reporting
+from alphadia import utils
 
 # alpha family imports
 
@@ -60,6 +61,14 @@ def gui():
     '-l',
     help="Spectral library in AlphaBase hdf5 format.",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.option(
+    '--wsl',
+    '-w',
+    help="Run alphadia using WSL. Windows paths will be converted to WSL paths.",
+    type=bool,
+    default=False,
+    is_flag=True,
 )
 @click.option(
     "--fdr",
@@ -120,27 +129,37 @@ def extract(**kwargs):
 
     output_location = None
     if kwargs['output_location'] is not None:
+        if kwargs['wsl']:
+            kwargs['output_location'] = utils.windows_to_wsl(kwargs['output_location'])
         output_location = kwargs['output_location']
 
     if "output" in config_update:
+        if kwargs['wsl']:
+            config_update['output'] = utils.windows_to_wsl(config_update['output'])
         output_location = config_update['output']
 
     if output_location is None:
         logging.error("No output location specified.")
         return
 
-    reporting.init_logging(kwargs['output_location'])
+    reporting.init_logging(output_location)
     logger = logging.getLogger()
-
+    
     # assert input files have been specified
     files = None
     if kwargs['file'] is not None:
         files = list(kwargs['file'])
+        if kwargs['wsl']:
+            files = [utils.windows_to_wsl(f) for f in files]
 
     if kwargs['directory'] is not None:
+        if kwargs['wsl']:
+            kwargs['directory'] = utils.windows_to_wsl(kwargs['directory'])
         files += [os.path.join(kwargs['directory'], f) for f in os.listdir(kwargs['directory'])]
     
     if "files" in config_update:
+        if kwargs['wsl']:
+            config_update['files'] = [utils.windows_to_wsl(f) for f in config_update['files']]
         files += config_update['files'] if type(config_update['files']) is list else [config_update['files']]
 
     if (files is None) or (len(files) == 0):
@@ -150,9 +169,13 @@ def extract(**kwargs):
     # assert library has been specified
     library = None
     if kwargs['library'] is not None:
+        if kwargs['wsl']:
+            kwargs['library'] = utils.windows_to_wsl(kwargs['library'])
         library = kwargs['library']
 
     if "library" in config_update:
+        if kwargs['wsl']:
+            config_update['library'] = utils.windows_to_wsl(config_update['library'])
         library = config_update['library']
 
     if library is None:
@@ -164,6 +187,9 @@ def extract(**kwargs):
         logger.progress(f"  {f}")
     logger.progress(f"Using library {library}.")
     logger.progress(f"Saving output to {output_location}.")
+
+    if kwargs['wsl']:
+        config_update['wsl'] = True
     
     try:
 

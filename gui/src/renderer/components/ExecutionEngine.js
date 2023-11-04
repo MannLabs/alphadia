@@ -128,7 +128,6 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
                                         <Typography component="div" sx={{fontSize:"0.75rem", color: theme.palette.error.main}}>
                                             Not Available
                                         </Typography>
-                                        
                                     </Stack>
                                 }
                             </Grid>
