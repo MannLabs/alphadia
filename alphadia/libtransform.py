@@ -77,7 +77,7 @@ class ProcessingPipeline():
         
 class DynamicLoader(ProcessingStep):
 
-    def __init__(self) -> None:
+    def __init__(self, modification_mapping = {}) -> None:
         """Load a spectral library from a file. The file type is dynamically inferred from the file ending.
         Expects a `str` as input and will return a `SpecLibBase` object.
 
@@ -90,7 +90,7 @@ class DynamicLoader(ProcessingStep):
         The classical spectral library format as returned by MSFragger.
         It will be imported and converted to a `SpecLibBase` format. This might require additional parsing information.
         """
-        pass
+        self.modification_mapping = modification_mapping
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
@@ -114,6 +114,7 @@ class DynamicLoader(ProcessingStep):
 
         elif file_type in ['.csv', '.tsv']:
             library = LibraryReaderBase()
+            library.add_modification_mapping(self.modification_mapping)
             library.import_file(input_path)
 
         else:
@@ -305,7 +306,7 @@ class RTNormalization(ProcessingStep):
             return input
         
         if 'rt' not in input.precursor_df.columns:
-            if 'rt_norm' in input.precursor_df.columns:
+            if 'rt_norm' in input.precursor_df.columns or 'rt_norm_pred' in input.precursor_df.columns:
                 logger.warning(f'Input library already contains normalized RT information. Skipping RT normalization')
                 return input
             else:
@@ -353,7 +354,7 @@ class InitFlatColumns(ProcessingStep):
 
         precursor_columns = {
             'mz_library': ['mz_library', 'mz','precursor_mz'],
-            'rt_library': ['rt_library','rt','rt_norm'],
+            'rt_library': ['rt_library','rt','rt_norm', 'rt_pred', 'rt_norm_pred', 'irt'],
             'mobility_library': ['mobility_library','mobility']
         }
 
@@ -368,7 +369,10 @@ class InitFlatColumns(ProcessingStep):
                         df.rename(columns={candidate_columns: key}, inplace=True)
                         # break after first match
                         break
-        
+
+        if 'mobility_library' not in input.precursor_df.columns:
+            input.precursor_df['mobility_library'] = 0
+
         return input
 
 class LogFlatLibraryStats(ProcessingStep):

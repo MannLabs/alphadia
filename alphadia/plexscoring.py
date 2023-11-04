@@ -1451,7 +1451,8 @@ class CandidateScoring():
             'scan_stop',
             'frame_center',
             'frame_start',
-            'frame_stop'
+            'frame_stop',
+            'score'
         ]
         df = utils.merge_missing_columns(
             df,

@@ -153,6 +153,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # normalize spectral library rt to file specific TIC profile
         self.spectral_library._precursor_df['rt_library'] = self.norm_to_rt(self.dia_data, self.spectral_library._precursor_df['rt_library'].values) 
+
+        # filter based on precursor observability
+        lower_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].min()
+        upper_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].max()
+
+        precursor_before = np.sum(self.spectral_library._precursor_df['decoy'] == 0)
+        self.spectral_library._precursor_df = self.spectral_library._precursor_df[
+            (self.spectral_library._precursor_df['mz_library'] >= lower_mz_limit) &
+            (self.spectral_library._precursor_df['mz_library'] <= upper_mz_limit)
+        ]
+        precursor_after = np.sum(self.spectral_library._precursor_df['decoy'] == 0)
+        precursor_removed = precursor_before - precursor_after
+        self.reporter.log_string(f'{precursor_after:,} target precursors potentially observable ({precursor_removed:,} removed)', verbosity='progress')
         
         # filter spectral library to only contain precursors from allowed channels
         # save original precursor_df for later use
