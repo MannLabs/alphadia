@@ -5,16 +5,31 @@ general:
   thread_count: 10
   reuse_calibration: false
   reuse_quant: false
-  save_figures: false
-  mmap_detector_events: false
   astral_ms1: false
+  log_level: 'INFO'
 
 library_loading:
   rt_heuristic: 180
-  # rt_type: 'norm'
+  # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
+  save_hdf: False
+  norm_rt_mode: 'linear'
+
+search:
   channel_filter: '0'
   exclude_shared_ions: True
-  save_hdf: False
+
+  target_num_candidates: 2
+  target_ms1_tolerance: 15
+  target_ms2_tolerance: 15
+  target_mobility_tolerance: 0.04
+  target_rt_tolerance: 60
+
+fdr:
+  fdr: 0.01
+  group_level: 'proteins'
+  competetive_scoring: true,
+  keep_decoys: false,
+  channel_wise_fdr: false,
 
 calibration:
   min_epochs: 3
@@ -22,18 +37,8 @@ calibration:
   batch_size: 4000
   recalibration_target: 200
   final_full_calibration: False
-  norm_rt_mode: 'linear'
-  # active_gradient_start 
-  # active_gradient_stop
 
-extraction_target:
-  target_num_candidates: 2
-  target_ms1_tolerance: 15
-  target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.04
-  target_rt_tolerance: 30
-
-extraction_initial:
+search_initial:
   initial_num_candidates: 2
   initial_ms1_tolerance: 30
   initial_ms2_tolerance: 30
@@ -72,12 +77,6 @@ scoring_config:
   reference_channel: -1
   precursor_mz_tolerance: 10
   fragment_mz_tolerance: 15
-
-fdr:
-  fdr: 0.01
-  competetive_scoring: true,
-  keep_decoys: false,
-  channel_wise_fdr: false,
 
 multiplexing:
   multiplexed_quant: False

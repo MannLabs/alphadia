@@ -16,7 +16,7 @@ const ParameterInput = ({
         let input = null;
 
         switch (parameter.type) {
-            case "number":
+            case "integer":
                 input = (
                     <TextField
                     id="outlined-number"
@@ -25,8 +25,21 @@ const ParameterInput = ({
                     size="small"
                     sx = {{width: "150px"}}
                     value={parameter.value}
-                    onChange={(event) => {onChange(Number(event.target.value))}}
-                    inputProps={{step: "0.1", lang:"en-US"}}
+                    onChange={(event) => {onChange(parseInt(event.target.value))}}
+                    inputProps={{step: "1", lang:"en-US"}}
+                />)
+                break;
+            case "float":
+                input = (
+                    <TextField
+                    id="outlined-number"
+                    type="number"  
+                    variant="standard"
+                    size="small"
+                    sx = {{width: "150px"}}
+                    value={parameter.value}
+                    onChange={(event) => {onChange(parseFloat(event.target.value))}}
+                    inputProps={{step: "0.01", lang:"en-US"}}
                 />)
                 break;
             case "string":
@@ -52,7 +65,6 @@ const ParameterInput = ({
                     </Box>
                 )
                 break;
-
             case "dropdown":
                 input = (
                     <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
