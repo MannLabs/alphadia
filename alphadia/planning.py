@@ -141,8 +141,8 @@ class Plan:
 
     def load_library(self, spec_lib_path):
 
-        if 'fasta_files' in self.config:
-            fasta_files = self.config['fasta_files']
+        if 'fasta_list' in self.config:
+            fasta_files = self.config['fasta_list']
         else:
             fasta_files = []
 

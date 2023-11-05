@@ -5,21 +5,21 @@
         "required": false,
         "path": ""
     },
-    "fasta": {
+    "fasta_list": {
         "active": true,
         "required": false,
         "path": [
             ""
         ]
     },
-    "files": {
+    "raw_file_list": {
         "active": true,
         "required": false,
         "path": [
             ""
         ]
     },
-    "output": {
+    "output_directory": {
         "active": true,
         "required": true,
         "path": ""

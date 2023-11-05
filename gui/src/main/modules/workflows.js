@@ -33,10 +33,10 @@ function validateWorkflow(workflow) {
     if (!workflow.hasOwnProperty('library')) {
         throw new Error('Workflow does not have a library field.')
     }
-    if (!workflow.hasOwnProperty('fasta')) {
+    if (!workflow.hasOwnProperty('fasta_list')) {
         throw new Error('Workflow does not have a fasta field.')
     }
-    if (!workflow.hasOwnProperty('files')) {
+    if (!workflow.hasOwnProperty('raw_file_list')) {
         throw new Error('Workflow does not have a files field.')
     }
     if (!workflow.hasOwnProperty('config')) {
@@ -52,18 +52,18 @@ function validateWorkflow(workflow) {
     }
 
     // make sure fasta has the following fields: [active, path]
-    if (!workflow.fasta.hasOwnProperty('active')) {
+    if (!workflow.fasta_list.hasOwnProperty('active')) {
         throw new Error('Workflow fasta does not have an active field.')
     }
-    if (!workflow.fasta.hasOwnProperty('path')) {
+    if (!workflow.fasta_list.hasOwnProperty('path')) {
         throw new Error('Workflow fasta does not have a path field.')
     }
 
     // make sure files has the following fields: [active, path]
-    if (!workflow.files.hasOwnProperty('active')) {
+    if (!workflow.raw_file_list.hasOwnProperty('active')) {
         throw new Error('Workflow files does not have an active field.')
     }
-    if (!workflow.files.hasOwnProperty('path')) {
+    if (!workflow.raw_file_list.hasOwnProperty('path')) {
         throw new Error('Workflow files does not have a path field.')
     }
 
@@ -82,16 +82,16 @@ function workflowToConfig(workflow) {
         output["library"] = workflow.library.path
     }
     
-    if (workflow.fasta.path != "") {
-        output["fasta"] = workflow.fasta.path
+    if (workflow.fasta_list.path != "") {
+        output["fasta_list"] = workflow.fasta_list.path
     }
 
-    if (workflow.files.path != "") {
-        output["files"] = workflow.files.path
+    if (workflow.raw_file_list.path != "") {
+        output["raw_file_list"] = workflow.raw_file_list.path
     }
 
-    if (workflow.output.path != "") {
-        output["output"] = workflow.output.path
+    if (workflow.output_directory.path != "") {
+        output["output_directory"] = workflow.output_directory.path
     }
     
     workflow.config.forEach((config) => {

@@ -7,16 +7,17 @@ const initialMethod = {
         active: false,
         path: ""
     },
-    fasta: {
-        active: false,
-        path: ""
-    },
-    files: {
+    fasta_list: {
         active: false,
         path: [
         ]
     },
-    output: {
+    raw_file_list: {
+        active: false,
+        path: [
+        ]
+    },
+    output_directory: {
         active: true,
         path: ""
     },
@@ -31,11 +32,11 @@ export function methodReducer(method, action) {
             return {...method, library: {...method.library, path: action.path}}
 
         case 'updateFasta':
-            return {...method, fasta: {...method.fasta, path: action.path}}
+            return {...method, fasta_list: {...method.fasta_list, path: action.path}}
 
         case 'updateFiles':
             console.log(action)
-            return {...method, files: {...method.files, path: action.path}}
+            return {...method, raw_file_list: {...method.raw_file_list, path: action.path}}
 
         case 'updateParameter':
             console.log(action)
@@ -63,7 +64,7 @@ export function methodReducer(method, action) {
             
         case "updateOutput":
             console.log(action)
-            return {...method, output: {...method.output, path: action.path}}
+            return {...method, output_directory: {...method.output_directory, path: action.path}}
         default:
             throw new Error(`Unhandled action type: ${action.type}`);
     }

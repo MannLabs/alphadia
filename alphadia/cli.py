@@ -39,7 +39,7 @@ def gui():
     help="Extract DIA precursors from a list of raw files using a spectral library."
 )
 @click.argument(
-    "output-location",
+    "output-directory",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
     required=False,
 )
@@ -127,43 +127,47 @@ def extract(**kwargs):
         with open(kwargs['config'], 'r') as f:
             config_update = yaml.safe_load(f)
 
-    output_location = None
-    if kwargs['output_location'] is not None:
+    # update output directory based on config file
+    output_directory = None
+    if kwargs['output'] is not None:
         if kwargs['wsl']:
-            kwargs['output_location'] = utils.windows_to_wsl(kwargs['output_location'])
-        output_location = kwargs['output_location']
+            kwargs['output'] = utils.windows_to_wsl(kwargs['output'])
+        output_directory = kwargs['output']
 
-    if "output" in config_update:
+    if "output_directory" in config_update:
         if kwargs['wsl']:
-            config_update['output'] = utils.windows_to_wsl(config_update['output'])
-        output_location = config_update['output']
+            config_update['output_directory'] = utils.windows_to_wsl(config_update['output_directory'])
+        output_directory = config_update['output_directory']
 
-    if output_location is None:
-        logging.error("No output location specified.")
+
+    if output_directory is None:
+        logging.error("No output directory specified.")
         return
 
     reporting.init_logging(output_location)
     logger = logging.getLogger()
     
     # assert input files have been specified
-    files = None
+    files = []
     if kwargs['file'] is not None:
         files = list(kwargs['file'])
         if kwargs['wsl']:
             files = [utils.windows_to_wsl(f) for f in files]
 
+    # load whole directory if specified
     if kwargs['directory'] is not None:
         if kwargs['wsl']:
             kwargs['directory'] = utils.windows_to_wsl(kwargs['directory'])
         files += [os.path.join(kwargs['directory'], f) for f in os.listdir(kwargs['directory'])]
     
-    if "files" in config_update:
+    # load list of raw files from config file
+    if "raw_file_list" in config_update:
         if kwargs['wsl']:
-            config_update['files'] = [utils.windows_to_wsl(f) for f in config_update['files']]
-        files += config_update['files'] if type(config_update['files']) is list else [config_update['files']]
+            config_update['raw_file_list'] = [utils.windows_to_wsl(f) for f in config_update['raw_file_list']]
+        files += config_update['raw_file_list'] if type(config_update['raw_file_list']) is list else [config_update['raw_file_list']]
 
     if (files is None) or (len(files) == 0):
-        logging.error("No files specified.")
+        logging.error("No raw files specified.")
         return
     
     # assert library has been specified
@@ -186,11 +190,13 @@ def extract(**kwargs):
     for f in files:
         logger.progress(f"  {f}")
     logger.progress(f"Using library {library}.")
-    logger.progress(f"Saving output to {output_location}.")
+
 
     if kwargs['wsl']:
         config_update['wsl'] = True
-    
+
+    logger.progress(f"Saving output to {output_directory}.")
+
     try:
 
         import matplotlib
@@ -198,12 +204,9 @@ def extract(**kwargs):
         matplotlib.use('Agg')
 
         from alphadia.planning import Plan
-        #lib._precursor_df['elution_group_idx'] = lib._precursor_df['precursor_idx']
-
-        #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
 
         plan = Plan(
-            output_location,
+            output_directory,
             files,
             library,
             config_update = config_update
@@ -216,4 +219,4 @@ def extract(**kwargs):
         )
 
     except Exception as e:
-        logging.exception(e)
+        logger.error(e)
