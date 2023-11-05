@@ -1099,7 +1099,10 @@ class HybridCandidateSelection(object):
             return elution_group_container, df
         
         logging.info('Finished candidate selection')
-            
+
+        del elution_group_container
+        del fragment_container
+    
         return df
     
     def assemble_fragments(self):

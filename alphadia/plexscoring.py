@@ -1597,4 +1597,7 @@ class CandidateScoring():
 
         logger.info('Finished candidate scoring')
 
+        del score_group_container
+        del fragment_container
+
         return candidate_features_df, fragment_features_df

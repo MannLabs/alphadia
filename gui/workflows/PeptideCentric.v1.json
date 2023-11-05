@@ -82,12 +82,11 @@
                 {
                     "id": "save_hdf",
                     "name": "Save Library",
-                    "value": "",
+                    "value": true,
                     "description": "Store the library as alphaBase HDF file. This will speed up subsequent searches and will include predicted properties.",
                     "type": "boolean"          
                 }
             ]
-
         },
         {
             "id": "search",
@@ -112,7 +111,7 @@
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
                     "value": 5,
-                    "description": "Number of candidates to extract per precursor.",
+                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },
                 {

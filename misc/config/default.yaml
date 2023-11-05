@@ -3,16 +3,17 @@ version: 1
 
 general:
   thread_count: 10
+  # maximum number of threads or processes to use per raw file
   reuse_calibration: false
   reuse_quant: false
   astral_ms1: false
   log_level: 'INFO'
+  wsl: false
 
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
   save_hdf: False
-  norm_rt_mode: 'linear'
 
 search:
   channel_filter: '0'
@@ -37,6 +38,7 @@ calibration:
   batch_size: 4000
   recalibration_target: 200
   final_full_calibration: False
+  norm_rt_mode: 'linear'
 
 search_initial:
   initial_num_candidates: 2

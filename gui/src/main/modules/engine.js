@@ -216,7 +216,8 @@ class CMDExecutionEngine extends BaseExecutionEngine {
 
     saveWorkflow(workflow){
         return new Promise((resolve, reject) => {
-            const workflowFolder = workflow.output.path
+            console.log(workflow)
+            const workflowFolder = workflow.output_directory.path
             const config = workflowToConfig(workflow)
             if (!fs.existsSync(workflowFolder)) {
                 reject("Output folder " + workflowFolder + " does not exist.")
@@ -234,7 +235,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
             let run = {
                 engine: this.constructor.name,
                 name: workflow.name,
-                path: workflow.output.path,
+                path: workflow.output_directory.path,
                 std: [],
                 pid: null,
                 code: -1,
@@ -251,7 +252,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "alphadia", 
                                         "extract", 
                                         "--config", 
-                                        path.join(workflow.output.path, "config.yaml")
+                                        path.join(workflow.output_directory.path, "config.yaml")
                                     ] , { env:{...process.env, PATH}, shell: true});
             run.pid = run.process.pid
 

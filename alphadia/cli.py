@@ -129,10 +129,10 @@ def extract(**kwargs):
 
     # update output directory based on config file
     output_directory = None
-    if kwargs['output'] is not None:
+    if kwargs['output_directory'] is not None:
         if kwargs['wsl']:
-            kwargs['output'] = utils.windows_to_wsl(kwargs['output'])
-        output_directory = kwargs['output']
+            kwargs['output_directory'] = utils.windows_to_wsl(kwargs['output_directory'])
+        output_directory = kwargs['output_directory']
 
     if "output_directory" in config_update:
         if kwargs['wsl']:
@@ -144,7 +144,7 @@ def extract(**kwargs):
         logging.error("No output directory specified.")
         return
 
-    reporting.init_logging(output_location)
+    reporting.init_logging(output_directory)
     logger = logging.getLogger()
     
     # assert input files have been specified
@@ -193,7 +193,7 @@ def extract(**kwargs):
 
 
     if kwargs['wsl']:
-        config_update['wsl'] = True
+        config_update['general']['wsl'] = True
 
     logger.progress(f"Saving output to {output_directory}.")
 

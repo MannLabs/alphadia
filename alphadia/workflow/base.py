@@ -159,7 +159,7 @@ class WorkflowBase():
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
-        if self.config['wsl']:
+        if self.config['general']['wsl']:
             # copy file to /tmp
             import shutil
             import tempfile
@@ -200,7 +200,7 @@ class WorkflowBase():
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')
         
         # remove tmp file if wsl
-        if self.config['wsl']:
+        if self.config['general']['wsl']:
             os.remove(tmp_dia_data_path)
         return dia_data
         

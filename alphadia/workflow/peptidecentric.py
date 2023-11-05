@@ -145,10 +145,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def init_spectral_library(self):
         # apply channel filter
-        if self.config["library_loading"]["channel_filter"] == '':
+        if self.config["search"]["channel_filter"] == '':
             allowed_channels = self.spectral_library.precursor_df['channel'].unique()
         else:
-            allowed_channels = [int(c) for c in self.config["library_loading"]["channel_filter"].split(',')]
+            allowed_channels = [int(c) for c in self.config["search"]["channel_filter"].split(',')]
             self.reporter.log_string(f'Applying channel filter using only: {allowed_channels}', verbosity='progress')
 
         # normalize spectral library rt to file specific TIC profile
@@ -236,20 +236,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return np.interp(norm_values, [0,1], [lower_rt,upper_rt])
             
         elif mode == 'tic':
-            # retrive the converted absolute intensities
-            data = dia_data.frames.query('MsMsType == 0')[[
-                'Time', 'SummedIntensities']
-            ]
-            time = data['Time'].values
-            intensity = data['SummedIntensities'].values
-
-            # get lower and upper rt slice
-            lower_idx = np.searchsorted(time, lower_rt)
-            upper_idx = np.searchsorted(time, upper_rt, side='right')
-            time = time[lower_idx:upper_idx]
-            intensity = intensity[lower_idx:upper_idx]
-            cum_intensity = np.cumsum(intensity)/np.sum(intensity)
-            return np.interp(norm_values, cum_intensity, time)
+            raise NotImplementedError('tic mode is not implemented yet')
 
         else:
             raise ValueError(f'Unknown norm_rt_mode {mode}')
@@ -312,17 +299,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         continue_calibration = False
 
-        if self.com.ms1_error > self.config['extraction_target']['target_ms1_tolerance']:
+        if self.com.ms1_error > self.config['search']['target_ms1_tolerance']:
             continue_calibration = True
 
-        if self.com.ms2_error > self.config['extraction_target']['target_ms2_tolerance']:
+        if self.com.ms2_error > self.config['search']['target_ms2_tolerance']:
             continue_calibration = True
 
-        if self.com.rt_error > self.config['extraction_target']['target_rt_tolerance']:
+        if self.com.rt_error > self.config['search']['target_rt_tolerance']:
             continue_calibration = True
 
         if self.dia_data.has_mobility:
-            if self.com.mobility_error > self.config['extraction_target']['target_mobility_tolerance']:
+            if self.com.mobility_error > self.config['search']['target_mobility_tolerance']:
                 continue_calibration = True
 
         if self.com.current_epoch < self.config['calibration']['min_epochs']:
@@ -430,17 +417,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         m2_99 = self.calibration_manager.get_estimator('fragment', 'mz').ci(fragments_df_filtered, 0.95)
 
         self.com.fit({
-            'ms1_error': max(m1_99, self.config['extraction_target']['target_ms1_tolerance']),
-            'ms2_error': max(m2_99, self.config['extraction_target']['target_ms2_tolerance']),
-            'rt_error': max(rt_99, self.config['extraction_target']['target_rt_tolerance']),
+            'ms1_error': max(m1_99, self.config['search']['target_ms1_tolerance']),
+            'ms2_error': max(m2_99, self.config['search']['target_ms2_tolerance']),
+            'rt_error': max(rt_99, self.config['search']['target_rt_tolerance']),
             'column_type': 'calibrated',
-            'num_candidates': self.config['extraction_target']['target_num_candidates'],
+            'num_candidates': self.config['search']['target_num_candidates'],
         })
 
         if self.dia_data.has_mobility:
             mobility_99 = self.calibration_manager.get_estimator('precursor', 'mobility').ci(precursor_df_filtered, 0.95)
             self.com.fit({
-                'mobility_error': max(mobility_99, self.config['extraction_target']['target_mobility_tolerance']),
+                'mobility_error': max(mobility_99, self.config['search']['target_mobility_tolerance']),
             })
 
             #if self.neptune is not None:
@@ -494,7 +481,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             'candidate_count': self.com.num_candidates,
             'precursor_mz_tolerance': self.com.ms1_error,
             'fragment_mz_tolerance': self.com.ms2_error,
-            'exclude_shared_ions': self.config['library_loading']['exclude_shared_ions']
+            'exclude_shared_ions': self.config['search']['exclude_shared_ions']
         })
         
         extraction = hybridselection.HybridCandidateSelection(
@@ -518,7 +505,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update({
             'precursor_mz_tolerance': self.com.ms1_error,
             'fragment_mz_tolerance': self.com.ms2_error,
-            'exclude_shared_ions': self.config['library_loading']['exclude_shared_ions']
+            'exclude_shared_ions': self.config['search']['exclude_shared_ions']
         })
 
         candidate_scoring = plexscoring.CandidateScoring(
@@ -547,11 +534,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         #            self.neptune[f"eval/{key}"].log(value)
 
         self.com.fit({
-            'num_candidates': self.config['extraction_target']['target_num_candidates'],
-            'ms1_error': self.config['extraction_target']['target_ms1_tolerance'],
-            'ms2_error': self.config['extraction_target']['target_ms2_tolerance'],
-            'rt_error': self.config['extraction_target']['target_rt_tolerance'],
-            'mobility_error': self.config['extraction_target']['target_mobility_tolerance'],
+            'num_candidates': self.config['search']['target_num_candidates'],
+            'ms1_error': self.config['search']['target_ms1_tolerance'],
+            'ms2_error': self.config['search']['target_ms2_tolerance'],
+            'rt_error': self.config['search']['target_rt_tolerance'],
+            'mobility_error': self.config['search']['target_mobility_tolerance'],
             'column_type': 'calibrated'
         })
 
