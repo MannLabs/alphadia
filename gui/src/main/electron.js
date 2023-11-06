@@ -79,7 +79,7 @@ async function handleGetUtilisation (event) {
 
 function handleStartWorkflow(workflow) {
 
-    const workflowFolder = workflow.output.path
+    const workflowFolder = workflow.output_directory.path
     const config = workflowToConfig(workflow)
 
     // check if workflow folder exists

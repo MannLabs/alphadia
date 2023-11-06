@@ -39,7 +39,7 @@ def gui():
     help="Extract DIA precursors from a list of raw files using a spectral library."
 )
 @click.argument(
-    "output-location",
+    "output-directory",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
     required=False,
 )
@@ -119,33 +119,34 @@ def extract(**kwargs):
         with open(kwargs['config'], 'r') as f:
             config_update = yaml.safe_load(f)
 
-    output_location = None
-    if kwargs['output_location'] is not None:
-        output_location = kwargs['output_location']
+    output_directory = None
+    if kwargs['output_directory'] is not None:
+        output_directory = kwargs['output_directory']
 
-    if "output" in config_update:
-        output_location = config_update['output']
+    if "output_directory" in config_update:
+        output_directory = config_update['output_directory']
 
-    if output_location is None:
-        logging.error("No output location specified.")
+    if output_directory is None:
+        logging.error("No output directory specified.")
         return
 
-    reporting.init_logging(kwargs['output_location'])
+    reporting.init_logging(kwargs['output_directory'])
     logger = logging.getLogger()
 
     # assert input files have been specified
-    files = None
+    files = []
     if kwargs['file'] is not None:
         files = list(kwargs['file'])
 
     if kwargs['directory'] is not None:
         files += [os.path.join(kwargs['directory'], f) for f in os.listdir(kwargs['directory'])]
     
-    if "files" in config_update:
-        files += config_update['files'] if type(config_update['files']) is list else [config_update['files']]
+    if "raw_file_list" in config_update:
+        files += config_update['raw_file_list'] if type(config_update['raw_file_list']) is list else [config_update['raw_file_list']]
 
+    print(config_update)
     if (files is None) or (len(files) == 0):
-        logging.error("No files specified.")
+        logging.error("No raw files specified.")
         return
     
     # assert library has been specified
@@ -164,7 +165,7 @@ def extract(**kwargs):
     for f in files:
         logger.progress(f"  {f}")
     logger.progress(f"Using library {library}.")
-    logger.progress(f"Saving output to {output_location}.")
+    logger.progress(f"Saving output to {output_directory}.")
     
     try:
 
@@ -178,7 +179,7 @@ def extract(**kwargs):
         #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
 
         plan = Plan(
-            output_location,
+            output_directory,
             files,
             library,
             config_update = config_update

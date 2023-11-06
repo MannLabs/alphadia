@@ -3,7 +3,7 @@ import styled from '@emotion/styled'
 import { useMethod, useMethodDispatch } from '../logic/context'
 
 import { Box } from '@mui/material'
-import { SingleSelect, InputFileSelect, FileViewer } from '../components'
+import { SingleSelect, MultiSelect, InputFileSelect, FileViewer } from '../components'
 
 const FullWidthBox = styled(Box)(({ theme }) => ({
     width: '100%'
@@ -31,23 +31,23 @@ const Files = () => {
                     />
                 </FullWidthBox>
                 <FullWidthBox>
-                    <SingleSelect 
-                            label="Fasta File"
-                            active={method.fasta.active}
-                            path={method.fasta.path}
+                    <MultiSelect 
+                            label="Fasta File(s)"
+                            active={method.fasta_list.active}
+                            path={method.fasta_list.path}
                             tooltipText="Select the fasta file which you would like to use."
                             onChange={(path) => {dispatch({type: 'updateFasta', path: path})}}
                     />
                 </FullWidthBox>
                 <FullWidthBox>
                     <InputFileSelect
-                            active={method.files.active}
-                            path={method.files.path}
+                            active={method.raw_file_list.active}
+                            path={method.raw_file_list.path}
                             onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}
                     />
                 </FullWidthBox>
                 <FullWidthBox sx={{flexGrow: 1}}>
-                    <FileViewer path={method.files.path}/>
+                    <FileViewer path={method.raw_file_list.path}/>
                 </FullWidthBox>
         </Box>  
     )
