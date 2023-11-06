@@ -8,6 +8,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import MenuBookIcon from '@mui/icons-material/MenuBook'; 
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useTheme } from '@emotion/react';
+import { useProfileDispatch, useProfile } from '../logic/profile';
+
 
 
 const StyledMenuBookIcon = styled(MenuBookIcon)(({ theme }) => ({
@@ -36,20 +38,24 @@ const WelcomeCard = ({children}) => (
     </Box>
 )
 
-const VersionCard = ({environment}) => {
+const VersionCard = () => {
 
+    const profile = useProfile();
     const theme = useTheme();
 
     let versionOutput = ""
     let updateOutput = ""
 
-    const versionString = environment?.versions?.alphadia
-    if (versionString === undefined) {
-        versionOutput = <CircularProgress />
+    
+
+    if (profile.activeIdx === -1) {
+        versionOutput = <CircularProgress sx={{color: theme.palette.text.secondary}}/>
         updateOutput = ""
     } else {
-        versionOutput = versionString
-        if (versionString === "1.2.0") {
+        let currentActiveVersion = profile.executionEngines[profile.activeIdx].versions.filter((versionEntry) => versionEntry.name === "alphadia")[0].version
+        versionOutput = currentActiveVersion
+        
+        if (currentActiveVersion != "1.2.0") {
             updateOutput = (
                 <Stack direction="row" alignItems="center" gap={1}>
                     <CheckIcon sx={{color:"rgb(75, 211, 26)"}}/>
@@ -70,12 +76,12 @@ const VersionCard = ({environment}) => {
         <Box component="div" sx={{fontWeight:200, position:'absolute', left:"0", bottom:"0", p:2}}>
             <Typography component="span" sx={{fontWeight: 200, fontSize: "3rem", fontFamily:"Roboto Mono", letterSpacing:"-0.2em" }}>{versionOutput}</Typography>
             <br/>
-            {updateOutput}            
+            {updateOutput}          
         </Box>
     </Card>
 )
 }
-const Home = ({environment}) => (
+const Home = () => (
   
     <Grid container spacing={2}>
         {/*create a grid item with a width of 4*/}
@@ -91,7 +97,7 @@ const Home = ({environment}) => (
         </Grid>
         {/*create a grid item with a width of 4*/}
         <Grid item xs={4}>
-            <VersionCard environment={environment}/>
+            <VersionCard/>
         </Grid>
         {/*create a grid item with a width of 4*/}
         <Grid item xs={4}>

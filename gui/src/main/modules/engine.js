@@ -416,7 +416,7 @@ class WSLExecutionEngine extends BaseExecutionEngine {
 
     saveWorkflow(workflow){
         return new Promise((resolve, reject) => {
-            const workflowFolder = workflow.output.path
+            const workflowFolder = workflow.output_directory.path
             const config = workflowToConfig(workflow)
             if (!fs.existsSync(workflowFolder)) {
                 reject("Output folder " + workflowFolder + " does not exist.")
@@ -434,7 +434,7 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             let run = {
                 engine: this.constructor.name,
                 name: workflow.name,
-                path: workflow.output.path,
+                path: workflow.output_directory.path,
                 std: [],
                 pid: null,
                 code: -1,
@@ -442,7 +442,7 @@ class WSLExecutionEngine extends BaseExecutionEngine {
                 activePromise: null,
             }
 
-            const winOutputPath = path.join(workflow.output.path, "config.yaml")
+            const winOutputPath = path.join(workflow.output_directory.path, "config.yaml")
             const wslOutputPath = "/mnt/" + winOutputPath.replace(/\\/g, "/").replace(":", "").toLowerCase()
 
             run.process = spawn("wsl", ["bash",
