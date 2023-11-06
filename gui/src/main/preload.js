@@ -24,5 +24,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onStderrData: (callback) => ipcRenderer.on('stderr-data', callback),
     onCloseCode: (callback) => ipcRenderer.on('close-code', callback),
 
-    onThemeChange: (callback) => ipcRenderer.on('theme-change', callback)
+    onThemeChange: (callback) => ipcRenderer.on('theme-change', callback),
+
+    getEngineStatus: () => ipcRenderer.invoke('get-engine-status'),
+    startWorkflowNew: (workflow, engineIdx) => ipcRenderer.invoke('start-workflow-new', workflow, engineIdx),
+    abortWorkflowNew: (runIdx) => ipcRenderer.invoke('abort-workflow-new', runIdx),
+    getOutputRowsNew: (runIdx, {limit, offset}) => ipcRenderer.invoke('get-output-rows-new', runIdx, {limit, offset}),
+    getOutputLengthNew: (runIdx) => ipcRenderer.invoke('get-output-length-new', runIdx),
+
 })

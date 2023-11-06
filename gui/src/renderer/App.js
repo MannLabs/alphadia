@@ -9,8 +9,10 @@ import styled from '@emotion/styled';
 import './App.css';
 
 import { Box, CssBaseline } from '@mui/material';
-import { MenuDrawer, UtilMonitor, EnvironmentMonitor } from './components';
+import { MenuDrawer, UtilMonitor, ExecutionEngine } from './components';
 import { Home, Files, Method, Output, Run } from './pages';
+
+
 
 // Define the styles for the layout
 const AppLayout = styled('div')(({ theme }) => ({
@@ -65,19 +67,6 @@ const App = () => {
             alert(error);
         });
         
-        window.electronAPI.getEnvironment().then((result) => {
-            setProfile((profile) => {
-                console.log(result);
-                return {
-                    ...profile,
-                    environment: result
-                }
-            });
-        }
-        ).catch((error) => {
-            alert(error);
-        });
-        
         window.electronAPI.onThemeChange((_event, value) => {
             setMode(value ? 'dark' : 'light');
         })
@@ -112,11 +101,11 @@ const App = () => {
             />
         <ContentContainer>
             <Box sx={{marginBottom:1, display: "flex", minHeight:"40px"}}>
-                <EnvironmentMonitor environment={profile.environment} sx={{ marginRight: "auto"}}/>
+                <ExecutionEngine environment={profile.environment} sx={{ marginRight: "auto"}}/>
                 <UtilMonitor sx={{ marginLeft: "auto"}}/>
             </Box>
             <Routes>
-                <Route path="/" element={ <Home environment={profile.environment}/> } />
+                <Route path="/" element={ <Home /> } />
                 <Route path="/files" element={ <Files/> } />
                 <Route path="/method" element={ <Method/> } />
                 <Route path="/output" element={ <Output/> } />

@@ -8,7 +8,7 @@ const os = require('os')
 
 const { handleGetSingleFolder,handleGetMultipleFolders, handleGetSingleFile, handleGetMultipleFiles, handleGetMultiple } = require('./modules/dialogHandler')
 const { discoverWorkflows, workflowToConfig } = require('./modules/workflows')
-const { CondaEnvironment} = require('./modules/cmd');
+const { ExecutionManager } = require('./modules/engine')
 const { buildMenu } = require('./modules/menu')
 const { Profile } = require('./modules/profile')
 
@@ -25,8 +25,8 @@ if (require('electron-squirrel-startup')) app.quit();
 
 let mainWindow;
 let workflows;
-let environment;
 let profile;
+let executionManager;
 
 function createWindow() {
   // Create the browser window.
@@ -54,8 +54,8 @@ function createWindow() {
     if (process.env.NODE_ENV === "dev"){
         mainWindow.webContents.openDevTools({ mode: "detach" });
     }
-    
-    environment = new CondaEnvironment(profile)
+
+    executionManager = new ExecutionManager(profile)
     workflows = discoverWorkflows(mainWindow)
 }
 
@@ -77,38 +77,22 @@ async function handleGetUtilisation (event) {
     }
 }
 
-function handleStartWorkflow(workflow) {
-
-    const workflowFolder = workflow.output_directory.path
-    const config = workflowToConfig(workflow)
-
-    // check if workflow folder exists
-    if (!fs.existsSync(workflowFolder)) {
-        dialog.showMessageBox(mainWindow, {
-            type: 'error',
-            title: 'Workflow Failed to Start',
-            message: `Could not start workflow. Output folder ${workflowFolder} does not exist.`,
-        }).catch((err) => {
-            console.log(err)
-        })
-        return Promise.resolve("Workflow failed to start.")
-    }
-
-    const configPath = path.join(workflowFolder, "config.yaml")
-    // save config.yaml in workflow folder
-    writeYamlFile.sync(configPath, config, {lineWidth: -1})
-    
-    return environment.spawn(`conda run -n ${profile.config.conda.envName} --no-capture-output alphadia extract --config ${configPath}`)
-}
-
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-    
+
     console.log(app.getLocale())
     console.log(app.getSystemLocale())
     createWindow(); 
+
+    ipcMain.handle('get-engine-status', () => executionManager.getEngineStatus())
+
+    ipcMain.handle('start-workflow-new', (event, workflow, engineIdx) => executionManager.startWorkflow(workflow, engineIdx))
+    ipcMain.handle('abort-workflow-new', (event, runIdx) => executionManager.abortWorkflow(runIdx))
+    
+    ipcMain.handle('get-output-length-new', (event, runIdx) => executionManager.getOutputLength(runIdx))
+    ipcMain.handle('get-output-rows-new', (event, runIdx, {limit, offset}) => executionManager.getOutputRows(runIdx, limit, offset))
 
     ipcMain.handle('get-single-folder', handleGetSingleFolder(mainWindow))
     ipcMain.handle('get-multiple-folders', handleGetMultipleFolders(mainWindow))
@@ -117,15 +101,6 @@ app.whenReady().then(() => {
     ipcMain.handle('get-multiple', handleGetMultiple(mainWindow))
     ipcMain.handle('get-utilisation', handleGetUtilisation)
     ipcMain.handle('get-workflows', () => workflows)
-
-    ipcMain.handle('get-environment', () => environment.getEnvironmentStatus())
-
-    ipcMain.handle('run-command', (event, cmd) => environment.spawn(cmd))
-    ipcMain.handle('get-output-rows', (event, {limit, offset}) => environment.getOutputRows(limit, offset))
-    ipcMain.handle('get-output-length', () => environment.getOutputLength())
-    
-    ipcMain.handle('start-workflow', (event, workflow) => handleStartWorkflow(workflow))
-    ipcMain.handle('abort-workflow', () => environment.kill())
 
     ipcMain.on('open-link', handleOpenLink)
     nativeTheme.on('updated', () => {
@@ -139,6 +114,7 @@ app.whenReady().then(() => {
     powerMonitor.on("suspend", () => {
         powerSaveBlocker.start("prevent-app-suspension");
     });
+
 });
 
 app.on('window-all-closed', () => {

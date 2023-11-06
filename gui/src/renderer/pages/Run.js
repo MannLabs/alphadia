@@ -1,13 +1,16 @@
 import * as React from 'react'
 
 import { useMethod } from '../logic/context'
+
 import { useTheme } from "@mui/material";
 import { useRef, useEffect } from 'react'
+
 import { FixedSizeList } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
 
 import { Box, TextField } from '@mui/material'
+import { useProfile } from '../logic/profile';
 
 function parseConsoleOutput(input, theme) {
     const escapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
@@ -74,14 +77,14 @@ const Output = () => {
     const [listRef, setListRef] = React.useState(null)
     const [scrollAttached, setScrollAttached] = React.useState(true)
 
-    
+    const profile = useProfile();
 
     useEffect(() => {
         currentLengthRef.current = items.length;
     })
 
     const updateItems = (currentLengthRef) => {
-        window.electronAPI.getOutputRows({limit:100, offset: currentLengthRef}).then((newItems) => {
+        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset: currentLengthRef}).then((newItems) => {
             setItems( items => [...items, ...newItems]);
         });
     }
@@ -93,7 +96,7 @@ const Output = () => {
         let isMounted = true;
         
         const interval = setInterval(() => {
-            window.electronAPI.getOutputLength().then((length) => {
+            window.electronAPI.getOutputLengthNew(-1).then((length) => {
                 if (isMounted){
                     if (length > currentLengthRef.current) {
                         updateItems(currentLengthRef.current);

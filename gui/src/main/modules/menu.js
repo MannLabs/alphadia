@@ -26,6 +26,7 @@ function buildMenu(mainWindow, profile) {
     {
         label: 'File',
         submenu: [
+            { role: 'toggledevtools'},
         isMac ? { role: 'close' } : { role: 'quit' },
         ...(isMac ? []: [{ id: 'preferences', label: 'Preferences', click: () => { profile.openProfile() } }])
         ]

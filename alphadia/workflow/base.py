@@ -159,20 +159,29 @@ class WorkflowBase():
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
+        if self.config['general']['wsl']:
+            # copy file to /tmp
+            import shutil
+            import tempfile
+            tmp_path = "/tmp"
+            tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
+            shutil.copyfile(dia_data_path, tmp_dia_data_path)
+            dia_data_path = tmp_dia_data_path
+
         if file_extension == '.d':
             self.reporter.log_metric('raw_data_type', 'bruker')
-            return bruker.TimsTOFTranspose(
+            dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
-            )
-            
+            )           
             
         elif file_extension == '.hdf':
             self.reporter.log_metric('raw_data_type', 'bruker')
-            return bruker.TimsTOFTranspose(
+            dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events = self.config['general']['mmap_detector_events']
             )
+            
         elif file_extension == '.raw':
             self.reporter.log_metric('raw_data_type', 'thermo')
             # check if cv selection exists
@@ -181,7 +190,7 @@ class WorkflowBase():
                 if 'cv' in self.config['raw_data_loading']:
                     cv = self.config['raw_data_loading']['cv']
 
-            return thermo.Thermo(
+            dia_data = thermo.Thermo(
                 dia_data_path,
                 astral_ms1= self.config['general']['astral_ms1'],
                 process_count = self.config['general']['thread_count'],
@@ -189,4 +198,9 @@ class WorkflowBase():
             )
         else:
             raise ValueError(f'Unknown file extension {file_extension} for file at {dia_data_path}')
+        
+        # remove tmp file if wsl
+        if self.config['general']['wsl']:
+            os.remove(tmp_dia_data_path)
+        return dia_data
         

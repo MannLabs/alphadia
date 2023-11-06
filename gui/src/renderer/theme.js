@@ -21,7 +21,7 @@ const buildPalette = (mode) => {
         },
         background: {
             default: isDark? "#222" : "#fff",
-            paper: isDark? "#282828" : "#fff",
+            paper: isDark? "#111" : "#fff",
         },
         divider: isDark? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
     }

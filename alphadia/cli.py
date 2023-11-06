@@ -9,6 +9,7 @@ import os
 # alphadia imports
 import alphadia
 from alphadia.workflow import reporting
+from alphadia import utils
 
 # alpha family imports
 
@@ -23,9 +24,8 @@ import click
 )
 
 @click.pass_context
-@click.version_option(alphadia.__version__, "-v", "--version")
+@click.version_option(alphadia.__version__, "-v", "--version", message="%(version)s")
 def run(ctx, **kwargs):
-   
     if ctx.invoked_subcommand is None:
         click.echo(run.get_help(ctx))
 
@@ -61,6 +61,14 @@ def gui():
     '-l',
     help="Spectral library in AlphaBase hdf5 format.",
     type=click.Path(exists=True, file_okay=True, dir_okay=False),
+)
+@click.option(
+    '--wsl',
+    '-w',
+    help="Run alphadia using WSL. Windows paths will be converted to WSL paths.",
+    type=bool,
+    default=False,
+    is_flag=True,
 )
 @click.option(
     "--fdr",
@@ -119,32 +127,45 @@ def extract(**kwargs):
         with open(kwargs['config'], 'r') as f:
             config_update = yaml.safe_load(f)
 
+    # update output directory based on config file
     output_directory = None
     if kwargs['output_directory'] is not None:
+        if kwargs['wsl']:
+            kwargs['output_directory'] = utils.windows_to_wsl(kwargs['output_directory'])
         output_directory = kwargs['output_directory']
 
     if "output_directory" in config_update:
+        if kwargs['wsl']:
+            config_update['output_directory'] = utils.windows_to_wsl(config_update['output_directory'])
         output_directory = config_update['output_directory']
+
 
     if output_directory is None:
         logging.error("No output directory specified.")
         return
 
-    reporting.init_logging(kwargs['output_directory'])
+    reporting.init_logging(output_directory)
     logger = logging.getLogger()
-
+    
     # assert input files have been specified
     files = []
     if kwargs['file'] is not None:
         files = list(kwargs['file'])
+        if kwargs['wsl']:
+            files = [utils.windows_to_wsl(f) for f in files]
 
+    # load whole directory if specified
     if kwargs['directory'] is not None:
+        if kwargs['wsl']:
+            kwargs['directory'] = utils.windows_to_wsl(kwargs['directory'])
         files += [os.path.join(kwargs['directory'], f) for f in os.listdir(kwargs['directory'])]
     
+    # load list of raw files from config file
     if "raw_file_list" in config_update:
+        if kwargs['wsl']:
+            config_update['raw_file_list'] = [utils.windows_to_wsl(f) for f in config_update['raw_file_list']]
         files += config_update['raw_file_list'] if type(config_update['raw_file_list']) is list else [config_update['raw_file_list']]
 
-    print(config_update)
     if (files is None) or (len(files) == 0):
         logging.error("No raw files specified.")
         return
@@ -152,9 +173,13 @@ def extract(**kwargs):
     # assert library has been specified
     library = None
     if kwargs['library'] is not None:
+        if kwargs['wsl']:
+            kwargs['library'] = utils.windows_to_wsl(kwargs['library'])
         library = kwargs['library']
 
     if "library" in config_update:
+        if kwargs['wsl']:
+            config_update['library'] = utils.windows_to_wsl(config_update['library'])
         library = config_update['library']
 
     if library is None:
@@ -165,8 +190,13 @@ def extract(**kwargs):
     for f in files:
         logger.progress(f"  {f}")
     logger.progress(f"Using library {library}.")
+
+
+    if kwargs['wsl']:
+        config_update['general']['wsl'] = True
+
     logger.progress(f"Saving output to {output_directory}.")
-    
+
     try:
 
         import matplotlib
@@ -174,9 +204,6 @@ def extract(**kwargs):
         matplotlib.use('Agg')
 
         from alphadia.planning import Plan
-        #lib._precursor_df['elution_group_idx'] = lib._precursor_df['precursor_idx']
-
-        #config_update = eval(kwargs['config_update']) if kwargs['config_update'] else None
 
         plan = Plan(
             output_directory,
@@ -192,4 +219,4 @@ def extract(**kwargs):
         )
 
     except Exception as e:
-        logging.exception(e)
+        logger.error(e)
