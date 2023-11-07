@@ -28,8 +28,6 @@ class WorkflowBase():
     def __init__(self,
         instance_name: str,
         config: dict,
-        dia_data_path: str,
-        spectral_library: SpecLibBase,
         ) -> None:
         """
         Parameters
@@ -57,6 +55,11 @@ class WorkflowBase():
             logger.info(f"Creating workflow folder for {self.instance_name} at {self.path}")
             os.mkdir(self.path)
 
+    def load(self,
+        dia_data_path: str,
+        spectral_library: SpecLibBase,
+        ) -> None:
+
         self.reporter = reporting.Pipeline(
             backends=[
                 reporting.LogBackend(),
@@ -77,9 +80,9 @@ class WorkflowBase():
 
         # initialize the calibration manager
         self._calibration_manager = manager.CalibrationManager(
-            config['calibration_manager'],
+            self.config['calibration_manager'],
             path = os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration'],
+            load_from_file = self.config['general']['reuse_calibration'],
             reporter = self.reporter
         )
         
@@ -89,9 +92,9 @@ class WorkflowBase():
 
         # initialize the optimization manager
         self._optimization_manager = manager.OptimizationManager(
-            config['optimization_manager'],
+            self.config['optimization_manager'],
             path = os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
-            load_from_file = config['general']['reuse_calibration'],
+            load_from_file = self.config['general']['reuse_calibration'],
             figure_path = os.path.join(self.path, self.FIGURE_PATH),
             reporter = self.reporter
         )
