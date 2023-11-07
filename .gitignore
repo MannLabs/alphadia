@@ -137,6 +137,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Data
+testdata/
+
 ######################
 # OS generated files #
 ######################
