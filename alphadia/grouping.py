@@ -97,6 +97,7 @@ def group_and_parsimony(
 def perform_grouping(
         psm: pd.DataFrame,
         genes_or_proteins: str = "proteins",
+        decoy_column: str = "decoy",
 ):
     """Highest level function for grouping proteins in precursor table
 
@@ -110,17 +111,17 @@ def perform_grouping(
 
     #create non-duplicated view of precursor table
     duplicate_mask = ~psm.duplicated(subset = ["precursor_idx", genes_or_proteins], keep = "first")
-    upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, "_decoy"]]
+    upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
         
     #handle case with only one decoy class:
-    unique_decoys = upsm["_decoy"].unique()
+    unique_decoys = upsm[decoy_column].unique()
     if len(unique_decoys) == 1:
-        upsm["_decoy"] = -1
+        upsm[decoy_column] = -1
         upsm["pg_master"], upsm["pg"] = group_and_parsimony(upsm.precursor_idx.values, upsm[genes_or_proteins].values) 
         upsm = upsm[["precursor_idx", "pg_master", "pg"]]
     else:
-        target_mask = upsm["_decoy"] == 0
-        decoy_mask = upsm["_decoy"] == 1
+        target_mask = upsm[decoy_column] == 0
+        decoy_mask = upsm[decoy_column] == 1
 
         t_df = upsm[target_mask].copy()
         new_columns = group_and_parsimony(t_df.precursor_idx.values, t_df[genes_or_proteins].values) 
