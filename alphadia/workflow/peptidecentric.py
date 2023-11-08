@@ -535,8 +535,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
        
     def extraction(self):
 
-        return
-
         #if self.neptune is not None:
         #    for key, value in self.com.__dict__.items():
         #        if key is not None:
@@ -556,9 +554,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         features_df, fragments_df = self.extract_batch(self.spectral_library._precursor_df)
         precursor_df = self.fdr_correction(features_df)
-
-        if not self.config['fdr']['keep_decoys']:
-            precursor_df = precursor_df[precursor_df['decoy'] == 0]
 
         precursor_df = precursor_df[precursor_df['qval'] <= self.config['fdr']['fdr']]
         self.log_precursor_df(precursor_df)

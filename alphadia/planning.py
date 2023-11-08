@@ -240,39 +240,6 @@ class Plan:
                 print(e)
                 logger.error(f'Workflow failed for {raw_name} with error {e}')
                 continue
-
         
-        output = outputtransform.SearchPlanOutput(self.config)
+        output = outputtransform.SearchPlanOutput(self.config ,self.output_folder)
         output.build_output(workflow_folder_list)
-
-
-    def build_output(self):
-
-        logger.progress('Building Output')
-
-        output_path = self.config['output']
-        temp_path = os.path.join(output_path, base.TEMP_FOLDER)
-
-        psm_df = []
-        stat_df = []
-
-        for raw_name, dia_path, speclib in self.get_run_data():
-            run_path = os.path.join(temp_path, raw_name)
-            psm_path = os.path.join(run_path, 'psm.tsv')
-            if not os.path.exists(psm_path):
-                logger.warning(f'no psm file found for {raw_name}')
-                continue
-            run_df = pd.read_csv(os.path.join(run_path, 'psm.tsv'), sep='\t')
-            
-            psm_df.append(run_df)
-            stat_df.append(build_stat_df(run_df))
-
-        psm_df = pd.concat(psm_df)
-        stat_df = pd.concat(stat_df)
-
-        psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False, float_format='%.6f')
-        stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False, float_format='%.6f')
-
-        logger.info(f'Finished building output')
-
-

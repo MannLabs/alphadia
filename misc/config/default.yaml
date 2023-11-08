@@ -28,9 +28,9 @@ search:
 fdr:
   fdr: 0.01
   group_level: 'proteins'
-  competetive_scoring: true,
-  keep_decoys: false,
-  channel_wise_fdr: false,
+  competetive_scoring: true
+  keep_decoys: false
+  channel_wise_fdr: false
 
 calibration:
   min_epochs: 3
@@ -41,7 +41,7 @@ calibration:
   norm_rt_mode: 'linear'
 
 search_initial:
-  initial_num_candidates: 2
+  initial_num_candidates: 1
   initial_ms1_tolerance: 30
   initial_ms2_tolerance: 30
   initial_mobility_tolerance: 0.08
