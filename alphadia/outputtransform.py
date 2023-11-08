@@ -58,7 +58,11 @@ class SearchPlanOutput:
         psm_df = pd.concat(psm_df_list)
 
         logger.progress('Performing protein grouping')
-        psm_df = grouping.perform_grouping(psm_df, genes_or_proteins=self.config['fdr']['group_level'])
+        if self.config['fdr']['library_grouping']:
+            psm_df['pg'] = psm_df[self.config['fdr']['group_level']]
+            psm_df['pg_master'] = psm_df[self.config['fdr']['group_level']]
+        else:
+            psm_df = grouping.perform_grouping(psm_df, genes_or_proteins=self.config['fdr']['group_level'])
 
         logger.progress('Performing protein FDR')
         psm_df = perform_protein_fdr(psm_df)
