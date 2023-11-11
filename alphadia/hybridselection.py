@@ -1099,7 +1099,10 @@ class HybridCandidateSelection(object):
             return elution_group_container, df
         
         logging.info('Finished candidate selection')
-            
+
+        del elution_group_container
+        del fragment_container
+    
         return df
     
     def assemble_fragments(self):
@@ -1398,13 +1401,17 @@ def build_features(
     #precursor_binary_sum = np.sum(precursor_binary, axis=0)
     #precursor_binary_weighted = np.sum(precursor_binary * precursor_kernel, axis=0)
 
-    precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
-    precursor_dot_mean = np.mean(precursor_dot)
-    precursor_norm = precursor_dot/(precursor_dot_mean+0.001)
+    #precursor_dot = np.sum(smooth_precursor[0] * precursor_kernel, axis=0)
+    #precursor_dot_mean = np.mean(precursor_dot)
+    #precursor_norm = precursor_dot/(precursor_dot_mean+0.001)
 
-    fragment_dot = np.sum(smooth_fragment[0] * fragment_kernel, axis=0)
-    fragment_dot_mean = np.mean(fragment_dot)
-    fragment_norm = fragment_dot/(fragment_dot_mean+0.001)
+    #fragment_dot = np.sum(smooth_fragment[0] * fragment_kernel, axis=0)
+    #fragment_dot_mean = np.mean(fragment_dot)
+    #fragment_norm = fragment_dot/(fragment_dot_mean+0.001)
+
+    log_fragment = np.sum(np.log(smooth_fragment[0] + 1), axis=0)
+    log_precursor = np.sum(np.log(smooth_precursor[0] + 1), axis=0)
+
 
     #fragment_mass_error = np.sum(np.abs(smooth_fragment[1]), axis=0)
     #fragment_mass_error_max = np.max(fragment_mass_error)
@@ -1427,13 +1434,13 @@ def build_features(
     
 
     #profile correlation
-    top3_profiles = np.sum(smooth_fragment[0,:3], axis=1)
-    top3_correlation = utils.profile_correlation(top3_profiles)
+    #top3_profiles = np.sum(smooth_fragment[0,:3], axis=1)
+    #top3_correlation = utils.profile_correlation(top3_profiles)
 
     #features[0] = fragment_binary_weighted
     #features[1] = np.log(fragment_norm +1)
     #features[2] = np.log(precursor_norm +1)
-    features[0] = np.log(fragment_norm +1) + np.log(precursor_norm +1)
+    features[0] = log_fragment + log_precursor #np.log(fragment_norm +1) + np.log(precursor_norm +1)
     #features[4] = fragment_mass_error_norm
     #features[5] = precursor_mass_error_norm
     #features[6] = fragment_mass_error_norm * precursor_mass_error_norm
@@ -1591,7 +1598,7 @@ def plot_candidates(
     has_mobility = height_px > 2
     
     if has_mobility:
-        fig_size = (max(width_px/500 * 8,5), height_px/500 * 5 )
+        fig_size = (max(width_px/500 * 8,5), height_px/100 * 5 )
         gridspec_kw = {'height_ratios': [1,9]}
     else:
         fig_size = (max(width_px/500 * 8,5), 5)

@@ -2,6 +2,7 @@
 const fs = require("fs")
 const path = require("path")
 const { app, shell} = require("electron")
+const { dialog } = require('electron')
 
 const Profile = class {
 
@@ -12,6 +13,16 @@ const Profile = class {
             "path": ""
         },
         "clippy": false,
+        "WSLExecutionEngine": {
+            "envName": "alpha",
+            
+        },
+        "CMDExecutionEngine": {
+            "envName": "alpha",
+            "condaPath": ""
+        },
+        "DockerExecutionEngine": {
+        },
     }
 
     constructor() {
@@ -31,7 +42,17 @@ const Profile = class {
     }
 
     loadProfile() {
-        this.config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+        try {
+            this.config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+        } catch (err) {
+            dialog.showMessageBox({
+                type: 'error',
+                title: 'Error while loading profile',
+                message: `Could not load profile. ${err}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+        }
     }
 
     getProfilePath() {

@@ -13,8 +13,8 @@ const Output = () => {
         <SingleSelect 
             type="folder"
             label="Output Folder"
-            active={method.output.active}
-            path={method.output.path}
+            active={method.output_directory.active}
+            path={method.output_directory.path}
             tooltipText="Select the folder where you would like to save the output."
             onChange={(path) => {dispatch({type: 'updateOutput', path: path})}}
         />

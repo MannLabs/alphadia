@@ -77,7 +77,7 @@ class ProcessingPipeline():
         
 class DynamicLoader(ProcessingStep):
 
-    def __init__(self) -> None:
+    def __init__(self, modification_mapping = {}) -> None:
         """Load a spectral library from a file. The file type is dynamically inferred from the file ending.
         Expects a `str` as input and will return a `SpecLibBase` object.
 
@@ -90,7 +90,7 @@ class DynamicLoader(ProcessingStep):
         The classical spectral library format as returned by MSFragger.
         It will be imported and converted to a `SpecLibBase` format. This might require additional parsing information.
         """
-        pass
+        self.modification_mapping = modification_mapping
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
@@ -114,6 +114,7 @@ class DynamicLoader(ProcessingStep):
 
         elif file_type in ['.csv', '.tsv']:
             library = LibraryReaderBase()
+            library.add_modification_mapping(self.modification_mapping)
             library.import_file(input_path)
 
         else:
@@ -165,6 +166,7 @@ class AnnotateFasta(ProcessingStep):
     def __init__(self, 
                 fasta_path_list: typing.List[str],
                 drop_unannotated: bool = True,
+                drop_decoy: bool = True,
                 ) -> None:
         """Annotate the precursor dataframe with protein information from a FASTA file.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
@@ -183,6 +185,7 @@ class AnnotateFasta(ProcessingStep):
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
+        self.drop_decoy = drop_decoy
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object and that all FASTA files exist."""
@@ -201,6 +204,11 @@ class AnnotateFasta(ProcessingStep):
         protein_df = fasta.load_fasta_list_as_protein_df(
             self.fasta_path_list
         )
+
+        if self.drop_decoy and 'decoy' in input.precursor_df.columns:
+            logger.info(f'Dropping decoys from input library before annotation')
+            input._precursor_df = input._precursor_df[input._precursor_df['decoy'] == 0]
+            
         input._precursor_df = fasta.annotate_precursor_df(input.precursor_df, protein_df)
 
         if self.drop_unannotated and 'cardinality' in input._precursor_df.columns:
@@ -303,6 +311,15 @@ class RTNormalization(ProcessingStep):
         if len(input.precursor_df) == 0:
             logger.warning(f'Input library has no precursor information. Skipping RT normalization')
             return input
+        
+        if 'rt' not in input.precursor_df.columns:
+            if 'rt_norm' in input.precursor_df.columns or 'rt_norm_pred' in input.precursor_df.columns:
+                logger.warning(f'Input library already contains normalized RT information. Skipping RT normalization')
+                return input
+            else:
+                logger.warning(f'Input library has no RT information. Skipping RT normalization')
+                return input
+        
         percentiles = np.percentile(input.precursor_df['rt'], [0.1,99.9])
         input._precursor_df['rt'] = np.clip(input._precursor_df['rt'], percentiles[0], percentiles[1])
 
@@ -344,7 +361,7 @@ class InitFlatColumns(ProcessingStep):
 
         precursor_columns = {
             'mz_library': ['mz_library', 'mz','precursor_mz'],
-            'rt_library': ['rt_library','rt','rt_norm'],
+            'rt_library': ['rt_library','rt','rt_norm', 'rt_pred', 'rt_norm_pred', 'irt'],
             'mobility_library': ['mobility_library','mobility']
         }
 
@@ -359,7 +376,10 @@ class InitFlatColumns(ProcessingStep):
                         df.rename(columns={candidate_columns: key}, inplace=True)
                         # break after first match
                         break
-        
+
+        if 'mobility_library' not in input.precursor_df.columns:
+            input.precursor_df['mobility_library'] = 0
+
         return input
 
 class LogFlatLibraryStats(ProcessingStep):

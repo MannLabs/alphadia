@@ -5,19 +5,21 @@
         "required": false,
         "path": ""
     },
-    "fasta": {
-        "active": false,
-        "required": false,
-        "path": ""
-    },
-    "files": {
+    "fasta_list": {
         "active": true,
         "required": false,
         "path": [
             ""
         ]
     },
-    "output": {
+    "raw_file_list": {
+        "active": true,
+        "required": false,
+        "path": [
+            ""
+        ]
+    },
+    "output_directory": {
         "active": true,
         "required": true,
         "path": ""
@@ -33,7 +35,7 @@
                     "name": "Number of Threads",
                     "value": 10,
                     "description": "Number of threads to use for parallel processing.",
-                    "type": "number"
+                    "type": "integer"
                 },
                 {
                     "id": "reuse_calibration",
@@ -50,31 +52,45 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "save_figures",
-                    "name": "Save Figures",
-                    "value": false,
-                    "description": "AlphaDIA will save figures during calibration. This can be useful for debugging.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "mmap_detector_events",
-                    "name": "Use Memory Mapped Files",
-                    "value": false,
-                    "description": "AlphaDIA will use memory mapped files to load detector events. This can allow processing large files even if the system does not have enough memory.",
-                    "type": "boolean"
-                },
-                {
                     "id": "astral_ms1",
                     "name": "Use Astral MS1",
                     "value": false,
                     "description": "AlphaDIA will use the Astral detector for MS1 information, if available.",
                     "type": "boolean"
+                },
+                {
+                    "id": "log_level",
+                    "name": "Log Level",
+                    "value": "INFO",
+                    "description": "Log level for the console output.",
+                    "type": "dropdown",
+                    "options": [
+                        "DEBUG",
+                        "INFO",
+                        "PROGRESS",
+                        "WARNING",
+                        "ERROR"
+                    ]
                 }
             ]
         },
         {
             "id": "library_loading",
             "name": "Spectral Library",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "save_hdf",
+                    "name": "Save Library",
+                    "value": true,
+                    "description": "Store the library as alphaBase HDF file. This will speed up subsequent searches and will include predicted properties.",
+                    "type": "boolean"          
+                }
+            ]
+        },
+        {
+            "id": "search",
+            "name": "Initial Search",
             "hidden": false,
             "parameters": [
                 {
@@ -90,49 +106,41 @@
                     "value": true,
                     "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
                     "type": "boolean"
-                }
-            ]
-
-        },
-        {
-            "id": "extraction_target",
-            "name": "Search Settings",
-            "hidden": false,
-            "parameters": [
+                },
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
                     "value": 5,
-                    "description": "Number of candidates to extract per precursor.",
-                    "type": "number"
+                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
+                    "type": "integer"
                 },
                 {
                     "id": "target_ms1_tolerance",
                     "name": "MS1 Tolerance",
                     "value": 15,
                     "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "target_ms2_tolerance",
                     "name": "MS2 Tolerance",
                     "value": 15,
                     "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "target_mobility_tolerance",
                     "name": "Mobility Tolerance",
                     "value": 0.04,
                     "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 30,
+                    "value": 60,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "number"
+                    "type": "float"
                 }
             ]
         },
@@ -146,7 +154,18 @@
                     "name": "FDR",
                     "value": 0.01,
                     "description": "Maximum false discovery rate for PSMs.",
-                    "type": "number"
+                    "type": "float"
+                },
+                {
+                    "id": "group_level",
+                    "name": "Grouping Level",
+                    "value": "proteins",
+                    "description": "Grouping level for FDR correction.",
+                    "type": "dropdown",
+                    "options": [
+                        "genes",
+                        "proteins"
+                    ]
                 },
                 {
                     "id": "competetive_scoring",
@@ -181,35 +200,35 @@
                     "name": "Number of Candidates",
                     "value": 2,
                     "description": "Initial number of candidates to extract per precursor.",
-                    "type": "number"
+                    "type": "integer"
                 },
                 {
                     "id": "initial_ms1_tolerance",
                     "name": "MS1 Tolerance",
                     "value": 30,
                     "description": "Initial MS1 tolerance in ppm. ",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "initial_ms2_tolerance",
                     "name": "MS2 Tolerance",
                     "value": 30,
                     "description": "Initial MS2 tolerance in ppm.",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "initial_mobility_tolerance",
                     "name": "Mobility Tolerance",
                     "value": 0.08,
                     "description": "Initial mobility tolerance in 1/K_0.",
-                    "type": "number"
+                    "type": "float"
                 },
                 {
                     "id": "initial_rt_tolerance",
                     "name": "RT Tolerance",
                     "value": 240,
                     "description": "Initial retention time tolerance in seconds.",
-                    "type": "number"
+                    "type": "float"
                 }
             ]
         },
@@ -237,14 +256,14 @@
                     "name": "Decoy Channel",
                     "value": 12,
                     "description": "Non-existant channel used for decoy identifications.",
-                    "type": "number"
+                    "type": "integer"
                 },
                 {
                     "id": "reference_channel",
                     "name": "Reference Channel",
                     "value": 0,
                     "description": "The reference channel is only used for guiding identification and is not used for quantification. Some features will be calculated with respect to the reference channel.",
-                    "type": "number"
+                    "type": "integer"
                 },
                 {
                     "id": "competetive_scoring",
@@ -252,153 +271,6 @@
                     "value": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
                     "type": "boolean"
-                }
-            ]
-        },
-        {
-            "id": "selection_config",
-            "name": "Selection Configuration",
-            "hidden": true,
-            "parameters": [
-                {
-                    "id": "peak_len_rt",
-                    "name": "peak_len_rt",
-                    "value": 10,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "sigma_scale_rt",
-                    "name": "sigma_scale_rt",
-                    "value": 0.5,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "peak_len_mobility",
-                    "name": "peak_len_mobility",
-                    "value": 0.1,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "sigma_scale_mobility",
-                    "name": "sigma_scale_mobility",
-                    "value": 1,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "top_k_precursors",
-                    "name": "top_k_precursors",
-                    "value": 3,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "top_k_fragments",
-                    "name": "top_k_fragments",
-                    "value": 12,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "kernel_size",
-                    "name": "kernel_size",
-                    "value": 30,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "f_mobility",
-                    "name": "f_mobility",
-                    "value": 1,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "f_rt",
-                    "name": "f_rt",
-                    "value": 0.99,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "center_fraction",
-                    "name": "center_fraction",
-                    "value": 0.5,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "min_size_mobility",
-                    "name": "min_size_mobility",
-                    "value": 8,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "min_size_rt",
-                    "name": "min_size_rt",
-                    "value": 3,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "max_size_mobility",
-                    "name": "max_size_mobility",
-                    "value": 50,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "max_size_rt",
-                    "name": "max_size_rt",
-                    "value": 15,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "group_channels",
-                    "name": "group_channels",
-                    "value": false,
-                    "description": "",
-                    "type": "boolean"
-                },
-                {
-                    "id": "use_weighted_score",
-                    "name": "use_weighted_score",
-                    "value": true,
-                    "description": "",
-                    "type": "boolean"
-                },
-                {
-                    "id": "join_close_candidates",
-                    "name": "join_close_candidates",
-                    "value": true,
-                    "description": "",
-                    "type": "boolean"
-                },
-                {
-                    "id": "join_close_candidates",
-                    "name": "join_close_candidates",
-                    "value": true,
-                    "description": "",
-                    "type": "boolean"
-                },
-                {
-                    "id": "join_close_candidates_scan_threshold",
-                    "name": "join_close_candidates_scan_threshold",
-                    "value": 0.01,
-                    "description": "",
-                    "type": "number"
-                },
-                {
-                    "id": "join_close_candidates_cycle_threshold",
-                    "name": "join_close_candidates_cycle_threshold",
-                    "value": 0.6,
-                    "description": "",
-                    "type": "number"
                 }
             ]
         }

@@ -1451,7 +1451,8 @@ class CandidateScoring():
             'scan_stop',
             'frame_center',
             'frame_start',
-            'frame_stop'
+            'frame_stop',
+            'score'
         ]
         df = utils.merge_missing_columns(
             df,
@@ -1595,5 +1596,8 @@ class CandidateScoring():
         validate.fragment_features_df(fragment_features_df)
 
         logger.info('Finished candidate scoring')
+
+        del score_group_container
+        del fragment_container
 
         return candidate_features_df, fragment_features_df

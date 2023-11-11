@@ -14,7 +14,25 @@ import numpy as np
 import numba as nb
 import matplotlib.patches as patches
 
+
 ISOTOPE_DIFF = 1.0032999999999674
+
+def windows_to_wsl(path):
+    """Converts a Windows path to a WSL path.
+
+    Parameters
+    ----------
+    path : str
+        Windows path.
+
+    Returns
+    -------
+    str
+        WSL path.
+
+    """
+    return '/mnt/' + path[0].lower() + path[2:].replace('\\', '/')
+
 
 def recursive_update(
             full_dict: dict, 

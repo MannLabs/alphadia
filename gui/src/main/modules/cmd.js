@@ -74,7 +74,6 @@ const CondaEnvironment = class {
         }).then(() => {
             return this.checkCondaVersion().then((info) => {
 
-                
                 // executing conda run -n envName in an alreadt activated conda environment causes an error
                 // this is a workaround
                 // check if info exist and active_prefix is not null
@@ -90,6 +89,9 @@ const CondaEnvironment = class {
                     this.checkPythonVersion(),
                     this.checkAlphadiaVersion(),
                 ])
+            }).catch((error) => {
+                console.log("Conda not found", "Conda could not be found on your system. Please make sure conda is installed and added to your PATH." + error)
+                dialog.showErrorBox("Conda not found", "Conda could not be found on your system. Please make sure conda is installed and added to your PATH." + error)
             })
         }).then(() => {
             this.ready = [this.exists.conda, this.exists.python, this.exists.alphadia].every(Boolean);
@@ -102,8 +104,11 @@ const CondaEnvironment = class {
     
     discoverCondaPATH(){
         return new Promise((resolve, reject) => {
- 
-            const paths = [this.profile.config.conda.path, ...condaPATH(os.userInfo().username, os.platform())]
+            
+            // 1st choice: conda is already in PATH
+            // 2nd choice: conda path from profile setting is used
+            // 3rd choice: default conda paths are tested
+            const paths = ["", this.profile.config.conda.path, ...condaPATH(os.userInfo().username, os.platform())]
             Promise.all(paths.map((path) => {
                 return testCommand("conda", path)
                 })).then((codes) => {
