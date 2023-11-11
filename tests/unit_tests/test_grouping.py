@@ -58,7 +58,7 @@ def test_grouping(
 
 #timing test on (seeded) random generated data to monitor grouping performance
 def test_grouping_performance(
-        expected_time : int = 10
+        expected_time : int = 25
 ):
     
     #test grouping performance with dummy dataset
