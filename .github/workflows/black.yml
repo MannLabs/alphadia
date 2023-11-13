@@ -1,0 +1,35 @@
+name: Black linter
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Black
+        run: pip install 'black[jupyter]==23.11.0'
+
+      - name: Run Black
+        id: black_check
+        run: |
+          black --check --verbose . || echo "CHANGES_NEEDED=true" >> $GITHUB_ENV
+        continue-on-error: true
+
+      - name: Apply Black reformatting
+        if: env.CHANGES_NEEDED=='true'
+        run: |
+          black .
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add -A
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Apply Black formatting" && git push)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
