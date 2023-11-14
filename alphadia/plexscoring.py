@@ -425,24 +425,6 @@ class Candidate:
         self.isotope_intensity = self.isotope_intensity[:n_isotopes]
         offset = np.arange(self.isotope_intensity.shape[0]) * 1.0033548350700006 / self.charge
         self.isotope_mz = offset.astype(nb.float32) + self.precursor_mz
-
-    def build_profiles(
-        self,
-        dense_fragments,
-        template
-    ):
-        
-        # (n_fragments, n_observations, n_frames)
-        self.fragments_frame_profile = features.or_envelope_2d(features.frame_profile_2d(dense_fragments[0]))
-        
-        # (n_observations, n_frames)
-        self.template_frame_profile = features.or_envelope_1d(features.frame_profile_1d(template))
-
-        # (n_fragments, n_observations, n_scans)
-        self.fragments_scan_profile = features.or_envelope_2d(features.scan_profile_2d(dense_fragments[0]))
-
-        # (n_observations, n_scans)
-        self.template_scan_profile = features.or_envelope_1d(features.scan_profile_1d(template))
     
 
     def process(
@@ -576,11 +558,6 @@ class Candidate:
         # DEBUG only used for debugging
         #self.template = template
 
-        self.build_profiles(
-            dense_fragments,
-            template
-        )
-
         if dense_fragments.shape[0] == 0:
             self.failed = True
             return
@@ -588,14 +565,26 @@ class Candidate:
         if dense_precursors.shape[0] == 0:
             self.failed = True
             return
+        
+        # (n_fragments, n_observations, n_frames)
+        fragments_frame_profile = features.or_envelope_2d(features.frame_profile_2d(dense_fragments[0]))
+        
+        # (n_observations, n_frames)
+        template_frame_profile = features.or_envelope_1d(features.frame_profile_1d(template))
+
+        # (n_fragments, n_observations, n_scans)
+        fragments_scan_profile = features.or_envelope_2d(features.scan_profile_2d(dense_fragments[0]))
+
+        # (n_observations, n_scans)
+        template_scan_profile = features.or_envelope_1d(features.scan_profile_1d(template))
 
         if debug:
             self.visualize_profiles(
                 template,
-                self.fragments_scan_profile,
-                self.fragments_frame_profile,
-                self.template_frame_profile,
-                self.template_scan_profile,
+                fragments_scan_profile,
+                fragments_frame_profile,
+                template_frame_profile,
+                template_scan_profile,
                 jit_data.has_mobility
             )
         
@@ -642,10 +631,10 @@ class Candidate:
                 self.fragments.intensity,
                 self.fragments.type,
                 observation_importance,
-                self.fragments_scan_profile,
-                self.fragments_frame_profile,
-                self.template_scan_profile,
-                self.template_frame_profile,
+                fragments_scan_profile,
+                fragments_frame_profile,
+                template_scan_profile,
+                template_frame_profile,
                 self.scan_start,
                 self.scan_stop,
                 self.frame_start,
@@ -787,14 +776,14 @@ class ScoreGroup:
             for idx, candidate in enumerate(self.candidates):
                 if idx == reference_channel_idx:
                     continue
-                candidate.process_reference_channel(
-                    self.candidates[reference_channel_idx]
-                )
+                #candidate.process_reference_channel(
+                #    self.candidates[reference_channel_idx]
+                #)
 
                 # update rank features
-                candidate.features.update(
-                    features.rank_features(idx, self.candidates)
-                )
+                #candidate.features.update(
+                #    features.rank_features(idx, self.candidates)
+                #)
     
 score_group_type = ScoreGroup.class_type.instance_type
 
