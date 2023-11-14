@@ -167,10 +167,6 @@ class BinaryClassifier(Classifier):
 
         metric_interval : int, default=1000
             Interval for logging metrics during training.
-
-        num_workers : int, default=0
-            Number of parallel workers for data loading. Should not be larger than the number of avaliable CPU cores.
-
         """
 
         self.test_size = test_size
@@ -183,7 +179,6 @@ class BinaryClassifier(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
-        self.num_workers = num_workers
 
         self.network = None
         self.optimizer = None
@@ -301,7 +296,8 @@ class BinaryClassifier(Classifier):
         counter_patience = 0
 
         # normalize input
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
+        x -= x.mean(axis=0)
+        x /= x.std(axis=0) + 1e-6
 
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
@@ -309,32 +305,16 @@ class BinaryClassifier(Classifier):
             x, y, test_size=self.test_size
         )
 
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
-
-        x_test = torch.Tensor(x_test)
-        y_test = torch.Tensor(y_test)
-
-        train_dataset = TensorDataset(x_train, y_train)
-        test_dataset = TensorDataset(x_test, y_test)
-
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-        )
-        test_loader = DataLoader(
-            test_dataset,
-            batch_size=self.batch_size,
-            shuffle=True,
-            num_workers=self.num_workers,
-        )
+        x_train = torch.from_numpy(x_train).float()
+        y_train = torch.from_numpy(y_train).float()
+        x_test = torch.from_numpy(x_test).float()
+        y_test = torch.from_numpy(y_test).float()
+        
 
         optimizer = optim.AdamW(
             self.network.parameters(),
-            lr=self.learning_rate,
-            weight_decay=self.weight_decay,
+            lr = self.learning_rate,
+            weight_decay = self.weight_decay,
         )
 
         loss = nn.BCELoss()
@@ -342,6 +322,7 @@ class BinaryClassifier(Classifier):
         batch_count = 0
 
         for j in tqdm(range(self.epochs)):
+
             train_loss_sum = 0.0
             train_accuracy_sum = 0.0
             test_loss_sum = 0.0
@@ -350,30 +331,45 @@ class BinaryClassifier(Classifier):
             num_batches_train = 0
             num_batches_test = 0
 
-            for batch_x, batch_y in train_loader:
-                y_pred = self.network(batch_x)
-                loss_value = loss(y_pred, batch_y)
+            num_batches = (x_train.shape[0] // self.batch_size) -1
+            batch_start_list = np.arange(num_batches) * self.batch_size
+            batch_stop_list = np.arange(num_batches) * self.batch_size + self.batch_size
 
+            # shuffle batches
+            order = np.random.permutation(num_batches)
+            batch_start_list = batch_start_list[order]
+            batch_stop_list = batch_stop_list[order]
+
+            for (batch_start, batch_stop) in zip(batch_start_list, batch_stop_list):
+                y_pred = self.network(x_train[batch_start:batch_stop])
+                loss_value = loss(y_pred, y_train[batch_start:batch_stop])
+                
                 optimizer.zero_grad()
                 loss_value.backward()
                 optimizer.step()
 
                 train_loss_sum += loss_value.detach()
                 train_accuracy_sum += (
-                    (batch_y[:, 1] == y_pred.argmax(dim=1)).float().mean()
+                    (y_train[batch_start:batch_stop][:, 1] == y_pred.argmax(dim=1)).float().mean()
                 )
                 num_batches_train += 1
 
             self.network.eval()
             with torch.no_grad():
-                for batch_x, batch_y in test_loader:
-                    y_pred_test = self.network(batch_x)
-                    loss_value = loss(y_pred_test, batch_y)
-                    test_loss_sum += loss_value
-                    test_accuracy_sum += (
-                        (batch_y[:, 1] == y_pred_test.argmax(dim=1)).float().mean()
-                    )
+                test_num_batches = (x_test.shape[0] // self.batch_size) -1
+                test_batch_start_list = np.arange(test_num_batches) * self.batch_size
+                test_batch_stop_list = np.arange(test_num_batches) * self.batch_size + self.batch_size
+
+                for (batch_start, batch_stop) in zip(test_batch_start_list, test_batch_stop_list):
+                    batch_x_test = x_test[batch_start:batch_stop]
+                    batch_y_test = y_test[batch_start:batch_stop]
+
+                    y_pred_test = self.network(batch_x_test)
+                    test_loss = loss(y_pred_test, batch_y_test)
+                    test_accuracy = (y_test[batch_start:batch_stop][:, 1] == y_pred_test.argmax(dim=1)).float().mean()
                     num_batches_test += 1
+                    test_accuracy_sum += test_accuracy
+                    test_loss_sum += test_loss
 
             self.network.train()
 
@@ -387,8 +383,6 @@ class BinaryClassifier(Classifier):
             self.metrics["train_loss"].append(average_train_loss.item())
             self.metrics["train_accuracy"].append(average_train_accuracy.item())
 
-            self.metrics["train_loss"].append(average_train_loss.item())
-            self.metrics["train_accuracy"].append(average_train_accuracy.item())
             self.metrics["test_loss"].append(average_test_loss.item())
             self.metrics["test_accuracy"].append(average_test_accuracy.item())
             self.metrics["epoch"].append(j)
@@ -396,7 +390,7 @@ class BinaryClassifier(Classifier):
             batch_count += num_batches_train
             self.metrics["batch_count"].append(batch_count)
 
-            # check for early stopping
+            #check for early stopping
             if average_test_accuracy > best_test_accuracy:
                 best_test_accuracy = average_test_accuracy
                 counter_patience = 0
