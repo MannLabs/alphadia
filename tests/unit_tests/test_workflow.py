@@ -276,9 +276,10 @@ def test_workflow_base():
             workflow_name = Path(file).stem
 
             my_workflow = base.WorkflowBase(
-                workflow_name, config,
+                workflow_name,
+                config,
             )
-            my_workflow.load( file, pd.DataFrame({}))
+            my_workflow.load(file, pd.DataFrame({}))
 
             assert my_workflow.config["output"] == config["output"]
             assert my_workflow.instance_name == workflow_name
