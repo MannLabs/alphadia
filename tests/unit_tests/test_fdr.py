@@ -35,6 +35,7 @@ feature_columns = ['base_width_mobility', 'base_width_rt', 'cycle_fwhm',
 
 classifier_base = fdrx.BinaryClassifier(
     test_size = 0.001,
+    calculate_metrics = True,
 )
 
 def test_keep_best():
@@ -201,6 +202,7 @@ def test_feed_forward():
         batch_size=100,
         learning_rate=0.001,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
@@ -224,6 +226,7 @@ def test_feed_forward_save():
         batch_size=100,
         learning_rate=0.001,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
