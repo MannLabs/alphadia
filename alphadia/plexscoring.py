@@ -23,6 +23,8 @@ import pandas as pd
 import numpy as np
 import numba as nb
 
+NUM_FEATURES = 41
+
 
 def candidate_features_to_candidates(
     candidate_features_df : pd.DataFrame,
@@ -331,6 +333,8 @@ class Candidate:
     features: nb.types.DictType(nb.types.unicode_type, nb.float32)
     fragment_feature_dict: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
 
+    feature_array : nb.float32[::1]
+
     dense_fragments : nb.float32[:, :, :, :, ::1]
     dense_precursors : nb.float32[:, :, :, :, ::1]
 
@@ -398,10 +402,6 @@ class Candidate:
         
         # initialize all required dicts
         # accessing uninitialized dicts in numba will result in a kernel crash :)
-        self.features = nb.typed.Dict.empty(
-            key_type=nb.types.unicode_type,
-            value_type=nb.types.float32,
-        )
 
         self.fragment_feature_dict = nb.typed.Dict.empty(
             key_type=nb.types.unicode_type,
@@ -415,6 +415,8 @@ class Candidate:
         self.fragments.sort_by_mz()
 
         self.assemble_isotope_mz(config)
+
+        self.feature_array = np.zeros(NUM_FEATURES, dtype=np.float32)
 
     def assemble_isotope_mz(self, config):
         """
@@ -588,59 +590,53 @@ class Candidate:
                 jit_data.has_mobility
             )
         
-        self.features.update(
-            features.location_features(
-                jit_data,
-                self.scan_start,
-                self.scan_stop,
-                self.scan_center,
-                self.frame_start,
-                self.frame_stop,
-                self.frame_center,
-            )
+    
+        features.location_features(
+            jit_data,
+            self.scan_start,
+            self.scan_stop,
+            self.scan_center,
+            self.frame_start,
+            self.frame_stop,
+            self.frame_center,
+            self.feature_array
         )
     
-        self.features.update(
-            features.precursor_features(
-                self.isotope_mz, 
-                self.isotope_intensity, 
-                dense_precursors, 
-                observation_importance,
-                template
-            )
+     
+        features.precursor_features(
+            self.isotope_mz, 
+            self.isotope_intensity, 
+            dense_precursors, 
+            observation_importance,
+            template,
+            self.feature_array
         )
     
-        feature_dict, self.fragment_feature_dict = features.fragment_features(
+        self.fragment_feature_dict = features.fragment_features(
                 dense_fragments,
                 observation_importance,
                 template,
-                self.fragments
+                self.fragments,
+                self.feature_array  
             )
-
-        self.features.update(
-            feature_dict
+       
+        
+        features.profile_features(
+            jit_data,
+            self.fragments.intensity,
+            self.fragments.type,
+            observation_importance,
+            fragments_scan_profile,
+            fragments_frame_profile,
+            template_scan_profile,
+            template_frame_profile,
+            self.scan_start,
+            self.scan_stop,
+            self.frame_start,
+            self.frame_stop,
+            self.feature_array
         )
         
-        
-        
-
-        
-        self.features.update(
-            features.profile_features(
-                jit_data,
-                self.fragments.intensity,
-                self.fragments.type,
-                observation_importance,
-                fragments_scan_profile,
-                fragments_frame_profile,
-                template_scan_profile,
-                template_frame_profile,
-                self.scan_start,
-                self.scan_stop,
-                self.frame_start,
-                self.frame_stop,
-            )
-        )
         
     def process_reference_channel(
         self,
@@ -1026,7 +1022,7 @@ class ScoreGroupContainer:
         feature_columns = self.get_feature_columns()
         candidate_count = self.get_candidate_count()
 
-        feature_array = np.empty((candidate_count, len(feature_columns)), dtype=np.float32)
+        feature_array = np.empty((candidate_count, NUM_FEATURES), dtype=np.float32)
         feature_array[:] = np.nan
 
         precursor_idx_array = np.zeros(candidate_count, dtype=np.uint32)
@@ -1038,14 +1034,8 @@ class ScoreGroupContainer:
             for j in range(len(self[i].candidates)):
                 candidate = self[i].candidates[j]
 
-                # iterate all features and add them to the feature array
-                for key, value in candidate.features.items():
-                        
-                        # get the column index for the feature
-                        for k in range(len(feature_columns)):
-                            if feature_columns[k] == key:
-                                feature_array[candidate_idx, k] = value
-                                break
+                feature_array[candidate_idx] = candidate.feature_array
+                #candidate.feature_array = np.empty(0, dtype=np.float32)
 
                 precursor_idx_array[candidate_idx] = candidate.precursor_idx
                 rank_array[candidate_idx] = candidate.rank
@@ -1141,6 +1131,18 @@ def _executor(
         quadrupole_calibration,
         debug
     )
+
+@alphatims.utils.pjit()
+def transfer_feature(
+    idx, 
+    score_group_container, 
+    feature_array,
+    precursor_idx_array,
+    rank_array
+):
+    feature_array[idx] = score_group_container[idx].candidates[0].feature_array
+    precursor_idx_array[idx] = score_group_container[idx].candidates[0].precursor_idx
+    rank_array[idx] = score_group_container[idx].candidates[0].rank
 
 class CandidateScoring():
     """Calculate features for each precursor candidate used in scoring."""
@@ -1424,9 +1426,64 @@ class CandidateScoring():
             A DataFrame containing the features for each candidate.
         """
 
+        feature_columns = [
+            'base_width_mobility',
+            'base_width_rt',
+            'rt_observed',
+            'mobility_observed',
+            'mono_ms1_intensity',
+            'top_ms1_intensity',
+            'sum_ms1_intensity',
+            'weighted_ms1_intensity',
+            'weighted_mass_deviation',
+            'weighted_mass_error',
+            'mz_observed',
+            'mono_ms1_height',
+            'top_ms1_height',
+            'sum_ms1_height',
+            'weighted_ms1_height',
+            'isotope_intensity_correlation',
+            'isotope_height_correlation',
+            'n_observations',
+            'intensity_correlation',
+            'height_correlation',
+            'intensity_fraction',
+            'height_fraction',
+            'intensity_fraction_weighted',
+            'height_fraction_weighted',
+            'mean_observation_score',
+            'sum_b_ion_intensity',
+            'sum_y_ion_intensity',
+            'diff_b_y_ion_intensity',
+            'f_masked',
+            'fragment_scan_correlation',
+            'template_scan_correlation',
+            'fragment_frame_correlation',
+            'top3_frame_correlation',
+            'template_frame_correlation',
+            'top3_b_ion_correlation',
+            'n_b_ions',
+            'top3_y_ion_correlation',
+            'n_y_ions',
+            'cycle_fwhm',
+            'mobility_fwhm',
+            'delta_frame_peak',
+        ]
+        n_candidates = score_group_container.get_candidate_count()
+        feature_array = np.zeros((n_candidates, NUM_FEATURES), dtype=np.float32)
+        precursor_idx_array = np.zeros(n_candidates, dtype=np.uint32)
+        rank_array = np.zeros(n_candidates, dtype=np.uint8)
 
+        
 
-        feature_array, precursor_idx_array, rank_array, feature_columns = score_group_container.collect_features()
+        transfer_feature(
+            range(n_candidates), 
+            score_group_container, 
+            feature_array,
+            precursor_idx_array,
+            rank_array
+        )
+
         
         df = pd.DataFrame(feature_array, columns=feature_columns)
         df['precursor_idx'] = precursor_idx_array
@@ -1579,8 +1636,15 @@ class CandidateScoring():
             debug
         )
 
+        
+
+        logger.info('Finished candidate processing')
+        logger.info('Collecting candidate features')
         candidate_features_df = self.collect_candidates(candidates_df, score_group_container)
         validate.candidate_features_df(candidate_features_df)
+
+        
+        logger.info('Collecting fragment features')
         fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
         validate.fragment_features_df(fragment_features_df)
 
