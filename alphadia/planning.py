@@ -9,7 +9,7 @@ from datetime import datetime
 import typing
 
 # alphadia imports
-from alphadia import utils, libtransform
+from alphadia import utils, libtransform, outputtransform
 from alphadia.workflow import peptidecentric, base, reporting
 import alphadia
 
@@ -190,18 +190,35 @@ class Plan:
             keep_decoys = False,
             fdr = 0.01,
             ):
+        
+        logger.progress('Starting Search Workflows')
+
+        workflow_folder_list = []
 
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
+
                 workflow = peptidecentric.PeptideCentricWorkflow(
                     raw_name,
                     self.config,
-                    dia_path,
-                    speclib
                 )
-   
+
+                workflow_folder_list.append(workflow.path)
+                
+                # check if the raw file is already processed
+                psm_location = os.path.join(workflow.path, 'psm.tsv')
+                frag_location = os.path.join(workflow.path, 'frag.tsv')
+
+                if self.config['general']['reuse_quant']:
+                    if os.path.exists(psm_location): #and os.path.exists(frag_location):
+                        logger.info(f'Found existing quantification for {raw_name}')
+                        continue
+                    logger.info(f'No existing quantification found for {raw_name}')
+
+                workflow.load(dia_path, speclib)
                 workflow.calibration()
+
                 df = workflow.extraction()
                 df = df[df['qval'] <= self.config['fdr']['fdr']]               
 
@@ -209,7 +226,7 @@ class Plan:
                     df = workflow.requantify(df)
                     df = df[df['qval'] <= self.config['fdr']['fdr']]
                 df['run'] = raw_name
-                df.to_csv(os.path.join(workflow.path, 'psm.tsv'), sep='\t', index=False)
+                df.to_csv(psm_location, sep='\t', index=False)
 
                 workflow.reporter.log_string(f'Finished workflow for {raw_name}')
                 workflow.reporter.context.__exit__(None, None, None)
@@ -223,49 +240,6 @@ class Plan:
                 print(e)
                 logger.error(f'Workflow failed for {raw_name} with error {e}')
                 continue
-
-        self.build_output()
-
-    def build_output(self):
-
-        output_path = self.config['output']
-        temp_path = os.path.join(output_path, base.TEMP_FOLDER)
-
-        psm_df = []
-        stat_df = []
-
-        for raw_name, dia_path, speclib in self.get_run_data():
-            run_path = os.path.join(temp_path, raw_name)
-            psm_path = os.path.join(run_path, 'psm.tsv')
-            if not os.path.exists(psm_path):
-                logger.warning(f'no psm file found for {raw_name}')
-                continue
-            run_df = pd.read_csv(os.path.join(run_path, 'psm.tsv'), sep='\t')
-            
-            psm_df.append(run_df)
-            stat_df.append(build_stat_df(run_df))
-
-        psm_df = pd.concat(psm_df)
-        stat_df = pd.concat(stat_df)
-
-        psm_df.to_csv(os.path.join(output_path, 'psm.tsv'), sep='\t', index=False, float_format='%.6f')
-        stat_df.to_csv(os.path.join(output_path, 'stat.tsv'), sep='\t', index=False, float_format='%.6f')
-
-        logger.info(f'Finished building output')
-
-
-def build_stat_df(run_df):
-
-    run_stat_df = []
-    for name, group in run_df.groupby('channel'):
-        run_stat_df.append({
-            'run': run_df['run'].iloc[0],
-            'channel': name,
-            'precursors': np.sum(group['qval'] <= 0.01),
-            'proteins': group[group['qval'] <= 0.01]['proteins'].nunique(),
-            'ms1_accuracy': np.mean(group['weighted_mass_error']),
-            'fwhm_rt': np.mean(group['cycle_fwhm']),
-            'fwhm_mobility': np.mean(group['mobility_fwhm']),
-        })
-    
-    return pd.DataFrame(run_stat_df)
+        
+        output = outputtransform.SearchPlanOutput(self.config ,self.output_folder)
+        output.build_output(workflow_folder_list)

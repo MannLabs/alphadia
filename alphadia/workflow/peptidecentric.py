@@ -92,13 +92,20 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         instance_name: str,
         config: dict,
-        dia_data_path: str,
-        spectral_library: SpecLibBase,
         ) -> None:
         
         super().__init__(
             instance_name, 
             config,
+        )
+
+    def load(
+        self,
+        dia_data_path: str,
+        spectral_library: SpecLibBase,
+    ) -> None:
+        
+        super().load(
             dia_data_path,
             spectral_library,
         )
@@ -125,12 +132,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self._calibration_optimization_manager = manager.OptimizationManager({
             'current_epoch': 0,
             'current_step': 0,
-            'ms1_error': self.config['extraction_initial']['initial_ms1_tolerance'],
-            'ms2_error': self.config['extraction_initial']['initial_ms2_tolerance'],
-            'rt_error': self.config['extraction_initial']['initial_rt_tolerance'],
-            'mobility_error': self.config['extraction_initial']['initial_mobility_tolerance'],
+            'ms1_error': self.config['search_initial']['initial_ms1_tolerance'],
+            'ms2_error': self.config['search_initial']['initial_ms2_tolerance'],
+            'rt_error': self.config['search_initial']['initial_rt_tolerance'],
+            'mobility_error': self.config['search_initial']['initial_mobility_tolerance'],
             'column_type': 'library',
-            'num_candidates': self.config['extraction_initial']['initial_num_candidates'],
+            'num_candidates': self.config['search_initial']['initial_num_candidates'],
             'recalibration_target': self.config['calibration']['recalibration_target'],
             'accumulated_precursors': 0,
             'accumulated_precursors_01FDR': 0,
@@ -211,7 +218,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if 'active_gradient_start' in self.config['calibration']:
                 lower_rt = self.config['calibration']['active_gradient_start']
             else:
-                lower_rt = dia_data.rt_values[0] + self.config['extraction_initial']['initial_rt_tolerance']/2
+                lower_rt = dia_data.rt_values[0] + self.config['search_initial']['initial_rt_tolerance']/2
         else:
             lower_rt = active_gradient_start
 
@@ -219,7 +226,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if 'active_gradient_stop' in self.config['calibration']:
                 upper_rt = self.config['calibration']['active_gradient_stop']
             else:
-                upper_rt = dia_data.rt_values[-1] - (self.config['extraction_initial']['initial_rt_tolerance']/2)
+                upper_rt = dia_data.rt_values[-1] - (self.config['search_initial']['initial_rt_tolerance']/2)
         else:
             upper_rt = active_gradient_stop
 
@@ -547,9 +554,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         features_df, fragments_df = self.extract_batch(self.spectral_library._precursor_df)
         precursor_df = self.fdr_correction(features_df)
-
-        if not self.config['fdr']['keep_decoys']:
-            precursor_df = precursor_df[precursor_df['decoy'] == 0]
 
         precursor_df = precursor_df[precursor_df['qval'] <= self.config['fdr']['fdr']]
         self.log_precursor_df(precursor_df)
