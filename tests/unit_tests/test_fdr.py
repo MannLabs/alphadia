@@ -59,6 +59,7 @@ feature_columns = [
 
 classifier_base = fdrx.BinaryClassifier(
     test_size=0.001,
+    calculate_metrics=True,
 )
 
 
@@ -256,6 +257,7 @@ def test_feed_forward():
         batch_size=100,
         learning_rate=0.001,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
@@ -280,6 +282,7 @@ def test_feed_forward_save():
         batch_size=100,
         learning_rate=0.001,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
