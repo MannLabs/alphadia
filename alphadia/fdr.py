@@ -128,6 +128,7 @@ def perform_fdr(
 
     return psm_df
 
+
 def keep_best(
     df: pd.DataFrame,
     score_column: str = "proba",
