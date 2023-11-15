@@ -59,6 +59,7 @@ feature_columns = [
 
 classifier_base = fdrx.BinaryClassifier(
     test_size=0.001,
+    calculate_metrics=True,
 )
 
 
@@ -235,7 +236,7 @@ def test_fdr():
 
 
 def gen_data_np(
-    n_features=10,
+    n_features=20,
     n_samples=10000,
     max_mean=100,
     max_var=0.1,
@@ -245,7 +246,6 @@ def gen_data_np(
     data = np.random.multivariate_normal(
         mean, np.eye(n_features * 2) * var, size=n_samples
     )
-
     return data.reshape(-1, n_features), np.tile([0, 1], n_samples)
 
 
@@ -254,8 +254,9 @@ def test_feed_forward():
 
     classifier = fdrx.BinaryClassifier(
         batch_size=100,
-        learning_rate=0.001,
+        learning_rate=0.01,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
@@ -280,6 +281,7 @@ def test_feed_forward_save():
         batch_size=100,
         learning_rate=0.001,
         epochs=20,
+        calculate_metrics=True,
     )
 
     classifier.fit(x, y)
