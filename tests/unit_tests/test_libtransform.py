@@ -5,8 +5,8 @@ import pandas as pd
 
 from alphadia import libtransform
 
-def test_library_transform():
 
+def test_library_transform():
     fasta = """
 >sp|Q9CX84|RGS19_MOUSE Regulator of G-protein signaling 19 OS=Mus musculus OX=10090 GN=Rgs19 PE=1 SV=2
 LMHSPTGRRRKK
@@ -15,7 +15,6 @@ LMHSPTGRRRKK
 KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 
 """
-        
 
     library = """PrecursorMz	ProductMz	Annotation	ProteinId	GeneName	PeptideSequence	ModifiedPeptideSequence	PrecursorCharge	LibraryIntensity	NormalizedRetentionTime	PrecursorIonMobility	FragmentType	FragmentCharge	FragmentSeriesNumber	FragmentLossType
 300.156968	333.188096	y3^1	Q9CX84	Rgs19	LMHSPTGR	LMHSPTGR	3	4311.400524927019	-25.676406886060136		y	1	3	
@@ -30,37 +29,55 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 """
 
     # create temp file
-    temp_lib = tempfile.NamedTemporaryFile(suffix='.tsv', delete=False)
+    temp_lib = tempfile.NamedTemporaryFile(suffix=".tsv", delete=False)
     temp_lib.write(library.encode())
     temp_lib.close()
 
     # create temp fasta
-    temp_fasta = tempfile.NamedTemporaryFile(suffix='.fasta', delete=False)
+    temp_fasta = tempfile.NamedTemporaryFile(suffix=".fasta", delete=False)
     temp_fasta.write(fasta.encode())
     temp_fasta.close()
 
-    import_pipeline = libtransform.ProcessingPipeline([
-        libtransform.DynamicLoader(),
-        libtransform.PrecursorInitializer(),
-        libtransform.AnnotateFasta([temp_fasta.name]),
-        libtransform.IsotopeGenerator(n_isotopes=4),
-        libtransform.RTNormalization(),
-    ])
+    import_pipeline = libtransform.ProcessingPipeline(
+        [
+            libtransform.DynamicLoader(),
+            libtransform.PrecursorInitializer(),
+            libtransform.AnnotateFasta([temp_fasta.name]),
+            libtransform.IsotopeGenerator(n_isotopes=4),
+            libtransform.RTNormalization(),
+        ]
+    )
 
     # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
-    prepare_pipeline = libtransform.ProcessingPipeline([
-        libtransform.DecoyGenerator(decoy_type='diann'),
-        libtransform.FlattenLibrary(),
-        libtransform.InitFlatColumns(),
-        libtransform.LogFlatLibraryStats(),
-    ])
+    prepare_pipeline = libtransform.ProcessingPipeline(
+        [
+            libtransform.DecoyGenerator(decoy_type="diann"),
+            libtransform.FlattenLibrary(),
+            libtransform.InitFlatColumns(),
+            libtransform.LogFlatLibraryStats(),
+        ]
+    )
 
     speclib = import_pipeline(temp_lib.name)
     speclib = prepare_pipeline(speclib)
 
     assert len(speclib.precursor_df) == 4
-    assert np.all([ col in speclib.precursor_df.columns for col in ['mz_library','rt_library','mobility_library', 'i_0', 'i_1', 'i_2', 'i_3']])
-    assert speclib.precursor_df['decoy'].sum() == 2
-    assert np.all(speclib.precursor_df['cardinality'] == [2,2,1,1])
+    assert np.all(
+        [
+            col in speclib.precursor_df.columns
+            for col in [
+                "mz_library",
+                "rt_library",
+                "mobility_library",
+                "i_0",
+                "i_1",
+                "i_2",
+                "i_3",
+            ]
+        ]
+    )
+    assert speclib.precursor_df["decoy"].sum() == 2
+    assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
+
 
 speclib = test_library_transform()

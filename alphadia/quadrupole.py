@@ -13,11 +13,9 @@ from numba.experimental import jitclass
 import numpy as np
 from scipy.optimize import curve_fit
 
+
 @alphatims.utils.njit
-def logistic(
-    x : np.array, 
-    mu : float, 
-    sigma : float):
+def logistic(x: np.array, mu: float, sigma: float):
     """Numba implementation of the logistic function
 
     Parameters
@@ -37,36 +35,33 @@ def logistic(
 
     np.array
         Logistic function evaluated for every element in x of shape `(n_samples,)`
-    
+
     """
-    a = (x-mu)/sigma
-    y = 1/(1+np.exp(-a))
+    a = (x - mu) / sigma
+    y = 1 / (1 + np.exp(-a))
     return y
 
+
 @alphatims.utils.njit
-def logistic_rectangle(
-    mu1, 
-    mu2,
-    sigma1, 
-    sigma2, 
-    x):
+def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y
 
+
 @alphatims.utils.njit
 def linear(x, m, b):
-    return m*x+b
+    return m * x + b
+
 
 @jitclass
 class SimpleQuadrupoleJit:
-
     # original cycle as defined in the Bruker file
-    cycle: nb.float64[:,:,:,::1]
+    cycle: nb.float64[:, :, :, ::1]
 
     # calibrated cycle which covers the 1% treshold of the quadrupole
-    cycle_calibrated: nb.float64[:,:,:,::1]
+    cycle_calibrated: nb.float64[:, :, :, ::1]
 
-    dia_mz_cycle_calibrated: nb.float64[:,::1]
+    dia_mz_cycle_calibrated: nb.float64[:, ::1]
 
     # left and right sigma of the logistic function
     # shared across all precursors and scans
@@ -76,11 +71,7 @@ class SimpleQuadrupoleJit:
     # shared across all precursors and scans
     delta_mu: nb.float64[::1]
 
-    def __init__(
-        self, 
-        cycle
-        ):
-
+    def __init__(self, cycle):
         """
         Jitclass for predicting quadrupole transfer efficiency.
         Only used to store and predict the quadrupole transfer efficiency.
@@ -93,16 +84,10 @@ class SimpleQuadrupoleJit:
             The dia cycle as defined in the Bruker file
         """
         self.cycle = cycle
-        self.sigma = np.array([0.2,0.2])
-        self.delta_mu = np.array([0.,0.])
+        self.sigma = np.array([0.2, 0.2])
+        self.delta_mu = np.array([0.0, 0.0])
 
-
-    def predict(
-        self, 
-        P, 
-        S, 
-        X
-        ):
+    def predict(self, P, S, X):
         """
         Predict the quadrupole transfer efficiency
 
@@ -122,15 +107,15 @@ class SimpleQuadrupoleJit:
         -------
         np.ndarray
             Quadrupole transfer efficiency for N datapoints
-        
+
         """
 
-        mu1l = [0.]
-        mu2l = [0.]
+        mu1l = [0.0]
+        mu2l = [0.0]
         for i in range(len(P)):
             c = P[i]
             s = S[i]
-            #print(self.cycle[0, c, s, 0])
+            # print(self.cycle[0, c, s, 0])
             mu1l.append(self.cycle[0, c, s, 0])
             mu2l.append(self.cycle[0, c, s, 1])
 
@@ -140,22 +125,23 @@ class SimpleQuadrupoleJit:
         return logistic_rectangle(mu1, mu2, self.sigma[0], self.sigma[1], X)
 
     def set_cycle_calibrated(self, cycle_calibrated):
-
         self.cycle_calibrated = cycle_calibrated
-        self.dia_mz_cycle_calibrated = np.reshape(cycle_calibrated, (cycle_calibrated.shape[1] * cycle_calibrated.shape[2], 2))
+        self.dia_mz_cycle_calibrated = np.reshape(
+            cycle_calibrated, (cycle_calibrated.shape[1] * cycle_calibrated.shape[2], 2)
+        )
 
     def get_dia_mz_cycle(self, lower_mz, upper_mz):
-
         expanded_cycle = expand_cycle(self.cycle_calibrated, lower_mz, upper_mz)
-        return np.reshape(expanded_cycle, (expanded_cycle.shape[1] * expanded_cycle.shape[2], 2))
+        return np.reshape(
+            expanded_cycle, (expanded_cycle.shape[1] * expanded_cycle.shape[2], 2)
+        )
 
-class SimpleQuadrupole():
 
+class SimpleQuadrupole:
     def __init__(
-            self,
-            cycle,
-        ):
-
+        self,
+        cycle,
+    ):
         """
         Wrapper for fitting the quadrupole transfer efficiency.
 
@@ -181,10 +167,9 @@ class SimpleQuadrupole():
         return super().set_params(**params)
 
     def _more_tags(self):
-        return {'X_types': ['2darray']}
+        return {"X_types": ["2darray"]}
 
     def fit(self, P, S, X, y):
-
         """
         Fit the quadrupole transfer efficiency.
 
@@ -199,7 +184,7 @@ class SimpleQuadrupole():
         X : np.ndarray
             m/z value for N datapoints
 
-        y : np.ndarray  
+        y : np.ndarray
             Quadrupole transfer efficiency for N datapoints
 
         Returns
@@ -223,7 +208,6 @@ class SimpleQuadrupole():
 
         popt, pcov = curve_fit(_wrapper, X_train, y, p0=p0)
 
-
         self.jit.sigma = popt[:2]
         self.jit.delta_mu = popt[2:]
 
@@ -232,7 +216,6 @@ class SimpleQuadrupole():
         return self
 
     def predict(self, P, S, X):
-
         """
         Fit the quadrupole transfer efficiency.
 
@@ -246,25 +229,26 @@ class SimpleQuadrupole():
 
         X : np.ndarray
             m/z value for N datapoints
-        
+
         """
 
         return self.jit.predict(P, S, X)
 
     def get_calibrated_cycle(self, treshold=0.01):
-
         """
         Calculate an updated cycle based on the fitted quadrupole transfer efficiency and the treshold.
         """
-        non_zero_cycle = self.jit.cycle[self.jit.cycle>0]
+        non_zero_cycle = self.jit.cycle[self.jit.cycle > 0]
 
         lowest_mz = np.min(non_zero_cycle)
         highest_mz = np.max(non_zero_cycle)
         mz_width = highest_mz - lowest_mz
 
-        mz_space = np.linspace(lowest_mz-mz_width*0.1, highest_mz+mz_width*0.1, 2000)
+        mz_space = np.linspace(
+            lowest_mz - mz_width * 0.1, highest_mz + mz_width * 0.1, 2000
+        )
 
-        new_cycle= self.jit.cycle.copy()
+        new_cycle = self.jit.cycle.copy()
         n_precursor = self.jit.cycle.shape[1]
         n_scan = self.jit.cycle.shape[2]
 
@@ -273,21 +257,21 @@ class SimpleQuadrupole():
                 if self.jit.cycle[0, precursor, scan, 0] <= 0:
                     continue
 
-                intensity = self.jit.predict(np.array([precursor]), np.array([scan]), mz_space)
-                q_range = mz_space[intensity>treshold]
+                intensity = self.jit.predict(
+                    np.array([precursor]), np.array([scan]), mz_space
+                )
+                q_range = mz_space[intensity > treshold]
 
                 new_cycle[0, precursor, scan, 0] = np.min(q_range)
                 new_cycle[0, precursor, scan, 1] = np.max(q_range)
 
         return new_cycle
 
+
 @alphatims.utils.njit
 def quadrupole_transfer_function_single(
-    quadrupole_calibration_jit,
-    observation_indices,
-    scan_indices,
-    isotope_mz
-):  
+    quadrupole_calibration_jit, observation_indices, scan_indices, isotope_mz
+):
     """
     Calculate quadrupole transfer function for a given set of observations and scans.
 
@@ -317,21 +301,18 @@ def quadrupole_transfer_function_single(
     n_observations = observation_indices.shape[0]
     n_scans = scan_indices.shape[0]
 
-
     mz_column = np.repeat(isotope_mz, n_scans * n_observations)
     observation_column = utils.tile(np.repeat(observation_indices, n_scans), n_isotopes)
     scan_column = utils.tile(scan_indices, n_isotopes * n_observations)
 
-    intensity = quadrupole_calibration_jit.predict(observation_column, scan_column, mz_column)
+    intensity = quadrupole_calibration_jit.predict(
+        observation_column, scan_column, mz_column
+    )
     return intensity.reshape(n_isotopes, n_observations, n_scans)
 
-@nb.njit
-def calculate_template_single(
-        qtf,
-        dense_precursor_mz,
-        isotope_intensity
-    ):
 
+@nb.njit
+def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
     n_isotopes = qtf.shape[0]
     n_observations = qtf.shape[1]
     n_scans = qtf.shape[2]
@@ -343,27 +324,31 @@ def calculate_template_single(
     precursor_mz = dense_precursor_mz[0]
 
     # unravel precursors and isotopes
-    #precursor_mz = precursor_mz.reshape(n_isotopes, 1, n_scans, n_frames)
+    # precursor_mz = precursor_mz.reshape(n_isotopes, 1, n_scans, n_frames)
 
     # expand add frame dimension to qtf
-    #(n_isotopes, n_observations, n_scans, n_frames)
+    # (n_isotopes, n_observations, n_scans, n_frames)
     qtf_exp = np.expand_dims(qtf, axis=-1)
 
-    #(n_isotopes, n_observations, n_scans, n_frames)
-    isotope_exp = isotope_intensity.reshape(-1,1,1,1)
+    # (n_isotopes, n_observations, n_scans, n_frames)
+    isotope_exp = isotope_intensity.reshape(-1, 1, 1, 1)
 
     template = precursor_mz * isotope_exp * qtf_exp
-    template = template.sum(axis=0) 
+    template = template.sum(axis=0)
 
-    #(n_observations, n_scans, n_frames)
+    # (n_observations, n_scans, n_frames)
     return template.astype(np.float32)
+
 
 @nb.njit
 def calculate_observation_importance(
     template,
 ):
     observation_importance = np.sum(np.sum(template, axis=2), axis=2)
-    return observation_importance / np.sum(observation_importance, axis = 1).reshape(-1,1)
+    return observation_importance / np.sum(observation_importance, axis=1).reshape(
+        -1, 1
+    )
+
 
 @nb.njit
 def calculate_observation_importance_single(
@@ -375,15 +360,14 @@ def calculate_observation_importance_single(
     else:
         return observation_importance / np.sum(observation_importance)
 
+
 @nb.njit
 def expand_cycle(cycle, lower_mz, upper_mz):
-
     new_cycle = cycle.copy()
 
     for i in range(cycle.shape[0]):
         for j in range(cycle.shape[1]):
-
-            new_cycle[i,j,:,0] -= lower_mz * (new_cycle[i,j,:,0] > 0)
-            new_cycle[i,j,:,1] += upper_mz * (new_cycle[i,j,:,1] > 0)
+            new_cycle[i, j, :, 0] -= lower_mz * (new_cycle[i, j, :, 0] > 0)
+            new_cycle[i, j, :, 1] += upper_mz * (new_cycle[i, j, :, 1] > 0)
 
     return new_cycle

@@ -9,9 +9,9 @@ import numba as nb
 from numba.extending import overload_method
 import numpy as np
 
+
 @nb.experimental.jitclass()
 class FragmentContainer:
-
     mz_library: nb.float32[::1]
     mz: nb.float32[::1]
     intensity: nb.float32[::1]
@@ -22,7 +22,7 @@ class FragmentContainer:
     position: nb.uint8[::1]
     precursor_idx: nb.uint32[::1]
     cardinality: nb.uint8[::1]
-       
+
     def __init__(
         self,
         mz_library,
@@ -33,9 +33,8 @@ class FragmentContainer:
         charge,
         number,
         position,
-        cardinality
+        cardinality,
     ):
-
         self.mz_library = mz_library
         self.mz = mz
         self.intensity = intensity
@@ -49,16 +48,16 @@ class FragmentContainer:
 
     def __len__(self):
         return len(self.mz)
-    
-    #def __repr__(self) -> str:
+
+    # def __repr__(self) -> str:
     #    return f"FragmentContainer with {len(self)} fragments"
-    
+
     def __str__(self) -> str:
         return f"FragmentContainer with {len(self)} fragments"
 
     def sort_by_mz(self):
         """
-        Sort the fragments in-place by m/z        
+        Sort the fragments in-place by m/z
         """
         mz_order = np.argsort(self.mz)
         self.precursor_idx = self.precursor_idx[mz_order]
@@ -103,7 +102,7 @@ class FragmentContainer:
         self.number = self.number[mask]
         self.position = self.position[mask]
         self.cardinality = self.cardinality[mask]
-    
+
     def filter_by_min_mz(self, min_mz):
         """
         Remove all fragments with m/z below min_mz
@@ -120,12 +119,14 @@ class FragmentContainer:
         self.position = self.position[mask]
         self.cardinality = self.cardinality[mask]
 
-@overload_method(nb.types.misc.ClassInstanceType, 'slice', )
+
+@overload_method(
+    nb.types.misc.ClassInstanceType,
+    "slice",
+)
 def slice(inst, slices):
-    
     if inst is FragmentContainer.class_type.instance_type:
 
-        
         def impl(inst, slices):
             precursor_idx = []
             fragments_mz_library = []
@@ -142,7 +143,6 @@ def slice(inst, slices):
 
             for i, (start_idx, stop_idx, step) in enumerate(slices):
                 for j in range(start_idx, stop_idx):
-                    
                     precursor_idx.append(precursor[i])
                     fragments_mz_library.append(inst.mz_library[j])
                     fragments_mz.append(inst.mz[j])
@@ -174,13 +174,15 @@ def slice(inst, slices):
                 fragment_charge,
                 fragment_number,
                 fragment_position,
-                fragment_cardinality
+                fragment_cardinality,
             )
 
             f.precursor_idx = precursor_idx
 
             return f
+
         return impl
+
 
 @nb.njit()
 def slice_manual(inst, slices):
@@ -199,7 +201,6 @@ def slice_manual(inst, slices):
 
     for i, (start_idx, stop_idx, step) in enumerate(slices):
         for j in range(start_idx, stop_idx):
-            
             precursor_idx.append(precursor[i])
             fragments_mz_library.append(inst.mz_library[j])
             fragments_mz.append(inst.mz[j])
@@ -231,25 +232,27 @@ def slice_manual(inst, slices):
         fragment_charge,
         fragment_number,
         fragment_position,
-        fragment_cardinality
+        fragment_cardinality,
     )
 
     f.precursor_idx = precursor_idx
 
     return f
-    
+
+
 import numba as nb
+
 
 @nb.njit
 def get_ion_group_mapping(
-    ion_precursor, 
-    ion_mz, 
-    ion_intensity, 
+    ion_precursor,
+    ion_mz,
+    ion_intensity,
     ion_cardinality,
     precursor_abundance,
     top_k=20,
-    max_cardinality = 10
-    ):
+    max_cardinality=10,
+):
     """
     Can be used to group a set of ions by and return the expected, summed intensity distribution for each group.
 
@@ -290,10 +293,17 @@ def get_ion_group_mapping(
         Array of m/z values for each group with shape (n_groups, n_unique_fragments).
 
     """
-    
-    if not len(ion_mz) == len(ion_intensity) == len(ion_precursor) == len(ion_cardinality):
-        raise ValueError('ion_mz, ion_intensity, ion_precursor and ion cardinality must have the same length')
-    
+
+    if (
+        not len(ion_mz)
+        == len(ion_intensity)
+        == len(ion_precursor)
+        == len(ion_cardinality)
+    ):
+        raise ValueError(
+            "ion_mz, ion_intensity, ion_precursor and ion cardinality must have the same length"
+        )
+
     cardinality_mask = ion_cardinality <= max_cardinality
     ion_mz = ion_mz[cardinality_mask]
     ion_intensity = ion_intensity[cardinality_mask]
@@ -306,27 +316,30 @@ def get_ion_group_mapping(
 
     score_group_intensity = np.zeros((len(ion_mz)), dtype=np.float32)
 
-    for i, (precursor, mz, intensity) in enumerate(zip(ion_precursor, ion_mz, ion_intensity)):
+    for i, (precursor, mz, intensity) in enumerate(
+        zip(ion_precursor, ion_mz, ion_intensity)
+    ):
+        # score_group_idx = precursor_group[precursor]
 
-        #score_group_idx = precursor_group[precursor]
-            
-            if len(grouped_mz) == 0:
-                grouped_mz.append(mz)
-                
-            elif np.abs(grouped_mz[-1] - mz) > EPSILON:
-                grouped_mz.append(mz)
-               
-            idx = len(grouped_mz) - 1
-            score_group_intensity[idx] += intensity * precursor_abundance[precursor]
+        if len(grouped_mz) == 0:
+            grouped_mz.append(mz)
 
-    score_group_intensity = score_group_intensity[:len(grouped_mz)].copy()
+        elif np.abs(grouped_mz[-1] - mz) > EPSILON:
+            grouped_mz.append(mz)
+
+        idx = len(grouped_mz) - 1
+        score_group_intensity[idx] += intensity * precursor_abundance[precursor]
+
+    score_group_intensity = score_group_intensity[: len(grouped_mz)].copy()
     grouped_mz = np.array(grouped_mz)
 
     # normalize each score group to 1
     if np.max(score_group_intensity) > 0:
         score_group_intensity /= score_group_intensity.max()
 
-    indices = np.argsort(score_group_intensity)[::-1][:min(top_k, len(score_group_intensity))]
+    indices = np.argsort(score_group_intensity)[::-1][
+        : min(top_k, len(score_group_intensity))
+    ]
     indices = np.sort(indices)
 
     grouped_mz = grouped_mz[indices]
