@@ -9,8 +9,7 @@ from alphadia.workflow import reporting
 import numpy as np
 
 
-
-class JITConfig():
+class JITConfig:
     """
     Base class for creating numba compatible config objects.
 
@@ -19,14 +18,14 @@ class JITConfig():
 
     Defining a config object tends to be verbose due to the strict typing requirements of numba.
     It requires to define a numba jitclass with the correct types for each attribute and a __init__ method.
-    
+
     .. code-block:: python
 
         @nb.experimental.jitclass()
         class HybridCandidateConfigJIT():
             rt_tolerance: nb.float64
             def __init__(
-                    self, 
+                    self,
                     rt_tolerance,
                 ):
                 self.rt_tolerance = rt_tolerance
@@ -54,7 +53,7 @@ class JITConfig():
             jit_container = HybridCandidateConfigJIT
             def __init__(self, rt_tolerance = 0.5):
                 self.rt_tolerance = rt_tolerance
-                
+
         config = HybridCandidateConfig(rt_tolerance = 0.1)
 
     The jit config can then retrived by calling the `jitclass` method.
@@ -70,37 +69,41 @@ class JITConfig():
 
     def __init__(self):
         """Base class for creating numba compatible config objects.
-        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method."""
+        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method.
+        """
         self.reporter = reporting.Pipeline(
             backends=[
                 reporting.LogBackend(),
             ]
         )
-        raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method.')
-    
+        raise NotImplementedError(
+            "JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method."
+        )
+
     def jitclass(self):
         """Returns a numba jitclass object.
-        
+
         Returns
         -------
-        
+
         jitclass : numba.experimental.jitclass.boxing.XXX
             Numba jitclass object with the type as defined in the jit_container class attribute.
         """
 
         self.validate()
 
-        return self.jit_container(
-            *self.__dict__.values()
-        )
-    
+        return self.jit_container(*self.__dict__.values())
+
     def validate(self):
         """Validates the config object.
-        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method."""
+        Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method.
+        """
 
-        raise NotImplementedError('JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method.')
+        raise NotImplementedError(
+            "JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method."
+        )
 
-    def update(self, dict : dict):
+    def update(self, dict: dict):
         """Updates the config object with a dictionary of parameters.
         Can be used to update config object safely with a dictionary of parameters.
 
@@ -125,10 +128,12 @@ class JITConfig():
 
         """
         for key, value in dict.items():
-
             # check if attribute exists
             if not hasattr(self, key):
-                self.reporter.log_string(f'Parameter {key} does not exist in HybridCandidateConfig', verbosity='error')
+                self.reporter.log_string(
+                    f"Parameter {key} does not exist in HybridCandidateConfig",
+                    verbosity="error",
+                )
                 continue
 
             # check if types match
@@ -136,7 +141,10 @@ class JITConfig():
                 try:
                     value = type(getattr(self, key))(value)
                 except:
-                    self.reporter.log_string(f'Parameter {key} has wrong type {type(value)}', verbosity='error')
+                    self.reporter.log_string(
+                        f"Parameter {key} has wrong type {type(value)}",
+                        verbosity="error",
+                    )
 
             # check if dtype matches
             if isinstance(value, np.ndarray):
@@ -144,22 +152,28 @@ class JITConfig():
                     try:
                         value = value.astype(getattr(self, key).dtype)
                     except:
-                        self.reporter.log_string(f'Parameter {key} has wrong dtype {value.dtype}', verbosity='error')
+                        self.reporter.log_string(
+                            f"Parameter {key} has wrong dtype {value.dtype}",
+                            verbosity="error",
+                        )
                         continue
-            
+
             # check if dimensions match
             if isinstance(value, np.ndarray):
                 if value.shape != getattr(self, key).shape:
-                    self.reporter.log_string(f'Parameter {key} has wrong shape {value.shape}', verbosity='error')
+                    self.reporter.log_string(
+                        f"Parameter {key} has wrong shape {value.shape}",
+                        verbosity="error",
+                    )
                     continue
 
             # update attribute
             setattr(self, key, value)
 
     def __repr__(self) -> str:
-        repr = f'<{self.__class__.__name__}, \n'
+        repr = f"<{self.__class__.__name__}, \n"
         for key, value in self.__dict__.items():
-            repr += f'{key}={value} \n'
+            repr += f"{key}={value} \n"
 
-        repr += f'>'
+        repr += f">"
         return repr
