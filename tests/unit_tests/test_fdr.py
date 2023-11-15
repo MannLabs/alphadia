@@ -241,12 +241,11 @@ def gen_data_np(
     max_mean=100,
     max_var=0.1,
 ):
-    mean = np.random.random(n_features * 2) * max_mean
+    mean = np.random.random(n_features * 10) * max_mean
     var = np.random.random(n_features * 2) * max_var
     data = np.random.multivariate_normal(
         mean, np.eye(n_features * 2) * var, size=n_samples
     )
-
     return data.reshape(-1, n_features), np.tile([0, 1], n_samples)
 
 
