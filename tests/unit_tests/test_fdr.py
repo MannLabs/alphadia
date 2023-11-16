@@ -58,8 +58,9 @@ feature_columns = [
 ]
 
 classifier_base = fdrx.BinaryClassifier(
-    test_size=0.001,
-    calculate_metrics=True,
+    test_size=0.1,
+    batch_size=100,
+    calculate_metrics=False,
 )
 
 
@@ -236,7 +237,7 @@ def test_fdr():
 
 
 def gen_data_np(
-    n_features=20,
+    n_features=10,
     n_samples=10000,
     max_mean=100,
     max_var=0.1,

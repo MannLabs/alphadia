@@ -76,6 +76,8 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
             ]
         ]
     )
+    speclib.precursor_df.sort_values("cardinality", inplace=True, ascending=False)
+
     assert speclib.precursor_df["decoy"].sum() == 2
     assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
 

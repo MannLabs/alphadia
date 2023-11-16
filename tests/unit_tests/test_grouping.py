@@ -162,7 +162,6 @@ def test_grouping(
 # Perform grouping on a large dataset
 def test_grouping_fuzz(expected_time: int = 10):
     # test grouping performance with dummy dataset
-    np.random.seed(42)
     n_precursors = 4000
 
     # generate precursor index and randomize sequence
