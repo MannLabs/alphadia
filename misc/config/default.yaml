@@ -36,7 +36,7 @@ fdr:
 calibration:
   min_epochs: 3
   max_epochs: 20
-  batch_size: 4000
+  batch_size: 8000
   recalibration_target: 200
   final_full_calibration: False
   norm_rt_mode: 'linear'

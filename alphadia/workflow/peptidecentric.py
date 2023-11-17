@@ -251,9 +251,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def get_exponential_batches(self, step):
         """Get the number of batches for a given step
         This plan has the shape:
-        1, 1, 1, 2, 4, 8, 16, 32, 64, ...
+        1, 2, 4, 8, 16, 32, 64, ...
         """
-        return int(2 ** max(step - 3,0))
+        return int(2 ** step)
 
     def get_batch_plan(self):
         n_eg = self.spectral_library._precursor_df['elution_group_idx'].nunique()
@@ -332,13 +332,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         
         self.start_of_calibration()
         for current_epoch in range(self.config['calibration']['max_epochs']):
-            self.start_of_epoch(current_epoch)
-        
-            
             if self.check_epoch_conditions():
                 pass
             else:
                 break
+
+            self.start_of_epoch(current_epoch)
         
             features = []
             fragments = []
@@ -383,8 +382,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def end_of_calibration(self):
-        self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
-        self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
+        #self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
+        #self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
         self.calibration_manager.save()
         pass
 
