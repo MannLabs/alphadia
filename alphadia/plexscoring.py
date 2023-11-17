@@ -330,7 +330,6 @@ class Candidate:
     # object properties
     fragments: fragments.FragmentContainer.class_type.instance_type
 
-    features: nb.types.DictType(nb.types.unicode_type, nb.float32)
     fragment_feature_dict: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
 
     feature_array : nb.float32[::1]
@@ -408,15 +407,13 @@ class Candidate:
             value_type=float_array
         )
 
-        self.fragments = fragment_container.slice(np.array([[self.frag_start_idx, self.frag_stop_idx, 1]]))
-        if config.exclude_shared_ions:
-            self.fragments.filter_by_cardinality(1)
-        self.fragments.filter_top_k(config.top_k_fragments)
-        self.fragments.sort_by_mz()
+
 
         self.assemble_isotope_mz(config)
+        
+        self.assemble_isotope_mz(config)
 
-        self.feature_array = np.zeros(NUM_FEATURES, dtype=np.float32)
+        
 
     def assemble_isotope_mz(self, config):
         """
@@ -426,18 +423,32 @@ class Candidate:
         n_isotopes = min(self.isotope_intensity.shape[0], config.top_k_isotopes)
         self.isotope_intensity = self.isotope_intensity[:n_isotopes]
         offset = np.arange(self.isotope_intensity.shape[0]) * 1.0033548350700006 / self.charge
-        self.isotope_mz = offset.astype(nb.float32) + self.precursor_mz
+        return offset.astype(nb.float32) + self.precursor_mz
     
 
     def process(
         self,
         jit_data,
+        fragment_container,
         config,
         quadrupole_calibration,
         debug
     ) -> None:
         
-        if len(self.fragments.mz) <= 3:
+        self.feature_array = np.zeros(NUM_FEATURES, dtype=np.float32)
+        
+        isotope_mz = self.assemble_isotope_mz(config)
+        
+        
+        # build fragment container
+        fragments = fragment_container.slice(np.array([[self.frag_start_idx, self.frag_stop_idx, 1]]))
+        if config.exclude_shared_ions:
+            fragments.filter_by_cardinality(1)
+
+        fragments.filter_top_k(config.top_k_fragments)
+        fragments.sort_by_mz()
+        
+        if len(fragments.mz) <= 3:
             self.failed = True
             return
         
@@ -462,8 +473,8 @@ class Candidate:
 
         quadrupole_limit = np.array(
             [[
-                np.min(self.isotope_mz)-0.5,
-                np.max(self.isotope_mz)+0.5
+                np.min(isotope_mz)-0.5,
+                np.max(isotope_mz)+0.5
             ]], dtype=np.float32
         )
 
@@ -477,7 +488,7 @@ class Candidate:
         dense_fragments, frag_precursor_index = jit_data.get_dense(
             frame_limit,
             scan_limit,
-            self.fragments.mz,
+            fragments.mz,
             config.fragment_mz_tolerance,
             quadrupole_limit,
             absolute_masses = True
@@ -500,7 +511,7 @@ class Candidate:
         _dense_precursors, prec_precursor_index = jit_data.get_dense(
             frame_limit,
             scan_limit,
-            self.isotope_mz,
+            isotope_mz,
             config.precursor_mz_tolerance,
             np.array([[-1.,-1.]]),
             absolute_masses = True
@@ -526,14 +537,14 @@ class Candidate:
 
         if debug:
             #self.visualize_precursor(dense_precursors)
-            self.visualize_fragments(dense_fragments, self.fragments)
+            self.visualize_fragments(dense_fragments, fragments)
 
         # (n_isotopes, n_observations, n_scans)
         qtf = quadrupole.quadrupole_transfer_function_single(
             quadrupole_calibration,
             frag_precursor_index,
             np.arange(int(self.scan_start), int(self.scan_stop)),
-            self.isotope_mz
+            isotope_mz
         )
 
         # (n_observation, n_scans, n_frames)
@@ -604,7 +615,7 @@ class Candidate:
     
      
         features.precursor_features(
-            self.isotope_mz, 
+            isotope_mz, 
             self.isotope_intensity, 
             dense_precursors, 
             observation_importance,
@@ -616,15 +627,15 @@ class Candidate:
                 dense_fragments,
                 observation_importance,
                 template,
-                self.fragments,
+                fragments,
                 self.feature_array  
             )
        
         
         features.profile_features(
             jit_data,
-            self.fragments.intensity,
-            self.fragments.type,
+            fragments.intensity,
+            fragments.type,
             observation_importance,
             fragments_scan_profile,
             fragments_frame_profile,
@@ -640,8 +651,16 @@ class Candidate:
         
     def process_reference_channel(
         self,
-        reference_candidate
+        reference_candidate,
+        fragment_container
         ):
+
+        fragments = fragment_container.slice(np.array([[self.frag_start_idx, self.frag_stop_idx, 1]]))
+        if config.exclude_shared_ions:
+            fragments.filter_by_cardinality(1)
+            
+        fragments.filter_top_k(config.top_k_fragments)
+        fragments.sort_by_mz()
         
         self.features.update(
             features.reference_features(
@@ -655,7 +674,7 @@ class Candidate:
                 self.fragments_frame_profile,
                 self.template_scan_profile,
                 self.template_frame_profile,
-                self.fragments.intensity,
+                fragments.intensity,
             )
         )
 
@@ -755,12 +774,9 @@ class ScoreGroup:
 
         # process candidates
         for candidate in self.candidates:
-            candidate.initialize(
-                fragment_container,
-                config
-            )
             candidate.process(
                 jit_data,
+                fragment_container,
                 config,
                 quadrupole_calibration,
                 debug
@@ -1635,8 +1651,6 @@ class CandidateScoring():
             self.quadrupole_calibration.jit,
             debug
         )
-
-        
 
         logger.info('Finished candidate processing')
         logger.info('Collecting candidate features')
