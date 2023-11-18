@@ -150,7 +150,7 @@ from alphadia.numba import config
 @nb.experimental.jitclass()
 class CandidateConfigJIT:
     
-     
+    collect_fragments: nb.boolean
     score_grouped: nb.boolean
     exclude_shared_ions: nb.boolean
     top_k_fragments: nb.uint32
@@ -162,6 +162,7 @@ class CandidateConfigJIT:
 
 
     def __init__(self,
+            collect_fragments: nb.boolean,
             score_grouped: nb.boolean,
             exclude_shared_ions: nb.types.bool_,
             top_k_fragments: nb.uint32,
@@ -177,6 +178,7 @@ class CandidateConfigJIT:
         Please refer to :class:`.alphadia.plexscoring.CandidateConfig` for documentation.
         """
 
+        self.collect_fragments = collect_fragments
         self.score_grouped = score_grouped
         self.exclude_shared_ions = exclude_shared_ions
         self.top_k_fragments = top_k_fragments
@@ -193,6 +195,7 @@ class CandidateConfig(config.JITConfig):
 
     def __init__(self):
         """Create default config for CandidateScoring"""
+        self.collect_fragments = True
         self.score_grouped = False
         self.exclude_shared_ions = True
         self.top_k_fragments = 16
@@ -205,6 +208,16 @@ class CandidateConfig(config.JITConfig):
     def jit_container(self):
         """The numba jitclass for this config object."""
         return CandidateConfigJIT
+    
+    @property
+    def collect_fragments(self) -> bool:
+        """Collect fragment features.
+        Default: `collect_fragments = False`"""
+        return self._collect_fragments
+    
+    @collect_fragments.setter
+    def collect_fragments(self, value):
+        self._collect_fragments = value
 
     @property
     def score_grouped(self) -> bool:
@@ -292,6 +305,10 @@ class CandidateConfig(config.JITConfig):
         assert self.precursor_mz_tolerance < 200, 'precursor_mz_tolerance must be less than 200'
         assert self.fragment_mz_tolerance >= 0, 'fragment_mz_tolerance must be greater than or equal to 0'
         assert self.fragment_mz_tolerance < 200, 'fragment_mz_tolerance must be less than 200'
+
+    def copy(self):
+        """Create a copy of the config object."""
+        return CandidateConfig.from_dict(self.to_dict())
 
 float_array = nb.types.float32[:]
 
@@ -623,14 +640,16 @@ class Candidate:
             self.feature_array
         )
     
-        self.fragment_feature_dict = features.fragment_features(
-                dense_fragments,
-                observation_importance,
-                template,
-                fragments,
-                self.feature_array  
-            )
-       
+        fragment_feature_dict = features.fragment_features(
+            dense_fragments,
+            observation_importance,
+            template,
+            fragments,
+            self.feature_array  
+        )
+
+        if config.collect_fragments:
+            self.fragment_feature_dict = fragment_feature_dict
         
         features.profile_features(
             jit_data,
@@ -1317,8 +1336,6 @@ class CandidateScoring():
         
         """
 
-        validate.candidates_df(candidates_df)
-
         precursor_columns = [
             'channel',
             'flat_frag_start_idx',
@@ -1634,37 +1651,53 @@ class CandidateScoring():
         """
         logger.info('Starting candidate scoring')
 
-        score_group_container = self.assemble_score_group_container(candidates_df)
         fragment_container = self.assemble_fragments()
 
-        # if debug mode, only iterate over 10 elution groups
-        iterator_len = min(10,len(score_group_container)) if debug else len(score_group_container)
-        thread_count = 1 if debug else thread_count
+        candidate_features_list = []
 
-        alphatims.utils.set_threads(thread_count)
-        _executor(
-            range(iterator_len), 
-            score_group_container,
-            fragment_container,
-            self.dia_data,
-            self.config.jitclass(),
-            self.quadrupole_calibration.jit,
-            debug
-        )
+        validate.candidates_df(candidates_df)
 
-        logger.info('Finished candidate processing')
-        logger.info('Collecting candidate features')
-        candidate_features_df = self.collect_candidates(candidates_df, score_group_container)
-        validate.candidate_features_df(candidate_features_df)
+        for decoy in [True, False]:
+            candidates_view_df = candidates_df[candidates_df['decoy'] == (1 if decoy else 0)]
+            self.config.collect_fragments = not decoy
 
-        
-        logger.info('Collecting fragment features')
-        fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
-        validate.fragment_features_df(fragment_features_df)
+            if decoy:
+                logger.info(f'Processing {len(candidates_view_df)} decoy candidates')
+            else:
+                logger.info(f'Processing {len(candidates_view_df)} target candidates')
+                
+            score_group_container = self.assemble_score_group_container(candidates_view_df)
+
+            # if debug mode, only iterate over 10 elution groups
+            iterator_len = min(10,len(score_group_container)) if debug else len(score_group_container)
+            thread_count = 1 if debug else thread_count
+
+            alphatims.utils.set_threads(thread_count)
+            _executor(
+                range(iterator_len), 
+                score_group_container,
+                fragment_container,
+                self.dia_data,
+                self.config.jitclass(),
+                self.quadrupole_calibration.jit,
+                debug
+            )
+
+            logger.info('Finished candidate processing')
+            logger.info('Collecting candidate features')
+            candidate_features_df = self.collect_candidates(candidates_df, score_group_container)
+            validate.candidate_features_df(candidate_features_df)
+            candidate_features_list += [candidate_features_df]
+
+            if not decoy:
+                logger.info('Collecting fragment features')
+                fragment_features_df = self.collect_fragments(candidates_df, score_group_container)
+                validate.fragment_features_df(fragment_features_df)
+
 
         logger.info('Finished candidate scoring')
 
         del score_group_container
         del fragment_container
 
-        return candidate_features_df, fragment_features_df
+        return pd.concat(candidate_features_list), fragment_features_df
