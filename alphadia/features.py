@@ -904,10 +904,6 @@ def profile_features(
             axis=0,
         )
 
-        feature_dict["template_scan_correlation"] = np.dot(
-            fragment_template_scan_correlation_reduced, non_zero_fragment_norm
-        )
-
         feature_array[30] = np.dot(
             fragment_template_scan_correlation_reduced, non_zero_fragment_norm
         )
@@ -949,10 +945,6 @@ def profile_features(
     fragment_template_frame_correlation_reduced = np.sum(
         fragment_template_frame_correlation * observation_importance.reshape(-1, 1),
         axis=0,
-    )
-
-    feature_dict["template_frame_correlation"] = np.dot(
-        fragment_template_frame_correlation_reduced, non_zero_fragment_norm
     )
 
     # template_frame_correlation
