@@ -482,6 +482,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = hybridselection.HybridCandidateConfig()
         config.update(self.config['selection_config'])
         config.update({
+            'top_k_fragments': self.config['search_advanced']['top_k_fragments'],
             'rt_tolerance':self.com.rt_error,
             'mobility_tolerance': self.com.mobility_error,
             'candidate_count': self.com.num_candidates,
@@ -509,6 +510,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = plexscoring.CandidateConfig()
         config.update(self.config['scoring_config'])
         config.update({
+            'top_k_fragments': self.config['search_advanced']['top_k_fragments'],
             'precursor_mz_tolerance': self.com.ms1_error,
             'fragment_mz_tolerance': self.com.ms2_error,
             'exclude_shared_ions': self.config['search']['exclude_shared_ions']

@@ -198,7 +198,7 @@ class CandidateConfig(config.JITConfig):
         self.collect_fragments = True
         self.score_grouped = False
         self.exclude_shared_ions = True
-        self.top_k_fragments = 16
+        self.top_k_fragments = 12
         self.top_k_isotopes = 4
         self.reference_channel = -1
         self.precursor_mz_tolerance = 15
@@ -243,7 +243,7 @@ class CandidateConfig(config.JITConfig):
     @property
     def top_k_fragments(self) -> int:
         """The number of fragments to consider for scoring. The top_k_fragments most intense fragments are used. 
-        Default: `top_k_fragments = 16`"""
+        Default: `top_k_fragments = 12`"""
         return self._top_k_fragments
     
     @top_k_fragments.setter

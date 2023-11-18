@@ -20,6 +20,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 import numpy as np
 import pandas as pd 
 import os, psutil
+import torch
 
 class Plan:
 
@@ -95,6 +96,9 @@ class Plan:
         
         self.load_library(spec_lib_path)
 
+        torch.set_num_threads(self.config['general']['thread_count'])
+
+
     @property
     def raw_file_list(
             self
@@ -159,7 +163,7 @@ class Plan:
         # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
         prepare_pipeline = libtransform.ProcessingPipeline([
             libtransform.DecoyGenerator(decoy_type='diann'),
-            libtransform.FlattenLibrary(),
+            libtransform.FlattenLibrary(self.config['search_advanced']['top_k_fragments']),
             libtransform.InitFlatColumns(),
             libtransform.LogFlatLibraryStats(),
         ])
