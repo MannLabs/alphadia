@@ -345,6 +345,7 @@ class RTNormalization(ProcessingStep):
 
         return input
 
+
 class FlattenLibrary(ProcessingStep):
     def __init__(
         self, top_k_fragments: int = 12, min_fragment_intensity: float = 0.01
