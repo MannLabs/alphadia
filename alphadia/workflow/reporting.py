@@ -26,14 +26,18 @@ __is_initiated__ = False
 PROGRESS_LEVELV_NUM = 100
 logging.PROGRESS = PROGRESS_LEVELV_NUM
 logging.addLevelName(PROGRESS_LEVELV_NUM, "PROGRESS")
+
+
 def progress(self, message, *args, **kws):
     if self.isEnabledFor(PROGRESS_LEVELV_NUM):
         # Yes, logger takes its '*args' as 'args'.
-        self._log(PROGRESS_LEVELV_NUM, message, args, **kws) 
+        self._log(PROGRESS_LEVELV_NUM, message, args, **kws)
+
+
 logging.Logger.progress = progress
 
-class DefaultFormatter(logging.Formatter):
 
+class DefaultFormatter(logging.Formatter):
     template = "%(levelname)s: %(message)s"
 
     grey = "\x1b[38;20m"
@@ -42,11 +46,8 @@ class DefaultFormatter(logging.Formatter):
     bold_red = "\x1b[31;1m"
     green = "\x1b[32;20m"
     reset = "\x1b[0m"
-    
-    def __init__(
-            self, 
-            use_ansi : bool = True
-        ):
+
+    def __init__(self, use_ansi: bool = True):
         """
         Default formatter adding elapsed time and optional ANSI colors.
 
@@ -58,15 +59,21 @@ class DefaultFormatter(logging.Formatter):
 
         """
         self.start_time = time.time()
-        
+
         if use_ansi:
             self.formatter = {
                 logging.DEBUG: logging.Formatter(self.template),
                 logging.INFO: logging.Formatter(self.template),
-                logging.PROGRESS: logging.Formatter(self.green + self.template + self.reset),
-                logging.WARNING: logging.Formatter(self.yellow + self.template + self.reset),
+                logging.PROGRESS: logging.Formatter(
+                    self.green + self.template + self.reset
+                ),
+                logging.WARNING: logging.Formatter(
+                    self.yellow + self.template + self.reset
+                ),
                 logging.ERROR: logging.Formatter(self.red + self.template + self.reset),
-                logging.CRITICAL: logging.Formatter(self.bold_red + self.template + self.reset)
+                logging.CRITICAL: logging.Formatter(
+                    self.bold_red + self.template + self.reset
+                ),
             }
         else:
             self.formatter = {
@@ -75,13 +82,10 @@ class DefaultFormatter(logging.Formatter):
                 logging.PROGRESS: logging.Formatter(self.template),
                 logging.WARNING: logging.Formatter(self.template),
                 logging.ERROR: logging.Formatter(self.template),
-                logging.CRITICAL: logging.Formatter(self.template)
+                logging.CRITICAL: logging.Formatter(self.template),
             }
 
-    def format(
-            self, 
-            record : logging.LogRecord
-        ):
+    def format(self, record: logging.LogRecord):
         """Format the log record.
 
         Parameters
@@ -97,15 +101,14 @@ class DefaultFormatter(logging.Formatter):
         """
 
         elapsed_seconds = record.created - self.start_time
-        elapsed = timedelta(seconds = elapsed_seconds)
+        elapsed = timedelta(seconds=elapsed_seconds)
 
-        return f'{elapsed} {self.formatter[record.levelno].format(record)}'
+        return f"{elapsed} {self.formatter[record.levelno].format(record)}"
+
 
 def init_logging(
-        log_folder: str = None, 
-        log_level: int = logging.INFO,
-        overwrite: bool = True
-    ):
+    log_folder: str = None, log_level: int = logging.INFO, overwrite: bool = True
+):
     """Initialize the default logger.
     Sets the formatter and the console and file handlers.
 
@@ -137,8 +140,7 @@ def init_logging(
     logger.addHandler(ch)
 
     if log_folder is not None:
-
-        log_name = os.path.join(log_folder, 'log.txt')
+        log_name = os.path.join(log_folder, "log.txt")
         # check if log file exists
         if os.path.exists(log_name) and overwrite:
             # if it does, delete it
@@ -151,7 +153,8 @@ def init_logging(
 
     __is_initiated__ = True
 
-class Backend():
+
+class Backend:
     """Generic backend for logging metrics, plots and strings.
 
     Implementations of the backend can implement the `log_figure`, `log_metric`, `log_string` and `log_data` methods.
@@ -162,32 +165,27 @@ class Backend():
     """
 
     REQUIRES_CONTEXT = False
-    
-    def log_figure(self, name : str, figure : typing.Any, *args, **kwargs):
+
+    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
         pass
 
-    def log_metric(self, name : str, value : float, *args, **kwargs):
+    def log_metric(self, name: str, value: float, *args, **kwargs):
         pass
 
-    def log_string(self, value : str, *args, **kwargs):
+    def log_string(self, value: str, *args, **kwargs):
         pass
 
-    def log_data(self, name : str, value : typing.Any, *args, **kwargs):
+    def log_data(self, name: str, value: typing.Any, *args, **kwargs):
         pass
 
-    def log_event(self, name : str, value : typing.Any, *args, **kwargs):
+    def log_event(self, name: str, value: typing.Any, *args, **kwargs):
         pass
+
 
 class FigureBackend(Backend):
-
     FIGURE_PATH = "figures"
 
-    def __init__(
-            self, 
-            path = None, 
-            default_savefig_kwargs = {
-                "dpi":300
-            }) -> None:
+    def __init__(self, path=None, default_savefig_kwargs={"dpi": 300}) -> None:
         """Backend which logs figures to a folder.
 
         implements the `log_figure` method.
@@ -204,22 +202,24 @@ class FigureBackend(Backend):
 
         """
         self.path = path
-        
+
         if self.path is None:
-            raise ValueError("FigureBackend requires an output folder to be set with the path parameter.")
-        
+            raise ValueError(
+                "FigureBackend requires an output folder to be set with the path parameter."
+            )
+
         # create figures folder if it does not exist
         self.figures_path = os.path.join(self.path, self.FIGURE_PATH)
-        os.makedirs(self.figures_path, exist_ok=True)       
+        os.makedirs(self.figures_path, exist_ok=True)
 
-        self.default_savefig_kwargs = default_savefig_kwargs 
+        self.default_savefig_kwargs = default_savefig_kwargs
 
     def log_figure(
-            self, 
-            name : str, 
-            figure : typing.Union[Figure, np.ndarray],
-            extension : str = 'png'
-        ):
+        self,
+        name: str,
+        figure: typing.Union[Figure, np.ndarray],
+        extension: str = "png",
+    ):
         """Log a figure to the figures folder.
 
         Parameters
@@ -245,18 +245,16 @@ class FigureBackend(Backend):
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
 
-class JSONLBackend(Backend):
 
+class JSONLBackend(Backend):
     EVENTS_PATH = "events.jsonl"
     REQUIRES_CONTEXT = True
 
     def __init__(
         self,
-        path = None,
-        enable_figure = True,
-        default_savefig_kwargs = {
-            "dpi":300
-        },
+        path=None,
+        enable_figure=True,
+        default_savefig_kwargs={"dpi": 300},
     ) -> None:
         """Backend which logs metrics, plots and strings to a JSONL file.
         It implements `log_figure`, `log_metric` , `log_string` and `log_event` methods.
@@ -276,11 +274,13 @@ class JSONLBackend(Backend):
             Whether to enable logging of figures. If False, the `log_figure` method will be a no-op.
 
         """
-        
+
         self.path = path
 
         if self.path is None:
-            raise ValueError("JSONLBackend requires an output folder to be set with the path parameter.")
+            raise ValueError(
+                "JSONLBackend requires an output folder to be set with the path parameter."
+            )
 
         self.events_path = os.path.join(self.path, self.EVENTS_PATH)
         self.default_savefig_kwargs = default_savefig_kwargs
@@ -298,7 +298,7 @@ class JSONLBackend(Backend):
             Current time as an ISO 8601 string.
         """
         return datetime.now().isoformat()
-    
+
     def relative_time(self):
         """Get the time since the context was entered in seconds.
 
@@ -310,28 +310,25 @@ class JSONLBackend(Backend):
 
         """
         return datetime.now().timestamp() - self.start_time
-    
+
     def __enter__(self):
         """Enter the context of the backend.
-        This method will create an empty `events.jsonl` file and write a `start` event to it.       
+        This method will create an empty `events.jsonl` file and write a `start` event to it.
         """
 
         self.entered_context = True
         self.start_time = datetime.now().timestamp()
 
         # empty the file if it exists
-        with open(self.events_path, 'w') as f:
+        with open(self.events_path, "w") as f:
             pass
 
         self.log_event("start", {})
         return self
 
     def __exit__(
-            self,
-            exc_type: typing.Any,
-            exc_value: typing.Any,
-            exc_traceback: typing.Any
-        ):
+        self, exc_type: typing.Any, exc_value: typing.Any, exc_traceback: typing.Any
+    ):
         """Exit the context of the backend.
         This method will write a `stop` event to the `events.jsonl` file.
 
@@ -349,7 +346,9 @@ class JSONLBackend(Backend):
         """
 
         if exc_type is not None:
-            exc_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_traceback))
+            exc_str = "".join(
+                traceback.format_exception(exc_type, exc_value, exc_traceback)
+            )
 
             self.log_event("stop", {"error": exc_str})
         else:
@@ -357,15 +356,11 @@ class JSONLBackend(Backend):
 
         self.entered_context = False
         self.start_time = 0
-        
-    def log_event(
-            self, 
-            name : str, 
-            value : typing.Any
-        ):
+
+    def log_event(self, name: str, value: typing.Any):
         """Log an event to the `events.jsonl` file.
 
-        Important: This method will only log events if the backend is in a context. 
+        Important: This method will only log events if the backend is in a context.
         Otherwise, it will be a no-op.
 
         Parameters
@@ -380,24 +375,19 @@ class JSONLBackend(Backend):
 
         if not self.entered_context:
             return
-        
-        with open(self.events_path, 'a') as f:
+
+        with open(self.events_path, "a") as f:
             message = {
-                
                 "absolute_time": self.absolute_time(),
                 "relative_time": self.relative_time(),
                 "type": "event",
                 "name": name,
                 "value": value,
-                "verbosity": 0
+                "verbosity": 0,
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_metric(
-            self, 
-            name: str, 
-            value: float
-        ):
+    def log_metric(self, name: str, value: float):
         """Log a metric to the `events.jsonl` file.
 
         Important: This method will only log metrics if the backend is in a context.
@@ -410,29 +400,24 @@ class JSONLBackend(Backend):
             Name of the metric.
 
         value : float
-            Value of the metric.       
+            Value of the metric.
         """
 
         if not self.entered_context:
             return
-        
-        with open(self.events_path, 'a') as f:
+
+        with open(self.events_path, "a") as f:
             message = {
-                
                 "absolute_time": self.absolute_time(),
                 "relative_time": self.relative_time(),
                 "type": "metric",
                 "name": name,
                 "value": value,
-                "verbosity": 0
+                "verbosity": 0,
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_string(
-            self, 
-            value: str, 
-            verbosity: int = 'info'
-        ):
+    def log_string(self, value: str, verbosity: int = "info"):
         """Log a string to the `events.jsonl` file.
 
         Important: This method will only log strings if the backend is in a context.
@@ -450,24 +435,19 @@ class JSONLBackend(Backend):
         """
         if not self.entered_context:
             return
-        
-        with open(self.events_path, 'a') as f:
+
+        with open(self.events_path, "a") as f:
             message = {
-                
                 "absolute_time": self.absolute_time(),
                 "relative_time": self.relative_time(),
                 "type": "string",
                 "name": "string",
                 "value": value,
-                "verbosity": verbosity
+                "verbosity": verbosity,
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_figure(
-            self, 
-            name: str, 
-            figure: typing.Any
-        ):
+    def log_figure(self, name: str, figure: typing.Any):
         """Log a base64 image of a figure to the `events.jsonl` file.
 
         Important: This method will only log figures if the backend is in a context.
@@ -495,52 +475,51 @@ class JSONLBackend(Backend):
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
             return
-        
-        base64_encoded_image = base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-        with open(self.events_path, 'a') as f:
+        base64_encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8")
+
+        with open(self.events_path, "a") as f:
             message = {
-                
                 "absolute_time": self.absolute_time(),
                 "relative_time": self.relative_time(),
                 "type": "figure",
                 "name": name,
                 "value": base64_encoded_image,
-                "verbosity": 0
+                "verbosity": 0,
             }
             f.write(json.dumps(message) + "\n")
+
 
 class NeptuneBackend(Backend):
     pass
 
+
 class LogBackend(Backend):
-
-    def __init__(self, path : str = None) -> None:
-
+    def __init__(self, path: str = None) -> None:
         if not __is_initiated__ or path is not None:
             init_logging(path)
 
         self.logger = logging.getLogger()
         super().__init__()
 
-    def log_string(self, value : str, verbosity : str = 'info'):
-        if verbosity == 'progress':
+    def log_string(self, value: str, verbosity: str = "info"):
+        if verbosity == "progress":
             self.logger.progress(value)
-        elif verbosity == 'info':
+        elif verbosity == "info":
             self.logger.info(value)
-        elif verbosity == 'debug':
+        elif verbosity == "debug":
             self.logger.debug(value)
-        elif verbosity == 'warning':
+        elif verbosity == "warning":
             self.logger.warning(value)
-        elif verbosity == 'error':
+        elif verbosity == "error":
             self.logger.error(value)
-        elif verbosity == 'critical':
+        elif verbosity == "critical":
             self.logger.critical(value)
         else:
             raise ValueError(f"Unknown verbosity level {verbosity}")
 
-class Context():
-    
+
+class Context:
     def __init__(self, parent: typing.Any) -> None:
         """Helper class to allow backends to use a context manager.
         This allows the parent class to be instantiated without context and to receive  context later.
@@ -550,7 +529,7 @@ class Context():
 
         parent : typing.Any
             The metric logger which owns this context
-        
+
         """
         self.parent = parent
 
@@ -558,14 +537,13 @@ class Context():
         return self.parent.__enter__()
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
-        
         return self.parent.__exit__(exc_type, exc_value, exc_traceback)
 
-class Pipeline():
 
+class Pipeline:
     def __init__(
-            self,
-            backends : typing.List[typing.Type[Backend]] = [],
+        self,
+        backends: typing.List[typing.Type[Backend]] = [],
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
@@ -575,7 +553,7 @@ class Pipeline():
         backends : typing.List[Type[Backend]], default [LogBackend]
             typing.List of backends to use. Each backend must be a class inheriting from Backend.
         """
-        
+
         # the context will store a Context object
         # this allows backends which require a context to be used
         self.context = Context(self)
@@ -587,28 +565,28 @@ class Pipeline():
         for backend in self.backends:
             if backend.REQUIRES_CONTEXT:
                 backend.__enter__()
-    
+
     def __exit__(self, exc_type, exc_value, exc_traceback):
         for backend in self.backends:
             if backend.REQUIRES_CONTEXT:
                 backend.__exit__(exc_type, exc_value, exc_traceback)
 
-    def log_figure(self, name : str, figure : typing.Any, *args, **kwargs):
+    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
         for backend in self.backends:
             backend.log_figure(name, figure, *args, **kwargs)
 
-    def log_metric(self, name : str, value : float, *args, **kwargs):
+    def log_metric(self, name: str, value: float, *args, **kwargs):
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
 
-    def log_string(self, value : str, *args, verbosity='info',**kwargs):
+    def log_string(self, value: str, *args, verbosity="info", **kwargs):
         for backend in self.backends:
-            backend.log_string(value, *args, verbosity = verbosity, **kwargs)
+            backend.log_string(value, *args, verbosity=verbosity, **kwargs)
 
-    def log_data(self, name : str, value : typing.Any, *args, **kwargs):
+    def log_data(self, name: str, value: typing.Any, *args, **kwargs):
         for backend in self.backends:
             backend.log_data(name, value, *args, **kwargs)
 
-    def log_event(self, name : str, value : typing.Any, *args, **kwargs):
+    def log_event(self, name: str, value: typing.Any, *args, **kwargs):
         for backend in self.backends:
             backend.log_event(name, value, *args, **kwargs)
