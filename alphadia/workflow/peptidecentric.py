@@ -291,7 +291,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         This plan has the shape:
         1, 2, 4, 8, 16, 32, 64, ...
         """
-        return int(2 ** step)
+        return int(2**step)
 
     def get_batch_plan(self):
         n_eg = self.spectral_library._precursor_df["elution_group_idx"].nunique()
@@ -386,14 +386,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         self.start_of_calibration()
-        for current_epoch in range(self.config['calibration']['max_epochs']):
+        for current_epoch in range(self.config["calibration"]["max_epochs"]):
             if self.check_epoch_conditions():
                 pass
             else:
                 break
 
             self.start_of_epoch(current_epoch)
-        
+
             features = []
             fragments = []
             for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
@@ -453,8 +453,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def end_of_calibration(self):
-        #self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
-        #self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
+        # self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
+        # self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
         self.calibration_manager.save()
         pass
 
@@ -593,17 +593,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         config = hybridselection.HybridCandidateConfig()
-        config.update(self.config['selection_config'])
-        config.update({
-            'top_k_fragments': self.config['search_advanced']['top_k_fragments'],
-            'rt_tolerance':self.com.rt_error,
-            'mobility_tolerance': self.com.mobility_error,
-            'candidate_count': self.com.num_candidates,
-            'precursor_mz_tolerance': self.com.ms1_error,
-            'fragment_mz_tolerance': self.com.ms2_error,
-            'exclude_shared_ions': self.config['search']['exclude_shared_ions']
-        })
-        
+        config.update(self.config["selection_config"])
+        config.update(
+            {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
+                "rt_tolerance": self.com.rt_error,
+                "mobility_tolerance": self.com.mobility_error,
+                "candidate_count": self.com.num_candidates,
+                "precursor_mz_tolerance": self.com.ms1_error,
+                "fragment_mz_tolerance": self.com.ms2_error,
+                "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
+            }
+        )
+
         extraction = hybridselection.HybridCandidateSelection(
             self.dia_data.jitclass(),
             batch_df,
@@ -621,13 +623,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
         config = plexscoring.CandidateConfig()
-        config.update(self.config['scoring_config'])
-        config.update({
-            'top_k_fragments': self.config['search_advanced']['top_k_fragments'],
-            'precursor_mz_tolerance': self.com.ms1_error,
-            'fragment_mz_tolerance': self.com.ms2_error,
-            'exclude_shared_ions': self.config['search']['exclude_shared_ions']
-        })
+        config.update(self.config["scoring_config"])
+        config.update(
+            {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
+                "precursor_mz_tolerance": self.com.ms1_error,
+                "fragment_mz_tolerance": self.com.ms2_error,
+                "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
+            }
+        )
 
         candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),

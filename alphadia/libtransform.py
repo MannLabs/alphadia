@@ -346,10 +346,8 @@ class RTNormalization(ProcessingStep):
         return input
 
     def __init__(
-            self,
-            top_k_fragments : int = 12,
-            min_fragment_intensity : float = 0.01
-        ) -> None:
+        self, top_k_fragments: int = 12, min_fragment_intensity: float = 0.01
+    ) -> None:
         """Convert a `SpecLibBase` object into a `SpecLibFlat` object.
 
         Parameters
@@ -374,9 +372,16 @@ class RTNormalization(ProcessingStep):
     def forward(self, input: SpecLibBase) -> SpecLibFlat:
         """Convert a `SpecLibBase` object into a `SpecLibFlat` object."""
 
-        input._fragment_cardinality_df = fragment.calc_fragment_cardinality(input.precursor_df, input._fragment_mz_df)
-        output = SpecLibFlat(min_fragment_intensity=self.min_fragment_intensity, keep_top_k_fragments=self.top_k_fragments)
-        output.parse_base_library(input, custom_df={'cardinality':input._fragment_cardinality_df})
+        input._fragment_cardinality_df = fragment.calc_fragment_cardinality(
+            input.precursor_df, input._fragment_mz_df
+        )
+        output = SpecLibFlat(
+            min_fragment_intensity=self.min_fragment_intensity,
+            keep_top_k_fragments=self.top_k_fragments,
+        )
+        output.parse_base_library(
+            input, custom_df={"cardinality": input._fragment_cardinality_df}
+        )
         return output
 
 
