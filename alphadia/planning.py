@@ -100,8 +100,7 @@ class Plan:
 
         self.load_library(spec_lib_path)
 
-        torch.set_num_threads(self.config['general']['thread_count'])
-
+        torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
     def raw_file_list(self) -> typing.List[str]:
@@ -149,12 +148,16 @@ class Plan:
         )
 
         # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
-        prepare_pipeline = libtransform.ProcessingPipeline([
-            libtransform.DecoyGenerator(decoy_type='diann'),
-            libtransform.FlattenLibrary(self.config['search_advanced']['top_k_fragments']),
-            libtransform.InitFlatColumns(),
-            libtransform.LogFlatLibraryStats(),
-        ])
+        prepare_pipeline = libtransform.ProcessingPipeline(
+            [
+                libtransform.DecoyGenerator(decoy_type="diann"),
+                libtransform.FlattenLibrary(
+                    self.config["search_advanced"]["top_k_fragments"]
+                ),
+                libtransform.InitFlatColumns(),
+                libtransform.LogFlatLibraryStats(),
+            ]
+        )
 
         speclib = import_pipeline(spec_lib_path)
         if self.config["library_loading"]["save_hdf"]:
