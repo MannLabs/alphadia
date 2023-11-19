@@ -16,47 +16,47 @@ from alphadia.workflow import peptidecentric
 
 parser = argparse.ArgumentParser(description='Run the fdr test.')
 parser.add_argument('--threads', type=int, default=1,
-                    help='number of threads to use')
+                    help='number of threads to use, default: 1')
 parser.add_argument('--size', type=int, default=100,
-                    help='size of the test in percent')
+                    help='size of the test in percent, default: 100')
 
 parser.add_argument('--url', type=str, default='https://datashare.biochem.mpg.de/s/42iwFDTbJYpZxHW',
-                    help='url to the test data')
+                    help='url to the test data, default: https://datashare.biochem.mpg.de/s/42iwFDTbJYpZxHW')
 
 parser.add_argument('--neptune-project', type=str, default='MannLabs/alphadia-fdr-optimization',
-                    help='Neptune.ai project for continous logging.')
+                    help='Neptune.ai project for continous logging, default: MannLabs/alphadia-fdr-optimization')
 
 parser.add_argument(
         "--neptune-tag",
         action="append",
         dest="neptune_tag",
         default=[],
-        help="Specify Neptune tags (can be used multiple times).",
+        help="Specify Neptune tags",
     )
 
 parser.add_argument('--n-iter', type=int, default=20,
-                    help='number of iterations')
+                    help='number of iterations, default: 20')
 
 parser.add_argument('--max-batch-size', type=int, default=10000,
-                    help='maximum batch size')
+                    help='maximum batch size, default: 10000')
 
 parser.add_argument('--min-batch-number', type=int, default=100,
-                    help='minimum batch number')
+                    help='minimum batch number, default: 100')
 
 parser.add_argument('--epochs', type=int, default=10,
-                    help='number of epochs')
+                    help='number of epochs, default: 10')
 
 parser.add_argument('--learning-rate', type=float, default=0.0002,
-                    help='learning rate')
+                    help='learning rate, default: 0.0002')
 
 parser.add_argument('--weight-decay', type=float, default=0.00001,
-                    help='weight decay')
+                    help='weight decay, default: 0.00001')
 
 parser.add_argument('--layers', type=str, default='100,50,20,5',
-                    help='number of layers')
+                    help='number of layers, default: 100,50,20,5')
 
 parser.add_argument('--dropout', type=float, default=0.001,
-                    help='dropout')
+                    help='dropout, default: 0.001')
 
 def main():
     # disable interactive plotting
