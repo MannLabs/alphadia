@@ -124,7 +124,8 @@ class BinaryClassifier(Classifier):
         input_dim: int = 10,
         output_dim: int = 2,
         test_size: float = 0.2,
-        batch_size: int = 1000,
+        max_batch_size: int = 10000,
+        min_batch_number: int = 100,
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
@@ -148,14 +149,20 @@ class BinaryClassifier(Classifier):
         test_size : float, default=0.2
             Fraction of the data to be used for testing.
 
-        batch_size : int, default=1000
-            Batch size for training.
+        max_batch_size : int, default=5000
+            Maximum batch size for training.
+            The actual batch will be scaled to make sure at least min_batch_number batches are used.
+
+        min_batch_number : int, default=100
+            Minimum number of batches for training.
+            The actual batch number will be scaled if more than min_batchnumber * max_batch_size samples are available.
 
         epochs : int, default=10
             Number of epochs for training.
 
         learning_rate : float, default=0.0002
-            Learning rate for training.
+            Base learning rate for a batch size of max_batch_size.
+            If smaller batches are used, the learning rate will be scaled linearly.
 
         weight_decay : float, default=0.00001
             Weight decay for training.
@@ -178,7 +185,8 @@ class BinaryClassifier(Classifier):
         """
 
         self.test_size = test_size
-        self.batch_size = batch_size
+        self.max_batch_size = max_batch_size
+        self.min_batch_number = min_batch_number
         self.epochs = epochs
         self.learning_rate = learning_rate
         self.weight_decay = weight_decay
@@ -309,6 +317,10 @@ class BinaryClassifier(Classifier):
 
         """
 
+        batch_number = max(self.min_batch_number,  x.shape[0]// self.max_batch_size)
+        batch_size = x.shape[0] // batch_number
+        lr_scaled = self.learning_rate * batch_size / self.max_batch_size
+
         force_reinit = False
 
         if self.input_dim != x.shape[1] and self.network is not None:
@@ -329,7 +341,7 @@ class BinaryClassifier(Classifier):
 
         optimizer = optim.AdamW(
             self.network.parameters(),
-            lr=self.learning_rate,
+            lr=lr_scaled,
             weight_decay=self.weight_decay,
         )
 
@@ -340,9 +352,9 @@ class BinaryClassifier(Classifier):
         patience = self.patience
         x_train, x_test, y_train, y_test = self._prepare_data(x, y)
 
-        num_batches = (x_train.shape[0] // self.batch_size) - 1
-        batch_start_list = np.arange(num_batches) * self.batch_size
-        batch_stop_list = np.arange(num_batches) * self.batch_size + self.batch_size
+        num_batches = (x_train.shape[0] // batch_size) - 1
+        batch_start_list = np.arange(num_batches) * batch_size
+        batch_stop_list = np.arange(num_batches) * batch_size + batch_size
 
         batch_count = 0
         for epoch in tqdm(range(self.epochs)):
@@ -393,10 +405,10 @@ class BinaryClassifier(Classifier):
 
             self.network.eval()
             with torch.no_grad():
-                test_num_batches = (x_test.shape[0] // self.batch_size) - 1
-                test_batch_start_list = np.arange(test_num_batches) * self.batch_size
+                test_num_batches = (x_test.shape[0] // batch_size) - 1
+                test_batch_start_list = np.arange(test_num_batches) * batch_size
                 test_batch_stop_list = (
-                    np.arange(test_num_batches) * self.batch_size + self.batch_size
+                    np.arange(test_num_batches) * batch_size + batch_size
                 )
 
                 for batch_start, batch_stop in zip(

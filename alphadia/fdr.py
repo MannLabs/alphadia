@@ -27,6 +27,7 @@ def perform_fdr(
     competetive: bool = False,
     group_channels: bool = True,
     figure_path: Optional[str] = None,
+    neptune_run=None,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -123,7 +124,7 @@ def perform_fdr(
         classifier,
         psm_df["qval"],
         figure_path=figure_path,
-        # neptune_run=neptune_run
+        neptune_run=neptune_run,
     )
 
     return psm_df
@@ -376,7 +377,7 @@ def plot_fdr(
     if figure_path is not None:
         fig.savefig(os.path.join(figure_path, "fdr.pdf"))
 
-    # if neptune_run is not None:
-    #    neptune_run['eval/fdr'].log(fig)
+    if neptune_run is not None:
+        neptune_run['eval/fdr'].log(fig)
 
     plt.close()
