@@ -317,7 +317,7 @@ class BinaryClassifier(Classifier):
 
         """
 
-        batch_number = max(self.min_batch_number,  x.shape[0]// self.max_batch_size)
+        batch_number = max(self.min_batch_number, x.shape[0] // self.max_batch_size)
         batch_size = x.shape[0] // batch_number
         lr_scaled = self.learning_rate * batch_size / self.max_batch_size
 

@@ -378,6 +378,6 @@ def plot_fdr(
         fig.savefig(os.path.join(figure_path, "fdr.pdf"))
 
     if neptune_run is not None:
-        neptune_run['eval/fdr'].log(fig)
+        neptune_run["eval/fdr"].log(fig)
 
     plt.close()

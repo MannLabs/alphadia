@@ -66,10 +66,10 @@ def main():
     args = parser.parse_args()
 
     # print all command line arguments
-    print('==========================')
-    print('Command line arguments:')
+    print("==========================")
+    print("Command line arguments:")
     for arg in vars(args):
-        print(f'{arg}: {getattr(args, arg)}')
+        print(f"{arg}: {getattr(args, arg)}")
 
     # set number of threads
     torch.set_num_threads(args.threads)
@@ -81,39 +81,40 @@ def main():
     )
 
     # log parameters to neptune.ai
-    run['parameters'] = vars(args)
-    run['version'] = alphadia.__version__
+    run["parameters"] = vars(args)
+    run["version"] = alphadia.__version__
 
-    print(f'Downloading test data from {args.url}...')
+    print(f"Downloading test data from {args.url}...")
     temp_directory = tempfile.gettempdir()
     test_data_location = testing.update_datashare(args.url, temp_directory)
-    print(f'Saved test data to {test_data_location}')
+    print(f"Saved test data to {test_data_location}")
 
-    features_df = pd.read_csv(test_data_location, sep='\t')
-    print(f'Test data has {len(features_df)} rows')
-    print(f'Will use {args.size}% of the data')
-    available_columns = list(set(peptidecentric.feature_columns).intersection(set(features_df.columns)))
+    features_df = pd.read_csv(test_data_location, sep="\t")
+    print(f"Test data has {len(features_df)} rows")
+    print(f"Will use {args.size}% of the data")
+    available_columns = list(
+        set(peptidecentric.feature_columns).intersection(set(features_df.columns))
+    )
 
     performance_dicts = []
 
     for iteration in range(args.n_iter):
+        print(f"Iteration {iteration+1}/{args.n_iter}")
 
-        print(f'Iteration {iteration+1}/{args.n_iter}')
-
-        target_df = features_df[features_df["decoy"] == 0].sample(frac=args.size/100)
-        decoy_df = features_df[features_df["decoy"] == 1].sample(frac=args.size/100)
+        target_df = features_df[features_df["decoy"] == 0].sample(frac=args.size / 100)
+        decoy_df = features_df[features_df["decoy"] == 1].sample(frac=args.size / 100)
 
         start_time = time.time()
 
         classifier = fdrexperimental.BinaryClassifier(
-            test_size = 0.001,
-            max_batch_size = args.max_batch_size,
-            min_batch_number = args.min_batch_number,
-            epochs = args.epochs,
-            learning_rate = args.learning_rate,
-            weight_decay = args.weight_decay,
-            layers = [int(l) for l in args.layers.split(',')],
-            dropout = args.dropout,
+            test_size=0.001,
+            max_batch_size=args.max_batch_size,
+            min_batch_number=args.min_batch_number,
+            epochs=args.epochs,
+            learning_rate=args.learning_rate,
+            weight_decay=args.weight_decay,
+            layers=[int(l) for l in args.layers.split(",")],
+            dropout=args.dropout,
         )
 
         psm_df = fdr.perform_fdr(
@@ -128,59 +129,70 @@ def main():
         stop_time = time.time()
         duration = stop_time - start_time
 
-        psm_sig_df = psm_df[psm_df['decoy'] == 0]
+        psm_sig_df = psm_df[psm_df["decoy"] == 0]
 
-        performance_dicts.append({
-            'duration': duration,
-            'iteration': iteration,
-            'fdr1':np.sum(psm_sig_df['qval']<0.01),
-            'fdr01':np.sum(psm_sig_df['qval']<0.001),
-        })
+        performance_dicts.append(
+            {
+                "duration": duration,
+                "iteration": iteration,
+                "fdr1": np.sum(psm_sig_df["qval"] < 0.01),
+                "fdr01": np.sum(psm_sig_df["qval"] < 0.001),
+            }
+        )
 
     performance_df = pd.DataFrame(performance_dicts)
-    performance_df['fdr_ratio'] = performance_df['fdr01'] / performance_df['fdr1']
+    performance_df["fdr_ratio"] = performance_df["fdr01"] / performance_df["fdr1"]
 
-    run['eval/fdr1_mean'] = performance_df['fdr1'].mean()
-    run['eval/fdr1_std'] = performance_df['fdr1'].std()
-    run['eval/fdr1_min'] = performance_df['fdr1'].min()
-    run['eval/fdr1_max'] = performance_df['fdr1'].max()
-    run['eval/fdr1_iszero'] = (performance_df['fdr1'] == 0).sum()
+    run["eval/fdr1_mean"] = performance_df["fdr1"].mean()
+    run["eval/fdr1_std"] = performance_df["fdr1"].std()
+    run["eval/fdr1_min"] = performance_df["fdr1"].min()
+    run["eval/fdr1_max"] = performance_df["fdr1"].max()
+    run["eval/fdr1_iszero"] = (performance_df["fdr1"] == 0).sum()
 
-    run['eval/fdr01_mean'] = performance_df['fdr01'].mean()
-    run['eval/fdr01_std'] = performance_df['fdr01'].std()
-    run['eval/fdr01_min'] = performance_df['fdr01'].min()
-    run['eval/fdr01_max'] = performance_df['fdr01'].max()
-    run['eval/fdr01_iszero'] = (performance_df['fdr01'] == 0).sum()
+    run["eval/fdr01_mean"] = performance_df["fdr01"].mean()
+    run["eval/fdr01_std"] = performance_df["fdr01"].std()
+    run["eval/fdr01_min"] = performance_df["fdr01"].min()
+    run["eval/fdr01_max"] = performance_df["fdr01"].max()
+    run["eval/fdr01_iszero"] = (performance_df["fdr01"] == 0).sum()
 
-    run['eval/fdr_ratio_mean'] = performance_df['fdr_ratio'].mean()
-    run['eval/fdr_ratio_std'] = performance_df['fdr_ratio'].std()
-    run['eval/fdr_ratio_min'] = performance_df['fdr_ratio'].min()
-    run['eval/fdr_ratio_max'] = performance_df['fdr_ratio'].max()
+    run["eval/fdr_ratio_mean"] = performance_df["fdr_ratio"].mean()
+    run["eval/fdr_ratio_std"] = performance_df["fdr_ratio"].std()
+    run["eval/fdr_ratio_min"] = performance_df["fdr_ratio"].min()
+    run["eval/fdr_ratio_max"] = performance_df["fdr_ratio"].max()
 
-    run['eval/duration_mean'] = performance_df['duration'].mean()
-    run['eval/duration_std'] = performance_df['duration'].std()
-    run['eval/duration_min'] = performance_df['duration'].min()
-    run['eval/duration_max'] = performance_df['duration'].max()
-
+    run["eval/duration_mean"] = performance_df["duration"].mean()
+    run["eval/duration_std"] = performance_df["duration"].std()
+    run["eval/duration_min"] = performance_df["duration"].min()
+    run["eval/duration_max"] = performance_df["duration"].max()
 
     run.stop()
 
-    print('==========================')
-    print('Precursor @ 1% FDR')
-    print(f'mean: {performance_df["fdr1"].mean()}, std: {performance_df["fdr1"].std():.2f}')
-    print(f'min: {performance_df["fdr1"].min()}, max: {performance_df["fdr1"].max():.2f}')
-    print('')
-    print('Precursor @ 0.1% FDR')
-    print(f'mean: {performance_df["fdr01"].mean()}, std: {performance_df["fdr01"].std():.2f}')
-    print(f'min: {performance_df["fdr01"].min()}, max: {performance_df["fdr01"].max():.2f}')
-    print('')
-    print('FDR ratio')
-    print(f'mean: {performance_df["fdr_ratio"].mean()}, std: {performance_df["fdr_ratio"].std():.2f}')
-    print(f'min: {performance_df["fdr_ratio"].min()}, max: {performance_df["fdr_ratio"].max():.2f}')
-    print('==========================')
+    print("==========================")
+    print("Precursor @ 1% FDR")
+    print(
+        f'mean: {performance_df["fdr1"].mean()}, std: {performance_df["fdr1"].std():.2f}'
+    )
+    print(
+        f'min: {performance_df["fdr1"].min()}, max: {performance_df["fdr1"].max():.2f}'
+    )
+    print("")
+    print("Precursor @ 0.1% FDR")
+    print(
+        f'mean: {performance_df["fdr01"].mean()}, std: {performance_df["fdr01"].std():.2f}'
+    )
+    print(
+        f'min: {performance_df["fdr01"].min()}, max: {performance_df["fdr01"].max():.2f}'
+    )
+    print("")
+    print("FDR ratio")
+    print(
+        f'mean: {performance_df["fdr_ratio"].mean()}, std: {performance_df["fdr_ratio"].std():.2f}'
+    )
+    print(
+        f'min: {performance_df["fdr_ratio"].min()}, max: {performance_df["fdr_ratio"].max():.2f}'
+    )
+    print("==========================")
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-
