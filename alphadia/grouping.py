@@ -87,7 +87,7 @@ def group_and_parsimony(
     # check that all precursors are found again
     if len(return_dict) != len(precursor_idx):
         raise ValueError(
-            "Not all precursors were found in the output of the grouping function."
+            f"Not all precursors were found in the output of the grouping function. {len(return_dict)} precursors were found, but {len(precursor_idx)} were expected."
         )
 
     # order by precursor index
@@ -117,6 +117,12 @@ def perform_grouping(
         subset=["precursor_idx", genes_or_proteins], keep="first"
     )
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
+
+    #check if duplicate precursors exist
+    if upsm.duplicated(subset=["precursor_idx"]).any():
+        raise ValueError(
+            "The same precursor was found annotated to different proteins. Please make sure all precursors were searched with the same library."
+        )
 
     # handle case with only one decoy class:
     unique_decoys = upsm[decoy_column].unique()
