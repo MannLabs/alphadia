@@ -278,6 +278,7 @@ def test_feed_forward_save():
     classifier = fdrx.BinaryClassifierLegacy(
         batch_size=100,
         learning_rate=0.001,
+        epochs=20,
     )
 
     classifier.fit(x, y)
