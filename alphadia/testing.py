@@ -74,7 +74,7 @@ def filename_onedrive(sharing_url: str) -> str:  # pragma: no cover
     try:
         remotefile = urlopen(encoded_url)
     except:
-        logging.info(f"Could not open {sharing_url} for reading filename")
+        print(f"Could not open {sharing_url} for reading filename")
         raise ValueError(f"Could not open {sharing_url} for reading filename") from None
 
     info = remotefile.info()["Content-Disposition"]
@@ -107,10 +107,10 @@ def download_onedrive(
     output_path = os.path.join(output_dir, filename)
     try:
         path, message = urlretrieve(encoded_url, output_path, Progress())
-        logging.info(f"{filename} successfully downloaded")
+        print(f"{filename} successfully downloaded")
         return path
     except:
-        logging.info(f"Could not download {filename} from onedrive")
+        print(f"Could not download {filename} from onedrive")
         return None
 
 
@@ -135,18 +135,18 @@ def update_onedrive(
     filename = filename_onedrive(sharing_url)
     output_path = os.path.join(output_dir, filename)
     if not os.path.exists(output_path):
-        logging.info(f"{filename} does not yet exist")
+        print(f"{filename} does not yet exist")
         download_onedrive(sharing_url, output_dir)
 
         # if file ends with .zip and zip=True
         if unzip and filename.endswith(".zip"):
-            logging.info(f"Unzipping {filename}")
+            print(f"Unzipping {filename}")
             with zipfile.ZipFile(output_path, "r") as zip_ref:
                 zip_ref.extractall(output_dir)
-            logging.info(f"{filename} successfully unzipped")
+            print(f"{filename} successfully unzipped")
 
     else:
-        logging.info(f"{filename} already exists")
+        print(f"{filename} already exists")
 
 
 def encode_url_datashare(sharing_url: str) -> str:  # pragma: no cover
@@ -188,7 +188,7 @@ def filename_datashare(sharing_url: str, tar=False) -> str:  # pragma: no cover
     try:
         remotefile = urlopen(encoded_url)
     except:
-        # logging.info(f'Could not open {sharing_url} for reading filename')
+        # print(f'Could not open {sharing_url} for reading filename')
         raise ValueError(f"Could not open {sharing_url} for reading filename") from None
 
     info = remotefile.info()["Content-Disposition"]
@@ -223,11 +223,11 @@ def download_datashare(
 
     try:
         path, message = urlretrieve(encoded_url, output_path, Progress())
-        logging.info(f"{filename} successfully downloaded")
+        print(f"{filename} successfully downloaded")
 
         return path
     except Exception as e:
-        logging.info(f"Could not download {filename} from datashare")
+        print(f"Could not download {filename} from datashare")
 
         return None
 
@@ -259,26 +259,26 @@ def update_datashare(
 
     # file does not yet exist
     if not os.path.exists(unzipped_path):
-        logging.info(f"{filename} does not yet exist")
+        print(f"{filename} does not yet exist")
         download_datashare(sharing_url, output_dir)
 
         # if file ends with .zip and zip=True
         if filename.endswith(".zip"):
             with zipfile.ZipFile(output_path, "r") as zip_ref:
                 zip_ref.extractall(output_dir)
-            logging.info(f"{filename} successfully unzipped")
+            print(f"{filename} successfully unzipped")
             os.remove(output_path)
 
     # file already exists
     else:
         # force download
         if force:
-            logging.info(f"{filename} already exists, but force=True")
+            print(f"{filename} already exists, but force=True")
 
             # remove file
             try:
                 os.remove(output_path)
-                logging.info(f"{filename} successfully removed")
+                print(f"{filename} successfully removed")
             except:
                 logging.error(f"Could not remove {filename}")
                 return
@@ -289,7 +289,9 @@ def update_datashare(
             if filename.endswith(".zip"):
                 with zipfile.ZipFile(output_path, "r") as zip_ref:
                     zip_ref.extractall(output_dir)
-                logging.info(f"{filename} successfully unzipped")
+                print(f"{filename} successfully unzipped")
                 os.remove(output_path)
 
-        logging.info(f"{filename} already exists")
+        print(f"{filename} already exists")
+
+    return unzipped_path
