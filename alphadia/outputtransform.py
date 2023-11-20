@@ -47,7 +47,13 @@ class SearchPlanOutput:
                 logger.warning(f"no psm file found for {raw_name}")
                 run_df = pd.DataFrame()
             else:
-                run_df = pd.read_csv(psm_path, sep="\t")
+                try:
+                    run_df = pd.read_csv(psm_path, sep="\t")
+                except Exception as e:
+                    logger.warning(f"Error reading psm file for {raw_name}")
+                    logger.warning(e)
+                    run_df = pd.DataFrame()
+
             psm_df_list.append(run_df)
 
         logger.progress("Building combined output")
