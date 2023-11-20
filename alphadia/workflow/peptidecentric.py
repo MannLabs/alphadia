@@ -88,6 +88,7 @@ classifier_base = fdrx.BinaryClassifier(
     learning_rate=0.002,
     epochs=20,
     batch_size=1000,
+    patience=10,
 )
 
 
