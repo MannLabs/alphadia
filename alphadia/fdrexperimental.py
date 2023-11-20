@@ -523,6 +523,7 @@ class BinaryClassifier(Classifier):
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
+
 class BinaryClassifierLegacy(Classifier):
     def __init__(
         self,
@@ -829,6 +830,7 @@ class BinaryClassifierLegacy(Classifier):
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
+
 
 class FeedForwardNN(nn.Module):
     def __init__(
