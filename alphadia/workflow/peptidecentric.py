@@ -83,7 +83,7 @@ feature_columns = [
     "mobility_fwhm",
 ]
 
-classifier_base = fdrx.BinaryClassifier(
+classifier_base = fdrx.BinaryClassifierLegacy(
     test_size=0.001,
 )
 
@@ -289,9 +289,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def get_exponential_batches(self, step):
         """Get the number of batches for a given step
         This plan has the shape:
-        1, 1, 1, 2, 4, 8, 16, 32, 64, ...
+        1, 2, 4, 8, 16, 32, 64, ...
         """
-        return int(2 ** max(step - 3, 0))
+        return int(2**step)
 
     def get_batch_plan(self):
         n_eg = self.spectral_library._precursor_df["elution_group_idx"].nunique()
@@ -387,12 +387,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.start_of_calibration()
         for current_epoch in range(self.config["calibration"]["max_epochs"]):
-            self.start_of_epoch(current_epoch)
-
             if self.check_epoch_conditions():
                 pass
             else:
                 break
+
+            self.start_of_epoch(current_epoch)
 
             features = []
             fragments = []
@@ -453,10 +453,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def end_of_calibration(self):
-        self.calibration_manager.predict(
-            self.spectral_library._precursor_df, "precursor"
-        )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        # self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
+        # self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
         self.calibration_manager.save()
         pass
 
@@ -598,6 +596,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["selection_config"])
         config.update(
             {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
                 "rt_tolerance": self.com.rt_error,
                 "mobility_tolerance": self.com.mobility_error,
                 "candidate_count": self.com.num_candidates,
@@ -627,6 +626,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["scoring_config"])
         config.update(
             {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
                 "precursor_mz_tolerance": self.com.ms1_error,
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],

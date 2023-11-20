@@ -546,11 +546,8 @@ def precursor_features(
     dense_precursors: np.ndarray,
     observation_importance,
     template: np.ndarray,
+    feature_array: np.ndarray,
 ):
-    feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=nb.types.float32
-    )
-
     n_isotopes = isotope_intensity.shape[0]
     n_observations = dense_precursors.shape[2]
 
@@ -569,14 +566,17 @@ def precursor_features(
         sum_precursor_intensity * observation_importance_reshaped, axis=-1
     ).astype(np.float32)
 
-    feature_dict["mono_ms1_intensity"] = weighted_sum_precursor_intensity[0]
-    feature_dict["top_ms1_intensity"] = weighted_sum_precursor_intensity[
-        np.argmax(isotope_intensity)
-    ]
-    feature_dict["sum_ms1_intensity"] = np.sum(weighted_sum_precursor_intensity)
-    feature_dict["weighted_ms1_intensity"] = np.sum(
-        weighted_sum_precursor_intensity * isotope_intensity
-    )
+    # mono_ms1_intensity
+    feature_array[4] = weighted_sum_precursor_intensity[0]
+
+    # top_ms1_intensity
+    feature_array[5] = weighted_sum_precursor_intensity[np.argmax(isotope_intensity)]
+
+    # sum_ms1_intensity
+    feature_array[6] = np.sum(weighted_sum_precursor_intensity)
+
+    # weighted_ms1_intensity
+    feature_array[7] = np.sum(weighted_sum_precursor_intensity * isotope_intensity)
 
     expected_scan_center = utils.tile(
         dense_precursors.shape[3], n_isotopes * n_observations
@@ -601,30 +601,36 @@ def precursor_features(
     mass_error_array = (observed_precursor_mz - isotope_mz) / isotope_mz * 1e6
     weighted_mass_error = np.sum(mass_error_array[mz_mask] * isotope_intensity[mz_mask])
 
-    feature_dict["weighted_mass_deviation"] = weighted_mass_error
-    feature_dict["weighted_mass_error"] = np.abs(weighted_mass_error)
+    # weighted_mass_deviation
+    feature_array[8] = weighted_mass_error
 
-    feature_dict["mz_observed"] = (
-        isotope_mz[0] + weighted_mass_error * 1e-6 * isotope_mz[0]
-    )
+    # weighted_mass_error
+    feature_array[9] = np.abs(weighted_mass_error)
 
-    feature_dict["mono_ms1_height"] = observed_precursor_height[0]
-    feature_dict["top_ms1_height"] = observed_precursor_height[
-        np.argmax(isotope_intensity)
-    ]
-    feature_dict["sum_ms1_height"] = np.sum(observed_precursor_height)
-    feature_dict["weighted_ms1_height"] = np.sum(
-        observed_precursor_height * isotope_intensity
-    )
+    # mz_observed
+    feature_array[10] = isotope_mz[0] + weighted_mass_error * 1e-6 * isotope_mz[0]
 
-    feature_dict["isotope_intensity_correlation"] = numeric.save_corrcoeff(
+    # mono_ms1_height
+    feature_array[11] = observed_precursor_height[0]
+
+    # top_ms1_height
+    feature_array[12] = observed_precursor_height[np.argmax(isotope_intensity)]
+
+    # sum_ms1_height
+    feature_array[13] = np.sum(observed_precursor_height)
+
+    # weighted_ms1_height
+    feature_array[14] = np.sum(observed_precursor_height * isotope_intensity)
+
+    # isotope_intensity_correlation
+    feature_array[15] = numeric.save_corrcoeff(
         isotope_intensity, np.sum(sum_precursor_intensity, axis=-1)
     )
-    feature_dict["isotope_height_correlation"] = numeric.save_corrcoeff(
+
+    # isotope_height_correlation
+    feature_array[16] = numeric.save_corrcoeff(
         isotope_intensity, observed_precursor_height
     )
-
-    return feature_dict
 
 
 @nb.njit()
@@ -636,21 +642,23 @@ def location_features(
     frame_start,
     frame_stop,
     frame_center,
+    feature_array,
 ):
-    feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=nb.types.float32
-    )
-
-    feature_dict["base_width_mobility"] = (
+    # base_width_mobility
+    feature_array[0] = (
         jit_data.mobility_values[scan_start] - jit_data.mobility_values[scan_stop - 1]
     )
-    feature_dict["base_width_rt"] = (
+
+    # base_width_rt
+    feature_array[1] = (
         jit_data.rt_values[frame_stop - 1] - jit_data.rt_values[frame_start]
     )
-    feature_dict["rt_observed"] = jit_data.rt_values[frame_center]
-    feature_dict["mobility_observed"] = jit_data.mobility_values[scan_center]
 
-    return feature_dict
+    # rt_observed
+    feature_array[2] = jit_data.rt_values[frame_center]
+
+    # mobility_observed
+    feature_array[3] = jit_data.mobility_values[scan_center]
 
 
 nb_float32_array = nb.types.Array(nb.types.float32, 1, "C")
@@ -662,18 +670,15 @@ def fragment_features(
     observation_importance: np.ndarray,
     template: np.ndarray,
     fragments: np.ndarray,
+    feature_array: nb_float32_array,
 ):
-    feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=nb.types.float32
-    )
-
     fragment_feature_dict = nb.typed.Dict.empty(
         key_type=nb.types.unicode_type, value_type=float_array
     )
 
     n_observations = observation_importance.shape[0]
     n_fragments = dense_fragments.shape[1]
-    feature_dict["n_observations"] = float(n_observations)
+    feature_array[17] = float(n_observations)
 
     # (1, n_observations)
     observation_importance_reshaped = observation_importance.reshape(1, -1)
@@ -763,44 +768,32 @@ def fragment_features(
         o_fragment_height, fragment_height_weights_2d
     )
 
-    if np.sum(fragment_height_mask_1d) == 0.0:
-        feature_dict["intensity_correlation"] = 0.0
-    else:
-        feature_dict["intensity_correlation"] = np.corrcoef(
+    if np.sum(fragment_height_mask_1d) > 0.0:
+        feature_array[18] = np.corrcoef(
             observed_fragment_intensity, fragment_intensity_norm
         )[0, 1]
 
-    if np.sum(observed_fragment_height) == 0.0:
-        feature_dict["height_correlation"] = 0.0
-    else:
-        feature_dict["height_correlation"] = np.corrcoef(
+    if np.sum(observed_fragment_height) > 0.0:
+        feature_array[19] = np.corrcoef(
             observed_fragment_height, fragment_intensity_norm
         )[0, 1]
 
-    feature_dict["intensity_fraction"] = (
-        np.sum(observed_fragment_intensity > 0.0) / n_fragments
-    )
-    feature_dict["height_fraction"] = (
-        np.sum(observed_fragment_height > 0.0) / n_fragments
-    )
+    feature_array[20] = np.sum(observed_fragment_intensity > 0.0) / n_fragments
+    feature_array[21] = np.sum(observed_fragment_height > 0.0) / n_fragments
 
-    feature_dict["intensity_fraction_weighted"] = np.sum(
+    feature_array[22] = np.sum(
         fragment_intensity_norm[observed_fragment_intensity > 0.0]
     )
-    feature_dict["height_fraction_weighted"] = np.sum(
-        fragment_intensity_norm[observed_fragment_height > 0.0]
-    )
+    feature_array[23] = np.sum(fragment_intensity_norm[observed_fragment_height > 0.0])
 
     fragment_mask = observed_fragment_intensity > 0
 
-    if np.sum(fragment_mask) == 0:
-        feature_dict["mean_observation_score"] = 0.0
-    else:
+    if np.sum(fragment_mask) > 0:
         sum_template_intensity_expanded = sum_template_intensity.reshape(1, -1)
         observation_score = cosine_similarity_a1(
             sum_template_intensity_expanded, sum_fragment_intensity[fragment_mask]
         ).astype(np.float32)
-        feature_dict["mean_observation_score"] = np.mean(observation_score)
+        feature_array[24] = np.mean(observation_score)
 
     # ============= FRAGMENT TYPE FEATURES =============
 
@@ -810,19 +803,17 @@ def fragment_features(
     weighted_b_ion_intensity = observed_fragment_intensity[b_ion_mask]
     weighted_y_ion_intensity = observed_fragment_intensity[y_ion_mask]
 
-    feature_dict["sum_b_ion_intensity"] = (
+    feature_array[25] = (
         np.log(np.sum(weighted_b_ion_intensity) + 1)
         if len(weighted_b_ion_intensity) > 0
         else 0.0
     )
-    feature_dict["sum_y_ion_intensity"] = (
+    feature_array[26] = (
         np.log(np.sum(weighted_y_ion_intensity) + 1)
         if len(weighted_y_ion_intensity) > 0
         else 0.0
     )
-    feature_dict["diff_b_y_ion_intensity"] = (
-        feature_dict["sum_b_ion_intensity"] - feature_dict["sum_y_ion_intensity"]
-    )
+    feature_array[27] = feature_array[25] - feature_array[26]
 
     # ============= FRAGMENT FEATURES =============
 
@@ -847,7 +838,7 @@ def fragment_features(
         np.float32
     )
 
-    return feature_dict, fragment_feature_dict
+    return fragment_feature_dict
 
 
 @nb.njit
@@ -864,37 +855,19 @@ def profile_features(
     scan_stop,
     frame_start,
     frame_stop,
+    feature_array,
 ):
     n_observations = len(observation_importance)
-
-    feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=nb.types.float32
-    )
-    feature_dict["fragment_scan_correlation"] = 0.0
-    feature_dict["top3_scan_correlation"] = 0.0
-    feature_dict["fragment_frame_correlation"] = 0.0
-    feature_dict["top3_frame_correlation"] = 0.0
-    feature_dict["template_scan_correlation"] = 0.0
-    feature_dict["template_frame_correlation"] = 0.0
-    feature_dict["top3_b_ion_correlation"] = 0.0
-    feature_dict["top3_y_ion_correlation"] = 0.0
-    feature_dict["cycle_fwhm"] = 0.0
-    feature_dict["mobility_fwhm"] = 0.0
-    feature_dict["n_b_ions"] = 0.0
-    feature_dict["n_y_ions"] = 0.0
 
     fragment_mask_2d = np.sum(fragments_scan_profile, axis=-1) > 0
     fragment_mask_1d = np.sum(np.sum(fragments_scan_profile, axis=-1), axis=-1) > 0
 
-    fragment_weights_2d = fragment_mask_2d.astype(np.int8) * np.expand_dims(
-        fragment_intensity, axis=-1
-    )
-
-    feature_dict["f_masked"] = np.mean(fragment_mask_1d)
+    # f_masked
+    feature_array[28] = np.mean(fragment_mask_1d)
 
     # stop if fewer than 3 fragments are observed
     if np.sum(fragment_mask_1d) < 3:
-        return feature_dict
+        return
 
     non_zero_fragment_norm = fragment_intensity[fragment_mask_1d] / np.sum(
         fragment_intensity[fragment_mask_1d]
@@ -917,9 +890,7 @@ def profile_features(
         fragment_scan_correlation_list = np.dot(
             fragment_scan_correlation_maked_reduced, non_zero_fragment_norm
         )
-        feature_dict["fragment_scan_correlation"] = np.mean(
-            fragment_scan_correlation_list
-        )
+        feature_array[29] = np.mean(fragment_scan_correlation_list)
 
         # (n_observation, n_fragments)
         fragment_template_scan_correlation = numeric.fragment_correlation_different(
@@ -933,7 +904,7 @@ def profile_features(
             axis=0,
         )
 
-        feature_dict["template_scan_correlation"] = np.dot(
+        feature_array[30] = np.dot(
             fragment_template_scan_correlation_reduced, non_zero_fragment_norm
         )
 
@@ -954,9 +925,7 @@ def profile_features(
     fragment_frame_correlation_list = np.dot(
         fragment_frame_correlation_maked_reduced, non_zero_fragment_norm
     )
-    feature_dict["fragment_frame_correlation"] = np.mean(
-        fragment_frame_correlation_list
-    )
+    feature_array[31] = np.mean(fragment_frame_correlation_list)
 
     # (3)
     top_3_idxs = fragment_idx_sorted[:3]
@@ -964,7 +933,7 @@ def profile_features(
     top_3_fragment_frame_correlation = fragment_frame_correlation_maked_reduced[
         top_3_idxs, :
     ][:, top_3_idxs]
-    feature_dict["top3_frame_correlation"] = np.mean(top_3_fragment_frame_correlation)
+    feature_array[32] = np.mean(top_3_fragment_frame_correlation)
 
     # (n_observation, n_fragments)
     fragment_template_frame_correlation = numeric.fragment_correlation_different(
@@ -978,7 +947,8 @@ def profile_features(
         axis=0,
     )
 
-    feature_dict["template_frame_correlation"] = np.dot(
+    # template_frame_correlation
+    feature_array[33] = np.dot(
         fragment_template_frame_correlation_reduced, non_zero_fragment_norm
     )
 
@@ -993,17 +963,18 @@ def profile_features(
 
     if len(b_ion_index_sorted) > 0:
         b_ion_limit = min(len(b_ion_index_sorted), 3)
-        feature_dict["top3_b_ion_correlation"] = fragment_frame_correlation_list[
+        # 'top3_b_ion_correlation'
+        feature_array[34] = fragment_frame_correlation_list[
             b_ion_index_sorted[:b_ion_limit]
         ].mean()
-        feature_dict["n_b_ions"] = float(len(b_ion_index_sorted))
+        feature_array[35] = float(len(b_ion_index_sorted))
 
     if len(y_ion_index_sorted) > 0:
         y_ion_limit = min(len(y_ion_index_sorted), 3)
-        feature_dict["top3_y_ion_correlation"] = fragment_frame_correlation_list[
+        feature_array[36] = fragment_frame_correlation_list[
             y_ion_index_sorted[:y_ion_limit]
         ].mean()
-        feature_dict["n_y_ions"] = float(len(y_ion_index_sorted))
+        feature_array[37] = float(len(y_ion_index_sorted))
 
     # ============= FWHM RT =============
 
@@ -1038,7 +1009,7 @@ def profile_features(
         cycle_fwhm_mean_list[fragment_mask_1d] * non_zero_fragment_norm
     )
 
-    feature_dict["cycle_fwhm"] = cycle_fwhm_mean_agg
+    feature_array[38] = cycle_fwhm_mean_agg
 
     # ============= FWHM MOBILITY =============
 
@@ -1082,7 +1053,7 @@ def profile_features(
             mobility_fwhm_mean_list[fragment_mask_1d] * non_zero_fragment_norm
         )
 
-        feature_dict["mobility_fwhm"] = mobility_fwhm_mean_agg
+        feature_array[39] = mobility_fwhm_mean_agg
 
     # ============= RT SHIFT =============
 
@@ -1098,9 +1069,7 @@ def profile_features(
     delta_frame_peak = median_frame_peak - np.floor(
         fragments_frame_profile.shape[-1] / 2
     )
-    feature_dict["delta_frame_peak"] = np.sum(delta_frame_peak * observation_importance)
-
-    return feature_dict
+    feature_array[40] = np.sum(delta_frame_peak * observation_importance)
 
 
 @nb.njit

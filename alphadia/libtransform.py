@@ -347,8 +347,24 @@ class RTNormalization(ProcessingStep):
 
 
 class FlattenLibrary(ProcessingStep):
-    def __init__(self) -> None:
-        """Convert a `SpecLibBase` object into a `SpecLibFlat` object."""
+    def __init__(
+        self, top_k_fragments: int = 12, min_fragment_intensity: float = 0.01
+    ) -> None:
+        """Convert a `SpecLibBase` object into a `SpecLibFlat` object.
+
+        Parameters
+        ----------
+
+        top_k_fragments : int, optional
+            Number of top fragments to keep. Default is 12.
+
+        min_fragment_intensity : float, optional
+            Minimum intensity threshold for fragments. Default is 0.01.
+
+        """
+        self.top_k_fragments = top_k_fragments
+        self.min_fragment_intensity = min_fragment_intensity
+
         super().__init__()
 
     def validate(self, input: SpecLibBase) -> bool:
@@ -361,7 +377,10 @@ class FlattenLibrary(ProcessingStep):
         input._fragment_cardinality_df = fragment.calc_fragment_cardinality(
             input.precursor_df, input._fragment_mz_df
         )
-        output = SpecLibFlat(min_fragment_intensity=0.0001, keep_top_k_fragments=100)
+        output = SpecLibFlat(
+            min_fragment_intensity=self.min_fragment_intensity,
+            keep_top_k_fragments=self.top_k_fragments,
+        )
         output.parse_base_library(
             input, custom_df={"cardinality": input._fragment_cardinality_df}
         )

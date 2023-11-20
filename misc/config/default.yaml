@@ -25,6 +25,9 @@ search:
   target_mobility_tolerance: 0.04
   target_rt_tolerance: 60
 
+search_advanced:
+  top_k_fragments: 12
+
 fdr:
   fdr: 0.01
   group_level: 'proteins'
@@ -36,7 +39,7 @@ fdr:
 calibration:
   min_epochs: 3
   max_epochs: 20
-  batch_size: 4000
+  batch_size: 8000
   recalibration_target: 200
   final_full_calibration: False
   norm_rt_mode: 'linear'
@@ -55,7 +58,6 @@ selection_config:
   sigma_scale_mobility: 1.
 
   top_k_precursors: 3
-  top_k_fragments: 12
   kernel_size: 30
 
   f_mobility: 1.0
@@ -75,7 +77,6 @@ selection_config:
 
 scoring_config:
   score_grouped: false
-  top_k_fragments: 12
   top_k_isotopes: 3
   reference_channel: -1
   precursor_mz_tolerance: 10
