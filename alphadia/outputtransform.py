@@ -45,8 +45,9 @@ class SearchPlanOutput:
 
             if not os.path.exists(psm_path):
                 logger.warning(f"no psm file found for {raw_name}")
-                continue
-            run_df = pd.read_csv(psm_path, sep="\t")
+                run_df = pd.DataFrame()
+            else:
+                run_df = pd.read_csv(psm_path, sep="\t")
             psm_df_list.append(run_df)
 
         logger.progress("Building combined output")
@@ -80,8 +81,9 @@ class SearchPlanOutput:
         logger.progress("Building stat output")
         stat_df_list = []
 
-        for run in psm_df["run"].unique():
-            stat_df_list.append(build_stat_df(psm_df[psm_df["run"] == run]))
+        for folder in folder_list:
+            raw_name = os.path.basename(folder)
+            stat_df_list.append(build_stat_df(raw_name,psm_df[psm_df["run"] == raw_name]))
 
         stat_df = pd.concat(stat_df_list)
 
@@ -104,22 +106,18 @@ class SearchPlanOutput:
         logger.warning("Spectral library not implemented yet")
 
 
-def build_stat_df(run_df):
-    run_stat_df = []
-    for name, group in run_df.groupby("channel"):
-        run_stat_df.append(
-            {
-                "run": run_df["run"].iloc[0],
-                "channel": name,
-                "precursors": np.sum(group["qval"] <= 0.01),
-                "proteins": group[group["qval"] <= 0.01]["pg"].nunique(),
-                "ms1_accuracy": np.mean(group["weighted_mass_error"]),
-                "fwhm_rt": np.mean(group["cycle_fwhm"]),
-                "fwhm_mobility": np.mean(group["mobility_fwhm"]),
+def build_stat_df(raw_name, run_df):
+    """Build stat dataframe for run"""
+    
+    return pd.DataFrame([{
+                "run": raw_name,
+                "precursors": np.sum(run_df["qval"] <= 0.01),
+                "proteins": run_df[run_df["qval"] <= 0.01]["pg"].nunique(),
+                "ms1_accuracy": np.mean(run_df["weighted_mass_error"]),
+                "fwhm_rt": np.mean(run_df["cycle_fwhm"]),
+                "fwhm_mobility": np.mean(run_df["mobility_fwhm"]),
             }
-        )
-
-    return pd.DataFrame(run_stat_df)
+    ])
 
 
 def perform_protein_fdr(psm_df):
