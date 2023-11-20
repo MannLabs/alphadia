@@ -85,7 +85,6 @@ feature_columns = [
 
 classifier_base = fdrx.BinaryClassifierLegacy(
     test_size=0.001,
-    learning_rate=0.002,
 )
 
 
