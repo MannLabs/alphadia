@@ -42,6 +42,7 @@ feature_columns = [
     "base_width_mobility",
     "base_width_rt",
     "rt_observed",
+    "delta_rt",
     "mobility_observed",
     "mono_ms1_intensity",
     "top_ms1_intensity",

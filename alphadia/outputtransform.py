@@ -4,7 +4,7 @@ import os
 
 logger = logging.getLogger()
 
-from alphadia import grouping
+from alphadia import grouping, libtransform
 from alphadia import fdr
 
 import pandas as pd
@@ -27,10 +27,10 @@ class SearchPlanOutput:
     def output_folder(self):
         return self._output_folder
 
-    def build_output(self, folder_list):
-        self.build_precursor_table(folder_list)
+    def build_output(self, folder_list, base_spec_lib):
+        psm_df = self.build_precursor_table(folder_list)
         self.build_fragment_table(folder_list)
-        self.build_library(folder_list)
+        return self.build_library(base_spec_lib, psm_df=psm_df)
 
     def build_precursor_table(self, folder_list):
         """Build precursor table from search plan output"""
@@ -103,13 +103,37 @@ class SearchPlanOutput:
 
         logger.info(f"Finished building output")
 
+        return psm_df
+
     def build_fragment_table(self, folder_list):
         """Build fragment table from search plan output"""
         logger.warning("Fragment table not implemented yet")
 
-    def build_library(self, folder_list):
-        """Build spectral library from search plan output"""
-        logger.warning("Spectral library not implemented yet")
+    def build_library(self, base_spec_lib, psm_df=None):
+        logger.progress("Building spectral library")
+
+        if psm_df is None:
+            psm_df_path = os.path.join(self.output_folder, "psm.tsv")
+            if not os.path.exists(psm_df_path):
+                logger.error(
+                    "Can't build MBR spectral library as no psm.tsv file was found in the output folder"
+                )
+                return
+            logger.progress("Reading psm.tsv file")
+            psm_df = pd.read_csv(
+                os.path.join(self.output_folder, "psm.tsv"), sep="\t"
+            )
+
+        libbuilder = libtransform.MbrLibraryBuilder(
+            fdr=0.01,
+        )
+
+        return libbuilder(
+            psm_df,
+            base_spec_lib
+        )
+
+  
 
 
 def build_stat_df(raw_name, run_df):

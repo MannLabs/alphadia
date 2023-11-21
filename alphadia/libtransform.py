@@ -28,11 +28,11 @@ class ProcessingStep:
         Processing steps can be chained together in a ProcessingPipeline."""
         pass
 
-    def __call__(self, input: typing.Any) -> typing.Any:
+    def __call__(self, *args: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         logger.info(f"Running {self.__class__.__name__}")
-        if self.validate(input):
-            return self.forward(input)
+        if self.validate(*args):
+            return self.forward(*args)
         else:
             logger.critical(
                 f"Input {input} failed validation for {self.__class__.__name__}"
@@ -41,11 +41,11 @@ class ProcessingStep:
                 f"Input {input} failed validation for {self.__class__.__name__}"
             )
 
-    def validate(self, input: typing.Any) -> bool:
+    def validate(self, *args: typing.Any) -> bool:
         """Validate the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
-    def forward(self, input: typing.Any) -> typing.Any:
+    def forward(self, *args: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -161,7 +161,6 @@ class PrecursorInitializer(ProcessingStep):
 
         return input
 
-
 class AnnotateFasta(ProcessingStep):
     def __init__(
         self,
@@ -254,7 +253,7 @@ class DecoyGenerator(ProcessingStep):
                 f"Input library already contains decoys. Skipping decoy generation. \n Please note that decoys generated outside of alphabase are not supported."
             )
             return input
-
+    
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
         decoy_lib.decoy_sequence()
         decoy_lib.calc_precursor_mz()
@@ -262,10 +261,15 @@ class DecoyGenerator(ProcessingStep):
         decoy_lib.calc_fragment_mz_df()
         decoy_lib._precursor_df["decoy"] = 1
 
+        # keep original precursor_idx and only create new ones for decoys
+        start_precursor_idx = input.precursor_df["precursor_idx"].max() + 1
+        decoy_lib._precursor_df["precursor_idx"] = np.arange(
+            start_precursor_idx, start_precursor_idx + len(decoy_lib.precursor_df)
+        )
+
         input.append(decoy_lib)
         input._precursor_df.sort_values("elution_group_idx", inplace=True)
         input._precursor_df.reset_index(drop=True, inplace=True)
-        input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
         input.remove_unused_fragments()
 
         return input
@@ -490,3 +494,24 @@ class LogFlatLibraryStats(ProcessingStep):
         logger.info(f"=======================================")
 
         return input
+
+class MbrLibraryBuilder(ProcessingStep):
+    def __init__(self, fdr = 0.01) -> None:
+        super().__init__()
+        self.fdr = fdr
+
+    def validate(self, psm_df, base_library) -> bool:
+        """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
+        return True
+    
+    def forward(self, psm_df, base_library):
+
+        psm_df = psm_df[psm_df["qval"] <= self.fdr]
+        psm_df = psm_df[psm_df["decoy"] == 0]
+
+        return psm_df
+
+        
+
+        print(len(psm_df))
+        print(base_library)

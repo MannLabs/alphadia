@@ -114,7 +114,7 @@ def perform_grouping(
 
     # create non-duplicated view of precursor table
     duplicate_mask = ~psm.duplicated(
-        subset=["precursor_idx", genes_or_proteins], keep="first"
+        subset=["precursor_idx"], keep="first"
     )
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
 

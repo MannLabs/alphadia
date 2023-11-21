@@ -1518,6 +1518,10 @@ class CandidateScoring:
             "proteins",
             "genes",
         ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+
+        precursor_df_columns += [self.rt_column] if self.rt_column not in precursor_df_columns else []
+        precursor_df_columns += [self.mobility_column] if self.mobility_column not in precursor_df_columns else []
+
         df = utils.merge_missing_columns(
             df,
             self.precursors_flat_df,
@@ -1538,6 +1542,11 @@ class CandidateScoring:
             ]:
                 if col in df.columns:
                     df.drop(col, axis=1, inplace=True)
+
+        if self.rt_column == 'rt_library':
+            df['delta_rt'] = df['rt_observed'] - df['rt_library']
+        else:
+            df['delta_rt'] = df['rt_observed'] - df[self.rt_column]
 
         return df
 

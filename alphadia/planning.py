@@ -16,6 +16,7 @@ import alphadia
 
 # alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
 import numpy as np
@@ -64,6 +65,7 @@ class Plan:
         logger.progress("")
 
         self.raw_file_list = raw_file_list
+        self.spec_lib_path = spec_lib_path
 
         # default config path is not defined in the function definition to account for for different path separators on different OS
         if config_path is None:
@@ -160,8 +162,7 @@ class Plan:
         )
 
         speclib = import_pipeline(spec_lib_path)
-        if self.config["library_loading"]["save_hdf"]:
-            speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
 
         self.spectral_library = prepare_pipeline(speclib)
 
@@ -240,5 +241,12 @@ class Plan:
                 logger.error(f"Workflow failed for {raw_name} with error {e}")
                 continue
 
+        base_spec_lib = SpecLibBase()
+        base_spec_lib.load_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+
         output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build_output(workflow_folder_list)
+        output.build_output(workflow_folder_list, base_spec_lib)
+        
+    def clean(self):
+        if not self.config["library_loading"]["save_hdf"]:
+            os.remove(os.path.join(self.output_folder, "speclib.hdf"))
