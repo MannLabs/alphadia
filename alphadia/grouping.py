@@ -117,7 +117,7 @@ def perform_grouping(
         subset=["precursor_idx"], keep="first"
     )
     # make sure column is string
-    upsm[genes_or_proteins] = upsm[genes_or_proteins].astype(str)
+    psm[genes_or_proteins] = psm[genes_or_proteins].astype(str)
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
 
     #check if duplicate precursors exist
