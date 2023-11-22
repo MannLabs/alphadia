@@ -242,7 +242,7 @@ class Plan:
                 continue
 
         base_spec_lib = SpecLibBase()
-        base_spec_lib.load_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        base_spec_lib.load_hdf(os.path.join(self.output_folder, "speclib.hdf"),  load_mod_seq=True) 
 
         output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
         output.build_output(workflow_folder_list, base_spec_lib)

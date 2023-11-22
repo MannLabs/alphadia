@@ -30,7 +30,7 @@ class SearchPlanOutput:
     def build_output(self, folder_list, base_spec_lib):
         psm_df = self.build_precursor_table(folder_list)
         self.build_fragment_table(folder_list)
-        return self.build_library(base_spec_lib, psm_df=psm_df)
+        self.build_library(base_spec_lib, psm_df=psm_df)
 
     def build_precursor_table(self, folder_list):
         """Build precursor table from search plan output"""
@@ -112,6 +112,9 @@ class SearchPlanOutput:
     def build_library(self, base_spec_lib, psm_df=None):
         logger.progress("Building spectral library")
 
+        print(base_spec_lib.precursor_df.columns)
+        print(base_spec_lib)
+
         if psm_df is None:
             psm_df_path = os.path.join(self.output_folder, "psm.tsv")
             if not os.path.exists(psm_df_path):
@@ -128,12 +131,22 @@ class SearchPlanOutput:
             fdr=0.01,
         )
 
-        return libbuilder(
+        logger.progress("Building MBR spectral library")
+        mbr_spec_lib = libbuilder(
             psm_df,
             base_spec_lib
         )
+        
+        precursor_number = len(mbr_spec_lib.precursor_df)
+        protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
 
-  
+        # use comma to separate thousands
+        logger.info(
+            f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
+        )
+
+        logger.progress("Writing MBR spectral library to disk")
+        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))  
 
 
 def build_stat_df(raw_name, run_df):

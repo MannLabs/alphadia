@@ -270,6 +270,7 @@ class DecoyGenerator(ProcessingStep):
         input.append(decoy_lib)
         input._precursor_df.sort_values("elution_group_idx", inplace=True)
         input._precursor_df.reset_index(drop=True, inplace=True)
+        input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
         input.remove_unused_fragments()
 
         return input
@@ -508,10 +509,14 @@ class MbrLibraryBuilder(ProcessingStep):
 
         psm_df = psm_df[psm_df["qval"] <= self.fdr]
         psm_df = psm_df[psm_df["decoy"] == 0]
+        rt_df = psm_df.groupby('elution_group_idx', as_index=False).agg(rt=pd.NamedAgg(column='rt_observed', aggfunc='median'))
 
-        return psm_df
+        mbr_spec_lib = base_library.copy()
+        mbr_spec_lib = base_library.copy()
+        if 'rt' in mbr_spec_lib._precursor_df.columns:
+            mbr_spec_lib._precursor_df.drop(columns=['rt'], inplace=True)
+        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(rt_df, on='elution_group_idx', how='right')
 
+        mbr_spec_lib.remove_unused_fragments()
         
-
-        print(len(psm_df))
-        print(base_library)
+        return mbr_spec_lib
