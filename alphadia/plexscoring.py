@@ -658,6 +658,19 @@ class Candidate:
         if config.collect_fragments:
             self.fragment_feature_dict = fragment_feature_dict
 
+
+        # ============= FRAGMENT MOBILITY CORRELATIONS =============
+        # will be skipped if no mobility dimension is present
+        if jit_data.has_mobility:
+            self.feature_array[29], self.feature_array[30] = features.fragment_mobility_correlation(
+                fragments_scan_profile,
+                template_scan_profile,
+                observation_importance,
+                fragments.intensity,
+            )
+                
+        return
+
         features.profile_features(
             jit_data,
             fragments.intensity,
