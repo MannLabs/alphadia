@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
 
+
 class SearchPlanOutput:
     def __init__(self, config, output_folder):
         self._config = config
@@ -29,8 +30,8 @@ class SearchPlanOutput:
 
     def build_output(self, folder_list, base_spec_lib):
         psm_df = self.build_precursor_table(folder_list)
-        self.build_fragment_table(folder_list)
-        self.build_library(base_spec_lib, psm_df=psm_df)
+        self.build_fragment_table(folder_list, psm_df = psm_df)
+        self.build_library(base_spec_lib, psm_df = psm_df)
 
     def build_precursor_table(self, folder_list):
         """Build precursor table from search plan output"""
@@ -105,9 +106,45 @@ class SearchPlanOutput:
 
         return psm_df
 
-    def build_fragment_table(self, folder_list):
+    def build_fragment_table(self, folder_list, psm_df=None):
         """Build fragment table from search plan output"""
-        logger.warning("Fragment table not implemented yet")
+        if psm_df is None:
+            psm_df_path = os.path.join(self.output_folder, "psm.tsv")
+            if not os.path.exists(psm_df_path):
+                logger.error(
+                    "Can't build MBR spectral library as no psm.tsv file was found in the output folder"
+                )
+                return
+            logger.progress("Reading psm.tsv file")
+            psm_df = pd.read_csv(
+                os.path.join(self.output_folder, "psm.tsv"), sep="\t"
+            )
+
+        frag_df_list = []
+        raw_name_list = []
+
+        for folder in folder_list:
+            raw_name = os.path.basename(folder)
+            frag_path = os.path.join(folder, "frag.tsv")
+
+            logger.progress(f"Building output for {raw_name}")
+
+            if not os.path.exists(frag_path):
+                logger.warning(f"no frag file found for {raw_name}")
+                run_df = pd.DataFrame()
+            else:
+                try:
+                    run_df = pd.read_csv(frag_path, sep="\t")
+                except Exception as e:
+                    logger.warning(f"Error reading frag file for {raw_name}")
+                    logger.warning(e)
+                    run_df = pd.DataFrame()
+
+            frag_df_list.append(run_df)
+
+        logger.progress("Building combined output")
+            
+        return frag_df_list, raw_name_list
 
     def build_library(self, base_spec_lib, psm_df=None):
         logger.progress("Building spectral library")

@@ -23,6 +23,9 @@ import numpy as np
 import pandas as pd
 import os, psutil
 import torch
+from xxhash import xxh64_intdigest
+xxh64_fromint = lambda x: xxh64_intdigest(int(x).to_bytes(16, byteorder='big', signed=True))
+
 
 
 class Plan:
@@ -210,7 +213,9 @@ class Plan:
                 if self.config["general"]["reuse_quant"]:
                     if os.path.exists(
                         psm_location
-                    ):  # and os.path.exists(frag_location):
+                    ) and os.path.exists(
+                        frag_location
+                    ):
                         logger.info(f"Found existing quantification for {raw_name}")
                         continue
                     logger.info(f"No existing quantification found for {raw_name}")
@@ -218,14 +223,23 @@ class Plan:
                 workflow.load(dia_path, speclib)
                 workflow.calibration()
 
-                df = workflow.extraction()
-                df = df[df["qval"] <= self.config["fdr"]["fdr"]]
+                psm_df, frag_df = workflow.extraction()
+                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                logger.info(f"Removing fragments below FDR threshold")
+
+                # to be optimized later
+                frag_df['candidate_key'] = frag_df.apply(lambda x: xxh64_fromint(x['precursor_idx']) + xxh64_fromint(-x['rank']), axis=1)
+                psm_df['candidate_key'] = psm_df.apply(lambda x: xxh64_fromint(x['precursor_idx']) + xxh64_fromint(-x['rank']), axis=1)
+                frag_df = frag_df[frag_df["candidate_key"].isin(psm_df["candidate_key"])]
 
                 if self.config["multiplexing"]["multiplexed_quant"]:
-                    df = workflow.requantify(df)
-                    df = df[df["qval"] <= self.config["fdr"]["fdr"]]
-                df["run"] = raw_name
-                df.to_csv(psm_location, sep="\t", index=False)
+                    psm_df = workflow.requantify(psm_df)
+                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                psm_df["run"] = raw_name
+                psm_df.to_csv(psm_location, sep="\t", index=False)
+                frag_df.to_csv(frag_location, sep="\t", index=False)
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
