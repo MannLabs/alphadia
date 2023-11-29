@@ -24,8 +24,10 @@ import pandas as pd
 import os, psutil
 import torch
 from xxhash import xxh64_intdigest
-xxh64_fromint = lambda x: xxh64_intdigest(int(x).to_bytes(16, byteorder='big', signed=True))
 
+xxh64_fromint = lambda x: xxh64_intdigest(
+    int(x).to_bytes(16, byteorder="big", signed=True)
+)
 
 
 class Plan:
@@ -211,11 +213,7 @@ class Plan:
                 frag_location = os.path.join(workflow.path, "frag.tsv")
 
                 if self.config["general"]["reuse_quant"]:
-                    if os.path.exists(
-                        psm_location
-                    ) and os.path.exists(
-                        frag_location
-                    ):
+                    if os.path.exists(psm_location) and os.path.exists(frag_location):
                         logger.info(f"Found existing quantification for {raw_name}")
                         continue
                     logger.info(f"No existing quantification found for {raw_name}")
@@ -229,9 +227,19 @@ class Plan:
                 logger.info(f"Removing fragments below FDR threshold")
 
                 # to be optimized later
-                frag_df['candidate_key'] = frag_df.apply(lambda x: xxh64_fromint(x['precursor_idx']) + xxh64_fromint(-x['rank']), axis=1)
-                psm_df['candidate_key'] = psm_df.apply(lambda x: xxh64_fromint(x['precursor_idx']) + xxh64_fromint(-x['rank']), axis=1)
-                frag_df = frag_df[frag_df["candidate_key"].isin(psm_df["candidate_key"])]
+                frag_df["candidate_key"] = frag_df.apply(
+                    lambda x: xxh64_fromint(x["precursor_idx"])
+                    + xxh64_fromint(-x["rank"]),
+                    axis=1,
+                )
+                psm_df["candidate_key"] = psm_df.apply(
+                    lambda x: xxh64_fromint(x["precursor_idx"])
+                    + xxh64_fromint(-x["rank"]),
+                    axis=1,
+                )
+                frag_df = frag_df[
+                    frag_df["candidate_key"].isin(psm_df["candidate_key"])
+                ]
 
                 if self.config["multiplexing"]["multiplexed_quant"]:
                     psm_df = workflow.requantify(psm_df)
@@ -256,11 +264,15 @@ class Plan:
                 continue
 
         base_spec_lib = SpecLibBase()
-        base_spec_lib.load_hdf(os.path.join(self.output_folder, "speclib.hdf"),  load_mod_seq=True) 
+        base_spec_lib.load_hdf(
+            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+        )
 
         output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build_output(workflow_folder_list, base_spec_lib)
-        
+        output.build(workflow_folder_list, base_spec_lib)
+
+        logger.progress("=================== Search Finished ===================")
+
     def clean(self):
         if not self.config["library_loading"]["save_hdf"]:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))

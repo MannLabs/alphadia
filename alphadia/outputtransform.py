@@ -13,10 +13,301 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
+import multiprocessing as mp
+
+from typing import List, Tuple, Iterator, Union
+import numba as nb
+from alphabase.spectral_library import base
+
+import directlfq.utils as lfqutils
+import directlfq.normalization as lfqnorm
+import directlfq.protein_intensity_estimation as lfqprot_estimation
+
+import logging
+
+logger = logging.getLogger()
+
+
+@nb.njit
+def hash(precursor_idx, number, type, charge):
+    # create a 64 bit hash from the precursor_idx, number and type
+    # the precursor_idx is the lower 32 bits
+    # the number is the next 8 bits
+    # the type is the next 8 bits
+    # the last 8 bits are used to distinguish between different charges of the same precursor
+    # this is necessary because I forgot to save the charge in the frag.tsv file :D
+    return precursor_idx + (number << 32) + (type << 40) + (charge << 48)
+
+
+def get_frag_df_generator(folder_list: List[str]):
+    """Return a generator that yields a tuple of (raw_name, frag_df)
+
+    Parameters
+    ----------
+
+    folder_list: List[str]
+        List of folders containing the frag.tsv file
+
+    Returns
+    -------
+
+    Iterator[Tuple[str, pd.DataFrame]]
+        Tuple of (raw_name, frag_df)
+
+    """
+
+    for folder in folder_list:
+        raw_name = os.path.basename(folder)
+        frag_path = os.path.join(folder, "frag.tsv")
+
+        if not os.path.exists(frag_path):
+            logger.warning(f"no frag file found for {raw_name}")
+        else:
+            try:
+                logger.info(f"reading frag file for {raw_name}")
+                run_df = pd.read_csv(
+                    frag_path,
+                    sep="\t",
+                    dtype={
+                        "precursor_idx": np.uint32,
+                        "number": np.uint8,
+                        "type": np.uint8,
+                    },
+                )
+            except Exception as e:
+                logger.warning(f"Error reading frag file for {raw_name}")
+                logger.warning(e)
+            else:
+                yield raw_name, run_df
+
+
+class QuantBuilder:
+    def __init__(self, psm_df):
+        self.psm_df = psm_df
+
+    def accumulate_frag_df_from_folders(
+        self, folder_list: List[str]
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Accumulate the fragment data from a list of folders
+
+        Parameters
+        ----------
+
+        folder_list: List[str]
+            List of folders containing the frag.tsv file
+
+        Returns
+        -------
+        intensity_df: pd.DataFrame
+            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        quality_df: pd.DataFrame
+            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        """
+
+        df_iterable = get_frag_df_generator(folder_list)
+        return self.accumulate_frag_df(df_iterable)
+
+    def accumulate_frag_df(
+        self, df_iterable: Iterator[Tuple[str, pd.DataFrame]]
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
+
+        Parameters
+        ----------
+
+        df_iterable: Iterator[Tuple[str, pd.DataFrame]]
+            Iterator of (raw_name, frag_df) tuples
+
+        Returns
+        -------
+        intensity_df: pd.DataFrame
+            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        quality_df: pd.DataFrame
+            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        """
+
+        logger.info("Accumulating fragment data")
+
+        raw_name, df = next(df_iterable, (None, None))
+        if df is None:
+            logger.warning(f"no frag file found for {raw_name}")
+            return
+
+        df = prepare_df(df, self.psm_df)
+
+        intensity_df = df[["precursor_idx", "ion", "height"]].copy()
+        intensity_df.rename(columns={"height": raw_name}, inplace=True)
+
+        quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
+        quality_df.rename(columns={"correlation": raw_name}, inplace=True)
+
+        df_list = []
+        for raw_name, df in df_iterable:
+            df = prepare_df(df, self.psm_df)
+
+            intensity_df = intensity_df.merge(
+                df[["ion", "height", "precursor_idx"]],
+                on=["ion", "precursor_idx"],
+                how="outer",
+            )
+            intensity_df.rename(columns={"height": raw_name}, inplace=True)
+
+            quality_df = quality_df.merge(
+                df[["ion", "correlation", "precursor_idx"]],
+                on=["ion", "precursor_idx"],
+                how="outer",
+            )
+            quality_df.rename(columns={"correlation": raw_name}, inplace=True)
+
+        # replace nan with 0
+        intensity_df.fillna(0, inplace=True)
+        quality_df.fillna(0, inplace=True)
+
+        intensity_df["precursor_idx"] = intensity_df["precursor_idx"].astype(np.uint32)
+        quality_df["precursor_idx"] = quality_df["precursor_idx"].astype(np.uint32)
+
+        # annotate protein group
+        protein_df = self.psm_df.groupby("precursor_idx", as_index=False)["pg"].first()
+
+        intensity_df = intensity_df.merge(protein_df, on="precursor_idx", how="left")
+        intensity_df.rename(columns={"pg": "protein"}, inplace=True)
+
+        quality_df = quality_df.merge(protein_df, on="precursor_idx", how="left")
+        quality_df.rename(columns={"pg": "protein"}, inplace=True)
+
+        return intensity_df, quality_df
+
+    def filter_frag_df(
+        self,
+        intensity_df: pd.DataFrame,
+        quality_df: pd.DataFrame,
+        min_correlation: float = 0.5,
+        top_n: int = 3,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Filter the fragment data by quality
+
+        Parameters
+        ----------
+        intensity_df: pd.DataFrame
+            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        quality_df: pd.DataFrame
+            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        min_correlation: float
+            Minimum correlation to keep a fragment, if not below top_n
+
+        top_n: int
+            Keep the top n fragments per precursor
+
+        Returns
+        -------
+
+        intensity_df: pd.DataFrame
+            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        quality_df: pd.DataFrame
+            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        """
+
+        logger.info("Filtering fragments by quality")
+
+        run_columns = [
+            c
+            for c in intensity_df.columns
+            if c not in ["precursor_idx", "ion", "protein"]
+        ]
+
+        quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
+        quality_df["rank"] = quality_df.groupby("precursor_idx")["total"].rank(
+            ascending=False, method="first"
+        )
+        mask = (quality_df["rank"].values <= top_n) | (
+            quality_df["total"].values > min_correlation
+        )
+        return intensity_df[mask], quality_df[mask]
+
+    def lfq(self, intensity_df: pd.DataFrame, quality_df: pd.DataFrame) -> pd.DataFrame:
+        """Perform label-free quantification
+
+        Parameters
+        ----------
+
+        intensity_df: pd.DataFrame
+            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        quality_df: pd.DataFrame
+            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        Returns
+        -------
+
+        lfq_df: pd.DataFrame
+            Dataframe with the label-free quantification data containing the columns precursor_idx, ion, intensity, protein
+
+        """
+
+        logger.info("Performing label-free quantification using directLFQ")
+
+        intensity_df.drop(columns=["precursor_idx"], inplace=True)
+
+        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
+        lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
+        lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+            lfq_df, num_samples_quadratic=50, selected_proteins_file=None
+        ).complete_dataframe
+        protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
+            lfq_df, min_nonan=1, num_samples_quadratic=50, num_cores=8
+        )
+
+        return protein_df
+
+
+def prepare_df(df, psm_df):
+    df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
+    df["ion"] = hash(
+        df["precursor_idx"].values,
+        df["number"].values,
+        df["type"].values,
+        df["charge"].values,
+    )
+    return df[["precursor_idx", "ion", "height", "correlation"]]
 
 
 class SearchPlanOutput:
-    def __init__(self, config, output_folder):
+    PSM_INPUT = "psm"
+    PRECURSOR_OUTPUT = "precursor"
+    PG_OUTPUT = "protein_groups"
+    LIBRARY_OUTPUT = "speclib.mbr"
+
+    def __init__(self, config: dict, output_folder: str):
+        """Combine individual searches into and build combined outputs
+
+        In alphaDIA the search plan orchestrates the library building preparation,
+        schedules the individual searches and combines the individual outputs into a single output.
+
+        The SearchPlanOutput class is responsible for combining the individual search outputs into a single output.
+
+        This includes:
+        - combining the individual precursor tables
+        - building the output stat table
+        - performing protein grouping
+        - performing protein FDR
+        - performin label-free quantification
+        - building the spectral library
+
+        Parameters
+        ----------
+
+        config: dict
+            Configuration dictionary
+
+        output_folder: str
+            Output folder
+        """
         self._config = config
         self._output_folder = output_folder
 
@@ -28,24 +319,90 @@ class SearchPlanOutput:
     def output_folder(self):
         return self._output_folder
 
-    def build_output(self, folder_list, base_spec_lib):
-        psm_df = self.build_precursor_table(folder_list)
-        self.build_fragment_table(folder_list, psm_df = psm_df)
-        self.build_library(base_spec_lib, psm_df = psm_df)
+    def build(
+        self,
+        folder_list: List[str],
+        base_spec_lib: base.SpecLibBase,
+    ):
+        """Build output from a list of seach outputs
+        The following files are written to the output folder:
+        - precursor.tsv
+        - protein_groups.tsv
+        - stat.tsv
+        - speclib.mbr.hdf
 
-    def build_precursor_table(self, folder_list):
-        """Build precursor table from search plan output"""
+        Parameters
+        ----------
+
+        folder_list: List[str]
+            List of folders containing the search outputs
+
+        base_spec_lib: base.SpecLibBase
+            Base spectral library
+
+        """
+        logger.progress("Processing search outputs")
+        psm_df = self.build_precursor_table(folder_list, save=False)
+        _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
+        _ = self.build_protein_table(folder_list, psm_df=psm_df, save=True)
+        _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
+
+    def load_precursor_table(self):
+        """Load precursor table from output folder.
+        Helper functions used by other builders.
+
+        Returns
+        -------
+
+        psm_df: pd.DataFrame
+            Precursor table
+        """
+
+        if not os.path.exists(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_TABLE}.tsv")
+        ):
+            logger.error(
+                f"Can't continue as no {self.PRECURSOR_TABLE}.tsv file was found in the output folder: {self.output_folder}"
+            )
+            raise FileNotFoundError(
+                f"Can't continue as no {self.PRECURSOR_TABLE}.tsv file was found in the output folder: {self.output_folder}"
+            )
+        logger.info(f"Reading {self.PRECURSOR_TABLE}.tsv file")
+        psm_df = pd.read_csv(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_TABLE}.tsv"), sep="\t"
+        )
+        return psm_df
+
+    def build_precursor_table(self, folder_list: List[str], save: bool = True):
+        """Build precursor table from a list of seach outputs
+
+        Parameters
+        ----------
+
+        folder_list: List[str]
+            List of folders containing the search outputs
+
+        save: bool
+            Save the precursor table to disk
+
+        Returns
+        -------
+
+        psm_df: pd.DataFrame
+            Precursor table
+        """
+        logger.info("Performing protein grouping and FDR")
 
         psm_df_list = []
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, "psm.tsv")
+            psm_path = os.path.join(folder, f"psm.tsv")
 
-            logger.progress(f"Building output for {raw_name}")
+            logger.info(f"Building output for {raw_name}")
 
             if not os.path.exists(psm_path):
-                logger.warning(f"no psm file found for {raw_name}")
+                logger.warning(f"no psm file found for {raw_name}, skipping")
                 run_df = pd.DataFrame()
             else:
                 try:
@@ -57,10 +414,14 @@ class SearchPlanOutput:
 
             psm_df_list.append(run_df)
 
-        logger.progress("Building combined output")
+        if len(psm_df_list) == 0:
+            logger.error("No psm files found, can't continue")
+            raise FileNotFoundError("No psm files found, can't continue")
+
+        logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
 
-        logger.progress("Performing protein grouping")
+        logger.info("Performing protein grouping")
         if self.config["fdr"]["library_grouping"]:
             psm_df["pg"] = psm_df[self.config["fdr"]["group_level"]]
             psm_df["pg_master"] = psm_df[self.config["fdr"]["group_level"]]
@@ -69,7 +430,7 @@ class SearchPlanOutput:
                 psm_df, genes_or_proteins=self.config["fdr"]["group_level"]
             )
 
-        logger.progress("Performing protein FDR")
+        logger.info("Performing protein FDR")
         psm_df = perform_protein_fdr(psm_df)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
@@ -77,103 +438,162 @@ class SearchPlanOutput:
         if not self.config["fdr"]["keep_decoys"]:
             psm_df = psm_df[psm_df["decoy"] == 0]
 
-        logger.progress("Writing combined output to disk")
-        psm_df.to_csv(
-            os.path.join(self.output_folder, "psm.tsv"),
-            sep="\t",
-            index=False,
-            float_format="%.6f",
-        )
-
-        logger.progress("Building stat output")
-        stat_df_list = []
-
-        for folder in folder_list:
-            raw_name = os.path.basename(folder)
-            stat_df_list.append(build_stat_df(raw_name,psm_df[psm_df["run"] == raw_name]))
-
-        stat_df = pd.concat(stat_df_list)
-
-        logger.progress("Writing stat output to disk")
-        stat_df.to_csv(
-            os.path.join(self.output_folder, "stat.tsv"),
-            sep="\t",
-            index=False,
-            float_format="%.6f",
-        )
-
-        logger.info(f"Finished building output")
+        if save:
+            logger.info("Writing precursor output to disk")
+            psm_df.to_csv(
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
+                sep="\t",
+                index=False,
+                float_format="%.6f",
+            )
 
         return psm_df
 
-    def build_fragment_table(self, folder_list, psm_df=None):
-        """Build fragment table from search plan output"""
+    def build_stat_df(
+        self,
+        folder_list: List[str],
+        psm_df: Union[pd.DataFrame, None] = None,
+        save: bool = True,
+    ):
+        """Build stat table from a list of seach outputs
+
+        Parameters
+        ----------
+
+        folder_list: List[str]
+            List of folders containing the search outputs
+
+        psm_df: Union[pd.DataFrame, None]
+            Combined precursor table. If None, the precursor table is loaded from disk.
+
+        save: bool
+            Save the precursor table to disk
+
+        Returns
+        -------
+
+        stat_df: pd.DataFrame
+            Precursor table
+        """
+        logger.progress("Building search statistics")
+
         if psm_df is None:
-            psm_df_path = os.path.join(self.output_folder, "psm.tsv")
-            if not os.path.exists(psm_df_path):
-                logger.error(
-                    "Can't build MBR spectral library as no psm.tsv file was found in the output folder"
-                )
-                return
-            logger.progress("Reading psm.tsv file")
-            psm_df = pd.read_csv(
-                os.path.join(self.output_folder, "psm.tsv"), sep="\t"
-            )
+            psm_df = self.load_precursor_table()
+        psm_df = psm_df[psm_df["decoy"] == 0]
 
-        frag_df_list = []
-        raw_name_list = []
-
+        stat_df_list = []
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            frag_path = os.path.join(folder, "frag.tsv")
+            stat_df_list.append(
+                build_stat_df(raw_name, psm_df[psm_df["run"] == raw_name])
+            )
 
-            logger.progress(f"Building output for {raw_name}")
+        stat_df = pd.concat(stat_df_list)
 
-            if not os.path.exists(frag_path):
-                logger.warning(f"no frag file found for {raw_name}")
-                run_df = pd.DataFrame()
-            else:
-                try:
-                    run_df = pd.read_csv(frag_path, sep="\t")
-                except Exception as e:
-                    logger.warning(f"Error reading frag file for {raw_name}")
-                    logger.warning(e)
-                    run_df = pd.DataFrame()
+        if save:
+            logger.info("Writing stat output to disk")
+            stat_df.to_csv(
+                os.path.join(self.output_folder, "stat.tsv"),
+                sep="\t",
+                index=False,
+                float_format="%.6f",
+            )
 
-            frag_df_list.append(run_df)
+        return stat_df
 
-        logger.progress("Building combined output")
-            
-        return frag_df_list, raw_name_list
+    def build_protein_table(
+        self,
+        folder_list: List[str],
+        psm_df: Union[pd.DataFrame, None] = None,
+        save: bool = True,
+    ):
+        """Accumulate fragment information and perform label-free protein quantification.
 
-    def build_library(self, base_spec_lib, psm_df=None):
-        logger.progress("Building spectral library")
+        Parameters
+        ----------
 
-        print(base_spec_lib.precursor_df.columns)
-        print(base_spec_lib)
+        folder_list: List[str]
+            List of folders containing the search outputs
+
+        psm_df: Union[pd.DataFrame, None]
+            Combined precursor table. If None, the precursor table is loaded from disk.
+
+        save: bool
+            Save the precursor table to disk
+
+        """
+        logger.Progress("Performing label free quantification")
 
         if psm_df is None:
-            psm_df_path = os.path.join(self.output_folder, "psm.tsv")
-            if not os.path.exists(psm_df_path):
-                logger.error(
-                    "Can't build MBR spectral library as no psm.tsv file was found in the output folder"
-                )
-                return
-            logger.progress("Reading psm.tsv file")
-            psm_df = pd.read_csv(
-                os.path.join(self.output_folder, "psm.tsv"), sep="\t"
+            psm_df = self.load_target_precursor_table()
+
+        # as we want to retain decoys in the output we are only removing them for lfq
+        qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
+        intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
+        intensity_df, quality_df = qb.filter_frag_df(intensity_df, quality_df)
+        protein_df = qb.lfq(intensity_df, quality_df)
+
+        protein_df.rename(columns={"protein": "pg"}, inplace=True)
+
+        protein_df_melted = protein_df.melt(
+            id_vars="pg", var_name="run", value_name="intensity"
+        )
+
+        psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
+
+        if save:
+            logger.info("Writing protein group output to disk")
+            protein_df.to_csv(
+                os.path.join(self.output_folder, f"{self.PG_OUTPUT}.tsv"),
+                sep="\t",
+                index=False,
+                float_format="%.6f",
             )
+
+            logger.info("Writing psm output to disk")
+            psm_df.to_csv(
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
+                sep="\t",
+                index=False,
+                float_format="%.6f",
+            )
+
+        return protein_df
+
+    def build_library(
+        self,
+        base_spec_lib: base.SpecLibBase,
+        psm_df: Union[pd.DataFrame, None] = None,
+        save: bool = True,
+    ):
+        """Build spectral library
+
+        Parameters
+        ----------
+
+        base_spec_lib: base.SpecLibBase
+            Base spectral library
+
+        psm_df: Union[pd.DataFrame, None]
+            Combined precursor table. If None, the precursor table is loaded from disk.
+
+        save: bool
+            Save the generated spectral library to disk
+
+        """
+        logger.progress("Building spectral library")
+
+        if psm_df is None:
+            psm_df = self.load_precursor_table()
+        psm_df = psm_df[psm_df["decoy"] == 0]
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,
         )
 
-        logger.progress("Building MBR spectral library")
-        mbr_spec_lib = libbuilder(
-            psm_df,
-            base_spec_lib
-        )
-        
+        logger.info("Building MBR spectral library")
+        mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
+
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
 
@@ -182,14 +602,22 @@ class SearchPlanOutput:
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
 
-        logger.progress("Writing MBR spectral library to disk")
-        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))  
+        logger.info("Writing MBR spectral library to disk")
+        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
+
+        if save:
+            logger.info("Writing MBR spectral library to disk")
+            mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
+
+        return mbr_spec_lib
 
 
 def build_stat_df(raw_name, run_df):
     """Build stat dataframe for run"""
-    
-    return pd.DataFrame([{
+
+    return pd.DataFrame(
+        [
+            {
                 "run": raw_name,
                 "precursors": np.sum(run_df["qval"] <= 0.01),
                 "proteins": run_df[run_df["qval"] <= 0.01]["pg"].nunique(),
@@ -197,7 +625,8 @@ def build_stat_df(raw_name, run_df):
                 "fwhm_rt": np.mean(run_df["cycle_fwhm"]),
                 "fwhm_mobility": np.mean(run_df["mobility_fwhm"]),
             }
-    ])
+        ]
+    )
 
 
 def perform_protein_fdr(psm_df):

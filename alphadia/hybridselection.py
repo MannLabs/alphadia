@@ -1741,8 +1741,8 @@ def build_candidates(
 
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
-    smooth_precursor = dense_precursors#numeric.convolve_fourier_a1(dense_precursors, kernel)
-    smooth_fragment = dense_fragments#numeric.convolve_fourier_a1(dense_fragments, kernel)
+    smooth_precursor = numeric.convolve_fourier_a1(dense_precursors, kernel)
+    smooth_fragment = numeric.convolve_fourier_a1(dense_fragments, kernel)
 
     if not smooth_precursor.shape == dense_precursors.shape:
         print(smooth_precursor.shape, dense_precursors.shape)

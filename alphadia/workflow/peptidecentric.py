@@ -460,7 +460,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.001]
+        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]

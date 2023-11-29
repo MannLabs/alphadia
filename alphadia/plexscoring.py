@@ -692,6 +692,7 @@ class Candidate:
             psm_proto_df.fragment_mass_error[self.output_idx, :len(mass_error)] = mass_error
             psm_proto_df.fragment_number[self.output_idx, :len(fragments.number)] = fragments.number
             psm_proto_df.fragment_type[self.output_idx, :len(fragments.type)] = fragments.type
+            psm_proto_df.fragment_charge[self.output_idx, :len(fragments.charge)] = fragments.charge
 
         # ============= FRAGMENT MOBILITY CORRELATIONS =============
         # will be skipped if no mobility dimension is present
@@ -1201,6 +1202,7 @@ class OuptutPsmDF:
 
     fragment_number: nb.uint8[:, ::1]
     fragment_type: nb.uint8[:, ::1]
+    fragment_charge: nb.uint8[:, ::1]
 
 
     def __init__(self, n_psm, top_k_fragments):
@@ -1226,6 +1228,7 @@ class OuptutPsmDF:
 
         self.fragment_number = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
+        self.fragment_charge = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
 
     def to_fragment_df(self):
 
@@ -1243,6 +1246,7 @@ class OuptutPsmDF:
             self.fragment_correlation.flatten()[mask],
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
+            self.fragment_charge.flatten()[mask],
         )
     
     def to_precursor_df(self):
@@ -1678,7 +1682,7 @@ class CandidateScoring:
 
         """
 
-        colnames = ['precursor_idx', 'rank', 'mz_library', 'mz', 'mz_observed', 'height', 'intensity', 'mass_error', 'correlation','number','type']
+        colnames = ['precursor_idx', 'rank', 'mz_library', 'mz', 'mz_observed', 'height', 'intensity', 'mass_error', 'correlation','number','type','charge']
         df = pd.DataFrame({key: value for value, key in zip(psm_proto_df.to_fragment_df(),colnames)})
 
         # join precursor columns
