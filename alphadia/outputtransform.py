@@ -230,7 +230,14 @@ class QuantBuilder:
         )
         return intensity_df[mask], quality_df[mask]
 
-    def lfq(self, intensity_df: pd.DataFrame, quality_df: pd.DataFrame) -> pd.DataFrame:
+    def lfq(
+        self,
+        intensity_df: pd.DataFrame,
+        quality_df: pd.DataFrame,
+        num_samples_quadratic: int = 50,
+        min_nonan: int = 1,
+        num_cores: int = 8,
+    ) -> pd.DataFrame:
         """Perform label-free quantification
 
         Parameters
@@ -257,10 +264,15 @@ class QuantBuilder:
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
         lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
-            lfq_df, num_samples_quadratic=50, selected_proteins_file=None
+            lfq_df,
+            num_samples_quadratic=num_samples_quadratic,
+            selected_proteins_file=None,
         ).complete_dataframe
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
-            lfq_df, min_nonan=1, num_samples_quadratic=50, num_cores=8
+            lfq_df,
+            min_nonan=min_nonan,
+            num_samples_quadratic=num_samples_quadratic,
+            num_cores=num_cores,
         )
 
         return protein_df
@@ -391,7 +403,7 @@ class SearchPlanOutput:
         psm_df: pd.DataFrame
             Precursor table
         """
-        logger.info("Performing protein grouping and FDR")
+        logger.progress("Performing protein grouping and FDR")
 
         psm_df_list = []
 
@@ -434,7 +446,21 @@ class SearchPlanOutput:
         psm_df = perform_protein_fdr(psm_df)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
-        print(self.config["fdr"]["keep_decoys"])
+        pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
+        precursor_count = psm_df[psm_df["decoy"] == 0]["precursor_idx"].nunique()
+
+        logger.progress(
+            "================ Protein FDR =================",
+        )
+        logger.progress(f"Unique protein groups in output")
+        logger.progress(f"  1% protein FDR: {pg_count:,}")
+        logger.progress("")
+        logger.progress(f"Unique precursor in output")
+        logger.progress(f"  1% protein FDR: {precursor_count:,}")
+        logger.progress(
+            "================================================",
+        )
+
         if not self.config["fdr"]["keep_decoys"]:
             psm_df = psm_df[psm_df["decoy"] == 0]
 
@@ -522,7 +548,7 @@ class SearchPlanOutput:
             Save the precursor table to disk
 
         """
-        logger.Progress("Performing label free quantification")
+        logger.progress("Performing label free quantification")
 
         if psm_df is None:
             psm_df = self.load_target_precursor_table()
@@ -530,8 +556,19 @@ class SearchPlanOutput:
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
-        intensity_df, quality_df = qb.filter_frag_df(intensity_df, quality_df)
-        protein_df = qb.lfq(intensity_df, quality_df)
+        intensity_df, quality_df = qb.filter_frag_df(
+            intensity_df,
+            quality_df,
+            top_n=self.config["search_output"]["min_k_fragments"],
+            min_correlation=self.config["search_output"]["min_correlation"],
+        )
+        protein_df = qb.lfq(
+            intensity_df,
+            quality_df,
+            num_cores=self.config["general"]["thread_count"],
+            min_nonan=self.config["search_output"]["min_nonnan"],
+            num_samples_quadratic=self.config["search_output"]["num_samples_quadratic"],
+        )
 
         protein_df.rename(columns={"protein": "pg"}, inplace=True)
 
