@@ -291,7 +291,8 @@ def prepare_df(df, psm_df):
 
 class SearchPlanOutput:
     PSM_INPUT = "psm"
-    PRECURSOR_OUTPUT = "precursor"
+    PRECURSOR_OUTPUT = "precursors"
+    STAT_OUTPUT = "stat"
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
 
@@ -371,17 +372,17 @@ class SearchPlanOutput:
         """
 
         if not os.path.exists(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_TABLE}.tsv")
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv")
         ):
             logger.error(
-                f"Can't continue as no {self.PRECURSOR_TABLE}.tsv file was found in the output folder: {self.output_folder}"
+                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
             )
             raise FileNotFoundError(
-                f"Can't continue as no {self.PRECURSOR_TABLE}.tsv file was found in the output folder: {self.output_folder}"
+                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
             )
-        logger.info(f"Reading {self.PRECURSOR_TABLE}.tsv file")
+        logger.info(f"Reading {self.PRECURSOR_OUTPUT}.tsv file")
         psm_df = pd.read_csv(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_TABLE}.tsv"), sep="\t"
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"), sep="\t"
         )
         return psm_df
 
@@ -409,7 +410,7 @@ class SearchPlanOutput:
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"psm.tsv")
+            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.tsv")
 
             logger.info(f"Building output for {raw_name}")
 
@@ -519,7 +520,7 @@ class SearchPlanOutput:
         if save:
             logger.info("Writing stat output to disk")
             stat_df.to_csv(
-                os.path.join(self.output_folder, "stat.tsv"),
+                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}.tsv"),
                 sep="\t",
                 index=False,
                 float_format="%.6f",
@@ -551,7 +552,7 @@ class SearchPlanOutput:
         logger.progress("Performing label free quantification")
 
         if psm_df is None:
-            psm_df = self.load_target_precursor_table()
+            psm_df = self.load_precursor_table()
 
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
@@ -652,16 +653,24 @@ class SearchPlanOutput:
 def build_stat_df(raw_name, run_df):
     """Build stat dataframe for run"""
 
+    base_dict = {
+        "run": raw_name,
+        "precursors": len(run_df),
+        "proteins": run_df["pg"].nunique(),
+    }
+
+    if "weighted_mass_error" in run_df.columns:
+        base_dict["ms1_accuracy"] = np.mean(run_df["weighted_mass_error"])
+
+    if "cycle_fwhm" in run_df.columns:
+        base_dict["fwhm_rt"] = np.mean(run_df["cycle_fwhm"])
+
+    if "mobility_fwhm" in run_df.columns:
+        base_dict["fwhm_mobility"] = np.mean(run_df["mobility_fwhm"])
+
     return pd.DataFrame(
         [
-            {
-                "run": raw_name,
-                "precursors": np.sum(run_df["qval"] <= 0.01),
-                "proteins": run_df[run_df["qval"] <= 0.01]["pg"].nunique(),
-                "ms1_accuracy": np.mean(run_df["weighted_mass_error"]),
-                "fwhm_rt": np.mean(run_df["cycle_fwhm"]),
-                "fwhm_mobility": np.mean(run_df["mobility_fwhm"]),
-            }
+            base_dict,
         ]
     )
 
