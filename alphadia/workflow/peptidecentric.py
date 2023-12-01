@@ -86,6 +86,8 @@ feature_columns = [
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001,
+    batch_size=5000,
+    learning_rate=0.001,
 )
 
 
