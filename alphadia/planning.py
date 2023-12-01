@@ -23,11 +23,15 @@ import numpy as np
 import pandas as pd
 import os, psutil
 import torch
-from xxhash import xxh64_intdigest
+import numba as nb
 
-xxh64_fromint = lambda x: xxh64_intdigest(
-    int(x).to_bytes(16, byteorder="big", signed=True)
-)
+
+@nb.njit
+def hash(precursor_idx, rank):
+    # create a 64 bit hash from the precursor_idx, number and type
+    # the precursor_idx is the lower 32 bits
+    # the rank is the next 8 bits
+    return precursor_idx + (rank << 32)
 
 
 class Plan:
@@ -227,16 +231,13 @@ class Plan:
                 logger.info(f"Removing fragments below FDR threshold")
 
                 # to be optimized later
-                frag_df["candidate_key"] = frag_df.apply(
-                    lambda x: xxh64_fromint(x["precursor_idx"])
-                    + xxh64_fromint(-x["rank"]),
-                    axis=1,
+                frag_df["candidate_key"] = hash(
+                    frag_df["precursor_idx"].values, frag_df["rank"].values
                 )
-                psm_df["candidate_key"] = psm_df.apply(
-                    lambda x: xxh64_fromint(x["precursor_idx"])
-                    + xxh64_fromint(-x["rank"]),
-                    axis=1,
+                psm_df["candidate_key"] = hash(
+                    psm_df["precursor_idx"].values, psm_df["rank"].values
                 )
+
                 frag_df = frag_df[
                     frag_df["candidate_key"].isin(psm_df["candidate_key"])
                 ]

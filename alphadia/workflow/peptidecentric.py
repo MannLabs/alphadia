@@ -86,6 +86,8 @@ feature_columns = [
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001,
+    batch_size=5000,
+    learning_rate=0.001,
 )
 
 
@@ -497,10 +499,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 top_intensity_precursors["precursor_idx"]
             )
         ]
-        median_fragment_intensity = fragments_df_filtered["intensity"].median()
-        fragments_df_filtered = fragments_df_filtered[
-            fragments_df_filtered["intensity"] > median_fragment_intensity
-        ].head(50000)
+
+        fragments_df_filtered = fragments_df.sort_values(
+            by=["correlation"], ascending=False
+        ).head(10000)
 
         self.calibration_manager.fit(
             fragments_df_filtered,
