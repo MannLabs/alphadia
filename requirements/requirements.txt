@@ -4,7 +4,9 @@ alphatims
 alphabase
 peptdeep
 progressbar
-neptune-client
+neptune
 seaborn
 rocket_fft
+xxhash
+torchmetrics
 directlfq
