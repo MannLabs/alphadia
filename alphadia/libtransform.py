@@ -161,6 +161,7 @@ class PrecursorInitializer(ProcessingStep):
 
         return input
 
+
 class AnnotateFasta(ProcessingStep):
     def __init__(
         self,
@@ -253,7 +254,7 @@ class DecoyGenerator(ProcessingStep):
                 f"Input library already contains decoys. Skipping decoy generation. \n Please note that decoys generated outside of alphabase are not supported."
             )
             return input
-    
+
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
         decoy_lib.decoy_sequence()
         decoy_lib.calc_precursor_mz()
@@ -496,27 +497,31 @@ class LogFlatLibraryStats(ProcessingStep):
 
         return input
 
+
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr = 0.01) -> None:
+    def __init__(self, fdr=0.01) -> None:
         super().__init__()
         self.fdr = fdr
 
     def validate(self, psm_df, base_library) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
         return True
-    
-    def forward(self, psm_df, base_library):
 
+    def forward(self, psm_df, base_library):
         psm_df = psm_df[psm_df["qval"] <= self.fdr]
         psm_df = psm_df[psm_df["decoy"] == 0]
-        rt_df = psm_df.groupby('elution_group_idx', as_index=False).agg(rt=pd.NamedAgg(column='rt_observed', aggfunc='median'))
+        rt_df = psm_df.groupby("elution_group_idx", as_index=False).agg(
+            rt=pd.NamedAgg(column="rt_observed", aggfunc="median")
+        )
 
         mbr_spec_lib = base_library.copy()
         mbr_spec_lib = base_library.copy()
-        if 'rt' in mbr_spec_lib._precursor_df.columns:
-            mbr_spec_lib._precursor_df.drop(columns=['rt'], inplace=True)
-        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(rt_df, on='elution_group_idx', how='right')
+        if "rt" in mbr_spec_lib._precursor_df.columns:
+            mbr_spec_lib._precursor_df.drop(columns=["rt"], inplace=True)
+        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(
+            rt_df, on="elution_group_idx", how="right"
+        )
 
         mbr_spec_lib.remove_unused_fragments()
-        
+
         return mbr_spec_lib

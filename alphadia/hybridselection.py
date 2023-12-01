@@ -839,8 +839,6 @@ class HybridElutionGroup:
             std = None
             weights = np.array([1, 1, 1, 1, 1, 1, 1, 1], np.float64)
 
-        
-
         self.candidates = build_candidates(
             dense_precursors,
             dense_fragments,

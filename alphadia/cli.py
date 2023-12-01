@@ -118,7 +118,7 @@ def gui():
     "--config-update",
     help="Dict which will be used to update the default config.",
     type=str,
-    default={}
+    default={},
 )
 @click.option(
     "--neptune-token",

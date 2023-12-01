@@ -819,8 +819,13 @@ def fragment_features(
 
     mass_error = (observed_fragment_mz_mean - fragments.mz) / fragments.mz * 1e6
 
+    return (
+        observed_fragment_mz_mean,
+        mass_error,
+        observed_fragment_height,
+        observed_fragment_intensity,
+    )
 
-    return observed_fragment_mz_mean, mass_error, observed_fragment_height, observed_fragment_intensity
 
 @nb.njit()
 def fragment_mobility_correlation(
@@ -838,7 +843,7 @@ def fragment_mobility_correlation(
     non_zero_fragment_norm = fragment_intensity[fragment_mask_1d] / np.sum(
         fragment_intensity[fragment_mask_1d]
     )
-    
+
     # (n_observations, n_fragments, n_fragments)
     fragment_scan_correlation_masked = numeric.fragment_correlation(
         fragments_scan_profile[fragment_mask_1d],
@@ -870,8 +875,8 @@ def fragment_mobility_correlation(
     # template_scan_correlation
     template_scan_correlation = np.dot(
         fragment_template_scan_correlation_reduced, non_zero_fragment_norm
-        )
-    
+    )
+
     return fragment_scan_correlation, template_scan_correlation
 
 
@@ -990,9 +995,7 @@ def profile_features(
     cycle_fwhm_mean_list = np.sum(
         cycle_fwhm * observation_importance.reshape(1, -1), axis=-1
     )
-    cycle_fwhm_mean_agg = np.sum(
-        cycle_fwhm_mean_list * fragment_intensity
-    )
+    cycle_fwhm_mean_agg = np.sum(cycle_fwhm_mean_list * fragment_intensity)
 
     feature_array[38] = cycle_fwhm_mean_agg
 
@@ -1034,9 +1037,7 @@ def profile_features(
         mobility_fwhm_mean_list = np.sum(
             mobility_fwhm * observation_importance.reshape(1, -1), axis=-1
         )
-        mobility_fwhm_mean_agg = np.sum(
-            mobility_fwhm_mean_list * fragment_intensity
-        )
+        mobility_fwhm_mean_agg = np.sum(mobility_fwhm_mean_list * fragment_intensity)
 
         feature_array[39] = mobility_fwhm_mean_agg
 

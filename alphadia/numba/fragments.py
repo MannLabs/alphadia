@@ -135,9 +135,8 @@ class FragmentContainer:
         self.cardinality = self.cardinality[mask]
 
         if np.sum(mask) > 0:
-            self.intensity = self.intensity / np.sum(
-                self.intensity
-            )
+            self.intensity = self.intensity / np.sum(self.intensity)
+
 
 @overload_method(
     nb.types.misc.ClassInstanceType,
