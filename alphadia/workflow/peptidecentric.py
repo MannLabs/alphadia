@@ -83,7 +83,7 @@ feature_columns = [
     "mobility_fwhm",
 ]
 
-classifier_base = fdrx.BinaryClassifierLegacy(
+classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001,
 )
 
