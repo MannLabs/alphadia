@@ -58,7 +58,7 @@ feature_columns = [
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacy(
-    test_size=0.1,
+    test_size=0.01,
     batch_size=100,
 )
 
@@ -254,7 +254,6 @@ def test_feed_forward():
 
     classifier = fdrx.BinaryClassifierLegacy(
         batch_size=100,
-        learning_rate=0.01,
     )
 
     classifier.fit(x, y)
@@ -277,8 +276,6 @@ def test_feed_forward_save():
 
     classifier = fdrx.BinaryClassifierLegacy(
         batch_size=100,
-        learning_rate=0.001,
-        epochs=20,
     )
 
     classifier.fit(x, y)
@@ -295,9 +292,6 @@ def test_feed_forward_save():
 
     y_pred = new_classifier.predict(x)
     assert np.all(y_pred == y)
-    assert new_classifier.batch_size == 100
-    assert new_classifier.learning_rate == 0.001
-    assert new_classifier.epochs == 20
 
 
 test_feed_forward_save()

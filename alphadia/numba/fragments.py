@@ -119,6 +119,24 @@ class FragmentContainer:
         self.position = self.position[mask]
         self.cardinality = self.cardinality[mask]
 
+    def apply_mask(self, mask):
+        """
+        Apply a boolean mask to the fragment container
+        """
+        self.precursor_idx = self.precursor_idx[mask]
+        self.mz_library = self.mz_library[mask]
+        self.mz = self.mz[mask]
+        self.intensity = self.intensity[mask]
+        self.type = self.type[mask]
+        self.loss_type = self.loss_type[mask]
+        self.charge = self.charge[mask]
+        self.number = self.number[mask]
+        self.position = self.position[mask]
+        self.cardinality = self.cardinality[mask]
+
+        if np.sum(mask) > 0:
+            self.intensity = self.intensity / np.sum(self.intensity)
+
 
 @overload_method(
     nb.types.misc.ClassInstanceType,

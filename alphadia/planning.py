@@ -16,12 +16,18 @@ import alphadia
 
 # alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
 import numpy as np
 import pandas as pd
 import os, psutil
 import torch
+from xxhash import xxh64_intdigest
+
+xxh64_fromint = lambda x: xxh64_intdigest(
+    int(x).to_bytes(16, byteorder="big", signed=True)
+)
 
 
 class Plan:
@@ -64,6 +70,7 @@ class Plan:
         logger.progress("")
 
         self.raw_file_list = raw_file_list
+        self.spec_lib_path = spec_lib_path
 
         # default config path is not defined in the function definition to account for for different path separators on different OS
         if config_path is None:
@@ -160,8 +167,7 @@ class Plan:
         )
 
         speclib = import_pipeline(spec_lib_path)
-        if self.config["library_loading"]["save_hdf"]:
-            speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
 
         self.spectral_library = prepare_pipeline(speclib)
 
@@ -207,9 +213,7 @@ class Plan:
                 frag_location = os.path.join(workflow.path, "frag.tsv")
 
                 if self.config["general"]["reuse_quant"]:
-                    if os.path.exists(
-                        psm_location
-                    ):  # and os.path.exists(frag_location):
+                    if os.path.exists(psm_location) and os.path.exists(frag_location):
                         logger.info(f"Found existing quantification for {raw_name}")
                         continue
                     logger.info(f"No existing quantification found for {raw_name}")
@@ -217,14 +221,33 @@ class Plan:
                 workflow.load(dia_path, speclib)
                 workflow.calibration()
 
-                df = workflow.extraction()
-                df = df[df["qval"] <= self.config["fdr"]["fdr"]]
+                psm_df, frag_df = workflow.extraction()
+                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                logger.info(f"Removing fragments below FDR threshold")
+
+                # to be optimized later
+                frag_df["candidate_key"] = frag_df.apply(
+                    lambda x: xxh64_fromint(x["precursor_idx"])
+                    + xxh64_fromint(-x["rank"]),
+                    axis=1,
+                )
+                psm_df["candidate_key"] = psm_df.apply(
+                    lambda x: xxh64_fromint(x["precursor_idx"])
+                    + xxh64_fromint(-x["rank"]),
+                    axis=1,
+                )
+                frag_df = frag_df[
+                    frag_df["candidate_key"].isin(psm_df["candidate_key"])
+                ]
 
                 if self.config["multiplexing"]["multiplexed_quant"]:
-                    df = workflow.requantify(df)
-                    df = df[df["qval"] <= self.config["fdr"]["fdr"]]
-                df["run"] = raw_name
-                df.to_csv(psm_location, sep="\t", index=False)
+                    psm_df = workflow.requantify(psm_df)
+                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                psm_df["run"] = raw_name
+                psm_df.to_csv(psm_location, sep="\t", index=False)
+                frag_df.to_csv(frag_location, sep="\t", index=False)
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
@@ -240,5 +263,16 @@ class Plan:
                 logger.error(f"Workflow failed for {raw_name} with error {e}")
                 continue
 
+        base_spec_lib = SpecLibBase()
+        base_spec_lib.load_hdf(
+            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+        )
+
         output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build_output(workflow_folder_list)
+        output.build(workflow_folder_list, base_spec_lib)
+
+        logger.progress("=================== Search Finished ===================")
+
+    def clean(self):
+        if not self.config["library_loading"]["save_hdf"]:
+            os.remove(os.path.join(self.output_folder, "speclib.hdf"))

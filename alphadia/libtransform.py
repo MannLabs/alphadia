@@ -28,11 +28,11 @@ class ProcessingStep:
         Processing steps can be chained together in a ProcessingPipeline."""
         pass
 
-    def __call__(self, input: typing.Any) -> typing.Any:
+    def __call__(self, *args: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         logger.info(f"Running {self.__class__.__name__}")
-        if self.validate(input):
-            return self.forward(input)
+        if self.validate(*args):
+            return self.forward(*args)
         else:
             logger.critical(
                 f"Input {input} failed validation for {self.__class__.__name__}"
@@ -41,11 +41,11 @@ class ProcessingStep:
                 f"Input {input} failed validation for {self.__class__.__name__}"
             )
 
-    def validate(self, input: typing.Any) -> bool:
+    def validate(self, *args: typing.Any) -> bool:
         """Validate the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
-    def forward(self, input: typing.Any) -> typing.Any:
+    def forward(self, *args: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -261,6 +261,12 @@ class DecoyGenerator(ProcessingStep):
         decoy_lib.remove_unused_fragments()
         decoy_lib.calc_fragment_mz_df()
         decoy_lib._precursor_df["decoy"] = 1
+
+        # keep original precursor_idx and only create new ones for decoys
+        start_precursor_idx = input.precursor_df["precursor_idx"].max() + 1
+        decoy_lib._precursor_df["precursor_idx"] = np.arange(
+            start_precursor_idx, start_precursor_idx + len(decoy_lib.precursor_df)
+        )
 
         input.append(decoy_lib)
         input._precursor_df.sort_values("elution_group_idx", inplace=True)
@@ -490,3 +496,32 @@ class LogFlatLibraryStats(ProcessingStep):
         logger.info(f"=======================================")
 
         return input
+
+
+class MbrLibraryBuilder(ProcessingStep):
+    def __init__(self, fdr=0.01) -> None:
+        super().__init__()
+        self.fdr = fdr
+
+    def validate(self, psm_df, base_library) -> bool:
+        """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
+        return True
+
+    def forward(self, psm_df, base_library):
+        psm_df = psm_df[psm_df["qval"] <= self.fdr]
+        psm_df = psm_df[psm_df["decoy"] == 0]
+        rt_df = psm_df.groupby("elution_group_idx", as_index=False).agg(
+            rt=pd.NamedAgg(column="rt_observed", aggfunc="median")
+        )
+
+        mbr_spec_lib = base_library.copy()
+        mbr_spec_lib = base_library.copy()
+        if "rt" in mbr_spec_lib._precursor_df.columns:
+            mbr_spec_lib._precursor_df.drop(columns=["rt"], inplace=True)
+        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(
+            rt_df, on="elution_group_idx", how="right"
+        )
+
+        mbr_spec_lib.remove_unused_fragments()
+
+        return mbr_spec_lib

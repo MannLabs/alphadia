@@ -42,6 +42,7 @@ feature_columns = [
     "base_width_mobility",
     "base_width_rt",
     "rt_observed",
+    "delta_rt",
     "mobility_observed",
     "mono_ms1_intensity",
     "top_ms1_intensity",
@@ -459,7 +460,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.001]
+        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
@@ -682,7 +683,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
         self.log_precursor_df(precursor_df)
 
-        return precursor_df
+        return precursor_df, fragments_df
 
     def log_precursor_df(self, precursor_df):
         total_precursors = len(precursor_df)

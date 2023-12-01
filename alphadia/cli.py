@@ -118,6 +118,7 @@ def gui():
     "--config-update",
     help="Dict which will be used to update the default config.",
     type=str,
+    default={},
 )
 @click.option(
     "--neptune-token",
@@ -141,7 +142,7 @@ def extract(**kwargs):
     kwargs["neptune_tag"] = list(kwargs["neptune_tag"])
 
     # load config file if specified
-    config_update = None
+    config_update = {}
     if kwargs["config"] is not None:
         with open(kwargs["config"], "r") as f:
             config_update = yaml.safe_load(f)
