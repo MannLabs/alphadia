@@ -1148,7 +1148,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         loss = nn.BCELoss()
 
-        batch_count = 0
+        x_train = torch.Tensor(x_train)
+        y_train = torch.Tensor(y_train)
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
@@ -1163,8 +1164,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             batch_stop_list = batch_stop_list[order]
 
             for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
-                x_train_batch = torch.Tensor(x_train[batch_start:batch_stop])
-                y_train_batch = torch.Tensor(y_train[batch_start:batch_stop])
+                x_train_batch = x_train[batch_start:batch_stop]
+                y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)
                 loss_value = loss(y_pred, y_train_batch)
 
