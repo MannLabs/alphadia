@@ -9,14 +9,15 @@ from copy import deepcopy
 # alpha family imports
 
 # third party imports
+import numba as nb
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
 from sklearn import model_selection
 from tqdm import tqdm
+from torchmetrics.classification import BinaryAUROC
 
 
 class Classifier(ABC):
@@ -131,9 +132,10 @@ class BinaryClassifier(Classifier):
         weight_decay: float = 0.00001,
         layers: typing.List[int] = [100, 50, 20, 5],
         dropout: float = 0.001,
-        calculate_metrics: bool = False,
+        calculate_metrics: bool = True,
         metric_interval: int = 1,
         patience: int = 3,
+        **kwargs,
     ):
         """Binary Classifier using a feed forward neural network.
 
@@ -173,7 +175,7 @@ class BinaryClassifier(Classifier):
         dropout : float, default=0.001
             Dropout probability for training.
 
-        calculate_metrics : bool, default=False
+        calculate_metrics : bool, default=True
             Whether to calculate metrics during training.
 
         metric_interval : int, default=1
@@ -206,10 +208,17 @@ class BinaryClassifier(Classifier):
             "epoch": [],
             "batch_count": [],
             "train_loss": [],
-            "train_accuracy": [],
             "test_loss": [],
-            "test_accuracy": [],
+            "train_auc": [],
+            "train_fdr01": [],
+            "train_fdr1": [],
+            "test_auc": [],
+            "test_fdr01": [],
+            "test_fdr1": [],
         }
+
+        if kwargs:
+            warnings.warn("Unknown arguments: {}".format(kwargs))
 
     @property
     def fitted(self):
@@ -347,21 +356,32 @@ class BinaryClassifier(Classifier):
 
         loss = nn.BCELoss()
 
-        best_train_accuracy = 0.0
-        best_test_accuracy = 0.0
-        patience = self.patience
-        x_train, x_test, y_train, y_test = self._prepare_data(x, y)
+        binary_auroc = BinaryAUROC()
 
-        num_batches = (x_train.shape[0] // batch_size) - 1
+        best_fdr1 = 0.0
+        patience = self.patience
+
+        x -= x.mean(axis=0)
+        x /= x.std(axis=0) + 1e-6
+
+        if y.ndim == 1:
+            y = np.stack([1 - y, y], axis=1)
+        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+            x, y, test_size=self.test_size
+        )
+        x_train = torch.from_numpy(x_train).float()
+        y_train = torch.from_numpy(y_train).float()
+        x_test = torch.from_numpy(x_test).float()
+        y_test = torch.from_numpy(y_test).float()
+
+        num_batches = x_train.shape[0] // batch_size
         batch_start_list = np.arange(num_batches) * batch_size
         batch_stop_list = np.arange(num_batches) * batch_size + batch_size
 
         batch_count = 0
         for epoch in tqdm(range(self.epochs)):
             train_loss_sum = 0.0
-            train_accuracy_sum = 0.0
             test_loss_sum = 0.0
-            test_accuracy_sum = 0.0
 
             num_batches_train = 0
             num_batches_test = 0
@@ -370,6 +390,9 @@ class BinaryClassifier(Classifier):
             order = np.random.permutation(num_batches)
             batch_start_list = batch_start_list[order]
             batch_stop_list = batch_stop_list[order]
+
+            train_predictions_list = []
+            train_labels_list = []
 
             for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
                 y_pred = self.network(x_train[batch_start:batch_stop])
@@ -380,18 +403,21 @@ class BinaryClassifier(Classifier):
                 optimizer.step()
 
                 train_loss_sum += loss_value.detach()
-                train_accuracy_sum += (
-                    (y_train[batch_start:batch_stop][:, 1] == y_pred.argmax(dim=1))
-                    .float()
-                    .mean()
-                )
+                train_predictions_list.append(y_pred.detach())
+                train_labels_list.append(y_train[batch_start:batch_stop].detach()[:, 1])
                 num_batches_train += 1
+
+            train_predictions = torch.cat(train_predictions_list, dim=0)
+            train_labels = torch.cat(train_labels_list, dim=0)
+
+            auc, fdr01, fdr1 = self.get_auc_fdr(
+                train_predictions, train_labels, roc_object=binary_auroc
+            )
 
             if not self.calculate_metrics:
                 # check for early stopping
-                average_train_accuracy = train_accuracy_sum / num_batches_train
-                if average_train_accuracy > best_train_accuracy:
-                    best_train_accuracy = average_train_accuracy
+                if fdr1 > best_fdr1:
+                    best_fdr1 = fdr1
                     patience = self.patience
                 else:
                     patience -= 1
@@ -405,10 +431,14 @@ class BinaryClassifier(Classifier):
 
             self.network.eval()
             with torch.no_grad():
-                test_num_batches = (x_test.shape[0] // batch_size) - 1
-                test_batch_start_list = np.arange(test_num_batches) * batch_size
+                test_predictions_list = []
+                test_labels_list = []
+
+                test_batch_size = min(batch_size, x_test.shape[0])
+                test_num_batches = x_test.shape[0] // test_batch_size
+                test_batch_start_list = np.arange(test_num_batches) * test_batch_size
                 test_batch_stop_list = (
-                    np.arange(test_num_batches) * batch_size + batch_size
+                    np.arange(test_num_batches) * test_batch_size + test_batch_size
                 )
 
                 for batch_start, batch_stop in zip(
@@ -419,40 +449,43 @@ class BinaryClassifier(Classifier):
 
                     y_pred_test = self.network(batch_x_test)
                     test_loss = loss(y_pred_test, batch_y_test)
-                    test_accuracy = (
-                        (
-                            y_test[batch_start:batch_stop][:, 1]
-                            == y_pred_test.argmax(dim=1)
-                        )
-                        .float()
-                        .mean()
-                    )
+                    test_predictions_list.append(y_pred_test.detach())
+                    test_labels_list.append(batch_y_test.detach()[:, 1])
                     num_batches_test += 1
-                    test_accuracy_sum += test_accuracy
                     test_loss_sum += test_loss
+
+                # log metrics for train and test
+                average_train_loss = train_loss_sum / num_batches_train
+                average_test_loss = test_loss_sum / num_batches_test
+
+                self.metrics["train_loss"].append(average_train_loss.item())
+                self.metrics["test_loss"].append(average_test_loss.item())
+
+                self.metrics["train_auc"].append(auc.item())
+                self.metrics["train_fdr01"].append(fdr01.item())
+                self.metrics["train_fdr1"].append(fdr1.item())
+
+                test_predictions = torch.cat(test_predictions_list, dim=0)
+                test_labels = torch.cat(test_labels_list, dim=0)
+
+                auc, fdr01, fdr1 = self.get_auc_fdr(
+                    test_predictions, test_labels, roc_object=binary_auroc
+                )
+
+                self.metrics["test_auc"].append(auc.item())
+                self.metrics["test_fdr01"].append(fdr01.item())
+                self.metrics["test_fdr1"].append(fdr1.item())
+
+                self.metrics["epoch"].append(epoch)
+
+                batch_count += num_batches_train
+                self.metrics["batch_count"].append(batch_count)
 
             self.network.train()
 
-            # log metrics
-            average_train_loss = train_loss_sum / num_batches_train
-            average_train_accuracy = train_accuracy_sum / num_batches_train
-
-            average_test_loss = test_loss_sum / num_batches_test
-            average_test_accuracy = test_accuracy_sum / num_batches_test
-
-            self.metrics["train_loss"].append(average_train_loss.item())
-            self.metrics["train_accuracy"].append(average_train_accuracy.item())
-
-            self.metrics["test_loss"].append(average_test_loss.item())
-            self.metrics["test_accuracy"].append(average_test_accuracy.item())
-            self.metrics["epoch"].append(epoch)
-
-            batch_count += num_batches_train
-            self.metrics["batch_count"].append(batch_count)
-
             # check for early stopping
-            if average_test_accuracy > best_test_accuracy:
-                best_test_accuracy = average_test_accuracy
+            if fdr1 > best_fdr1:
+                best_fdr1 = fdr1
                 patience = self.patience
             else:
                 patience -= 1
@@ -461,6 +494,87 @@ class BinaryClassifier(Classifier):
                 break
 
         self._fitted = True
+
+    @torch.jit.export
+    def get_q_values(self, decoys_sorted: torch.Tensor):
+        """Calculates q-values for a dataframe containing PSMs.
+
+        Parameters
+        ----------
+
+        scores : torch.Tensor
+            Score to use for the selection. Ascending sorted values are expected.
+
+        decoys : torch.Tensor
+            Decoy information. Decoys are expected to be 1 and targets 0.
+
+        Returns
+        -------
+
+        torch.Tensor
+            The q-values.
+
+        """
+        decoy_cumsum = torch.cumsum(decoys_sorted, dim=0)
+        target_cumsum = torch.cumsum(1 - decoys_sorted, dim=0)
+        fdr_values = decoy_cumsum.float() / target_cumsum.float()
+        return self.fdr_to_q_values(fdr_values)
+
+    @torch.jit.export
+    def fdr_to_q_values(self, fdr_values: torch.Tensor):
+        """Converts FDR values to q-values.
+        Takes a ascending sorted array of FDR values and converts them to q-values.
+        for every element the lowest FDR where it would be accepted is used as q-value.
+
+        Parameters
+        ----------
+        fdr_values : torch.Tensor
+            The FDR values to convert.
+
+        Returns
+        -------
+        torch.Tensor
+            The q-values.
+        """
+        reversed_fdr = torch.flip(fdr_values, dims=[0])
+        cumulative_mins = torch.zeros_like(reversed_fdr)
+        min_value = float("inf")
+        for i in range(reversed_fdr.size(0)):
+            min_value = min(min_value, reversed_fdr[i].item())
+            cumulative_mins[i] = min_value
+        q_values = torch.flip(cumulative_mins, dims=[0])
+        return q_values
+
+    @torch.jit.export
+    def get_auc_fdr(self, predicted_probas: torch.Tensor, y: torch.Tensor, roc_object):
+        """Calculates the AUC and FDR for a given set of predicted probabilities and labels.
+
+        Parameters
+        ----------
+        predicted_probas : torch.Tensor
+            The predicted probabilities.
+
+        y : torch.Tensor
+            True labels. Decoys are expected to be 1 and targets 0.
+
+        roc_object : torchmetrics.classification.BinaryAUROC
+            The ROC object to use for calculating the AUC.
+
+        Returns
+        -------
+        torch.Tensor
+        """
+        scores = predicted_probas[:, 1]
+        sorted_indices = torch.argsort(scores, stable=True)
+        decoys_sorted = y[sorted_indices]
+        qval = self.get_q_values(decoys_sorted)
+
+        decoys_zero_mask = decoys_sorted == 0
+        qval = qval[decoys_zero_mask]
+
+        y_pred = torch.round(scores)
+        auc = roc_object(y_pred, y)
+        return auc, torch.sum(qval < 0.001), torch.sum(qval < 0.01)
 
     def predict(self, x):
         """Predict the class of the data.
@@ -537,6 +651,7 @@ class BinaryClassifierLegacy(Classifier):
         layers: typing.List[int] = [100, 50, 20, 5],
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        **kwargs,
     ):
         """Binary Classifier using a feed forward neural network.
 
@@ -598,6 +713,9 @@ class BinaryClassifierLegacy(Classifier):
             "test_loss": [],
             "test_accuracy": [],
         }
+
+        if kwargs:
+            warnings.warn("Unknown arguments: {}".format(kwargs))
 
     @property
     def fitted(self):
@@ -755,6 +873,326 @@ class BinaryClassifierLegacy(Classifier):
                                 == np.argmax(y_pred_train, axis=1)
                             )
                             / len(y_train)
+                        )
+
+                        self.metrics["test_accuracy"].append(
+                            np.sum(
+                                y_test[:, 1].detach().numpy()
+                                == np.argmax(y_pred_test, axis=1)
+                            )
+                            / len(y_test)
+                        )
+                    self.network.train()
+
+                batch_count += 1
+
+        self._fitted = True
+
+    def predict(self, x):
+        """Predict the class of the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+
+        y : np.array, dtype=int
+            Predicted class of shape (n_samples,).
+        """
+
+        if not self.fitted:
+            raise ValueError("Classifier has not been fitted yet.")
+
+        assert (
+            x.ndim == 2
+        ), "Input data must have batch and feature dimension. (n_samples, n_features)"
+        assert (
+            x.shape[1] == self.input_dim
+        ), "Input data must have the same number of features as the fitted classifier."
+
+        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
+        self.network.eval()
+        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+
+    def predict_proba(self, x: np.ndarray):
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+
+        y : np.array, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+
+        if not self.fitted:
+            raise ValueError("Classifier has not been fitted yet.")
+
+        assert (
+            x.ndim == 2
+        ), "Input data must have batch and feature dimension. (n_samples, n_features)"
+        assert (
+            x.shape[1] == self.input_dim
+        ), "Input data must have the same number of features as the fitted classifier."
+
+        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
+        self.network.eval()
+        return self.network(torch.Tensor(x)).detach().numpy()
+
+
+class BinaryClassifierLegacyNewBatching(Classifier):
+    def __init__(
+        self,
+        input_dim: int = 10,
+        output_dim: int = 2,
+        test_size: float = 0.2,
+        batch_size: int = 1000,
+        epochs: int = 10,
+        learning_rate: float = 0.0002,
+        weight_decay: float = 0.00001,
+        layers: typing.List[int] = [100, 50, 20, 5],
+        dropout: float = 0.001,
+        metric_interval: int = 1000,
+        **kwargs,
+    ):
+        """Binary Classifier using a feed forward neural network.
+
+        Parameters
+        ----------
+
+        input_dim : int, default=10
+            Number of input features.
+
+        output_dim : int, default=2
+            Number of output classes.
+
+        test_size : float, default=0.2
+            Fraction of the data to be used for testing.
+
+        batch_size : int, default=1000
+            Batch size for training.
+
+        epochs : int, default=10
+            Number of epochs for training.
+
+        learning_rate : float, default=0.0002
+            Learning rate for training.
+
+        weight_decay : float, default=0.00001
+            Weight decay for training.
+
+        layers : typing.List[int], default=[100, 50, 20, 5]
+            typing.List of hidden layer sizes.
+
+        dropout : float, default=0.001
+            Dropout probability for training.
+
+        metric_interval : int, default=1000
+            Interval for logging metrics during training.
+
+        """
+
+        self.test_size = test_size
+        self.batch_size = batch_size
+        self.epochs = epochs
+        self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
+        self.layers = layers
+        self.dropout = dropout
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.metric_interval = metric_interval
+
+        self.network = None
+        self.optimizer = None
+        self._fitted = False
+
+        self.metrics = {
+            "epoch": [],
+            "batch_count": [],
+            "train_loss": [],
+            "train_accuracy": [],
+            "test_loss": [],
+            "test_accuracy": [],
+        }
+
+        if kwargs:
+            warnings.warn("Unknown arguments: {}".format(kwargs))
+
+    @property
+    def fitted(self):
+        return self._fitted
+
+    @property
+    def metrics(self):
+        return self._metrics
+
+    @metrics.setter
+    def metrics(self, metrics):
+        self._metrics = metrics
+
+    def to_state_dict(self):
+        """Save the state of the classifier as a dictionary.
+
+        Returns
+        -------
+
+        dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+        dict = {
+            "_fitted": self._fitted,
+            "input_dim": self.input_dim,
+            "output_dim": self.output_dim,
+            "test_size": self.test_size,
+            "batch_size": self.batch_size,
+            "epochs": self.epochs,
+            "learning_rate": self.learning_rate,
+            "weight_decay": self.weight_decay,
+            "layers": self.layers,
+            "dropout": self.dropout,
+            "metric_interval": self.metric_interval,
+            "metrics": self.metrics,
+        }
+
+        if self._fitted:
+            dict["network_state_dict"] = self.network.state_dict()
+
+        return dict
+
+    def from_state_dict(self, state_dict: dict):
+        """Load the state of the classifier from a dictionary.
+
+        Parameters
+        ----------
+
+        dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+
+        _state_dict = deepcopy(state_dict)
+
+        if "network_state_dict" in _state_dict:
+            self.network = FeedForwardNN(
+                input_dim=_state_dict.pop("input_dim"),
+                output_dim=_state_dict.pop("output_dim"),
+                layers=_state_dict.pop("layers"),
+                dropout=_state_dict.pop("dropout"),
+            )
+            self.network.load_state_dict(state_dict.pop("network_state_dict"))
+
+        self.__dict__.update(_state_dict)
+
+    def fit(self, x: np.ndarray, y: np.ndarray):
+        """Fit the classifier to the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.array, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+
+        force_reinit = False
+
+        if self.input_dim != x.shape[1] and self.network is not None:
+            warnings.warn(
+                "Input dimension of network has changed. Network has been reinitialized."
+            )
+            force_reinit = True
+
+        # check if network has to be initialized
+        if self.network is None or force_reinit:
+            self.input_dim = x.shape[1]
+            self.network = FeedForwardNN(
+                input_dim=self.input_dim,
+                output_dim=self.output_dim,
+                layers=self.layers,
+                dropout=self.dropout,
+            )
+
+        # normalize input
+        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
+
+        if y.ndim == 1:
+            y = np.stack([1 - y, y], axis=1)
+
+        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+            x, y, test_size=self.test_size
+        )
+
+        x_test = torch.Tensor(x_test)
+        y_test = torch.Tensor(y_test)
+
+        optimizer = optim.Adam(
+            self.network.parameters(),
+            lr=self.learning_rate,
+            weight_decay=self.weight_decay,
+        )
+
+        loss = nn.BCELoss()
+
+        x_train = torch.Tensor(x_train)
+        y_train = torch.Tensor(y_train)
+
+        num_batches = (x_train.shape[0] // self.batch_size) - 1
+        batch_start_list = np.arange(num_batches) * self.batch_size
+        batch_stop_list = np.arange(num_batches) * self.batch_size + self.batch_size
+
+        batch_count = 0
+
+        for epoch in tqdm(range(self.epochs)):
+            # shuffle batches
+            order = np.random.permutation(num_batches)
+            batch_start_list = batch_start_list[order]
+            batch_stop_list = batch_stop_list[order]
+
+            for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
+                x_train_batch = x_train[batch_start:batch_stop]
+                y_train_batch = y_train[batch_start:batch_stop]
+                y_pred = self.network(x_train_batch)
+                loss_value = loss(y_pred, y_train_batch)
+
+                self.network.zero_grad()
+                loss_value.backward()
+                optimizer.step()
+
+                if batch_count % self.metric_interval == 0:
+                    self.network.eval()
+                    with torch.no_grad():
+                        self.metrics["epoch"].append(epoch)
+                        self.metrics["batch_count"].append(batch_count)
+                        self.metrics["train_loss"].append(loss_value.item())
+
+                        y_pred_test = self.network(x_test)
+                        loss_value = loss(y_pred_test, y_test)
+                        self.metrics["test_loss"].append(loss_value.item())
+
+                        y_pred_train = self.network(x_train_batch).detach().numpy()
+                        y_pred_test = self.network(x_test).detach().numpy()
+
+                        self.metrics["train_accuracy"].append(
+                            np.sum(
+                                y_train_batch[:, 1].detach().numpy()
+                                == np.argmax(y_pred_train, axis=1)
+                            )
+                            / len(y_train_batch)
                         )
 
                         self.metrics["test_accuracy"].append(

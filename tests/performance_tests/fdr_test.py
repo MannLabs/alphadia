@@ -14,6 +14,12 @@ import alphadia
 from alphadia import testing, fdr, fdrexperimental
 from alphadia.workflow import peptidecentric
 
+classifiers = {
+    "binary": fdrexperimental.BinaryClassifier,
+    "legacy": fdrexperimental.BinaryClassifierLegacy,
+    "legacy_new_batching": fdrexperimental.BinaryClassifierLegacyNewBatching,
+}
+
 parser = argparse.ArgumentParser(description="Run the fdr test.")
 parser.add_argument(
     "--threads", type=int, default=1, help="number of threads to use, default: 1"
@@ -85,6 +91,13 @@ parser.add_argument(
     "--dropout", type=float, default=0.001, help="dropout, default: 0.001"
 )
 
+parser.add_argument(
+    "--classifier",
+    choices=classifiers.keys(),
+    default="binary",
+    help="classifier to use, default: binary",
+)
+
 
 def main():
     # disable interactive plotting
@@ -134,7 +147,7 @@ def main():
 
         start_time = time.time()
 
-        classifier = fdrexperimental.BinaryClassifier(
+        classifier = classifiers[args.classifier](
             test_size=0.001,
             max_batch_size=args.max_batch_size,
             min_batch_number=args.min_batch_number,
