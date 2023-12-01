@@ -28,14 +28,6 @@ search:
 search_advanced:
   top_k_fragments: 12
 
-fdr:
-  fdr: 0.01
-  group_level: 'proteins'
-  competetive_scoring: true
-  keep_decoys: false
-  channel_wise_fdr: false
-  library_grouping: false
-
 calibration:
   min_epochs: 3
   max_epochs: 20
@@ -88,6 +80,20 @@ multiplexing:
   decoy_channel: 12
   reference_channel: 0
   competetive_scoring: True
+
+fdr:
+  fdr: 0.01
+  group_level: 'proteins'
+  competetive_scoring: true
+  keep_decoys: false
+  channel_wise_fdr: false
+  library_grouping: false
+
+search_output:
+  min_k_fragments: 3
+  min_correlation: 0.5
+  num_samples_quadratic: 50
+  min_nonnan: 1
 
 # configuration for the optimization manager
 # initial parameters, will nbe optimized

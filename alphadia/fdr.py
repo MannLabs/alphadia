@@ -340,6 +340,7 @@ def plot_fdr(
     ax[0].set_ylabel("true positive rate")
     ax[0].legend()
 
+    ax[1].set_xlim(0, 1)
     ax[1].hist(
         np.concatenate([y_test_proba[y_test == 0], y_train_proba[y_train == 0]]),
         bins=50,

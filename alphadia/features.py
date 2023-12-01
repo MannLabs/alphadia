@@ -819,26 +819,65 @@ def fragment_features(
 
     mass_error = (observed_fragment_mz_mean - fragments.mz) / fragments.mz * 1e6
 
-    fragment_feature_dict["mz_library"] = fragments.mz_library[
-        fragment_height_mask_1d
-    ].astype(np.float32)
-    fragment_feature_dict["mz_observed"] = observed_fragment_mz_mean[
-        fragment_height_mask_1d
-    ].astype(np.float32)
-    fragment_feature_dict["mass_error"] = mass_error[fragment_height_mask_1d].astype(
-        np.float32
-    )
-    fragment_feature_dict["height"] = observed_fragment_height[
-        fragment_height_mask_1d
-    ].astype(np.float32)
-    fragment_feature_dict["intensity"] = observed_fragment_intensity[
-        fragment_height_mask_1d
-    ].astype(np.float32)
-    fragment_feature_dict["type"] = fragments.type[fragment_height_mask_1d].astype(
-        np.float32
+    return (
+        observed_fragment_mz_mean,
+        mass_error,
+        observed_fragment_height,
+        observed_fragment_intensity,
     )
 
-    return fragment_feature_dict
+
+@nb.njit()
+def fragment_mobility_correlation(
+    fragments_scan_profile,
+    template_scan_profile,
+    observation_importance,
+    fragment_intensity,
+):
+    n_observations = len(observation_importance)
+
+    fragment_mask_1d = np.sum(np.sum(fragments_scan_profile, axis=-1), axis=-1) > 0
+    if np.sum(fragment_mask_1d) < 3:
+        return 0, 0
+
+    non_zero_fragment_norm = fragment_intensity[fragment_mask_1d] / np.sum(
+        fragment_intensity[fragment_mask_1d]
+    )
+
+    # (n_observations, n_fragments, n_fragments)
+    fragment_scan_correlation_masked = numeric.fragment_correlation(
+        fragments_scan_profile[fragment_mask_1d],
+    )
+
+    # (n_fragments, n_fragments)
+    fragment_scan_correlation_maked_reduced = np.sum(
+        fragment_scan_correlation_masked * observation_importance.reshape(-1, 1, 1),
+        axis=0,
+    )
+    fragment_scan_correlation_list = np.dot(
+        fragment_scan_correlation_maked_reduced, non_zero_fragment_norm
+    )
+
+    # fragment_scan_correlation
+    fragment_scan_correlation = np.mean(fragment_scan_correlation_list)
+
+    # (n_observation, n_fragments)
+    fragment_template_scan_correlation = numeric.fragment_correlation_different(
+        fragments_scan_profile[fragment_mask_1d],
+        template_scan_profile.reshape(1, n_observations, -1),
+    ).reshape(n_observations, -1)
+
+    # (n_fragments)
+    fragment_template_scan_correlation_reduced = np.sum(
+        fragment_template_scan_correlation * observation_importance.reshape(-1, 1),
+        axis=0,
+    )
+    # template_scan_correlation
+    template_scan_correlation = np.dot(
+        fragment_template_scan_correlation_reduced, non_zero_fragment_norm
+    )
+
+    return fragment_scan_correlation, template_scan_correlation
 
 
 @nb.njit
@@ -858,61 +897,13 @@ def profile_features(
     feature_array,
 ):
     n_observations = len(observation_importance)
-
-    fragment_mask_2d = np.sum(fragments_scan_profile, axis=-1) > 0
-    fragment_mask_1d = np.sum(np.sum(fragments_scan_profile, axis=-1), axis=-1) > 0
-
-    # f_masked
-    feature_array[28] = np.mean(fragment_mask_1d)
-
-    # stop if fewer than 3 fragments are observed
-    if np.sum(fragment_mask_1d) < 3:
-        return
-
-    non_zero_fragment_norm = fragment_intensity[fragment_mask_1d] / np.sum(
-        fragment_intensity[fragment_mask_1d]
-    )
-    fragment_idx_sorted = np.argsort(non_zero_fragment_norm)[::-1]
-
-    # ============= FRAGMENT MOBILITY CORRELATIONS =============
-    # will be skipped if no mobility dimension is present
-    if dia_data.has_mobility:
-        # (n_observations, n_fragments, n_fragments)
-        fragment_scan_correlation_masked = numeric.fragment_correlation(
-            fragments_scan_profile[fragment_mask_1d],
-        )
-
-        # (n_fragments, n_fragments)
-        fragment_scan_correlation_maked_reduced = np.sum(
-            fragment_scan_correlation_masked * observation_importance.reshape(-1, 1, 1),
-            axis=0,
-        )
-        fragment_scan_correlation_list = np.dot(
-            fragment_scan_correlation_maked_reduced, non_zero_fragment_norm
-        )
-        feature_array[29] = np.mean(fragment_scan_correlation_list)
-
-        # (n_observation, n_fragments)
-        fragment_template_scan_correlation = numeric.fragment_correlation_different(
-            fragments_scan_profile[fragment_mask_1d],
-            template_scan_profile.reshape(1, n_observations, -1),
-        ).reshape(n_observations, -1)
-
-        # (n_fragments)
-        fragment_template_scan_correlation_reduced = np.sum(
-            fragment_template_scan_correlation * observation_importance.reshape(-1, 1),
-            axis=0,
-        )
-
-        feature_array[30] = np.dot(
-            fragment_template_scan_correlation_reduced, non_zero_fragment_norm
-        )
+    fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
     # ============= FRAGMENT RT CORRELATIONS =============
 
     # (n_observations, n_fragments, n_fragments)
     fragment_frame_correlation_masked = numeric.fragment_correlation(
-        fragments_frame_profile[fragment_mask_1d],
+        fragments_frame_profile,
     )
 
     # print('fragment_frame_correlation_masked', fragment_frame_correlation_masked)
@@ -923,7 +914,7 @@ def profile_features(
         axis=0,
     )
     fragment_frame_correlation_list = np.dot(
-        fragment_frame_correlation_maked_reduced, non_zero_fragment_norm
+        fragment_frame_correlation_maked_reduced, fragment_intensity
     )
     feature_array[31] = np.mean(fragment_frame_correlation_list)
 
@@ -937,7 +928,7 @@ def profile_features(
 
     # (n_observation, n_fragments)
     fragment_template_frame_correlation = numeric.fragment_correlation_different(
-        fragments_frame_profile[fragment_mask_1d],
+        fragments_frame_profile,
         template_frame_profile.reshape(1, n_observations, -1),
     ).reshape(n_observations, -1)
 
@@ -949,14 +940,13 @@ def profile_features(
 
     # template_frame_correlation
     feature_array[33] = np.dot(
-        fragment_template_frame_correlation_reduced, non_zero_fragment_norm
+        fragment_template_frame_correlation_reduced, fragment_intensity
     )
 
     # ============= FRAGMENT TYPE FEATURES =============
 
-    fragment_type_filtered = fragment_type[fragment_mask_1d]
-    b_ion_mask = fragment_type_filtered == 98
-    y_ion_mask = fragment_type_filtered == 121
+    b_ion_mask = fragment_type == 98
+    y_ion_mask = fragment_type == 121
 
     b_ion_index_sorted = fragment_idx_sorted[b_ion_mask]
     y_ion_index_sorted = fragment_idx_sorted[y_ion_mask]
@@ -1005,9 +995,7 @@ def profile_features(
     cycle_fwhm_mean_list = np.sum(
         cycle_fwhm * observation_importance.reshape(1, -1), axis=-1
     )
-    cycle_fwhm_mean_agg = np.sum(
-        cycle_fwhm_mean_list[fragment_mask_1d] * non_zero_fragment_norm
-    )
+    cycle_fwhm_mean_agg = np.sum(cycle_fwhm_mean_list * fragment_intensity)
 
     feature_array[38] = cycle_fwhm_mean_agg
 
@@ -1049,9 +1037,7 @@ def profile_features(
         mobility_fwhm_mean_list = np.sum(
             mobility_fwhm * observation_importance.reshape(1, -1), axis=-1
         )
-        mobility_fwhm_mean_agg = np.sum(
-            mobility_fwhm_mean_list[fragment_mask_1d] * non_zero_fragment_norm
-        )
+        mobility_fwhm_mean_agg = np.sum(mobility_fwhm_mean_list * fragment_intensity)
 
         feature_array[39] = mobility_fwhm_mean_agg
 
@@ -1070,6 +1056,8 @@ def profile_features(
         fragments_frame_profile.shape[-1] / 2
     )
     feature_array[40] = np.sum(delta_frame_peak * observation_importance)
+
+    return fragment_frame_correlation_list
 
 
 @nb.njit
