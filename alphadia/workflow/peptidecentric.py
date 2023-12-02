@@ -560,9 +560,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.com.accumulated_precursors_01FDR = len(
             precursor_df[precursor_df["qval"] < 0.01]
         )
-        self.com.accumulated_precursors_001FDR = len(
-            precursor_df[precursor_df["qval"] < 0.001]
-        )
 
         self.reporter.log_string(
             f"=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===",
@@ -573,7 +570,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         perform_recalibration = False
 
-        if self.com.accumulated_precursors_001FDR > self.com.recalibration_target:
+        if self.com.accumulated_precursors_01FDR > self.com.recalibration_target:
             perform_recalibration = True
 
         return perform_recalibration
