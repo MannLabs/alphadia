@@ -3,129 +3,124 @@
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
 
 # AlphaDIA
+
+![preview](assets/preview.gif)
+
 An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann). To enable all hyperlinks in this document, please view it at [GitHub](https://github.com/MannLabs/alphadia).
 
-* [**About**](#about)
-* [**License**](#license)
+## Content
+
 * [**Installation**](#installation)
   * [**One-click GUI**](#one-click-gui)
-  * [**Pip installer**](#pip)
   * [**Developer installer**](#developer)
 * [**Usage**](#usage)
+  * [**Jupyter**](#jupyter-notebooks)
   * [**GUI**](#gui)
   * [**CLI**](#cli)
-  * [**Python and jupyter notebooks**](#python-and-jupyter-notebooks)
-* [**Troubleshooting**](#troubleshooting)
-* [**Citations**](#citations)
-* [**How to contribute**](#how-to-contribute)
-* [**Changelog**](#changelog)
 
----
-## About
 
-An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann).
-
----
-## License
-
-AlphaDIA was developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt). External Python packages (available in the [requirements](requirements) folder) have their own licenses, which can be consulted on their respective websites.
-
----
 ## Installation
 
-AlphaDIA can be installed and used on all major operating systems (Windows, macOS and Linux).
-There are three different types of installation possible:
+AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
 * [**One-click GUI installer:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible.
-* [**Pip installer:**](#pip) Choose this installation if you want to use AlphaDIA as a Python package in an existing Python 3.8 environment (e.g. a Jupyter notebook). If needed, the GUI and CLI can be installed with pip as well.
+
 * [**Developer installer:**](#developer) Choose this installation if you are familiar with CLI tools, [conda](https://docs.conda.io/en/latest/) and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
 ### One-click GUI
 
-The GUI of AlphaDIA is a completely stand-alone tool that requires no knowledge of Python or CLI tools. Click on one of the links below to download the latest release for:
-
-* [**Windows**](https://github.com/MannLabs/alphadia/releases/latest/download/alphadia_gui_installer_windows.exe)
-* [**macOS**](https://github.com/MannLabs/alphadia/releases/latest/download/alphadia_gui_installer_macos.pkg)
-* [**Linux**](https://github.com/MannLabs/alphadia/releases/latest/download/alphadia_gui_installer_linux.deb)
-
-Older releases remain available on the [release page](https://github.com/MannLabs/alphadia/releases), but no backwards compatibility is guaranteed.
-
-### Pip
-
-AlphaDIA can be installed in an existing Python 3.8 environment with a single `bash` command. *This `bash` command can also be run directly from within a Jupyter notebook by prepending it with a `!`*:
-
-```bash
-pip install alphadia
-```
-
-Installing AlphaDIA like this avoids conflicts when integrating it in other tools, as this does not enforce strict versioning of dependancies. However, if new versions of dependancies are released, they are not guaranteed to be fully compatible with AlphaDIA. While this should only occur in rare cases where dependencies are not backwards compatible, you can always force AlphaDIA to use dependancy versions which are known to be compatible with:
-
-```bash
-pip install "alphadia[stable]"
-```
-
-NOTE: You might need to run `pip install pip==21.0` before installing AlphaDIA like this. Also note the double quotes `"`.
-
-For those who are really adventurous, it is also possible to directly install any branch (e.g. `@development`) with any extras (e.g. `#egg=alphadia[stable,development-stable]`) from GitHub with e.g.
-
-```bash
-pip install "git+https://github.com/MannLabs/alphadia.git@development#egg=alphadia[stable,development-stable]"
-```
+One-click installation is not available during the beta phase.
 
 ### Developer
 
-AlphaDIA can also be installed in editable (i.e. developer) mode with a few `bash` commands. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a transparent location of your choice. While optional, it is advised to first (create and) navigate to e.g. a general software folder:
+AlphaDIA can also be installed in editable (i.e. developer) mode with a few `bash` commands. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a transparent location of your choice.
+
+#### 1. Prerequisite
+Please make sure you have a valid installation of conda or miniconda. We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
+
+If you want to use or extend the GUI, please install NodeJS as described on their  [website](https://nodejs.org/en/download).
+
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. You can find the mono installation instructions [here](https://www.mono-project.com/download/stable/#download-lin). A detailed guide to installing alphaRaw can be found [here](https://github.com/MannLabs/alpharaw#installation).
+
+#### 2. Setting up the environment
+
+For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise dependancy conflicts can occur with already existing packages. 
 
 ```bash
-mkdir ~/folder/where/to/install/software
-cd ~/folder/where/to/install/software
+conda create --name alpha python=3.9 -y
+conda activate alpha
 ```
 
-***The following commands assume you do not perform any additional `cd` commands anymore***.
+#### 3. Setting up the repository
+***Depending on the state of the project the repository might not be public yet. In this case it is required that you generate a ssh key and link it to you GitHub account. [More](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)*** 
 
-Next, download the AlphaDIA repository from GitHub either directly or with a `git` command. This creates a new AlphaDIA subfolder in your current directory.
+Navigate to a folder where you would like to install alphaDIA
+```bash
+cd ~/Documents/git
+```
+
+Next, download the alphaDIA repository from GitHub with a `git` command. This creates a new alphaDIA subfolder in your current directory.
 
 ```bash
-git clone https://github.com/MannLabs/alphadia.git
+git clone git@github.com:MannLabs/alphadia.git
 ```
 
-For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise *dependancy conflicts can occur with already existing packages*.
+Switch to development branch and pull the most recent version.
+```bash
+git switch development
+git pull
+```
+
+#### 4. Installation
+
+Finally, AlphaDIA and all its dependancies need to be installed. To take advantage of all features use the `-e` flag for a development install.
 
 ```bash
-conda create --name alphadia python=3.8 -y
-conda activate alphadia
+pip install -e "./alphadia"
 ```
 
-Finally, AlphaDIA and all its [dependancies](requirements) need to be installed. To take advantage of all features and allow development (with the `-e` flag), this is best done by also installing the [development dependencies](requirements/requirements_development.txt) instead of only the [core dependencies](requirements/requirements.txt):
+***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
+
+If you want to use the GUI you will need to install all frontend packages using npm.
 
 ```bash
-pip install -e "./alphadia[development]"
+cd alphadia/gui
+npm install
 ```
 
-By default this installs loose dependancies (no explicit versioining), although it is also possible to use stable dependencies (e.g. `pip install -e "./alphadia[stable,development-stable]"`).
-
-***By using the editable flag `-e`, all modifications to the [AlphaDIA source code folder](alphadia ) are directly reflected when running AlphaDIA. Note that the AlphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
+The GUI can be started by typing
+```bash
+npm run dev
+```
 
 ---
 ## Usage
 
 There are three ways to use AlphaDIA:
 
+* [**Python**](#jupyter-notebooks)
 * [**GUI**](#gui)
 * [**CLI**](#cli)
-* [**Python**](#python-and-jupyter-notebooks)
 
-NOTE: The first time you use a fresh installation of AlphaDIA, it is often quite slow because some functions might still need compilation on your local operating system and architecture. Subsequent use should be a lot faster.
+### Jupyter notebooks
+
+AlphaDIA can be imported as a Python package into any Python script or notebook with the command `import alphadia`.
+
+A brief [Jupyter notebook search](nbs/search/library_search.ipynb) blueprint is can be found in the repository.
 
 ### GUI
 
-If the GUI was not installed through a one-click GUI installer, it can be activate with the following `bash` command:
+Make sure that the the GUI was installed as part of the development install.
 
 ```bash
-alphadia gui
+cd alphadia/gui
+npm run dev
 ```
 
-Note that this needs to be prepended with a `!` when you want to run this from within a Jupyter notebook. When the command is run directly from the command-line, make sure you use the right environment (activate it with e.g. `conda activate alphadia` or set an alias to the binary executable (can be obtained with `where alphadia` or `which alphadia`)).
+If you want to create the GUI executable run:
+```bash
+npm run make
+```
 
 ### CLI
 
@@ -136,12 +131,6 @@ alphadia -h
 ```
 
 It is possible to get help about each function and their (required) parameters by using the `-h` flag.
-
-### Python and Jupyter notebooks
-
-AlphaDIA can be imported as a Python package into any Python script or notebook with the command `import alphadia`.
-
-A brief [Jupyter notebook tutorial](nbs/tutorial.ipynb) on how to use the API is also present in the [nbs folder](nbs).
 
 ---
 ## Troubleshooting
@@ -165,3 +154,14 @@ If you like this software, you can give us a [star](https://github.com/MannLabs/
 ## Changelog
 
 See the [HISTORY.md](HISTORY.md) for a full overview of the changes made in each version.
+---
+## About
+
+An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann).
+
+---
+## License
+
+AlphaDIA was developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt). External Python packages (available in the [requirements](requirements) folder) have their own licenses, which can be consulted on their respective websites.
+
+---
