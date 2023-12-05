@@ -65,6 +65,12 @@ Next, download the alphaDIA repository from GitHub with a `git` command. This cr
 git clone git@github.com:MannLabs/alphadia.git
 ```
 
+Switch to development branch and pull the most recent version.
+```bash
+git switch development
+git pull
+```
+
 #### 4. Installation
 
 Finally, AlphaDIA and all its dependancies need to be installed. To take advantage of all features use the `-e` flag for a development install.
