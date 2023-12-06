@@ -185,10 +185,6 @@ class WorkflowBase:
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
-            )
-
-        elif file_extension == ".raw":
-            self.reporter.log_metric("raw_data_type", "thermo")
             # check if cv selection exists
             cv = None
             if "raw_data_loading" in self.config:

@@ -172,10 +172,6 @@ class Plan:
 
         speclib = import_pipeline(spec_lib_path)
         speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
-
-        self.spectral_library = prepare_pipeline(speclib)
-
-    def get_run_data(self):
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
@@ -202,6 +198,14 @@ class Plan:
 
         workflow_folder_list = []
 
+    def run(
+        self,
+        figure_path=None,
+        neptune_token=None,
+        neptune_tags=[],
+        keep_decoys=False,
+        fdr=0.01,
+    ):
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
