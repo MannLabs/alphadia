@@ -9,6 +9,7 @@ general:
   astral_ms1: false
   log_level: 'INFO'
   wsl: false
+  mmap_detector_events: false
 
 library_loading:
   rt_heuristic: 180

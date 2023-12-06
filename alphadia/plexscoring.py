@@ -726,8 +726,8 @@ class Candidate:
         # will be skipped if no mobility dimension is present
         if jit_data.has_mobility:
             (
-                self.feature_array[29],
-                self.feature_array[30],
+                feature_array[29],
+                feature_array[30],
             ) = features.fragment_mobility_correlation(
                 fragments_scan_profile,
                 template_scan_profile,
