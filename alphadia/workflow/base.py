@@ -179,12 +179,18 @@ class WorkflowBase:
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
+                mmap_detector_events=self.config["general"]["mmap_detector_events"],
             )
 
         elif file_extension == ".hdf":
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
+                mmap_detector_events=self.config["general"]["mmap_detector_events"],
+            )
+
+        elif file_extension == ".raw":
+            self.reporter.log_metric("raw_data_type", "thermo")
             # check if cv selection exists
             cv = None
             if "raw_data_loading" in self.config:
