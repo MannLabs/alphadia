@@ -1694,6 +1694,9 @@ class CandidateScoring:
             "flat_frag_stop_idx",
             "proteins",
             "genes",
+            "sequence",
+            "mods",
+            "mod_sites",
         ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
 
         precursor_df_columns += (

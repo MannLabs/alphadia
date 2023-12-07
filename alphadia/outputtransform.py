@@ -82,8 +82,9 @@ def get_frag_df_generator(folder_list: List[str]):
 
 
 class QuantBuilder:
-    def __init__(self, psm_df):
+    def __init__(self, psm_df, column="intensity"):
         self.psm_df = psm_df
+        self.column = column
 
     def accumulate_frag_df_from_folders(
         self, folder_list: List[str]
@@ -135,24 +136,24 @@ class QuantBuilder:
             logger.warning(f"no frag file found for {raw_name}")
             return
 
-        df = prepare_df(df, self.psm_df)
+        df = prepare_df(df, self.psm_df, column=self.column)
 
-        intensity_df = df[["precursor_idx", "ion", "height"]].copy()
-        intensity_df.rename(columns={"height": raw_name}, inplace=True)
+        intensity_df = df[["precursor_idx", "ion", self.column]].copy()
+        intensity_df.rename(columns={self.column: raw_name}, inplace=True)
 
         quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
         quality_df.rename(columns={"correlation": raw_name}, inplace=True)
 
         df_list = []
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df)
+            df = prepare_df(df, self.psm_df, column=self.column)
 
             intensity_df = intensity_df.merge(
-                df[["ion", "height", "precursor_idx"]],
+                df[["ion", self.column, "precursor_idx"]],
                 on=["ion", "precursor_idx"],
                 how="outer",
             )
-            intensity_df.rename(columns={"height": raw_name}, inplace=True)
+            intensity_df.rename(columns={self.column: raw_name}, inplace=True)
 
             quality_df = quality_df.merge(
                 df[["ion", "correlation", "precursor_idx"]],
@@ -278,7 +279,7 @@ class QuantBuilder:
         return protein_df
 
 
-def prepare_df(df, psm_df):
+def prepare_df(df, psm_df, column="height"):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = hash(
         df["precursor_idx"].values,
@@ -286,7 +287,7 @@ def prepare_df(df, psm_df):
         df["type"].values,
         df["charge"].values,
     )
-    return df[["precursor_idx", "ion", "height", "correlation"]]
+    return df[["precursor_idx", "ion", column, "correlation"]]
 
 
 class SearchPlanOutput:
