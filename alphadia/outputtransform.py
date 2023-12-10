@@ -22,6 +22,7 @@ from alphabase.spectral_library import base
 import directlfq.utils as lfqutils
 import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
+import directlfq.config as lfqconfig
 
 import logging
 
@@ -261,6 +262,8 @@ class QuantBuilder:
         logger.info("Performing label-free quantification using directLFQ")
 
         intensity_df.drop(columns=["precursor_idx"], inplace=True)
+
+        lfqconfig.set_global_protein_and_ion_id(protein_id="protein", quant_id="ion")
 
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
