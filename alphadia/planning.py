@@ -264,13 +264,24 @@ class Plan:
                 logger.error(f"Workflow failed for {raw_name} with error {e}")
                 continue
 
-        base_spec_lib = SpecLibBase()
-        base_spec_lib.load_hdf(
-            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
-        )
+        try:
+            base_spec_lib = SpecLibBase()
+            base_spec_lib.load_hdf(
+                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+            )
 
-        output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build(workflow_folder_list, base_spec_lib)
+            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output.build(workflow_folder_list, base_spec_lib)
+
+        except Exception as e:
+            # get full traceback
+            import traceback
+
+            traceback.print_exc()
+
+            print(e)
+            logger.error(f"Output failed with error {e}")
+            return
 
         logger.progress("=================== Search Finished ===================")
 
