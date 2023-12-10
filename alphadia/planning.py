@@ -13,6 +13,11 @@ import typing
 from alphadia import utils, libtransform, outputtransform
 from alphadia.workflow import peptidecentric, base, reporting
 import alphadia
+import alpharaw
+import alphabase
+import peptdeep
+import alphatims
+import directlfq
 
 # alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -104,10 +109,14 @@ class Plan:
             self.config["output"] = output_folder
 
         logger.progress(f"version: {alphadia.__version__}")
+
         # print hostname, date with day format and time
         logger.progress(f"hostname: {socket.gethostname()}")
         now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         logger.progress(f"date: {now}")
+
+        # print environment
+        self.log_environment()
 
         self.load_library(spec_lib_path)
 
@@ -139,6 +148,15 @@ class Plan:
     @spectral_library.setter
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
+
+    def log_environment(self):
+        logger.progress(f"=================== Environment ===================")
+        logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
+        logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
+        logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
+        logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
+        logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
+        logger.progress(f"===================================================")
 
     def load_library(self, spec_lib_path):
         if "fasta_list" in self.config:
@@ -278,7 +296,6 @@ class Plan:
             import traceback
 
             traceback.print_exc()
-
             print(e)
             logger.error(f"Output failed with error {e}")
             return
