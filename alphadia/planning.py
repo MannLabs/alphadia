@@ -171,7 +171,9 @@ class Plan:
                 libtransform.DynamicLoader(),
                 libtransform.PrecursorInitializer(),
                 libtransform.AnnotateFasta(fasta_files),
-                libtransform.IsotopeGenerator(n_isotopes=4),
+                libtransform.IsotopeGenerator(
+                    n_isotopes=4, mp_process_num=self.config["general"]["thread_count"]
+                ),
                 libtransform.RTNormalization(),
             ]
         )
@@ -179,7 +181,10 @@ class Plan:
         # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
         prepare_pipeline = libtransform.ProcessingPipeline(
             [
-                libtransform.DecoyGenerator(decoy_type="diann"),
+                libtransform.DecoyGenerator(
+                    decoy_type="diann",
+                    mp_process_num=self.config["general"]["thread_count"],
+                ),
                 libtransform.FlattenLibrary(
                     self.config["search_advanced"]["top_k_fragments"]
                 ),

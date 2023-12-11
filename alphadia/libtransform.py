@@ -223,7 +223,7 @@ class AnnotateFasta(ProcessingStep):
 
 
 class DecoyGenerator(ProcessingStep):
-    def __init__(self, decoy_type: str = "diann") -> None:
+    def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
         """Generate decoys for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -237,6 +237,7 @@ class DecoyGenerator(ProcessingStep):
 
         super().__init__()
         self.decoy_type = decoy_type
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -256,7 +257,7 @@ class DecoyGenerator(ProcessingStep):
             return input
 
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
-        decoy_lib.decoy_sequence()
+        decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
         decoy_lib.calc_precursor_mz()
         decoy_lib.remove_unused_fragments()
         decoy_lib.calc_fragment_mz_df()
@@ -278,7 +279,7 @@ class DecoyGenerator(ProcessingStep):
 
 
 class IsotopeGenerator(ProcessingStep):
-    def __init__(self, n_isotopes: int = 4) -> None:
+    def __init__(self, n_isotopes: int = 4, mp_process_num: int = 8) -> None:
         """Generate isotope information for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -291,6 +292,7 @@ class IsotopeGenerator(ProcessingStep):
         """
         super().__init__()
         self.n_isotopes = n_isotopes
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -306,7 +308,9 @@ class IsotopeGenerator(ProcessingStep):
             )
             return input
 
-        input.calc_precursor_isotope_intensity(max_isotope=self.n_isotopes)
+        input.calc_precursor_isotope_intensity(
+            max_isotope=self.n_isotopes, mp_process_num=self.mp_process_num
+        )
         return input
 
 
