@@ -10,17 +10,33 @@ from datetime import datetime
 import typing
 
 # alphadia imports
-from alphadia import utils, libtransform
+from alphadia import utils, libtransform, outputtransform
 from alphadia.workflow import peptidecentric, base, reporting
 import alphadia
+import alpharaw
+import alphabase
+import peptdeep
+import alphatims
+import directlfq
 
 # alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
 import numpy as np
 import pandas as pd
 import os, psutil
+import torch
+import numba as nb
+
+
+@nb.njit
+def hash(precursor_idx, rank):
+    # create a 64 bit hash from the precursor_idx, number and type
+    # the precursor_idx is the lower 32 bits
+    # the rank is the next 8 bits
+    return precursor_idx + (rank << 32)
 
 
 class Plan:
@@ -63,6 +79,7 @@ class Plan:
         logger.progress("")
 
         self.raw_file_list = raw_file_list
+        self.spec_lib_path = spec_lib_path
 
         # default config path is not defined in the function definition to account for for different path separators on different OS
         if config_path is None:
@@ -92,12 +109,18 @@ class Plan:
             self.config["output"] = output_folder
 
         logger.progress(f"version: {alphadia.__version__}")
+
         # print hostname, date with day format and time
         logger.progress(f"hostname: {socket.gethostname()}")
         now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
         logger.progress(f"date: {now}")
 
+        # print environment
+        self.log_environment()
+
         self.load_library(spec_lib_path)
+
+        torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
     def raw_file_list(self) -> typing.List[str]:
@@ -126,6 +149,15 @@ class Plan:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
+    def log_environment(self):
+        logger.progress(f"=================== Environment ===================")
+        logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
+        logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
+        logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
+        logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
+        logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
+        logger.progress(f"===================================================")
+
     def load_library(self, spec_lib_path):
         if "fasta_list" in self.config:
             fasta_files = self.config["fasta_list"]
@@ -148,15 +180,16 @@ class Plan:
         prepare_pipeline = libtransform.ProcessingPipeline(
             [
                 libtransform.DecoyGenerator(decoy_type="diann"),
-                libtransform.FlattenLibrary(),
+                libtransform.FlattenLibrary(
+                    self.config["search_advanced"]["top_k_fragments"]
+                ),
                 libtransform.InitFlatColumns(),
                 libtransform.LogFlatLibraryStats(),
             ]
         )
 
         speclib = import_pipeline(spec_lib_path)
-        if self.config["library_loading"]["save_hdf"]:
-            speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
 
         self.spectral_library = prepare_pipeline(speclib)
 
@@ -183,22 +216,57 @@ class Plan:
         keep_decoys=False,
         fdr=0.01,
     ):
+        logger.progress("Starting Search Workflows")
+
+        workflow_folder_list = []
+
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
                 workflow = peptidecentric.PeptideCentricWorkflow(
-                    raw_name, self.config, dia_path, speclib
+                    raw_name,
+                    self.config,
                 )
 
+                workflow_folder_list.append(workflow.path)
+
+                # check if the raw file is already processed
+                psm_location = os.path.join(workflow.path, "psm.tsv")
+                frag_location = os.path.join(workflow.path, "frag.tsv")
+
+                if self.config["general"]["reuse_quant"]:
+                    if os.path.exists(psm_location) and os.path.exists(frag_location):
+                        logger.info(f"Found existing quantification for {raw_name}")
+                        continue
+                    logger.info(f"No existing quantification found for {raw_name}")
+
+                workflow.load(dia_path, speclib)
                 workflow.calibration()
-                df = workflow.extraction()
-                df = df[df["qval"] <= self.config["fdr"]["fdr"]]
+
+                psm_df, frag_df = workflow.extraction()
+                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                logger.info(f"Removing fragments below FDR threshold")
+
+                # to be optimized later
+                frag_df["candidate_key"] = hash(
+                    frag_df["precursor_idx"].values, frag_df["rank"].values
+                )
+                psm_df["candidate_key"] = hash(
+                    psm_df["precursor_idx"].values, psm_df["rank"].values
+                )
+
+                frag_df = frag_df[
+                    frag_df["candidate_key"].isin(psm_df["candidate_key"])
+                ]
 
                 if self.config["multiplexing"]["multiplexed_quant"]:
-                    df = workflow.requantify(df)
-                    df = df[df["qval"] <= self.config["fdr"]["fdr"]]
-                df["run"] = raw_name
-                df.to_csv(os.path.join(workflow.path, "psm.tsv"), sep="\t", index=False)
+                    psm_df = workflow.requantify(psm_df)
+                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                psm_df["run"] = raw_name
+                psm_df.to_csv(psm_location, sep="\t", index=False)
+                frag_df.to_csv(frag_location, sep="\t", index=False)
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
@@ -214,58 +282,26 @@ class Plan:
                 logger.error(f"Workflow failed for {raw_name} with error {e}")
                 continue
 
-        self.build_output()
+        try:
+            base_spec_lib = SpecLibBase()
+            base_spec_lib.load_hdf(
+                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+            )
 
-    def build_output(self):
-        output_path = self.config["output"]
-        temp_path = os.path.join(output_path, base.TEMP_FOLDER)
+            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output.build(workflow_folder_list, base_spec_lib)
 
-        psm_df = []
-        stat_df = []
+        except Exception as e:
+            # get full traceback
+            import traceback
 
-        for raw_name, dia_path, speclib in self.get_run_data():
-            run_path = os.path.join(temp_path, raw_name)
-            psm_path = os.path.join(run_path, "psm.tsv")
-            if not os.path.exists(psm_path):
-                logger.warning(f"no psm file found for {raw_name}")
-                continue
-            run_df = pd.read_csv(os.path.join(run_path, "psm.tsv"), sep="\t")
+            traceback.print_exc()
+            print(e)
+            logger.error(f"Output failed with error {e}")
+            return
 
-            psm_df.append(run_df)
-            stat_df.append(build_stat_df(run_df))
+        logger.progress("=================== Search Finished ===================")
 
-        psm_df = pd.concat(psm_df)
-        stat_df = pd.concat(stat_df)
-
-        psm_df.to_csv(
-            os.path.join(output_path, "psm.tsv"),
-            sep="\t",
-            index=False,
-            float_format="%.6f",
-        )
-        stat_df.to_csv(
-            os.path.join(output_path, "stat.tsv"),
-            sep="\t",
-            index=False,
-            float_format="%.6f",
-        )
-
-        logger.info(f"Finished building output")
-
-
-def build_stat_df(run_df):
-    run_stat_df = []
-    for name, group in run_df.groupby("channel"):
-        run_stat_df.append(
-            {
-                "run": run_df["run"].iloc[0],
-                "channel": name,
-                "precursors": np.sum(group["qval"] <= 0.01),
-                "proteins": group[group["qval"] <= 0.01]["proteins"].nunique(),
-                "ms1_accuracy": np.mean(group["weighted_mass_error"]),
-                "fwhm_rt": np.mean(group["cycle_fwhm"]),
-                "fwhm_mobility": np.mean(group["mobility_fwhm"]),
-            }
-        )
-
-    return pd.DataFrame(run_stat_df)
+    def clean(self):
+        if not self.config["library_loading"]["save_hdf"]:
+            os.remove(os.path.join(self.output_folder, "speclib.hdf"))

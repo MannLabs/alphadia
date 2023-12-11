@@ -42,6 +42,7 @@ feature_columns = [
     "base_width_mobility",
     "base_width_rt",
     "rt_observed",
+    "delta_rt",
     "mobility_observed",
     "mono_ms1_intensity",
     "top_ms1_intensity",
@@ -83,8 +84,10 @@ feature_columns = [
     "mobility_fwhm",
 ]
 
-classifier_base = fdrx.BinaryClassifier(
+classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001,
+    batch_size=5000,
+    learning_rate=0.001,
 )
 
 
@@ -93,12 +96,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         instance_name: str,
         config: dict,
-        dia_data_path: str,
-        spectral_library: SpecLibBase,
     ) -> None:
         super().__init__(
             instance_name,
             config,
+        )
+
+    def load(
+        self,
+        dia_data_path: str,
+        spectral_library: SpecLibBase,
+    ) -> None:
+        super().load(
             dia_data_path,
             spectral_library,
         )
@@ -128,14 +137,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             {
                 "current_epoch": 0,
                 "current_step": 0,
-                "ms1_error": self.config["extraction_initial"]["initial_ms1_tolerance"],
-                "ms2_error": self.config["extraction_initial"]["initial_ms2_tolerance"],
-                "rt_error": self.config["extraction_initial"]["initial_rt_tolerance"],
-                "mobility_error": self.config["extraction_initial"][
+                "ms1_error": self.config["search_initial"]["initial_ms1_tolerance"],
+                "ms2_error": self.config["search_initial"]["initial_ms2_tolerance"],
+                "rt_error": self.config["search_initial"]["initial_rt_tolerance"],
+                "mobility_error": self.config["search_initial"][
                     "initial_mobility_tolerance"
                 ],
                 "column_type": "library",
-                "num_candidates": self.config["extraction_initial"][
+                "num_candidates": self.config["search_initial"][
                     "initial_num_candidates"
                 ],
                 "recalibration_target": self.config["calibration"][
@@ -241,7 +250,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             else:
                 lower_rt = (
                     dia_data.rt_values[0]
-                    + self.config["extraction_initial"]["initial_rt_tolerance"] / 2
+                    + self.config["search_initial"]["initial_rt_tolerance"] / 2
                 )
         else:
             lower_rt = active_gradient_start
@@ -251,7 +260,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 upper_rt = self.config["calibration"]["active_gradient_stop"]
             else:
                 upper_rt = dia_data.rt_values[-1] - (
-                    self.config["extraction_initial"]["initial_rt_tolerance"] / 2
+                    self.config["search_initial"]["initial_rt_tolerance"] / 2
                 )
         else:
             upper_rt = active_gradient_stop
@@ -283,9 +292,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def get_exponential_batches(self, step):
         """Get the number of batches for a given step
         This plan has the shape:
-        1, 1, 1, 2, 4, 8, 16, 32, 64, ...
+        1, 2, 4, 8, 16, 32, 64, ...
         """
-        return int(2 ** max(step - 3, 0))
+        return int(2**step)
 
     def get_batch_plan(self):
         n_eg = self.spectral_library._precursor_df["elution_group_idx"].nunique()
@@ -381,12 +390,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.start_of_calibration()
         for current_epoch in range(self.config["calibration"]["max_epochs"]):
-            self.start_of_epoch(current_epoch)
-
             if self.check_epoch_conditions():
                 pass
             else:
                 break
+
+            self.start_of_epoch(current_epoch)
 
             features = []
             fragments = []
@@ -447,15 +456,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def end_of_calibration(self):
-        self.calibration_manager.predict(
-            self.spectral_library._precursor_df, "precursor"
-        )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        # self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
+        # self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
         self.calibration_manager.save()
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.001]
+        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
@@ -492,10 +499,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 top_intensity_precursors["precursor_idx"]
             )
         ]
-        median_fragment_intensity = fragments_df_filtered["intensity"].median()
-        fragments_df_filtered = fragments_df_filtered[
-            fragments_df_filtered["intensity"] > median_fragment_intensity
-        ].head(50000)
+
+        fragments_df_filtered = fragments_df.sort_values(
+            by=["correlation"], ascending=False
+        ).head(10000)
 
         self.calibration_manager.fit(
             fragments_df_filtered,
@@ -555,9 +562,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.com.accumulated_precursors_01FDR = len(
             precursor_df[precursor_df["qval"] < 0.01]
         )
-        self.com.accumulated_precursors_001FDR = len(
-            precursor_df[precursor_df["qval"] < 0.001]
-        )
 
         self.reporter.log_string(
             f"=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===",
@@ -568,7 +572,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         perform_recalibration = False
 
-        if self.com.accumulated_precursors_001FDR > self.com.recalibration_target:
+        if self.com.accumulated_precursors_01FDR > self.com.recalibration_target:
             perform_recalibration = True
 
         return perform_recalibration
@@ -592,6 +596,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["selection_config"])
         config.update(
             {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
                 "rt_tolerance": self.com.rt_error,
                 "mobility_tolerance": self.com.mobility_error,
                 "candidate_count": self.com.num_candidates,
@@ -621,6 +626,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["scoring_config"])
         config.update(
             {
+                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
                 "precursor_mz_tolerance": self.com.ms1_error,
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
@@ -673,13 +679,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         precursor_df = self.fdr_correction(features_df)
 
-        if not self.config["fdr"]["keep_decoys"]:
-            precursor_df = precursor_df[precursor_df["decoy"] == 0]
-
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
         self.log_precursor_df(precursor_df)
 
-        return precursor_df
+        return precursor_df, fragments_df
 
     def log_precursor_df(self, precursor_df):
         total_precursors = len(precursor_df)

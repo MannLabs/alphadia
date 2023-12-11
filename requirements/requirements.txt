@@ -1,10 +1,12 @@
-click==8.0.1
-alpharaw==0.1.1
-alphatims==1.0.4
-alphabase==0.1.3
+click
+alpharaw
+alphatims
+alphabase
 peptdeep
 progressbar
-neptune-client
+neptune
 seaborn
 rocket_fft
 xxhash
+torchmetrics
+directlfq

@@ -11,6 +11,23 @@ import alphadia
 from alphadia.workflow import reporting
 from alphadia import utils
 
+from alphabase.constants import modification
+
+modification.add_new_modifications(
+    {
+        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
+        "Dimethyl:d12@Any N-term": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@R": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@K": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+    }
+)
+
 # alpha family imports
 
 # third party imports
@@ -101,6 +118,7 @@ def gui():
     "--config-update",
     help="Dict which will be used to update the default config.",
     type=str,
+    default={},
 )
 @click.option(
     "--neptune-token",
@@ -124,7 +142,7 @@ def extract(**kwargs):
     kwargs["neptune_tag"] = list(kwargs["neptune_tag"])
 
     # load config file if specified
-    config_update = None
+    config_update = {}
     if kwargs["config"] is not None:
         with open(kwargs["config"], "r") as f:
             config_update = yaml.safe_load(f)

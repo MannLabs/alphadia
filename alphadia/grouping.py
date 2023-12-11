@@ -87,7 +87,7 @@ def group_and_parsimony(
     # check that all precursors are found again
     if len(return_dict) != len(precursor_idx):
         raise ValueError(
-            "Not all precursors were found in the output of the grouping function."
+            f"Not all precursors were found in the output of the grouping function. {len(return_dict)} precursors were found, but {len(precursor_idx)} were expected."
         )
 
     # order by precursor index
@@ -100,6 +100,7 @@ def group_and_parsimony(
 def perform_grouping(
     psm: pd.DataFrame,
     genes_or_proteins: str = "proteins",
+    decoy_column: str = "decoy",
 ):
     """Highest level function for grouping proteins in precursor table
 
@@ -112,22 +113,28 @@ def perform_grouping(
         raise ValueError("Selected column must be 'genes' or 'proteins'")
 
     # create non-duplicated view of precursor table
-    duplicate_mask = ~psm.duplicated(
-        subset=["precursor_idx", genes_or_proteins], keep="first"
-    )
-    upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, "_decoy"]]
+    duplicate_mask = ~psm.duplicated(subset=["precursor_idx"], keep="first")
+    # make sure column is string
+    psm[genes_or_proteins] = psm[genes_or_proteins].astype(str)
+    upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
+
+    # check if duplicate precursors exist
+    if upsm.duplicated(subset=["precursor_idx"]).any():
+        raise ValueError(
+            "The same precursor was found annotated to different proteins. Please make sure all precursors were searched with the same library."
+        )
 
     # handle case with only one decoy class:
-    unique_decoys = upsm["_decoy"].unique()
+    unique_decoys = upsm[decoy_column].unique()
     if len(unique_decoys) == 1:
-        upsm["_decoy"] = -1
+        upsm[decoy_column] = -1
         upsm["pg_master"], upsm["pg"] = group_and_parsimony(
             upsm.precursor_idx.values, upsm[genes_or_proteins].values
         )
         upsm = upsm[["precursor_idx", "pg_master", "pg"]]
     else:
-        target_mask = upsm["_decoy"] == 0
-        decoy_mask = upsm["_decoy"] == 1
+        target_mask = upsm[decoy_column] == 0
+        decoy_mask = upsm[decoy_column] == 1
 
         t_df = upsm[target_mask].copy()
         new_columns = group_and_parsimony(
