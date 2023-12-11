@@ -356,25 +356,78 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def check_epoch_conditions(self):
         continue_calibration = False
 
+        self.reporter.log_string(
+            f"=== checking if epoch conditions were reached ===", verbosity="info"
+        )
+
         if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
+            self.reporter.log_string(
+                f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
+                verbosity="info",
+            )
             continue_calibration = True
+        else:
+            self.reporter.log_string(
+                f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
+                verbosity="info",
+            )
+
 
         if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
+            self.reporter.log_string(
+                f"❌ {'ms2_error':<15}: {self.com.ms2_error:.4f} > {self.config['search']['target_ms2_tolerance']}",
+                verbosity="info",
+            )
             continue_calibration = True
+        else:
+            self.reporter.log_string(
+                f"✅ {'ms2_error':<15}: {self.com.ms2_error:.4f} <= {self.config['search']['target_ms2_tolerance']}",
+                verbosity="info",
+            )
 
         if self.com.rt_error > self.config["search"]["target_rt_tolerance"]:
+            self.reporter.log_string(
+                f"❌ {'rt_error':<15}: {self.com.rt_error:.4f} > {self.config['search']['target_rt_tolerance']}",
+                verbosity="info",
+            )
             continue_calibration = True
+        else:
+            self.reporter.log_string(
+                f"✅ {'rt_error':<15}: {self.com.rt_error:.4f} <= {self.config['search']['target_rt_tolerance']}",
+                verbosity="info",
+            )
 
         if self.dia_data.has_mobility:
             if (
                 self.com.mobility_error
                 > self.config["search"]["target_mobility_tolerance"]
             ):
+                self.reporter.log_string(
+                    f"❌ {'mobility_error':<15}: {self.com.mobility_error:.4f} > {self.config['search']['target_mobility_tolerance']}",
+                    verbosity="info",
+                )
                 continue_calibration = True
+            else:
+                self.reporter.log_string(
+                    f"✅ {'mobility_error':<15}: {self.com.mobility_error:.4f} <= {self.config['search']['target_mobility_tolerance']}",
+                    verbosity="info",
+                )
 
         if self.com.current_epoch < self.config["calibration"]["min_epochs"]:
+            self.reporter.log_string(
+                f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs']}",
+                verbosity="info",
+            )
             continue_calibration = True
+        else:
+            self.reporter.log_string(
+                f"✅ {'current_epoch':<15}: {self.com.current_epoch} >= {self.config['calibration']['min_epochs']}",
+                verbosity="info",
+            )
 
+        self.reporter.log_string(
+            f"==============================================", verbosity="info"
+        )
         return continue_calibration
 
     def calibration(self):
