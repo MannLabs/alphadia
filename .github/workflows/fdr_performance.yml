@@ -1,0 +1,27 @@
+on:
+  workflow_dispatch:
+
+name: Default installation and tests
+
+jobs:
+  loose_installation:
+    name: Loose pip installation
+    runs-on: AlphaDIA
+    steps:
+      - uses: actions/checkout@v2
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          auto-update-conda: true
+          python-version: 3.9
+      - name: Conda info
+        shell: bash -l {0}
+        run: conda info
+      - name: Test pip installation with all loose dependencies
+        shell: bash -l {0}
+        run: |
+          cd misc
+          . ./loose_pip_install.sh
+      - name: Unittests
+        shell: bash -l {0}
+        run: |
+          alphadia -v
