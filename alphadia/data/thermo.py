@@ -9,7 +9,7 @@ logger = logging.getLogger()
 from alphadia import utils
 
 # alpha family imports
-import alpharaw
+from alpharaw import thermo as alpharawthermo
 
 # third party imports
 import numpy as np
@@ -118,7 +118,7 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 
 
-class Thermo(alpharaw.thermo.ThermoRawData):
+class Thermo(alpharawthermo.ThermoRawData):
     has_mobility = False
 
     def __init__(self, path, astral_ms1=False, cv=None, **kwargs):
