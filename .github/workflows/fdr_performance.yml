@@ -22,8 +22,10 @@ jobs:
       - name: Test pip installation with all loose dependencies
         shell: bash -l {0}
         run: |
-          misc/loose_pip_install.sh
+          cd misc
+          . ./loose_pip_install.sh
       - name: Unittests
         shell: bash -l {0}
         run: |
+          conda activate alphadia
           python tests/performance_tests/fdr_test.py
