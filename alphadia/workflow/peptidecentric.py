@@ -413,7 +413,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="info",
                 )
 
-        if self.com.current_epoch < self.config["calibration"]["min_epochs"]:
+        if self.com.current_epoch < self.config["calibration"]["min_epochs"]-1:
             self.reporter.log_string(
                 f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs']}",
                 verbosity="info",
