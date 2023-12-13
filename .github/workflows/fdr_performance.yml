@@ -32,4 +32,4 @@ jobs:
         shell: bash -l {0}
         run: |
           conda activate alphadia
-          python tests/performance_tests/fdr_test.py
+          python tests/performance_tests/fdr_test.py --classifier legacy_new_batching --threads 4 --neptune_tag github-action
