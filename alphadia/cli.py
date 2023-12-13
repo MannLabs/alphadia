@@ -5,6 +5,7 @@ import logging
 import time
 import yaml
 import os
+import re
 
 # alphadia imports
 import alphadia
@@ -205,11 +206,13 @@ def extract(**kwargs):
             if type(config_update["raw_file_list"]) is list
             else [config_update["raw_file_list"]]
         )
+
+    pattern = re.compile(kwargs["regex"])
     
     # filter files based on regex
     logger.info(f"Filtering files based on regex: {kwargs['regex']}")
     len_before = len(files)
-    files = [f for f in files if utils.match_regex(f, kwargs["regex"])]
+    files = [f for f in files if re.search(pattern, os.path.basename(f))]
     len_after = len(files)
     logger.info(f"Removed {len_before - len_after} of {len_before} files.")
 
