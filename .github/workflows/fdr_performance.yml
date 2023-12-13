@@ -27,6 +27,8 @@ jobs:
           cd misc
           . ./loose_pip_install.sh
       - name: Unittests
+        env: # Or as an environment variable
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
         shell: bash -l {0}
         run: |
           conda activate alphadia
