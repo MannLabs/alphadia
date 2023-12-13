@@ -10,6 +10,8 @@ jobs:
   loose_installation:
     name: Loose pip installation
     runs-on: AlphaDIA
+    env: # Or as an environment variable
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
     steps:
       - uses: actions/checkout@v2
       - uses: conda-incubator/setup-miniconda@v2
@@ -25,6 +27,9 @@ jobs:
           cd misc
           . ./loose_pip_install.sh
       - name: Unittests
+        env: # Or as an environment variable
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
         shell: bash -l {0}
         run: |
-          alphadia -v
+          conda activate alphadia
+          python tests/performance_tests/fdr_test.py
