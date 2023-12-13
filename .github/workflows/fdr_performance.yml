@@ -16,6 +16,8 @@ jobs:
         with:
           auto-update-conda: true
           python-version: 3.9
+        env: # Or as an environment variable
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
       - name: Conda info
         shell: bash -l {0}
         run: conda info
