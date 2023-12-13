@@ -77,6 +77,14 @@ def gui():
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
 )
 @click.option(
+    "--regex",
+    "-r",
+    help="Regex to match raw files in directory.",
+    type=str,
+    default=".*",
+    show_default=True,
+)
+@click.option(
     "--library",
     "-l",
     help="Spectral library in AlphaBase hdf5 format.",
@@ -197,6 +205,13 @@ def extract(**kwargs):
             if type(config_update["raw_file_list"]) is list
             else [config_update["raw_file_list"]]
         )
+    
+    # filter files based on regex
+    logger.info(f"Filtering files based on regex: {kwargs['regex']}")
+    len_before = len(files)
+    files = [f for f in files if utils.match_regex(f, kwargs["regex"])]
+    len_after = len(files)
+    logger.info(f"Removed {len_before - len_after} of {len_before} files.")
 
     if (files is None) or (len(files) == 0):
         logging.error("No raw files specified.")
