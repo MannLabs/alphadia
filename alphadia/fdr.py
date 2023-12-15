@@ -164,7 +164,6 @@ def keep_best(
     return temp_df
 
 
-@nb.njit
 def fdr_to_q_values(fdr_values: np.ndarray):
     """Converts FDR values to q-values.
     Takes a ascending sorted array of FDR values and converts them to q-values.
@@ -180,14 +179,10 @@ def fdr_to_q_values(fdr_values: np.ndarray):
     np.ndarray
         The q-values.
     """
-    q_values = np.zeros_like(fdr_values)
-    min_q_value = np.max(fdr_values)
-    for i in range(len(fdr_values) - 1, -1, -1):
-        fdr = fdr_values[i]
-        if fdr < min_q_value:
-            min_q_value = fdr
-        q_values[i] = min_q_value
-    return q_values
+    fdr_values_flipped = np.flip(fdr_values)
+    q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
+    q_vals = np.flip(q_values_flipped)
+    return q_vals
 
 
 def q_values(
@@ -229,9 +224,7 @@ def q_values(
     decoy_cumsum = np.cumsum(decoy_labels)
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum / target_cumsum
-    q_vals = fdr_to_q_values(fdr_values)
-    # restore original order
-    return q_vals
+    return fdr_to_q_values(fdr_values)
 
 
 def get_q_values(

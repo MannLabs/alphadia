@@ -137,7 +137,8 @@ class BinaryClassifier(Classifier):
         dropout: float = 0.001,
         calculate_metrics: bool = True,
         metric_interval: int = 1,
-        patience: int = 3,
+        patience: int = 15,
+        use_gpu: bool = True,
         **kwargs,
     ):
         """Binary Classifier using a feed forward neural network.
@@ -154,7 +155,7 @@ class BinaryClassifier(Classifier):
         test_size : float, default=0.2
             Fraction of the data to be used for testing.
 
-        max_batch_size : int, default=5000
+        max_batch_size : int, default=10000
             Maximum batch size for training.
             The actual batch will be scaled to make sure at least min_batch_number batches are used.
 
@@ -184,9 +185,11 @@ class BinaryClassifier(Classifier):
         metric_interval : int, default=1
             Interval for logging metrics during training, once per metric_interval epochs.
 
-        patience : int, default=3
+        patience : int, default=15
             Number of epochs to wait for improvement before early stopping.
 
+        use_gpu : bool, default=True
+            Whether to use GPU acceleration if available.
         """
 
         self.test_size = test_size
@@ -202,10 +205,12 @@ class BinaryClassifier(Classifier):
         self.metric_interval = metric_interval
         self.calculate_metrics = calculate_metrics
         self.patience = patience
+        self.use_gpu = use_gpu
 
         self.network = None
         self.optimizer = None
         self._fitted = False
+        self.device = self.determine_device()
 
         self.metrics = {
             "epoch": [],
@@ -289,31 +294,17 @@ class BinaryClassifier(Classifier):
 
         self.__dict__.update(_state_dict)
 
-    def _prepare_data(self, x: np.ndarray, y: np.ndarray):
-        """Prepare the data for training: normalize, split into train and test set.
-
-        Parameters
-        ----------
-
-        x : np.array, dtype=float
-            Training data of shape (n_samples, n_features).
-
-        y : np.array, dtype=int
-            Target values of shape (n_samples,) or (n_samples, n_classes).
-        """
-        x -= x.mean(axis=0)
-        x /= x.std(axis=0) + 1e-6
-
-        if y.ndim == 1:
-            y = np.stack([1 - y, y], axis=1)
-        x_train, x_test, y_train, y_test = model_selection.train_test_split(
-            x, y, test_size=self.test_size
-        )
-        x_train = torch.from_numpy(x_train).float()
-        y_train = torch.from_numpy(y_train).float()
-        x_test = torch.from_numpy(x_test).float()
-        y_test = torch.from_numpy(y_test).float()
-        return x_train, x_test, y_train, y_test
+    def determine_device(self):
+        if self.use_gpu:
+            if torch.cuda.is_available():
+                return torch.device("cuda")
+            # elif torch.backends.mps.is_available():  # slows things down as of 13.12.2023
+            #     return torch.device("mps")
+            else:
+                print(
+                    "GPU requested, but no compatible GPU found. Falling back to CPU."
+                )
+        return torch.device("cpu")
 
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.
@@ -349,12 +340,16 @@ class BinaryClassifier(Classifier):
                 output_dim=self.output_dim,
                 layers=self.layers,
                 dropout=self.dropout,
-            )
+            ).to(self.device)
 
         optimizer = optim.AdamW(
             self.network.parameters(),
             lr=lr_scaled,
             weight_decay=self.weight_decay,
+        )
+
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer, max_lr=0.01, steps_per_epoch=batch_number, epochs=self.epochs
         )
 
         loss = nn.BCELoss()
@@ -372,14 +367,10 @@ class BinaryClassifier(Classifier):
         x_train, x_test, y_train, y_test = model_selection.train_test_split(
             x, y, test_size=self.test_size
         )
-        x_train = torch.from_numpy(x_train).float()
-        y_train = torch.from_numpy(y_train).float()
-        x_test = torch.from_numpy(x_test).float()
-        y_test = torch.from_numpy(y_test).float()
-
-        num_batches = x_train.shape[0] // batch_size
-        batch_start_list = np.arange(num_batches) * batch_size
-        batch_stop_list = np.arange(num_batches) * batch_size + batch_size
+        x_train = torch.from_numpy(x_train).float().to(self.device)
+        y_train = torch.from_numpy(y_train).float().to(self.device)
+        x_test = torch.from_numpy(x_test).float().to(self.device)
+        y_test = torch.from_numpy(y_test).float().to(self.device)
 
         batch_count = 0
         for epoch in tqdm(range(self.epochs)):
@@ -389,32 +380,39 @@ class BinaryClassifier(Classifier):
             num_batches_train = 0
             num_batches_test = 0
 
-            # shuffle batches
-            order = np.random.permutation(num_batches)
-            batch_start_list = batch_start_list[order]
-            batch_stop_list = batch_stop_list[order]
+            # shuffle training data
+
+            permuted_indices = torch.randperm(x_train.shape[0])
 
             train_predictions_list = []
             train_labels_list = []
 
-            for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
-                y_pred = self.network(x_train[batch_start:batch_stop])
-                loss_value = loss(y_pred, y_train[batch_start:batch_stop])
+            for batch_start in range(0, x_train.shape[0], batch_size):
+                batch_indices = permuted_indices[batch_start : batch_start + batch_size]
+
+                x_train_batch = x_train[batch_indices]
+                y_train_batch = y_train[batch_indices]
+
+                y_pred = self.network(x_train_batch)
+                loss_value = loss(y_pred, y_train_batch)
 
                 optimizer.zero_grad()
                 loss_value.backward()
                 optimizer.step()
+                scheduler.step()
 
                 train_loss_sum += loss_value.detach()
                 train_predictions_list.append(y_pred.detach())
-                train_labels_list.append(y_train[batch_start:batch_stop].detach()[:, 1])
+                train_labels_list.append(y_train_batch.detach()[:, 1])
                 num_batches_train += 1
 
             train_predictions = torch.cat(train_predictions_list, dim=0)
             train_labels = torch.cat(train_labels_list, dim=0)
 
             auc, fdr01, fdr1 = self.get_auc_fdr(
-                train_predictions, train_labels, roc_object=binary_auroc
+                train_predictions,
+                train_labels,
+                roc_object=binary_auroc,
             )
 
             if not self.calculate_metrics:
@@ -474,7 +472,6 @@ class BinaryClassifier(Classifier):
                 auc, fdr01, fdr1 = self.get_auc_fdr(
                     test_predictions, test_labels, roc_object=binary_auroc
                 )
-
                 self.metrics["test_auc"].append(auc.item())
                 self.metrics["test_fdr01"].append(fdr01.item())
                 self.metrics["test_fdr1"].append(fdr1.item())
@@ -499,56 +496,6 @@ class BinaryClassifier(Classifier):
         self._fitted = True
 
     @torch.jit.export
-    def get_q_values(self, decoys_sorted: torch.Tensor):
-        """Calculates q-values for a dataframe containing PSMs.
-
-        Parameters
-        ----------
-
-        scores : torch.Tensor
-            Score to use for the selection. Ascending sorted values are expected.
-
-        decoys : torch.Tensor
-            Decoy information. Decoys are expected to be 1 and targets 0.
-
-        Returns
-        -------
-
-        torch.Tensor
-            The q-values.
-
-        """
-        decoy_cumsum = torch.cumsum(decoys_sorted, dim=0)
-        target_cumsum = torch.cumsum(1 - decoys_sorted, dim=0)
-        fdr_values = decoy_cumsum.float() / target_cumsum.float()
-        return self.fdr_to_q_values(fdr_values)
-
-    @torch.jit.export
-    def fdr_to_q_values(self, fdr_values: torch.Tensor):
-        """Converts FDR values to q-values.
-        Takes a ascending sorted array of FDR values and converts them to q-values.
-        for every element the lowest FDR where it would be accepted is used as q-value.
-
-        Parameters
-        ----------
-        fdr_values : torch.Tensor
-            The FDR values to convert.
-
-        Returns
-        -------
-        torch.Tensor
-            The q-values.
-        """
-        reversed_fdr = torch.flip(fdr_values, dims=[0])
-        cumulative_mins = torch.zeros_like(reversed_fdr)
-        min_value = float("inf")
-        for i in range(reversed_fdr.size(0)):
-            min_value = min(min_value, reversed_fdr[i].item())
-            cumulative_mins[i] = min_value
-        q_values = torch.flip(cumulative_mins, dims=[0])
-        return q_values
-
-    @torch.jit.export
     def get_auc_fdr(self, predicted_probas: torch.Tensor, y: torch.Tensor, roc_object):
         """Calculates the AUC and FDR for a given set of predicted probabilities and labels.
 
@@ -570,14 +517,25 @@ class BinaryClassifier(Classifier):
         scores = predicted_probas[:, 1]
         sorted_indices = torch.argsort(scores, stable=True)
         decoys_sorted = y[sorted_indices]
-        qval = self.get_q_values(decoys_sorted)
+
+        # getting q values
+        decoy_cumsum = torch.cumsum(decoys_sorted, dim=0)
+        target_cumsum = torch.cumsum(1 - decoys_sorted, dim=0)
+        fdr_values = decoy_cumsum.float() / target_cumsum.float()
+
+        reversed_fdr = torch.flip(fdr_values, dims=[0])
+        cumulative_mins, _ = torch.cummin(reversed_fdr, dim=0)
+        qval = torch.flip(cumulative_mins, dims=[0])
 
         decoys_zero_mask = decoys_sorted == 0
         qval = qval[decoys_zero_mask]
 
+        # calculating auc & fdr
         y_pred = torch.round(scores)
         auc = roc_object(y_pred, y)
-        return auc, torch.sum(qval < 0.001), torch.sum(qval < 0.01)
+        fdr01 = torch.sum(qval < 0.001)
+        fdr1 = torch.sum(qval < 0.01)
+        return auc, fdr01, fdr1
 
     def predict(self, x):
         """Predict the class of the data.
@@ -607,7 +565,7 @@ class BinaryClassifier(Classifier):
 
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+        return np.argmax(self.network(torch.Tensor(x)).detach().cpu().numpy(), axis=1)
 
     def predict_proba(self, x: np.ndarray):
         """Predict the class probabilities of the data.
@@ -638,7 +596,8 @@ class BinaryClassifier(Classifier):
 
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        return self.network(torch.Tensor(x)).detach().numpy()
+        inp = torch.Tensor(x).to(self.device)
+        return self.network(inp).detach().cpu().numpy()
 
 
 class BinaryClassifierLegacy(Classifier):
