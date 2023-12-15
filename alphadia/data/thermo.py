@@ -117,7 +117,6 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
-
 class Thermo(alpharawthermo.ThermoRawData):
     has_mobility = False
 
@@ -154,9 +153,7 @@ class Thermo(alpharawthermo.ThermoRawData):
         self.peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(
             np.int64
         )
-        self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(
-            np.int64
-        )
+        self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
         self.mz_values = self.peak_df.mz.values.astype(np.float32)
         self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
 
@@ -170,9 +167,7 @@ class Thermo(alpharawthermo.ThermoRawData):
         if self.astral_ms1:
             self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]
             self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "ms_level"] = 1
-            self.spectrum_df.loc[
-                self.spectrum_df["nce"] < 1.1, "precursor_mz"
-            ] = -1.0
+            self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "precursor_mz"] = -1.0
             self.spectrum_df.loc[
                 self.spectrum_df["nce"] < 1.1, "isolation_lower_mz"
             ] = -1.0
@@ -215,6 +210,7 @@ class Thermo(alpharawthermo.ThermoRawData):
             self.scan_max_index,
             self.frame_max_index,
         )
+
 
 @nb.experimental.jitclass(
     [

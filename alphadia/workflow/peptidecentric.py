@@ -372,7 +372,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="info",
             )
 
-
         if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
             self.reporter.log_string(
                 f"❌ {'ms2_error':<15}: {self.com.ms2_error:.4f} > {self.config['search']['target_ms2_tolerance']}",
@@ -413,7 +412,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="info",
                 )
 
-        if self.com.current_epoch < self.config["calibration"]["min_epochs"]-1:
+        if self.com.current_epoch < self.config["calibration"]["min_epochs"] - 1:
             self.reporter.log_string(
                 f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs']}",
                 verbosity="info",
