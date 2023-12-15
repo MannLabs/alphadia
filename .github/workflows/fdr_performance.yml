@@ -3,7 +3,7 @@ on:
     branches: [ main, development ]
   workflow_dispatch:
 
-name: Default installation and tests
+name: FDR performance test
 
 jobs:
   loose_installation:
@@ -37,6 +37,17 @@ jobs:
           conda activate alphadia
           python tests/performance_tests/fdr_test.py \
           --classifier legacy_new_batching \
+          --threads 4 \
+          --neptune-tag github-action \
+          --neptune-tag "bracnh:${{ steps.extract_branch.outputs.branch }}" 
+      - name: Run binary classifier
+        env: # Or as an environment variable
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
+        shell: bash -l {0}
+        run: |
+          conda activate alphadia
+          python tests/performance_tests/fdr_test.py \
+          --classifier binary \
           --threads 4 \
           --neptune-tag github-action \
           --neptune-tag "bracnh:${{ steps.extract_branch.outputs.branch }}" 
