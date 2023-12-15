@@ -224,7 +224,7 @@ class QuantBuilder:
         ]
 
         quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
-        quality_df["rank"] = quality_df.groupby("precursor_idx")["total"].rank(
+        quality_df["rank"] = quality_df.groupby("protein")["total"].rank(
             ascending=False, method="first"
         )
         mask = (quality_df["rank"].values <= top_n) | (
