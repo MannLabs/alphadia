@@ -208,7 +208,7 @@ def extract(**kwargs):
         )
 
     pattern = re.compile(kwargs["regex"])
-    
+
     # filter files based on regex
     logger.info(f"Filtering files based on regex: {kwargs['regex']}")
     len_before = len(files)
