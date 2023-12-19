@@ -14,6 +14,26 @@ general:
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
+  
+library_prediction:
+  predict: false
+  enzyme: trypsin
+  fixed_modifications: Carbamidomethyl@C
+  missed_cleavages: 2
+  precursor_len:
+    - 7
+    - 35
+  precursor_charge:
+    - 2
+    - 4
+  precursor_mz:
+    - 400
+    - 1200
+  fragment_mz:
+    - 100
+    - 2000
+  nce: 25.0
+  instrument: Astral
   save_hdf: False
 
 search:
