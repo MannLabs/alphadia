@@ -1,6 +1,7 @@
 # native imports
 import logging
 from ctypes import Structure, c_double
+import typing
 
 # alphadia imports
 
@@ -18,21 +19,26 @@ import matplotlib.patches as patches
 ISOTOPE_DIFF = 1.0032999999999674
 
 
-def windows_to_wsl(path):
-    """Converts a Windows path to a WSL path.
+def wsl_to_windows(path: typing.Union[str, list, tuple]) -> typing.Union[str, list, tuple]:
+    """Converts a WSL path to a Windows path.
 
     Parameters
     ----------
-    path : str
-        Windows path.
+    path : str, list, tuple
+        WSL path.
 
     Returns
     -------
-    str
-        WSL path.
+    str, list, tuple
+        Windows path.
 
     """
-    return "/mnt/" + path[0].lower() + path[2:].replace("\\", "/")
+    if isinstance(path, str):
+        return path.replace("/mnt/", "").replace("/", "\\")
+    elif isinstance(path, (list, tuple)):
+        return [wsl_to_windows(p) for p in path]
+    else:
+        raise ValueError(f"Unsupported type {type(path)}")
 
 
 def recursive_update(full_dict: dict, update_dict: dict):
@@ -56,10 +62,8 @@ def recursive_update(full_dict: dict, update_dict: dict):
             if isinstance(value, dict):
                 recursive_update(full_dict[key], update_dict[key])
             else:
-                logging.info(f"Updating key {key} in config file.")
                 full_dict[key] = value
         else:
-            logging.info(f"Adding new key {key} to config file.")
             full_dict[key] = value
 
 
