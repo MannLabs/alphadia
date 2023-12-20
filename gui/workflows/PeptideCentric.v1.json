@@ -12,7 +12,7 @@
             ""
         ]
     },
-    "raw_file_list": {
+    "raw_path_list": {
         "active": true,
         "required": false,
         "path": [

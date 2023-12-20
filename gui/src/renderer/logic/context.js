@@ -12,7 +12,7 @@ const initialMethod = {
         path: [
         ]
     },
-    raw_file_list: {
+    raw_path_list: {
         active: false,
         path: [
         ]
@@ -36,7 +36,7 @@ export function methodReducer(method, action) {
 
         case 'updateFiles':
             console.log(action)
-            return {...method, raw_file_list: {...method.raw_file_list, path: action.path}}
+            return {...method, raw_path_list: {...method.raw_path_list, path: action.path}}
 
         case 'updateParameter':
             console.log(action)

@@ -15,9 +15,17 @@ export function profileReducer(profile, action) {
 
     switch (action.type) {
         case 'setExecutionEngineIdx':
+            if (action.idx === profile.activeIdx) {
+                return profile;
+            }
+            if (action.idx === -1) {
+                return {...profile, activeIdx: -1}
+            }
+
             if (action.idx >= profile.executionEngines.length) {
                 throw new Error(`Invalid execution engine index: ${action.idx}`);
             }
+            
 
             if (! profile.executionEngines[action.idx].available) {
                 throw new Error(`Execution engine not available: ${profile.executionEngines[action.idx].name}`);

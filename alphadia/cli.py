@@ -38,7 +38,7 @@ modification.add_new_modifications(
 import argparse
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
-parser.add_argument("-v", action="store_true", help="Print version and exit")
+parser.add_argument("--version","-v", action="store_true", help="Print version and exit")
 parser.add_argument(
     "--output", "-o", type=str, help="Output directory", nargs="?", default=None
 )
@@ -257,7 +257,7 @@ def run(*args, **kwargs):
     # parse command line arguments
     args = parser.parse_args()
 
-    if args.v:
+    if args.version:
         print(f"{alphadia.__version__}")
         return
     
@@ -272,11 +272,7 @@ def run(*args, **kwargs):
 
     library_path = parse_library(args, config)  
     fasta_path_list = parse_fasta(args, config)
-
-    print('raw_path_list', raw_path_list)
-    print('library', library_path)
-    print('fasta', fasta_path_list)
-
+    
     logger.progress(f"Searching {len(raw_path_list)} files:")
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")

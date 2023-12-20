@@ -17,7 +17,7 @@ library_loading:
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
   
 library_prediction:
-  predict: true
+  predict: False
   enzyme: trypsin
   fixed_modifications: Carbamidomethyl@C
   missed_cleavages: 2
