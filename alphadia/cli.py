@@ -247,7 +247,7 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
         List of fasta files.
     """
 
-    config_fasta_path_list = config["fasta"] if "fasta" in config else []
+    config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
     fasta_path_list = utils.wsl_to_windows(config_fasta_path_list) if args.wsl else config_fasta_path_list
     fasta_path_list += utils.wsl_to_windows(args.fasta) if args.wsl else args.fasta
 
