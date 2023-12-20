@@ -2,9 +2,9 @@ import tempfile
 import numpy as np
 import pandas as pd
 
-
+from alphabase.constants import _const
+import tempfile
 from alphadia import libtransform
-
 
 def test_library_transform():
     fasta = """
@@ -81,5 +81,3 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
     assert speclib.precursor_df["decoy"].sum() == 2
     assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
 
-
-speclib = test_library_transform()

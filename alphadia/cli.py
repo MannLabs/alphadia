@@ -277,7 +277,7 @@ def run(*args, **kwargs):
     print('library', library_path)
     print('fasta', fasta_path_list)
 
-    logger.progress(f"Extracting from {len(raw_path_list)} files:")
+    logger.progress(f"Searching {len(raw_path_list)} files:")
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
@@ -301,7 +301,7 @@ def run(*args, **kwargs):
             raw_path_list=raw_path_list,
             library_path=library_path,
             fasta_path_list=fasta_path_list,
-            config_update=config,
+            config=config,
         )
 
         plan.run()
@@ -309,5 +309,5 @@ def run(*args, **kwargs):
     except Exception as e:
         import traceback
 
-        logger.error(traceback.format_exc())
+        logger.info(traceback.format_exc())
         logger.error(e)

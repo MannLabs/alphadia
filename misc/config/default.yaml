@@ -10,13 +10,14 @@ general:
   log_level: 'INFO'
   wsl: false
   mmap_detector_events: false
+  use_gpu: true
 
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
   
 library_prediction:
-  predict: false
+  predict: true
   enzyme: trypsin
   fixed_modifications: Carbamidomethyl@C
   missed_cleavages: 2
@@ -34,7 +35,7 @@ library_prediction:
     - 2000
   nce: 25.0
   instrument: Astral
-  save_hdf: False
+  save_hdf: True
 
 search:
   channel_filter: '0'
