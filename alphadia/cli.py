@@ -5,6 +5,7 @@ import logging
 import time
 import yaml
 import os
+import re
 
 # alphadia imports
 import alphadia
@@ -75,6 +76,14 @@ def gui():
     "-d",
     help="Directory containing raw data input files.",
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
+)
+@click.option(
+    "--regex",
+    "-r",
+    help="Regex to match raw files in directory.",
+    type=str,
+    default=".*",
+    show_default=True,
 )
 @click.option(
     "--library",
@@ -197,6 +206,15 @@ def extract(**kwargs):
             if type(config_update["raw_file_list"]) is list
             else [config_update["raw_file_list"]]
         )
+
+    pattern = re.compile(kwargs["regex"])
+
+    # filter files based on regex
+    logger.info(f"Filtering files based on regex: {kwargs['regex']}")
+    len_before = len(files)
+    files = [f for f in files if re.search(pattern, os.path.basename(f))]
+    len_after = len(files)
+    logger.info(f"Removed {len_before - len_after} of {len_before} files.")
 
     if (files is None) or (len(files) == 0):
         logging.error("No raw files specified.")

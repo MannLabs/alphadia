@@ -56,8 +56,10 @@ def recursive_update(full_dict: dict, update_dict: dict):
             if isinstance(value, dict):
                 recursive_update(full_dict[key], update_dict[key])
             else:
+                logging.info(f"Updating key {key} in config file.")
                 full_dict[key] = value
         else:
+            logging.info(f"Adding new key {key} to config file.")
             full_dict[key] = value
 
 
