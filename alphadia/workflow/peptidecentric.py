@@ -90,6 +90,7 @@ classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     learning_rate=0.001,
 )
 
+
 class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
