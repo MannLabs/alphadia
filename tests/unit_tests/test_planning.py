@@ -40,6 +40,7 @@ def test_fasta_digest():
     assert len(plan.spectral_library.precursor_df) > 0
     assert len(plan.spectral_library.fragment_df) > 0
 
+
 @pytest.mark.slow
 def test_library_loading():
     temp_directory = tempfile.gettempdir()
