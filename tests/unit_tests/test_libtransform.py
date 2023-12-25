@@ -6,6 +6,7 @@ from alphabase.constants import _const
 import tempfile
 from alphadia import libtransform
 
+
 def test_library_transform():
     fasta = """
 >sp|Q9CX84|RGS19_MOUSE Regulator of G-protein signaling 19 OS=Mus musculus OX=10090 GN=Rgs19 PE=1 SV=2
@@ -80,4 +81,3 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 
     assert speclib.precursor_df["decoy"].sum() == 2
     assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
-
