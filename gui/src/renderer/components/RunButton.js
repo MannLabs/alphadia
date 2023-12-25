@@ -13,11 +13,11 @@ const validateMethod = (method) => {
     if (method.library.required && (method.library.path === "")) {
         return {valid: false, message: "Please select a spectral library."}
     }
-    if (method.fasta_list.required && (method.fasta_list.path === "")) {
+    if (method.fasta_list.required && (method.fasta_list.path.length ===0)){
         return {valid: false, message: "Please select a fasta file."}
     }
-    if (method.raw_file_list.required && (method.raw_file_list.path.length === 0)) {
-        return {valid: false, message: "Please select at least one Bruker .d folder."}
+    if (method.raw_path_list.required && (method.raw_path_list.path.length === 0)) {
+        return {valid: false, message: "Please select at least one input file."}
     }
     return {valid: true, message: ""}
 }

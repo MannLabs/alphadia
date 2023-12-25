@@ -43,11 +43,11 @@ class Plan:
     def __init__(
         self,
         output_folder: str,
-        raw_file_list: typing.List,
-        spec_lib_path: typing.Union[str, None] = None,
-        config_path: typing.Union[str, None] = None,
-        config_update_path: typing.Union[str, None] = None,
-        config_update: typing.Union[typing.Dict, None] = None,
+        raw_path_list: typing.List[str] = [],
+        library_path: typing.Union[str, None] = None,
+        fasta_path_list: typing.List[str] = [],
+        config: typing.Union[typing.Dict, None] = {},
+        config_base_path: typing.Union[str, None] = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -78,32 +78,24 @@ class Plan:
         logger.progress("           |_|                            ")
         logger.progress("")
 
-        self.raw_file_list = raw_file_list
-        self.spec_lib_path = spec_lib_path
+        self.spectral_library = None
+        self.raw_path_list = raw_path_list
+        self.library_path = library_path
+        self.fasta_path_list = fasta_path_list
 
-        # default config path is not defined in the function definition to account for for different path separators on different OS
-        if config_path is None:
+        # 1. default config path is not defined in the function definition to account for for different path separators on different OS
+        if config_base_path is None:
             # default yaml config location under /misc/config/config.yaml
-            config_path = os.path.join(
+            config_base_path = os.path.join(
                 os.path.dirname(__file__), "..", "misc", "config", "default.yaml"
             )
 
-        # 1. load default config
-        with open(config_path, "r") as f:
-            logger.info(f"loading default config from {config_path}")
+        with open(config_base_path, "r") as f:
+            logger.info(f"loading default config from {config_base_path}")
             self.config = yaml.safe_load(f)
 
-        # 2. load update config from yaml file
-        if config_update_path is not None:
-            logger.info(f"loading config update from {config_update_path}")
-            with open(config_update_path, "r") as f:
-                config_update_fromyaml = yaml.safe_load(f)
-            utils.recursive_update(self.config, config_update_fromyaml)
-
-        # 3. load update config from dict
-        if config_update is not None:
-            logger.info(f"Applying config update from dict")
-            utils.recursive_update(self.config, config_update)
+        # 2. load update config from dict
+        utils.recursive_update(self.config, config)
 
         if not "output" in self.config:
             self.config["output"] = output_folder
@@ -117,19 +109,18 @@ class Plan:
 
         # print environment
         self.log_environment()
-
-        self.load_library(spec_lib_path)
+        self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
-    def raw_file_list(self) -> typing.List[str]:
+    def raw_path_list(self) -> typing.List[str]:
         """List of input files locations."""
-        return self._raw_file_list
+        return self._raw_path_list
 
-    @raw_file_list.setter
-    def raw_file_list(self, raw_file_list: typing.List[str]):
-        self._raw_file_list = raw_file_list
+    @raw_path_list.setter
+    def raw_path_list(self, raw_path_list: typing.List[str]):
+        self._raw_path_list = raw_path_list
 
     @property
     def config(self) -> typing.Dict:
@@ -158,27 +149,70 @@ class Plan:
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
         logger.progress(f"===================================================")
 
-    def load_library(self, spec_lib_path):
-        if "fasta_list" in self.config:
-            fasta_files = self.config["fasta_list"]
-        else:
-            fasta_files = []
+    def load_library(self):
+        """
+        Load or build spectral library as configured.
 
-        # the import pipeline is used to transform arbitrary spectral libraries into the alphabase format
-        # afterwards, the library can be saved as hdf5 and used for further processing
-        import_pipeline = libtransform.ProcessingPipeline(
+        Steps 1 to 3 are performed depending on the quality and information in the spectral library.
+        Step 4 is always performed to prepare the library for search.
+        """
+
+        # 1. Check if library exists, else perform fasta digest
+        dynamic_loader = libtransform.DynamicLoader()
+        fasta_digest = libtransform.FastaDigest(
+            enzyme=self.config["library_prediction"]["enzyme"],
+            fixed_modifications=self.config["library_prediction"][
+                "fixed_modifications"
+            ].split(";"),
+            missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
+            precursor_len=self.config["library_prediction"]["precursor_len"],
+            precursor_charge=self.config["library_prediction"]["precursor_charge"],
+            precursor_mz=self.config["library_prediction"]["precursor_mz"],
+        )
+
+        if self.library_path is None and self.config["library_prediction"]["predict"]:
+            logger.progress("No library provided. Building library from fasta files.")
+            spectral_library = fasta_digest(self.fasta_path_list)
+        elif (
+            self.library_path is None
+            and not self.config["library_prediction"]["predict"]
+        ):
+            logger.error("No library provided and prediction disabled.")
+            return
+        else:
+            spectral_library = dynamic_loader(self.library_path)
+
+        # 2. Check if properties should be predicted
+
+        if self.config["library_prediction"]["predict"]:
+            logger.progress("Predicting library properties.")
+            pept_deep_prediction = libtransform.PeptDeepPrediction(
+                use_gpu=self.config["general"]["use_gpu"],
+                fragment_mz=self.config["library_prediction"]["fragment_mz"],
+                nce=self.config["library_prediction"]["nce"],
+                instrument=self.config["library_prediction"]["instrument"],
+            )
+
+            spectral_library = pept_deep_prediction(spectral_library)
+
+        # 3. import library and harmoniza
+        harmonize_pipeline = libtransform.ProcessingPipeline(
             [
-                libtransform.DynamicLoader(),
                 libtransform.PrecursorInitializer(),
-                libtransform.AnnotateFasta(fasta_files),
+                libtransform.AnnotateFasta(self.fasta_path_list),
                 libtransform.IsotopeGenerator(
                     n_isotopes=4, mp_process_num=self.config["general"]["thread_count"]
                 ),
                 libtransform.RTNormalization(),
             ]
         )
+        spectral_library = harmonize_pipeline(spectral_library)
 
-        # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
+        if self.config["library_prediction"]["save_hdf"]:
+            spectral_library.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+
+        # 4. prepare library for search
+        # This part is always performed, even if a fully compliant library is provided
         prepare_pipeline = libtransform.ProcessingPipeline(
             [
                 libtransform.DecoyGenerator(
@@ -193,10 +227,7 @@ class Plan:
             ]
         )
 
-        speclib = import_pipeline(spec_lib_path)
-        speclib.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
-
-        self.spectral_library = prepare_pipeline(speclib)
+        self.spectral_library = prepare_pipeline(spectral_library)
 
     def get_run_data(self):
         """Generator for raw data and spectral library."""
@@ -205,10 +236,10 @@ class Plan:
             raise ValueError("no spectral library loaded")
 
         # iterate over raw files and yield raw data and spectral library
-        for i, raw_location in enumerate(self.raw_file_list):
+        for i, raw_location in enumerate(self.raw_path_list):
             raw_name = Path(raw_location).stem
             logger.progress(
-                f"Loading raw file {i+1}/{len(self.raw_file_list)}: {raw_name}"
+                f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
             )
 
             yield raw_name, raw_location, self.spectral_library

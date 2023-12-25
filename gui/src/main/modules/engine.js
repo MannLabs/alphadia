@@ -249,8 +249,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "-n" , 
                                         this.config.envName, 
                                         "--no-capture-output", 
-                                        "alphadia", 
-                                        "extract", 
+                                        "alphadia",
                                         "--config", 
                                         path.join(workflow.output_directory.path, "config.yaml")
                                     ] , { env:{...process.env, PATH}, shell: true});
@@ -447,7 +446,7 @@ class WSLExecutionEngine extends BaseExecutionEngine {
 
             run.process = spawn("wsl", ["bash",
                                         "-ic",
-                                        "\"conda run -n " + this.config.envName + " --no-capture-output alphadia extract -w --config " + wslOutputPath + "\""], { shell: true });
+                                        "\"conda run -n " + this.config.envName + " --no-capture-output alphadia -w --config " + wslOutputPath + "\""], { shell: true });
             run.pid = run.process.pid
 
             const stdoutTransform = lineBreakTransform();
