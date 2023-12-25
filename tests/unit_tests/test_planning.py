@@ -1,7 +1,7 @@
 import tempfile
 import pytest
 import os
-from alphadia import planning
+from alphadia import planning, testing
 from alphabase.constants import _const
 
 
@@ -39,3 +39,31 @@ def test_fasta_digest():
     )
     assert len(plan.spectral_library.precursor_df) > 0
     assert len(plan.spectral_library.fragment_df) > 0
+
+
+@pytest.mark.slow
+def test_library_loading():
+    temp_directory = tempfile.gettempdir()
+
+    test_cases = [
+        {
+            "name": "alphadia_speclib",
+            "url": "https://datashare.biochem.mpg.de/s/NLZ0Y6qNfwMlGs0",
+        },
+        {
+            "name": "diann_speclib",
+            "url": "https://datashare.biochem.mpg.de/s/DF12ObSdZnBnqUV",
+        },
+        {
+            "name": "msfragger_speclib",
+            "url": "https://datashare.biochem.mpg.de/s/Cka1utORt3r5A4a",
+        },
+    ]
+
+    for test_dict in test_cases:
+        print("Testing {}".format(test_dict["name"]))
+
+        test_data_location = testing.update_datashare(test_dict["url"], temp_directory)
+        plan = planning.Plan(temp_directory, library_path=test_data_location)
+        assert len(plan.spectral_library.precursor_df) > 0
+        assert len(plan.spectral_library.fragment_df) > 0

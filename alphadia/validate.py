@@ -210,6 +210,8 @@ precursors_flat_schema = Schema(
         Optional("mobility_calibrated", np.float32),
         Required("mz_library", np.float32),
         Optional("mz_calibrated", np.float32),
+        Required("proteins", object),
+        Required("genes", object),
         *[Optional(f"i_{i}", np.float32) for i in range(10)],
     ],
 )

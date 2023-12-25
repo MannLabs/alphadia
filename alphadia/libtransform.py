@@ -7,7 +7,7 @@ import os
 import typing
 
 # alphadia imports
-from alphadia import utils
+from alphadia import utils, validate
 
 # alpha family imports
 from alphabase.peptide import fragment
@@ -546,6 +546,7 @@ class FlattenLibrary(ProcessingStep):
         output.parse_base_library(
             input, custom_df={"cardinality": input._fragment_cardinality_df}
         )
+
         return output
 
 
@@ -594,6 +595,9 @@ class InitFlatColumns(ProcessingStep):
 
         if "mobility_library" not in input.precursor_df.columns:
             input.precursor_df["mobility_library"] = 0
+
+        validate.precursors_flat_schema(input.precursor_df)
+        validate.fragments_flat_schema(input.fragment_df)
 
         return input
 
