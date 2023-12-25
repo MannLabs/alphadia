@@ -264,7 +264,7 @@ def test_feed_forward():
     # assert np.all(y_pred == y)
 
     y_proba = classifier.predict_proba(x)[:, 1]
-    a  # ssert np.all(np.round(y_proba) == y)
+    # assert np.all(np.round(y_proba) == y)
 
 
 test_feed_forward()
