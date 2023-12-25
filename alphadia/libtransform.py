@@ -7,7 +7,7 @@ import os
 import typing
 
 # alphadia imports
-from alphadia import utils
+from alphadia import utils, validate
 
 # alpha family imports
 from alphabase.peptide import fragment
@@ -16,6 +16,11 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.reader import LibraryReaderBase
 from alphabase.spectral_library.decoy import decoy_lib_provider
+from alphabase.peptide.fragment import get_charged_frag_types
+from alphabase.protein.fasta import protease_dict
+
+from peptdeep.protein.fasta import PredictSpecLibFasta
+from peptdeep.pretrained_models import ModelManager
 
 # third party imports
 import numpy as np
@@ -111,10 +116,12 @@ class DynamicLoader(ProcessingStep):
         file_type = Path(input_path).suffix
 
         if file_type in [".hdf5", ".h5", ".hdf"]:
+            logger.info(f"Loading {file_type} library from {input_path}")
             library = SpecLibBase()
             library.load_hdf(input_path, load_mod_seq=True)
 
         elif file_type in [".csv", ".tsv"]:
+            logger.info(f"Loading {file_type} library from {input_path}")
             library = LibraryReaderBase()
             library.add_modification_mapping(self.modification_mapping)
             library.import_file(input_path)
@@ -123,6 +130,136 @@ class DynamicLoader(ProcessingStep):
             raise ValueError(f"File type {file_type} not supported")
 
         return library
+
+
+class FastaDigest(ProcessingStep):
+    def __init__(
+        self,
+        enzyme: str = "trypsin",
+        fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
+        missed_cleavages: int = 2,
+        precursor_len: typing.List[int] = [7, 35],
+        precursor_charge: typing.List[int] = [2, 4],
+        precursor_mz: typing.List[int] = [400, 1200],
+    ) -> None:
+        """Predict the retention time of a spectral library using PeptDeep.
+        Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
+        """
+        super().__init__()
+        self.enzyme = enzyme
+        self.fixed_modifications = fixed_modifications
+        self.missed_cleavages = missed_cleavages
+        self.precursor_len = precursor_len
+        self.precursor_charge = precursor_charge
+        self.precursor_mz = precursor_mz
+
+    def validate(self, input: typing.List[str]) -> bool:
+        if len(input) == 0:
+            logger.error(f"Input fasta list is empty")
+            return False
+
+        return True
+
+    def forward(self, input: typing.List[str]) -> SpecLibBase:
+        frag_types = get_charged_frag_types(["b", "y"], 2)
+
+        model_mgr = ModelManager()
+
+        fasta_lib = PredictSpecLibFasta(
+            model_mgr,
+            protease=protease_dict[self.enzyme],
+            charged_frag_types=frag_types,
+            var_mods=[],
+            fix_mods=self.fixed_modifications,
+            max_missed_cleavages=self.missed_cleavages,
+            max_var_mod_num=0,
+            peptide_length_max=self.precursor_len[1],
+            peptide_length_min=self.precursor_len[0],
+            precursor_charge_min=self.precursor_charge[0],
+            precursor_charge_max=self.precursor_charge[1],
+            precursor_mz_min=self.precursor_mz[0],
+            precursor_mz_max=self.precursor_mz[1],
+            decoy=None,
+        )
+        logger.info(f"Digesting fasta file")
+        fasta_lib.get_peptides_from_fasta_list(input)
+        logger.info(f"Adding modifications")
+        fasta_lib.add_modifications()
+
+        fasta_lib.precursor_df["proteins"] = fasta_lib.precursor_df[
+            "protein_idxes"
+        ].apply(
+            lambda x: ";".join(
+                [
+                    fasta_lib.protein_df["protein_id"].values[int(i)]
+                    for i in x.split(";")
+                ]
+            )
+        )
+        fasta_lib.precursor_df["genes"] = fasta_lib.precursor_df["protein_idxes"].apply(
+            lambda x: ";".join(
+                [fasta_lib.protein_df["gene_org"].values[int(i)] for i in x.split(";")]
+            )
+        )
+
+        fasta_lib.add_charge()
+        fasta_lib.hash_precursor_df()
+        fasta_lib.calc_precursor_mz()
+
+        logger.info(
+            f"Fasta library contains {len(fasta_lib.precursor_df):,} precursors"
+        )
+
+        return fasta_lib
+
+
+class PeptDeepPrediction(ProcessingStep):
+    def __init__(
+        self,
+        use_gpu: bool = True,
+        fragment_mz: typing.List[int] = [100, 2000],
+        nce: int = 25,
+        instrument: str = "Astral",
+    ) -> None:
+        """Predict the retention time of a spectral library using PeptDeep.
+        Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
+        """
+        super().__init__()
+        self.use_gpu = use_gpu
+        self.fragment_mz = fragment_mz
+        self.nce = nce
+        self.instrument = instrument
+
+    def validate(self, input: typing.List[str]) -> bool:
+        return True
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        frag_types = get_charged_frag_types(["b", "y"], 2)
+
+        model_mgr = ModelManager(device="gpu" if self.use_gpu else "cpu")
+        model_mgr.nce = self.nce
+        model_mgr.instrument = self.instrument
+
+        logger.info(f"Predicting RT, MS2 and mobility")
+        res = model_mgr.predict_all(
+            input.precursor_df,
+            predict_items=["rt", "ms2", "mobility"],
+            frag_types=frag_types,
+        )
+
+        if "fragment_mz_df" in res:
+            logger.info(f"Adding fragment mz information")
+            input._fragment_mz_df = res["fragment_mz_df"][frag_types]
+
+        if "fragment_intensity_df" in res:
+            logger.info(f"Adding fragment intensity information")
+            input._fragment_intensity_df = res["fragment_intensity_df"][frag_types]
+
+        if "precursor_df" in res:
+            logger.info(f"Adding precursor information")
+            input._precursor_df = res["precursor_df"]
+
+        return input
 
 
 class PrecursorInitializer(ProcessingStep):
@@ -140,6 +277,14 @@ class PrecursorInitializer(ProcessingStep):
 
         if len(input.precursor_df) == 0:
             logger.error(f"Input library has no precursor information")
+            valid = False
+
+        if len(input.fragment_intensity_df) == 0:
+            logger.error(f"Input library has no fragment intensity information")
+            valid = False
+
+        if len(input.fragment_mz_df) == 0:
+            logger.error(f"Input library has no fragment mz information")
             valid = False
 
         return valid
@@ -223,7 +368,7 @@ class AnnotateFasta(ProcessingStep):
 
 
 class DecoyGenerator(ProcessingStep):
-    def __init__(self, decoy_type: str = "diann") -> None:
+    def __init__(self, decoy_type: str = "diann", mp_process_num: int = 8) -> None:
         """Generate decoys for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -237,6 +382,7 @@ class DecoyGenerator(ProcessingStep):
 
         super().__init__()
         self.decoy_type = decoy_type
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -256,7 +402,7 @@ class DecoyGenerator(ProcessingStep):
             return input
 
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
-        decoy_lib.decoy_sequence()
+        decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
         decoy_lib.calc_precursor_mz()
         decoy_lib.remove_unused_fragments()
         decoy_lib.calc_fragment_mz_df()
@@ -278,7 +424,7 @@ class DecoyGenerator(ProcessingStep):
 
 
 class IsotopeGenerator(ProcessingStep):
-    def __init__(self, n_isotopes: int = 4) -> None:
+    def __init__(self, n_isotopes: int = 4, mp_process_num: int = 8) -> None:
         """Generate isotope information for the spectral library.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
@@ -291,6 +437,7 @@ class IsotopeGenerator(ProcessingStep):
         """
         super().__init__()
         self.n_isotopes = n_isotopes
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -306,7 +453,9 @@ class IsotopeGenerator(ProcessingStep):
             )
             return input
 
-        input.calc_precursor_isotope_intensity(max_isotope=self.n_isotopes)
+        input.calc_precursor_isotope_intensity(
+            max_isotope=self.n_isotopes, mp_process_num=self.mp_process_num
+        )
         return input
 
 
@@ -319,7 +468,19 @@ class RTNormalization(ProcessingStep):
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
-        return isinstance(input, SpecLibBase)
+        valid = isinstance(input, SpecLibBase)
+
+        if not any(
+            [
+                col in input.precursor_df.columns
+                for col in ["rt", "rt_norm", "rt_norm_pred"]
+            ]
+        ):
+            logger.error(
+                f"Input library has no RT information. Please enable RT prediction or provide RT information."
+            )
+            valid = False
+        return valid
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Normalize the retention time of the spectral library."""
@@ -336,11 +497,6 @@ class RTNormalization(ProcessingStep):
             ):
                 logger.warning(
                     f"Input library already contains normalized RT information. Skipping RT normalization"
-                )
-                return input
-            else:
-                logger.warning(
-                    f"Input library has no RT information. Skipping RT normalization"
                 )
                 return input
 
@@ -390,6 +546,7 @@ class FlattenLibrary(ProcessingStep):
         output.parse_base_library(
             input, custom_df={"cardinality": input._fragment_cardinality_df}
         )
+
         return output
 
 
@@ -438,6 +595,9 @@ class InitFlatColumns(ProcessingStep):
 
         if "mobility_library" not in input.precursor_df.columns:
             input.precursor_df["mobility_library"] = 0
+
+        validate.precursors_flat_schema(input.precursor_df)
+        validate.fragments_flat_schema(input.fragment_df)
 
         return input
 

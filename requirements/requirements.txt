@@ -10,3 +10,4 @@ rocket_fft
 xxhash
 torchmetrics
 directlfq
+pythonnet

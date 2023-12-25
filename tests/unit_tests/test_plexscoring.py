@@ -32,6 +32,8 @@ def test_multiplex_candidates():
             "rt_library": [0, 0, 0, 0, 0, 0],
             "mobility_library": [0, 0, 0, 0, 0, 0],
             "mz_library": [0, 0, 0, 0, 0, 0],
+            "proteins": ["A", "A", "A", "A", "A", "A"],
+            "genes": ["A", "A", "A", "A", "A", "A"],
         }
     )
 
