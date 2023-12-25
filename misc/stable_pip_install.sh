@@ -1,5 +1,5 @@
 conda create -n alphadia python=3.8 -y
 conda activate alphadia
 pip install -e '../.[stable,development-stable]'
-alphadia -v
+alphadia -v 
 conda deactivate
