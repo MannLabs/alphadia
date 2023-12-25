@@ -19,7 +19,9 @@ import matplotlib.patches as patches
 ISOTOPE_DIFF = 1.0032999999999674
 
 
-def wsl_to_windows(path: typing.Union[str, list, tuple]) -> typing.Union[str, list, tuple]:
+def wsl_to_windows(
+    path: typing.Union[str, list, tuple]
+) -> typing.Union[str, list, tuple]:
     """Converts a WSL path to a Windows path.
 
     Parameters

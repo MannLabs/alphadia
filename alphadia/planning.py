@@ -93,11 +93,9 @@ class Plan:
         with open(config_base_path, "r") as f:
             logger.info(f"loading default config from {config_base_path}")
             self.config = yaml.safe_load(f)
-           
 
         # 2. load update config from dict
         utils.recursive_update(self.config, config)
-
 
         if not "output" in self.config:
             self.config["output"] = output_folder
@@ -169,20 +167,23 @@ class Plan:
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
             precursor_charge=self.config["library_prediction"]["precursor_charge"],
-            precursor_mz=self.config["library_prediction"]["precursor_mz"]
+            precursor_mz=self.config["library_prediction"]["precursor_mz"],
         )
 
         if self.library_path is None and self.config["library_prediction"]["predict"]:
             logger.progress("No library provided. Building library from fasta files.")
             spectral_library = fasta_digest(self.fasta_path_list)
-        elif self.library_path is None and not self.config["library_prediction"]["predict"]:
+        elif (
+            self.library_path is None
+            and not self.config["library_prediction"]["predict"]
+        ):
             logger.error("No library provided and prediction disabled.")
             return
         else:
             spectral_library = dynamic_loader(self.library_path)
 
         # 2. Check if properties should be predicted
-            
+
         if self.config["library_prediction"]["predict"]:
             logger.progress("Predicting library properties.")
             pept_deep_prediction = libtransform.PeptDeepPrediction(
@@ -196,16 +197,14 @@ class Plan:
 
         # 3. import library and harmoniza
         harmonize_pipeline = libtransform.ProcessingPipeline(
-            
             [
                 libtransform.PrecursorInitializer(),
                 libtransform.AnnotateFasta(self.fasta_path_list),
                 libtransform.IsotopeGenerator(
                     n_isotopes=4, mp_process_num=self.config["general"]["thread_count"]
                 ),
-                libtransform.RTNormalization()
+                libtransform.RTNormalization(),
             ]
-
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
