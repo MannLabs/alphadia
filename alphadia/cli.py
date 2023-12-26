@@ -5,6 +5,10 @@ import logging
 import time
 import yaml
 import os
+import re
+import json
+
+logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
@@ -31,200 +35,276 @@ modification.add_new_modifications(
 # alpha family imports
 
 # third party imports
-import click
+import argparse
 
-
-@click.group(
-    context_settings=dict(
-        help_option_names=["-h", "--help"],
-    ),
-    invoke_without_command=True,
+parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
+parser.add_argument(
+    "--version", "-v", action="store_true", help="Print version and exit"
 )
-@click.pass_context
-@click.version_option(alphadia.__version__, "-v", "--version", message="%(version)s")
-def run(ctx, **kwargs):
-    if ctx.invoked_subcommand is None:
-        click.echo(run.get_help(ctx))
-
-
-@run.command("gui", help="Start graphical user interface.")
-def gui():
-    import alphadia.gui
-
-    alphadia.gui.run()
-
-
-@run.command(
-    "extract",
-    help="Extract DIA precursors from a list of raw files using a spectral library.",
+parser.add_argument(
+    "--output", "-o", type=str, help="Output directory", nargs="?", default=None
 )
-@click.argument(
-    "output-directory",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
-    required=False,
+parser.add_argument(
+    "--file", "-f", type=str, help="Raw data input files.", nargs="*", default=[]
 )
-@click.option(
-    "--file",
-    "-f",
-    help="Raw data input files.",
-    multiple=True,
-    type=click.Path(exists=True, file_okay=True, dir_okay=True),
-)
-@click.option(
+parser.add_argument(
     "--directory",
     "-d",
+    type=str,
     help="Directory containing raw data input files.",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
-)
-@click.option(
-    "--library",
-    "-l",
-    help="Spectral library in AlphaBase hdf5 format.",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-)
-@click.option(
-    "--wsl",
-    "-w",
-    help="Run alphadia using WSL. Windows paths will be converted to WSL paths.",
-    type=bool,
-    default=False,
-    is_flag=True,
-)
-@click.option(
-    "--fdr",
-    help="False discovery rate for the final output.",
-    type=float,
-    default=0.01,
-    show_default=True,
-)
-@click.option(
-    "--keep-decoys",
-    help="Keep decoys in the final output.",
-    type=bool,
-    default=False,
-    show_default=True,
-)
-@click.option(
-    "--config",
-    help="Config yaml which will be used to update the default config.",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-)
-@click.option(
-    "--config-base",
-    help="DO NOT TOUCH - Default config yaml. If not specified, the default config will be used.",
-    type=click.Path(exists=True, file_okay=True, dir_okay=False),
-)
-@click.option(
-    "--config-update",
-    help="Dict which will be used to update the default config.",
-    type=str,
-    default={},
-)
-@click.option(
-    "--neptune-token",
-    help="Neptune.ai token for continous logging.",
-    type=str,
+    nargs="?",
     default=None,
-    show_default=False,
 )
-@click.option(
-    "--neptune-tag",
-    help="Neptune.ai tag for continous logging.",
+parser.add_argument(
+    "--regex",
+    "-r",
     type=str,
-    multiple=True,
+    help="Regex to match raw files in directory.",
+    nargs="?",
+    default=".*",
 )
-@click.option(
-    "--figure-path",
-    help="If specified, directory will be used to store calibration figures.",
-    type=click.Path(exists=True, file_okay=False, dir_okay=True),
+parser.add_argument(
+    "--library", "-l", type=str, help="Spectral library.", nargs="?", default=None
 )
-def extract(**kwargs):
-    kwargs["neptune_tag"] = list(kwargs["neptune_tag"])
+parser.add_argument(
+    "--fasta",
+    type=str,
+    help="Fasta file(s) used to generate or annotate the spectral library.",
+    nargs="*",
+    default=[],
+)
 
-    # load config file if specified
-    config_update = {}
-    if kwargs["config"] is not None:
-        with open(kwargs["config"], "r") as f:
-            config_update = yaml.safe_load(f)
+parser.add_argument(
+    "--config",
+    "-c",
+    type=str,
+    help="Config yaml which will be used to update the default config.",
+    nargs="?",
+    default=None,
+)
 
-    # update output directory based on config file
+parser.add_argument(
+    "--wsl",
+    action="store_true",
+    help="Set if running on Windows Subsystem for Linux.",
+)
+parser.add_argument(
+    "--config-dict",
+    type=str,
+    help="Python Dict which will be used to update the default config.",
+    nargs="?",
+    default="{}",
+)
+
+
+def parse_config(args: argparse.Namespace) -> dict:
+    """Parse config file and config update JSON string.
+    1. Load config file if specified.
+    2. Update config with config update JSON string.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    Returns
+    -------
+
+    config : dict
+        Updated config dictionary.
+    """
+
+    config = {}
+    if args.config is not None:
+        with open(args.config, "r") as f:
+            config = yaml.safe_load(f)
+
+    try:
+        utils.recursive_update(config, json.loads(args.config_dict))
+    except Exception as e:
+        print(f"Could not parse config update: {e}")
+
+    return config
+
+
+def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
+    """Parse output directory.
+    1. Use output directory from config file if specified.
+    2. Use output directory from command line if specified.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    config : dict
+        Config dictionary.
+
+    Returns
+    -------
+
+    output_directory : str
+        Output directory.
+    """
+
     output_directory = None
-    if kwargs["output_directory"] is not None:
-        if kwargs["wsl"]:
-            kwargs["output_directory"] = utils.windows_to_wsl(
-                kwargs["output_directory"]
-            )
-        output_directory = kwargs["output_directory"]
-
-    if "output_directory" in config_update:
-        if kwargs["wsl"]:
-            config_update["output_directory"] = utils.windows_to_wsl(
-                config_update["output_directory"]
-            )
-        output_directory = config_update["output_directory"]
-
-    if output_directory is None:
-        logging.error("No output directory specified.")
-        return
-
-    reporting.init_logging(output_directory)
-    logger = logging.getLogger()
-
-    # assert input files have been specified
-    files = []
-    if kwargs["file"] is not None:
-        files = list(kwargs["file"])
-        if kwargs["wsl"]:
-            files = [utils.windows_to_wsl(f) for f in files]
-
-    # load whole directory if specified
-    if kwargs["directory"] is not None:
-        if kwargs["wsl"]:
-            kwargs["directory"] = utils.windows_to_wsl(kwargs["directory"])
-        files += [
-            os.path.join(kwargs["directory"], f)
-            for f in os.listdir(kwargs["directory"])
-        ]
-
-    # load list of raw files from config file
-    if "raw_file_list" in config_update:
-        if kwargs["wsl"]:
-            config_update["raw_file_list"] = [
-                utils.windows_to_wsl(f) for f in config_update["raw_file_list"]
-            ]
-        files += (
-            config_update["raw_file_list"]
-            if type(config_update["raw_file_list"]) is list
-            else [config_update["raw_file_list"]]
+    if "output_directory" in config:
+        output_directory = (
+            utils.wsl_to_windows(config["output_directory"])
+            if args.wsl
+            else config["output_directory"]
         )
 
-    if (files is None) or (len(files) == 0):
-        logging.error("No raw files specified.")
-        return
+    if args.output is not None:
+        output_directory = (
+            utils.wsl_to_windows(args.output) if args.wsl else args.output
+        )
 
-    # assert library has been specified
+    return output_directory
+
+
+def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
+    """Parse raw file list.
+    1. Use raw file list from config file if specified.
+    2. Use raw file list from command line if specified.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    config : dict
+        Config dictionary.
+
+    Returns
+    -------
+
+    raw_path_list : list
+        List of raw files.
+    """
+    config_raw_path_list = config["raw_path_list"] if "raw_path_list" in config else []
+    raw_path_list = (
+        utils.wsl_to_windows(config_raw_path_list) if args.wsl else config_raw_path_list
+    )
+    raw_path_list += utils.wsl_to_windows(args.file) if args.wsl else args.file
+
+    config_directory = config["directory"] if "directory" in config else None
+    directory = utils.wsl_to_windows(config_directory) if args.wsl else config_directory
+    directory = utils.wsl_to_windows(args.directory) if args.wsl else args.directory
+
+    if directory is not None:
+        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
+
+    # filter files based on regex
+    pattern = re.compile(args.regex)
+
+    len_before = len(raw_path_list)
+    raw_path_list = [
+        f for f in raw_path_list if re.search(pattern, os.path.basename(f))
+    ]
+    len_after = len(raw_path_list)
+    print(f"Removed {len_before - len_after} of {len_before} files.")
+
+    return raw_path_list
+
+
+def parse_library(args: argparse.Namespace, config: dict) -> str:
+    """Parse spectral library.
+    1. Use spectral library from config file if specified.
+    2. Use spectral library from command line if specified.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    config : dict
+        Config dictionary.
+
+    Returns
+    -------
+
+    library : str
+        Spectral library.
+    """
+
     library = None
-    if kwargs["library"] is not None:
-        if kwargs["wsl"]:
-            kwargs["library"] = utils.windows_to_wsl(kwargs["library"])
-        library = kwargs["library"]
+    if "library" in config:
+        library = (
+            utils.wsl_to_windows(config["library"]) if args.wsl else config["library"]
+        )
 
-    if "library" in config_update:
-        if kwargs["wsl"]:
-            config_update["library"] = utils.windows_to_wsl(config_update["library"])
-        library = config_update["library"]
+    if args.library is not None:
+        library = utils.wsl_to_windows(args.library) if args.wsl else args.library
 
-    if library is None:
-        logging.error("No library specified.")
+    return library
+
+
+def parse_fasta(args: argparse.Namespace, config: dict) -> list:
+    """Parse fasta file list.
+    1. Use fasta file list from config file if specified.
+    2. Use fasta file list from command line if specified.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    config : dict
+        Config dictionary.
+
+    Returns
+    -------
+
+    fasta_path_list : list
+        List of fasta files.
+    """
+
+    config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
+    fasta_path_list = (
+        utils.wsl_to_windows(config_fasta_path_list)
+        if args.wsl
+        else config_fasta_path_list
+    )
+    fasta_path_list += utils.wsl_to_windows(args.fasta) if args.wsl else args.fasta
+
+    return fasta_path_list
+
+
+def run(*args, **kwargs):
+    # parse command line arguments
+    args = parser.parse_args()
+
+    if args.version:
+        print(f"{alphadia.__version__}")
         return
 
-    logger.progress(f"Extracting from {len(files)} files:")
-    for f in files:
-        logger.progress(f"  {f}")
-    logger.progress(f"Using library {library}.")
+    config = parse_config(args)
 
-    if kwargs["wsl"]:
-        config_update["general"]["wsl"] = True
+    output_directory = parse_output_directory(args, config)
+    if output_directory is None:
+        raise ValueError("No output directory specified.")
+
+    reporting.init_logging(output_directory)
+    raw_path_list = parse_raw_path_list(args, config)
+
+    library_path = parse_library(args, config)
+    fasta_path_list = parse_fasta(args, config)
+
+    logger.progress(f"Searching {len(raw_path_list)} files:")
+    for f in raw_path_list:
+        logger.progress(f"  {os.path.basename(f)}")
+
+    logger.progress(f"Using library: {library_path}.")
+
+    logger.progress(f"Using {len(fasta_path_list)} fasta files:")
+    for f in fasta_path_list:
+        logger.progress(f"  {f}")
 
     logger.progress(f"Saving output to {output_directory}.")
 
@@ -236,13 +316,18 @@ def extract(**kwargs):
 
         from alphadia.planning import Plan
 
-        plan = Plan(output_directory, files, library, config_update=config_update)
-
-        plan.run(
-            keep_decoys=kwargs["keep_decoys"],
-            fdr=kwargs["fdr"],
-            figure_path=kwargs["figure_path"],
+        plan = Plan(
+            output_directory,
+            raw_path_list=raw_path_list,
+            library_path=library_path,
+            fasta_path_list=fasta_path_list,
+            config=config,
         )
 
+        plan.run()
+
     except Exception as e:
+        import traceback
+
+        logger.info(traceback.format_exc())
         logger.error(e)

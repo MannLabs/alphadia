@@ -14,7 +14,7 @@ const ParameterInput = ({
     }) => {
 
         let input = null;
-
+        
         switch (parameter.type) {
             case "integer":
                 input = (
@@ -81,6 +81,58 @@ const ParameterInput = ({
                     </FormControl>
                 )
                 break;
+            case "integer_range":
+                input = (
+                    <Box sx={{width: "150px"}}>
+                    <TextField
+                        id="outlined-number"
+                        type="number"  
+                        variant="standard"
+                        size="small"
+                        sx = {{width: "70px"}}
+                        value={parameter.value[0]}
+                        onChange={(event) => {onChange([parseInt(event.target.value), parameter.value[1]])}}
+                        inputProps={{step: "1", lang:"en-US"}}
+                    />
+                    <TextField
+                        id="outlined-number"
+                        type="number"  
+                        variant="standard"
+                        size="small"
+                        sx = {{width: "70px", marginLeft: "10px"}}
+                        value={parameter.value[1]}
+                        onChange={(event) => {onChange([parameter.value[0], parseInt(event.target.value)])}}
+                        inputProps={{step: "1", lang:"en-US"}}
+                    />
+                    </Box>)
+                break;
+
+            case "float_range":
+                input = (
+                    <Box sx={{width: "150px"}}>
+                    <TextField
+                        id="outlined-number"
+                        type="number"  
+                        variant="standard"
+                        size="small"
+                        sx = {{width: "70px"}}
+                        value={parameter.value[0]}
+                        onChange={(event) => {onChange([parseFloat(event.target.value), parameter.value[1]])}}
+                        inputProps={{step: "0.01", lang:"en-US"}}
+                    />
+                    <TextField
+                        id="outlined-number"
+                        type="number"  
+                        variant="standard"
+                        size="small"
+                        sx = {{width: "70px", marginLeft: "10px"}}
+                        value={parameter.value[1]}
+                        onChange={(event) => {onChange([parameter.value[0], parseFloat(event.target.value)])}}
+                        inputProps={{step: "0.01", lang:"en-US"}}
+                    />
+                    </Box>)
+                break;
+
             default:
                 input = (
                     <Typography>

@@ -12,7 +12,7 @@
             ""
         ]
     },
-    "raw_file_list": {
+    "raw_path_list": {
         "active": true,
         "required": false,
         "path": [
@@ -40,7 +40,7 @@
                 {
                     "id": "reuse_calibration",
                     "name": "Reuse Calibration",
-                    "value": true,
+                    "value": false,
                     "description": "AlphaDIA will save the calibration parameters in the project file. If this option is enabled, the calibration parameters will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
@@ -49,6 +49,13 @@
                     "name": "Reuse Ion Quantities",
                     "value": false,
                     "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantiitative features will be reused for subsequent searches of the same file.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "use_gpu",
+                    "name": "Use GPU",
+                    "value": true,
+                    "description": "AlphaDIA will use the GPU for some processing steps like library prediction and scoring.",
                     "type": "boolean"
                 },
                 {
@@ -75,13 +82,146 @@
             ]
         },
         {
-            "id": "library_loading",
-            "name": "Spectral Library",
+            "id": "library_prediction",
+            "name": "Library prediction",
             "hidden": false,
             "parameters": [
+                {   
+                    "id": "predict",
+                    "name": "Predict Library",
+                    "value": false,
+                    "description": "Use alphaPeptDeep to predict peptide. \n If a FASTA file is provided an in silico digest will be performed. \n If a spectral library is provided precursor properties for library precursor will be performed.",
+                    "type": "boolean"
+                },
+                {   
+                    "id": "enzyme",
+                    "name": "Enzyme",
+                    "value": "trypsin",
+                    "description": "Enzyme used for in-silico digest.",
+                    "type": "dropdown",
+                    "options": [
+                        "arg-c",
+                        "asp-n",
+                        "bnps-skatole",
+                        "caspase 1",
+                        "caspase 2",
+                        "caspase 3",
+                        "caspase 4",
+                        "caspase 5",
+                        "caspase 6",
+                        "caspase 7",
+                        "caspase 8",
+                        "caspase 9",
+                        "caspase 10",
+                        "chymotrypsin high specificity",
+                        "chymotrypsin low specificity",
+                        "chymotrypsin",
+                        "clostripain",
+                        "cnbr",
+                        "enterokinase",
+                        "factor xa",
+                        "formic acid",
+                        "glutamyl endopeptidase",
+                        "glu-c",
+                        "granzyme b",
+                        "hydroxylamine",
+                        "iodosobenzoic acid",
+                        "lys-c",
+                        "lys-n",
+                        "ntcb",
+                        "pepsin ph1.3",
+                        "pepsin ph2.0",
+                        "proline endopeptidase",
+                        "proteinase k",
+                        "staphylococcal peptidase i",
+                        "thermolysin",
+                        "thrombin",
+                        "trypsin_full",
+                        "trypsin_exception",
+                        "trypsin_not_p",
+                        "trypsin",
+                        "trypsin/p",
+                        "non-specific",
+                        "no-cleave"
+                    ]
+                },
+                {
+                    "id": "fixed_modifications",
+                    "name": "Fixed modifications",
+                    "value": "Carbamidomethyl@C",
+                    "description": "Fixed modifications for in-silico digest. \n Format: Name@AminoAcid",
+                    "type": "string"
+                },
+                {
+                    "id": "missed_cleavages",
+                    "name": "Missed cleavages",
+                    "value": 2,
+                    "description": "Number of missed cleavages for in-silico digest.",
+                    "type": "integer"
+                },
+                {   
+                    "id": "precursor_len",
+                    "name": "Precursor length",
+                    "value": [7, 35],
+                    "description": "Number of amino acids of generated precursors.",
+                    "type": "integer_range"
+                },
+                
+                {   
+                    "id": "precursor_charge",
+                    "name": "Precursor charge",
+                    "value": [2, 4],
+                    "description": "Charge states of generated precursors.",
+                    "type": "integer_range"
+                }, 
+                {   
+                    "id": "precursor_mz",
+                    "name": "Precursor mz",
+                    "value": [400.0, 1200.0],
+                    "description": "Size limit for generated precursors.",
+                    "type": "float_range"
+                },
+                {   
+                    "id": "fragment_mz",
+                    "name": "Fragment mz",
+                    "value": [100.0, 2000.0],
+                    "description": "Size limit for generated fragments.",
+                    "type": "float_range"
+                },
+                {
+                    "id": "nce",
+                    "name": "Normalized collision energy",
+                    "value": 25.0,
+                    "description": "Normalized collision energy for fragment generation.",
+                    "type": "float"
+                },
+                {
+                    "id": "instrument",
+                    "name": "Instrument",
+                    "value": "Astral",
+                    "description": "Instrument used for ms2 spectrum prediction.",
+                    "type": "dropdown",
+                    "options": [
+                        "Astral",
+                        "QE",
+                        "timsTOF",
+                        "SciexTOF",
+                        "Fusion",
+                        "Eclipse",
+                        "Velos",
+                        "Elite",
+                        "OrbitrapTribrid",
+                        "ThermoTribrid",
+                        "QE+",
+                        "QEHF",
+                        "QEHFX",
+                        "Exploris",
+                        "Exploris480"
+                    ]
+                },
                 {
                     "id": "save_hdf",
-                    "name": "Save Library",
+                    "name": "Save library as HDF",
                     "value": true,
                     "description": "Store the library as alphaBase HDF file. This will speed up subsequent searches and will include predicted properties.",
                     "type": "boolean"          

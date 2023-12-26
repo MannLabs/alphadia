@@ -36,7 +36,7 @@ function validateWorkflow(workflow) {
     if (!workflow.hasOwnProperty('fasta_list')) {
         throw new Error('Workflow does not have a fasta field.')
     }
-    if (!workflow.hasOwnProperty('raw_file_list')) {
+    if (!workflow.hasOwnProperty('raw_path_list')) {
         throw new Error('Workflow does not have a files field.')
     }
     if (!workflow.hasOwnProperty('config')) {
@@ -60,10 +60,10 @@ function validateWorkflow(workflow) {
     }
 
     // make sure files has the following fields: [active, path]
-    if (!workflow.raw_file_list.hasOwnProperty('active')) {
+    if (!workflow.raw_path_list.hasOwnProperty('active')) {
         throw new Error('Workflow files does not have an active field.')
     }
-    if (!workflow.raw_file_list.hasOwnProperty('path')) {
+    if (!workflow.raw_path_list.hasOwnProperty('path')) {
         throw new Error('Workflow files does not have a path field.')
     }
 
@@ -86,8 +86,8 @@ function workflowToConfig(workflow) {
         output["fasta_list"] = workflow.fasta_list.path
     }
 
-    if (workflow.raw_file_list.path != "") {
-        output["raw_file_list"] = workflow.raw_file_list.path
+    if (workflow.raw_path_list.path != "") {
+        output["raw_path_list"] = workflow.raw_path_list.path
     }
 
     if (workflow.output_directory.path != "") {

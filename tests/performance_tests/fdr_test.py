@@ -31,8 +31,8 @@ parser.add_argument(
 parser.add_argument(
     "--url",
     type=str,
-    default="https://datashare.biochem.mpg.de/s/42iwFDTbJYpZxHW",
-    help="url to the test data, default: https://datashare.biochem.mpg.de/s/42iwFDTbJYpZxHW",
+    default="https://datashare.biochem.mpg.de/s/aGpiFGNP1CcljTY",
+    help="url to the test data, default: https://datashare.biochem.mpg.de/s/aGpiFGNP1CcljTY",
 )
 
 parser.add_argument(

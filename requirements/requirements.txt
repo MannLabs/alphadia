@@ -1,7 +1,7 @@
-click
-alpharaw
+argparse
+alpharaw>=0.3.1
 alphatims
-alphabase
+alphabase>=1.1.2
 peptdeep
 progressbar
 neptune
@@ -9,4 +9,5 @@ seaborn
 rocket_fft
 xxhash
 torchmetrics
-directlfq
+directlfq>=0.2.15
+pythonnet
