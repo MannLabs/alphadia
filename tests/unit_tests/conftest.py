@@ -4,6 +4,9 @@ import re
 from alphadia import data
 
 import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+plt.ioff()
 
 def pytest_configure(config):
     test_data_path = os.environ.get("TEST_DATA_DIR", None)
@@ -29,4 +32,4 @@ def pytest_configure(config):
         pytest.test_data[raw_folder] = raw_files
 
     # important to supress matplotlib output
-    matplotlib.use("Agg")
+    
