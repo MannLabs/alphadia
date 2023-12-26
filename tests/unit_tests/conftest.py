@@ -8,6 +8,7 @@ matplotlib.use("Agg")
 from matplotlib import pyplot as plt
 plt.ioff()
 
+
 def pytest_configure(config):
     test_data_path = os.environ.get("TEST_DATA_DIR", None)
 
