@@ -5,6 +5,7 @@ from alphadia import data
 
 import matplotlib
 
+
 def pytest_configure(config):
     test_data_path = os.environ.get("TEST_DATA_DIR", None)
 
