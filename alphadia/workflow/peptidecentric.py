@@ -732,17 +732,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_df = self.fdr_correction(features_df)
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
-        # enforce fragment exclusivity
-        if not self.config["search"]["reuse_fragments"]:
-            fragment_competition = fragcomp.FragmentCompetition()
-
-            len_before = np.sum(precursor_df["decoy"] == 0)
-            precursor_df = fragment_competition(precursor_df, fragments_df, self.dia_data.cycle)
-            len_after = np.sum(precursor_df["decoy"] == 0)
-            self.reporter.log_string(
-                f"Removed {len_before - len_after} precursor due to competition.",
-                verbosity="info",
-            )
+        
 
         logger.info(f"Removing fragments below FDR threshold")
 
@@ -757,6 +747,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         fragments_df = fragments_df[
             fragments_df["candidate_key"].isin(precursor_df["candidate_key"])
         ]
+
+        # enforce fragment exclusivity
+        if not self.config["search"]["reuse_fragments"]:
+            fragment_competition = fragcomp.FragmentCompetition()
+
+            len_before = np.sum(precursor_df["decoy"] == 0)
+            precursor_df = fragment_competition(precursor_df, fragments_df, self.dia_data.cycle)
+            len_after = np.sum(precursor_df["decoy"] == 0)
+            self.reporter.log_string(
+                f"Removed {len_before - len_after} precursor due to competition.",
+                verbosity="info",
+            )
         
         self.log_precursor_df(precursor_df)
 
