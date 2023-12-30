@@ -31,14 +31,6 @@ import torch
 import numba as nb
 
 
-@nb.njit
-def hash(precursor_idx, rank):
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the rank is the next 8 bits
-    return precursor_idx + (rank << 32)
-
-
 class Plan:
     def __init__(
         self,
@@ -281,20 +273,6 @@ class Plan:
 
                 psm_df, frag_df = workflow.extraction()
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-                logger.info(f"Removing fragments below FDR threshold")
-
-                # to be optimized later
-                frag_df["candidate_key"] = hash(
-                    frag_df["precursor_idx"].values, frag_df["rank"].values
-                )
-                psm_df["candidate_key"] = hash(
-                    psm_df["precursor_idx"].values, psm_df["rank"].values
-                )
-
-                frag_df = frag_df[
-                    frag_df["candidate_key"].isin(psm_df["candidate_key"])
-                ]
 
                 if self.config["multiplexing"]["multiplexed_quant"]:
                     psm_df = workflow.requantify(psm_df)

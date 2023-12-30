@@ -18,6 +18,13 @@ import matplotlib.patches as patches
 
 ISOTOPE_DIFF = 1.0032999999999674
 
+@nb.njit
+def candidate_hash(precursor_idx, rank):
+    # create a 64 bit hash from the precursor_idx, number and type
+    # the precursor_idx is the lower 32 bits
+    # the rank is the next 8 bits
+    return precursor_idx + (rank << 32)
+
 
 def wsl_to_windows(
     path: typing.Union[str, list, tuple]

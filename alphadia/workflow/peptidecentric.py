@@ -6,7 +6,7 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, hybridselection
+from alphadia import plexscoring, hybridselection, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager, base
 
@@ -731,7 +731,34 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         precursor_df = self.fdr_correction(features_df)
 
+        # enforce fragment exclusivity
+        if not self.config["search"]["reuse_fragments"]:
+            fragment_competition = fragcomp.FragmentCompetition()
+
+            len_before = np.sum(fragments_df["decoy"] == 0)
+            precursor_df = fragment_competition(precursor_df, fragments_df, self.dia_data.cycle)
+            len_after = np.sum(fragments_df["decoy"] == 0)
+            self.reporter.log_string(
+                f"Removed {len_before - len_after} precursor due to competition.",
+                verbosity="info",
+            )
+
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        logger.info(f"Removing fragments below FDR threshold")
+
+        # to be optimized later
+        fragments_df["candidate_key"] = utils.candidate_hash(
+            fragments_df["precursor_idx"].values, fragments_df["rank"].values
+        )
+        precursor_df["candidate_key"] = utils.candidate_hash(
+            precursor_df["precursor_idx"].values, precursor_df["rank"].values
+        )
+
+        fragments_df = fragments_df[
+            fragments_df["candidate_key"].isin(precursor_df["candidate_key"])
+        ]
+        
         self.log_precursor_df(precursor_df)
 
         return precursor_df, fragments_df
