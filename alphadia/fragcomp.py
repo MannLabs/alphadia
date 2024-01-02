@@ -1,7 +1,7 @@
 from typing import Any
-from alphadia import data, planning
+from alphadia import data, planning, utils
 from alphadia.workflow import manager, peptidecentric
-from alphatims import utils
+from alphatims import utils as timsutils
 import logging
 import os
 import numpy as np
@@ -46,7 +46,7 @@ def get_fragment_overlap(
     return frag_overlap
 
 
-@utils.pjit
+@timsutils.pjit
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
@@ -180,13 +180,13 @@ class FragmentCompetition(object):
             return psm_df
 
         frag_df["frag_idx"] = np.arange(len(frag_df))
-        index_df = frag_df.groupby("precursor_idx", as_index=False).agg(
+        index_df = frag_df.groupby("_candidate_idx", as_index=False).agg(
             _frag_start_idx=pd.NamedAgg("frag_idx", min),
             _frag_stop_idx=pd.NamedAgg("frag_idx", max),
         )
         index_df["_frag_stop_idx"] += 1
 
-        return psm_df.merge(index_df, "inner", on="precursor_idx")
+        return psm_df.merge(index_df, "inner", on="_candidate_idx")
 
     def add_window_idx(self, psm_df: pd.DataFrame, cycle: np.ndarray):
         """
@@ -248,11 +248,8 @@ class FragmentCompetition(object):
         return index_df
 
     def __call__(
-            self, 
-            psm_df: pd.DataFrame,
-            frag_df: pd.DataFrame,
-            cycle: np.ndarray
-        ) -> pd.DataFrame:
+        self, psm_df: pd.DataFrame, frag_df: pd.DataFrame, cycle: np.ndarray
+    ) -> pd.DataFrame:
         """
         Remove PSMs that share fragments with other PSMs.
 
@@ -273,11 +270,19 @@ class FragmentCompetition(object):
         pd.DataFrame
             The PSM dataframe with the valid column.
         """
+        print(len(psm_df))
+
+        psm_df["_candidate_idx"] = utils.candidate_hash(
+            psm_df["precursor_idx"].values, psm_df["rank"].values
+        )
+        frag_df["_candidate_idx"] = utils.candidate_hash(
+            frag_df["precursor_idx"].values, frag_df["rank"].values
+        )
         psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
         psm_df = self.add_window_idx(psm_df, cycle)
 
-        # important to sort by window_idx and qval
-        psm_df.sort_values(by=["window_idx", "qval"], inplace=True)
+        # important to sort by window_idx and proba
+        psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
         psm_df["valid"] = True
 
         thread_plan_df = self.get_thread_plan_df(psm_df)

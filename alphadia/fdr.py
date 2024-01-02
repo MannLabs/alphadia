@@ -7,6 +7,7 @@ logger = logging.getLogger()
 # alphadia imports
 
 # alpha family imports
+from alphadia import fragcomp
 
 # third party imports
 import pandas as pd
@@ -24,10 +25,14 @@ def perform_fdr(
     available_columns: List[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
+    df_fragments: pd.DataFrame,
     competetive: bool = False,
     group_channels: bool = True,
     figure_path: Optional[str] = None,
     neptune_run=None,
+    reuse_fragments: bool = True,
+    dia_cycle: np.ndarray = None,
+    **kwargs,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -112,7 +117,17 @@ def perform_fdr(
 
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
     psm_df.sort_values("proba", ascending=True, inplace=True)
-    psm_df.reset_index(drop=True, inplace=True)
+    psm_df = get_q_values(psm_df, "proba", "_decoy")
+
+    # make sure fragments are not reused
+    if not reuse_fragments:
+        if dia_cycle is None:
+            raise ValueError("dia_cycle must be provided if reuse_fragments is False")
+        fragment_competition = fragcomp.FragmentCompetition()
+        psm_df = fragment_competition(
+            psm_df[psm_df["qval"] <= 0.1], df_fragments, dia_cycle
+        )
+
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
