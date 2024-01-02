@@ -1660,8 +1660,6 @@ class CandidateScoring:
         df["precursor_idx"] = precursor_idx
         df["rank"] = rank
 
-        print(df["rank"].value_counts())
-
         # join candidate columns
         candidate_df_columns = [
             "elution_group_idx",
@@ -1815,7 +1813,6 @@ class CandidateScoring:
 
         fragment_container = self.assemble_fragments()
         validate.candidates_df(candidates_df)
-        print("candidates_df rank", candidates_df["rank"].value_counts())
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         n_candidates = score_group_container.get_candidate_count()
@@ -1848,7 +1845,6 @@ class CandidateScoring:
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
         validate.fragment_features_df(fragment_features_df)
-        print(len(fragment_features_df))
         fragment_features_df
 
         logger.info("Finished candidate scoring")
