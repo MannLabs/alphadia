@@ -136,7 +136,7 @@ def compete_for_fragments(
 
 
 class FragmentCompetition(object):
-    def __init__(self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15):
+    def __init__(self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8):
         """
         Remove PSMs that share fragments with other PSMs.
 
@@ -152,6 +152,7 @@ class FragmentCompetition(object):
         """
         self.rt_tol_seconds = rt_tol_seconds
         self.mass_tol_ppm = mass_tol_ppm
+        self.thread_count = thread_count
 
     def add_frag_start_stop_idx(self, psm_df: pd.DataFrame, frag_df: pd.DataFrame):
         """
@@ -270,7 +271,7 @@ class FragmentCompetition(object):
         pd.DataFrame
             The PSM dataframe with the valid column.
         """
-        print(len(psm_df))
+        print('hash candidate idx', flush=True)
 
         psm_df["_candidate_idx"] = utils.candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
@@ -278,14 +279,22 @@ class FragmentCompetition(object):
         frag_df["_candidate_idx"] = utils.candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
+        print('add frag start stop idx', flush=True)
         psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
+        print('add window idx', flush=True)
         psm_df = self.add_window_idx(psm_df, cycle)
 
         # important to sort by window_idx and proba
         psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
         psm_df["valid"] = True
 
+        timsutils.set_threads(self.thread_count)
+
+        print('get thread plan df', flush=True)
+
         thread_plan_df = self.get_thread_plan_df(psm_df)
+
+        print('compete for fragments', flush=True)
         compete_for_fragments(
             np.arange(len(thread_plan_df)),
             thread_plan_df["start_idx"].values,
