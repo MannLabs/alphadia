@@ -65,6 +65,7 @@ def test_fragment_competition():
             "valid": np.array([True] * 6),
             "mz_observed": np.array([100, 100, 100, 200, 200, 200]),
             "qval": np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]),
+            "rank": np.zeros(6),
         }
     )
 
