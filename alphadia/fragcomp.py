@@ -45,8 +45,6 @@ def get_fragment_overlap(
     frag_overlap = np.sum(ppm_delta_mz < mass_tol_ppm)
     return frag_overlap
 
-
-@timsutils.pjit
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
@@ -295,16 +293,18 @@ class FragmentCompetition(object):
         thread_plan_df = self.get_thread_plan_df(psm_df)
 
         print('compete for fragments', flush=True)
-        compete_for_fragments(
-            np.arange(len(thread_plan_df)),
-            thread_plan_df["start_idx"].values,
-            thread_plan_df["stop_idx"].values,
-            psm_df["rt_observed"].values,
-            psm_df["valid"].values,
-            psm_df["_frag_start_idx"].values,
-            psm_df["_frag_stop_idx"].values,
-            frag_df["mz_observed"].values,
-        )
+
+        for i in range(len(thread_plan_df)):
+            compete_for_fragments(
+                i,
+                thread_plan_df["start_idx"].values,
+                thread_plan_df["stop_idx"].values,
+                psm_df["rt_observed"].values,
+                psm_df["valid"].values,
+                psm_df["_frag_start_idx"].values,
+                psm_df["_frag_stop_idx"].values,
+                frag_df["mz_observed"].values,
+            )
 
         # clean up
         psm_df.drop(
