@@ -323,7 +323,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         # if self.neptune is not None:
         #    self.neptune["eval/epoch"].log(current_epoch)
 
-        self.elution_group_order = self.spectral_library.precursor_df["elution_group_idx"].unique()
+        self.elution_group_order = self.spectral_library.precursor_df[
+            "elution_group_idx"
+        ].unique()
         np.random.shuffle(self.elution_group_order)
 
         self.calibration_manager.predict(
