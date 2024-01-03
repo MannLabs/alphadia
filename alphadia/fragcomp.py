@@ -45,6 +45,7 @@ def get_fragment_overlap(
     frag_overlap = np.sum(ppm_delta_mz < mass_tol_ppm)
     return frag_overlap
 
+@timsutils.pjit
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
@@ -134,7 +135,9 @@ def compete_for_fragments(
 
 
 class FragmentCompetition(object):
-    def __init__(self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8):
+    def __init__(
+        self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8
+    ):
         """
         Remove PSMs that share fragments with other PSMs.
 
@@ -269,17 +272,38 @@ class FragmentCompetition(object):
         pd.DataFrame
             The PSM dataframe with the valid column.
         """
-        print('hash candidate idx', flush=True)
 
         psm_df["_candidate_idx"] = utils.candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
         )
+        len_before = len(psm_df)
+        # remove duplicate candidate idxs
+        psm_df.drop_duplicates(subset=["_candidate_idx"], inplace=True)
+        len_after = len(psm_df)
+        if len_before != len_after:
+            logging.warning(
+                f"Removed {len_before - len_after} PSMs with duplicate candidate idxs."
+            )
+
         frag_df["_candidate_idx"] = utils.candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
-        print('add frag start stop idx', flush=True)
+        frag_df["_ion_idx"] = utils.extended_ion_hash(
+            frag_df["precursor_idx"].values,
+            frag_df["rank"].values,
+            frag_df["number"].values,
+            frag_df["type"].values,
+            frag_df["charge"].values,
+        )
+        len_before = len(frag_df)
+        frag_df.drop_duplicates(subset=["_ion_idx"], inplace=True)
+        len_after = len(frag_df)
+        if len_before != len_after:
+            logging.warning(
+                f"Removed {len_before - len_after} fragments with duplicate ion idxs."
+            )
+
         psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
-        print('add window idx', flush=True)
         psm_df = self.add_window_idx(psm_df, cycle)
 
         # important to sort by window_idx and proba
@@ -287,24 +311,18 @@ class FragmentCompetition(object):
         psm_df["valid"] = True
 
         timsutils.set_threads(self.thread_count)
-
-        print('get thread plan df', flush=True)
-
         thread_plan_df = self.get_thread_plan_df(psm_df)
 
-        print('compete for fragments', flush=True)
-
-        for i in range(len(thread_plan_df)):
-            compete_for_fragments(
-                i,
-                thread_plan_df["start_idx"].values,
-                thread_plan_df["stop_idx"].values,
-                psm_df["rt_observed"].values,
-                psm_df["valid"].values,
-                psm_df["_frag_start_idx"].values,
-                psm_df["_frag_stop_idx"].values,
-                frag_df["mz_observed"].values,
-            )
+        compete_for_fragments(
+            np.arange(len(thread_plan_df)),
+            thread_plan_df["start_idx"].values,
+            thread_plan_df["stop_idx"].values,
+            psm_df["rt_observed"].values,
+            psm_df["valid"].values,
+            psm_df["_frag_start_idx"].values,
+            psm_df["_frag_stop_idx"].values,
+            frag_df["mz_observed"].values,
+        )
 
         # clean up
         psm_df.drop(
