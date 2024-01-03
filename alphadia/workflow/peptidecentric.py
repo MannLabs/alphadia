@@ -323,11 +323,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         # if self.neptune is not None:
         #    self.neptune["eval/epoch"].log(current_epoch)
 
-        self.elution_group_order = (
-            self.spectral_library.precursor_df["elution_group_idx"]
-            .sample(frac=1)
-            .values
-        )
+        self.elution_group_order = self.spectral_library.precursor_df["elution_group_idx"].unique()
+        np.random.shuffle(self.elution_group_order)
 
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
@@ -472,7 +469,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="progress",
                 )
                 precursor_df = self.fdr_correction(features_df, fragments_df)
-                # precursor_df = self.fdr_correction(precursor_df)
 
                 if self.check_recalibration(precursor_df):
                     self.recalibration(precursor_df, fragments_df)
@@ -710,11 +706,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return features_df, fragments_df
 
     def extraction(self):
-        # if self.neptune is not None:
-        #    for key, value in self.com.__dict__.items():
-        #        if key is not None:
-        #            self.neptune[f"eval/{key}"].log(value)
-
         self.com.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],

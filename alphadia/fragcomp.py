@@ -150,10 +150,14 @@ class FragmentCompetition(object):
         mass_tol_ppm: int
             The mass tolerance in ppm.
 
+        thread_count: int
+            The number of threads to use.
+
         """
         self.rt_tol_seconds = rt_tol_seconds
         self.mass_tol_ppm = mass_tol_ppm
         self.thread_count = thread_count
+        
 
     def add_frag_start_stop_idx(self, psm_df: pd.DataFrame, frag_df: pd.DataFrame):
         """
@@ -276,32 +280,9 @@ class FragmentCompetition(object):
         psm_df["_candidate_idx"] = utils.candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
         )
-        len_before = len(psm_df)
-        # remove duplicate candidate idxs
-        psm_df.drop_duplicates(subset=["_candidate_idx"], inplace=True)
-        len_after = len(psm_df)
-        if len_before != len_after:
-            logging.warning(
-                f"Removed {len_before - len_after} PSMs with duplicate candidate idxs."
-            )
-
         frag_df["_candidate_idx"] = utils.candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
-        frag_df["_ion_idx"] = utils.extended_ion_hash(
-            frag_df["precursor_idx"].values,
-            frag_df["rank"].values,
-            frag_df["number"].values,
-            frag_df["type"].values,
-            frag_df["charge"].values,
-        )
-        len_before = len(frag_df)
-        frag_df.drop_duplicates(subset=["_ion_idx"], inplace=True)
-        len_after = len(frag_df)
-        if len_before != len_after:
-            logging.warning(
-                f"Removed {len_before - len_after} fragments with duplicate ion idxs."
-            )
 
         psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
         psm_df = self.add_window_idx(psm_df, cycle)
