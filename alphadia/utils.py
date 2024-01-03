@@ -18,12 +18,14 @@ import matplotlib.patches as patches
 
 ISOTOPE_DIFF = 1.0032999999999674
 
+
 @nb.njit
 def candidate_hash(precursor_idx, rank):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
     # the rank is the next 8 bits
     return precursor_idx + (rank << 32)
+
 
 @nb.njit
 def ion_hash(precursor_idx, number, type, charge):
@@ -34,6 +36,7 @@ def ion_hash(precursor_idx, number, type, charge):
     # the last 8 bits are used to distinguish between different charges of the same precursor
     # this is necessary because I forgot to save the charge in the frag.tsv file :D
     return precursor_idx + (number << 32) + (type << 40) + (charge << 48)
+
 
 @nb.njit
 def extended_ion_hash(precursor_idx, rank, number, type, charge):

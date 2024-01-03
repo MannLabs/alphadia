@@ -45,6 +45,7 @@ def get_fragment_overlap(
     frag_overlap = np.sum(ppm_delta_mz < mass_tol_ppm)
     return frag_overlap
 
+
 @timsutils.pjit
 def compete_for_fragments(
     thread_idx: int,
@@ -157,7 +158,6 @@ class FragmentCompetition(object):
         self.rt_tol_seconds = rt_tol_seconds
         self.mass_tol_ppm = mass_tol_ppm
         self.thread_count = thread_count
-        
 
     def add_frag_start_stop_idx(self, psm_df: pd.DataFrame, frag_df: pd.DataFrame):
         """

@@ -29,9 +29,6 @@ import logging
 logger = logging.getLogger()
 
 
-
-
-
 def get_frag_df_generator(folder_list: List[str]):
     """Return a generator that yields a tuple of (raw_name, frag_df)
 
