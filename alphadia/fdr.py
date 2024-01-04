@@ -29,7 +29,6 @@ def perform_fdr(
     group_channels: bool = True,
     figure_path: Optional[str] = None,
     neptune_run=None,
-
     df_fragments: Union[pd.DataFrame, None] = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,

@@ -491,7 +491,6 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        
         decoy_strategy: typing.Literal[
             "precursor", "precursor_channel_wise", "channel"
         ] = "precursor",

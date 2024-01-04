@@ -635,7 +635,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self.config["fdr"]["channel_wise_fdr"]
             else "precursor",
             competetive=self.config["fdr"]["competetive_scoring"],
-            df_fragments=df_fragments if self.config["search"]["compete_for_fragments"] else None,
+            df_fragments=df_fragments
+            if self.config["search"]["compete_for_fragments"]
+            else None,
             dia_cycle=self.dia_data.cycle,
             # neptune_run=self.neptune
         )
