@@ -39,13 +39,26 @@ import argparse
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
 parser.add_argument(
-    "--version", "-v", action="store_true", help="Print version and exit",
+    "--version",
+    "-v",
+    action="store_true",
+    help="Print version and exit",
 )
 parser.add_argument(
-    "--output", "-o", type=str, help="Output directory", nargs="?", default=None,
+    "--output",
+    "-o",
+    type=str,
+    help="Output directory",
+    nargs="?",
+    default=None,
 )
 parser.add_argument(
-    "--file", "-f", type=str, help="Raw data input files.", action="append", default=[],
+    "--file",
+    "-f",
+    type=str,
+    help="Raw data input files.",
+    action="append",
+    default=[],
 )
 parser.add_argument(
     "--directory",
@@ -64,7 +77,12 @@ parser.add_argument(
     default=".*",
 )
 parser.add_argument(
-    "--library", "-l", type=str, help="Spectral library.", nargs="?", default=None,
+    "--library",
+    "-l",
+    type=str,
+    help="Spectral library.",
+    nargs="?",
+    default=None,
 )
 parser.add_argument(
     "--fasta",
