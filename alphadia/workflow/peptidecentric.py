@@ -631,12 +631,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def fdr_correction(self, features_df, df_fragments):
         return self.fdr_manager.fit_predict(
             features_df,
-            df_fragments,
             decoy_strategy="precursor_channel_wise"
             if self.config["fdr"]["channel_wise_fdr"]
             else "precursor",
             competetive=self.config["fdr"]["competetive_scoring"],
-            reuse_fragments=self.config["search"]["reuse_fragments"],
+            df_fragments=df_fragments if self.config["search"]["compete_for_fragments"] else None,
             dia_cycle=self.dia_data.cycle,
             # neptune_run=self.neptune
         )

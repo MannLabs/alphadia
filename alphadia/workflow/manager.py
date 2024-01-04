@@ -491,12 +491,12 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        df_fragments: pd.DataFrame,
+        
         decoy_strategy: typing.Literal[
             "precursor", "precursor_channel_wise", "channel"
         ] = "precursor",
         competetive: bool = True,
-        reuse_fragments: bool = True,
+        df_fragments: typing.Union[None, pd.DataFrame] = None,
         dia_cycle: typing.Union[None, np.ndarray] = None,
         decoy_channel: int = -1,
     ):
@@ -548,10 +548,9 @@ class FDRManager(BaseManager):
                 available_columns,
                 features_df[features_df["decoy"] == 0].copy(),
                 features_df[features_df["decoy"] == 1].copy(),
-                df_fragments,
                 competetive=competetive,
                 group_channels=True,
-                reuse_fragments=reuse_fragments,
+                df_fragments=df_fragments,
                 dia_cycle=dia_cycle,
                 figure_path=self.figure_path,
             )
@@ -568,10 +567,9 @@ class FDRManager(BaseManager):
                         available_columns,
                         channel_df[channel_df["decoy"] == 0].copy(),
                         channel_df[channel_df["decoy"] == 1].copy(),
-                        df_fragments,
                         competetive=competetive,
                         group_channels=True,
-                        reuse_fragments=reuse_fragments,
+                        df_fragments=df_fragments,
                         dia_cycle=dia_cycle,
                         figure_path=self.figure_path,
                     )
@@ -590,7 +588,6 @@ class FDRManager(BaseManager):
                         available_columns,
                         channel_df[channel_df["channel"] != decoy_channel].copy(),
                         channel_df[channel_df["channel"] == decoy_channel].copy(),
-                        df_fragments,
                         competetive=competetive,
                         group_channels=False,
                         reuse_fragments=True,

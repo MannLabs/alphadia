@@ -25,12 +25,12 @@ def perform_fdr(
     available_columns: List[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
-    df_fragments: pd.DataFrame,
     competetive: bool = False,
     group_channels: bool = True,
     figure_path: Optional[str] = None,
     neptune_run=None,
-    reuse_fragments: bool = True,
+
+    df_fragments: Union[pd.DataFrame, None] = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
     **kwargs,
@@ -142,7 +142,7 @@ def perform_fdr(
         start_idx = len(psm_df)
 
     # make sure fragments are not reused
-    if not reuse_fragments:
+    if not df_fragments is None:
         if dia_cycle is None:
             raise ValueError("dia_cycle must be provided if reuse_fragments is False")
         fragment_competition = fragcomp.FragmentCompetition()
