@@ -4,7 +4,7 @@ import os
 
 logger = logging.getLogger()
 
-from alphadia import grouping, libtransform
+from alphadia import grouping, libtransform, utils
 from alphadia import fdr
 
 import pandas as pd
@@ -27,17 +27,6 @@ import directlfq.config as lfqconfig
 import logging
 
 logger = logging.getLogger()
-
-
-@nb.njit
-def hash(precursor_idx, number, type, charge):
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the number is the next 8 bits
-    # the type is the next 8 bits
-    # the last 8 bits are used to distinguish between different charges of the same precursor
-    # this is necessary because I forgot to save the charge in the frag.tsv file :D
-    return precursor_idx + (number << 32) + (type << 40) + (charge << 48)
 
 
 def get_frag_df_generator(folder_list: List[str]):
@@ -284,7 +273,7 @@ class QuantBuilder:
 
 def prepare_df(df, psm_df, column="height"):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
-    df["ion"] = hash(
+    df["ion"] = utils.ion_hash(
         df["precursor_idx"].values,
         df["number"].values,
         df["type"].values,

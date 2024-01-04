@@ -7,6 +7,7 @@ logger = logging.getLogger()
 # alphadia imports
 
 # alpha family imports
+from alphadia import fragcomp
 
 # third party imports
 import pandas as pd
@@ -28,6 +29,10 @@ def perform_fdr(
     group_channels: bool = True,
     figure_path: Optional[str] = None,
     neptune_run=None,
+    df_fragments: Union[pd.DataFrame, None] = None,
+    dia_cycle: np.ndarray = None,
+    fdr_heuristic: float = 0.1,
+    **kwargs,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -51,6 +56,21 @@ def perform_fdr(
 
     group_channels : bool
         Whether to group PSMs by channel before performing competetive FDR calculation
+
+    figure_path : str, default=None
+        The path to save the FDR plot to
+
+    neptune_run : neptune.run.Run, default=None
+        The neptune run to log the FDR plot to
+
+    reuse_fragments : bool, default=True
+        Whether to reuse fragments for different precursors
+
+    dia_cycle : np.ndarray, default=None
+        The DIA cycle as provided by alphatims
+
+    fdr_heuristic : float, default=0.1
+        The FDR heuristic to use for the initial selection of PSMs before fragment competition
 
     Returns
     -------
@@ -112,7 +132,21 @@ def perform_fdr(
 
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
     psm_df.sort_values("proba", ascending=True, inplace=True)
-    psm_df.reset_index(drop=True, inplace=True)
+    psm_df = get_q_values(psm_df, "proba", "_decoy")
+
+    # use a FDR of 10% as starting point
+    # if there are no PSMs with a FDR < 10% use all PSMs
+    start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
+    if start_idx == 0:
+        start_idx = len(psm_df)
+
+    # make sure fragments are not reused
+    if not df_fragments is None:
+        if dia_cycle is None:
+            raise ValueError("dia_cycle must be provided if reuse_fragments is False")
+        fragment_competition = fragcomp.FragmentCompetition()
+        psm_df = fragment_competition(psm_df.iloc[:start_idx], df_fragments, dia_cycle)
+
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 

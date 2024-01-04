@@ -40,6 +40,7 @@ library_prediction:
 search:
   channel_filter: '0'
   exclude_shared_ions: True
+  compete_for_fragments: True
 
   target_num_candidates: 2
   target_ms1_tolerance: 15

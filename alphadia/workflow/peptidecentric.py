@@ -6,7 +6,7 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, hybridselection
+from alphadia import plexscoring, hybridselection, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager, base
 
@@ -189,6 +189,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             (self.spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
             & (self.spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
         ]
+        self.spectral_library.remove_unused_fragments()
         precursor_after = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
         precursor_removed = precursor_before - precursor_after
         self.reporter.log_string(
@@ -323,11 +324,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         # if self.neptune is not None:
         #    self.neptune["eval/epoch"].log(current_epoch)
 
-        self.elution_group_order = (
-            self.spectral_library.precursor_df["elution_group_idx"]
-            .sample(frac=1)
-            .values
-        )
+        self.elution_group_order = self.spectral_library.precursor_df[
+            "elution_group_idx"
+        ].unique()
+        np.random.shuffle(self.elution_group_order)
 
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
@@ -471,8 +471,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     f"=== Epoch {self.com.current_epoch}, step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
                     verbosity="progress",
                 )
-                precursor_df = self.fdr_correction(features_df)
-                # precursor_df = self.fdr_correction(precursor_df)
+                precursor_df = self.fdr_correction(features_df, fragments_df)
 
                 if self.check_recalibration(precursor_df):
                     self.recalibration(precursor_df, fragments_df)
@@ -499,7 +498,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 features_df, fragments_df = self.extract_batch(
                     self.spectral_library._precursor_df
                 )
-                precursor_df = self.fdr_correction(features_df)
+                precursor_df = self.fdr_correction(features_df, fragments_df)
                 self.recalibration(precursor_df, fragments_df)
 
         self.end_of_calibration()
@@ -629,13 +628,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return perform_recalibration
 
-    def fdr_correction(self, features_df):
+    def fdr_correction(self, features_df, df_fragments):
         return self.fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor_channel_wise"
             if self.config["fdr"]["channel_wise_fdr"]
             else "precursor",
             competetive=self.config["fdr"]["competetive_scoring"],
+            df_fragments=df_fragments
+            if self.config["search"]["compete_for_fragments"]
+            else None,
+            dia_cycle=self.dia_data.cycle,
             # neptune_run=self.neptune
         )
 
@@ -699,17 +702,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         features_df, fragments_df = candidate_scoring(
-            candidates_df, thread_count=self.config["general"]["thread_count"]
+            candidates_df,
+            thread_count=self.config["general"]["thread_count"],
+            include_decoy_fragment_features=True,
         )
 
         return features_df, fragments_df
 
     def extraction(self):
-        # if self.neptune is not None:
-        #    for key, value in self.com.__dict__.items():
-        #        if key is not None:
-        #            self.neptune[f"eval/{key}"].log(value)
-
         self.com.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],
@@ -729,9 +729,23 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         features_df, fragments_df = self.extract_batch(
             self.spectral_library._precursor_df
         )
-        precursor_df = self.fdr_correction(features_df)
-
+        precursor_df = self.fdr_correction(features_df, fragments_df)
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        logger.info(f"Removing fragments below FDR threshold")
+
+        # to be optimized later
+        fragments_df["candidate_idx"] = utils.candidate_hash(
+            fragments_df["precursor_idx"].values, fragments_df["rank"].values
+        )
+        precursor_df["candidate_idx"] = utils.candidate_hash(
+            precursor_df["precursor_idx"].values, precursor_df["rank"].values
+        )
+
+        fragments_df = fragments_df[
+            fragments_df["candidate_idx"].isin(precursor_df["candidate_idx"])
+        ]
+
         self.log_precursor_df(precursor_df)
 
         return precursor_df, fragments_df
