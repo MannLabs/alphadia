@@ -230,7 +230,7 @@
         },
         {
             "id": "search",
-            "name": "Initial Search",
+            "name": "Search",
             "hidden": false,
             "parameters": [
                 {
@@ -250,21 +250,21 @@
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
-                    "value": 5,
+                    "value": 2,
                     "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },
                 {
                     "id": "target_ms1_tolerance",
                     "name": "MS1 Tolerance",
-                    "value": 15,
+                    "value": 5,
                     "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
                     "id": "target_ms2_tolerance",
                     "name": "MS2 Tolerance",
-                    "value": 15,
+                    "value": 10,
                     "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
@@ -278,7 +278,7 @@
                 {
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 60,
+                    "value": 100,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 }
@@ -331,7 +331,7 @@
             ]
         },
         {
-            "id": "extraction_initial",
+            "id": "search_initial",
             "name": "Initial Search Settings",
             "hidden": true,
             "parameters": [
