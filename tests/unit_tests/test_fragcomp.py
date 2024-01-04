@@ -73,7 +73,7 @@ def test_fragment_competition():
         {
             "precursor_idx": np.repeat(np.arange(6, dtype=np.uint32), 10),
             "mz_observed": np.tile(np.arange(100, 110), 6),
-            "rank":np.zeros(60, dtype=np.uint8),
+            "rank": np.zeros(60, dtype=np.uint8),
         }
     )
 
