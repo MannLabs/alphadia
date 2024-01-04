@@ -60,19 +60,20 @@ def test_fragment_competition():
 
     psm_df = pd.DataFrame(
         {
-            "precursor_idx": np.arange(6),
+            "precursor_idx": np.arange(6, dtype=np.uint32),
             "rt_observed": np.array([10.0, 20.0, 20.0, 10.0, 10.0, 20]),
             "valid": np.array([True] * 6),
             "mz_observed": np.array([100, 100, 100, 200, 200, 200]),
-            "qval": np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]),
-            "rank": np.zeros(6),
+            "proba": np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]),
+            "rank": np.zeros(6, dtype=np.uint8),
         }
     )
 
     frag_df = pd.DataFrame(
         {
-            "precursor_idx": np.repeat(np.arange(6), 10),
+            "precursor_idx": np.repeat(np.arange(6, dtype=np.uint32), 10),
             "mz_observed": np.tile(np.arange(100, 110), 6),
+            "rank":np.zeros(60, dtype=np.uint8),
         }
     )
 
