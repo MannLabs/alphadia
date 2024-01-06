@@ -110,7 +110,7 @@ fdr:
   competetive_scoring: true
   keep_decoys: false
   channel_wise_fdr: false
-  library_grouping: false
+  inference_strategy: "heuristic"
 
 search_output:
   min_k_fragments: 3

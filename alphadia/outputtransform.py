@@ -348,7 +348,7 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self.build_precursor_table(folder_list, save=False)
+        psm_df = self.build_precursor_table(folder_list, save=False, base_spec_lib=base_spec_lib)
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_protein_table(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
@@ -379,7 +379,7 @@ class SearchPlanOutput:
         )
         return psm_df
 
-    def build_precursor_table(self, folder_list: List[str], save: bool = True):
+    def build_precursor_table(self, folder_list: List[str], save: bool = True, base_spec_lib: base.SpecLibBase = None):
         """Build precursor table from a list of seach outputs
 
         Parameters
@@ -427,14 +427,38 @@ class SearchPlanOutput:
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
 
-        logger.info("Performing protein grouping")
-        if self.config["fdr"]["library_grouping"]:
+        if base_spec_lib is not None:
+            psm_df = psm_df.merge(
+                base_spec_lib.precursor_df[["precursor_idx", "cardinality"]],
+                on="precursor_idx",
+                how="left",
+            )
+
+        logger.info("Performing protein inference")
+        
+        if self.config["fdr"]["inference_strategy"] == "library":
+            logger.info("Inference strategy: library. Using library grouping for protein inference")
+
             psm_df["pg"] = psm_df[self.config["fdr"]["group_level"]]
             psm_df["pg_master"] = psm_df[self.config["fdr"]["group_level"]]
-        else:
+
+        elif self.config["fdr"]["inference_strategy"] == "maximum_parsimony":
+            logger.info("Inference strategy: maximum_parsimony. Using maximum parsimony for protein inference")
+
             psm_df = grouping.perform_grouping(
-                psm_df, genes_or_proteins=self.config["fdr"]["group_level"]
+                psm_df, genes_or_proteins=self.config["fdr"]["group_level"], group=False
             )
+
+        elif self.config["fdr"]["inference_strategy"] == "heuristic":
+            logger.info("Inference strategy: heuristic. Using maximum parsimony with grouping for protein inference")
+
+            psm_df = grouping.perform_grouping(
+                psm_df, genes_or_proteins=self.config["fdr"]["group_level"], group=True
+            )
+
+        else:
+            raise ValueError(f"Unknown inference strategy: {self.config['fdr']['inference_strategy']}. Valid options are 'library', 'maximum_parsimony' and 'heuristic'")
+        
 
         logger.info("Performing protein FDR")
         psm_df = perform_protein_fdr(psm_df)
@@ -675,6 +699,7 @@ def perform_protein_fdr(psm_df):
     for _, group in psm_df.groupby(["pg", "decoy"]):
         protein_features.append(
             {
+                "pg": group["pg"].iloc[0],
                 "genes": group["genes"].iloc[0],
                 "proteins": group["proteins"].iloc[0],
                 "decoy": group["decoy"].iloc[0],
@@ -727,16 +752,16 @@ def perform_protein_fdr(psm_df):
         [
             psm_df[psm_df["decoy"] == 0].merge(
                 protein_features[protein_features["decoy"] == 0][
-                    ["proteins", "pg_qval"]
+                    ["pg", "pg_qval"]
                 ],
-                on="proteins",
+                on="pg",
                 how="left",
             ),
             psm_df[psm_df["decoy"] == 1].merge(
                 protein_features[protein_features["decoy"] == 1][
-                    ["proteins", "pg_qval"]
+                    ["pg", "pg_qval"]
                 ],
-                on="proteins",
+                on="pg",
                 how="left",
             ),
         ]
