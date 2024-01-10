@@ -50,6 +50,9 @@ def _mock_precursor_df(
             "decoy": decoy,
             "proba": proba,
             "qval": qval,
+            "sequence": ["AAAAAA"] * n_precursor,
+            "mods": [""] * n_precursor,
+            "mod_sites": [""] * n_precursor,
         }
     )
 
@@ -121,7 +124,7 @@ def test_output_transform():
         },
         "fdr": {
             "fdr": 0.01,
-            "library_grouping": False,
+            "inference_strategy": "heuristic",
             "group_level": "proteins",
             "keep_decoys": False,
         },
@@ -130,6 +133,7 @@ def test_output_transform():
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
+            "normalize_lfq": True,
         },
     }
 
@@ -160,7 +164,7 @@ def test_output_transform():
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
     _ = output.build_stat_df(raw_folders, save=True)
-    _ = output.build_protein_table(raw_folders, save=True)
+    _ = output.build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
     psm_df = pd.read_csv(
@@ -193,9 +197,7 @@ def test_output_transform():
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
-    protein_df = pd.read_csv(
-        os.path.join(temp_folder, f"{output.PG_OUTPUT}.tsv"), sep="\t"
-    )
+    protein_df = pd.read_csv(os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t")
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:

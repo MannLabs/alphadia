@@ -13,6 +13,7 @@ from alphadia.workflow import reporting
 
 # third party imports
 import pandas as pd
+import numpy as np
 import xxhash
 
 
@@ -494,6 +495,8 @@ class FDRManager(BaseManager):
             "precursor", "precursor_channel_wise", "channel"
         ] = "precursor",
         competetive: bool = True,
+        df_fragments: typing.Union[None, pd.DataFrame] = None,
+        dia_cycle: typing.Union[None, np.ndarray] = None,
         decoy_channel: int = -1,
     ):
         """Update the parameters dict with the values in update_dict."""
@@ -546,6 +549,8 @@ class FDRManager(BaseManager):
                 features_df[features_df["decoy"] == 1].copy(),
                 competetive=competetive,
                 group_channels=True,
+                df_fragments=df_fragments,
+                dia_cycle=dia_cycle,
                 figure_path=self.figure_path,
             )
         elif decoy_strategy == "precursor_channel_wise":
@@ -563,6 +568,8 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["decoy"] == 1].copy(),
                         competetive=competetive,
                         group_channels=True,
+                        df_fragments=df_fragments,
+                        dia_cycle=dia_cycle,
                         figure_path=self.figure_path,
                     )
                 )
@@ -582,6 +589,7 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["channel"] == decoy_channel].copy(),
                         competetive=competetive,
                         group_channels=False,
+                        reuse_fragments=True,
                         figure_path=self.figure_path,
                     )
                 )

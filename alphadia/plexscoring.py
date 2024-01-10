@@ -472,6 +472,7 @@ class Candidate:
         debug,
     ) -> None:
         psm_proto_df.precursor_idx[self.output_idx] = self.precursor_idx
+        psm_proto_df.rank[self.output_idx] = self.rank
 
         isotope_mz = self.assemble_isotope_mz(config)
 
@@ -1510,10 +1511,6 @@ class CandidateScoring:
             how="left",
         )
 
-        # check if rank column is present
-        if not "rank" in candidates_df.columns:
-            candidates_df["rank"] = np.zeros(len(candidates_df), dtype=np.uint8)
-
         # check if channel column is present
         if not "channel" in candidates_df.columns:
             candidates_df["channel"] = np.zeros(len(candidates_df), dtype=np.uint8)
@@ -1778,7 +1775,13 @@ class CandidateScoring:
 
         return df
 
-    def __call__(self, candidates_df, thread_count=10, debug=False):
+    def __call__(
+        self,
+        candidates_df,
+        thread_count=10,
+        debug=False,
+        include_decoy_fragment_features=False,
+    ):
         """Calculate features for each precursor candidate used for scoring.
 
         Parameters
@@ -1793,6 +1796,9 @@ class CandidateScoring:
         debug : bool, default=False
             Process only the first 10 elution groups and display full debug information.
 
+        include_decoy_fragment_features : bool, default=False
+            Include fragment features for decoy candidates.
+
         Returns
         -------
 
@@ -1806,69 +1812,44 @@ class CandidateScoring:
         logger.info("Starting candidate scoring")
 
         fragment_container = self.assemble_fragments()
-
-        candidate_features_list = []
-
         validate.candidates_df(candidates_df)
 
-        for decoy in [False, True]:
-            candidates_view_df = candidates_df[
-                candidates_df["decoy"] == (1 if decoy else 0)
-            ]
-            self.config.collect_fragments = not decoy
+        score_group_container = self.assemble_score_group_container(candidates_df)
+        n_candidates = score_group_container.get_candidate_count()
+        psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
 
-            if decoy:
-                logger.info(f"Processing {len(candidates_view_df)} decoy candidates")
-            else:
-                logger.info(f"Processing {len(candidates_view_df)} target candidates")
+        # if debug mode, only iterate over 10 elution groups
+        iterator_len = (
+            min(10, len(score_group_container)) if debug else len(score_group_container)
+        )
+        thread_count = 1 if debug else thread_count
 
-            score_group_container = self.assemble_score_group_container(
-                candidates_view_df
-            )
+        alphatims.utils.set_threads(thread_count)
+        _executor(
+            range(iterator_len),
+            score_group_container,
+            psm_proto_df,
+            fragment_container,
+            self.dia_data,
+            self.config.jitclass(),
+            self.quadrupole_calibration.jit,
+            debug,
+        )
 
-            # build output containers
-            n_candidates = score_group_container.get_candidate_count()
-            if not decoy:
-                psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
-            else:
-                psm_proto_df = OuptutPsmDF(n_candidates, 0)
+        logger.info("Finished candidate processing")
+        logger.info("Collecting candidate features")
+        candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
+        validate.candidate_features_df(candidate_features_df)
+        candidate_features_df
 
-            # if debug mode, only iterate over 10 elution groups
-            iterator_len = (
-                min(10, len(score_group_container))
-                if debug
-                else len(score_group_container)
-            )
-            thread_count = 1 if debug else thread_count
-
-            alphatims.utils.set_threads(thread_count)
-            _executor(
-                range(iterator_len),
-                score_group_container,
-                psm_proto_df,
-                fragment_container,
-                self.dia_data,
-                self.config.jitclass(),
-                self.quadrupole_calibration.jit,
-                debug,
-            )
-
-            logger.info("Finished candidate processing")
-            logger.info("Collecting candidate features")
-            candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
-            validate.candidate_features_df(candidate_features_df)
-            candidate_features_list += [candidate_features_df]
-
-            if not decoy:
-                logger.info("Collecting fragment features")
-                fragment_features_df = self.collect_fragments(
-                    candidates_df, psm_proto_df
-                )
-                validate.fragment_features_df(fragment_features_df)
+        logger.info("Collecting fragment features")
+        fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
+        validate.fragment_features_df(fragment_features_df)
+        fragment_features_df
 
         logger.info("Finished candidate scoring")
 
         del score_group_container
         del fragment_container
 
-        return pd.concat(candidate_features_list), fragment_features_df
+        return candidate_features_df, fragment_features_df
