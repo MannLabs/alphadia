@@ -117,6 +117,7 @@ search_output:
   min_correlation: 0.7
   num_samples_quadratic: 50
   min_nonnan: 1
+  normalize_lfq: True
 
 # configuration for the optimization manager
 # initial parameters, will nbe optimized
