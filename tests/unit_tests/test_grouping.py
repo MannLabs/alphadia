@@ -33,7 +33,7 @@ def construct_test_cases():
         "proteins": ["A", "A;B", "A;B", "B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "B"],
-        "pg": ["A", "A", "A", "B"],
+        "pg": ["A", "A;B", "A;B", "B"],
     }
 
     indistinguishable_proteins_input = {
@@ -46,7 +46,7 @@ def construct_test_cases():
         "proteins": ["A;B", "A;B", "A;B", "A;B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A;B", "A;B", "A;B", "A;B"],
+        "pg": ["A", "A", "A", "A"],
     }
 
     subset_proteins_input = {
@@ -59,7 +59,7 @@ def construct_test_cases():
         "proteins": ["A", "A;B", "A;B", "A;B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A;B", "A;B", "A;B", "A;B"],
+        "pg": ["A", "A", "A", "A"],
     }
 
     subsumable_proteins_input = {
@@ -72,7 +72,7 @@ def construct_test_cases():
         "proteins": ["A", "A;B", "B;C", "C"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "C", "C"],
-        "pg": ["A", "A", "C;B", "C;B"],
+        "pg": ["A", "A", "C", "C"],
     }
 
     shared_only_proteins_input = {
@@ -85,7 +85,7 @@ def construct_test_cases():
         "proteins": ["A;B", "A;B;C", "A;B;C", "A;C"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A;B;C", "A;B;C", "A;B;C", "A;B;C"],
+        "pg": ["A", "A", "A", "A"],
     }
 
     circular_proteins_input = {
@@ -98,7 +98,7 @@ def construct_test_cases():
         "proteins": ["A;B;C", "B;C;D", "C;D;E", "D;E;A"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["C", "C", "C", "A"],
-        "pg": ["C;B", "C;B", "C;B", "A;D;E"],
+        "pg": ["A;C", "C", "C", "A"],
     }
 
     complex_example_proteins_input = {
@@ -111,7 +111,7 @@ def construct_test_cases():
         "proteins": ["P1;P2;P3;P4", "P1;P4", "P2", "P2;P5"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["P2", "P1", "P2", "P2"],
-        "pg": ["P2;P3;P5", "P1;P4", "P2;P3;P5", "P2;P3;P5"],
+        "pg": ["P1;P2", "P1", "P2", "P2"],
     }
 
     test_cases = [

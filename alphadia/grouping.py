@@ -158,7 +158,11 @@ def perform_grouping(
         allowed_set_pg = set(allowed_pg)
 
         def filter_allowed_pg(pg):
-            return ";".join([p for p in list(set(pg.split(";")) & allowed_set_pg)])
+            pg_set = set(pg.split(";")) & allowed_set_pg
+            pg_list = list(pg_set)
+            pg_list.sort()
+
+            return ";".join(pg_list)
 
         upsm["pg"] = upsm[genes_or_proteins].apply(filter_allowed_pg)
 
