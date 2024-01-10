@@ -67,7 +67,7 @@ def group_and_parsimony(
                 continue
             new_subject_set = subject_peptides - query_peptides
             id_dict[subject_protein] = new_subject_set
-            #if len(new_subject_set) == 0:
+            # if len(new_subject_set) == 0:
             #    query_group.append(subject_protein)
 
         # save query to output lists
@@ -95,6 +95,7 @@ def group_and_parsimony(
     ids, groups = zip(*return_dict_ordered.values())
 
     return ids, groups
+
 
 def perform_grouping(
     psm: pd.DataFrame,
@@ -148,16 +149,18 @@ def perform_grouping(
         )
         d_df["pg_master"], d_df["pg"] = new_columns
 
-        upsm = pd.concat([t_df, d_df])[["precursor_idx", "pg_master", "pg", genes_or_proteins]]
+        upsm = pd.concat([t_df, d_df])[
+            ["precursor_idx", "pg_master", "pg", genes_or_proteins]
+        ]
 
     if group:
-        allowed_pg = upsm['pg'].str.split(';', expand=True)[0].unique()
+        allowed_pg = upsm["pg"].str.split(";", expand=True)[0].unique()
         allowed_set_pg = set(allowed_pg)
 
         def filter_allowed_pg(pg):
-            return ';'.join([p for p in list( set(pg.split(';')) & allowed_set_pg )])
+            return ";".join([p for p in list(set(pg.split(";")) & allowed_set_pg)])
 
-        upsm['pg'] = upsm[genes_or_proteins].apply(filter_allowed_pg)
+        upsm["pg"] = upsm[genes_or_proteins].apply(filter_allowed_pg)
 
     upsm.drop(columns=[genes_or_proteins], inplace=True)
 
