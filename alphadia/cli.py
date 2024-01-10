@@ -85,6 +85,7 @@ parser.add_argument(
 
 parser.add_argument(
     "--wsl",
+    "-w",
     action="store_true",
     help="Set if running on Windows Subsystem for Linux.",
 )
