@@ -230,7 +230,7 @@
         },
         {
             "id": "search",
-            "name": "Initial Search",
+            "name": "Search",
             "hidden": false,
             "parameters": [
                 {
@@ -250,21 +250,21 @@
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
-                    "value": 5,
+                    "value": 2,
                     "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },
                 {
                     "id": "target_ms1_tolerance",
                     "name": "MS1 Tolerance",
-                    "value": 15,
+                    "value": 5,
                     "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
                     "id": "target_ms2_tolerance",
                     "name": "MS2 Tolerance",
-                    "value": 15,
+                    "value": 10,
                     "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
@@ -278,7 +278,7 @@
                 {
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 60,
+                    "value": 100,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 }
@@ -298,13 +298,25 @@
                 },
                 {
                     "id": "group_level",
-                    "name": "Grouping Level",
+                    "name": "Inference Level",
                     "value": "proteins",
-                    "description": "Grouping level for FDR correction.",
+                    "description": "Inference level for FDR correction.",
                     "type": "dropdown",
                     "options": [
                         "genes",
                         "proteins"
+                    ]
+                },
+                {
+                    "id": "inference_strategy",
+                    "name": "Inference Strategy",
+                    "value": "heuristic",
+                    "description": "Inference strategy for protein groups. \n library: Protein groups are used as reported in the library. \n maximum_parsimony: Protein groups are inferred using the maximum parsimony principle. \n heursitic: Protein groups are inferred using maximum parsimony with grouping.",
+                    "type": "dropdown",
+                    "options": [
+                        "library",
+                        "maximum_parsimony",
+                        "heuristic"
                     ]
                 },
                 {
@@ -331,7 +343,7 @@
             ]
         },
         {
-            "id": "extraction_initial",
+            "id": "search_initial",
             "name": "Initial Search Settings",
             "hidden": true,
             "parameters": [
@@ -375,7 +387,7 @@
         {
             "id": "multiplexing",
             "name": "Multiplexing",
-            "hidden": false,
+            "hidden": true,
             "parameters": [
                 {   
                     "id": "multiplexed_quant",
@@ -410,6 +422,48 @@
                     "name": "Competetive Scoring",
                     "value": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
+                    "type": "boolean"
+                }
+            ]
+        },
+        {
+            "id": "search_output",
+            "name": "Search output",
+            "hidden": true,
+            "parameters": [
+                {
+                    "id": "min_k_fragments",
+                    "name": "Minimum number of fragments",
+                    "value": 3,
+                    "description": "Minimum number of fragments required for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "min_correlation",
+                    "name": "Minimum correlation",
+                    "value": 0.7,
+                    "description": "Minimum correlation required for quantification.",
+                    "type": "float"
+                },
+                {
+                    "id": "num_samples_quadratic",
+                    "name": "Number of samples for quadratic fit",
+                    "value": 50,
+                    "description": "Number of samples used for quadratic fit.",
+                    "type": "integer"
+                },
+                {
+                    "id": "min_nonnan",
+                    "name": "Minimum number of non-nan values",
+                    "value": 1,
+                    "description": "Minimum number of non-nan values required for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "normalize_lfq",
+                    "name": "Normalize LFQ",
+                    "value": true,
+                    "description": "If enabled, the LFQ values will be normalized.",
                     "type": "boolean"
                 }
             ]
