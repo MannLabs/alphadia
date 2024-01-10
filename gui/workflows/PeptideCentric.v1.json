@@ -375,7 +375,7 @@
         {
             "id": "multiplexing",
             "name": "Multiplexing",
-            "hidden": false,
+            "hidden": true,
             "parameters": [
                 {   
                     "id": "multiplexed_quant",
@@ -410,6 +410,48 @@
                     "name": "Competetive Scoring",
                     "value": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
+                    "type": "boolean"
+                }
+            ]
+        },
+        {
+            "id": "search_output",
+            "name": "Search output",
+            "hidden": true,
+            "parameters": [
+                {
+                    "id": "min_k_fragments",
+                    "name": "Minimum number of fragments",
+                    "value": 3,
+                    "description": "Minimum number of fragments required for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "min_correlation",
+                    "name": "Minimum correlation",
+                    "value": 0.7,
+                    "description": "Minimum correlation required for quantification.",
+                    "type": "float"
+                },
+                {
+                    "id": "num_samples_quadratic",
+                    "name": "Number of samples for quadratic fit",
+                    "value": 50,
+                    "description": "Number of samples used for quadratic fit.",
+                    "type": "integer"
+                },
+                {
+                    "id": "min_nonnan",
+                    "name": "Minimum number of non-nan values",
+                    "value": 1,
+                    "description": "Minimum number of non-nan values required for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "normalize_lfq",
+                    "name": "Normalize LFQ",
+                    "value": true,
+                    "description": "If enabled, the LFQ values will be normalized.",
                     "type": "boolean"
                 }
             ]

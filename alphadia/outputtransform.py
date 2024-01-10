@@ -18,6 +18,7 @@ import multiprocessing as mp
 from typing import List, Tuple, Iterator, Union
 import numba as nb
 from alphabase.spectral_library import base
+from alphabase.peptide import precursor
 
 import directlfq.utils as lfqutils
 import directlfq.normalization as lfqnorm
@@ -160,13 +161,14 @@ class QuantBuilder:
         quality_df["precursor_idx"] = quality_df["precursor_idx"].astype(np.uint32)
 
         # annotate protein group
-        protein_df = self.psm_df.groupby("precursor_idx", as_index=False)["pg"].first()
+        annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
+            {"pg": "first",
+             "mod_seq_hash": "first",
+             "mod_seq_charge_hash": "first"}
+        )
 
-        intensity_df = intensity_df.merge(protein_df, on="precursor_idx", how="left")
-        intensity_df.rename(columns={"pg": "protein"}, inplace=True)
-
-        quality_df = quality_df.merge(protein_df, on="precursor_idx", how="left")
-        quality_df.rename(columns={"pg": "protein"}, inplace=True)
+        intensity_df = intensity_df.merge(annotate_df, on="precursor_idx", how="left")
+        quality_df = quality_df.merge(annotate_df, on="precursor_idx", how="left")
 
         return intensity_df, quality_df
 
@@ -176,6 +178,7 @@ class QuantBuilder:
         quality_df: pd.DataFrame,
         min_correlation: float = 0.5,
         top_n: int = 3,
+        group_column: str = "pg",
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Filter the fragment data by quality
 
@@ -209,11 +212,11 @@ class QuantBuilder:
         run_columns = [
             c
             for c in intensity_df.columns
-            if c not in ["precursor_idx", "ion", "protein"]
+            if c not in ["precursor_idx", "ion", "pg", "mod_seq_hash", "mod_seq_charge_hash"]
         ]
 
         quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
-        quality_df["rank"] = quality_df.groupby("protein")["total"].rank(
+        quality_df["rank"] = quality_df.groupby(group_column)["total"].rank(
             ascending=False, method="first"
         )
         mask = (quality_df["rank"].values <= top_n) | (
@@ -228,6 +231,8 @@ class QuantBuilder:
         num_samples_quadratic: int = 50,
         min_nonan: int = 1,
         num_cores: int = 8,
+        normalize: bool = True,
+        group_column: str = "pg",
     ) -> pd.DataFrame:
         """Perform label-free quantification
 
@@ -250,17 +255,22 @@ class QuantBuilder:
 
         logger.info("Performing label-free quantification using directLFQ")
 
-        intensity_df.drop(columns=["precursor_idx"], inplace=True)
+        # drop all other columns as they will be interpreted as samples
+        columns_to_drop = list({"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"} - {group_column})
+        _intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        lfqconfig.set_global_protein_and_ion_id(protein_id="protein", quant_id="ion")
+        lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
 
-        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
+        lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
-        lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
-            lfq_df,
-            num_samples_quadratic=num_samples_quadratic,
-            selected_proteins_file=None,
-        ).complete_dataframe
+
+        if normalize:
+            lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+                lfq_df,
+                num_samples_quadratic=num_samples_quadratic,
+                selected_proteins_file=None,
+            ).complete_dataframe
+
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
             min_nonan=min_nonan,
@@ -350,7 +360,7 @@ class SearchPlanOutput:
         logger.progress("Processing search outputs")
         psm_df = self.build_precursor_table(folder_list, save=False)
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_protein_table(folder_list, psm_df=psm_df, save=True)
+        _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
     def load_precursor_table(self):
@@ -426,6 +436,18 @@ class SearchPlanOutput:
 
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
+
+        psm_df['mods'].fillna('', inplace=True)
+        # make mods column a string not object
+        psm_df['mods'] = psm_df['mods'].astype(str)
+        psm_df['mod_sites'].fillna('', inplace=True)
+        # make mod_sites column a string not object
+        psm_df['mod_sites'] = psm_df['mod_sites'].astype(str)
+        psm_df = precursor.hash_precursor_df(psm_df)
+
+        if len(psm_df) == 0:
+            logger.error("combined psm file is empty, can't continue")
+            raise FileNotFoundError("combined psm file is empty, can't continue")
 
         logger.info("Performing protein grouping")
         if self.config["fdr"]["library_grouping"]:
@@ -521,7 +543,7 @@ class SearchPlanOutput:
 
         return stat_df
 
-    def build_protein_table(
+    def build_lfq_tables(
         self,
         folder_list: List[str],
         psm_df: Union[pd.DataFrame, None] = None,
@@ -549,38 +571,48 @@ class SearchPlanOutput:
 
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
+
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
-        intensity_df, quality_df = qb.filter_frag_df(
-            intensity_df,
-            quality_df,
-            top_n=self.config["search_output"]["min_k_fragments"],
-            min_correlation=self.config["search_output"]["min_correlation"],
-        )
-        protein_df = qb.lfq(
-            intensity_df,
-            quality_df,
-            num_cores=self.config["general"]["thread_count"],
-            min_nonan=self.config["search_output"]["min_nonnan"],
-            num_samples_quadratic=self.config["search_output"]["num_samples_quadratic"],
-        )
 
-        protein_df.rename(columns={"protein": "pg"}, inplace=True)
+        # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
+        for group, group_nice in zip(["mod_seq_hash", "mod_seq_charge_hash", "pg"], ["peptide", "precursor", "pg"]):
 
-        protein_df_melted = protein_df.melt(
+            logger.progress(f"Performing label free quantification on the {group_nice} level")
+            
+            group_intensity_df, _ = qb.filter_frag_df(
+                intensity_df,
+                quality_df,
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=group,
+            )
+
+            lfq_df = qb.lfq(
+                group_intensity_df,
+                quality_df,
+                num_cores=self.config["general"]["thread_count"],
+                min_nonan=self.config["search_output"]["min_nonnan"],
+                num_samples_quadratic=self.config["search_output"]["num_samples_quadratic"],
+                normalize=self.config["search_output"]["normalize_lfq"],
+                group_column=group,
+            )
+
+            if save:
+                logger.info(f"Writing {group_nice} output to disk")
+                lfq_df.to_csv(
+                    os.path.join(self.output_folder, f"{group_nice}.matrix.tsv"),
+                    sep="\t",
+                    index=False,
+                    float_format="%.6f",
+                )
+
+        protein_df_melted = lfq_df.melt(
             id_vars="pg", var_name="run", value_name="intensity"
         )
 
         psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
 
         if save:
-            logger.info("Writing protein group output to disk")
-            protein_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PG_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
-            )
-
             logger.info("Writing psm output to disk")
             psm_df.to_csv(
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
@@ -589,7 +621,7 @@ class SearchPlanOutput:
                 float_format="%.6f",
             )
 
-        return protein_df
+        return lfq_df
 
     def build_library(
         self,
