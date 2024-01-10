@@ -126,7 +126,6 @@ def test_output_transform():
             "fdr": 0.01,
             "inference_strategy": "heuristic",
             "group_level": "proteins",
-            
             "keep_decoys": False,
         },
         "search_output": {
@@ -198,9 +197,7 @@ def test_output_transform():
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
-    protein_df = pd.read_csv(
-        os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t"
-    )
+    protein_df = pd.read_csv(os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t")
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:
