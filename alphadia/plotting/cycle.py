@@ -227,6 +227,7 @@ def plot_dia_cycle_mobility(
     quad_stop: float,
     scan_start: float,
     scan_stop: float,
+    mobility_limits=None,
     ax: plt.Axes = None,
     cmap_name: str = "YlOrRd",
 ):

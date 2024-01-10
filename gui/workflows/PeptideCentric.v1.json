@@ -298,13 +298,25 @@
                 },
                 {
                     "id": "group_level",
-                    "name": "Grouping Level",
+                    "name": "Inference Level",
                     "value": "proteins",
-                    "description": "Grouping level for FDR correction.",
+                    "description": "Inference level for FDR correction.",
                     "type": "dropdown",
                     "options": [
                         "genes",
                         "proteins"
+                    ]
+                },
+                {
+                    "id": "inference_strategy",
+                    "name": "Inference Strategy",
+                    "value": "heuristic",
+                    "description": "Inference strategy for protein groups. \n library: Protein groups are used as reported in the library. \n maximum_parsimony: Protein groups are inferred using the maximum parsimony principle. \n heursitic: Protein groups are inferred using maximum parsimony with grouping.",
+                    "type": "dropdown",
+                    "options": [
+                        "library",
+                        "maximum_parsimony",
+                        "heuristic"
                     ]
                 },
                 {
