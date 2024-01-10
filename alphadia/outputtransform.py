@@ -429,7 +429,7 @@ class SearchPlanOutput:
 
         if base_spec_lib is not None:
             psm_df = psm_df.merge(
-                base_spec_lib.precursor_df[["precursor_idx", "cardinality"]],
+                base_spec_lib.precursor_df[["precursor_idx"]],
                 on="precursor_idx",
                 how="left",
             )
