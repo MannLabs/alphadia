@@ -66,6 +66,10 @@ def wsl_to_windows(
         Windows path.
 
     """
+
+    if path is None:
+        return None
+    
     if isinstance(path, str):
 
         disk_match = re.search(r'^/mnt/[a-z]', path)
@@ -98,6 +102,9 @@ def windows_to_wsl(
         WSL path.
 
     """
+    if path is None:
+        return None
+    
     if isinstance(path, str):
         disk_match = re.search(r'^[A-Z]:', path)
 
