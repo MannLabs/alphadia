@@ -170,14 +170,14 @@ def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
     output_directory = None
     if "output_directory" in config:
         output_directory = (
-            utils.wsl_to_windows(config["output_directory"])
+            utils.windows_to_wsl(config["output_directory"])
             if args.wsl
             else config["output_directory"]
         )
 
     if args.output is not None:
         output_directory = (
-            utils.wsl_to_windows(args.output) if args.wsl else args.output
+            utils.windows_to_wsl(args.output) if args.wsl else args.output
         )
 
     return output_directory
@@ -205,13 +205,13 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     """
     config_raw_path_list = config["raw_path_list"] if "raw_path_list" in config else []
     raw_path_list = (
-        utils.wsl_to_windows(config_raw_path_list) if args.wsl else config_raw_path_list
+        utils.windows_to_wsl(config_raw_path_list) if args.wsl else config_raw_path_list
     )
-    raw_path_list += utils.wsl_to_windows(args.file) if args.wsl else args.file
+    raw_path_list += utils.windows_to_wsl(args.file) if args.wsl else args.file
 
     config_directory = config["directory"] if "directory" in config else None
-    directory = utils.wsl_to_windows(config_directory) if args.wsl else config_directory
-    directory = utils.wsl_to_windows(args.directory) if args.wsl else args.directory
+    directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
+    directory = utils.windows_to_wsl(args.directory) if args.wsl else args.directory
 
     if directory is not None:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
@@ -253,11 +253,11 @@ def parse_library(args: argparse.Namespace, config: dict) -> str:
     library = None
     if "library" in config:
         library = (
-            utils.wsl_to_windows(config["library"]) if args.wsl else config["library"]
+            utils.windows_to_wsl(config["library"]) if args.wsl else config["library"]
         )
 
     if args.library is not None:
-        library = utils.wsl_to_windows(args.library) if args.wsl else args.library
+        library = utils.windows_to_wsl(args.library) if args.wsl else args.library
 
     return library
 
@@ -285,11 +285,11 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
 
     config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
     fasta_path_list = (
-        utils.wsl_to_windows(config_fasta_path_list)
+        utils.windows_to_wsl(config_fasta_path_list)
         if args.wsl
         else config_fasta_path_list
     )
-    fasta_path_list += utils.wsl_to_windows(args.fasta) if args.wsl else args.fasta
+    fasta_path_list += utils.windows_to_wsl(args.fasta) if args.wsl else args.fasta
 
     return fasta_path_list
 

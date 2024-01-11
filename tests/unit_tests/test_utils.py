@@ -5,7 +5,7 @@
 import unittest
 
 # local
-from alphadia.utils import amean0, amean1, calculate_score_groups
+from alphadia.utils import amean0, amean1, calculate_score_groups, wsl_to_windows, windows_to_wsl
 
 
 # global
@@ -88,3 +88,17 @@ def test_score_groups():
     assert np.allclose(
         sample_df["score_group_idx"].values, np.array([0, 0, 1, 1, 2, 3, 4, 4, 5, 5])
     )
+
+
+def test_wsl_conversion():
+    test_path = "/mnt/c/Users/username/Documents/test.txt"
+    expected_path = "C:\\Users\\username\\Documents\\test.txt"
+
+    assert wsl_to_windows(test_path) == expected_path
+    assert windows_to_wsl(expected_path) == test_path
+
+    test_path = "/mnt/d/Users/us__.sdername/D ocuments/test.txt"
+    expected_path = "D:\\Users\\us__.sdername\\D ocuments\\test.txt"
+
+    assert wsl_to_windows(test_path) == expected_path
+    assert windows_to_wsl(expected_path) == test_path
