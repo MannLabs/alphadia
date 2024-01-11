@@ -248,6 +248,13 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "compete_for_fragments",
+                    "name": "Compete for Fragments",
+                    "value": true,
+                    "description": "If enabled, precursors will compete for fragment ions.",
+                    "type": "boolean"
+                },
+                {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
                     "value": 2,
