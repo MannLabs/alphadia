@@ -136,8 +136,9 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
-        missed_cleavages: int = 2,
+        fixed_modifications: typing.List[str] = [],
+        variable_modifications: typing.List[str] = [],
+        missed_cleavages: int = 1,
         precursor_len: typing.List[int] = [7, 35],
         precursor_charge: typing.List[int] = [2, 4],
         precursor_mz: typing.List[int] = [400, 1200],
@@ -148,6 +149,7 @@ class FastaDigest(ProcessingStep):
         super().__init__()
         self.enzyme = enzyme
         self.fixed_modifications = fixed_modifications
+        self.variable_modifications = variable_modifications
         self.missed_cleavages = missed_cleavages
         self.precursor_len = precursor_len
         self.precursor_charge = precursor_charge
@@ -169,7 +171,7 @@ class FastaDigest(ProcessingStep):
             model_mgr,
             protease=protease_dict[self.enzyme],
             charged_frag_types=frag_types,
-            var_mods=[],
+            variable_modifications=self.variable_modifications,
             fix_mods=self.fixed_modifications,
             max_missed_cleavages=self.missed_cleavages,
             max_var_mod_num=0,

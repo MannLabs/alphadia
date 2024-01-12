@@ -156,6 +156,9 @@ class Plan:
             fixed_modifications=self.config["library_prediction"][
                 "fixed_modifications"
             ].split(";"),
+            variable_modifications=self.config["library_prediction"][
+                "variable_modifications"
+            ].split(";"),
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
             precursor_charge=self.config["library_prediction"]["precursor_charge"],

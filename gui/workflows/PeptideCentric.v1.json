@@ -149,13 +149,20 @@
                     "id": "fixed_modifications",
                     "name": "Fixed modifications",
                     "value": "Carbamidomethyl@C",
-                    "description": "Fixed modifications for in-silico digest. \n Format: Name@AminoAcid",
+                    "description": "Fixed modifications for in-silico digest. Semicolon separated list \n Format: Modification@AminoAcid \n Example: Carbamidomethyl@C;Dimethyl@N-term",
+                    "type": "string"
+                },
+                {
+                    "id": "variable_modifications",
+                    "name": "Variable modifications",
+                    "value": "Oxidation@M",
+                    "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "string"
                 },
                 {
                     "id": "missed_cleavages",
                     "name": "Missed cleavages",
-                    "value": 2,
+                    "value": 1,
                     "description": "Number of missed cleavages for in-silico digest.",
                     "type": "integer"
                 },
@@ -198,7 +205,7 @@
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "Astral",
+                    "value": "QE",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
