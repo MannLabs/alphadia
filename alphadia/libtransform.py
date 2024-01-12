@@ -171,7 +171,7 @@ class FastaDigest(ProcessingStep):
             model_mgr,
             protease=protease_dict[self.enzyme],
             charged_frag_types=frag_types,
-            variable_modifications=self.variable_modifications,
+            var_mods=self.variable_modifications,
             fix_mods=self.fixed_modifications,
             max_missed_cleavages=self.missed_cleavages,
             max_var_mod_num=0,
