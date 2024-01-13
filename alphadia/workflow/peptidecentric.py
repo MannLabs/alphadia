@@ -551,9 +551,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
         ]
 
+        min_fragments = 1000
+        min_correlation = 0.7
         fragments_df_filtered = fragments_df.sort_values(
             by=["correlation"], ascending=False
-        ).head(10000)
+        )
+        stop_rank = max(np.searchsorted(
+            fragments_df_filtered["correlation"].values, min_correlation
+        ), min_fragments)
+        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
 
         self.calibration_manager.fit(
             fragments_df_filtered,
