@@ -553,7 +553,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         min_fragments = 1000
         min_correlation = 0.7
-        fragments_df_filtered = fragments_df.sort_values(
+        fragments_df_filtered = fragments_df_filtered.sort_values(
             by=["correlation"], ascending=False
         )
         stop_rank = max(np.searchsorted(
