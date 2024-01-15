@@ -136,15 +136,15 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: typing.List[str] = [],
-        variable_modifications: typing.List[str] = [],
+        fixed_modifications: typing.List[str] = ['Carbamidomethyl@C'],
+        variable_modifications: typing.List[str] = ['Oxidation@M', 'Acetyl@Prot N-term'],
         missed_cleavages: int = 1,
         precursor_len: typing.List[int] = [7, 35],
         precursor_charge: typing.List[int] = [2, 4],
         precursor_mz: typing.List[int] = [400, 1200],
     ) -> None:
-        """Predict the retention time of a spectral library using PeptDeep.
-        Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
+        """Digest a FASTA file into a spectral library.
+        Expects a `List[str]` object as input and will return a `SpecLibBase` object.
         """
         super().__init__()
         self.enzyme = enzyme
@@ -156,6 +156,9 @@ class FastaDigest(ProcessingStep):
         self.precursor_mz = precursor_mz
 
     def validate(self, input: typing.List[str]) -> bool:
+        if not isinstance(input, list):
+            logger.error(f"Input fasta list is not a list")
+            return False
         if len(input) == 0:
             logger.error(f"Input fasta list is empty")
             return False
@@ -207,6 +210,15 @@ class FastaDigest(ProcessingStep):
         fasta_lib.add_charge()
         fasta_lib.hash_precursor_df()
         fasta_lib.calc_precursor_mz()
+
+        logger.info(f"Removing non-canonical amino acids")
+        forbidden = ['B', 'J', 'X', 'Z']
+
+        masks = []
+        for aa in forbidden:
+            masks.append(fasta_lib.precursor_df['sequence'].str.contains(aa))
+        mask = np.logical_or.reduce(masks)
+        fasta_lib.precursor_df = fasta_lib.precursor_df[~mask]
 
         logger.info(
             f"Fasta library contains {len(fasta_lib.precursor_df):,} precursors"
@@ -365,6 +377,7 @@ class AnnotateFasta(ProcessingStep):
             input._precursor_df = input._precursor_df[
                 input._precursor_df["cardinality"] > 0
             ]
+        
 
         return input
 
@@ -455,8 +468,9 @@ class IsotopeGenerator(ProcessingStep):
             )
             return input
 
-        input.calc_precursor_isotope_intensity(
-            max_isotope=self.n_isotopes, mp_process_num=self.mp_process_num
+        input.calc_precursor_isotope(
+            max_isotope=self.n_isotopes, 
+            mp_process_num=self.mp_process_num,
         )
         return input
 
