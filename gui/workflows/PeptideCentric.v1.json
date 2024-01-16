@@ -164,7 +164,7 @@
                     "name": "Maximum variable modifications",
                     "value": 1,
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
-                    "type": "string"
+                    "type": "integer"
                 },
                 {
                     "id": "missed_cleavages",
