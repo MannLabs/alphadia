@@ -17,7 +17,7 @@ python setup.py sdist bdist_wheel
 # Setting up the local package
 cd release/one_click_linux_gui
 # Make sure you include the required extra packages and always use the stable or very-stable options!
-pip install "../../dist/alphadia-1.5.2-py3-none-any.whl[stable]"
+pip install "../../dist/alphadia-1.5.3-py3-none-any.whl[stable]"
 
 # Creating the stand-alone pyinstaller folder
 pip install pyinstaller==4.2
