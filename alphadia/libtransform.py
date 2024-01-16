@@ -238,6 +238,7 @@ class PeptDeepPrediction(ProcessingStep):
     def __init__(
         self,
         use_gpu: bool = True,
+        mp_process_num: int = 8,
         fragment_mz: typing.List[int] = [100, 2000],
         nce: int = 25,
         instrument: str = "Astral",
@@ -250,6 +251,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.fragment_mz = fragment_mz
         self.nce = nce
         self.instrument = instrument
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: typing.List[str]) -> bool:
         return True
@@ -266,6 +268,7 @@ class PeptDeepPrediction(ProcessingStep):
             input.precursor_df,
             predict_items=["rt", "ms2", "mobility"],
             frag_types=frag_types,
+            process_num=self.mp_process_num,
         )
 
         if "fragment_mz_df" in res:
@@ -475,7 +478,7 @@ class IsotopeGenerator(ProcessingStep):
             )
             return input
 
-        input.calc_precursor_isotope(
+        input.calc_precursor_isotope_intensity(
             max_isotope=self.n_isotopes, 
             mp_process_num=self.mp_process_num,
         )

@@ -187,6 +187,7 @@ class Plan:
                 fragment_mz=self.config["library_prediction"]["fragment_mz"],
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
+                mp_process_num=self.config["general"]["thread_count"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
