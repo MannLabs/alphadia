@@ -561,6 +561,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ), min_fragments)
         fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
 
+        print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+
         self.calibration_manager.fit(
             fragments_df_filtered,
             "fragment",

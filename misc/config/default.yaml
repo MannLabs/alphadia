@@ -20,7 +20,8 @@ library_prediction:
   predict: False
   enzyme: trypsin
   fixed_modifications: 'Carbamidomethyl@C'
-  variable_modifications: 'Oxidation@M'
+  variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+  max_var_mod_num: 2
   missed_cleavages: 1
   precursor_len:
     - 7
@@ -114,6 +115,8 @@ fdr:
   inference_strategy: "heuristic"
 
 search_output:
+  peptide_level_lfq: false
+  precursor_level_lfq: false
   min_k_fragments: 3
   min_correlation: 0.7
   num_samples_quadratic: 50

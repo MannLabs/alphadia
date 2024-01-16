@@ -142,6 +142,7 @@ class FastaDigest(ProcessingStep):
         precursor_len: typing.List[int] = [7, 35],
         precursor_charge: typing.List[int] = [2, 4],
         precursor_mz: typing.List[int] = [400, 1200],
+        max_var_mod_num: int = 1,
     ) -> None:
         """Digest a FASTA file into a spectral library.
         Expects a `List[str]` object as input and will return a `SpecLibBase` object.
@@ -154,6 +155,7 @@ class FastaDigest(ProcessingStep):
         self.precursor_len = precursor_len
         self.precursor_charge = precursor_charge
         self.precursor_mz = precursor_mz
+        self.max_var_mod_num = max_var_mod_num
 
     def validate(self, input: typing.List[str]) -> bool:
         if not isinstance(input, list):
@@ -177,7 +179,7 @@ class FastaDigest(ProcessingStep):
             var_mods=self.variable_modifications,
             fix_mods=self.fixed_modifications,
             max_missed_cleavages=self.missed_cleavages,
-            max_var_mod_num=0,
+            max_var_mod_num=self.max_var_mod_num,
             peptide_length_max=self.precursor_len[1],
             peptide_length_min=self.precursor_len[0],
             precursor_charge_min=self.precursor_charge[0],
@@ -210,6 +212,11 @@ class FastaDigest(ProcessingStep):
         fasta_lib.add_charge()
         fasta_lib.hash_precursor_df()
         fasta_lib.calc_precursor_mz()
+        fasta_lib.precursor_df = fasta_lib.precursor_df[
+            (fasta_lib.precursor_df["precursor_mz"] > self.precursor_mz[0])&
+            (fasta_lib.precursor_df["precursor_mz"] < self.precursor_mz[1])
+        ]
+
 
         logger.info(f"Removing non-canonical amino acids")
         forbidden = ['B', 'J', 'X', 'Z']

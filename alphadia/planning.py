@@ -159,6 +159,7 @@ class Plan:
             variable_modifications=self.config["library_prediction"][
                 "variable_modifications"
             ].split(";"),
+            max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
             precursor_charge=self.config["library_prediction"]["precursor_charge"],
@@ -305,7 +306,9 @@ class Plan:
                 os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
             )
 
-            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output = outputtransform.SearchPlanOutput(
+                self.config, self.output_folder
+            )     
             output.build(workflow_folder_list, base_spec_lib)
 
         except Exception as e:

@@ -155,7 +155,14 @@
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
-                    "value": "Oxidation@M",
+                    "value": "Oxidation@M;Acetyl@Protein N-term",
+                    "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
+                    "type": "string"
+                },
+                {
+                    "id": "max_var_mod_num",
+                    "name": "Maximum variable modifications",
+                    "value": 1,
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "string"
                 },
