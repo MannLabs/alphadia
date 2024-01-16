@@ -500,8 +500,7 @@
                     "value": false,
                     "description": "Perform label free quantification on precursor level and report as precursor matrix.",
                     "type": "boolean"
-                },
-
+                }
             ]
         }
     ]
