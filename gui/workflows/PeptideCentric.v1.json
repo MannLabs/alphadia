@@ -486,7 +486,22 @@
                     "value": true,
                     "description": "If enabled, the LFQ values will be normalized.",
                     "type": "boolean"
-                }
+                },
+                {
+                    "id": "peptide_level_lfq",
+                    "name": "Peptide level LFQ",
+                    "value": false,
+                    "description": "Perform label free quantification on peptide level and report as peptide matrix.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "precursor_level_lfq",
+                    "name": "Precursor level LFQ",
+                    "value": false,
+                    "description": "Perform label free quantification on precursor level and report as precursor matrix.",
+                    "type": "boolean"
+                },
+
             ]
         }
     ]
