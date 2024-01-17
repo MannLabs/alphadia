@@ -149,13 +149,27 @@
                     "id": "fixed_modifications",
                     "name": "Fixed modifications",
                     "value": "Carbamidomethyl@C",
-                    "description": "Fixed modifications for in-silico digest. \n Format: Name@AminoAcid",
+                    "description": "Fixed modifications for in-silico digest. Semicolon separated list \n Format: Modification@AminoAcid \n Example: Carbamidomethyl@C;Dimethyl@N-term",
                     "type": "string"
+                },
+                {
+                    "id": "variable_modifications",
+                    "name": "Variable modifications",
+                    "value": "Oxidation@M;Acetyl@Protein N-term",
+                    "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
+                    "type": "string"
+                },
+                {
+                    "id": "max_var_mod_num",
+                    "name": "Maximum variable modifications",
+                    "value": 1,
+                    "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
+                    "type": "integer"
                 },
                 {
                     "id": "missed_cleavages",
                     "name": "Missed cleavages",
-                    "value": 2,
+                    "value": 1,
                     "description": "Number of missed cleavages for in-silico digest.",
                     "type": "integer"
                 },
@@ -198,7 +212,7 @@
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "Astral",
+                    "value": "QE",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
@@ -471,6 +485,20 @@
                     "name": "Normalize LFQ",
                     "value": true,
                     "description": "If enabled, the LFQ values will be normalized.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "peptide_level_lfq",
+                    "name": "Peptide level LFQ",
+                    "value": false,
+                    "description": "Perform label free quantification on peptide level and report as peptide matrix.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "precursor_level_lfq",
+                    "name": "Precursor level LFQ",
+                    "value": false,
+                    "description": "Perform label free quantification on precursor level and report as precursor matrix.",
                     "type": "boolean"
                 }
             ]

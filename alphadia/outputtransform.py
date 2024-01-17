@@ -614,11 +614,22 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
+        group_list = []
+        group_nice_list = []
+
+        if self.config["search_output"]["peptide_level_lfq"]:
+            group_list.append("mod_seq_hash")
+            group_nice_list.append("peptide")
+
+        if self.config["search_output"]["precursor_level_lfq"]:
+            group_list.append("mod_seq_charge_hash")
+            group_nice_list.append("precursor")
+
+        group_list.append("pg")
+        group_nice_list.append("pg")
+
         # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(
-            ["mod_seq_hash", "mod_seq_charge_hash", "pg"],
-            ["peptide", "precursor", "pg"],
-        ):
+        for group, group_nice in zip(group_list, group_nice_list):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )

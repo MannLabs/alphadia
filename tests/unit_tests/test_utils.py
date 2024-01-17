@@ -5,7 +5,13 @@
 import unittest
 
 # local
-from alphadia.utils import amean0, amean1, calculate_score_groups, wsl_to_windows, windows_to_wsl
+from alphadia.utils import (
+    amean0,
+    amean1,
+    calculate_score_groups,
+    wsl_to_windows,
+    windows_to_wsl,
+)
 
 
 # global
