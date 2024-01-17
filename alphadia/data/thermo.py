@@ -15,6 +15,7 @@ from alpharaw import thermo as alpharawthermo
 import numpy as np
 import numba as nb
 
+
 def get_cycle_length(cycle_signature: np.ndarray):
     """Get the cycle length from the cycle signature.
 
@@ -36,11 +37,12 @@ def get_cycle_length(cycle_signature: np.ndarray):
     cycle_length = np.argmax(corr)
     return cycle_length
 
+
 @nb.njit
 def get_cycle_start(
     cycle_signature: np.ndarray,
     cycle_length: int,
-    ):
+):
     """Get the cycle start from the cycle signature.
 
     Parameters
@@ -58,21 +60,21 @@ def get_cycle_start(
     cycle_start: int
         The index of the first cycle in the signature.
     """
-    for i in range(len(cycle_signature) - (2*cycle_length)):
-        if np.all(cycle_signature[i:i+cycle_length] == cycle_signature[i]):
+    for i in range(len(cycle_signature) - (2 * cycle_length)):
+        if np.all(cycle_signature[i : i + cycle_length] == cycle_signature[i]):
             continue
 
-        if np.all(cycle_signature[i:i+cycle_length] == cycle_signature[i+cycle_length:i+2*cycle_length]):
+        if np.all(
+            cycle_signature[i : i + cycle_length]
+            == cycle_signature[i + cycle_length : i + 2 * cycle_length]
+        ):
             return i
-        
+
     return -1
 
+
 @nb.njit
-def assert_cycle(
-    cycle_signature: np.ndarray,
-    cycle_length: int,
-    cycle_start: int
-    ):
+def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
     """Assert that the found DIA cycle is valid.
 
     Parameters
@@ -95,11 +97,17 @@ def assert_cycle(
     """
 
     cycle_valid = True
-    for i in range(len(cycle_signature) - (2*cycle_length) - cycle_start):
-        if not np.all(cycle_signature[i+cycle_start: i+cycle_start+cycle_length] == cycle_signature[i+cycle_start+cycle_length: i+cycle_start+2*cycle_length]):
+    for i in range(len(cycle_signature) - (2 * cycle_length) - cycle_start):
+        if not np.all(
+            cycle_signature[i + cycle_start : i + cycle_start + cycle_length]
+            == cycle_signature[
+                i + cycle_start + cycle_length : i + cycle_start + 2 * cycle_length
+            ]
+        ):
             cycle_valid = False
             break
     return cycle_valid
+
 
 def normed_auto_correlation(x):
     """Calculate the normalized auto correlation of a 1D array.
@@ -158,7 +166,7 @@ def calculate_cycle(spectrum_df):
         + spectrum_df.isolation_upper_mz.values[cycle_length : 2 * cycle_length]
     )
     if not np.allclose(first_cycle, second_cycle):
-        raise ValueError("No DIA cycle pattern found in the data.")   
+        raise ValueError("No DIA cycle pattern found in the data.")
 
 
 @nb.njit
@@ -262,21 +270,28 @@ class Thermo(alpharawthermo.ThermoRawData):
 
         if cycle_start == -1:
             raise ValueError("Failed to determine start of DIA cycle.")
-        
+
         if not assert_cycle(cycle_signature, cycle_length, cycle_start):
-            raise ValueError(f"Cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length} detected, but does not consistent.")
-        
-        logger.info(f"Found cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length}.")
+            raise ValueError(
+                f"Cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length} detected, but does not consistent."
+            )
+
+        logger.info(
+            f"Found cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length}."
+        )
 
         self.rt_values = self.rt_values[cycle_start:]
         self.spectrum_df = self.spectrum_df.iloc[cycle_start:]
 
         self.cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-        self.cycle[0, :, 0, 0] = self.spectrum_df.isolation_lower_mz.values[:cycle_length]
-        self.cycle[0, :, 0, 1] = self.spectrum_df.isolation_upper_mz.values[:cycle_length]
+        self.cycle[0, :, 0, 0] = self.spectrum_df.isolation_lower_mz.values[
+            :cycle_length
+        ]
+        self.cycle[0, :, 0, 1] = self.spectrum_df.isolation_upper_mz.values[
+            :cycle_length
+        ]
 
     def filter_spectra(self):
-
         # filter for astral MS1
         if self.astral_ms1:
             self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]

@@ -21,12 +21,11 @@ def test_transpose():
     assert np.allclose(tof_indptr, _tof_indptr)
     assert np.allclose(intensity_values, _intensity_values)
 
+
 def test_cycle():
-    
     rand_cycle_start = np.random.randint(0, 100)
     rand_cycle_length = np.random.randint(5, 10)
     rand_num_cycles = np.random.randint(10, 50)
-
 
     cycle = np.zeros(rand_cycle_start)
     cycle = np.append(cycle, np.tile(np.arange(rand_cycle_length), rand_num_cycles))
