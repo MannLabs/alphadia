@@ -626,7 +626,7 @@ class SearchPlanOutput:
             group_nice_list.append("precursor")
 
         group_list.append("pg")
-        group_nice_list.append("protein")
+        group_nice_list.append("pg")
 
         # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
         for group, group_nice in zip(group_list, group_nice_list):
