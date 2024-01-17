@@ -307,9 +307,7 @@ class Plan:
                 os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
             )
 
-            output = outputtransform.SearchPlanOutput(
-                self.config, self.output_folder
-            )     
+            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
 
         except Exception as e:

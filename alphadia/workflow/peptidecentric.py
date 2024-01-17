@@ -556,9 +556,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         fragments_df_filtered = fragments_df_filtered.sort_values(
             by=["correlation"], ascending=False
         )
-        stop_rank = max(np.searchsorted(
-            fragments_df_filtered["correlation"].values, min_correlation
-        ), min_fragments)
+        stop_rank = max(
+            np.searchsorted(
+                fragments_df_filtered["correlation"].values, min_correlation
+            ),
+            min_fragments,
+        )
         fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
 
         print(f"fragments_df_filtered: {len(fragments_df_filtered)}")

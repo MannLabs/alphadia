@@ -624,14 +624,12 @@ class SearchPlanOutput:
         if self.config["search_output"]["precursor_level_lfq"]:
             group_list.append("mod_seq_charge_hash")
             group_nice_list.append("precursor")
-        
+
         group_list.append("pg")
         group_nice_list.append("protein")
 
         # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(
-            group_list, group_nice_list
-        ):
+        for group, group_nice in zip(group_list, group_nice_list):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )

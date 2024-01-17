@@ -136,8 +136,11 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: typing.List[str] = ['Carbamidomethyl@C'],
-        variable_modifications: typing.List[str] = ['Oxidation@M', 'Acetyl@Prot N-term'],
+        fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
+        variable_modifications: typing.List[str] = [
+            "Oxidation@M",
+            "Acetyl@Prot N-term",
+        ],
         missed_cleavages: int = 1,
         precursor_len: typing.List[int] = [7, 35],
         precursor_charge: typing.List[int] = [2, 4],
@@ -213,17 +216,16 @@ class FastaDigest(ProcessingStep):
         fasta_lib.hash_precursor_df()
         fasta_lib.calc_precursor_mz()
         fasta_lib.precursor_df = fasta_lib.precursor_df[
-            (fasta_lib.precursor_df["precursor_mz"] > self.precursor_mz[0])&
-            (fasta_lib.precursor_df["precursor_mz"] < self.precursor_mz[1])
+            (fasta_lib.precursor_df["precursor_mz"] > self.precursor_mz[0])
+            & (fasta_lib.precursor_df["precursor_mz"] < self.precursor_mz[1])
         ]
 
-
         logger.info(f"Removing non-canonical amino acids")
-        forbidden = ['B', 'J', 'X', 'Z']
+        forbidden = ["B", "J", "X", "Z"]
 
         masks = []
         for aa in forbidden:
-            masks.append(fasta_lib.precursor_df['sequence'].str.contains(aa))
+            masks.append(fasta_lib.precursor_df["sequence"].str.contains(aa))
         mask = np.logical_or.reduce(masks)
         fasta_lib.precursor_df = fasta_lib.precursor_df[~mask]
 
@@ -387,7 +389,6 @@ class AnnotateFasta(ProcessingStep):
             input._precursor_df = input._precursor_df[
                 input._precursor_df["cardinality"] > 0
             ]
-        
 
         return input
 
@@ -479,7 +480,7 @@ class IsotopeGenerator(ProcessingStep):
             return input
 
         input.calc_precursor_isotope_intensity(
-            max_isotope=self.n_isotopes, 
+            max_isotope=self.n_isotopes,
             mp_process_num=self.mp_process_num,
         )
         return input
