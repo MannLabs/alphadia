@@ -224,9 +224,9 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     for path in raw_path_list:
         print('path', path)
         print('os.path.basename(path)', os.path.basename(path))
-        print('re.search(args.regex, os.path.basename(path))', re.search(args.regex, os.path.basename(path)))
-        print('re.search(args.regex, os.path.basename(path)) is not None', re.search(args.regex, os.path.basename(path)) is not None)
-        print('')
+        #print('re.search(args.regex, os.path.basename(path))', re.search(args.regex, os.path.basename(path)))
+        #print('re.search(args.regex, os.path.basename(path)) is not None', re.search(args.regex, os.path.basename(path)) is not None)
+        #print('')
 
     len_before = len(raw_path_list)
     raw_path_list = [
