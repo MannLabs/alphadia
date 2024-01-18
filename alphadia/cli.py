@@ -221,7 +221,7 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
 
     len_before = len(raw_path_list)
     raw_path_list = [
-        f for f in raw_path_list if re.search(pattern, os.path.basename(f))
+        f for f in raw_path_list if re.search(pattern, os.path.basename(f)) is not None
     ]
     len_after = len(raw_path_list)
     print(f"Removed {len_before - len_after} of {len_before} files.")
