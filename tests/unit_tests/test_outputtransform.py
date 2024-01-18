@@ -134,6 +134,8 @@ def test_output_transform():
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "normalize_lfq": True,
+            "peptide_level_lfq": False,
+            "precursor_level_lfq": False,
         },
     }
 

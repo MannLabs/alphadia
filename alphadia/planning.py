@@ -156,6 +156,10 @@ class Plan:
             fixed_modifications=self.config["library_prediction"][
                 "fixed_modifications"
             ].split(";"),
+            variable_modifications=self.config["library_prediction"][
+                "variable_modifications"
+            ].split(";"),
+            max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
             precursor_charge=self.config["library_prediction"]["precursor_charge"],
@@ -183,6 +187,7 @@ class Plan:
                 fragment_mz=self.config["library_prediction"]["fragment_mz"],
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
+                mp_process_num=self.config["general"]["thread_count"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
