@@ -198,7 +198,7 @@
                 {   
                     "id": "fragment_mz",
                     "name": "Fragment mz",
-                    "value": [100.0, 2000.0],
+                    "value": [200.0, 2000.0],
                     "description": "Size limit for generated fragments.",
                     "type": "float_range"
                 },

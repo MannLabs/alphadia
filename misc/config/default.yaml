@@ -33,7 +33,7 @@ library_prediction:
     - 400
     - 1200
   fragment_mz:
-    - 100
+    - 200
     - 2000
   nce: 25.0
   instrument: QE
@@ -49,6 +49,8 @@ search:
   target_ms2_tolerance: 15
   target_mobility_tolerance: 0.04
   target_rt_tolerance: 60
+
+  quant_window: 3
 
 search_advanced:
   top_k_fragments: 12
