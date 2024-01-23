@@ -619,7 +619,7 @@ class ThermoJIT(object):
                         idx += 1
 
         return dense_output, precursor_idx_list
-    
+
     def get_dense_intensity(
         self,
         frame_limits,
@@ -682,7 +682,6 @@ class ThermoJIT(object):
             (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
             dtype=np.float32,
         )
-       
 
         for i, cycle_idx in enumerate(
             range(precursor_cycle_start, precursor_cycle_stop)
@@ -704,7 +703,7 @@ class ThermoJIT(object):
 
                     while idx < peak_stop_idx and self.mz_values[idx] <= mz_query_stop:
                         accumulated_intensity = dense_output[0, k, j, 0, i]
-                        #accumulated_dim1 = dense_output[1, k, j, 0, i]
+                        # accumulated_dim1 = dense_output[1, k, j, 0, i]
 
                         new_intensity = self.intensity_values[idx]
 
@@ -714,7 +713,6 @@ class ThermoJIT(object):
                         dense_output[0, k, j, 1, i] = (
                             accumulated_intensity + new_intensity
                         )
-   
 
                         idx += 1
 
