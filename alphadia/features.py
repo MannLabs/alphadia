@@ -667,10 +667,13 @@ nb_float32_array = nb.types.Array(nb.types.float32, 1, "C")
 @nb.njit()
 def fragment_features(
     dense_fragments: np.ndarray,
+    fragments_frame_profile: np.ndarray,
+    frame_rt: np.ndarray,
     observation_importance: np.ndarray,
     template: np.ndarray,
     fragments: np.ndarray,
     feature_array: nb_float32_array,
+    quant_window: nb.uint32 = 3,
 ):
     fragment_feature_dict = nb.typed.Dict.empty(
         key_type=nb.types.unicode_type, value_type=float_array
@@ -706,26 +709,53 @@ def fragment_features(
         n_fragments, -1
     )
 
+    # most intense observation across all observations
+    best_observation = np.argmax(observation_importance)
+    # (n_fragments, n_frames)
+    best_profile = fragments_frame_profile[:, best_observation]
+
+    # center the profile around the expected frame center
+    center = best_profile.shape[1] // 2
+    # (n_fragments, quant_window * 2 + 1)
+    best_profile = best_profile[:, center - quant_window : center + quant_window + 1]
+
+    # (quant_window * 2 + 1)
+    frame_rt_quant = frame_rt[center - quant_window : center + quant_window + 1]
+    quant_durarion = frame_rt_quant[-1] - frame_rt_quant[0]
+
+    # (quant_window * 2)
+    delta_rt = frame_rt_quant[1:] - frame_rt_quant[:-1]
+
+    # (n_fragments)
+    fragment_area = np.sum(
+        (best_profile[:, 1:] + best_profile[:, :-1]) * delta_rt.reshape(1, -1) * 0.5,
+        axis=-1,
+    )
+    fragment_area_norm = fragment_area / quant_durarion
+
+    observed_fragment_intensity = np.sum(best_profile, axis=-1)
+
     # create fragment masks for filtering
+    fragment_profiles = np.sum(dense_fragments[0], axis=-1)
     # (n_fragments, n_observations)
-    sum_fragment_intensity = np.sum(np.sum(dense_fragments[0], axis=-1), axis=-1)
+    sum_fragment_intensity = np.sum(fragment_profiles, axis=-1)
 
     # create fragment intensity mask
-    fragment_intensity_mask_2d = sum_fragment_intensity > 0
-    fragment_intensity_weights_2d = (
-        fragment_intensity_mask_2d * observation_importance_reshaped
-    )
+    # fragment_intensity_mask_2d = sum_fragment_intensity > 0
+    # fragment_intensity_weights_2d = (
+    #    fragment_intensity_mask_2d * observation_importance_reshaped
+    # )
 
     # (n_fragments, n_observations)
     # normalize rows to 1
-    fragment_intensity_weights_2d = fragment_intensity_weights_2d / (
-        np.sum(fragment_intensity_weights_2d, axis=-1).reshape(-1, 1) + 1e-20
-    )
+    # fragment_intensity_weights_2d = fragment_intensity_weights_2d / (
+    #    np.sum(fragment_intensity_weights_2d, axis=-1).reshape(-1, 1) + 1e-20
+    # )
 
     # (n_fragments)
-    observed_fragment_intensity = weighted_mean_a1(
-        sum_fragment_intensity, fragment_intensity_weights_2d
-    )
+    # observed_fragment_intensity = weighted_mean_a1(
+    #    sum_fragment_intensity, fragment_intensity_weights_2d
+    # )
 
     # (n_observations)
     sum_template_intensity = np.sum(np.sum(template, axis=-1), axis=-1)
@@ -769,9 +799,9 @@ def fragment_features(
     )
 
     if np.sum(fragment_height_mask_1d) > 0.0:
-        feature_array[18] = np.corrcoef(
-            observed_fragment_intensity, fragment_intensity_norm
-        )[0, 1]
+        feature_array[18] = np.corrcoef(fragment_area_norm, fragment_intensity_norm)[
+            0, 1
+        ]
 
     if np.sum(observed_fragment_height) > 0.0:
         feature_array[19] = np.corrcoef(
@@ -823,7 +853,7 @@ def fragment_features(
         observed_fragment_mz_mean,
         mass_error,
         observed_fragment_height,
-        observed_fragment_intensity,
+        fragment_area_norm,
     )
 
 
@@ -897,6 +927,9 @@ def profile_features(
     feature_array,
 ):
     n_observations = len(observation_importance)
+    # most intense observation across all observations
+    best_observation = np.argmax(observation_importance)
+
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
     # ============= FRAGMENT RT CORRELATIONS =============

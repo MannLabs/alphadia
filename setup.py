@@ -25,23 +25,16 @@ def get_requirements():
             requirement_file_name,
         )
         with open(full_requirement_file_name) as requirements_file:
-            if extra != "":
-                extra_stable = f"{extra}-stable"
-            else:
-                extra_stable = "stable"
-            extra_requirements[extra_stable] = []
             extra_requirements[extra] = []
             for line in requirements_file:
-                extra_requirements[extra_stable].append(line)
-                requirement, *comparison = re.split("[><=~!]", line)
-                requirement == requirement.strip()
-                extra_requirements[extra].append(requirement)
+                extra_requirements[extra].append(line)
     requirements = extra_requirements.pop("")
     return requirements, extra_requirements
 
 
 def create_pip_wheel():
     requirements, extra_requirements = get_requirements()
+    print("extra_requirements", requirements, flush=True)
     setuptools.setup(
         name=package2install.__project__,
         version=package2install.__version__,

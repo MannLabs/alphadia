@@ -16,6 +16,99 @@ import numpy as np
 import numba as nb
 
 
+def get_cycle_length(cycle_signature: np.ndarray):
+    """Get the cycle length from the cycle signature.
+
+    Parameters
+    ----------
+
+    cycle_signature: np.ndarray
+        The signature of the DIA cycle. This will usually be the sum of the isolation windows.
+
+    Returns
+    -------
+
+    cycle_length: int
+        The length of the DIA cycle.
+    """
+
+    corr = normed_auto_correlation(cycle_signature)
+    corr[0] = 0
+    cycle_length = np.argmax(corr)
+    return cycle_length
+
+
+@nb.njit
+def get_cycle_start(
+    cycle_signature: np.ndarray,
+    cycle_length: int,
+):
+    """Get the cycle start from the cycle signature.
+
+    Parameters
+    ----------
+
+    cycle_signature: np.ndarray
+        The signature of the DIA cycle. This will usually be the sum of the isolation windows.
+
+    cycle_length: int
+        The length of the DIA cycle.
+
+    Returns
+    -------
+
+    cycle_start: int
+        The index of the first cycle in the signature.
+    """
+    for i in range(len(cycle_signature) - (2 * cycle_length)):
+        if np.all(cycle_signature[i : i + cycle_length] == cycle_signature[i]):
+            continue
+
+        if np.all(
+            cycle_signature[i : i + cycle_length]
+            == cycle_signature[i + cycle_length : i + 2 * cycle_length]
+        ):
+            return i
+
+    return -1
+
+
+@nb.njit
+def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
+    """Assert that the found DIA cycle is valid.
+
+    Parameters
+    ----------
+
+    cycle_signature: np.ndarray
+        The signature of the DIA cycle. This will usually be the sum of the isolation windows.
+
+    cycle_length: int
+        The length of the DIA cycle.
+
+    cycle_start: int
+        The index of the first cycle in the signature.
+
+    Returns
+    -------
+
+    cycle_valid: bool
+        True if the cycle is valid, False otherwise.
+    """
+
+    cycle_valid = True
+    for i in range(len(cycle_signature) - (2 * cycle_length) - cycle_start):
+        if not np.all(
+            cycle_signature[i + cycle_start : i + cycle_start + cycle_length]
+            == cycle_signature[
+                i + cycle_start + cycle_length : i + cycle_start + 2 * cycle_length
+            ]
+        ):
+            cycle_valid = False
+            break
+    return cycle_valid
+
+
 def normed_auto_correlation(x):
     """Calculate the normalized auto correlation of a 1D array.
     Parameters
@@ -75,12 +168,6 @@ def calculate_cycle(spectrum_df):
     if not np.allclose(first_cycle, second_cycle):
         raise ValueError("No DIA cycle pattern found in the data.")
 
-    cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[:cycle_length]
-    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[:cycle_length]
-
-    return cycle
-
 
 @nb.njit
 def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
@@ -130,9 +217,11 @@ class Thermo(alpharawthermo.ThermoRawData):
         self.cv = cv
         self.filter_spectra()
 
-        self.cycle = calculate_cycle(self.spectrum_df)
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
+
+        self.determine_dia_cycle()
+
         self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
         self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
 
@@ -160,9 +249,49 @@ class Thermo(alpharawthermo.ThermoRawData):
         self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
 
-    def filter_spectra(self):
-        print(self.cv, "cv" in self.spectrum_df.columns)
+    def determine_dia_cycle(self, subset_for_cycle_detection=10000):
+        """Determine the DIA cycle and store it in self.cycle.
 
+        Parameters
+        ----------
+
+        subset_for_cycle_detection : int, default = 10000
+            The number of spectra to use for cycle detection.
+
+        """
+        logger.info("Determining DIA cycle")
+
+        cycle_signature = (
+            self.spectrum_df.isolation_lower_mz.values[:subset_for_cycle_detection]
+            + self.spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
+        )
+        cycle_length = get_cycle_length(cycle_signature)
+        cycle_start = get_cycle_start(cycle_signature, cycle_length)
+
+        if cycle_start == -1:
+            raise ValueError("Failed to determine start of DIA cycle.")
+
+        if not assert_cycle(cycle_signature, cycle_length, cycle_start):
+            raise ValueError(
+                f"Cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length} detected, but does not consistent."
+            )
+
+        logger.info(
+            f"Found cycle with start {self.rt_values[cycle_start]/60:.2f} min and length {cycle_length}."
+        )
+
+        self.rt_values = self.rt_values[cycle_start:]
+        self.spectrum_df = self.spectrum_df.iloc[cycle_start:]
+
+        self.cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
+        self.cycle[0, :, 0, 0] = self.spectrum_df.isolation_lower_mz.values[
+            :cycle_length
+        ]
+        self.cycle[0, :, 0, 1] = self.spectrum_df.isolation_upper_mz.values[
+            :cycle_length
+        ]
+
+    def filter_spectra(self):
         # filter for astral MS1
         if self.astral_ms1:
             self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]
@@ -486,6 +615,104 @@ class ThermoJIT(object):
                         )
                         dense_output[1, k, j, 0, i] = new_dim1
                         dense_output[1, k, j, 1, i] = new_dim1
+
+                        idx += 1
+
+        return dense_output, precursor_idx_list
+
+    def get_dense_intensity(
+        self,
+        frame_limits,
+        scan_limits,
+        mz_query_list,
+        mass_tolerance,
+        quadrupole_mz,
+        absolute_masses=False,
+        custom_cycle=None,
+    ):
+        """
+        Get a dense representation of the data for a given set of parameters.
+
+        Parameters
+        ----------
+
+        frame_limits : np.ndarray, shape = (1,2,)
+            array of frame indices
+
+        scan_limits : np.ndarray, shape = (1,2,)
+            array of scan indices
+
+        mz_query_list : np.ndarray, shape = (n_tof_slices,)
+            array of query m/z values
+
+        mass_tolerance : float
+            mass tolerance in ppm
+
+        quadrupole_mz : np.ndarray, shape = (1,2,)
+            array of quadrupole m/z values
+
+        absolute_masses : bool, default = False
+            if True, the first slice of the dense output will contain the absolute m/z values instead of the mass error
+
+        custom_cycle : np.ndarray, shape = (1, n_precursor, 1, 2), default = None
+            custom cycle quadrupole mask, for example after calibration
+
+        Returns
+        -------
+
+        np.ndarray, shape = (1, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
+
+        """
+
+        # (n_tof_slices, 2) array of start, stop mz for each slice
+        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+        n_tof_slices = len(mz_query_slices)
+
+        cycle_length = self.cycle.shape[1]
+
+        # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
+        precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
+        n_precursor_indices = len(precursor_idx_list)
+
+        precursor_cycle_start = frame_limits[0, 0] // cycle_length
+        precursor_cycle_stop = frame_limits[0, 1] // cycle_length
+        precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+
+        dense_output = np.zeros(
+            (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
+            dtype=np.float32,
+        )
+
+        for i, cycle_idx in enumerate(
+            range(precursor_cycle_start, precursor_cycle_stop)
+        ):
+            for j, precursor_idx in enumerate(precursor_idx_list):
+                scan_idx = precursor_idx + cycle_idx * cycle_length
+
+                peak_start_idx = self.peak_start_idx_list[scan_idx]
+                peak_stop_idx = self.peak_stop_idx_list[scan_idx]
+
+                idx = peak_start_idx
+
+                for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
+                    rel_idx = np.searchsorted(
+                        self.mz_values[idx:peak_stop_idx], mz_query_start, "left"
+                    )
+
+                    idx += rel_idx
+
+                    while idx < peak_stop_idx and self.mz_values[idx] <= mz_query_stop:
+                        accumulated_intensity = dense_output[0, k, j, 0, i]
+                        # accumulated_dim1 = dense_output[1, k, j, 0, i]
+
+                        new_intensity = self.intensity_values[idx]
+
+                        dense_output[0, k, j, 0, i] = (
+                            accumulated_intensity + new_intensity
+                        )
+                        dense_output[0, k, j, 1, i] = (
+                            accumulated_intensity + new_intensity
+                        )
 
                         idx += 1
 

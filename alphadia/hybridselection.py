@@ -764,14 +764,24 @@ class HybridElutionGroup:
             self.set_status(101, "No precursor masses after grouping")
             return
 
-        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-        _dense_precursors, _ = jit_data.get_dense(
-            frame_limits,
-            scan_limits,
-            precursor_mz,
-            config.precursor_mz_tolerance,
-            np.array([[-1.0, -1.0]], dtype=np.float32),
-        )
+        if jit_data.has_mobility:
+            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+            _dense_precursors, _ = jit_data.get_dense(
+                frame_limits,
+                scan_limits,
+                precursor_mz,
+                config.precursor_mz_tolerance,
+                np.array([[-1.0, -1.0]], dtype=np.float32),
+            )
+        else:
+            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+            _dense_precursors, _ = jit_data.get_dense_intensity(
+                frame_limits,
+                scan_limits,
+                precursor_mz,
+                config.precursor_mz_tolerance,
+                np.array([[-1.0, -1.0]], dtype=np.float32),
+            )
         dense_precursors = _dense_precursors.sum(axis=2)
 
         # FLAG: needed for debugging
@@ -784,15 +794,26 @@ class HybridElutionGroup:
             self.set_status(102, "Unexpected quadrupole_mz.shape")
             return
 
-        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-        _dense_fragments, _ = jit_data.get_dense(
-            frame_limits,
-            scan_limits,
-            fragment_mz,
-            config.fragment_mz_tolerance,
-            quadrupole_mz,
-            custom_cycle=jit_data.cycle,
-        )
+        if jit_data.has_mobility:
+            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+            _dense_fragments, _ = jit_data.get_dense(
+                frame_limits,
+                scan_limits,
+                fragment_mz,
+                config.fragment_mz_tolerance,
+                quadrupole_mz,
+                custom_cycle=jit_data.cycle,
+            )
+        else:
+            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+            _dense_fragments, _ = jit_data.get_dense_intensity(
+                frame_limits,
+                scan_limits,
+                fragment_mz,
+                config.fragment_mz_tolerance,
+                quadrupole_mz,
+                custom_cycle=jit_data.cycle,
+            )
         dense_fragments = _dense_fragments.sum(axis=2)
 
         # FLAG: needed for debugging

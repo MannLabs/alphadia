@@ -69,23 +69,25 @@ def wsl_to_windows(
 
     if path is None:
         return None
-    
-    if isinstance(path, str):
 
-        disk_match = re.search(r'^/mnt/[a-z]', path)
+    if isinstance(path, str):
+        disk_match = re.search(r"^/mnt/[a-z]", path)
 
         if len(disk_match.group()) == 0:
-            raise ValueError('Could not find disk in path during wsl to windows conversion')
-        
+            raise ValueError(
+                "Could not find disk in path during wsl to windows conversion"
+            )
+
         disk_letter = disk_match.group()[5].upper()
 
-        return re.sub(r'^/mnt/[a-z]', f'{disk_letter}:', path).replace('/', '\\')
-    
+        return re.sub(r"^/mnt/[a-z]", f"{disk_letter}:", path).replace("/", "\\")
+
     elif isinstance(path, (list, tuple)):
         return [wsl_to_windows(p) for p in path]
     else:
         raise ValueError(f"Unsupported type {type(path)}")
-    
+
+
 def windows_to_wsl(
     path: typing.Union[str, list, tuple]
 ) -> typing.Union[str, list, tuple]:
@@ -104,16 +106,18 @@ def windows_to_wsl(
     """
     if path is None:
         return None
-    
+
     if isinstance(path, str):
-        disk_match = re.search(r'^[A-Z]:', path)
+        disk_match = re.search(r"^[A-Z]:", path)
 
         if len(disk_match.group()) == 0:
-            raise ValueError('Could not find disk in path during windows to wsl conversion')
+            raise ValueError(
+                "Could not find disk in path during windows to wsl conversion"
+            )
 
         disk_letter = disk_match.group()[0].lower()
 
-        return re.sub(r'^[A-Z]:', f'/mnt/{disk_letter}', path.replace('\\', '/'))
+        return re.sub(r"^[A-Z]:", f"/mnt/{disk_letter}", path.replace("\\", "/"))
 
     elif isinstance(path, (list, tuple)):
         return [windows_to_wsl(p) for p in path]

@@ -137,23 +137,33 @@ class FastaDigest(ProcessingStep):
         self,
         enzyme: str = "trypsin",
         fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
-        missed_cleavages: int = 2,
+        variable_modifications: typing.List[str] = [
+            "Oxidation@M",
+            "Acetyl@Prot N-term",
+        ],
+        missed_cleavages: int = 1,
         precursor_len: typing.List[int] = [7, 35],
         precursor_charge: typing.List[int] = [2, 4],
         precursor_mz: typing.List[int] = [400, 1200],
+        max_var_mod_num: int = 1,
     ) -> None:
-        """Predict the retention time of a spectral library using PeptDeep.
-        Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
+        """Digest a FASTA file into a spectral library.
+        Expects a `List[str]` object as input and will return a `SpecLibBase` object.
         """
         super().__init__()
         self.enzyme = enzyme
         self.fixed_modifications = fixed_modifications
+        self.variable_modifications = variable_modifications
         self.missed_cleavages = missed_cleavages
         self.precursor_len = precursor_len
         self.precursor_charge = precursor_charge
         self.precursor_mz = precursor_mz
+        self.max_var_mod_num = max_var_mod_num
 
     def validate(self, input: typing.List[str]) -> bool:
+        if not isinstance(input, list):
+            logger.error(f"Input fasta list is not a list")
+            return False
         if len(input) == 0:
             logger.error(f"Input fasta list is empty")
             return False
@@ -169,10 +179,10 @@ class FastaDigest(ProcessingStep):
             model_mgr,
             protease=protease_dict[self.enzyme],
             charged_frag_types=frag_types,
-            var_mods=[],
+            var_mods=self.variable_modifications,
             fix_mods=self.fixed_modifications,
             max_missed_cleavages=self.missed_cleavages,
-            max_var_mod_num=0,
+            max_var_mod_num=self.max_var_mod_num,
             peptide_length_max=self.precursor_len[1],
             peptide_length_min=self.precursor_len[0],
             precursor_charge_min=self.precursor_charge[0],
@@ -205,6 +215,19 @@ class FastaDigest(ProcessingStep):
         fasta_lib.add_charge()
         fasta_lib.hash_precursor_df()
         fasta_lib.calc_precursor_mz()
+        fasta_lib.precursor_df = fasta_lib.precursor_df[
+            (fasta_lib.precursor_df["precursor_mz"] > self.precursor_mz[0])
+            & (fasta_lib.precursor_df["precursor_mz"] < self.precursor_mz[1])
+        ]
+
+        logger.info(f"Removing non-canonical amino acids")
+        forbidden = ["B", "J", "X", "Z"]
+
+        masks = []
+        for aa in forbidden:
+            masks.append(fasta_lib.precursor_df["sequence"].str.contains(aa))
+        mask = np.logical_or.reduce(masks)
+        fasta_lib.precursor_df = fasta_lib.precursor_df[~mask]
 
         logger.info(
             f"Fasta library contains {len(fasta_lib.precursor_df):,} precursors"
@@ -217,6 +240,7 @@ class PeptDeepPrediction(ProcessingStep):
     def __init__(
         self,
         use_gpu: bool = True,
+        mp_process_num: int = 8,
         fragment_mz: typing.List[int] = [100, 2000],
         nce: int = 25,
         instrument: str = "Astral",
@@ -229,6 +253,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.fragment_mz = fragment_mz
         self.nce = nce
         self.instrument = instrument
+        self.mp_process_num = mp_process_num
 
     def validate(self, input: typing.List[str]) -> bool:
         return True
@@ -245,6 +270,7 @@ class PeptDeepPrediction(ProcessingStep):
             input.precursor_df,
             predict_items=["rt", "ms2", "mobility"],
             frag_types=frag_types,
+            process_num=self.mp_process_num,
         )
 
         if "fragment_mz_df" in res:
@@ -454,7 +480,8 @@ class IsotopeGenerator(ProcessingStep):
             return input
 
         input.calc_precursor_isotope_intensity(
-            max_isotope=self.n_isotopes, mp_process_num=self.mp_process_num
+            max_isotope=self.n_isotopes,
+            mp_process_num=self.mp_process_num,
         )
         return input
 
