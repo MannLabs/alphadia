@@ -293,11 +293,10 @@ class CandidateConfig(config.JITConfig):
         the area will be calculated from `scan_center - quant_window` to `scan_center + quant_window`.
         Default: `quant_window = 3`"""
         return self._quant_window
-    
+
     @quant_window.setter
     def quant_window(self, value):
         self._quant_window = value
-
 
     @property
     def precursor_mz_tolerance(self) -> float:
@@ -644,9 +643,7 @@ class Candidate:
 
         cycle_len = jit_data.cycle.shape[1]
 
-        frame_rt = jit_data.rt_values[
-            self.frame_start:self.frame_stop:cycle_len
-        ]
+        frame_rt = jit_data.rt_values[self.frame_start : self.frame_stop : cycle_len]
 
         # (n_observations, n_frames)
         template_frame_profile = features.or_envelope_1d(
@@ -657,7 +654,6 @@ class Candidate:
         fragments_scan_profile = features.or_envelope_2d(
             features.scan_profile_2d(dense_fragments[0])
         )
-
 
         # (n_observations, n_scans)
         template_scan_profile = features.or_envelope_1d(
@@ -698,8 +694,6 @@ class Candidate:
             template,
             feature_array,
         )
-
-
 
         # retrive first fragment features
         # (n_valid_fragments)

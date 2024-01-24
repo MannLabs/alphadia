@@ -763,9 +763,8 @@ class HybridElutionGroup:
         if len(precursor_mz) == 0:
             self.set_status(101, "No precursor masses after grouping")
             return
-        
-        if jit_data.has_mobility:
 
+        if jit_data.has_mobility:
             # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
             _dense_precursors, _ = jit_data.get_dense(
                 frame_limits,
