@@ -849,6 +849,38 @@ def fragment_features(
 
     mass_error = (observed_fragment_mz_mean - fragments.mz) / fragments.mz * 1e6
 
+    fragment_idx_sorted = np.argsort(fragments.intensity)[::-1]
+    top_3_idxs = fragment_idx_sorted[:3]
+
+    # top_3_ms2_mass_error
+    feature_array[41] = mass_error[top_3_idxs].mean()
+
+    # mean_ms2_mass_error
+    feature_array[42] = mass_error.mean()
+
+    # ============= FRAGMENT intersection =============
+
+    is_b = fragments.type == 98
+    is_y = fragments.type == 121
+
+    if np.sum(is_b) > 0 and np.sum(is_y) > 0:
+      
+        min_y = fragments.position[is_y].min()
+        max_b = fragments.position[is_b].max()
+        overlapping = (is_y & (fragments.position < max_b)) | (is_b & (fragments.position > min_y))
+
+        # n_overlapping
+        feature_array[43] = overlapping.sum()
+
+        if feature_array[43] > 0:
+            # mean_overlapping_intensity
+            feature_array[44] = np.mean(fragment_area_norm[overlapping])
+            # mean_overlapping_mass_error
+            feature_array[45] = np.mean(mass_error[overlapping])
+        else:
+            feature_array[44] = 0
+            feature_array[45] = 15
+
     return (
         observed_fragment_mz_mean,
         mass_error,

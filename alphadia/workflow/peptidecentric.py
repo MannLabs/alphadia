@@ -82,6 +82,14 @@ feature_columns = [
     "f_masked",
     "cycle_fwhm",
     "mobility_fwhm",
+    "top_3_ms2_mass_error",
+    "mean_ms2_mass_error",
+    "n_overlapping",
+    "mean_overlapping_intensity",
+    "mean_overlapping_mass_error"
+    "n_K",
+    "n_R",
+    "n_P",
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
