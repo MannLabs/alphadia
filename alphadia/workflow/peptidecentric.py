@@ -551,16 +551,20 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
         ]
 
-        min_fragments = 1000
+        min_fragments = 500
+        max_fragments = 5000
         min_correlation = 0.7
         fragments_df_filtered = fragments_df_filtered.sort_values(
             by=["correlation"], ascending=False
         )
-        stop_rank = max(
-            np.searchsorted(
-                fragments_df_filtered["correlation"].values, min_correlation
+        stop_rank = min(
+            max(
+                np.searchsorted(
+                    fragments_df_filtered["correlation"].values, min_correlation
+                ),
+                min_fragments,
             ),
-            min_fragments,
+            max_fragments,
         )
         fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
 
@@ -669,6 +673,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "precursor_mz_tolerance": self.com.ms1_error,
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
+                "min_size_rt": self.config["search"]["quant_window"],
             }
         )
 
@@ -696,6 +701,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "precursor_mz_tolerance": self.com.ms1_error,
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
+                "quant_window": self.config["search"]["quant_window"],
             }
         )
 

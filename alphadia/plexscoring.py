@@ -167,6 +167,7 @@ class CandidateConfigJIT:
     top_k_fragments: nb.uint32
     top_k_isotopes: nb.uint32
     reference_channel: nb.int16
+    quant_window: nb.uint32
 
     precursor_mz_tolerance: nb.float32
     fragment_mz_tolerance: nb.float32
@@ -179,6 +180,7 @@ class CandidateConfigJIT:
         top_k_fragments: nb.uint32,
         top_k_isotopes: nb.uint32,
         reference_channel: nb.int16,
+        quant_window: nb.uint32,
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
     ) -> None:
@@ -194,6 +196,7 @@ class CandidateConfigJIT:
         self.top_k_fragments = top_k_fragments
         self.top_k_isotopes = top_k_isotopes
         self.reference_channel = reference_channel
+        self.quant_window = quant_window
 
         self.precursor_mz_tolerance = precursor_mz_tolerance
         self.fragment_mz_tolerance = fragment_mz_tolerance
@@ -213,6 +216,7 @@ class CandidateConfig(config.JITConfig):
         self.top_k_fragments = 12
         self.top_k_isotopes = 4
         self.reference_channel = -1
+        self.quant_window = 3
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
 
@@ -282,6 +286,17 @@ class CandidateConfig(config.JITConfig):
     @reference_channel.setter
     def reference_channel(self, value):
         self._reference_channel = value
+
+    @property
+    def quant_window(self) -> int:
+        """The quantification window size in cycles.
+        the area will be calculated from `scan_center - quant_window` to `scan_center + quant_window`.
+        Default: `quant_window = 3`"""
+        return self._quant_window
+
+    @quant_window.setter
+    def quant_window(self, value):
+        self._quant_window = value
 
     @property
     def precursor_mz_tolerance(self) -> float:
@@ -626,6 +641,10 @@ class Candidate:
             features.frame_profile_2d(dense_fragments[0])
         )
 
+        cycle_len = jit_data.cycle.shape[1]
+
+        frame_rt = jit_data.rt_values[self.frame_start : self.frame_stop : cycle_len]
+
         # (n_observations, n_frames)
         template_frame_profile = features.or_envelope_1d(
             features.frame_profile_1d(template)
@@ -680,10 +699,13 @@ class Candidate:
         # (n_valid_fragments)
         mz_observed, mass_error, height, intensity = features.fragment_features(
             dense_fragments,
+            fragments_frame_profile,
+            frame_rt,
             observation_importance,
             template,
             fragments,
             feature_array,
+            quant_window=config.quant_window,
         )
 
         # store fragment features if requested

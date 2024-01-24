@@ -9,5 +9,5 @@ seaborn
 rocket_fft
 xxhash
 torchmetrics
-directlfq>=0.2.15
+directlfq==0.2.15
 pythonnet

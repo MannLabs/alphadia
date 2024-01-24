@@ -217,20 +217,22 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
     # filter files based on regex
-    #pattern = re.compile()
-        
-    print('args.regex', args.regex)
+    # pattern = re.compile()
+
+    print("args.regex", args.regex)
 
     for path in raw_path_list:
-        print('path', path)
-        print('os.path.basename(path)', os.path.basename(path))
-        #print('re.search(args.regex, os.path.basename(path))', re.search(args.regex, os.path.basename(path)))
-        #print('re.search(args.regex, os.path.basename(path)) is not None', re.search(args.regex, os.path.basename(path)) is not None)
-        #print('')
+        print("path", path)
+        print("os.path.basename(path)", os.path.basename(path))
+        # print('re.search(args.regex, os.path.basename(path))', re.search(args.regex, os.path.basename(path)))
+        # print('re.search(args.regex, os.path.basename(path)) is not None', re.search(args.regex, os.path.basename(path)) is not None)
+        # print('')
 
     len_before = len(raw_path_list)
     raw_path_list = [
-        f for f in raw_path_list if re.search(args.regex, os.path.basename(f)) is not None
+        f
+        for f in raw_path_list
+        if re.search(args.regex, os.path.basename(f)) is not None
     ]
     len_after = len(raw_path_list)
     print(f"Removed {len_before - len_after} of {len_before} files.")

@@ -283,7 +283,7 @@ class QuantBuilder:
         return protein_df
 
 
-def prepare_df(df, psm_df, column="height"):
+def prepare_df(df, psm_df, column="intensity"):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = utils.ion_hash(
         df["precursor_idx"].values,
