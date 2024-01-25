@@ -841,7 +841,7 @@ class HybridElutionGroup:
         else:
             mean = None
             std = None
-            weights = np.array([1, 1, 1, 1, 1, 1, 1, 1], np.float64)
+            weights = None #np.array([1, 1, 1, 1, 1, 1, 1, 1], np.float64)
 
         self.candidates = build_candidates(
             dense_precursors,
@@ -1401,12 +1401,12 @@ def build_features(
     )
 
     # top fragment
-    frag_order = np.argsort(fragment_intensity)[::-1]
+    #frag_order = np.argsort(fragment_intensity)[::-1]
 
-    precursor_kernel = precursor_intensity.reshape(-1, 1, 1)
-    fragment_kernel = fragment_intensity[frag_order].reshape(-1, 1, 1)
+    #precursor_kernel = precursor_intensity.reshape(-1, 1, 1)
+    fragment_kernel = fragment_intensity.reshape(-1, 1, 1)
 
-    smooth_fragment = smooth_fragment[:, frag_order]
+    #smooth_fragment = smooth_fragment[:, frag_order]
 
     # fragment_binary = smooth_fragment[0] > 2
     # fragment_binary_sum = np.sum(fragment_binary, axis=0)
@@ -1424,7 +1424,7 @@ def build_features(
     # fragment_dot_mean = np.mean(fragment_dot)
     # fragment_norm = fragment_dot/(fragment_dot_mean+0.001)
 
-    log_fragment = np.sum(np.log(smooth_fragment[0] + 1), axis=0)
+    log_fragment = np.sum(np.log(smooth_fragment[0] + 1)*fragment_kernel, axis=0)
     log_precursor = np.sum(np.log(smooth_precursor[0] + 1), axis=0)
 
     # fragment_mass_error = np.sum(np.abs(smooth_fragment[1]), axis=0)
@@ -1453,7 +1453,7 @@ def build_features(
     # features[1] = np.log(fragment_norm +1)
     # features[2] = np.log(precursor_norm +1)
     features[0] = (
-        log_fragment + log_precursor
+        log_fragment + log_precursor*0.2
     )  # np.log(fragment_norm +1) + np.log(precursor_norm +1)
     # features[4] = fragment_mass_error_norm
     # features[5] = precursor_mass_error_norm
