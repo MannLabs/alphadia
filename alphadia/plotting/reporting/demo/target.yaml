@@ -1,0 +1,152 @@
+version: 3
+general:
+  thread_count: 10
+  reuse_calibration: true
+  reuse_quant: true
+  astral_ms1: false
+  log_level: INFO
+  wsl: false
+  mmap_detector_events: false
+  use_gpu: true
+library_loading:
+  rt_heuristic: 180
+library_prediction:
+  predict: false
+  enzyme: trypsin
+  fixed_modifications: Carbamidomethyl@C
+  variable_modifications: Oxidation@M
+  missed_cleavages: 2
+  precursor_len:
+  - 2
+  - 12
+  precursor_charge:
+  - 2
+  - 4
+  precursor_mz:
+  - 400
+  - 1200
+  fragment_mz:
+  - 100
+  - 200
+  nce: 25.0
+  instrument: Astral
+  save_hdf: true
+search:
+  channel_filter: ''
+  exclude_shared_ions: true
+  compete_for_fragments: true
+  target_num_candidates: 5
+  target_ms1_tolerance: 5
+  target_ms2_tolerance: 10
+  target_mobility_tolerance: 0.04
+  target_rt_tolerance: 300
+search_advanced:
+  top_k_fragments: 12
+calibration:
+  min_epochs: 3
+  max_epochs: 20
+  batch_size: 8000
+  recalibration_target: 200
+  final_full_calibration: false
+  norm_rt_mode: linear
+search_initial:
+  initial_num_candidates: 2
+  initial_ms1_tolerance: 30
+  initial_ms2_tolerance: 12
+  initial_mobility_tolerance: 0.18
+  initial_rt_tolerance: 600
+selection_config:
+  peak_len_rt: 10.0
+  sigma_scale_rt: 0.5
+  peak_len_mobility: 0.01
+  sigma_scale_mobility: 1.0
+  top_k_precursors: 3
+  kernel_size: 30
+  f_mobility: 1.0
+  f_rt: 0.99
+  center_fraction: 0.5
+  min_size_mobility: 8
+  min_size_rt: 3
+  max_size_mobility: 50
+  max_size_rt: 15
+  group_channels: false
+  use_weighted_score: true
+  join_close_candidates: true
+  join_close_candidates_scan_threshold: 0.01
+  join_close_candidates_cycle_threshold: 0.6
+scoring_config:
+  score_grouped: false
+  top_k_isotopes: 3
+  reference_channel: -1
+  precursor_mz_tolerance: 10
+  fragment_mz_tolerance: 15
+multiplexing:
+  multiplexed_quant: false
+  target_channels: 4,8
+  decoy_channel: 5
+  reference_channel: 0
+  competetive_scoring: false
+fdr:
+  fdr: 0.01
+  group_level: genes
+  competetive_scoring: true
+  keep_decoys: false
+  channel_wise_fdr: false
+  inference_strategy: maximum_parsimony
+search_output:
+  min_k_fragments: 3
+  min_correlation: 0.7
+  num_samples_quadratic: 50
+  min_nonnan: 1
+  normalize_lfq: true
+optimization_manager:
+  fwhm_rt: 5
+  fwhm_mobility: 0.01
+calibration_manager:
+- name: fragment
+  estimators:
+  - name: mz
+    model: LOESSRegression
+    model_args:
+      n_kernels: 2
+    input_columns:
+    - mz_library
+    target_columns:
+    - mz_observed
+    output_columns:
+    - mz_calibrated
+    transform_deviation: 1e6
+- name: precursor
+  estimators:
+  - name: mz
+    model: LOESSRegression
+    model_args:
+      n_kernels: 2
+    input_columns:
+    - mz_library
+    target_columns:
+    - mz_observed
+    output_columns:
+    - mz_calibrated
+    transform_deviation: 1e6
+  - name: rt
+    model: LOESSRegression
+    model_args:
+      n_kernels: 6
+      uniform: true
+    input_columns:
+    - rt_library
+    target_columns:
+    - rt_observed
+    output_columns:
+    - rt_calibrated
+  - name: mobility
+    model: LOESSRegression
+    model_args:
+      n_kernels: 2
+    input_columns:
+    - mobility_library
+    target_columns:
+    - mobility_observed
+    output_columns:
+    - mobility_calibrated
