@@ -764,24 +764,16 @@ class HybridElutionGroup:
             self.set_status(101, "No precursor masses after grouping")
             return
 
-        if jit_data.has_mobility:
-            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-            _dense_precursors, _ = jit_data.get_dense(
-                frame_limits,
-                scan_limits,
-                precursor_mz,
-                config.precursor_mz_tolerance,
-                np.array([[-1.0, -1.0]], dtype=np.float32),
-            )
-        else:
-            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-            _dense_precursors, _ = jit_data.get_dense_intensity(
-                frame_limits,
-                scan_limits,
-                precursor_mz,
-                config.precursor_mz_tolerance,
-                np.array([[-1.0, -1.0]], dtype=np.float32),
-            )
+        # if jit_data.has_mobility:
+        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+        _dense_precursors, _ = jit_data.get_dense(
+            frame_limits,
+            scan_limits,
+            precursor_mz,
+            config.precursor_mz_tolerance,
+            np.array([[-1.0, -1.0]], dtype=np.float32),
+        )
+
         dense_precursors = _dense_precursors.sum(axis=2)
 
         # FLAG: needed for debugging
@@ -794,26 +786,17 @@ class HybridElutionGroup:
             self.set_status(102, "Unexpected quadrupole_mz.shape")
             return
 
-        if jit_data.has_mobility:
-            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-            _dense_fragments, _ = jit_data.get_dense(
-                frame_limits,
-                scan_limits,
-                fragment_mz,
-                config.fragment_mz_tolerance,
-                quadrupole_mz,
-                custom_cycle=jit_data.cycle,
-            )
-        else:
-            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-            _dense_fragments, _ = jit_data.get_dense_intensity(
-                frame_limits,
-                scan_limits,
-                fragment_mz,
-                config.fragment_mz_tolerance,
-                quadrupole_mz,
-                custom_cycle=jit_data.cycle,
-            )
+        # if jit_data.has_mobility:
+        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+        _dense_fragments, _ = jit_data.get_dense(
+            frame_limits,
+            scan_limits,
+            fragment_mz,
+            config.fragment_mz_tolerance,
+            quadrupole_mz,
+            custom_cycle=jit_data.cycle,
+        )
+
         dense_fragments = _dense_fragments.sum(axis=2)
 
         # FLAG: needed for debugging
@@ -858,7 +841,7 @@ class HybridElutionGroup:
         else:
             mean = None
             std = None
-            weights = np.array([1, 1, 1, 1, 1, 1, 1, 1], np.float64)
+            weights = None  # np.array([1, 1, 1, 1, 1, 1, 1, 1], np.float64)
 
         self.candidates = build_candidates(
             dense_precursors,
@@ -1418,12 +1401,12 @@ def build_features(
     )
 
     # top fragment
-    frag_order = np.argsort(fragment_intensity)[::-1]
+    # frag_order = np.argsort(fragment_intensity)[::-1]
 
-    precursor_kernel = precursor_intensity.reshape(-1, 1, 1)
-    fragment_kernel = fragment_intensity[frag_order].reshape(-1, 1, 1)
+    # precursor_kernel = precursor_intensity.reshape(-1, 1, 1)
+    # sfragment_kernel = fragment_intensity.reshape(-1, 1, 1)
 
-    smooth_fragment = smooth_fragment[:, frag_order]
+    # smooth_fragment = smooth_fragment[:, frag_order]
 
     # fragment_binary = smooth_fragment[0] > 2
     # fragment_binary_sum = np.sum(fragment_binary, axis=0)

@@ -130,6 +130,7 @@ search_output:
 optimization_manager:
   fwhm_rt: 5
   fwhm_mobility: 0.01
+  score_cutoff: 0
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.

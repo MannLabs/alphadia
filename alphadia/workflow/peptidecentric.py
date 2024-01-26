@@ -16,6 +16,8 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -86,8 +88,7 @@ feature_columns = [
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
-    "mean_overlapping_mass_error"
-    "n_K",
+    "mean_overlapping_mass_error" "n_K",
     "n_R",
     "n_P",
 ]
@@ -617,10 +618,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # if self.neptune is not None:
             #    self.neptune['eval/99_mobility_error'].log(mobility_99)
 
+        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        print("score cutoff", percentile_001)
+
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
+                "score_cutoff": percentile_001,
             }
         )
 
@@ -665,7 +670,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run=self.neptune
         )
 
-    def extract_batch(self, batch_df):
+    def extract_batch(self, batch_df, apply_cutoff=False):
         self.reporter.log_string(
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
@@ -700,6 +705,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
+
+        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+        plt.show()
+        print("size before", len(candidates_df))
+
+        candidates_df = candidates_df[
+            candidates_df["score"] > self.optimization_manager.score_cutoff
+        ]
+        print("size after", len(candidates_df))
 
         config = plexscoring.CandidateConfig()
         config.update(self.config["scoring_config"])
@@ -752,7 +766,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
         features_df, fragments_df = self.extract_batch(
-            self.spectral_library._precursor_df
+            self.spectral_library._precursor_df,
+            apply_cutoff=True,
         )
         precursor_df = self.fdr_correction(features_df, fragments_df)
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
