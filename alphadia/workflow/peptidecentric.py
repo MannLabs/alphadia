@@ -88,8 +88,7 @@ feature_columns = [
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
-    "mean_overlapping_mass_error"
-    "n_K",
+    "mean_overlapping_mass_error" "n_K",
     "n_R",
     "n_P",
 ]
@@ -619,16 +618,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # if self.neptune is not None:
             #    self.neptune['eval/99_mobility_error'].log(mobility_99)
 
-        percentile_001 = np.percentile(
-            precursor_df_filtered["score"], 0.1
-        )
-        print('score cutoff', percentile_001)
+        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        print("score cutoff", percentile_001)
 
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
-                "score_cutoff": percentile_001
+                "score_cutoff": percentile_001,
             }
         )
 
@@ -709,12 +706,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
-        sns.histplot(candidates_df, x="score", hue='decoy', bins=100)
+        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
         plt.show()
-        print('size before', len(candidates_df))
-        
-        candidates_df = candidates_df[candidates_df["score"] > self.optimization_manager.score_cutoff]
-        print('size after', len(candidates_df))
+        print("size before", len(candidates_df))
+
+        candidates_df = candidates_df[
+            candidates_df["score"] > self.optimization_manager.score_cutoff
+        ]
+        print("size after", len(candidates_df))
 
         config = plexscoring.CandidateConfig()
         config.update(self.config["scoring_config"])
