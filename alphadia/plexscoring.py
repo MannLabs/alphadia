@@ -24,7 +24,7 @@ import pandas as pd
 import numpy as np
 import numba as nb
 
-NUM_FEATURES = 41
+NUM_FEATURES = 46
 
 
 def candidate_features_to_candidates(
@@ -1674,6 +1674,11 @@ class CandidateScoring:
             "cycle_fwhm",
             "mobility_fwhm",
             "delta_frame_peak",
+            "top_3_ms2_mass_error",
+            "mean_ms2_mass_error",
+            "n_overlapping",
+            "mean_overlapping_intensity",
+            "mean_overlapping_mass_error",
         ]
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
@@ -1735,10 +1740,17 @@ class CandidateScoring:
             how="left",
         )
 
+        # calculate delta_rt
+
         if self.rt_column == "rt_library":
             df["delta_rt"] = df["rt_observed"] - df["rt_library"]
         else:
             df["delta_rt"] = df["rt_observed"] - df[self.rt_column]
+
+        # calculate number of K in sequence
+        df["n_K"] = df["sequence"].str.count("K")
+        df["n_R"] = df["sequence"].str.count("R")
+        df["n_P"] = df["sequence"].str.count("P")
 
         return df
 
