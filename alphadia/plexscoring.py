@@ -7,7 +7,7 @@ import typing
 # alphadia imports
 from alphadia import validate, utils, features, quadrupole
 from alphadia.numba import fragments
-from alphadia.data import bruker, thermo
+from alphadia.data import bruker, alpharaw
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
@@ -1363,7 +1363,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT],
+        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,
