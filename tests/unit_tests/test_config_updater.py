@@ -2,7 +2,8 @@ from alphadia.plotting.reporting.updater import *
 import yaml
 from io import StringIO
 import pandas as pd
-default_config ="""
+
+default_config = """
 version: 1
 
 general:
@@ -127,6 +128,7 @@ library_prediction.precursor_len[1]	35	6	12
 library_prediction.precursor_charge[0]	2	-	-
 library_prediction.precursor_charge[1]	4	-	-"""
 
+
 def test_update_function():
     config_1 = Config("Experiment 1")
     config_1.config = yaml.safe_load(StringIO(config_1_yaml))
@@ -135,9 +137,10 @@ def test_update_function():
     default = Config("default")
     default.config = yaml.safe_load(StringIO(default_config))
 
-    default.update([config_1, config_2] )
+    default.update([config_1, config_2])
 
     assert default.config == yaml.safe_load(StringIO(target_yaml))
+
 
 def test_get_modifications_table():
     config_1 = Config("Experiment 1")
@@ -154,5 +157,3 @@ def test_get_modifications_table():
     target = pd.read_csv(StringIO(target_tsv), sep="\t", index_col=0)
 
     pd.testing.assert_frame_equal(table, target)
-
-
