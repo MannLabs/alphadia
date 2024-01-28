@@ -714,6 +714,9 @@ def fragment_features(
     # (n_fragments, n_frames)
     best_profile = fragments_frame_profile[:, best_observation]
 
+    # handle rare case where the best observation is at the edge of the frame
+    quant_window = min((best_profile.shape[1] // 2) -1, quant_window)
+
     # center the profile around the expected frame center
     center = best_profile.shape[1] // 2
     # (n_fragments, quant_window * 2 + 1)

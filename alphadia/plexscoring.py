@@ -675,6 +675,7 @@ class Candidate:
         feature_array = np.zeros(NUM_FEATURES, dtype=np.float32)
         feature_array[28] = np.mean(fragment_mask_1d)
 
+        # works
         features.location_features(
             jit_data,
             self.scan_start,
@@ -694,9 +695,11 @@ class Candidate:
             template,
             feature_array,
         )
+        # works
 
         # retrive first fragment features
         # (n_valid_fragments)
+
         mz_observed, mass_error, height, intensity = features.fragment_features(
             dense_fragments,
             fragments_frame_profile,
