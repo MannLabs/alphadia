@@ -1681,9 +1681,8 @@ class CandidateScoring:
             "mean_ms2_mass_error",
             "n_overlapping",
             "mean_overlapping_intensity",
-            "mean_overlapping_mass_error"
+            "mean_overlapping_mass_error",
         ]
-        
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
