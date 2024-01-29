@@ -65,6 +65,19 @@ function parseConsoleOutput(input, theme) {
     return colorMap[colorCode] || 'inherit'; // Default color is black
   }
 
+  function applyCarriageReturns(items) {
+    return items.reverse().reduce((acc, item) => {
+
+        const lastItem = acc[acc.length - 1];
+        if (lastItem && lastItem.endsWith('\r')) {
+            acc[acc.length - 1] = lastItem.slice(0, -1)
+        } else {
+            acc.push(item);
+        }
+        return acc;
+    }, []).reverse()
+}          
+
 const Output = () => {
 
     const [cmd, setCmd] = React.useState("")
@@ -85,7 +98,9 @@ const Output = () => {
 
     const updateItems = (currentLengthRef) => {
         window.electronAPI.getOutputRowsNew(-1,{limit:100, offset: currentLengthRef}).then((newItems) => {
+            
             setItems( items => [...items, ...newItems]);
+            //setItems((items)=>{applyCarriageReturns([...items, ...newItems])});
         });
     }
     
