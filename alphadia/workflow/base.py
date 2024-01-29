@@ -6,7 +6,7 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia.data import bruker, thermo
+from alphadia.data import bruker, alpharaw
 from alphadia.workflow import manager, reporting
 
 # alpha family imports
@@ -142,13 +142,15 @@ class WorkflowBase:
         return self._spectral_library
 
     @property
-    def dia_data(self) -> typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT]:
+    def dia_data(
+        self,
+    ) -> typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT]:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
 
     def _get_dia_data_object(
         self, dia_data_path: str
-    ) -> typing.Union[bruker.TimsTOFTranspose, thermo.Thermo]:
+    ) -> typing.Union[bruker.TimsTOFTranspose, alpharaw.AlphaRaw]:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -197,12 +199,29 @@ class WorkflowBase:
                 if "cv" in self.config["raw_data_loading"]:
                     cv = self.config["raw_data_loading"]["cv"]
 
-            dia_data = thermo.Thermo(
+            dia_data = alpharaw.Thermo(
                 dia_data_path,
-                astral_ms1=self.config["general"]["astral_ms1"],
                 process_count=self.config["general"]["thread_count"],
+                astral_ms1=self.config["general"]["astral_ms1"],
                 cv=cv,
             )
+
+        elif file_extension == ".mzml":
+            self.reporter.log_metric("raw_data_type", "mzml")
+
+            dia_data = alpharaw.MzML(
+                dia_data_path,
+                process_count=self.config["general"]["thread_count"],
+            )
+
+        elif file_extension == ".wiff":
+            self.reporter.log_metric("raw_data_type", "sciex")
+
+            dia_data = alpharaw.Sciex(
+                dia_data_path,
+                process_count=self.config["general"]["thread_count"],
+            )
+
         else:
             raise ValueError(
                 f"Unknown file extension {file_extension} for file at {dia_data_path}"

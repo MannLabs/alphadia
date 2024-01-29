@@ -20,7 +20,7 @@ function lineBreakTransform () {
         transform(chunk, encoding, cb) {
         if ( this._last === undefined ) { this._last = "" }
         this._last += decoder.write(chunk);
-        var list = this._last.split(/\n/);          
+        var list = this._last.split(/(?<=\r)|\n/);
         this._last = list.pop();
         for (var i = 0; i < list.length; i++) {
             this.push( list[i].slice(0, 1000) );

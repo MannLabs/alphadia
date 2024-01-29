@@ -42,6 +42,13 @@ const InputFileSelect = ({
                 sx={{float: 'right', ml:1, minWidth: "115px", textTransform: 'none', minWidth: "50px"}} 
                 disabled={!active}
                 onClick={handleRawSelect}>
+                .wiff
+            </Button>
+            <Button 
+                variant="outlined" 
+                sx={{float: 'right', ml:1, minWidth: "115px", textTransform: 'none', minWidth: "50px"}} 
+                disabled={!active}
+                onClick={handleRawSelect}>
                 .raw
             </Button>
             <Button 
