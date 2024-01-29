@@ -12,6 +12,7 @@ import typing
 # alphadia imports
 from alphadia import utils, libtransform, outputtransform
 from alphadia.workflow import peptidecentric, base, reporting
+from alphadia.workflow.config import Config
 import alphadia
 import alpharaw
 import alphabase
@@ -75,23 +76,6 @@ class Plan:
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
 
-        # 1. default config path is not defined in the function definition to account for for different path separators on different OS
-        if config_base_path is None:
-            # default yaml config location under /misc/config/config.yaml
-            config_base_path = os.path.join(
-                os.path.dirname(__file__), "..", "misc", "config", "default.yaml"
-            )
-
-        with open(config_base_path, "r") as f:
-            logger.info(f"loading default config from {config_base_path}")
-            self.config = yaml.safe_load(f)
-
-        # 2. load update config from dict
-        utils.recursive_update(self.config, config)
-
-        if not "output" in self.config:
-            self.config["output"] = output_folder
-
         logger.progress(f"version: {alphadia.__version__}")
 
         # print hostname, date with day format and time
@@ -101,6 +85,33 @@ class Plan:
 
         # print environment
         self.log_environment()
+
+        # 1. default config path is not defined in the function definition to account for for different path separators on different OS
+        if config_base_path is None:
+            # default yaml config location under /misc/config/config.yaml
+            config_base_path = os.path.join(
+                os.path.dirname(__file__), "..", "misc", "config", "default.yaml"
+            )
+
+        self.config = Config()
+        
+        logger.info(f"loading default config from {config_base_path}")
+        self.config.from_yaml(config_base_path)
+
+
+        # 2. load update config from dict
+        if isinstance(config, dict):
+            update_config = Config('user defined')
+            update_config.from_dict(config)
+        else:
+            update_config = config
+
+        self.config.update([update_config], print_modifications=True)
+
+        if not "output" in self.config:
+            self.config["output"] = output_folder
+
+        
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])

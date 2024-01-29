@@ -29,8 +29,11 @@ from math import isnan
 import json
 import pandas as pd
 import numpy as np
+import logging
+logger = logging.getLogger()
 
-def get_tree_structure(last_item_arr):
+
+def get_tree_structure(last_item_arr:List[bool], update=False):
     tree_structure = ""
     for i in last_item_arr[:-1]:
         if i:
@@ -46,7 +49,9 @@ def get_tree_structure(last_item_arr):
 
 
 def print_w_style(
-    string: str, style: str, level: int = 0, last_item=False, last_item_arr = [False]
+    string: str, 
+    style: str = "auto",
+    last_item_arr = [False]
 ) -> None:
     """
     Print string with tree structure and uses ANSI color codes to color the string base on the style:
@@ -86,23 +91,21 @@ def print_w_style(
 
     if style == "update":
         # Green color
-        style = "\033[32m " 
+        style = "\x1b[32;20m"
+        reset = "\x1b[0m" 
     elif style == "new":
         # green color
-        style = "\033[32m " 
+        style = "\033[32;20m"
+        reset = "\x1b[0m"
     elif style == "default":
         # no color
-        style = " " 
-    elif style == "old":
-        # red color
-        style = "\033[31m " 
+        style = "\x1b"
+        reset = "" 
     # Print with tree structure using level and color
         
-    #print(last_item_arr)
+    tree_structure = get_tree_structure(last_item_arr, update=style=="update")
 
-    tree_structure = get_tree_structure(last_item_arr)
-
-    print(f"{tree_structure}{style}{string}\033[0m")
+    logger.info(f"{tree_structure}{style}{string}{reset}")
 
 
 def print_recursively(
@@ -134,9 +137,7 @@ def print_recursively(
     if isinstance(config, tuple):
         print_w_style(
             f"{config[0]} ({config[1]})", 
-            style, 
-            level, 
-            last_item, 
+            style=style,
             last_item_arr=last_item_arr
         )
         return
@@ -183,7 +184,11 @@ def print_recursively(
                 )
         return
     
-    print_w_style(f"{config}", style, level, last_item, last_item_arr=last_item_arr)
+    print_w_style(
+        f"{config}", 
+        style = style,
+        last_item_arr=last_item_arr
+    )
 
 
 
@@ -299,17 +304,13 @@ def update_recursive(
             if parent_key is None:
                 print_w_style(
                     f"{default_config[0]} ({default_config[1]})",
-                    "auto",
-                    level,
-                    is_leaf_node,
+                    style="auto",
                     last_item_arr=last_item_arr,
                 )
             else:
                 print_w_style(
                     f"{parent_key}: {default_config[0]} ({default_config[1]})",
-                    "auto",
-                    level - 1,
-                    is_leaf_node,
+                    style="auto",
                     last_item_arr=last_item_arr,
                 )
         # Find the latest update
@@ -326,14 +327,14 @@ def update_recursive(
         if new_value != default_config and print_output:
             if parent_key is None:
                 print_w_style(
-                    f"{new_value[0]} ({new_value[1]})", "update", level, is_leaf_node, last_item_arr=last_item_arr
+                    f"{new_value[0]} ({new_value[1]})", 
+                    style ="update", 
+                    last_item_arr=last_item_arr
                 )
             else:
                 print_w_style(
                     f"{parent_key}: {new_value[0]} ({new_value[1]})",
-                    "update",
-                    level - 1,
-                    is_leaf_node,
+                    style="update",
                     last_item_arr=last_item_arr,
                 )
         return new_value
@@ -342,11 +343,22 @@ def update_recursive(
     if isinstance(default_config, list):
         for i, default_value in enumerate(default_config):
             is_last_item = i == len(default_config) - 1
+
+            if not isinstance(
+                default_value, tuple
+            ):  # If the default value is not a leaf node, print it's key on separate line
+                print_w_style(
+                    f"{i}", 
+                    style="auto", 
+                    last_item_arr=last_item_arr+[is_last_item])
+                
             # Collect potential updates for this item
             potential_config_updates = []
             for experiment_config in experiment_configs:
                 if i < len(experiment_config):
                     potential_config_updates.append(experiment_config[i])
+
+
             default_config[i] = update_recursive(
                 {"key": None, "value": default_value},
                 potential_config_updates,
@@ -363,14 +375,17 @@ def update_recursive(
         if not isinstance(
             default_value, tuple
         ):  # If the default value is not a leaf node, print it's key on separate line
-            print_w_style(f"{default_key}", "auto", level, is_leaf_node, last_item_arr=last_item_arr+[is_last_item])
+            print_w_style(
+                f"{default_key}", 
+                style="auto", 
+                last_item_arr=last_item_arr+[is_last_item])
         
         # Collect potential updates for this item
         potential_config_updates = []
         for experiment_config in experiment_configs:
             if default_key in experiment_config:
                 potential_config_updates.append(experiment_config[default_key])
-                
+        
         default_config[default_key] = update_recursive(
             {"key": default_key, "value": default_value},
             potential_config_updates,
@@ -383,7 +398,7 @@ def update_recursive(
 
 
 def recursive_fill_table(
-    df: "pandas.DataFrame", experiment_name: str, parent_key: str, value: Any
+    df: pd.DataFrame, experiment_name: str, parent_key: str, value: Any
 ) -> None:
     """
     Recursively fill the table with the modifications happening to the config.
@@ -505,6 +520,12 @@ class Config:
     def to_json(self, path: str) -> None:
         with open(path, "w") as f:
             json.dump(self.config, f)
+
+    def from_dict(self, config: Dict[str, Any]) -> None:
+        self.config = config
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.config
 
     def __getitem__(self, key: str) -> Any:
         return self.config[key]
