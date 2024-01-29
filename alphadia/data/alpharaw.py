@@ -19,6 +19,7 @@ import numpy as np
 import numba as nb
 import pandas as pd
 
+
 def normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.
     Parameters
@@ -132,52 +133,50 @@ def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: in
             break
     return cycle_valid
 
+
 def determine_dia_cycle(
-            spectrum_df: pd.DataFrame,
-            subset_for_cycle_detection: int = 10000,
-        ):
-        """Determine the DIA cycle and store it in self.cycle.
+    spectrum_df: pd.DataFrame,
+    subset_for_cycle_detection: int = 10000,
+):
+    """Determine the DIA cycle and store it in self.cycle.
 
-        Parameters
-        ----------
+    Parameters
+    ----------
 
-        spectrum_df : pandas.DataFrame
-            AlphaRaw compatible spectrum dataframe.
+    spectrum_df : pandas.DataFrame
+        AlphaRaw compatible spectrum dataframe.
 
-        subset_for_cycle_detection : int, default = 10000
-            The number of spectra to use for cycle detection.
+    subset_for_cycle_detection : int, default = 10000
+        The number of spectra to use for cycle detection.
 
-        """
-        logger.info("Determining DIA cycle")
+    """
+    logger.info("Determining DIA cycle")
 
-        cycle_signature = (
-            spectrum_df.isolation_lower_mz.values[:subset_for_cycle_detection]
-            + spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
-        )
-        cycle_length = get_cycle_length(cycle_signature)
-        cycle_start = get_cycle_start(cycle_signature, cycle_length)
+    cycle_signature = (
+        spectrum_df.isolation_lower_mz.values[:subset_for_cycle_detection]
+        + spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
+    )
+    cycle_length = get_cycle_length(cycle_signature)
+    cycle_start = get_cycle_start(cycle_signature, cycle_length)
 
-        if cycle_start == -1:
-            raise ValueError("Failed to determine start of DIA cycle.")
+    if cycle_start == -1:
+        raise ValueError("Failed to determine start of DIA cycle.")
 
-        if not assert_cycle(cycle_signature, cycle_length, cycle_start):
-            raise ValueError(
-                f"Cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length} detected, but does not consistent."
-            )
-
-        logger.info(
-            f"Found cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length}."
+    if not assert_cycle(cycle_signature, cycle_length, cycle_start):
+        raise ValueError(
+            f"Cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length} detected, but does not consistent."
         )
 
-        cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-        cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[
-            cycle_start:cycle_length
-        ]
-        cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[
-            cycle_start:cycle_length
-        ]
+    logger.info(
+        f"Found cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length}."
+    )
 
-        return cycle, cycle_start, cycle_length
+    cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
+    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[cycle_start:cycle_length]
+    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[cycle_start:cycle_length]
+
+    return cycle, cycle_start, cycle_length
+
 
 @nb.njit
 def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
@@ -217,11 +216,7 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 class AlphaRaw(alpharawthermo.MSData_Base):
     has_mobility = False
 
-    def process_alpharaw(
-            self,
-            **kwargs
-        ):
-
+    def process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
 
         # the filter spectra function is implemented in the sub-class
@@ -263,12 +258,8 @@ class AlphaRaw(alpharawthermo.MSData_Base):
 
         self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
- 
 
-    def filter_spectra(
-            self,
-            **kwargs
-            ):
+    def filter_spectra(self, **kwargs):
         """Filter the spectra.
         This function is implemented in the sub-class.
         """
@@ -293,48 +284,29 @@ class AlphaRaw(alpharawthermo.MSData_Base):
             self.scan_max_index,
             self.frame_max_index,
         )
-    
+
+
 class MzML(AlphaRaw, alpharawmzml.MzMLReader):
-    def __init__(
-        self,
-        raw_file_path: str,
-        process_count: int = 10,
-        **kwargs):
-
+    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
-    
+
+
 class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
-    
-    def __init__(
-        self,
-        raw_file_path: str,
-        process_count: int = 10,
-        **kwargs):
-
+    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
-    
+
+
 class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
-    
-    def __init__(
-        self,
-        raw_file_path: str,
-        process_count: int = 10,
-        **kwargs):
-
+    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
 
-    def filter_spectra(self, 
-        cv: float = None,
-        astral_ms1: bool = False,
-        **kwargs
-        ):
-
+    def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
         """
         Filter the spectra for MS1 or MS2 spectra.
         """

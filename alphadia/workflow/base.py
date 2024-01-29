@@ -142,7 +142,9 @@ class WorkflowBase:
         return self._spectral_library
 
     @property
-    def dia_data(self) -> typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT]:
+    def dia_data(
+        self,
+    ) -> typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT]:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
 
