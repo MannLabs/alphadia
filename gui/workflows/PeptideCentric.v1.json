@@ -212,7 +212,7 @@
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "QE",
+                    "value": "Fusion",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
@@ -455,14 +455,14 @@
                 {
                     "id": "min_k_fragments",
                     "name": "Minimum number of fragments",
-                    "value": 3,
+                    "value": 12,
                     "description": "Minimum number of fragments required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "min_correlation",
                     "name": "Minimum correlation",
-                    "value": 0.7,
+                    "value": 0.9,
                     "description": "Minimum correlation required for quantification.",
                     "type": "float"
                 },
@@ -476,7 +476,7 @@
                 {
                     "id": "min_nonnan",
                     "name": "Minimum number of non-nan values",
-                    "value": 1,
+                    "value": 3,
                     "description": "Minimum number of non-nan values required for quantification.",
                     "type": "integer"
                 },
