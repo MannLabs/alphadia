@@ -94,14 +94,13 @@ class Plan:
             )
 
         self.config = Config()
-        
+
         logger.info(f"loading default config from {config_base_path}")
         self.config.from_yaml(config_base_path)
 
-
         # 2. load update config from dict
         if isinstance(config, dict):
-            update_config = Config('user defined')
+            update_config = Config("user defined")
             update_config.from_dict(config)
         else:
             update_config = config
@@ -111,7 +110,6 @@ class Plan:
         if not "output" in self.config:
             self.config["output"] = output_folder
 
-        
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
