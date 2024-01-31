@@ -12,3 +12,5 @@ psutil
 coverage
 coverage-badge
 pytest
+
+pywin32; sys_platform=='win32'
