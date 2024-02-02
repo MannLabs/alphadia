@@ -10,7 +10,7 @@ import typing
 from alphadia import utils
 from alphadia.numba import fragments, numeric, config
 from alphadia import validate, utils
-from alphadia.data import bruker, thermo
+from alphadia.data import bruker, alpharaw
 
 # alpha family imports
 import alphatims
@@ -28,7 +28,7 @@ class GaussianFilter:
     def __init__(
         self,
         dia_data: typing.Union[
-            bruker.TimsTOFTransposeJIT, bruker.TimsTOFTranspose, thermo.Thermo
+            bruker.TimsTOFTransposeJIT, bruker.TimsTOFTranspose, alpharaw.AlphaRaw
         ],
         fwhm_rt: float = 10.0,
         sigma_scale_rt: float = 1.0,

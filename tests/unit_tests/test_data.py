@@ -1,4 +1,4 @@
-from alphadia.data import bruker, thermo
+from alphadia.data import bruker, alpharaw
 
 import pytest
 import numpy as np
@@ -30,9 +30,9 @@ def test_cycle():
     cycle = np.zeros(rand_cycle_start)
     cycle = np.append(cycle, np.tile(np.arange(rand_cycle_length), rand_num_cycles))
 
-    cycle_length = thermo.get_cycle_length(cycle)
-    cycle_start = thermo.get_cycle_start(cycle, cycle_length)
-    cycle_valid = thermo.assert_cycle(cycle, cycle_length, cycle_start)
+    cycle_length = alpharaw.get_cycle_length(cycle)
+    cycle_start = alpharaw.get_cycle_start(cycle, cycle_length)
+    cycle_valid = alpharaw.assert_cycle(cycle, cycle_length, cycle_start)
 
     assert cycle_valid
     assert cycle_length == rand_cycle_length
@@ -50,7 +50,7 @@ def test_raw_data():
             if name == "bruker":
                 jit_data = bruker.TimsTOFTranspose(file).jitclass()
             elif name == "thermo":
-                jit_data = thermo.Thermo(file).jitclass()
+                jit_data = alpharaw.Thermo(file).jitclass()
             else:
                 continue
 

@@ -707,13 +707,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
         sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
-        plt.show()
-        print("size before", len(candidates_df))
 
-        candidates_df = candidates_df[
-            candidates_df["score"] > self.optimization_manager.score_cutoff
-        ]
-        print("size after", len(candidates_df))
+        if apply_cutoff:
+            num_before = len(candidates_df)
+            self.reporter.log_string(
+                f"Applying score cutoff of {self.optimization_manager.score_cutoff}",
+                verbosity="info",
+            )
+            candidates_df = candidates_df[
+                candidates_df["score"] > self.optimization_manager.score_cutoff
+            ]
+            num_after = len(candidates_df)
+            num_removed = num_before - num_after
+            self.reporter.log_string(
+                f"Removed {num_removed} precursors with score below cutoff",
+                verbosity="info",
+            )
 
         config = plexscoring.CandidateConfig()
         config.update(self.config["scoring_config"])
