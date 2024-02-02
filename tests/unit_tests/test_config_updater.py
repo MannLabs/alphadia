@@ -1,4 +1,4 @@
-from alphadia.plotting.reporting.updater import *
+from alphadia.workflow.config import *
 import yaml
 from io import StringIO
 import pandas as pd
