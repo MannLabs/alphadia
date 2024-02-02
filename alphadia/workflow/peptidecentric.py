@@ -707,7 +707,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
         sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
-        
+
         if apply_cutoff:
             num_before = len(candidates_df)
             self.reporter.log_string(
@@ -723,7 +723,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 f"Removed {num_removed} precursors with score below cutoff",
                 verbosity="info",
             )
-
 
         config = plexscoring.CandidateConfig()
         config.update(self.config["scoring_config"])
