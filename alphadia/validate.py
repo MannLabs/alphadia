@@ -420,7 +420,6 @@ fragment_features_schema = Schema(
     ],
 )
 
-
 def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
     """Validate fragment feature dataframe
 
