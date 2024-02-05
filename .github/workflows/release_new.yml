@@ -57,15 +57,15 @@ jobs:
           activate-environment: alphadia
           auto-update-conda: true
           python-version: "3.9"
-    #- name: Install dependencies
-    #  run: |
-    #    cd gui
-    #    npm install
+    - name: Install dependencies
+      run: |
+        cd gui
+        npm install
 
-    #- name: Build GUI
-    #  run: |
-    #    cd release/macos
-    #    ./build_gui_macos.sh
+    - name: Build GUI
+      run: |
+        cd release/macos
+        ./build_gui_macos.sh
 
     - name: Build backend
       shell: bash -l {0}
@@ -82,3 +82,13 @@ jobs:
     - name: List output files
       run: |
         ls dist
+
+    - name: Upload a Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
+          asset_content_type: application/zip
