@@ -11,12 +11,12 @@ import alphadia
 
 
 ##################### User definitions
-exe_name = 'alphadia_gui'
+exe_name = 'alphadia'
 script_name = 'alphadia_pyinstaller.py'
 if sys.platform[:6] == "darwin":
-	icon = '../logos/alpha_logo.icns'
+	icon = '../logos/alphadia.icns'
 else:
-	icon = '../logos/alpha_logo.ico'
+	icon = '../logos/alphadia.ico'
 block_cipher = None
 location = os.getcwd()
 project = "alphadia"

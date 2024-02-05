@@ -306,7 +306,11 @@ def run(*args, **kwargs):
 
     output_directory = parse_output_directory(args, config)
     if output_directory is None:
-        raise ValueError("No output directory specified.")
+        # print help message if no output directory specified
+        parser.print_help()
+        
+        print("No output directory specified.")
+        return
 
     reporting.init_logging(output_directory)
     raw_path_list = parse_raw_path_list(args, config)
