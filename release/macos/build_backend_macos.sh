@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source ~/miniconda3/etc/profile.d/conda.sh
-
 # Initial cleanup
 conda remove -n alphadiainstaller --all -y
 

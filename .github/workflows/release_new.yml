@@ -56,10 +56,10 @@ jobs:
         cd gui
         npm install
 
-    - name: Build GUI
-      run: |
-        cd release/macos
-        ./build_gui_macos.sh
+    #- name: Build GUI
+    #  run: |
+    #    cd release/macos
+    #    ./build_gui_macos.sh
 
     - name: Build backend
       run: |
