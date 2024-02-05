@@ -308,7 +308,7 @@ def run(*args, **kwargs):
     if output_directory is None:
         # print help message if no output directory specified
         parser.print_help()
-        
+
         print("No output directory specified.")
         return
 
