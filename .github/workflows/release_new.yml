@@ -54,12 +54,13 @@ jobs:
     - name: Install conda
       uses: conda-incubator/setup-miniconda@v2
       with:
+          activate-environment: alphadia
           auto-update-conda: true
           python-version: "3.9"
-    - name: Install dependencies
-      run: |
-        cd gui
-        npm install
+    #- name: Install dependencies
+    #  run: |
+    #    cd gui
+    #    npm install
 
     #- name: Build GUI
     #  run: |
