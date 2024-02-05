@@ -62,11 +62,13 @@ jobs:
     #    ./build_gui_macos.sh
 
     - name: Build backend
+      shell: bash -l {0}
       run: |
         cd release/macos
         ./build_backend_macos.sh
 
     - name: Assemble ZIP
+      shell: bash -l {0}
       run: |
         cd release/macos
         ./build_zip_macos.sh

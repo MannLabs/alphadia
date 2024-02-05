@@ -1,5 +1,3 @@
-#!/bin/bash
-
 # Initial cleanup
 conda remove -n alphadiainstaller --all -y
 
