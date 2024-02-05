@@ -1,4 +1,4 @@
-#!bash
+#!/bin/bash
 
 # Initial cleanup
 cd ../../gui

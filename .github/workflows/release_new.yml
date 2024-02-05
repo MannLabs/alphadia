@@ -59,14 +59,14 @@ jobs:
     - name: Build GUI
       run: |
         cd release/macos
-        build_gui_macos.sh
+        ./build_gui_macos.sh
 
     - name: Build backend
       run: |
         cd release/macos
-        build_backend_macos.sh
+        ./build_backend_macos.sh
 
     - name: Assemble ZIP
       run: |
         cd release/macos
-        build_zip_macos.sh
+        ./build_zip_macos.sh
