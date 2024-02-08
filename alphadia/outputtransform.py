@@ -12,6 +12,7 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
+from sklearn.linear_model import LogisticRegression
 
 import multiprocessing as mp
 
@@ -769,7 +770,8 @@ def perform_protein_fdr(psm_df):
                 "proteins": group["proteins"].iloc[0],
                 "decoy": group["decoy"].iloc[0],
                 "count": len(group),
-                "n_peptides": len(group["precursor_idx"].unique()),
+                "n_precursor": len(group["precursor_idx"].unique()),
+                "n_peptides": len(group["sequence"].unique()),
                 "n_runs": len(group["run"].unique()),
                 "mean_score": group["proba"].mean(),
                 "best_score": group["proba"].min(),
@@ -781,6 +783,7 @@ def perform_protein_fdr(psm_df):
         "count",
         "mean_score",
         "n_peptides",
+        "n_precursor",
         "n_runs",
         "best_score",
         "worst_score",
@@ -810,6 +813,14 @@ def perform_protein_fdr(psm_df):
         decoy_column="decoy",
         qval_column="pg_qval",
     )
+
+    n_targets = (protein_features["decoy"] == 0).sum()
+    n_decoys = (protein_features["decoy"] == 1).sum()
+
+    logger.info(f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys")
+
+    protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
+
 
     fdr.plot_fdr(X_train, X_test, y_train, y_test, clf, protein_features["pg_qval"])
 
