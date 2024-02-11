@@ -67,11 +67,11 @@ jobs:
         cd release/macos
         ./build_gui_macos.sh
 
-    - name: Build backend
-      shell: bash -l {0}
-      run: |
-        cd release/macos
-        ./build_backend_macos.sh
+    #- name: Build backend
+    #  shell: bash -l {0}
+    #  run: |
+    #    cd release/macos
+    #    ./build_backend_macos.sh
 
     - name: Assemble ZIP
       shell: bash -l {0}
@@ -83,12 +83,12 @@ jobs:
       run: |
         ls dist
 
-    - name: Upload a Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
-          asset_content_type: application/zip
+    #- name: Upload a Release Asset
+    #  uses: actions/upload-release-asset@v1
+    #  env:
+    #      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #  with:
+    #      upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+    #      asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
+    #      asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-amd64.zip
+    #      asset_content_type: application/zip

@@ -18,6 +18,8 @@ rm -rf ../../dist/${BUILD_NAME}
 # Create the dist folder
 mkdir -p ../../dist/${BUILD_NAME}
 
+ll ../../gui/out/alphadia-gui-${KERNEL}-${ARCH}
+
 # Copy the electron forge build
 cp -a ../../gui/out/alphadia-gui-${KERNEL}-${ARCH}/. ../../dist/${BUILD_NAME}
 
@@ -26,4 +28,4 @@ cp -a ../../dist/alphadia/. ../../dist/${BUILD_NAME}
 
 # create the zip file
 cd ../../dist
-zip -r ${BUILD_NAME}.zip ${BUILD_NAME}
+zip -q -r ${BUILD_NAME}.zip ${BUILD_NAME}
