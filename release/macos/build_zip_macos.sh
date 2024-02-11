@@ -8,6 +8,8 @@ ARCH=$(uname -m)
 if [ "$ARCH" == "x86_64" ]; then
   ARCH="x64"
 fi
+echo "ARCH=${ARCH}" >> $GITHUB_ENV
+
 KERNEL=$(uname -s | tr '[:upper:]' '[:lower:]')
 
 BUILD_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-${KERNEL}-${ARCH}"
@@ -45,7 +47,7 @@ if [ ! -d "$BACKEND_BUILD" ]; then
 fi
 
 # Copy the backend
-cp -a {BACKEND_BUILD}/. ../../dist/${BUILD_NAME}
+cp -a ${BACKEND_BUILD}/. ../../dist/${BUILD_NAME}
 
 # create the zip file
 cd ../../dist
