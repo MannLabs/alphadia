@@ -68,6 +68,7 @@ jobs:
           npm install
 
       - name: Build GUI
+        shell: bash -l {0}
         run: |
           release/windows/build_gui_windows.sh
 
