@@ -43,60 +43,103 @@ jobs:
           draft: true
           prerelease: false
 
-  Create_MacOS_GUI:
-    env:
-        ARCH: x64
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-        matrix:
-            os: [macos-latest, macos-latest-xlarge]
-
-    needs: [Create_Draft_On_GitHub, Version_Bumped]
-    steps:
-    - name : Checkout code
-      uses: actions/checkout@v3
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-    - name: Install conda
-      uses: conda-incubator/setup-miniconda@v2
-      with:
-        miniconda-version: "latest"
-        auto-update-conda: true
-        activate-environment: alphadia
-        python-version: "3.9"
-    - name: Install dependencies
-      run: |
-        cd gui
-        npm install
-
-    - name: Build GUI
-      run: |
-        cd release/macos
-        ./build_gui_macos.sh
-
-    - name: Build backend
-      shell: bash -l {0}
-      run: |
-        cd release/macos
-        ./build_backend_macos.sh
-
-    - name: Assemble ZIP
-      shell: bash -l {0}
-      run: |
-        cd release/macos
-        ./build_zip_macos.sh
-
-    - name: List output files
-      run: |
-        ls dist
-
-    - name: Upload a Release Asset
-      uses: actions/upload-release-asset@v1
+    Create_Windows_Installer:
+      needs: [Create_Draft_On_GitHub, Version_Bumped]
       env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
-          asset_content_type: application/zip
+          ARCH: x64
+      runs-on: windows-latest
+
+      steps:
+      - name : Checkout code
+        uses: actions/checkout@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+      - name: Install conda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          activate-environment: alphadia
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          cd gui
+          npm install
+
+    #  - name: Build GUI
+    #    run: |
+    #      release/windows/build_gui_windows.sh
+
+      - name: Build backend
+        shell: bash -l {0}
+        run: |
+          release/windows/build_backend_windows.sh
+
+    #  - name: Assemble ZIP
+    #    shell: bash -l {0}
+    #    run: |
+    #      cd release/windows
+    #      ./build_zip_windows.sh
+
+      - name: List output files
+        run: |
+          ls dist
+
+#   Create_MacOS_GUI:
+#     needs: [Create_Draft_On_GitHub, Version_Bumped]
+#     env:
+#         ARCH: x64
+#     runs-on: ${{ matrix.os }}
+
+#     strategy:
+#         matrix:
+#             os: [macos-latest, macos-latest-xlarge]
+
+#     steps:
+#     - name : Checkout code
+#       uses: actions/checkout@v3
+#     - name: Setup Node.js
+#       uses: actions/setup-node@v2
+#     - name: Install conda
+#       uses: conda-incubator/setup-miniconda@v2
+#       with:
+#         miniconda-version: "latest"
+#         auto-update-conda: true
+#         activate-environment: alphadia
+#         python-version: "3.9"
+#     - name: Install dependencies
+#       run: |
+#         cd gui
+#         npm install
+
+#     - name: Build GUI
+#       run: |
+#         cd release/macos
+#         ./build_gui_macos.sh
+
+#     - name: Build backend
+#       shell: bash -l {0}
+#       run: |
+#         cd release/macos
+#         ./build_backend_macos.sh
+
+#     - name: Assemble ZIP
+#       shell: bash -l {0}
+#       run: |
+#         cd release/macos
+#         ./build_zip_macos.sh
+
+#     - name: List output files
+#       run: |
+#         ls dist
+
+#     - name: Upload a Release Asset
+#       uses: actions/upload-release-asset@v1
+#       env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#       with:
+#           upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+#           asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
+#           asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
+#           asset_content_type: application/zip
