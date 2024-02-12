@@ -4,15 +4,7 @@
 PACKAGE_NAME="alphadia"
 PACKAGE_VERSION="1.5.3"
 
-ARCH=$(uname -m)
-if [ "$ARCH" == "x86_64" ]; then
-  ARCH="x64"
-fi
-echo "ARCH=${ARCH}" >> $GITHUB_ENV
-
-KERNEL=$(uname -s | tr '[:upper:]' '[:lower:]')
-
-BUILD_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-${KERNEL}-${ARCH}"
+BUILD_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-win-x64"
 
 # Cleanup the dist folder
 rm -rf dist/${BUILD_NAME}
