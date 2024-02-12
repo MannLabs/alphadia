@@ -17,7 +17,7 @@ mkdir -p dist/${BUILD_NAME}
 ls gui/out
 
 # Set the path to the GUI build
-GUI_BUILD="gui/out/alphadia-gui-${KERNEL}-${ARCH}"
+GUI_BUILD="gui/out/alphadia-gui-win32-x64"
 
 # Check if the GUI build exists, otherwise exit with an error
 if [ ! -d "$GUI_BUILD" ]; then
