@@ -92,11 +92,11 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
         reset = "\x1b[0m"
     elif style == "new":
         # green color
-        style = "\033[32;20m"
+        style = "\x1b[32;20m"
         reset = "\x1b[0m"
     elif style == "default":
         # no color
-        style = "\x1b"
+        style = ""
         reset = ""
     # Print with tree structure using level and color
 
