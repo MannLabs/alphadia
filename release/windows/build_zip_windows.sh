@@ -51,4 +51,4 @@ cp -a ${BACKEND_BUILD}/. dist/${BUILD_NAME}
 
 # create the zip file
 cd dist
-zip -q -r ${BUILD_NAME}.zip ${BUILD_NAME}
+powershell Compress-Archive ${BUILD_NAME} ${BUILD_NAME}.zip

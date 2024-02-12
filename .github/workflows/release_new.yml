@@ -13,8 +13,8 @@ jobs:
       version: ${{ steps.master_version_bumped.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - uses: conda-incubator/setup-miniconda@v2
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v4
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
@@ -51,9 +51,9 @@ jobs:
 
     steps:
       - name : Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
       - name: Install conda
         uses: conda-incubator/setup-miniconda@v2
         with:
@@ -107,9 +107,9 @@ jobs:
 
 #     steps:
 #     - name : Checkout code
-#       uses: actions/checkout@v3
+#       uses: actions/checkout@v4
 #     - name: Setup Node.js
-#       uses: actions/setup-node@v2
+#       uses: actions/setup-node@v4
 #     - name: Install conda
 #       uses: conda-incubator/setup-miniconda@v2
 #       with:
