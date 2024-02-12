@@ -30,14 +30,10 @@ Introduction to your first DIA search with alphaDIA.
 ```
 
 ```{toctree}
-:caption: 📚 Guides
+:caption: 📚 Guide
 :hidden:
 
-contributing/index
-kitchen-sink/index
-stability
-changelog
-license
+algorithm
 ```
 
 ```{toctree}
