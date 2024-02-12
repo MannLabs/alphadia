@@ -76,15 +76,24 @@ jobs:
         run: |
           release/windows/build_backend_windows.sh
 
-    #  - name: Assemble ZIP
-    #    shell: bash -l {0}
-    #    run: |
-    #      cd release/windows
-    #      ./build_zip_windows.sh
-
       - name: List output files
         run: |
           ls dist
+
+      - name: Assemble ZIP
+        shell: bash -l {0}
+        run: |
+          release/windows/build_zip_windows.sh
+
+      - name: Upload a Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+            upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+            asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.zip
+            asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.zip
+            asset_content_type: application/zip
 
 #   Create_MacOS_GUI:
 #     needs: [Create_Draft_On_GitHub, Version_Bumped]
