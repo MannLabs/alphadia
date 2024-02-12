@@ -42,14 +42,14 @@ jobs:
           release_name: v${{ needs.Version_Bumped.outputs.version }}
           draft: true
           prerelease: false
+    
+  Create_Windows_Installer:
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
+    runs-on: windows-latest
 
-    Create_Windows_Installer:
-      needs: [Create_Draft_On_GitHub, Version_Bumped]
-      env:
-          ARCH: x64
-      runs-on: windows-latest
-
-      steps:
+    steps:
       - name : Checkout code
         uses: actions/checkout@v3
       - name: Setup Node.js
