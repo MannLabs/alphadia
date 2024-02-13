@@ -368,6 +368,8 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
+        return psm_df
+
     def load_precursor_table(self):
         """Load precursor table from output folder.
         Helper functions used by other builders.
