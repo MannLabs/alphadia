@@ -73,6 +73,7 @@ else:
 
 
 hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
+hidden_imports += ['clr']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
 
 a = Analysis(
