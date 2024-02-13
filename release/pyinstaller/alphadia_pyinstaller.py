@@ -1,6 +1,6 @@
 if __name__ == "__main__":
-    import alphadia.gui
+    import alphadia.cli
     import multiprocessing
 
     multiprocessing.freeze_support()
-    alphadia.gui.run()
+    alphadia.cli.run()
