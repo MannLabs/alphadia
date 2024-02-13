@@ -65,8 +65,8 @@ parser.add_argument(
     "-d",
     type=str,
     help="Directory containing raw data input files.",
-    nargs="?",
-    default=None,
+    action="append",
+    default=[],
 )
 parser.add_argument(
     "--regex",
@@ -211,9 +211,13 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
 
     config_directory = config["directory"] if "directory" in config else None
     directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
-    directory = utils.windows_to_wsl(args.directory) if args.wsl else args.directory
-
     if directory is not None:
+        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
+
+    directory_list = (
+        utils.windows_to_wsl(args.directory) if args.wsl else args.directory
+    )
+    for directory in directory_list:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
     # filter raw files by regex
