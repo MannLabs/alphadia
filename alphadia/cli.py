@@ -214,9 +214,11 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     if directory is not None:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
-    directory_list = utils.windows_to_wsl(args.directory) if args.wsl else args.directory
+    directory_list = (
+        utils.windows_to_wsl(args.directory) if args.wsl else args.directory
+    )
     for directory in directory_list:
-        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]    
+        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
     # filter raw files by regex
     len_before = len(raw_path_list)
