@@ -100,60 +100,60 @@ jobs:
             asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win32-x64.zip
             asset_content_type: application/zip
 
-#   Create_MacOS_GUI:
-#     needs: [Create_Draft_On_GitHub, Version_Bumped]
-#     env:
-#         ARCH: x64
-#     runs-on: ${{ matrix.os }}
+  Create_MacOS_GUI:
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
+    runs-on: ${{ matrix.os }}
 
-#     strategy:
-#         matrix:
-#             os: [macos-latest, macos-latest-xlarge]
+    strategy:
+        matrix:
+            os: [macos-latest, macos-latest-xlarge]
 
-#     steps:
-#     - name : Checkout code
-#       uses: actions/checkout@v4
-#     - name: Setup Node.js
-#       uses: actions/setup-node@v4
-#     - name: Install conda
-#       uses: conda-incubator/setup-miniconda@v2
-#       with:
-#         miniconda-version: "latest"
-#         auto-update-conda: true
-#         activate-environment: alphadia
-#         python-version: "3.9"
-#     - name: Install dependencies
-#       run: |
-#         cd gui
-#         npm install
+    steps:
+    - name : Checkout code
+      uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v2
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        activate-environment: alphadia
+        python-version: "3.9"
+    - name: Install dependencies
+      run: |
+        cd gui
+        npm install
 
-#     - name: Build GUI
-#       run: |
-#         cd release/macos
-#         ./build_gui_macos.sh
+    - name: Build GUI
+      run: |
+        cd release/macos
+        ./build_gui_macos.sh
 
-#     - name: Build backend
-#       shell: bash -l {0}
-#       run: |
-#         cd release/macos
-#         ./build_backend_macos.sh
+    - name: Build backend
+      shell: bash -l {0}
+      run: |
+        cd release/macos
+        ./build_backend_macos.sh
 
-#     - name: Assemble ZIP
-#       shell: bash -l {0}
-#       run: |
-#         cd release/macos
-#         ./build_zip_macos.sh
+    - name: Assemble ZIP
+      shell: bash -l {0}
+      run: |
+        cd release/macos
+        ./build_zip_macos.sh
 
-#     - name: List output files
-#       run: |
-#         ls dist
+    - name: List output files
+      run: |
+        ls dist
 
-#     - name: Upload a Release Asset
-#       uses: actions/upload-release-asset@v1
-#       env:
-#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#       with:
-#           upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-#           asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
-#           asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
-#           asset_content_type: application/zip
+    - name: Upload a Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
+          asset_content_type: application/zip
