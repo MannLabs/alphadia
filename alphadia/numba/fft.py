@@ -1,13 +1,22 @@
 import numpy as np
 import numba as nb
 from typing import Union
-from rocket_fft.overloads import ndshape_and_axes, zeropad_or_crop, increase_shape, get_fct, decrease_shape, resize
+from rocket_fft.overloads import (
+    ndshape_and_axes,
+    zeropad_or_crop,
+    increase_shape,
+    get_fct,
+    decrease_shape,
+    resize,
+)
 from rocket_fft import pocketfft
 
 from numba.extending import overload, register_jitable
 
+
 class NumbaContextOnly(Exception):
     pass
+
 
 def rfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
     """
@@ -32,17 +41,19 @@ def rfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
         This function should only be used in a numba context as it relies on numba overloads.
     """
 
-    raise NumbaContextOnly("This function should only be used in a numba context as it relies on numbas overloads.")
+    raise NumbaContextOnly(
+        "This function should only be used in a numba context as it relies on numbas overloads."
+    )
+
 
 @overload(rfft2)
 def _(x, s=None):
-
     if not isinstance(x, nb.types.Array):
         return
-    
+
     if x.ndim != 2:
         return
-    
+
     if x.dtype != nb.types.float32:
         return
 
@@ -56,6 +67,7 @@ def _(x, s=None):
         return out
 
     return funcx_impl
+
 
 def irfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
     """
@@ -80,17 +92,19 @@ def irfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
         This function should only be used in a numba context as it relies on numba overloads.
     """
 
-    raise NumbaContextOnly("This function should only be used in a numba context as it relies on numbas overloads.")
+    raise NumbaContextOnly(
+        "This function should only be used in a numba context as it relies on numbas overloads."
+    )
+
 
 @overload(irfft2)
 def _(x, s=None):
-
     if not isinstance(x, nb.types.Array):
         return
-    
+
     if x.ndim != 2:
         return
-    
+
     if x.dtype != nb.types.complex64:
         return
 
@@ -107,6 +121,7 @@ def _(x, s=None):
 
     return funcx_impl
 
+
 @nb.njit
 def roll(a, delta0, delta1):
     b = np.zeros_like(a)
@@ -116,6 +131,7 @@ def roll(a, delta0, delta1):
     b[:delta0, :delta1] = a[-delta0:, -delta1:]
 
     return b
+
 
 def convolve_fourier(dense, kernel):
     """
@@ -139,25 +155,27 @@ def convolve_fourier(dense, kernel):
 
     """
 
-    raise NumbaContextOnly("This function should only be used in a numba context as it relies on numbas overloads.")
+    raise NumbaContextOnly(
+        "This function should only be used in a numba context as it relies on numbas overloads."
+    )
+
 
 @overload(convolve_fourier)
 def _(dense, kernel):
-
     if not isinstance(dense, nb.types.Array):
         return
-    
+
     if not isinstance(kernel, nb.types.Array):
         return
-    
+
     if kernel.ndim != 2:
         return
-    
+
     if dense.ndim < 2:
         return
-    
+
     if dense.ndim == 2:
-    
+
         def funcx_impl(dense, kernel):
             k0, k1 = kernel.shape
             delta0, delta1 = -k0 // 2, -k1 // 2
@@ -169,13 +187,13 @@ def _(dense, kernel):
             out[:delta0, delta1:] = layer[-delta0:, :-delta1]
             out[delta0:, :delta1] = layer[:-delta0, -delta1:]
             out[:delta0, :delta1] = layer[-delta0:, -delta1:]
-            
+
             return out
 
         return funcx_impl
-    
+
     if dense.ndim == 3:
-    
+
         def funcx_impl(dense, kernel):
             k0, k1 = kernel.shape
             delta0, delta1 = -k0 // 2, -k1 // 2
@@ -189,13 +207,13 @@ def _(dense, kernel):
                 out[i, :delta0, delta1:] = layer[-delta0:, :-delta1]
                 out[i, delta0:, :delta1] = layer[:-delta0, -delta1:]
                 out[i, :delta0, :delta1] = layer[-delta0:, -delta1:]
-            
+
             return out
 
         return funcx_impl
-    
+
     if dense.ndim == 4:
-    
+
         def funcx_impl(dense, kernel):
             k0, k1 = kernel.shape
             delta0, delta1 = -k0 // 2, -k1 // 2
@@ -210,7 +228,7 @@ def _(dense, kernel):
                     out[i, j, :delta0, delta1:] = layer[-delta0:, :-delta1]
                     out[i, j, delta0:, :delta1] = layer[:-delta0, -delta1:]
                     out[i, j, :delta0, :delta1] = layer[-delta0:, -delta1:]
-            
+
             return out
 
         return funcx_impl
