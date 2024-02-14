@@ -8,7 +8,7 @@ import typing
 
 # alphadia imports
 from alphadia import utils
-from alphadia.numba import fragments, numeric, config
+from alphadia.numba import fragments, numeric, config, fft
 from alphadia import validate, utils
 from alphadia.data import bruker, alpharaw
 
@@ -1743,8 +1743,8 @@ def build_candidates(
 
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
-    smooth_precursor = numeric.convolve_fourier_a1(dense_precursors, kernel)
-    smooth_fragment = numeric.convolve_fourier_a1(dense_fragments, kernel)
+    smooth_precursor = fft.convolve_fourier(dense_precursors, kernel)
+    smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
     if not smooth_precursor.shape == dense_precursors.shape:
         print(smooth_precursor.shape, dense_precursors.shape)
