@@ -8,8 +8,17 @@
 import numpy as np
 import numba as nb
 
-from rocket_fft.overloads import ndshape_and_axes, zeropad_or_crop, increase_shape, get_fct, decrease_shape, resize, get_nthreads
+from rocket_fft.overloads import (
+    ndshape_and_axes,
+    zeropad_or_crop,
+    increase_shape,
+    get_fct,
+    decrease_shape,
+    resize,
+    get_nthreads,
+)
 from rocket_fft import pocketfft
+
 
 @nb.njit
 def ceil_to_base_two(x):
@@ -24,6 +33,7 @@ def ceil_to_base_two(x):
 
     x += 1
     return x
+
 
 @nb.njit
 def wrap0(
