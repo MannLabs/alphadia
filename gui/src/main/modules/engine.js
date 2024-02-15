@@ -11,6 +11,14 @@ const fs = require('fs');
 const path = require('path');
 var kill = require('tree-kill');
 
+function getAppRoot() {
+    if ( process.platform === 'win32' ) {
+      return path.join( app.getAppPath(), '/../../../' );
+    }  else {
+      return path.join( app.getAppPath(), '/../../../../' );
+    }
+  }
+
 function lineBreakTransform () {
 
     // https://stackoverflow.com/questions/40781713/getting-chunks-by-newline-in-node-js-data-stream
@@ -336,9 +344,13 @@ class BundledExecutionEngine extends BaseExecutionEngine {
                 resolve(this)
             }
 
+
             // check if binary path exists
-            if ((this.config.binaryPath == "") || (this.config.binaryPath == null) || (this.config.binaryPath == undefined)){
-                this.config.binaryPath = path.join(app.getAppPath(), "alphadia"+(process.platform == "win32" ? ".exe" : ""))
+            if (this.config.binaryPath == ""){
+                // alert user that binary path is not set
+                
+
+                this.config.binaryPath = path.join(getAppRoot(), "alphadia"+(process.platform == "win32" ? ".exe" : ""))
             }
 
             return hasBinary(this.config.binaryPath).then(() => {
