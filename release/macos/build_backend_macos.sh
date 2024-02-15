@@ -1,5 +1,4 @@
 # navigate to the root directory
-cd ../..
 
 # Creating the wheel
 # Creating the wheel
