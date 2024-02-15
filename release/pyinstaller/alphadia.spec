@@ -7,23 +7,21 @@ from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE,
 import PyInstaller.utils.hooks
 import pkg_resources
 import importlib.metadata
-import alphadia
 
 
 ##################### User definitions
 exe_name = 'alphadia'
-script_name = 'alphadia_pyinstaller.py'
-if sys.platform[:6] == "darwin":
-	icon = '../logos/alphadia.icns'
-else:
-	icon = '../logos/alphadia.ico'
+script_name = 'cli_hook.py'
+#if sys.platform[:6] == "darwin":
+#	icon = '../logos/alphadia.icns'
+#else:
+#	icon = '../logos/alphadia.ico'
 block_cipher = None
 location = os.getcwd()
 project = "alphadia"
 remove_tests = True
 bundle_name = "AlphaDIA"
 #####################
-
 
 requirements = {
 	req.split()[0] for req in importlib.metadata.requires(project)
@@ -71,10 +69,10 @@ if remove_tests:
 else:
 	hidden_imports = sorted(hidden_imports)
 
-
 hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
-hidden_imports += ['clr']
+hidden_imports += ['clr', 'alphabase', 'alpharaw','alphatims','rocket_fft']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
+
 
 a = Analysis(
 	[script_name],
@@ -82,10 +80,10 @@ a = Analysis(
 	binaries=binaries,
 	datas=datas,
 	hiddenimports=hidden_imports,
-	hookspath=[],
+	hookspath=['./release/hookdir'],
 	runtime_hooks=[],
-	excludes=[h for h in hidden_imports if "datashader" in h],
-	win_no_prefer_redirects=False,
+	excludes=[],
+    win_no_prefer_redirects=False,
 	win_private_assemblies=False,
 	cipher=block_cipher,
 	noarchive=False
@@ -110,7 +108,7 @@ if sys.platform[:5] == "linux":
 		upx=True,
 		console=True,
 		upx_exclude=[],
-		icon=icon
+		#icon=icon
 	)
 else:
 	exe = EXE(
@@ -126,7 +124,7 @@ else:
 		strip=False,
 		upx=True,
 		console=True,
-		icon=icon
+		#icon=icon
 	)
 	coll = COLLECT(
 		exe,
