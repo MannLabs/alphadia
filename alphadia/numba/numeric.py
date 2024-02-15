@@ -8,6 +8,7 @@
 import numpy as np
 import numba as nb
 
+
 @nb.njit
 def ceil_to_base_two(x):
     # borrowed from Bit Twiddling Hacks
