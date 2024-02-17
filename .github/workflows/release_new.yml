@@ -139,7 +139,7 @@ jobs:
     - name: Assemble ZIP
       shell: bash -l {0}
       run: |
-        release/macos/build_zip_macos.sh
+        release/macos/build_pkg_macos.sh
 
     - name: List output files
       run: |
@@ -151,6 +151,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
           upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.zip
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
           asset_content_type: application/zip

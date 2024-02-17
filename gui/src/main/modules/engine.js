@@ -344,15 +344,6 @@ class BundledExecutionEngine extends BaseExecutionEngine {
                 resolve(this)
             }
 
-            dialog.showMessageBox({
-                type: 'info',
-                title: 'Bundled alphaDIA',
-                message: `The bundled alphaDIA backend is being used. appRoot: ${getAppRoot()}, getAppPath: ${app.getAppPath()}`,
-            }).catch((err) => {
-                console.log(err)
-            })
-
-
             // check if binary path exists
             if (this.config.binaryPath == ""){
                 // alert user that binary path is not set

@@ -74,4 +74,4 @@ cp release/macos/Info.plist $PKG_FOLDER/Contents/
 #change permissions for entry script
 chmod +x $PKG_FOLDER/Contents/MacOS/alphaDIA
 
-#pkgbuild --component $PKG_FOLDER --identifier de.mpg.biochem.alphadia.app --version $PACKAGE_VERSION --install-location /Applications/alphaDIA.app --scripts release/macos/scripts dist/$BUILD_NAME.pkg
+pkgbuild --root $PKG_FOLDER --identifier de.mpg.biochem.alphadia.app --version $PACKAGE_VERSION --install-location /Applications/alphaDIA.app --scripts release/macos/scripts dist/$BUILD_NAME.pkg --nopayload
