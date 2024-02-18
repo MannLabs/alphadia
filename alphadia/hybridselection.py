@@ -737,6 +737,7 @@ class HybridElutionGroup:
         isotope_mz = isotope_mz[order]
         isotope_intensity = isotope_intensity[order]
         isotope_precursor = isotope_precursor[order]
+        
 
         precursor_mz, precursor_intensity = fragments.get_ion_group_mapping(
             isotope_precursor,
@@ -765,18 +766,25 @@ class HybridElutionGroup:
             return
         
         
+        if jit_data.has_mobility:
+            _dense_precursors, _ = jit_data.get_dense(
+                frame_limits,
+                scan_limits,
+                precursor_mz,
+                config.precursor_mz_tolerance,
+                np.array([[-1.0, -1.0]], dtype=np.float32),
+            )
+            dense_precursors = _dense_precursors.sum(axis=2)
+        else:
 
-        # if jit_data.has_mobility:
-        # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-        _dense_precursors, _ = jit_data.get_dense(
-            frame_limits,
-            scan_limits,
-            precursor_mz,
-            config.precursor_mz_tolerance,
-            np.array([[-1.0, -1.0]], dtype=np.float32),
-        )
-        
-        dense_precursors = _dense_precursors.sum(axis=2)
+            # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
+            dense_precursors, _ = jit_data.get_dense_intensity(
+                frame_limits,
+                scan_limits,
+                precursor_mz,
+                config.precursor_mz_tolerance,
+                np.array([[-1.0, -1.0]], dtype=np.float32),
+            )
 
         # FLAG: needed for debugging
         # self.dense_precursors = dense_precursors
@@ -788,9 +796,19 @@ class HybridElutionGroup:
             self.set_status(102, "Unexpected quadrupole_mz.shape")
             return
 
-        # if jit_data.has_mobility:
+        if jit_data.has_mobility:
+            _dense_fragments, _ = jit_data.get_dense(
+                frame_limits,
+                scan_limits,
+                fragment_mz,
+                config.fragment_mz_tolerance,
+                quadrupole_mz,
+                custom_cycle=jit_data.cycle,
+            )
+            dense_fragments = _dense_fragments.sum(axis=2)
+
         # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
-        _dense_fragments, _ = jit_data.get_dense(
+        dense_fragments, _ = jit_data.get_dense_intensity(
             frame_limits,
             scan_limits,
             fragment_mz,
@@ -798,8 +816,6 @@ class HybridElutionGroup:
             quadrupole_mz,
             custom_cycle=jit_data.cycle,
         )
-
-        dense_fragments = _dense_fragments.sum(axis=2)
 
         # FLAG: needed for debugging
         # self.dense_fragments = dense_fragments
@@ -1393,7 +1409,7 @@ def _executor(
 
 @nb.njit
 def build_features(
-    smooth_precursor, smooth_fragment, precursor_intensity, fragment_intensity
+    smooth_precursor, smooth_fragment
 ):
     n_features = 1  # 2
 
@@ -1761,9 +1777,7 @@ def build_candidates(
 
     feature_matrix = build_features(
         smooth_precursor,
-        smooth_fragment,
-        precursor_intensity,
-        fragment_intensity,
+        smooth_fragment
     ).astype("float32")
 
     # get mean and std to normalize features
@@ -1884,12 +1898,6 @@ def build_candidates(
         for j in range(feature_matrix.shape[0]):
             features[j] = numeric.get_mean0(
                 feature_matrix[j], scan_relative, cycle_relative
-            )
-
-        mass_error = np.zeros(smooth_precursor.shape[1], dtype="float32")
-        for j in range(smooth_precursor.shape[0]):
-            mass_error[j] = numeric.get_mean_sparse0(
-                smooth_precursor[1, j], scan_relative, cycle_relative, 110
             )
 
         # iterate all precursors within this score group

@@ -686,18 +686,18 @@ class AlphaRawJIT(object):
 
         # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
         precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
-        n_precursor_indices = len(precursor_idx_list)
+        #n_precursor_indices = len(precursor_idx_list)
 
         precursor_cycle_start = frame_limits[0, 0] // cycle_length
         precursor_cycle_stop = frame_limits[0, 1] // cycle_length
         precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
 
         dense_output = np.zeros(
-            (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
+            (1, n_tof_slices, 2, precursor_cycle_len),
             dtype=np.float32,
         )
 
-        for i, cycle_idx in enumerate(
+        for i, cycle_idx in enumerate( 
             range(precursor_cycle_start, precursor_cycle_stop)
         ):
             for j, precursor_idx in enumerate(precursor_idx_list):
@@ -716,15 +716,15 @@ class AlphaRawJIT(object):
                     idx += rel_idx
 
                     while idx < peak_stop_idx and self.mz_values[idx] <= mz_query_stop:
-                        accumulated_intensity = dense_output[0, k, j, 0, i]
-                        # accumulated_dim1 = dense_output[1, k, j, 0, i]
+                        accumulated_intensity = dense_output[0, k, 0, i]
+                        # accumulated_dim1 = dense_output[1, k, 0, i]
 
                         new_intensity = self.intensity_values[idx]
 
-                        dense_output[0, k, j, 0, i] = (
+                        dense_output[0, k, 0, i] = (
                             accumulated_intensity + new_intensity
                         )
-                        dense_output[0, k, j, 1, i] = (
+                        dense_output[0, k, 1, i] = (
                             accumulated_intensity + new_intensity
                         )
 
