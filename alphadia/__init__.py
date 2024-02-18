@@ -13,7 +13,7 @@ __keywords__ = [
     "software",
     "AlphaPept ecosystem",
 ]
-__python_version__ = ">=3.8,<=3.12"
+__python_version__ = ">=3.8"
 __classifiers__ = [
     "Development Status :: 1 - Planning",
     # "Development Status :: 2 - Pre-Alpha",

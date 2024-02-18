@@ -7,23 +7,21 @@ from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE,
 import PyInstaller.utils.hooks
 import pkg_resources
 import importlib.metadata
-import alphadia
 
 
 ##################### User definitions
-exe_name = 'alphadia_gui'
-script_name = 'alphadia_pyinstaller.py'
-if sys.platform[:6] == "darwin":
-	icon = '../logos/alpha_logo.icns'
-else:
-	icon = '../logos/alpha_logo.ico'
+exe_name = 'alphadia'
+script_name = 'cli_hook.py'
+#if sys.platform[:6] == "darwin":
+#	icon = '../logos/alphadia.icns'
+#else:
+#	icon = '../logos/alphadia.ico'
 block_cipher = None
 location = os.getcwd()
 project = "alphadia"
 remove_tests = True
 bundle_name = "AlphaDIA"
 #####################
-
 
 requirements = {
 	req.split()[0] for req in importlib.metadata.requires(project)
@@ -71,22 +69,10 @@ if remove_tests:
 else:
 	hidden_imports = sorted(hidden_imports)
 
-
 hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
+hidden_imports += ['clr', 'alphabase', 'alpharaw','alphatims','rocket_fft']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
 
-if sys.platform[:5] == "win32":
-	base_path = os.path.dirname(sys.executable)
-	library_path = os.path.join(base_path, "Library", "bin")
-	dll_path = os.path.join(base_path, "DLLs")
-	libcrypto_dll_path = os.path.join(dll_path, "libcrypto-1_1-x64.dll")
-	libssl_dll_path = os.path.join(dll_path, "libssl-1_1-x64.dll")
-	libcrypto_lib_path = os.path.join(library_path, "libcrypto-1_1-x64.dll")
-	libssl_lib_path = os.path.join(library_path, "libssl-1_1-x64.dll")
-	if not os.path.exists(libcrypto_dll_path):
-		datas.append((libcrypto_lib_path, "."))
-	if not os.path.exists(libssl_dll_path):
-		datas.append((libssl_lib_path, "."))
 
 a = Analysis(
 	[script_name],
@@ -94,10 +80,10 @@ a = Analysis(
 	binaries=binaries,
 	datas=datas,
 	hiddenimports=hidden_imports,
-	hookspath=[],
+	hookspath=['./release/pyinstaller/hookdir'],
 	runtime_hooks=[],
-	excludes=[h for h in hidden_imports if "datashader" in h],
-	win_no_prefer_redirects=False,
+	excludes=[],
+    win_no_prefer_redirects=False,
 	win_private_assemblies=False,
 	cipher=block_cipher,
 	noarchive=False
@@ -122,7 +108,7 @@ if sys.platform[:5] == "linux":
 		upx=True,
 		console=True,
 		upx_exclude=[],
-		icon=icon
+		#icon=icon
 	)
 else:
 	exe = EXE(
@@ -138,7 +124,7 @@ else:
 		strip=False,
 		upx=True,
 		console=True,
-		icon=icon
+		#icon=icon
 	)
 	coll = COLLECT(
 		exe,

@@ -21,7 +21,8 @@ const Profile = class {
             "envName": "alpha",
             "condaPath": ""
         },
-        "DockerExecutionEngine": {
+        "BundledExecutionEngine": {
+            "binaryPath": ""
         },
     }
 
