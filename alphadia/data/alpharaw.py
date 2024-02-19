@@ -32,6 +32,17 @@ def search_sorted_left(slice, value):
             right = mid
     return left
 
+@nb.njit(inline="always")
+def search_sorted_refernce_left(array, left, right, value):
+
+    while left < right:
+        mid = (left + right)>>1
+        if array[mid] < value:
+            left = mid + 1
+        else:
+            right = mid
+    return left
+
 def normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.
     Parameters
@@ -709,11 +720,9 @@ class AlphaRawJIT(object):
                 idx = peak_start_idx
 
                 for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    rel_idx = search_sorted_left(
-                        self.mz_values[idx:peak_stop_idx], mz_query_start
+                    idx = search_sorted_refernce_left(
+                        self.mz_values, idx, peak_stop_idx, mz_query_start
                     )
-
-                    idx += rel_idx
 
                     while idx < peak_stop_idx and self.mz_values[idx] <= mz_query_stop:
                         accumulated_intensity = dense_output[0, k, 0, i]
