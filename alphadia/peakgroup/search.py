@@ -313,7 +313,7 @@ def select_candidates(
             std=std,
         )
 
-@nb.njit
+@nb.njit(fastmath=True)
 def build_features(
     smooth_precursor, smooth_fragment
 ):
@@ -474,7 +474,7 @@ def join_overlapping_candidates(
 
     return joined_mask
 
-@nb.njit
+@nb.njit(fastmath=True)
 def build_candidates(
     precursor_idx,
 

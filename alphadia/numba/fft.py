@@ -46,7 +46,7 @@ def rfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
     )
 
 
-@overload(rfft2)
+@overload(rfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
         return
@@ -97,7 +97,7 @@ def irfft2(x: np.array, s: Union[None, tuple] = None) -> np.array:
     )
 
 
-@overload(irfft2)
+@overload(irfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
         return
@@ -160,7 +160,7 @@ def convolve_fourier(dense, kernel):
     )
 
 
-@overload(convolve_fourier)
+@overload(convolve_fourier, fastmath=True)
 def _(dense, kernel):
     if not isinstance(dense, nb.types.Array):
         return

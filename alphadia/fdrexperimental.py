@@ -721,7 +721,7 @@ class BinaryClassifierLegacy(Classifier):
 
         return dict
 
-    def from_state_dict(self, state_dict: dict):
+    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
         """Load the state of the classifier from a dictionary.
 
         Parameters
@@ -743,7 +743,8 @@ class BinaryClassifierLegacy(Classifier):
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
 
-        self.__dict__.update(_state_dict)
+        if load_hyperparameters:
+            self.__dict__.update(_state_dict)
 
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.
@@ -1033,7 +1034,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         return dict
 
-    def from_state_dict(self, state_dict: dict):
+    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
         """Load the state of the classifier from a dictionary.
 
         Parameters
@@ -1055,7 +1056,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
 
-        self.__dict__.update(_state_dict)
+        if load_hyperparameters:
+            self.__dict__.update(_state_dict)
 
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.

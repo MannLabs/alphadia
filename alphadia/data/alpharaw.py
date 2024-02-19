@@ -32,7 +32,7 @@ def search_sorted_left(slice, value):
             right = mid
     return left
 
-@nb.njit(inline="always")
+@nb.njit(inline="always", fastmath=True)
 def search_sorted_refernce_left(array, left, right, value):
 
     while left < right:
