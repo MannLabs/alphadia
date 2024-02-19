@@ -167,7 +167,6 @@ calibration_manager:
           model: LOESSRegression
           model_args:
             n_kernels: 6
-            uniform: True
           input_columns: 
             - rt_library
           target_columns:

@@ -8,6 +8,7 @@ import typing
 # alphadia imports
 from alphadia import plexscoring, hybridselection, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
+from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
 
 # alpha family imports
@@ -690,7 +691,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        extraction = hybridselection.HybridCandidateSelection(
+        extraction = search.HybridCandidateSelection(
             self.dia_data.jitclass(),
             batch_df,
             self.spectral_library.fragment_df,

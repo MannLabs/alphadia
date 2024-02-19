@@ -864,7 +864,7 @@ class HybridCandidateSelection(object):
             kernel_width=config.kernel_size,
             kernel_height=min(config.kernel_size, dia_data.scan_max_index + 1),
         )
-        self.kernel = gaussian_filter.get_kernel()
+        self.kernel = gaussian_filter.get_dense_matrix()
 
         self.available_isotopes = utils.get_isotope_columns(
             self.precursors_flat.columns
