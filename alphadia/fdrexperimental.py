@@ -291,6 +291,7 @@ class BinaryClassifier(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
         self.__dict__.update(_state_dict)
 
@@ -742,6 +743,7 @@ class BinaryClassifierLegacy(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
         if load_hyperparameters:
             self.__dict__.update(_state_dict)
@@ -1055,6 +1057,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
         if load_hyperparameters:
             self.__dict__.update(_state_dict)

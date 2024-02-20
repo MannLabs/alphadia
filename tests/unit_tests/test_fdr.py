@@ -267,9 +267,6 @@ def test_feed_forward():
     # assert np.all(np.round(y_proba) == y)
 
 
-test_feed_forward()
-
-
 def test_feed_forward_save():
     tempfolder = tempfile.gettempdir()
     x, y = gen_data_np()
@@ -292,6 +289,3 @@ def test_feed_forward_save():
 
     y_pred = new_classifier.predict(x)
     # assert np.all(y_pred == y)
-
-
-test_feed_forward_save()
