@@ -6,8 +6,9 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, hybridselection, fragcomp, utils
+from alphadia import plexscoring, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
+from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
 
 # alpha family imports
@@ -94,9 +95,7 @@ feature_columns = [
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
-    test_size=0.001,
-    batch_size=5000,
-    learning_rate=0.001,
+    test_size=0.001, batch_size=5000, learning_rate=0.001, epochs=10
 )
 
 
@@ -675,7 +674,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
 
-        config = hybridselection.HybridCandidateConfig()
+        config = search.HybridCandidateConfig()
         config.update(self.config["selection_config"])
         config.update(
             {
@@ -690,7 +689,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        extraction = hybridselection.HybridCandidateSelection(
+        extraction = search.HybridCandidateSelection(
             self.dia_data.jitclass(),
             batch_df,
             self.spectral_library.fragment_df,
