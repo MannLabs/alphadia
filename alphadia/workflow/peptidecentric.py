@@ -6,7 +6,7 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, hybridselection, fragcomp, utils
+from alphadia import plexscoring, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
 from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
@@ -675,7 +675,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
 
-        config = hybridselection.HybridCandidateConfig()
+        config = search.HybridCandidateConfig()
         config.update(self.config["selection_config"])
         config.update(
             {

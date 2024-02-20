@@ -25,7 +25,172 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 import matplotlib as mpl
 
-from alphadia.hybridselection import HybridElutionGroup, HybridElutionGroupContainer
+@nb.experimental.jitclass()
+class HybridCandidateConfigJIT:
+
+    """
+    Numba compatible config object for the HybridCandidate class.
+    Please see the documentation of the HybridCandidateConfig class for more information on the parameters and their default values.
+    """
+
+    rt_tolerance: nb.float64
+    precursor_mz_tolerance: nb.float64
+    fragment_mz_tolerance: nb.float64
+    mobility_tolerance: nb.float64
+    isotope_tolerance: nb.float64
+
+    peak_len_rt: nb.float64
+    sigma_scale_rt: nb.float64
+    peak_len_mobility: nb.float64
+    sigma_scale_mobility: nb.float64
+
+    candidate_count: nb.int64
+    top_k_precursors: nb.int64
+    top_k_fragments: nb.int64
+    exclude_shared_ions: nb.types.bool_
+    kernel_size: nb.int64
+
+    f_mobility: nb.float64
+    f_rt: nb.float64
+    center_fraction: nb.float64
+    min_size_mobility: nb.int64
+    min_size_rt: nb.int64
+    max_size_mobility: nb.int64
+    max_size_rt: nb.int64
+
+    group_channels: nb.types.bool_
+    use_weighted_score: nb.types.bool_
+
+    join_close_candidates: nb.types.bool_
+    join_close_candidates_scan_threshold: nb.float64
+    join_close_candidates_cycle_threshold: nb.float64
+
+    feature_std: nb.float64[::1]
+    feature_mean: nb.float64[::1]
+    feature_weight: nb.float64[::1]
+
+    def __init__(
+        self,
+        rt_tolerance,
+        precursor_mz_tolerance,
+        fragment_mz_tolerance,
+        mobility_tolerance,
+        isotope_tolerance,
+        peak_len_rt,
+        sigma_scale_rt,
+        peak_len_mobility,
+        sigma_scale_mobility,
+        candidate_count,
+        top_k_precursors,
+        top_k_fragments,
+        exclude_shared_ions,
+        kernel_size,
+        f_mobility,
+        f_rt,
+        center_fraction,
+        min_size_mobility,
+        min_size_rt,
+        max_size_mobility,
+        max_size_rt,
+        group_channels,
+        use_weighted_score,
+        join_close_candidates,
+        join_close_candidates_scan_threshold,
+        join_close_candidates_cycle_threshold,
+        feature_std,
+        feature_mean,
+        feature_weight,
+    ):
+        self.rt_tolerance = rt_tolerance
+        self.precursor_mz_tolerance = precursor_mz_tolerance
+        self.fragment_mz_tolerance = fragment_mz_tolerance
+        self.mobility_tolerance = mobility_tolerance
+        self.isotope_tolerance = isotope_tolerance
+
+        self.peak_len_rt = peak_len_rt
+        self.sigma_scale_rt = sigma_scale_rt
+        self.peak_len_mobility = peak_len_mobility
+        self.sigma_scale_mobility = sigma_scale_mobility
+
+        self.candidate_count = candidate_count
+        self.top_k_precursors = top_k_precursors
+        self.top_k_fragments = top_k_fragments
+        self.exclude_shared_ions = exclude_shared_ions
+        self.kernel_size = kernel_size
+
+        self.f_mobility = f_mobility
+        self.f_rt = f_rt
+        self.center_fraction = center_fraction
+        self.min_size_mobility = min_size_mobility
+        self.min_size_rt = min_size_rt
+        self.max_size_mobility = max_size_mobility
+        self.max_size_rt = max_size_rt
+
+        self.group_channels = group_channels
+        self.use_weighted_score = use_weighted_score
+
+        self.join_close_candidates = join_close_candidates
+        self.join_close_candidates_scan_threshold = join_close_candidates_scan_threshold
+        self.join_close_candidates_cycle_threshold = (
+            join_close_candidates_cycle_threshold
+        )
+
+        self.feature_std = feature_std
+        self.feature_mean = feature_mean
+        self.feature_weight = feature_weight
+
+
+class HybridCandidateConfig(config.JITConfig):
+    jit_container = HybridCandidateConfigJIT
+
+    def __init__(self):
+        self.rt_tolerance = 60.0
+        self.precursor_mz_tolerance = 10.0
+        self.fragment_mz_tolerance = 15.0
+        self.mobility_tolerance = 0.1
+        self.isotope_tolerance = 0.01
+
+        self.peak_len_rt = 10.0
+        self.sigma_scale_rt = 0.1
+        self.peak_len_mobility = 0.013
+        self.sigma_scale_mobility = 1.0
+
+        self.candidate_count = 5
+
+        self.top_k_precursors = 3
+        self.top_k_fragments = 12
+        self.exclude_shared_ions = True
+        self.kernel_size = 30
+
+        # parameters used during peak identification
+        self.f_mobility = 1.0
+        self.f_rt = 0.99
+        self.center_fraction = 0.5
+        self.min_size_mobility = 8
+        self.min_size_rt = 3
+        self.max_size_mobility = 30
+        self.max_size_rt = 15
+
+        self.group_channels = False
+        self.use_weighted_score = True
+
+        self.join_close_candidates = True
+        self.join_close_candidates_scan_threshold = 0.01
+        self.join_close_candidates_cycle_threshold = 0.6
+
+        # self.feature_std = np.array([ 1.2583724, 0.91052234, 1.2126098, 14.557817, 0.04327635, 0.24623954, 0.03225865, 1.2671406,1.,1,1,1 ], np.float64)
+        self.feature_std = np.ones(1, np.float64)
+        self.feature_mean = np.zeros(1, np.float64)
+        self.feature_weight = np.ones(1, np.float64)
+        # self.feature_weight[2] = 1.
+        # self.feature_weight[1] = 1.
+
+        # self.feature_weight[11] = 1.
+        # self.feature_mean = np.array([ 2.967344, 1.2160938, 1.426444, 13.960179, 0.06620345, 0.44364494, 0.03138363, 3.1453438,1.,1,1,1 ], np.float64)
+        # self.feature_weight = np.array([ 0.43898424,  0.97879761,  0.72262148, 0., 0.0,  0.3174245, 0.30102549,  0.44892641, 1.,1,1,1], np.float64)
+
+    def validate(self):
+        pass
 
 @nb.experimental.jitclass
 class PrecursorFlatDF:
@@ -846,102 +1011,6 @@ class HybridCandidateSelection(object):
             precursors_flat[self.mobility_column].values,
             precursors_flat[self.precursor_mz_column].values,
             precursors_flat[available_isotope_columns].values.copy(),
-        )
-            
-
-
-
-    def assemble_score_groups(self, precursors_flat):
-        """
-        Assemble elution groups from precursor library.
-
-        Parameters
-        ----------
-
-        precursors_flat : pandas.DataFrame
-            Precursor library.
-
-        Returns
-        -------
-        HybridElutionGroupContainer
-            Numba jitclass with list of elution groups.
-        """
-
-        if len(precursors_flat) == 0:
-            return
-
-        available_isotopes = utils.get_isotope_columns(precursors_flat.columns)
-        available_isotope_columns = [f"i_{i}" for i in available_isotopes]
-
-        precursors_sorted = utils.calculate_score_groups(
-            precursors_flat, self.config.group_channels
-        ).copy()
-
-        # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.precursors_flat(precursors_sorted)
-
-        @nb.njit(debug=True)
-        def assemble_njit(
-            score_group_idx,
-            elution_group_idx,
-            precursor_idx,
-            channel,
-            flat_frag_start_stop_idx,
-            rt_values,
-            mobility_values,
-            charge,
-            decoy,
-            precursor_mz,
-            isotope_intensity,
-        ):
-            score_group = score_group_idx[0]
-            score_group_start = 0
-            score_group_stop = 0
-
-            eg_list = []
-
-            while score_group_stop < len(score_group_idx):
-                score_group_stop += 1
-
-                if score_group_idx[score_group_stop] != score_group:
-                    eg_list.append(
-                        HybridElutionGroup(
-                            score_group,
-                            elution_group_idx[score_group_start],
-                            precursor_idx[score_group_start:score_group_stop],
-                            channel[score_group_start:score_group_stop],
-                            flat_frag_start_stop_idx[
-                                score_group_start:score_group_stop
-                            ],
-                            rt_values[score_group_start],
-                            mobility_values[score_group_start],
-                            charge[score_group_start],
-                            decoy[score_group_start:score_group_stop],
-                            precursor_mz[score_group_start:score_group_stop],
-                            isotope_intensity[score_group_start:score_group_stop],
-                        )
-                    )
-
-                    score_group_start = score_group_stop
-                    score_group = score_group_idx[score_group_start]
-
-            egs = nb.typed.List(eg_list)
-            return HybridElutionGroupContainer(egs)
-
-        return assemble_njit(
-            precursors_sorted["score_group_idx"].values,
-            precursors_sorted["elution_group_idx"].values,
-            precursors_sorted["precursor_idx"].values,
-            precursors_sorted["channel"].values,
-            precursors_sorted[
-                ["flat_frag_start_idx", "flat_frag_stop_idx"]
-            ].values.copy(),
-            precursors_sorted[self.rt_column].values,
-            precursors_sorted[self.mobility_column].values,
-            precursors_sorted["charge"].values,
-            precursors_sorted["decoy"].values,
-            precursors_sorted[self.precursor_mz_column].values,
-            precursors_sorted[available_isotope_columns].values.copy(),
         )
 
     def assemble_candidates(self, elution_group_container):
