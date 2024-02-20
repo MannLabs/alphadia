@@ -2,7 +2,7 @@
 
 # Set up package name and version
 PACKAGE_NAME="alphadia"
-PACKAGE_VERSION="1.5.3"
+PACKAGE_VERSION="1.5.4"
 
 BUILD_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-win32-x64"
 
