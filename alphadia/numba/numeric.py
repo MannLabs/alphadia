@@ -8,13 +8,14 @@
 import numpy as np
 import numba as nb
 
+
 @nb.njit(parallel=False, fastmath=True)
 def search_sorted_left(slice, value):
     left = 0
     right = len(slice)
 
     while left < right:
-        mid = (left + right)>>1
+        mid = (left + right) >> 1
         if slice[mid] < value:
             left = mid + 1
         else:

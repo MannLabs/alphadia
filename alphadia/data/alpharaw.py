@@ -19,29 +19,31 @@ import numpy as np
 import numba as nb
 import pandas as pd
 
+
 @nb.njit(parallel=False, fastmath=True)
 def search_sorted_left(slice, value):
     left = 0
     right = len(slice)
 
     while left < right:
-        mid = (left + right)>>1
+        mid = (left + right) >> 1
         if slice[mid] < value:
             left = mid + 1
         else:
             right = mid
     return left
 
+
 @nb.njit(inline="always", fastmath=True)
 def search_sorted_refernce_left(array, left, right, value):
-
     while left < right:
-        mid = (left + right)>>1
+        mid = (left + right) >> 1
         if array[mid] < value:
             left = mid + 1
         else:
             right = mid
     return left
+
 
 def normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.
@@ -697,7 +699,7 @@ class AlphaRawJIT(object):
 
         # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
         precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
-        #n_precursor_indices = len(precursor_idx_list)
+        # n_precursor_indices = len(precursor_idx_list)
 
         precursor_cycle_start = frame_limits[0, 0] // cycle_length
         precursor_cycle_stop = frame_limits[0, 1] // cycle_length
@@ -708,7 +710,7 @@ class AlphaRawJIT(object):
             dtype=np.float32,
         )
 
-        for i, cycle_idx in enumerate( 
+        for i, cycle_idx in enumerate(
             range(precursor_cycle_start, precursor_cycle_stop)
         ):
             for j, precursor_idx in enumerate(precursor_idx_list):
@@ -730,132 +732,118 @@ class AlphaRawJIT(object):
 
                         new_intensity = self.intensity_values[idx]
 
-                        dense_output[0, k, 0, i] = (
-                            accumulated_intensity + new_intensity
-                        )
-                        dense_output[0, k, 1, i] = (
-                            accumulated_intensity + new_intensity
-                        )
+                        dense_output[0, k, 0, i] = accumulated_intensity + new_intensity
+                        dense_output[0, k, 1, i] = accumulated_intensity + new_intensity
 
                         idx += 1
 
         return dense_output, precursor_idx_list
-    
 
 
 @nb.njit
 def get_dense_intensity(
-        cycle,
-        peak_start_idx_list,
-        peak_stop_idx_list,
-        mz_values,
-        intensity_values,
-        frame_limits,
-        scan_limits,
-        mz_query_list,
-        mass_tolerance,
-        quadrupole_mz,
-        absolute_masses=False,
-        custom_cycle=None,
-    ):
-        """
-        Get a dense representation of the data for a given set of parameters.
+    cycle,
+    peak_start_idx_list,
+    peak_stop_idx_list,
+    mz_values,
+    intensity_values,
+    frame_limits,
+    scan_limits,
+    mz_query_list,
+    mass_tolerance,
+    quadrupole_mz,
+    absolute_masses=False,
+    custom_cycle=None,
+):
+    """
+    Get a dense representation of the data for a given set of parameters.
 
-        Parameters
-        ----------
+    Parameters
+    ----------
 
-        frame_limits : np.ndarray, shape = (1,2,)
-            array of frame indices
+    frame_limits : np.ndarray, shape = (1,2,)
+        array of frame indices
 
-        scan_limits : np.ndarray, shape = (1,2,)
-            array of scan indices
+    scan_limits : np.ndarray, shape = (1,2,)
+        array of scan indices
 
-        mz_query_list : np.ndarray, shape = (n_tof_slices,)
-            array of query m/z values
+    mz_query_list : np.ndarray, shape = (n_tof_slices,)
+        array of query m/z values
 
-        mass_tolerance : float
-            mass tolerance in ppm
+    mass_tolerance : float
+        mass tolerance in ppm
 
-        quadrupole_mz : np.ndarray, shape = (1,2,)
-            array of quadrupole m/z values
+    quadrupole_mz : np.ndarray, shape = (1,2,)
+        array of quadrupole m/z values
 
-        absolute_masses : bool, default = False
-            if True, the first slice of the dense output will contain the absolute m/z values instead of the mass error
+    absolute_masses : bool, default = False
+        if True, the first slice of the dense output will contain the absolute m/z values instead of the mass error
 
-        custom_cycle : np.ndarray, shape = (1, n_precursor, 1, 2), default = None
-            custom cycle quadrupole mask, for example after calibration
+    custom_cycle : np.ndarray, shape = (1, n_precursor, 1, 2), default = None
+        custom cycle quadrupole mask, for example after calibration
 
-        Returns
-        -------
+    Returns
+    -------
 
-        np.ndarray, shape = (1, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
+    np.ndarray, shape = (1, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
 
-        """
+    """
 
-        # (n_tof_slices, 2) array of start, stop mz for each slice
-        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
-        n_tof_slices = len(mz_query_slices)
+    # (n_tof_slices, 2) array of start, stop mz for each slice
+    mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+    n_tof_slices = len(mz_query_slices)
 
-        cycle_length = cycle.shape[1]
+    cycle_length = cycle.shape[1]
 
-        # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
-        precursor_idx_list = calculate_valid_scans(quadrupole_mz, cycle)
-        n_precursor_indices = len(precursor_idx_list)
-        #print('n_precursor_indices', n_precursor_indices)
+    # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
+    precursor_idx_list = calculate_valid_scans(quadrupole_mz, cycle)
+    n_precursor_indices = len(precursor_idx_list)
+    # print('n_precursor_indices', n_precursor_indices)
 
-        precursor_cycle_start = frame_limits[0, 0] // cycle_length
-        precursor_cycle_stop = frame_limits[0, 1] // cycle_length
-        precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+    precursor_cycle_start = frame_limits[0, 0] // cycle_length
+    precursor_cycle_stop = frame_limits[0, 1] // cycle_length
+    precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
 
-        dense_output = np.zeros(
-            (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
-            dtype=np.float32,
-        )
+    dense_output = np.zeros(
+        (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
+        dtype=np.float32,
+    )
 
-        #print('precursor_idx_list', precursor_idx_list)
+    # print('precursor_idx_list', precursor_idx_list)
 
-        for i, cycle_idx in enumerate(
-            range(precursor_cycle_start, precursor_cycle_stop)
-        ):
-            for j, precursor_idx in enumerate(precursor_idx_list):
-                scan_idx = precursor_idx + cycle_idx * cycle_length
+    for i, cycle_idx in enumerate(range(precursor_cycle_start, precursor_cycle_stop)):
+        for j, precursor_idx in enumerate(precursor_idx_list):
+            scan_idx = precursor_idx + cycle_idx * cycle_length
 
-                peak_start_idx = peak_start_idx_list[scan_idx]
-                peak_stop_idx = peak_stop_idx_list[scan_idx]
+            peak_start_idx = peak_start_idx_list[scan_idx]
+            peak_stop_idx = peak_stop_idx_list[scan_idx]
 
-                idx = peak_start_idx
+            idx = peak_start_idx
 
-                # above:
-                # 0.58.0 0.0128s
-                # 0.59.0 0.0135s
-                
-                for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    rel_idx = search_sorted_left(
-                        mz_values[idx:peak_stop_idx], mz_query_start
-                    )
-                
-                    idx += rel_idx
+            # above:
+            # 0.58.0 0.0128s
+            # 0.59.0 0.0135s
+
+            for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
+                rel_idx = search_sorted_left(
+                    mz_values[idx:peak_stop_idx], mz_query_start
+                )
+
+                idx += rel_idx
 
                 # above:
                 # 0.59.0 8.24s
                 # 0.58.0 3.17s
-                    
-              
 
-                    while idx < peak_stop_idx and mz_values[idx] <= mz_query_stop:
-                        accumulated_intensity = dense_output[0, k, j, 0, i]
-                        # accumulated_dim1 = dense_output[1, k, j, 0, i]
+                while idx < peak_stop_idx and mz_values[idx] <= mz_query_stop:
+                    accumulated_intensity = dense_output[0, k, j, 0, i]
+                    # accumulated_dim1 = dense_output[1, k, j, 0, i]
 
-                        new_intensity = intensity_values[idx]
+                    new_intensity = intensity_values[idx]
 
-                        dense_output[0, k, j, 0, i] = (
-                            accumulated_intensity + new_intensity
-                        )
-                        dense_output[0, k, j, 1, i] = (
-                            accumulated_intensity + new_intensity
-                        )
+                    dense_output[0, k, j, 0, i] = accumulated_intensity + new_intensity
+                    dense_output[0, k, j, 1, i] = accumulated_intensity + new_intensity
 
-                        idx += 1
-            
+                    idx += 1
 
-        return dense_output, precursor_idx_list
+    return dense_output, precursor_idx_list

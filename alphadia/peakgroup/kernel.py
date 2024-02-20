@@ -15,6 +15,7 @@ from alphadia.data import bruker, alpharaw
 import numpy as np
 import numba as nb
 
+
 @nb.njit()
 def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
     """multivariate normal distribution, probability density function
@@ -49,6 +50,7 @@ def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
     a = np.exp(-1 / 2 * np.diag(dx @ np.linalg.inv(sigma) @ dx.T))
     b = (np.pi * 2) ** (-k / 2) * np.linalg.det(sigma) ** (-1 / 2)
     return a * b
+
 
 class GaussianKernel:
     def __init__(

@@ -21,6 +21,7 @@ import xxhash
 
 import torch
 
+
 class BaseManager:
     def __init__(
         self,
@@ -610,7 +611,7 @@ class FDRManager(BaseManager):
         self.save()
 
         return psm_df
-    
+
     def save_classifier_store(self, path=None):
         if path == None:
             path = os.path.join(
@@ -618,9 +619,11 @@ class FDRManager(BaseManager):
             )
 
         logger.info(f"Saving classifier store to {path}")
-            
+
         for classifier_hash, classifier in self.classifier_store.items():
-            torch.save(classifier.to_state_dict(), os.path.join(path, f"{classifier_hash}.pth"))
+            torch.save(
+                classifier.to_state_dict(), os.path.join(path, f"{classifier_hash}.pth")
+            )
 
     def load_classifier_store(self, path=None):
         if path == None:
@@ -629,14 +632,18 @@ class FDRManager(BaseManager):
             )
 
         logger.info(f"Loading classifier store from {path}")
-            
+
         for file in os.listdir(path):
             if file.endswith(".pth"):
                 classifier_hash = file.split(".")[0]
 
                 if classifier_hash not in self.classifier_store:
-                    self.classifier_store[classifier_hash] = deepcopy(self.classifier_base)
-                    self.classifier_store[classifier_hash].from_state_dict(torch.load(os.path.join(path, file)))
+                    self.classifier_store[classifier_hash] = deepcopy(
+                        self.classifier_base
+                    )
+                    self.classifier_store[classifier_hash].from_state_dict(
+                        torch.load(os.path.join(path, file))
+                    )
 
     def get_classifier(self, available_columns):
         classifier_hash = column_hash(available_columns)
