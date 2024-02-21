@@ -83,9 +83,13 @@ def get_cycle_length(cycle_signature: np.ndarray):
     """
 
     corr = normed_auto_correlation(cycle_signature)
-    corr[0] = 0
-    cycle_length = np.argmax(corr)
-    return cycle_length
+
+    is_peak = (corr[1:-1]>corr[:-2])&(corr[1:-1]>corr[2:])
+
+    peak_index = is_peak.nonzero()[0]+1
+    argmax = np.argmax(corr[peak_index])
+
+    return peak_index[argmax]
 
 
 @nb.njit
@@ -182,6 +186,7 @@ def determine_dia_cycle(
         + spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
     )
     cycle_length = get_cycle_length(cycle_signature)
+
     cycle_start = get_cycle_start(cycle_signature, cycle_length)
 
     if cycle_start == -1:
@@ -250,10 +255,18 @@ class AlphaRaw(alpharawthermo.MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        # determine the DIA cycle
-        self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-            self.spectrum_df
-        )
+        try:
+            # determine the DIA cycle
+            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+                self.spectrum_df
+            )
+        except ValueError as e:
+            logger.warning(f"Failed to determine DIA cycle, will retry without MS1 spectra.")
+            self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
+            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+                self.spectrum_df
+            )
+
         self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
         self.rt_values = self.rt_values[self.cycle_start :]
 
