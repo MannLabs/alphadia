@@ -264,6 +264,8 @@ class QuantBuilder:
 
         lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
 
+        _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
+
         lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
