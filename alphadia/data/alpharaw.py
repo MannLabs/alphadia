@@ -84,9 +84,9 @@ def get_cycle_length(cycle_signature: np.ndarray):
 
     corr = normed_auto_correlation(cycle_signature)
 
-    is_peak = (corr[1:-1]>corr[:-2])&(corr[1:-1]>corr[2:])
+    is_peak = (corr[1:-1] > corr[:-2]) & (corr[1:-1] > corr[2:])
 
-    peak_index = is_peak.nonzero()[0]+1
+    peak_index = is_peak.nonzero()[0] + 1
     argmax = np.argmax(corr[peak_index])
 
     return peak_index[argmax]
@@ -244,7 +244,6 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 
 class AlphaRaw(alpharawthermo.MSData_Base):
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.has_mobility = False
@@ -265,14 +264,15 @@ class AlphaRaw(alpharawthermo.MSData_Base):
                 self.spectrum_df
             )
         except ValueError as e:
-            logger.warning(f"Failed to determine DIA cycle, will retry without MS1 spectra.")
+            logger.warning(
+                f"Failed to determine DIA cycle, will retry without MS1 spectra."
+            )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
             self.has_ms1 = False
-
 
         self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
@@ -760,7 +760,6 @@ class AlphaRawJIT(object):
         return dense_output, precursor_idx_list
 
 
-
 def get_dense_intensity(
     cycle,
     peak_start_idx_list,
@@ -845,7 +844,9 @@ def get_dense_intensity(
             # 0.59.0 0.0135s
 
             for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                idx = search_sorted_refernce_left(mz_values, idx, peak_stop_idx, mz_query_start)
+                idx = search_sorted_refernce_left(
+                    mz_values, idx, peak_stop_idx, mz_query_start
+                )
 
                 # above:
                 # 0.59.0 8.24s

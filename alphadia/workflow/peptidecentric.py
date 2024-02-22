@@ -530,7 +530,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df_filtered,
             "precursor",
             plot=True,
-            skip=['mz'] if not self.dia_data.has_ms1 else [],
+            skip=["mz"] if not self.dia_data.has_ms1 else [],
             # neptune_run = self.neptune
         )
 
@@ -539,9 +539,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         fragments_df_filtered = fragments_df[
-            fragments_df["precursor_idx"].isin(
-                precursor_df_filtered["precursor_idx"]
-            )
+            fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
         ]
 
         min_fragments = 500
