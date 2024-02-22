@@ -244,7 +244,11 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 
 class AlphaRaw(alpharawthermo.MSData_Base):
-    has_mobility = False
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.has_mobility = False
+        self.has_ms1 = True
 
     def process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
@@ -262,13 +266,16 @@ class AlphaRaw(alpharawthermo.MSData_Base):
             )
         except ValueError as e:
             logger.warning(f"Failed to determine DIA cycle, will retry without MS1 spectra.")
+
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
+            self.has_ms1 = False
+
 
         self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
-        self.rt_values = self.rt_values[self.cycle_start :]
+        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
 
         self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
         self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
@@ -753,7 +760,7 @@ class AlphaRawJIT(object):
         return dense_output, precursor_idx_list
 
 
-@nb.njit
+
 def get_dense_intensity(
     cycle,
     peak_start_idx_list,
@@ -838,11 +845,7 @@ def get_dense_intensity(
             # 0.59.0 0.0135s
 
             for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                rel_idx = search_sorted_left(
-                    mz_values[idx:peak_stop_idx], mz_query_start
-                )
-
-                idx += rel_idx
+                idx = search_sorted_refernce_left(mz_values, idx, peak_stop_idx, mz_query_start)
 
                 # above:
                 # 0.59.0 8.24s

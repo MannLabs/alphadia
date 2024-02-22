@@ -367,18 +367,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"=== checking if epoch conditions were reached ===", verbosity="info"
         )
-
-        if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
-            self.reporter.log_string(
-                f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
-                verbosity="info",
-            )
+        if self.dia_data.has_ms1:
+            if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
+                self.reporter.log_string(
+                    f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
+                    verbosity="info",
+                )
+                continue_calibration = True
+            else:
+                self.reporter.log_string(
+                    f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
+                    verbosity="info",
+                )
 
         if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
             self.reporter.log_string(
@@ -530,32 +530,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df_filtered,
             "precursor",
             plot=True,
+            skip=['mz'] if not self.dia_data.has_ms1 else [],
             # neptune_run = self.neptune
         )
 
-        m1_70 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-            precursor_df_filtered, 0.70
-        )
-        m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-            precursor_df_filtered, 0.95
-        )
-        rt_70 = self.calibration_manager.get_estimator("precursor", "rt").ci(
-            precursor_df_filtered, 0.70
-        )
         rt_99 = self.calibration_manager.get_estimator("precursor", "rt").ci(
             precursor_df_filtered, 0.95
         )
 
-        # top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
-        median_precursor_intensity = precursor_df_filtered[
-            "weighted_ms1_intensity"
-        ].median()
-        top_intensity_precursors = precursor_df_filtered[
-            precursor_df_filtered["weighted_ms1_intensity"] > median_precursor_intensity
-        ]
         fragments_df_filtered = fragments_df[
             fragments_df["precursor_idx"].isin(
-                top_intensity_precursors["precursor_idx"]
+                precursor_df_filtered["precursor_idx"]
             )
         ]
 
@@ -585,22 +570,30 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run = self.neptune
         )
 
-        m2_70 = self.calibration_manager.get_estimator("fragment", "mz").ci(
-            fragments_df_filtered, 0.70
-        )
         m2_99 = self.calibration_manager.get_estimator("fragment", "mz").ci(
             fragments_df_filtered, 0.95
         )
 
         self.com.fit(
             {
-                "ms1_error": max(m1_99, self.config["search"]["target_ms1_tolerance"]),
                 "ms2_error": max(m2_99, self.config["search"]["target_ms2_tolerance"]),
                 "rt_error": max(rt_99, self.config["search"]["target_rt_tolerance"]),
                 "column_type": "calibrated",
                 "num_candidates": self.config["search"]["target_num_candidates"],
             }
         )
+
+        if self.dia_data.has_ms1:
+            m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
+                precursor_df_filtered, 0.95
+            )
+            self.com.fit(
+                {
+                    "ms1_error": max(
+                        m1_99, self.config["search"]["target_ms1_tolerance"]
+                    ),
+                }
+            )
 
         if self.dia_data.has_mobility:
             mobility_99 = self.calibration_manager.get_estimator(
@@ -698,7 +691,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column=f"mobility_{self.com.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}",
+            precursor_mz_column=f"mz_{self.com.column_type}"
+            if self.dia_data.has_ms1
+            else "mz_library",
             fragment_mz_column=f"mz_{self.com.column_type}",
             fwhm_rt=self.optimization_manager.fwhm_rt,
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
@@ -744,7 +739,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column=f"mobility_{self.com.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}",
+            precursor_mz_column=f"mz_{self.com.column_type}"
+            if self.dia_data.has_ms1
+            else "mz_library",
             fragment_mz_column=f"mz_{self.com.column_type}",
         )
 

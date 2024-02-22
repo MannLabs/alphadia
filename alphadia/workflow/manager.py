@@ -346,7 +346,7 @@ class CalibrationManager(BaseManager):
         )
         return None
 
-    def fit(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
+    def fit(self, df: pd.DataFrame, group_name: str, skip=[], *args, **kwargs):
         """Fit all estimators in a calibration group.
 
         Parameters
@@ -372,6 +372,8 @@ class CalibrationManager(BaseManager):
         # only iterate over the first group with the given name
         for group in group_idx:
             for estimator in self.estimator_groups[group]["estimators"]:
+                if estimator.name in skip:
+                    continue
                 self.reporter.log_string(
                     f"calibration group: {group_name}, fitting {estimator.name} estimator "
                 )
