@@ -89,7 +89,8 @@ feature_columns = [
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
-    "mean_overlapping_mass_error" "n_K",
+    "mean_overlapping_mass_error",
+    "n_K",
     "n_R",
     "n_P",
 ]
@@ -772,7 +773,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library._precursor_df,
             apply_cutoff=True,
         )
+
+        features_df.to_csv("/Users/georgwallmann/Library/CloudStorage/OneDrive-Personal/Studium/MPI/AG Mann/alphaDIA/2024_02_25_feature_importance/features.tsv", sep="\t")
+        
         precursor_df = self.fdr_correction(features_df, fragments_df)
+        
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
         logger.info(f"Removing fragments below FDR threshold")
