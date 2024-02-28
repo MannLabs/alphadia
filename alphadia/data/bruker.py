@@ -671,6 +671,89 @@ class TimsTOFTransposeJIT(object):
 
         return dense_output, unique_precursor_index
 
+    def assemble_push_intensity(
+        self,
+        tof_limits,
+        mz_values,
+        push_query,
+        precursor_index,
+        frame_limits,
+        scan_limits,
+        ppm_background,
+    ):
+        if len(precursor_index) == 0:
+            return np.empty((0, 0, 0, 0), dtype=np.float32), np.empty(
+                (0), dtype=np.int64
+            )
+
+        unique_precursor_index = np.unique(precursor_index)
+        precursor_index_reverse = np.zeros(
+            np.max(unique_precursor_index) + 1, dtype=np.uint8
+        )
+        precursor_index_reverse[unique_precursor_index] = np.arange(
+            len(unique_precursor_index)
+        )
+
+        relative_precursor_index = precursor_index_reverse[precursor_index]
+
+        n_precursor_indices = len(unique_precursor_index)
+        n_tof_slices = len(tof_limits)
+
+        # scan valuesa
+        mobility_start = int(scan_limits[0, 0])
+        mobility_stop = int(scan_limits[0, 1])
+        mobility_len = mobility_stop - mobility_start
+
+        # cycle values
+        precursor_cycle_start = (
+            int(frame_limits[0, 0] - self.zeroth_frame) // self.cycle.shape[1]
+        )
+        precursor_cycle_stop = (
+            int(frame_limits[0, 1] - self.zeroth_frame) // self.cycle.shape[1]
+        )
+        precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+
+        dense_output = np.zeros(
+            (1, n_tof_slices, mobility_len, precursor_cycle_len),
+            dtype=np.float32,
+        )
+
+        for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
+            for tof_index in range(tof_start, tof_stop, tof_step):
+                start = self.tof_indptr[tof_index]
+                stop = self.tof_indptr[tof_index + 1]
+
+                i = 0
+                idx = int(start)
+
+                while (idx < stop) and (i < len(push_query)):
+                    if push_query[i] < self.push_indices[idx]:
+                        i += 1
+
+                    else:
+                        if push_query[i] == self.push_indices[idx]:
+                            frame_index = self.push_indices[idx] // self.scan_max_index
+                            scan_index = self.push_indices[idx] % self.scan_max_index
+                            precursor_cycle_index = (
+                                frame_index - self.zeroth_frame
+                            ) // self.cycle.shape[1]
+
+                            relative_scan = scan_index - mobility_start
+                            relative_precursor = (
+                                precursor_cycle_index - precursor_cycle_start
+                            )
+
+                            dense_output[
+                                0,
+                                j,
+                                relative_scan,
+                                relative_precursor,
+                            ] += self.intensity_values[idx]
+
+                        idx = idx + 1
+
+        return dense_output, unique_precursor_index
+
     def get_dense(
         self,
         frame_limits,
@@ -700,6 +783,36 @@ class TimsTOFTransposeJIT(object):
             scan_limits,
             mass_tolerance,
             absolute_masses=absolute_masses,
+        )
+
+    def get_dense_intensity(
+        self,
+        frame_limits,
+        scan_limits,
+        mz_values,
+        mass_tolerance,
+        quadrupole_mz,
+        absolute_masses=False,
+        custom_cycle=None,
+    ):
+        tof_limits = utils.make_slice_2d(
+            self.get_tof_indices(utils.mass_range(mz_values, mass_tolerance))
+        )
+
+        mz_mask = self.cycle_mask(quadrupole_mz, custom_cycle)
+
+        push_query, _absolute_precursor_index = self.get_push_indices(
+            frame_limits, scan_limits, mz_mask
+        )
+
+        return self.assemble_push_intensity(
+            tof_limits,
+            mz_values,
+            push_query,
+            _absolute_precursor_index,
+            frame_limits,
+            scan_limits,
+            mass_tolerance,
         )
 
 
