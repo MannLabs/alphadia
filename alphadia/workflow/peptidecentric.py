@@ -775,7 +775,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         precursor_df = self.fdr_correction(features_df, fragments_df)
-        
+
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
         logger.info(f"Removing fragments below FDR threshold")

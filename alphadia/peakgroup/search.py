@@ -369,7 +369,6 @@ def select_candidates(
     # max_isotope_idx = np.argmax(isotope_intensity)
     quadrupole_mz = np.array([[isotope_mz[0], isotope_mz[-1]]], dtype=np.float32)
 
-
     dense_precursors, _ = jit_data.get_dense_intensity(
         frame_limits,
         scan_limits,
@@ -377,7 +376,7 @@ def select_candidates(
         config.precursor_mz_tolerance,
         np.array([[-1.0, -1.0]], dtype=np.float32),
     )
-    
+
     # shape = (2, n_fragments, n_observations, n_scans, n_frames), dtype = np.float32
     dense_fragments, _ = jit_data.get_dense_intensity(
         frame_limits,

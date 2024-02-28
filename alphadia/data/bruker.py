@@ -670,7 +670,7 @@ class TimsTOFTransposeJIT(object):
                         idx = idx + 1
 
         return dense_output, unique_precursor_index
-    
+
     def assemble_push_intensity(
         self,
         tof_limits,
@@ -719,9 +719,7 @@ class TimsTOFTransposeJIT(object):
         )
 
         for j, (tof_start, tof_stop, tof_step) in enumerate(tof_limits):
-
             for tof_index in range(tof_start, tof_stop, tof_step):
-
                 start = self.tof_indptr[tof_index]
                 stop = self.tof_indptr[tof_index + 1]
 
@@ -755,7 +753,6 @@ class TimsTOFTransposeJIT(object):
                         idx = idx + 1
 
         return dense_output, unique_precursor_index
-            
 
     def get_dense(
         self,
@@ -787,7 +784,7 @@ class TimsTOFTransposeJIT(object):
             mass_tolerance,
             absolute_masses=absolute_masses,
         )
-    
+
     def get_dense_intensity(
         self,
         frame_limits,
