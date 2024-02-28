@@ -311,7 +311,6 @@ def or_envelope_1d(x):
     return res
 
 
-
 @nb.njit
 def or_envelope_2d(x):
     res = x.copy()
@@ -324,24 +323,35 @@ def or_envelope_2d(x):
                     res[a0, a1, i] = (x[a0, a1, i - 1] + x[a0, a1, i + 1]) / 2
     return res
 
+
 @nb.njit
 def center_envelope(x):
-
     center_index = x.shape[2] // 2
 
     for a0 in range(x.shape[0]):
         for a1 in range(x.shape[1]):
-            
-            left_intensity = (x[a0, a1, center_index - 1] + x[a0, a1, center_index])*0.5
-            right_intensity = (x[a0, a1, center_index + 1] + x[a0, a1, center_index])*0.5
+            left_intensity = (
+                x[a0, a1, center_index - 1] + x[a0, a1, center_index]
+            ) * 0.5
+            right_intensity = (
+                x[a0, a1, center_index + 1] + x[a0, a1, center_index]
+            ) * 0.5
 
-            for i in range(1, center_index+1):
-      
-                x[a0, a1, center_index - i] = min(left_intensity, x[a0, a1, center_index - i])
-                left_intensity = (x[a0, a1, center_index - i] + x[a0, a1, center_index - i - 1])*0.5
+            for i in range(1, center_index + 1):
+                x[a0, a1, center_index - i] = min(
+                    left_intensity, x[a0, a1, center_index - i]
+                )
+                left_intensity = (
+                    x[a0, a1, center_index - i] + x[a0, a1, center_index - i - 1]
+                ) * 0.5
 
-                x[a0, a1, center_index + i] = min(right_intensity, x[a0, a1, center_index + i])
-                right_intensity = (x[a0, a1, center_index + i] + x[a0, a1, center_index + i + 1])*0.5
+                x[a0, a1, center_index + i] = min(
+                    right_intensity, x[a0, a1, center_index + i]
+                )
+                right_intensity = (
+                    x[a0, a1, center_index + i] + x[a0, a1, center_index + i + 1]
+                ) * 0.5
+
 
 @nb.njit
 def center_envelope_1d(x):
@@ -353,10 +363,15 @@ def center_envelope_1d(x):
 
         for i in range(1, center_index + 1):
             x[a0, center_index - i] = min(left_intensity, x[a0, center_index - i])
-            left_intensity = (x[a0, center_index - i] + x[a0, center_index - i - 1]) * 0.5
+            left_intensity = (
+                x[a0, center_index - i] + x[a0, center_index - i - 1]
+            ) * 0.5
 
             x[a0, center_index + i] = min(right_intensity, x[a0, center_index + i])
-            right_intensity = (x[a0, center_index + i] + x[a0, center_index + i + 1]) * 0.5
+            right_intensity = (
+                x[a0, center_index + i] + x[a0, center_index + i + 1]
+            ) * 0.5
+
 
 @nb.njit
 def weighted_mean_a1(array, weight_mask):

@@ -637,11 +637,9 @@ class Candidate:
         fragments.apply_mask(fragment_mask_1d)
 
         # (n_fragments, n_observations, n_frames)
-        
-        fragments_frame_profile = features.frame_profile_2d(dense_fragments[0])
-        #features.center_envelope(fragments_frame_profile)
 
-        
+        fragments_frame_profile = features.frame_profile_2d(dense_fragments[0])
+        # features.center_envelope(fragments_frame_profile)
 
         cycle_len = jit_data.cycle.shape[1]
 
