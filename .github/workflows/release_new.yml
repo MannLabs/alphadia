@@ -72,7 +72,6 @@ jobs:
     - name: Check arm64
       shell: bash -el {0}
       run: |
-        conda install -y python
         python -c "import platform; print(platform.machine())"
 
     - name: Build GUI
