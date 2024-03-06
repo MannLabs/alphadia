@@ -11,7 +11,8 @@ if __name__ == "__main__":
     if sys.argv[1] == "-sS" & sys.argv[2] == "-c":
         import platform
         print(platform.mac_ver()[0])
-        sys.exit(0) 
+        sys.exit(0)
+        
 
     multiprocessing.freeze_support()
     cli.run()
