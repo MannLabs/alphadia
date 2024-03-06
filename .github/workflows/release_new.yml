@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ installer ]
+    branches: [ macos-arm64-action ]
   workflow_dispatch:
 
 
