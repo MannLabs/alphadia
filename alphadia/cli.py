@@ -306,7 +306,7 @@ def run(*args, **kwargs):
         print(f"Unknown arguments: {unknown}")
         parser.print_help()
         return
-    
+
     if args.version:
         print(f"{alphadia.__version__}")
         return
