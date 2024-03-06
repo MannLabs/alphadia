@@ -42,63 +42,6 @@ jobs:
           release_name: v${{ needs.Version_Bumped.outputs.version }}
           draft: true
           prerelease: false
-    
-  Create_Windows_Installer:
-    needs: [Create_Draft_On_GitHub, Version_Bumped]
-    env:
-        ARCH: x64
-    runs-on: windows-latest
-
-    steps:
-      - name : Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-      - name: Install conda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniconda-version: "latest"
-          auto-update-conda: true
-          activate-environment: alphadia
-          python-version: "3.9"
-
-      - name: Install dependencies
-        run: |
-          cd gui
-          npm install
-
-      - name: Build GUI
-        shell: bash -l {0}
-        run: |
-          release/windows/build_gui_windows.sh
-
-      - name: Build backend
-        shell: bash -l {0}
-        run: |
-          release/windows/build_backend_windows.sh
-
-      - name: List output files
-        run: |
-          ls dist
-
-      - name: Assemble ZIP
-        shell: bash -l {0}
-        run: |
-          release/windows/build_zip_windows.sh
-
-      - name: List output files
-        run: |
-          ls dist
-
-      - name: Upload a Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-            upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-            asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win32-x64.zip
-            asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win32-x64.zip
-            asset_content_type: application/zip
 
   Create_MacOS_GUI:
     needs: [Create_Draft_On_GitHub, Version_Bumped]
@@ -120,12 +63,8 @@ jobs:
       with:
         miniconda-version: "latest"
         auto-update-conda: true
-        activate-environment: alphadia
-        python-version: "3.9"
-    - name: Install dependencies
-      run: |
-        cd gui
-        npm install
+        activate-environment: base
+        python-version: "3.11"
 
     - name: Build GUI
       run: |
@@ -136,7 +75,7 @@ jobs:
       run: |
         release/macos/build_backend_macos.sh
 
-    - name: Assemble ZIP
+    - name: Build package
       shell: bash -l {0}
       run: |
         release/macos/build_pkg_macos.sh
