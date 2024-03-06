@@ -13,6 +13,6 @@ if __name__ == "__main__":
 
         print(platform.mac_ver()[0])
         sys.exit(0)
-        
+
     multiprocessing.freeze_support()
     cli.run()
