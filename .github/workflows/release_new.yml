@@ -1,6 +1,8 @@
 on:
   push:
     branches: [ macos-arm64-action ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 
