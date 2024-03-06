@@ -10,6 +10,7 @@ if __name__ == "__main__":
     # [36481] Failed to execute script 'cli_hook' due to unhandled exception!
     if sys.argv[1] == "-sS" & sys.argv[2] == "-c":
         import platform
+
         print(platform.mac_ver()[0])
         sys.exit(0)
         
