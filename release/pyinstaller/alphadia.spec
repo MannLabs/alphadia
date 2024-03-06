@@ -121,7 +121,6 @@ else:
 		name=exe_name,
 		debug=False,
 		bootloader_ignore_signals=False,
-		target_arch="arm64",
 		strip=False,
 		upx=True,
 		console=True,
