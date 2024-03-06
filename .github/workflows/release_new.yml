@@ -56,15 +56,24 @@ jobs:
     steps:
     - name : Checkout code
       uses: actions/checkout@v4
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
+
     - name: Install conda
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         miniconda-version: "latest"
+        continue-on-error: true
         auto-update-conda: true
         activate-environment: alpha
         python-version: "3.11"
+    
+    - name: Check arm64
+      shell: bash -el {0}
+      run: |
+        conda install -y python
+        python -c "import platform; assert platform.machine() == 'arm64', platform.machine()"
 
     - name: Build GUI
       run: |
