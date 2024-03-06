@@ -285,6 +285,7 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
 
     fasta_path_list : list
         List of fasta files.
+        
     """
 
     config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
