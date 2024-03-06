@@ -300,8 +300,13 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
 
 def run(*args, **kwargs):
     # parse command line arguments
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
 
+    if unknown:
+        print(f"Unknown arguments: {unknown}")
+        parser.print_help()
+        return
+    
     if args.version:
         print(f"{alphadia.__version__}")
         return
