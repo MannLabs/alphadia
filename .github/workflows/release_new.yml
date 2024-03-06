@@ -47,24 +47,27 @@ jobs:
     needs: [Create_Draft_On_GitHub, Version_Bumped]
     env:
         ARCH: x64
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-        matrix:
-            os: [macos-latest, macos-latest-xlarge]
-
+    runs-on: macos-latest-xlarge
     steps:
     - name : Checkout code
       uses: actions/checkout@v4
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
+
     - name: Install conda
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@v3
       with:
         miniconda-version: "latest"
+        continue-on-error: true
         auto-update-conda: true
-        activate-environment: base
+        activate-environment: alpha
         python-version: "3.11"
+    
+    - name: Check arm64
+      shell: bash -el {0}
+      run: |
+        python -c "import platform; print(platform.machine())"
 
     - name: Build GUI
       run: |
