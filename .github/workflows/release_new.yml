@@ -77,7 +77,12 @@ jobs:
           Write-Host "Inno Setup is installed"
         }
     
-    - name: Build backend
+    - name: Build GUI
+      shell: powershell
+      run: |
+        release/windows/build_gui.ps1  
+    
+    - name: Build Installer
       shell: powershell
       run: |
         release/windows/build_installer.ps1
