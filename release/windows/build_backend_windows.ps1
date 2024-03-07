@@ -1,7 +1,6 @@
-# navigate to the root directory
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./build
+Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./dist
 
-# Creating the wheel
-# Creating the wheel
 python setup.py sdist bdist_wheel
 pip install "dist/alphadia-1.5.4-py3-none-any.whl[stable]"
 

@@ -13,7 +13,7 @@ var kill = require('tree-kill');
 
 function getAppRoot() {
     if ( process.platform === 'win32' ) {
-      return path.join( app.getAppPath(), '/../../../' );
+      return path.join( app.getAppPath(), '/../../' );
     }  else {
       return path.join( app.getAppPath(), '/../../../../' );
     }
@@ -358,6 +358,13 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             }).catch((err) => {
                 this.available = false
                 this.error = err
+                dialog.showMessageBox({
+                    type: 'error',
+                    title: 'Error while checking availability of bundled alphaDIA',
+                    message: `Could not start bundled alphaDIA. ${err}`,
+                }).catch((err) => {
+                    console.log(err)
+                })
             }).finally(() => {
                 console.log(this.constructor.name + " status")
                 console.log(this)
