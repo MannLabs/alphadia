@@ -12,10 +12,10 @@ import importlib.metadata
 ##################### User definitions
 exe_name = 'alphadia'
 script_name = 'cli_hook.py'
-#if sys.platform[:6] == "darwin":
-#	icon = '../logos/alphadia.icns'
-#else:
-#	icon = '../logos/alphadia.ico'
+if sys.platform[:6] == "darwin":
+	icon = '../logos/alphadia.icns'
+else:
+	icon = '../logos/alphadia.ico'
 block_cipher = None
 location = os.getcwd()
 project = "alphadia"
@@ -32,6 +32,7 @@ hidden_imports = set()
 datas = []
 binaries = []
 checked = set()
+
 while requirements:
 	requirement = requirements.pop()
 	checked.add(requirement)
@@ -108,7 +109,7 @@ if sys.platform[:5] == "linux":
 		upx=True,
 		console=True,
 		upx_exclude=[],
-		#icon=icon
+		icon=icon
 	)
 else:
 	exe = EXE(
@@ -124,7 +125,7 @@ else:
 		strip=False,
 		upx=True,
 		console=True,
-		#icon=icon
+		icon=icon
 	)
 	coll = COLLECT(
 		exe,
