@@ -80,9 +80,28 @@ jobs:
     - name: Build GUI
       shell: powershell
       run: |
-        release/windows/build_gui.ps1  
+        release/windows/build_gui.ps1
+
+    - name: Build Backend
+      shell: powershell
+      run: |
+        release/windows/build_backend.ps1
     
     - name: Build Installer
       shell: powershell
       run: |
         release/windows/build_installer.ps1
+
+    - name: List output files
+      run: |
+        ls dist
+  
+    - name: Upload a Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+          asset_content_type: application/zip
