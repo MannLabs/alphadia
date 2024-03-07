@@ -45,7 +45,7 @@ jobs:
           draft: true
           prerelease: false
 
-  Create_MacOS_GUI:
+  Create_Windows_Installer:
     needs: [Create_Draft_On_GitHub, Version_Bumped]
     env:
         ARCH: x64
@@ -66,7 +66,7 @@ jobs:
         activate-environment: alpha
         python-version: "3.11"
     
-    - name: If Innosetup is installed
+    - name: Check if Innosetup is installed
       shell: powershell
       run: |
         if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
@@ -76,3 +76,8 @@ jobs:
         else {
           Write-Host "Inno Setup is installed"
         }
+    
+    - name: Build backend
+      shell: powershell
+      run: |
+        release/windows/build_installer.ps1
