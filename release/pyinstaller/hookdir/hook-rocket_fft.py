@@ -29,7 +29,9 @@ if dist_files is not None:
     runtime_dll_files = [
         f
         for f in dist_files
-        if f.as_posix().endswith(".so") or f.as_posix().endswith(".dll") or f.as_posix().endswith(".pyd")
+        if f.as_posix().endswith(".so")
+        or f.as_posix().endswith(".dll")
+        or f.as_posix().endswith(".pyd")
     ]
     print("runtime_dll_files:", runtime_dll_files)
     collected_runtime_files = [
