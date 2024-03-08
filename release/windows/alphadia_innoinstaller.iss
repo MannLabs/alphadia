@@ -5,12 +5,12 @@
 #define MyAppVersion "1.5.4"
 #define MyAppPublisher "Max Planck Institute of Biochemistry, Mann Labs"
 #define MyAppURL "https://github.com/MannLabs/alphadia"
-#define MyAppExeName "alphadia_gui.exe"
+#define MyAppExeName "alphadia-gui.exe"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
 ; (To generate a new GUID, click Tools | Generate GUID inside the IDE.)
-AppId={alphadia_Mann_Labs_MPI}
+AppId={{alphadia_Mann_Labs_MPI}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 ;AppVerName={#MyAppName} {#MyAppVersion}
@@ -24,9 +24,9 @@ LicenseFile=..\..\LICENSE.txt
 ; Uncomment the following line to run in non administrative install mode (install for current user only.)
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=dist
-OutputBaseFilename=alphadia_gui_installer_windows
-SetupIconFile=..\logos\alpha_logo.ico
+OutputDir=..\..\dist
+OutputBaseFilename=alphadia-1.5.4-win-x64
+SetupIconFile=..\logos\alphadia.ico
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -38,8 +38,10 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "dist\alphadia_gui\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "dist\alphadia_gui\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\gui\out\alphadia-gui-win32-x64\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\gui\out\alphadia-gui-win32-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\alphadia\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]

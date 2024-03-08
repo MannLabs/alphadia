@@ -146,7 +146,7 @@ def init_logging(
             # if it does, delete it
             os.remove(log_name)
         # create file handler which logs even debug messages
-        fh = logging.FileHandler(log_name)
+        fh = logging.FileHandler(log_name, encoding="utf-8")
         fh.setLevel(log_level)
         fh.setFormatter(DefaultFormatter(use_ansi=False))
         logger.addHandler(fh)
