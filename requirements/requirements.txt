@@ -16,4 +16,3 @@ pythonnet
 zstandard
 huggingface_hub
 transformers
-urllib3
