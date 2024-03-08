@@ -12,3 +12,4 @@ xxhash
 torchmetrics
 directlfq
 pythonnet
+zstandard
