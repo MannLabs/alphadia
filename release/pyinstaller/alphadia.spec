@@ -28,7 +28,7 @@ requirements = {
 }
 requirements.add(project)
 requirements.add("distributed")
-hidden_imports = {'transformers','huggingface_hub'}
+hidden_imports = {'transformers','huggingface_hub', 'brotli', 'urllib3'}
 datas = []
 binaries = []
 checked = set()

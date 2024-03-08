@@ -14,4 +14,6 @@ directlfq
 pythonnet
 
 zstandard
-huggingface_hub 
+huggingface_hub
+transformers
+urllib3
