@@ -2,12 +2,20 @@ Modules
 ========
 
 .. toctree::
-    :maxdepth: 1
+    :maxdepth: 2
 
-    extraction/calibration
-    extraction/data
-    extraction/quadrupole
-    extraction/scoring
-    extraction/config
-    extraction/utils
-    extraction/validate
+    alphadia/calibration
+    alphadia/fdr
+    alphadia/fdrexperimental
+    alphadia/features
+    alphadia/fragcomp
+    alphadia/grouping
+    alphadia/hybridselection
+    alphadia/libtransform
+    alphadia/outputtransform
+    alphadia/planning
+    alphadia/plexscoring
+    alphadia/quadrupole
+    alphadia/testing
+    alphadia/utils
+    alphadia/validate

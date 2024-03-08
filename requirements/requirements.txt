@@ -1,3 +1,4 @@
+numba
 argparse
 alpharaw>=0.3.1
 alphatims
@@ -9,5 +10,9 @@ seaborn
 rocket_fft
 xxhash
 torchmetrics
-directlfq==0.2.15
+directlfq
 pythonnet
+
+zstandard
+huggingface_hub
+transformers

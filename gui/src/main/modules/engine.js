@@ -2,7 +2,7 @@ const { exec, spawn } = require('child_process');
 const StringDecoder = require('string_decoder').StringDecoder;
 const Transform = require('stream').Transform;
 
-const { dialog } = require('electron');
+const { app, dialog } = require('electron');
 const writeYamlFile = require('write-yaml-file')
 
 const { workflowToConfig } = require('./workflows');
@@ -10,6 +10,14 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 var kill = require('tree-kill');
+
+function getAppRoot() {
+    if ( process.platform === 'win32' ) {
+      return path.join( app.getAppPath(), '/../../' );
+    }  else {
+      return path.join( app.getAppPath(), '/../../../../' );
+    }
+  }
 
 function lineBreakTransform () {
 
@@ -289,11 +297,38 @@ class CMDExecutionEngine extends BaseExecutionEngine {
         })
     }
 }
-        
-class DockerExecutionEngine extends BaseExecutionEngine {
 
-    name = "DockerExecutionEngine"
-    description = "Local or remote Docker containers are being used to run alphaDIA. Recommended for running alphaDIA in a containerized environment."
+function hasBinary(binaryPath){
+    return new Promise((resolve, reject) => {
+        fs.access(binaryPath, fs.constants.X_OK, (err) => {
+            if (err) {
+                reject("hasBinary: Binary " + binaryPath + " not found or not executable.")
+            } else {
+                resolve()
+            }
+        })
+    })
+}
+
+function hasAlphaDIABundled(binaryPath){
+    return new Promise((resolve, reject) => {
+        try {
+            exec(binaryPath + " --version", (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
+                console.log(stdout)
+                resolve(stdout.trim())
+            })
+        } catch (err) {
+            console.log(err)
+            reject(err)
+        }
+    })
+}
+        
+class BundledExecutionEngine extends BaseExecutionEngine {
+
+    name = "BundledExecutionEngine"
+    description = "Use the alphaDIA backend bundled with the GUI. This is the default execution engine."
     valid_plattforms = [
         "win32",
         "linux",
@@ -309,14 +344,104 @@ class DockerExecutionEngine extends BaseExecutionEngine {
                 resolve(this)
             }
 
-            this.available = false
-            this.error = "Docker not yet implemented"
+            // check if binary path exists
+            if (this.config.binaryPath == ""){
+                // alert user that binary path is not set
+                this.config.binaryPath = path.join(getAppRoot(), "alphadia"+(process.platform == "win32" ? ".exe" : ""))
+            }
 
-            console.log(this.constructor.name + " status")
-            console.log(this)
-            resolve(this)
+            return hasBinary(this.config.binaryPath).then(() => {
+                return hasAlphaDIABundled(this.config.binaryPath)
+            }).then((alphadia_version) => {
+                this.versions.push({"name": "alphadia", "version": alphadia_version})
+                this.available = true
+            }).catch((err) => {
+                this.available = false
+                this.error = err
+                dialog.showMessageBox({
+                    type: 'error',
+                    title: 'Error while checking availability of bundled alphaDIA',
+                    message: `Could not start bundled alphaDIA. ${err}`,
+                }).catch((err) => {
+                    console.log(err)
+                })
+            }).finally(() => {
+                console.log(this.constructor.name + " status")
+                console.log(this)
+                resolve(this)
+            })
         })
     }
+
+    saveWorkflow(workflow){
+        return new Promise((resolve, reject) => {
+            console.log(workflow)
+            const workflowFolder = workflow.output_directory.path
+            const config = workflowToConfig(workflow)
+            if (!fs.existsSync(workflowFolder)) {
+                reject("Output folder " + workflowFolder + " does not exist.")
+            }
+            const configPath = path.join(workflowFolder, "config.yaml")
+            // save config.yaml in workflow folder
+            writeYamlFile.sync(configPath, config, {lineWidth: -1})
+            resolve()
+        })
+    }
+
+    startWorkflow(workflow){
+        return this.saveWorkflow(workflow).then(() => {
+
+            let run = {
+                engine: this.constructor.name,
+                name: workflow.name,
+                path: workflow.output_directory.path,
+                std: [],
+                pid: null,
+                code: -1,
+                process : null,
+                activePromise: null,
+            }
+
+            const PATH = process.env.PATH + ":" + this.discoveredCondaPath
+
+            run.process = spawn(this.config.binaryPath,["--config", 
+                                        path.join(workflow.output_directory.path, "config.yaml")
+                                    ] , { env:{...process.env, PATH}, shell: true});
+            run.pid = run.process.pid
+
+            const stdoutTransform = lineBreakTransform();
+            run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
+                run.std.push(data.toString())
+            });
+
+            const stderrTransform = lineBreakTransform();
+            run.process.stderr.pipe(stderrTransform).on('data', (data) => {
+                run.std.push(data.toString())
+            });
+
+            run.activePromise = new Promise((resolve, reject) => {
+                run.process.on('close', (code) => {
+                    run.process = null
+                    run.code = code
+                    resolve(code);
+                });
+            })
+
+            console.log(run)
+
+            return run
+        }).catch((err) => {
+            console.log(err)
+            dialog.showMessageBox({
+                type: 'error',
+                title: 'Error while starting workflow',
+                message: `Could not start workflow. ${err}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+        })
+    }
+
 }
 
 function hasWSL(){
@@ -500,7 +625,7 @@ class ExecutionManager {
 
         this.executionEngines = [
             new CMDExecutionEngine(profile.config.CMDExecutionEngine || {}),
-            new DockerExecutionEngine(profile.config.DockerExecutionEngine || {}),
+            new BundledExecutionEngine(profile.config.BundledExecutionEngine || {}),
             new WSLExecutionEngine(profile.config.WSLExecutionEngine || {}),
         ]
 

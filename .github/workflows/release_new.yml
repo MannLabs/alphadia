@@ -1,0 +1,160 @@
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+
+name: Release on GitHub
+
+jobs:
+  Version_Bumped:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.master_version_bumped.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+      - name: Master version bumped
+        id: master_version_bumped
+        shell: bash -l {0}
+        run: |
+          cd misc
+          . ./check_version.sh
+          echo "version=$current_version" >> $GITHUB_OUTPUT
+   
+  Create_Draft_On_GitHub:
+    runs-on: ubuntu-latest
+    needs: Version_Bumped
+    outputs:
+      upload_url: ${{ steps.draft_release.outputs.upload_url }}
+    steps:
+      - name: Draft Release
+        id: draft_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ needs.Version_Bumped.outputs.version }}
+          release_name: v${{ needs.Version_Bumped.outputs.version }}
+          draft: true
+          prerelease: false
+
+  Create_MacOS_Installer:
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
+        EAGER_IMPORT: true
+    runs-on: macos-latest-xlarge
+    steps:
+    - name : Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        continue-on-error: true
+        auto-update-conda: true
+        activate-environment: alpha
+        python-version: "3.11"
+    
+    - name: Check arm64
+      shell: bash -el {0}
+      run: |
+        python -c "import platform; print(platform.machine())"
+
+    - name: Build GUI
+      run: |
+        release/macos/build_gui_macos.sh
+
+    - name: Build backend
+      shell: bash -l {0}
+      run: |
+        release/macos/build_backend_macos.sh
+
+    - name: Build package
+      shell: bash -l {0}
+      run: |
+        release/macos/build_pkg_macos.sh
+
+    - name: List output files
+      run: |
+        ls dist
+
+    - name: Upload a Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          asset_content_type: application/zip
+
+  #Create_Windows_Installer:
+  #  needs: [Create_Draft_On_GitHub, Version_Bumped]
+  #  env:
+  #      ARCH: x64
+  #  runs-on: windows-latest
+  #  steps:
+  #  - name : Checkout code
+  #    uses: actions/checkout@v4
+
+  #  - name: Setup Node.js
+  #    uses: actions/setup-node@v4
+
+  #  - name: Install conda
+  #    uses: conda-incubator/setup-miniconda@v3
+  #    with:
+  #      miniconda-version: "latest"
+  #      continue-on-error: true
+  #      auto-update-conda: true
+  #      activate-environment: alpha
+  #      python-version: "3.11"
+    
+  #  - name: Check if Innosetup is installed
+  #    shell: powershell
+  #    run: |
+  #      if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+  #        Write-Host "Inno Setup is not installed"
+  #        exit 1
+  #      }
+  #      else {
+  #        Write-Host "Inno Setup is installed"
+  #      }
+    
+  #  - name: Build GUI
+  #    shell: powershell
+  #    run: |
+  #      release/windows/build_gui.ps1
+
+  #  - name: Build Backend
+  #    shell: powershell
+  #    run: |
+  #      release/windows/build_backend.ps1
+    
+  #  - name: Build Installer
+  #    shell: powershell
+  #    run: |
+  #      release/windows/build_installer.ps1
+
+  #  - name: List output files
+  #    run: |
+  #      ls dist
+  
+  #  - name: Upload a Release Asset
+  #    uses: actions/upload-release-asset@v1
+  #    env:
+  #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #    with:
+  #        upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+  #        asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+  #        asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+  #        asset_content_type: application/zip

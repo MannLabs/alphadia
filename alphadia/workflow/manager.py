@@ -3,6 +3,9 @@ import os
 import typing
 import pickle
 from copy import deepcopy
+import logging
+
+logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
@@ -15,6 +18,8 @@ from alphadia.workflow import reporting
 import pandas as pd
 import numpy as np
 import xxhash
+
+import torch
 
 
 class BaseManager:
@@ -341,7 +346,7 @@ class CalibrationManager(BaseManager):
         )
         return None
 
-    def fit(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
+    def fit(self, df: pd.DataFrame, group_name: str, skip=[], *args, **kwargs):
         """Fit all estimators in a calibration group.
 
         Parameters
@@ -367,6 +372,8 @@ class CalibrationManager(BaseManager):
         # only iterate over the first group with the given name
         for group in group_idx:
             for estimator in self.estimator_groups[group]["estimators"]:
+                if estimator.name in skip:
+                    continue
                 self.reporter.log_string(
                     f"calibration group: {group_name}, fitting {estimator.name} estimator "
                 )
@@ -488,6 +495,8 @@ class FDRManager(BaseManager):
             self.classifier_store = {}
             self.classifier_base = classifier_base
 
+        self.load_classifier_store()
+
     def fit_predict(
         self,
         features_df: pd.DataFrame,
@@ -604,6 +613,39 @@ class FDRManager(BaseManager):
         self.save()
 
         return psm_df
+
+    def save_classifier_store(self, path=None):
+        if path == None:
+            path = os.path.join(
+                os.path.dirname(alphadia.__file__), "constants", "classifier"
+            )
+
+        logger.info(f"Saving classifier store to {path}")
+
+        for classifier_hash, classifier in self.classifier_store.items():
+            torch.save(
+                classifier.to_state_dict(), os.path.join(path, f"{classifier_hash}.pth")
+            )
+
+    def load_classifier_store(self, path=None):
+        if path == None:
+            path = os.path.join(
+                os.path.dirname(alphadia.__file__), "constants", "classifier"
+            )
+
+        logger.info(f"Loading classifier store from {path}")
+
+        for file in os.listdir(path):
+            if file.endswith(".pth"):
+                classifier_hash = file.split(".")[0]
+
+                if classifier_hash not in self.classifier_store:
+                    self.classifier_store[classifier_hash] = deepcopy(
+                        self.classifier_base
+                    )
+                    self.classifier_store[classifier_hash].from_state_dict(
+                        torch.load(os.path.join(path, file))
+                    )
 
     def get_classifier(self, available_columns):
         classifier_hash = column_hash(available_columns)

@@ -300,7 +300,12 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
 
 def run(*args, **kwargs):
     # parse command line arguments
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
+
+    if unknown:
+        print(f"Unknown arguments: {unknown}")
+        parser.print_help()
+        return
 
     if args.version:
         print(f"{alphadia.__version__}")
@@ -310,7 +315,11 @@ def run(*args, **kwargs):
 
     output_directory = parse_output_directory(args, config)
     if output_directory is None:
-        raise ValueError("No output directory specified.")
+        # print help message if no output directory specified
+        parser.print_help()
+
+        print("No output directory specified.")
+        return
 
     reporting.init_logging(output_directory)
     raw_path_list = parse_raw_path_list(args, config)

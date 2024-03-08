@@ -1,0 +1,3 @@
+#!/bin/sh
+
+open -a ${BASH_SOURCE%/*}/../Frameworks/alphadia-gui.app/Contents/MacOS/alphadia-gui

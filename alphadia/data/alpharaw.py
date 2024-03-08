@@ -20,6 +20,31 @@ import numba as nb
 import pandas as pd
 
 
+@nb.njit(parallel=False, fastmath=True)
+def search_sorted_left(slice, value):
+    left = 0
+    right = len(slice)
+
+    while left < right:
+        mid = (left + right) >> 1
+        if slice[mid] < value:
+            left = mid + 1
+        else:
+            right = mid
+    return left
+
+
+@nb.njit(inline="always", fastmath=True)
+def search_sorted_refernce_left(array, left, right, value):
+    while left < right:
+        mid = (left + right) >> 1
+        if array[mid] < value:
+            left = mid + 1
+        else:
+            right = mid
+    return left
+
+
 def normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.
     Parameters
@@ -58,9 +83,13 @@ def get_cycle_length(cycle_signature: np.ndarray):
     """
 
     corr = normed_auto_correlation(cycle_signature)
-    corr[0] = 0
-    cycle_length = np.argmax(corr)
-    return cycle_length
+
+    is_peak = (corr[1:-1] > corr[:-2]) & (corr[1:-1] > corr[2:])
+
+    peak_index = is_peak.nonzero()[0] + 1
+    argmax = np.argmax(corr[peak_index])
+
+    return peak_index[argmax]
 
 
 @nb.njit
@@ -157,6 +186,7 @@ def determine_dia_cycle(
         + spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
     )
     cycle_length = get_cycle_length(cycle_signature)
+
     cycle_start = get_cycle_start(cycle_signature, cycle_length)
 
     if cycle_start == -1:
@@ -214,7 +244,10 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 
 class AlphaRaw(alpharawthermo.MSData_Base):
-    has_mobility = False
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.has_mobility = False
+        self.has_ms1 = True
 
     def process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
@@ -225,12 +258,24 @@ class AlphaRaw(alpharawthermo.MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        # determine the DIA cycle
-        self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-            self.spectrum_df
-        )
+        try:
+            # determine the DIA cycle
+            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+                self.spectrum_df
+            )
+        except ValueError as e:
+            logger.warning(
+                f"Failed to determine DIA cycle, will retry without MS1 spectra."
+            )
+
+            self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
+            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+                self.spectrum_df
+            )
+            self.has_ms1 = False
+
         self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
-        self.rt_values = self.rt_values[self.cycle_start :]
+        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
 
         self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
         self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
@@ -428,7 +473,9 @@ class AlphaRawJIT(object):
         if rt_values.shape != (2,):
             raise ValueError("rt_values must be a numpy array of shape (2,)")
 
-        frame_index = np.searchsorted(self.rt_values, rt_values, "left")
+        frame_index = np.zeros(len(rt_values), dtype=np.int64)
+        for i, rt in enumerate(rt_values):
+            frame_index[i] = search_sorted_left(self.rt_values, rt)
 
         precursor_cycle_limits = (frame_index + self.zeroth_frame) // self.cycle.shape[
             1
@@ -576,8 +623,8 @@ class AlphaRawJIT(object):
                 idx = peak_start_idx
 
                 for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    rel_idx = np.searchsorted(
-                        self.mz_values[idx:peak_stop_idx], mz_query_start, "left"
+                    rel_idx = search_sorted_left(
+                        self.mz_values[idx:peak_stop_idx], mz_query_start
                     )
 
                     idx += rel_idx
@@ -672,14 +719,14 @@ class AlphaRawJIT(object):
 
         # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
         precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
-        n_precursor_indices = len(precursor_idx_list)
+        # n_precursor_indices = len(precursor_idx_list)
 
         precursor_cycle_start = frame_limits[0, 0] // cycle_length
         precursor_cycle_stop = frame_limits[0, 1] // cycle_length
         precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
 
         dense_output = np.zeros(
-            (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
+            (1, n_tof_slices, 2, precursor_cycle_len),
             dtype=np.float32,
         )
 
@@ -695,25 +742,125 @@ class AlphaRawJIT(object):
                 idx = peak_start_idx
 
                 for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    rel_idx = np.searchsorted(
-                        self.mz_values[idx:peak_stop_idx], mz_query_start, "left"
+                    idx = search_sorted_refernce_left(
+                        self.mz_values, idx, peak_stop_idx, mz_query_start
                     )
 
-                    idx += rel_idx
-
                     while idx < peak_stop_idx and self.mz_values[idx] <= mz_query_stop:
-                        accumulated_intensity = dense_output[0, k, j, 0, i]
-                        # accumulated_dim1 = dense_output[1, k, j, 0, i]
+                        accumulated_intensity = dense_output[0, k, 0, i]
+                        # accumulated_dim1 = dense_output[1, k, 0, i]
 
                         new_intensity = self.intensity_values[idx]
 
-                        dense_output[0, k, j, 0, i] = (
-                            accumulated_intensity + new_intensity
-                        )
-                        dense_output[0, k, j, 1, i] = (
-                            accumulated_intensity + new_intensity
-                        )
+                        dense_output[0, k, 0, i] = accumulated_intensity + new_intensity
+                        dense_output[0, k, 1, i] = accumulated_intensity + new_intensity
 
                         idx += 1
 
         return dense_output, precursor_idx_list
+
+
+def get_dense_intensity(
+    cycle,
+    peak_start_idx_list,
+    peak_stop_idx_list,
+    mz_values,
+    intensity_values,
+    frame_limits,
+    scan_limits,
+    mz_query_list,
+    mass_tolerance,
+    quadrupole_mz,
+    absolute_masses=False,
+    custom_cycle=None,
+):
+    """
+    Get a dense representation of the data for a given set of parameters.
+
+    Parameters
+    ----------
+
+    frame_limits : np.ndarray, shape = (1,2,)
+        array of frame indices
+
+    scan_limits : np.ndarray, shape = (1,2,)
+        array of scan indices
+
+    mz_query_list : np.ndarray, shape = (n_tof_slices,)
+        array of query m/z values
+
+    mass_tolerance : float
+        mass tolerance in ppm
+
+    quadrupole_mz : np.ndarray, shape = (1,2,)
+        array of quadrupole m/z values
+
+    absolute_masses : bool, default = False
+        if True, the first slice of the dense output will contain the absolute m/z values instead of the mass error
+
+    custom_cycle : np.ndarray, shape = (1, n_precursor, 1, 2), default = None
+        custom cycle quadrupole mask, for example after calibration
+
+    Returns
+    -------
+
+    np.ndarray, shape = (1, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
+
+    """
+
+    # (n_tof_slices, 2) array of start, stop mz for each slice
+    mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+    n_tof_slices = len(mz_query_slices)
+
+    cycle_length = cycle.shape[1]
+
+    # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
+    precursor_idx_list = calculate_valid_scans(quadrupole_mz, cycle)
+    n_precursor_indices = len(precursor_idx_list)
+    # print('n_precursor_indices', n_precursor_indices)
+
+    precursor_cycle_start = frame_limits[0, 0] // cycle_length
+    precursor_cycle_stop = frame_limits[0, 1] // cycle_length
+    precursor_cycle_len = precursor_cycle_stop - precursor_cycle_start
+
+    dense_output = np.zeros(
+        (1, n_tof_slices, n_precursor_indices, 2, precursor_cycle_len),
+        dtype=np.float32,
+    )
+
+    # print('precursor_idx_list', precursor_idx_list)
+
+    for i, cycle_idx in enumerate(range(precursor_cycle_start, precursor_cycle_stop)):
+        for j, precursor_idx in enumerate(precursor_idx_list):
+            scan_idx = precursor_idx + cycle_idx * cycle_length
+
+            peak_start_idx = peak_start_idx_list[scan_idx]
+            peak_stop_idx = peak_stop_idx_list[scan_idx]
+
+            idx = peak_start_idx
+
+            # above:
+            # 0.58.0 0.0128s
+            # 0.59.0 0.0135s
+
+            for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
+                idx = search_sorted_refernce_left(
+                    mz_values, idx, peak_stop_idx, mz_query_start
+                )
+
+                # above:
+                # 0.59.0 8.24s
+                # 0.58.0 3.17s
+
+                while idx < peak_stop_idx and mz_values[idx] <= mz_query_stop:
+                    accumulated_intensity = dense_output[0, k, j, 0, i]
+                    # accumulated_dim1 = dense_output[1, k, j, 0, i]
+
+                    new_intensity = intensity_values[idx]
+
+                    dense_output[0, k, j, 0, i] = accumulated_intensity + new_intensity
+                    dense_output[0, k, j, 1, i] = accumulated_intensity + new_intensity
+
+                    idx += 1
+
+    return dense_output, precursor_idx_list

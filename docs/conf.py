@@ -7,8 +7,8 @@
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = "alphadia"
-copyright = "2023, Georg Wallmann, Sander Willems"
-author = "Georg Wallmann, Sander Willems"
+copyright = "2024, Mann Labs"
+author = "Mann Labs"
 
 # -- General configuration ---------------------------------------------------
 
@@ -24,7 +24,10 @@ extensions = [
     "autodocsumm",
     "nbsphinx",
     "myst_parser",
+    "sphinx_design",
 ]
+
+myst_enable_extensions = ["colon_fence"]
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
@@ -42,7 +45,11 @@ html_css_files = [
     "css/custom.css",
 ]
 
-html_static_path = ["_static"]
+html_theme_options = {
+    "light_logo": "logo/logo_black_outline.svg",
+    "dark_logo": "logo/logo_white_outline.svg",
+    "sidebar_hide_name": True,
+}
 
 autodoc_default_options = {
     "autosummary": True,
