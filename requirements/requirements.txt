@@ -12,3 +12,6 @@ xxhash
 torchmetrics
 directlfq
 pythonnet
+
+zstandard
+huggingface_hub 
