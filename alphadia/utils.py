@@ -156,40 +156,6 @@ def normal(x, mu, sigma):
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-np.power((x - mu) / sigma, 2) / 2)
 
 
-@alphatims.utils.njit()
-def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
-    """multivariate normal distribution, probability density function
-
-    Parameters
-    ----------
-
-    x : np.ndarray
-        `(N, D,)`
-
-    mu : np.ndarray
-        `(1, D,)`
-
-    sigma : np.ndarray
-        `(D, D,)`
-
-    Returns
-    -------
-
-    np.ndarray, float32
-        array of shape `(N,)` with the density at each point
-
-    """
-
-    k = mu.shape[0]
-    dx = x - mu
-
-    # implementation is not very efficient for large N as the N x N matrix will created only for storing the diagonal
-    a = np.exp(-1 / 2 * np.diag(dx @ np.linalg.inv(sigma) @ dx.T))
-    b = (np.pi * 2) ** (-k / 2) * np.linalg.det(sigma) ** (-1 / 2)
-    # print(a*b)
-    return a * b
-
-
 def plt_limits(mobility_limits, dia_cycle_limits):
     mobility_len = mobility_limits[1] - mobility_limits[0]
     dia_cycle_len = dia_cycle_limits[1] - dia_cycle_limits[0]

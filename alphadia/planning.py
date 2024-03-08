@@ -90,7 +90,7 @@ class Plan:
         if config_base_path is None:
             # default yaml config location under /misc/config/config.yaml
             config_base_path = os.path.join(
-                os.path.dirname(__file__), "..", "misc", "config", "default.yaml"
+                os.path.dirname(__file__), "constants", "default.yaml"
             )
 
         self.config = Config()

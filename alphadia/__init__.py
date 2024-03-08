@@ -2,7 +2,7 @@
 
 
 __project__ = "alphadia"
-__version__ = "1.5.3"
+__version__ = "1.5.4"
 __license__ = "Apache"
 __description__ = "An open-source Python package of the AlphaPept ecosystem"
 __author__ = "Mann Labs"
@@ -13,7 +13,7 @@ __keywords__ = [
     "software",
     "AlphaPept ecosystem",
 ]
-__python_version__ = ">=3.8,<=3.12"
+__python_version__ = ">=3.8"
 __classifiers__ = [
     "Development Status :: 1 - Planning",
     # "Development Status :: 2 - Pre-Alpha",

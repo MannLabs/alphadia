@@ -1,5 +1,9 @@
 .toc-drawer {
-    width: 20em
+    width: 21em
+}
+
+.content {
+    font-size: 14px;
 }
 
 .autosummary.longtable{
