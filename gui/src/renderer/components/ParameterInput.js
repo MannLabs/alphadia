@@ -1,7 +1,7 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
 
-import { Box, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
+import { Box, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField, Button } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     padding: 0.5
@@ -12,6 +12,14 @@ const ParameterInput = ({
         onChange = () => {},
         sx
     }) => {
+
+        const handleSelect = () => {
+            window.electronAPI.getSingleFile().then((files) => {
+                onChange(files);
+            }).catch((err) => {
+                console.log(err);
+            })
+        }
 
         let input = null;
         
@@ -67,7 +75,7 @@ const ParameterInput = ({
                 break;
             case "dropdown":
                 input = (
-                    <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
+                    <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}} className='nodrag'>
                         <Select
                             value={parameter.value}
                             onChange={(event) => {onChange(event.target.value)}}
@@ -133,6 +141,19 @@ const ParameterInput = ({
                     </Box>)
                 break;
 
+            case "file":
+                // create a button to open a file dialog
+                input = (
+                    <Button 
+                        variant="outlined" 
+                        sx={{float: 'right', ml:1, minWidth: "115px", textTransform: 'none', minWidth: "50px"}} 
+                        onClick={handleSelect}
+                        >
+                        Select File
+                    </Button>
+                    )
+                break;
+
             default:
                 input = (
                     <Typography>
@@ -150,7 +171,7 @@ const ParameterInput = ({
             justifyContent="space-between"
             alignItems="center"
             spacing={2}
-            sx={{minHeight: "30px"}}
+            sx={{minHeight: "30px", minWidth: "200px"}}
             >
             <Tooltip title = {parameter.description} disableInteractive>
                 <Typography sx={{fontWeight: 400, fontSize: "12px"}}>

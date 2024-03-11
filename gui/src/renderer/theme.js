@@ -24,6 +24,16 @@ const buildPalette = (mode) => {
             paper: isDark? "#111" : "#fff",
         },
         divider: isDark? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+
+        node: {
+            edgeColor: {
+                model: "#f6b423",
+                fasta:  "rgb(75, 211, 26)",
+                speclib:  "#009ba3",
+            },
+            background: isDark? "rgba(34, 34, 34, 0.8)" : "rgba(255, 255, 255, 0.8)",
+        }
+
     }
 }
 

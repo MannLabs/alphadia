@@ -10,7 +10,7 @@ import './App.css';
 
 import { Box, CssBaseline } from '@mui/material';
 import { MenuDrawer, UtilMonitor, ExecutionEngine } from './components';
-import { Home, Files, Method, Output, Run } from './pages';
+import { Home, Files, Method, Output, Run, NodeEditor } from './pages';
 
 
 
@@ -107,6 +107,7 @@ const App = () => {
             <Routes>
                 <Route path="/" element={ <Home /> } />
                 <Route path="/files" element={ <Files/> } />
+                <Route path="/node-editor" element={ <NodeEditor/> } />
                 <Route path="/method" element={ <Method/> } />
                 <Route path="/output" element={ <Output/> } />
                 <Route path="/run" element={ <Run/> } />

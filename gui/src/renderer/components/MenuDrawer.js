@@ -10,6 +10,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import SettingsApplicationsIcon from '@mui/icons-material/SettingsApplications';
 import SaveIcon from '@mui/icons-material/Save';
 import TerminalIcon from '@mui/icons-material/Terminal';
+import SchemaIcon from '@mui/icons-material/Schema';
 
 const DrawerContainer = styled('div')(({ theme }) => ({
     width: 240,
@@ -114,6 +115,16 @@ const MenuDrawer = ({
                 </ListItemIcon>
                 <ListItemText primary="Input Files" />
             </ListItemButtonStyled >
+            <ListItemButtonStyled 
+                key={"node-editor"}
+                component={NavLink}
+                to="/node-editor"
+                activeClassName="Mui-selected" >
+                <ListItemIcon>
+                    <SchemaIcon />
+                </ListItemIcon>
+            <ListItemText primary="Node Editor" />
+            </ListItemButtonStyled>
             <ListItemButtonStyled 
                 key={"method"}
                 component={NavLink}
