@@ -1318,7 +1318,6 @@ class OuptutPsmDF:
             self.fragment_intensity.flatten()[mask],
             self.fragment_mass_error.flatten()[mask],
             self.fragment_correlation.flatten()[mask],
-
             self.fragment_position.flatten()[mask],
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
@@ -1734,9 +1733,7 @@ class CandidateScoring:
         ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
 
         precursor_df_columns += (
-            [self.rt_column] 
-            if self.rt_column not in precursor_df_columns 
-            else []
+            [self.rt_column] if self.rt_column not in precursor_df_columns else []
         )
         precursor_df_columns += (
             [self.mobility_column]
