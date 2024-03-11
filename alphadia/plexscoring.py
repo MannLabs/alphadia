@@ -738,6 +738,9 @@ class Candidate:
             psm_proto_df.fragment_mass_error[
                 self.output_idx, : len(mass_error)
             ] = mass_error
+            psm_proto_df.fragment_position[
+                self.output_idx, : len(fragments.position)
+            ] = fragments.position
             psm_proto_df.fragment_number[
                 self.output_idx, : len(fragments.number)
             ] = fragments.number
@@ -1270,6 +1273,7 @@ class OuptutPsmDF:
     fragment_mass_error: nb.float32[:, ::1]
     fragment_correlation: nb.float32[:, ::1]
 
+    fragment_position: nb.uint8[:, ::1]
     fragment_number: nb.uint8[:, ::1]
     fragment_type: nb.uint8[:, ::1]
     fragment_charge: nb.uint8[:, ::1]
@@ -1296,6 +1300,7 @@ class OuptutPsmDF:
         self.fragment_mass_error = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
         self.fragment_correlation = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
 
+        self.fragment_position = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_number = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_charge = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
@@ -1313,6 +1318,7 @@ class OuptutPsmDF:
             self.fragment_intensity.flatten()[mask],
             self.fragment_mass_error.flatten()[mask],
             self.fragment_correlation.flatten()[mask],
+            self.fragment_position.flatten()[mask],
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
             self.fragment_charge.flatten()[mask],
@@ -1734,6 +1740,11 @@ class CandidateScoring:
             if self.mobility_column not in precursor_df_columns
             else []
         )
+        precursor_df_columns += (
+            [self.precursor_mz_column]
+            if self.precursor_mz_column not in precursor_df_columns
+            else []
+        )
 
         df = utils.merge_missing_columns(
             df,
@@ -1789,6 +1800,7 @@ class CandidateScoring:
             "intensity",
             "mass_error",
             "correlation",
+            "position",
             "number",
             "type",
             "charge",
