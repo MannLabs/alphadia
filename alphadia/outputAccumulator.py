@@ -26,9 +26,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
                             selected_precursor_columns: List[str] = 
                             ['precursor_idx', 'sequence',
                              'flat_frag_start_idx', 'flat_frag_stop_idx',
-                             #TODO add MX calibrated and observed
                                'charge', 'rt_library','rt_observed','rt_calibrated', 'mobility_library', 'mobility_observed', 
-                               'mz_library', 'mz_observed', 'proteins', 'genes', 'mods', 'mod_sites', 'proba']) -> Tuple[pd.DataFrame,pd.DataFrame]:
+                               'mz_library', 'mz_observed', 'mz_calibrated', 'proteins', 'genes', 'mods', 'mod_sites', 'proba']) -> Tuple[pd.DataFrame,pd.DataFrame]:
         
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
@@ -305,6 +304,8 @@ class TransferLearningAccumulator(BaseAccumulator):
             The base spectral library to be fine-tuned, by default None
         keep_top : int, optional
             The number of top precursors to keep, by default 3
+        norm_w_calib : bool, optional
+            Whether to normalize the retention time with the calibration, by default True
 
         """
         self.keep_top = keep_top
@@ -330,6 +331,7 @@ class TransferLearningAccumulator(BaseAccumulator):
 
         # First get the numbero of readings per precursor such as mod_seq_hash _ maps to number of rows with the same mod_seq_hash
         number_of_readings_per_precursor = self.consensus_speclibase._precursor_df['mod_seq_hash'].value_counts(sort=False)
+        
         keepIndices = _get_top_indices_from_freq(number_of_readings_per_precursor.values, self.keep_top, self.consensus_speclibase._precursor_df.shape[0])
         assert len(keepIndices) == self.consensus_speclibase._precursor_df.shape[0], f'keepIndices length {len(keepIndices)} must be equal to the length of the precursor_df {self.consensus_speclibase._precursor_df.shape[0]}'
         self.consensus_speclibase._precursor_df = self.consensus_speclibase._precursor_df.iloc[keepIndices]
@@ -339,18 +341,18 @@ class TransferLearningAccumulator(BaseAccumulator):
         
         # Drop unused fragments
         self.consensus_speclibase.remove_unused_fragments()
-        
 
     def post_process(self):
         if self.norm_w_calib:
+            # rt normalization from observed rt
+            deviation_from_calib = (self.consensus_speclibase.precursor_df['rt_observed'] - self.consensus_speclibase.precursor_df['rt_calibrated'])/ self.consensus_speclibase.precursor_df['rt_calibrated']
+
+            self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_library']* (1+ deviation_from_calib)
+            # Normalize rt 
+            self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_norm'] / self.consensus_speclibase.precursor_df['rt_norm'].max()
+
+        else:
             self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_observed'] / self.consensus_speclibase.precursor_df['rt_observed'].max()
-        # rt normalization from observed rt
-        deviation_from_calib = (self.consensus_speclibase.precursor_df['rt_observed'] - self.consensus_speclibase.precursor_df['rt_calibrated'])/ self.consensus_speclibase.precursor_df['rt_calibrated']
-
-        self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_library']* (1+ deviation_from_calib)
-        # Normalize rt 
-        self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_norm'] / self.consensus_speclibase.precursor_df['rt_norm'].max()
-
 
 
         
