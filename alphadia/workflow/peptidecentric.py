@@ -771,7 +771,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         features_df, fragments_df = self.extract_batch(
             self.spectral_library._precursor_df,
-            apply_cutoff=False,
+            apply_cutoff=True,
         )
 
         precursor_df = self.fdr_correction(features_df, fragments_df)
