@@ -195,18 +195,7 @@ class AccumulationBroadcaster:
     def _update_subscriber(self, subscriber, speclibase):
         subscriber.update(speclibase)
 
-    
-    # def _broadcast(self, result):
-    #     self.results.append(result)
-    #     if len(self.results) == self.number_of_processes or (self.total_accumulated + len(self.results)) == len(self.folders):
-    #         with self.lock:
-    #             speclibase = self.results.pop(0)
-    #             for r in self.results:
-    #                 speclibase.append(self.results.pop(0),dfs_to_append=['_precursor_df'] + [df  for df in speclibase.available_fragment_dfs()])
-    #             self.results = []
-    #             for sub in self.subscribers:
-    #                 self._update_subscriber(sub, speclibase)
-    #             self.total_accumulated += len(self.results)+1
+
 
     def _broadcast(self, result):
         speclibBase = result
@@ -227,36 +216,6 @@ class AccumulationBroadcaster:
             self._post_process()
 
 
-
-@nb.jit(nopython=True)
-def _get_top_indices(modseqhash, keep_top):
-    """
-    Get the indices of the top keep_top elements in the array modseqhash.
-
-    Parameters
-    ----------
-    modseqhash : np.array
-        The array of modseqhash.
-    keep_top : int
-        The number of top elements to keep.
-
-    Returns
-    -------
-    np.array
-        The indices of the top keep_top elements in the array modseqhash.
-    """
-    indices = np.zeros(modseqhash.shape[0], dtype=np.bool_)
-    last_modseqhash = modseqhash[0]
-    count = 0
-    for i in nb.prange(modseqhash.shape[0]):
-        if modseqhash[i] != last_modseqhash:
-            last_modseqhash = modseqhash[i]
-            count = 0
-        if count < keep_top:
-            indices[i] = True
-            count += 1
-
-    return indices
 
 
 
@@ -293,15 +252,14 @@ def _get_top_indices_from_freq(number_of_readings_per_precursor, keep_top,len_of
 
 
 class TransferLearningAccumulator(BaseAccumulator):
-    def __init__(self, base_spec_lib:base.SpecLibBase=None, keep_top:int = 3, norm_w_calib:bool = True):
+    def __init__(self, keep_top:int = 3, norm_w_calib:bool = True):
         """
         TransferLearningAccumulator is used to accumulate the information from the output folders for fine-tuning by selecting 
         the top keep_top precursors and their fragments from all the output folders. The current measure of score is the probA
 
         Parameters
         ----------
-        base_spec_lib : base.SpecLibBase, optional
-            The base spectral library to be fine-tuned, by default None
+    
         keep_top : int, optional
             The number of top precursors to keep, by default 3
         norm_w_calib : bool, optional
@@ -309,7 +267,7 @@ class TransferLearningAccumulator(BaseAccumulator):
 
         """
         self.keep_top = keep_top
-        self.consensus_speclibase = base_spec_lib
+        self.consensus_speclibase = None
         self.norm_w_calib = norm_w_calib
        
 
@@ -326,12 +284,10 @@ class TransferLearningAccumulator(BaseAccumulator):
         self.consensus_speclibase._precursor_df = self.consensus_speclibase._precursor_df.sort_values(['mod_seq_hash','proba'], ascending=[True, True])
 
         # Select the top keep_top precursors
-        
-        # keepIndices = _get_top_indices(self.consensus_speclibase._precursor_df['mod_seq_hash'].values, self.keep_top)
-
+    
         # First get the numbero of readings per precursor such as mod_seq_hash _ maps to number of rows with the same mod_seq_hash
         number_of_readings_per_precursor = self.consensus_speclibase._precursor_df['mod_seq_hash'].value_counts(sort=False)
-        
+
         keepIndices = _get_top_indices_from_freq(number_of_readings_per_precursor.values, self.keep_top, self.consensus_speclibase._precursor_df.shape[0])
         assert len(keepIndices) == self.consensus_speclibase._precursor_df.shape[0], f'keepIndices length {len(keepIndices)} must be equal to the length of the precursor_df {self.consensus_speclibase._precursor_df.shape[0]}'
         self.consensus_speclibase._precursor_df = self.consensus_speclibase._precursor_df.iloc[keepIndices]

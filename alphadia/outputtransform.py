@@ -370,11 +370,10 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
         self.transferLibLearning = self.build_transfer_library(folder_list, keep_top=3, number_of_processes=4, save=True)
-        print("final transfer library is: ", self.transferLibLearning.precursor_df.columns)
 
 
 
-    def build_transfer_library(self, folderList: List[str], base_spec_lib: base.SpecLibBase = None, keep_top: int = 3, number_of_processes: int = 4, save: bool = True) -> base.SpecLibBase:
+    def build_transfer_library(self, folderList: List[str], keep_top: int = 3, number_of_processes: int = 4, save: bool = True) -> base.SpecLibBase:
         """
         A function to get the transfer library
 
@@ -398,7 +397,7 @@ class SearchPlanOutput:
             The transfer Learning library
         """
         logger.info("Building transfer library")
-        transferAccumulator = TransferLearningAccumulator(base_spec_lib=base_spec_lib ,keep_top=keep_top,norm_w_calib=True)
+        transferAccumulator = TransferLearningAccumulator(keep_top=keep_top,norm_w_calib=True)
         accumulationBroadcaster = AccumulationBroadcaster(folderList,number_of_processes)
         accumulationBroadcaster.subscribe(transferAccumulator)
         accumulationBroadcaster.run()
