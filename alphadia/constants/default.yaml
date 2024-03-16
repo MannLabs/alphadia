@@ -91,7 +91,7 @@ selection_config:
   use_weighted_score: True
 
   join_close_candidates: True
-  join_close_candidates_scan_threshold: 0.01
+  join_close_candidates_scan_threshold: 0.6
   join_close_candidates_cycle_threshold: 0.6
 
 scoring_config:

@@ -760,6 +760,7 @@ def fragment_features(
 
     # most intense observation across all observations
     best_observation = np.argmax(observation_importance)
+
     # (n_fragments, n_frames)
     best_profile = fragments_frame_profile[:, best_observation]
     center_envelope_1d(best_profile)
@@ -784,7 +785,7 @@ def fragment_features(
         (best_profile[:, 1:] + best_profile[:, :-1]) * delta_rt.reshape(1, -1) * 0.5,
         axis=-1,
     )
-    fragment_area_norm = fragment_area / quant_durarion
+    fragment_area_norm = fragment_area * quant_window
 
     observed_fragment_intensity = np.sum(best_profile, axis=-1)
 
