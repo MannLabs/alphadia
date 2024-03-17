@@ -51,6 +51,7 @@ search:
   target_rt_tolerance: 60
 
   quant_window: 3
+  quant_all: True
 
 search_advanced:
   top_k_fragments: 12
@@ -84,13 +85,13 @@ selection_config:
   center_fraction: 0.5
   min_size_mobility: 8
   min_size_rt: 3
-  max_size_mobility: 50
+  max_size_mobility: 20
   max_size_rt: 15
 
   group_channels: False
   use_weighted_score: True
 
-  join_close_candidates: True
+  join_close_candidates: False
   join_close_candidates_scan_threshold: 0.6
   join_close_candidates_cycle_threshold: 0.6
 

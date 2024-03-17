@@ -168,6 +168,7 @@ class CandidateConfigJIT:
     top_k_isotopes: nb.uint32
     reference_channel: nb.int16
     quant_window: nb.uint32
+    quant_all: nb.boolean
 
     precursor_mz_tolerance: nb.float32
     fragment_mz_tolerance: nb.float32
@@ -181,6 +182,8 @@ class CandidateConfigJIT:
         top_k_isotopes: nb.uint32,
         reference_channel: nb.int16,
         quant_window: nb.uint32,
+        quant_all: nb.boolean,
+
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
     ) -> None:
@@ -197,6 +200,7 @@ class CandidateConfigJIT:
         self.top_k_isotopes = top_k_isotopes
         self.reference_channel = reference_channel
         self.quant_window = quant_window
+        self.quant_all = quant_all
 
         self.precursor_mz_tolerance = precursor_mz_tolerance
         self.fragment_mz_tolerance = fragment_mz_tolerance
@@ -217,6 +221,7 @@ class CandidateConfig(config.JITConfig):
         self.top_k_isotopes = 4
         self.reference_channel = -1
         self.quant_window = 3
+        self.quant_all = False
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
 
@@ -297,6 +302,16 @@ class CandidateConfig(config.JITConfig):
     @quant_window.setter
     def quant_window(self, value):
         self._quant_window = value
+
+    @property
+    def quant_all(self) -> bool:
+        """Quantify all fragments in the quantification window.
+        Default: `quant_all = False`"""
+        return self._quant_all
+    
+    @quant_all.setter
+    def quant_all(self, value):
+        self._quant_all = value
 
     @property
     def precursor_mz_tolerance(self) -> float:
@@ -597,6 +612,10 @@ class Candidate:
             isotope_mz,
         )
 
+        # mask fragments by qtf
+        qtf_mask = np.reshape(np.sum(qtf, axis=0)/qtf.shape[0], (1, qtf.shape[1], qtf.shape[2], 1)).astype(np.float32)
+        dense_fragments[0] = dense_fragments[0] * qtf_mask
+
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
             qtf, dense_precursors, self.isotope_intensity
@@ -709,6 +728,7 @@ class Candidate:
             fragments,
             feature_array,
             quant_window=config.quant_window,
+            quant_all=config.quant_all,
         )
 
         # store fragment features if requested

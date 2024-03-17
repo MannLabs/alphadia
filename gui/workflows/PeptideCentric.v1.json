@@ -310,6 +310,14 @@
                     "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
                     "type": "integer"
 
+                },
+                {
+                    "id": "quant_all",
+                    "name": "Use all MS2 observations",
+                    "value": false,
+                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
+                    "type": "boolean"
+
                 }
             ]
         },
