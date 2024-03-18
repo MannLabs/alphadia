@@ -302,6 +302,22 @@
                     "value": 100,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
+                },
+                {
+                    "id": "quant_window",
+                    "name": "Quant window",
+                    "value": 3,
+                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
+                    "type": "integer"
+
+                },
+                {
+                    "id": "quant_all",
+                    "name": "Use all MS2 observations",
+                    "value": false,
+                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
+                    "type": "boolean"
+
                 }
             ]
         },

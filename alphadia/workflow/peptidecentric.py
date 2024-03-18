@@ -726,6 +726,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "quant_window": self.config["search"]["quant_window"],
+                "quant_all": self.config["search"]["quant_all"],
             }
         )
 

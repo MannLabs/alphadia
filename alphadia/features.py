@@ -723,6 +723,7 @@ def fragment_features(
     fragments: np.ndarray,
     feature_array: nb_float32_array,
     quant_window: nb.uint32 = 3,
+    quant_all: nb.boolean = False,
 ):
     fragment_feature_dict = nb.typed.Dict.empty(
         key_type=nb.types.unicode_type, value_type=float_array
@@ -758,10 +759,16 @@ def fragment_features(
         n_fragments, -1
     )
 
-    # most intense observation across all observations
-    best_observation = np.argmax(observation_importance)
-    # (n_fragments, n_frames)
-    best_profile = fragments_frame_profile[:, best_observation]
+    if quant_all:
+        best_profile = np.sum(fragments_frame_profile, axis=1)
+
+    else:
+        # most intense observation across all observations
+        best_observation = np.argmax(observation_importance)
+
+        # (n_fragments, n_frames)
+        best_profile = fragments_frame_profile[:, best_observation]
+
     center_envelope_1d(best_profile)
 
     # handle rare case where the best observation is at the edge of the frame
@@ -784,7 +791,7 @@ def fragment_features(
         (best_profile[:, 1:] + best_profile[:, :-1]) * delta_rt.reshape(1, -1) * 0.5,
         axis=-1,
     )
-    fragment_area_norm = fragment_area / quant_durarion
+    fragment_area_norm = fragment_area * quant_window
 
     observed_fragment_intensity = np.sum(best_profile, axis=-1)
 
