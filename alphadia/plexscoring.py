@@ -183,7 +183,6 @@ class CandidateConfigJIT:
         reference_channel: nb.int16,
         quant_window: nb.uint32,
         quant_all: nb.boolean,
-
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
     ) -> None:
@@ -308,7 +307,7 @@ class CandidateConfig(config.JITConfig):
         """Quantify all fragments in the quantification window.
         Default: `quant_all = False`"""
         return self._quant_all
-    
+
     @quant_all.setter
     def quant_all(self, value):
         self._quant_all = value
@@ -613,7 +612,9 @@ class Candidate:
         )
 
         # mask fragments by qtf
-        qtf_mask = np.reshape(np.sum(qtf, axis=0)/qtf.shape[0], (1, qtf.shape[1], qtf.shape[2], 1)).astype(np.float32)
+        qtf_mask = np.reshape(
+            np.sum(qtf, axis=0) / qtf.shape[0], (1, qtf.shape[1], qtf.shape[2], 1)
+        ).astype(np.float32)
         dense_fragments[0] = dense_fragments[0] * qtf_mask
 
         # (n_observation, n_scans, n_frames)

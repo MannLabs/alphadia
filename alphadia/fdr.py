@@ -132,11 +132,10 @@ def perform_fdr(
 
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
     psm_df.sort_values("proba", ascending=True, inplace=True)
-    
+
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if dia_cycle.shape[2] <= 2:
-
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
@@ -146,10 +145,14 @@ def perform_fdr(
         # make sure fragments are not reused
         if not df_fragments is None:
             if dia_cycle is None:
-                raise ValueError("dia_cycle must be provided if reuse_fragments is False")
+                raise ValueError(
+                    "dia_cycle must be provided if reuse_fragments is False"
+                )
             fragment_competition = fragcomp.FragmentCompetition()
-            psm_df = fragment_competition(psm_df.iloc[:start_idx], df_fragments, dia_cycle)
-    
+            psm_df = fragment_competition(
+                psm_df.iloc[:start_idx], df_fragments, dia_cycle
+            )
+
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
