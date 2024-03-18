@@ -132,7 +132,7 @@ def perform_fdr(
 
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
     psm_df.sort_values("proba", ascending=True, inplace=True)
-    
+
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if dia_cycle is not None:

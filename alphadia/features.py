@@ -760,19 +760,15 @@ def fragment_features(
     )
 
     if quant_all:
-
         best_profile = np.sum(fragments_frame_profile, axis=1)
 
     else:
-
         # most intense observation across all observations
         best_observation = np.argmax(observation_importance)
 
         # (n_fragments, n_frames)
         best_profile = fragments_frame_profile[:, best_observation]
-        
-        
-        
+
     center_envelope_1d(best_profile)
 
     # handle rare case where the best observation is at the edge of the frame
