@@ -198,7 +198,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             (self.spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
             & (self.spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
         ]
-        self.spectral_library.remove_unused_fragments()
+
         precursor_after = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
         precursor_removed = precursor_before - precursor_after
         self.reporter.log_string(
@@ -976,7 +976,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column="mz_calibrated",
             fragment_mz_column="mz_calibrated",
             rt_column="rt_calibrated",
-            mobility_column="mobility_calibrated",
+            mobility_column=f"mobility_calibrated"
+                        if self.dia_data.has_mobility
+                        else "mobility_library",
         )
 
         multiplexed_candidates["rank"] = 0

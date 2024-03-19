@@ -61,6 +61,7 @@ def candidate_features_to_candidates(
     ]
     optional_columns = [
         "proba",
+        "score",
     ]
 
     # select required columns
