@@ -31,6 +31,24 @@ import os, psutil
 import torch
 import numba as nb
 
+from alphabase.constants import modification
+
+modification.add_new_modifications(
+    {
+        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
+        "Dimethyl:d12@Any N-term": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@R": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@K": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Label:13C(12)@K": {"composition": "C(12)"},
+    }
+)
+
 
 class Plan:
     def __init__(
