@@ -564,6 +564,12 @@ class SearchPlanOutput:
         """
         logger.progress("Building search statistics")
 
+        all_channels = set(self.config["search"]["channel_filter"].split(","))
+        if self.config["multiplexing"]["multiplexed_quant"]:
+            all_channels &= set(self.config["multiplexing"]["target_channels"].split(","))
+        all_channels = sorted([int(c) for c in all_channels])
+
+
         if psm_df is None:
             psm_df = self.load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
@@ -572,7 +578,7 @@ class SearchPlanOutput:
         for folder in folder_list:
             raw_name = os.path.basename(folder)
             stat_df_list.append(
-                build_stat_df(raw_name, psm_df[psm_df["run"] == raw_name])
+                build_stat_df(raw_name, psm_df[psm_df["run"] == raw_name], all_channels)
             )
 
         stat_df = pd.concat(stat_df_list)
@@ -737,29 +743,33 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def build_stat_df(raw_name, run_df):
+def build_stat_df(raw_name, run_df, channels=[0]):
     """Build stat dataframe for run"""
 
-    base_dict = {
-        "run": raw_name,
-        "precursors": len(run_df),
-        "proteins": run_df["pg"].nunique(),
-    }
+    out_df = []
 
-    if "weighted_mass_error" in run_df.columns:
-        base_dict["ms1_accuracy"] = np.mean(run_df["weighted_mass_error"])
+    for channel in channels:
+        channel_df = run_df[run_df["channel"] == channel]
 
-    if "cycle_fwhm" in run_df.columns:
-        base_dict["fwhm_rt"] = np.mean(run_df["cycle_fwhm"])
+        base_dict = {
+            "run": raw_name,
+            "channel": channel,
+            "precursors": len(channel_df),
+            "proteins": channel_df["pg"].nunique(),
+        }
 
-    if "mobility_fwhm" in run_df.columns:
-        base_dict["fwhm_mobility"] = np.mean(run_df["mobility_fwhm"])
+        if "weighted_mass_error" in channel_df.columns:
+            base_dict["ms1_accuracy"] = np.mean(channel_df["weighted_mass_error"])
 
-    return pd.DataFrame(
-        [
-            base_dict,
-        ]
-    )
+        if "cycle_fwhm" in channel_df.columns:
+            base_dict["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+
+        if "mobility_fwhm" in channel_df.columns:
+            base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+
+        out_df.append(base_dict)
+
+    return pd.DataFrame(out_df)
 
 
 def perform_protein_fdr(psm_df):
