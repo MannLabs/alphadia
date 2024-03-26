@@ -291,7 +291,7 @@ class FragmentCompetition(object):
         psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
 
         valid = np.ones(len(psm_df)).astype(bool)
-        #psm_df["valid"] = True
+        # psm_df["valid"] = True
 
         timsutils.set_threads(self.thread_count)
         thread_plan_df = self.get_thread_plan_df(psm_df)
@@ -307,7 +307,7 @@ class FragmentCompetition(object):
             frag_df["mz_observed"].values,
         )
 
-        psm_d['valid'] = valid
+        psm_d["valid"] = valid
 
         # clean up
         psm_df.drop(
