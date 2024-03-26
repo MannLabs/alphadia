@@ -307,7 +307,7 @@ class FragmentCompetition(object):
             frag_df["mz_observed"].values,
         )
 
-        psm_d["valid"] = valid
+        psm_df["valid"] = valid
 
         # clean up
         psm_df.drop(
