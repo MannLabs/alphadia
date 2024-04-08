@@ -8,8 +8,6 @@ import PyInstaller.utils.hooks
 from PyInstaller.utils.hooks import copy_metadata
 import pkg_resources
 import importlib.metadata
-import huggingface_hub
-from transformers.dependency_versions_check import pkgs_to_check_at_runtime
 
 
 ##################### User definitions
@@ -77,6 +75,20 @@ hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
 hidden_imports += ['clr', 'alphabase', 'alpharaw','alphatims','rocket_fft']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
 
+pkgs_to_check_at_runtime = [
+    "python",
+    "tqdm",
+    "regex",
+    "requests",
+    "packaging",
+    "filelock",
+    "numpy",
+    "tokenizers",
+    "huggingface-hub",
+    "safetensors",
+    "accelerate",
+    "pyyaml",
+]
 # handle version check in transformers package
 for _pkg in ["python","accelerate"]:
 	if _pkg in pkgs_to_check_at_runtime:
