@@ -8,6 +8,7 @@ import PyInstaller.utils.hooks
 from PyInstaller.utils.hooks import copy_metadata
 import pkg_resources
 import importlib.metadata
+import huggingface_hub
 from transformers.dependency_versions_check import pkgs_to_check_at_runtime
 
 
