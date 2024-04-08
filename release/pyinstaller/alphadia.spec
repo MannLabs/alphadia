@@ -5,9 +5,10 @@ import os
 import sys
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE, TOC
 import PyInstaller.utils.hooks
-from transformers.dependency_versions_check import pkgs_to_check_at_runtime
+from PyInstaller.utils.hooks import copy_metadata
 import pkg_resources
 import importlib.metadata
+from transformers.dependency_versions_check import pkgs_to_check_at_runtime
 
 
 ##################### User definitions
