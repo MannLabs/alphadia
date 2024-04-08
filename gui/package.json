@@ -1,7 +1,7 @@
 {
   "name": "alphadia",
   "productName": "alphadia-gui",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "description": "Graphical user interface for DIA data analysis",
   "main": "dist/electron.js",
   "homepage": "./",
