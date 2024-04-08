@@ -75,8 +75,9 @@ hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
 hidden_imports += ['clr', 'alphabase', 'alpharaw','alphatims','rocket_fft']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
 
+
+# handle version check in transformers package
 pkgs_to_check_at_runtime = [
-    "python",
     "tqdm",
     "regex",
     "requests",
@@ -86,13 +87,8 @@ pkgs_to_check_at_runtime = [
     "tokenizers",
     "huggingface-hub",
     "safetensors",
-    "accelerate",
     "pyyaml",
 ]
-# handle version check in transformers package
-for _pkg in ["python","accelerate"]:
-	if _pkg in pkgs_to_check_at_runtime:
-		pkgs_to_check_at_runtime.remove(_pkg)
 for _pkg in pkgs_to_check_at_runtime:
 	datas += copy_metadata(_pkg)
 

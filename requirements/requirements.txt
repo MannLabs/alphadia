@@ -14,5 +14,5 @@ directlfq
 pythonnet
 
 zstandard
-huggingface_hub
-transformers
+huggingface_hub==0.21.4
+transformers==4.38.2
