@@ -27,28 +27,25 @@
 
 ![preview](assets/preview.gif)
 
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#installation">Installation</a>
-      <ul>
-        <li><a href="#one-click-gui">One-click GUI</a></li>
-        <li><a href="#developer">Developer install</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">Getting started</a>
-      <ul>
-        <li><a href="#test-data">Test data</a></li>
-        <li><a href="gui">Using the GUI</a></li>
-        <li><a href="cli">Using the Command Line</a></li>
-        <li><a href="cli">Using Jupyter Notebooks</a></li>
-      </ul>
-    </li>
-  </ol>
-</details>
+## Table of Contents</summary>
+<ol>
+  <li>
+    <a href="#installation">Installation</a>
+    <ul>
+      <li><a href="#one-click-gui">One-click GUI</a></li>
+      <li><a href="#developer">Developer install</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="#getting-started">Getting started</a>
+    <ul>
+      <li><a href="#test-data">Test data</a></li>
+      <li><a href="gui">Using the GUI</a></li>
+      <li><a href="cli">Using the Command Line</a></li>
+      <li><a href="cli">Using Jupyter Notebooks</a></li>
+    </ul>
+  </li>
+</ol>
 
 
 ## Installation
@@ -131,41 +128,39 @@ npm run dev
 ---
 ## Getting started
 
-There are three ways to use AlphaDIA:
+This guide will show you how to perform your first search using the One-click GUI.
+### 1. Prerequisites
 
-* [**Python**](#jupyter-notebooks)
-* [**GUI**](#gui)
-* [**CLI**](#cli)
+<div align="center">
+    <table style="border: none;">
+     <tr>
+       <td>Make sure you have installed the GUI using the one-click installer. To verify your installation, open alphaDIA and make sure that the `BundledExecutionEngine` is selected.</td>
+        <td> <img src="assets/select_engine.gif" alt="Logo" width="400" height="auto"></td>
+     </tr>
+    </table>
+</div>
 
-### Jupyter notebooks
+### 2. Test data
 
-AlphaDIA can be imported as a Python package into any Python script or notebook with the command `import alphadia`.
+For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral. Download the test samples and save them: [HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk), [RAW files].(https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
 
-A brief [Jupyter notebook search](nbs/search/library_search.ipynb) blueprint is can be found in the repository.
+### 3. Search settings
 
-### GUI
+#### Input Files
+Import the library `.hdf` file and select the thre `.raw` files. You can select a human `.fasta` file for reannotation but it's generally not recommended for empirical spectral libraries.
 
-Make sure that the the GUI was installed as part of the development install.
+#### Method Settings
+Alltough alphaDIA is highly custamizable, we will only set a limited number of settings here. Go to the *Search* settings and make the following changes: 
+* Number of candidates: 5
+* MS1 Tolerance 4ppm
+* MS2 Tolerance 7ppm
 
-```bash
-cd alphadia/gui
-npm run dev
-```
+#### Output files
+Select an output folder where the search progress and the final results should be saved.
 
-If you want to create the GUI executable run:
-```bash
-npm run make
-```
+### 4. Run the search
+Click *Run Workflow* to start the search and see the progress.
 
-### CLI
-
-The CLI can be run with the following command (after activating the `conda` environment with `conda activate alphadia` or if an alias was set to the alphadia executable):
-
-```bash
-alphadia -h
-```
-
-It is possible to get help about each function and their (required) parameters by using the `-h` flag.
 
 ---
 ## Troubleshooting
