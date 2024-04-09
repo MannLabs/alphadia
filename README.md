@@ -38,12 +38,6 @@
   </li>
   <li>
     <a href="#getting-started">Getting started</a>
-    <ul>
-      <li><a href="#test-data">Test data</a></li>
-      <li><a href="gui">Using the GUI</a></li>
-      <li><a href="cli">Using the Command Line</a></li>
-      <li><a href="cli">Using Jupyter Notebooks</a></li>
-    </ul>
   </li>
 </ol>
 
@@ -130,15 +124,9 @@ npm run dev
 
 This guide will show you how to perform your first search using the One-click GUI.
 ### 1. Prerequisites
+Make sure you have installed the GUI using the one-click installer. To verify your installation, open alphaDIA and make sure that the `BundledExecutionEngine` is selected.
 
-<div align="center">
-    <table style="border: none;">
-     <tr>
-       <td>Make sure you have installed the GUI using the one-click installer. To verify your installation, open alphaDIA and make sure that the `BundledExecutionEngine` is selected.</td>
-        <td> <img src="assets/select_engine.gif" alt="Logo" width="400" height="auto"></td>
-     </tr>
-    </table>
-</div>
+<img src="assets/select_engine.gif" alt="Logo" width="400" height="auto">
 
 ### 2. Test data
 
