@@ -313,7 +313,7 @@ function hasBinary(binaryPath){
 function hasAlphaDIABundled(binaryPath){
     return new Promise((resolve, reject) => {
         try {
-            exec(binaryPath + " --version", (err, stdout, stderr) => {
+            execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
                 console.log(stdout)
                 resolve(stdout.trim())
