@@ -5,6 +5,7 @@ import os
 import sys
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE, TOC
 import PyInstaller.utils.hooks
+from PyInstaller.utils.hooks import copy_metadata
 import pkg_resources
 import importlib.metadata
 
@@ -73,7 +74,6 @@ else:
 hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
 hidden_imports += ['clr', 'alphabase', 'alpharaw','alphatims','rocket_fft']
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
-
 
 a = Analysis(
 	[script_name],

@@ -198,7 +198,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             (self.spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
             & (self.spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
         ]
-        self.spectral_library.remove_unused_fragments()
+        # self.spectral_library.remove_unused_fragmen
         precursor_after = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
         precursor_removed = precursor_before - precursor_after
         self.reporter.log_string(
@@ -726,6 +726,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "quant_window": self.config["search"]["quant_window"],
+                "quant_all": self.config["search"]["quant_all"],
             }
         )
 
