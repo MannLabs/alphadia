@@ -90,6 +90,7 @@ pkgs_to_check_at_runtime = [
     "pyyaml",
 ]
 for _pkg in pkgs_to_check_at_runtime:
+	print(f"copy metadata: {_pkg}")
 	datas += copy_metadata(_pkg)
 
 a = Analysis(
