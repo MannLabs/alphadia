@@ -1,37 +1,72 @@
-![Pip installation](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
-![GUI and PyPi releases](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
+![Release](https://img.shields.io/badge/release-v1.5.5-brightgreen)
+![License](https://img.shields.io/badge/License-Apache-brightgreen)
+![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
+![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
 
-# alphaDIA
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/othneildrew/Best-README-Template">
+    <img src="release/logos/alphadia.png" alt="Logo" width="80" height="80">
+  </a>
+
+  <h3 align="center">alphaDIA</h3>
+
+  <p align="center">
+    <a href="https://github.com/MannLabs/alphadia">Preprint</a>
+    ·
+    <a href="https://github.com/Mannlabs/alphadia/releases/latest">Download</a>
+    ·
+    <a href="https://github.com/MannLabs/alphadia/discussions">Discussion</a>
+    ·
+    <a href="https://github.com/MannLabs/alphadia">Documentation</a>
+  </p>
+</div>
+
 
 ![preview](assets/preview.gif)
 
-An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann). To enable all hyperlinks in this document, please view it at [GitHub](https://github.com/MannLabs/alphadia).
-
-## Content
-
-* [**Installation**](#installation)
-  * [**One-click GUI**](#one-click-gui)
-  * [**Developer installer**](#developer)
-* [**Usage**](#usage)
-  * [**Jupyter**](#jupyter-notebooks)
-  * [**GUI**](#gui)
-  * [**CLI**](#cli)
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#installation">Installation</a>
+      <ul>
+        <li><a href="#one-click-gui">One-click GUI</a></li>
+        <li><a href="#developer">Developer install</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting started</a>
+      <ul>
+        <li><a href="#test-data">Test data</a></li>
+        <li><a href="gui">Using the GUI</a></li>
+        <li><a href="cli">Using the Command Line</a></li>
+        <li><a href="cli">Using Jupyter Notebooks</a></li>
+      </ul>
+    </li>
+  </ol>
+</details>
 
 
 ## Installation
 
 AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
-* [**One-click GUI installer:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible.
+* [**One-click GUI install:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible. Currently available for **mac** and **windows**.
 
-* [**Developer installer:**](#developer) Choose this installation if you are familiar with CLI tools, [conda](https://docs.conda.io/en/latest/) and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+* [**Developer install:**](#developer) Choose this installation if you are familiar with CLI tools, Conda and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
-### One-click GUI
+### One-click GUI install
 
-One-click installation is not available during the beta phase.
+You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
-### Developer
+* **Windows** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
+* **MacOS** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an arm based M1/2/3 processor for the One-click installer. Save the installer and open the parent folder in Finder. Right-click or two finger click and select *open*. If you receive a warning during installation click *Open*.
+
+### Developer install
 
 AlphaDIA can also be installed in editable (i.e. developer) mode with a few `bash` commands. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a transparent location of your choice.
 
@@ -94,7 +129,7 @@ npm run dev
 ```
 
 ---
-## Usage
+## Getting started
 
 There are three ways to use AlphaDIA:
 
