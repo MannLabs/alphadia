@@ -14,5 +14,6 @@ directlfq
 pythonnet
 
 zstandard
-huggingface_hub==0.21.4
-transformers==4.38.2
+
+# not direct dependencies but we have to restrict the versions
+scipy==1.12
