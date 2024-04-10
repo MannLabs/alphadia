@@ -1,7 +1,6 @@
 # navigate to the root directory
 
 # Creating the wheel
-# Creating the wheel
 pip install pydantic fastapi
 pip install git+https://github.com/huggingface/huggingface_hub.git@2206-fix-ciruclar-import-in-eager-mode
 python -c 'from huggingface_hub import get_full_repo_name; print("success")'
