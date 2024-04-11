@@ -158,16 +158,24 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
+        fixed_modifications = self.config["library_prediction"]["fixed_modifications"].split(
+            ";"
+        )
+        if fixed_modifications == [""]:
+            fixed_modifications = []
+
+        variable_modifications = self.config["library_prediction"][
+            "variable_modifications"
+        ].split(";")
+        if variable_modifications == [""]:
+            variable_modifications = []
+
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
         fasta_digest = libtransform.FastaDigest(
             enzyme=self.config["library_prediction"]["enzyme"],
-            fixed_modifications=self.config["library_prediction"][
-                "fixed_modifications"
-            ].split(";"),
-            variable_modifications=self.config["library_prediction"][
-                "variable_modifications"
-            ].split(";"),
+            fixed_modifications=fixed_modifications,
+            variable_modifications=variable_modifications,
             max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
