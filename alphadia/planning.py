@@ -158,17 +158,19 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
-        fixed_modifications = self.config["library_prediction"]["fixed_modifications"].split(
-            ";"
-        )
-        if fixed_modifications == [""]:
+        if self.config["library_prediction"]["fixed_modifications"] == "":
             fixed_modifications = []
+        else:
+            fixed_modifications = self.config["library_prediction"]["fixed_modifications"].split(";")
 
-        variable_modifications = self.config["library_prediction"][
-            "variable_modifications"
-        ].split(";")
-        if variable_modifications == [""]:
+        print(fixed_modifications)
+        
+        if self.config["library_prediction"]["variable_modifications"] == "":
             variable_modifications = []
+        else:
+            variable_modifications = self.config["library_prediction"]["variable_modifications"].split(";")
+
+        print(variable_modifications)
 
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
