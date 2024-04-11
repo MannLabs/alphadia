@@ -146,7 +146,6 @@ class FastaDigest(ProcessingStep):
         precursor_charge: typing.List[int] = [2, 4],
         precursor_mz: typing.List[int] = [400, 1200],
         max_var_mod_num: int = 1,
-
     ) -> None:
         """Digest a FASTA file into a spectral library.
         Expects a `List[str]` object as input and will return a `SpecLibBase` object.
@@ -160,7 +159,6 @@ class FastaDigest(ProcessingStep):
         self.precursor_charge = precursor_charge
         self.precursor_mz = precursor_mz
         self.max_var_mod_num = max_var_mod_num
-
 
     def validate(self, input: typing.List[str]) -> bool:
         if not isinstance(input, list):
@@ -274,14 +272,13 @@ class PeptDeepPrediction(ProcessingStep):
             else:
                 device = "gpu"
 
-
         model_mgr = ModelManager(device=device if self.use_gpu else "cpu")
         if self.checkpoint is not None:
             logging.info(f"Loading PeptDeep models from {self.checkpoint}")
             model_mgr.load_external_models(
-                ms2_model_file=os.path.join(self.checkpoint, 'ms2.pth'),
-                rt_model_file=os.path.join(self.checkpoint, 'rt.pth'),
-                ccs_model_file=os.path.join(self.checkpoint, 'ccs.pth'),
+                ms2_model_file=os.path.join(self.checkpoint, "ms2.pth"),
+                rt_model_file=os.path.join(self.checkpoint, "rt.pth"),
+                ccs_model_file=os.path.join(self.checkpoint, "ccs.pth"),
             )
 
         model_mgr.nce = self.nce
