@@ -161,14 +161,18 @@ class Plan:
         if self.config["library_prediction"]["fixed_modifications"] == "":
             fixed_modifications = []
         else:
-            fixed_modifications = self.config["library_prediction"]["fixed_modifications"].split(";")
+            fixed_modifications = self.config["library_prediction"][
+                "fixed_modifications"
+            ].split(";")
 
         print(fixed_modifications)
-        
+
         if self.config["library_prediction"]["variable_modifications"] == "":
             variable_modifications = []
         else:
-            variable_modifications = self.config["library_prediction"]["variable_modifications"].split(";")
+            variable_modifications = self.config["library_prediction"][
+                "variable_modifications"
+            ].split(";")
 
         print(variable_modifications)
 
