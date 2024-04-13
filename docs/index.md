@@ -6,7 +6,7 @@ Open-source DIA search engine built with the alphaX ecosystem. Built with [alpha
 
 **Please cite:**
 > The curse of dimensionality in proteomics – a new processing paradigm for DIA data.<br>
-> Wallmann, Skowronek, Thielert, XXX Mann<br>
+> Wallmann, Skowronek, XXX Mann<br>
 > bioarxiv.com/XXX
 
 
@@ -27,10 +27,11 @@ Introduction to your first DIA search with alphaDIA.
 
 🔧 Installation<installation>
 🚀 Quickstart<quickstart>
+📚 Guides<guides>
 ```
 
 ```{toctree}
-:caption: 📚 Guides
+:caption: 
 :hidden:
 
 contributing/index
