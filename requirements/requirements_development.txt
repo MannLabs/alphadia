@@ -1,8 +1,14 @@
 jupyter
 jupyter_contrib_nbextensions
 pyinstaller
+
 autodocsumm
 sphinx-rtd-theme
+nbsphinx
+myst_parser
+sphinx_design
+furo
+
 twine
 bumpversion
 pipdeptree
