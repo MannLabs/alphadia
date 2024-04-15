@@ -77,26 +77,5 @@ alphadia -h
 
 You should get an ouptut like this:
 ```
-usage: alphadia [-h] [--version] [--output [OUTPUT]] [--file FILE] [--directory DIRECTORY] [--regex [REGEX]] [--library [LIBRARY]] [--fasta FASTA] [--config [CONFIG]] [--wsl] [--config-dict [CONFIG_DICT]]
-
-Search DIA experiments with alphaDIA
-
-options:
-  -h, --help            show this help message and exit
-  --version, -v         Print version and exit
-  --output [OUTPUT], -o [OUTPUT]
-                        Output directory
-  --file FILE, -f FILE  Raw data input files.
-  --directory DIRECTORY, -d DIRECTORY
-                        Directory containing raw data input files.
-  --regex [REGEX], -r [REGEX]
-                        Regex to match raw files in directory.
-  --library [LIBRARY], -l [LIBRARY]
-                        Spectral library.
-  --fasta FASTA         Fasta file(s) used to generate or annotate the spectral library.
-  --config [CONFIG], -c [CONFIG]
-                        Config yaml which will be used to update the default config.
-  --wsl, -w             Set if running on Windows Subsystem for Linux.
-  --config-dict [CONFIG_DICT]
-                        Python Dict which will be used to update the default config.
+1.5.5
 ```
