@@ -6,7 +6,10 @@ logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr
-from alphadia.outputaccumulator import TransferLearningAccumulator, AccumulationBroadcaster
+from alphadia.outputaccumulator import (
+    TransferLearningAccumulator,
+    AccumulationBroadcaster,
+)
 
 import pandas as pd
 import numpy as np
@@ -369,17 +372,23 @@ class SearchPlanOutput:
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
-        self.transferLibLearning = self.build_transfer_library(folder_list, keep_top=3, number_of_processes=4, save=True)
+        self._transfer_Learning_lib = self.build_transfer_library(
+            folder_list, keep_top=3, number_of_processes=4, save=True
+        )
 
-
-
-    def build_transfer_library(self, folderList: List[str], keep_top: int = 3, number_of_processes: int = 4, save: bool = True) -> base.SpecLibBase:
+    def build_transfer_library(
+        self,
+        folder_list: List[str],
+        keep_top: int = 3,
+        number_of_processes: int = 4,
+        save: bool = True,
+    ) -> base.SpecLibBase:
         """
         A function to get the transfer library
 
         Parameters
         ----------
-        folderList : List[str]
+        folder_list : List[str]
             The list of output folders.
 
         keep_top : int
@@ -397,13 +406,21 @@ class SearchPlanOutput:
             The transfer Learning library
         """
         logger.info("Building transfer library")
-        transferAccumulator = TransferLearningAccumulator(keep_top=keep_top,norm_w_calib=True)
-        accumulationBroadcaster = AccumulationBroadcaster(folderList,number_of_processes)
+        transferAccumulator = TransferLearningAccumulator(
+            keep_top=keep_top, norm_w_calib=True
+        )
+        accumulationBroadcaster = AccumulationBroadcaster(
+            folder_list, number_of_processes
+        )
         accumulationBroadcaster.subscribe(transferAccumulator)
         accumulationBroadcaster.run()
-        logger.info(f"Built transfer library using {len(folderList)} folders and {number_of_processes} processes")
+        logger.info(
+            f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
+        )
         if save:
-            transferAccumulator.consensus_speclibase.save_hdf(os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"))
+            transferAccumulator.consensus_speclibase.save_hdf(
+                os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
+            )
         return transferAccumulator.consensus_speclibase
 
     def load_precursor_table(self):
