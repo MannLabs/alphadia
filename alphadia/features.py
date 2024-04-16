@@ -864,10 +864,11 @@ def fragment_features(
     is_y = fragments.type == 121
 
     if np.sum(is_b) > 0 and np.sum(is_y) > 0:
-      
         min_y = fragments.position[is_y].min()
         max_b = fragments.position[is_b].max()
-        overlapping = (is_y & (fragments.position < max_b)) | (is_b & (fragments.position > min_y))
+        overlapping = (is_y & (fragments.position < max_b)) | (
+            is_b & (fragments.position > min_y)
+        )
 
         # n_overlapping
         feature_array[43] = overlapping.sum()

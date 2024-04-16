@@ -35,6 +35,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 
 import logging
+
 logger = logging.getLogger()
 
 
@@ -88,9 +89,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = pd.read_csv(os.path.join(folder, "psm.tsv"), sep="\t")
         frag_df = pd.read_csv(os.path.join(folder, "frag.tsv"), sep="\t")
 
-        assert set(
-            selected_precursor_columns
-        ).issubset(
+        assert set(selected_precursor_columns).issubset(
             psm_df.columns
         ), f"selected_precursor_columns must be a subset of psm_df.columns didnt find {set(selected_precursor_columns) - set(psm_df.columns)}"
         psm_df = psm_df[selected_precursor_columns]
@@ -236,7 +235,9 @@ class AccumulationBroadcaster:
         self._folders = folders
         self._number_of_processes = number_of_processes
         self._subscribers = []
-        self._lock = threading.Lock()  # Lock to prevent two processes trying to update the same subscriber at the same time
+        self._lock = (
+            threading.Lock()
+        )  # Lock to prevent two processes trying to update the same subscriber at the same time
 
     def subscribe(self, subscriber):
         assert isinstance(
@@ -382,9 +383,10 @@ class TransferLearningAccumulator(BaseAccumulator):
                 - self.consensus_speclibase.precursor_df["rt_calibrated"]
             ) / self.consensus_speclibase.precursor_df["rt_calibrated"]
 
-            self.consensus_speclibase.precursor_df["rt_norm"] = (
-                self.consensus_speclibase.precursor_df["rt_library"]
-                * (1 + deviation_from_calib)
+            self.consensus_speclibase.precursor_df[
+                "rt_norm"
+            ] = self.consensus_speclibase.precursor_df["rt_library"] * (
+                1 + deviation_from_calib
             )
             # Normalize rt
             self.consensus_speclibase.precursor_df["rt_norm"] = (

@@ -86,8 +86,7 @@ feature_columns = [
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
-    "mean_overlapping_mass_error"
-    "n_K",
+    "mean_overlapping_mass_error" "n_K",
     "n_R",
     "n_P",
 ]
