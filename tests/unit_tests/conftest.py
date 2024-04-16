@@ -11,7 +11,8 @@ from matplotlib import pyplot as plt
 
 plt.ioff()
 
-def _mock_precursor_df(
+
+def mock_precursor_df(
     n_precursor: int = 100,
 ) -> pd.DataFrame:
     """Create a mock precursor dataframe as it's found as the individual search outputs
@@ -78,9 +79,7 @@ def _mock_precursor_df(
     )
 
 
-
-
-def _mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
+def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
     """Create a mock fragment dataframe as it's found as the individual search outputs
 
     Parameters
@@ -106,16 +105,20 @@ def _mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
     )
     fragment_mz = np.random.rand(n_precursor, n_fragments) * 200 + 2000
     fragment_charge = np.random.choice([1, 2], size=(n_precursor, n_fragments))
-    fragment_number = np.tile(np.arange(n_fragments // 2), n_precursor * 2).reshape(
+    fragment_charge = np.array(fragment_charge, dtype=np.uint8)
+    fragment_number = np.tile(
+        np.arange(1, n_fragments // 2 + 1), n_precursor * 2
+    ).reshape((n_fragments, n_precursor))
+    fragment_number = np.array(fragment_number, dtype=np.uint8)
+    fragment_type = np.tile(np.repeat([ord("b")], n_fragments), n_precursor).reshape(
         (n_fragments, n_precursor)
     )
-    fragment_type = np.tile(
-        np.repeat([ord("b")], n_fragments), n_precursor
-    ).reshape((n_fragments, n_precursor))
-
+    fragment_type = np.array(fragment_type, dtype=np.uint8)
     fragment_height = 10 ** (precursor_intensity * 3) * np.random.rand(
         n_precursor, n_fragments
     )
+    fragment_position = fragment_number - 1
+    fragment_position = np.array(fragment_position, dtype=np.uint8)
     fragment_intensity = 10 ** (precursor_intensity * 3) * np.random.rand(
         n_precursor, n_fragments
     )
@@ -128,6 +131,7 @@ def _mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
             "charge": fragment_charge.flatten(),
             "number": fragment_number.flatten(),
             "type": fragment_type.flatten(),
+            "position": fragment_position.flatten(),
             "height": fragment_height.flatten(),
             "intensity": fragment_intensity.flatten(),
             "correlation": fragment_correlation.flatten(),

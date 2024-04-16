@@ -1,7 +1,7 @@
 import os
 import tempfile
 import numpy as np
-from conftest import _mock_precursor_df, _mock_fragment_df
+from conftest import mock_precursor_df, mock_fragment_df
 from alphadia import outputtransform
 from alphabase.spectral_library.base import SpecLibBase
 import shutil
@@ -58,8 +58,8 @@ def prepare_input_data():
     # setup raw folders
     raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
 
-    psm_base_df = _mock_precursor_df(n_precursor=100)
-    fragment_base_df = _mock_fragment_df(n_precursor=200, n_fragments=10)
+    psm_base_df = mock_precursor_df(n_precursor=100)
+    fragment_base_df = mock_fragment_df(n_precursor=200, n_fragments=10)
 
     psm_dfs = []
     fragment_dfs = []
