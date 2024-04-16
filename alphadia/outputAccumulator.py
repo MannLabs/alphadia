@@ -1,3 +1,27 @@
+"""
+Output Accumulator 
+==================
+This module contains classes to accumulate the information from the output folders of the alphadia pipeline 
+in a linear fashion. This is hugely useful when we have a large number of output folders and we want to accumulate the information from 
+all of them in a single object/Library which can be a challenge to do in a single go due to memory constraints. 
+The module is designed as broadcast-subscriber pattern where the AccumulationBroadcaster class loops over the output folders creating a 
+speclibBase object from each output folder and then broadcasts the information to the subscribers.
+
+Classes
+-------
+BaseAccumulator
+    Base class for accumulator classes, which are used to subscribe on the linear accumulation of a list of output folders.
+    it has two methods update and post_process.
+
+AccumulationBroadcaster
+    Class that loops over output folders in a linear fashion to prevent having all the output folders in memory at the same time.
+
+TransferLearningAccumulator
+    Class that accumulates the information from the output folders for fine-tuning by selecting the top keep_top precursors and their fragments from all the output folders.
+
+
+"""
+
 import pandas as pd
 import numpy as np
 import os
@@ -182,15 +206,13 @@ class AccumulationBroadcaster:
     """
     def __init__(self, folders: list, number_of_processes: int):
         self.folders = folders
-        self.number_of_processes = number_of_processes
-        self.subscribers = []
-        self.results = []
-        self.total_accumulated = 0
-        self.lock = threading.Lock() # Lock to prevent two processes trying to update the same subscriber at the same time
+        self._number_of_processes = number_of_processes
+        self._subscribers = []
+        self._lock = threading.Lock() # Lock to prevent two processes trying to update the same subscriber at the same time
         
     def subscribe(self, subscriber):
         assert isinstance(subscriber, BaseAccumulator), f'subscriber must be an instance of BaseAccumulator, got {type(subscriber)}'
-        self.subscribers.append(subscriber)
+        self._subscribers.append(subscriber)
     
     def _update_subscriber(self, subscriber, speclibase):
         subscriber.update(speclibase)
@@ -199,16 +221,16 @@ class AccumulationBroadcaster:
 
     def _broadcast(self, result):
         speclibBase = result
-        with self.lock:
-            for sub in self.subscribers:
+        with self._lock:
+            for sub in self._subscribers:
                 self._update_subscriber(sub, speclibBase)
             
     def _post_process(self):
-        for sub in self.subscribers:
+        for sub in self._subscribers:
             sub.post_process()
 
     def run(self):
-        with multiprocessing.Pool(processes=self.number_of_processes) as pool:
+        with multiprocessing.Pool(processes=self._number_of_processes) as pool:
             for folder in self.folders:
                 result = pool.apply_async(process_folder, (folder,), callback=self._broadcast,error_callback=error_callback)
             pool.close()
@@ -239,12 +261,11 @@ def _get_top_indices_from_freq(number_of_readings_per_precursor, keep_top,len_of
         The indices of the top keep_top elements in the array number_of_readings_per_precursor.
     """
     indices = np.zeros(len_of_precursor_df, dtype=np.bool_)
-    ones = np.ones(keep_top, dtype=np.bool_)
-
-    for i in range(len(number_of_readings_per_precursor)):
-        n = number_of_readings_per_precursor[i]
-        indices[i:i+min(n,keep_top)] = ones[:min(n,keep_top)]
-
+    i = 0
+    for n in number_of_readings_per_precursor:
+        indices[i:i+min(n,keep_top)] = np.ones(min(n,keep_top), dtype=np.bool_)
+        i += n
+        
 
 
     return indices
@@ -272,13 +293,23 @@ class TransferLearningAccumulator(BaseAccumulator):
        
 
     def update(self, speclibase:base.SpecLibBase):
+        """
+        Update the consensus_speclibase with the information from the speclibase.
+
+        Parameters
+        ----------
+        speclibase : SpecLibBase
+            The information from the output folder.
+
+        
+        """
         speclibase.hash_precursor_df()
         if self.consensus_speclibase is None:
             self.consensus_speclibase = speclibase
         else:
             # Append in basespeclib and modify to work do the same for additional dataframe
             
-            self.consensus_speclibase.append(speclibase,dfs_to_append=['_precursor_df'] + [df  for df in speclibase.available_fragment_dfs()])
+            self.consensus_speclibase.append(speclibase,dfs_to_append=['_precursor_df'] + [df  for df in speclibase.available_dense_fragment_dfs()])
 
         # Sort by modseqhash and proba in ascending order
         self.consensus_speclibase._precursor_df = self.consensus_speclibase._precursor_df.sort_values(['mod_seq_hash','proba'], ascending=[True, True])
@@ -287,11 +318,9 @@ class TransferLearningAccumulator(BaseAccumulator):
     
         # First get the numbero of readings per precursor such as mod_seq_hash _ maps to number of rows with the same mod_seq_hash
         number_of_readings_per_precursor = self.consensus_speclibase._precursor_df['mod_seq_hash'].value_counts(sort=False)
-
         keepIndices = _get_top_indices_from_freq(number_of_readings_per_precursor.values, self.keep_top, self.consensus_speclibase._precursor_df.shape[0])
         assert len(keepIndices) == self.consensus_speclibase._precursor_df.shape[0], f'keepIndices length {len(keepIndices)} must be equal to the length of the precursor_df {self.consensus_speclibase._precursor_df.shape[0]}'
         self.consensus_speclibase._precursor_df = self.consensus_speclibase._precursor_df.iloc[keepIndices]
-
 
 
         
@@ -299,6 +328,9 @@ class TransferLearningAccumulator(BaseAccumulator):
         self.consensus_speclibase.remove_unused_fragments()
 
     def post_process(self):
+        """
+        Post process the consensus_speclibase by normalizing the retention time and mobility.
+        """
         if self.norm_w_calib:
             # rt normalization from observed rt
             deviation_from_calib = (self.consensus_speclibase.precursor_df['rt_observed'] - self.consensus_speclibase.precursor_df['rt_calibrated'])/ self.consensus_speclibase.precursor_df['rt_calibrated']
@@ -306,6 +338,10 @@ class TransferLearningAccumulator(BaseAccumulator):
             self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_library']* (1+ deviation_from_calib)
             # Normalize rt 
             self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_norm'] / self.consensus_speclibase.precursor_df['rt_norm'].max()
+
+            rt_observed_norm = self.consensus_speclibase.precursor_df['rt_observed'] / self.consensus_speclibase.precursor_df['rt_observed'].max()
+
+            self.consensus_speclibase.precursor_df['rt_norm']  = ((1-self.consensus_speclibase.precursor_df['rt_norm'] )* self.consensus_speclibase.precursor_df['rt_norm'] ) + (self.consensus_speclibase.precursor_df['rt_norm'] * rt_observed_norm)
 
         else:
             self.consensus_speclibase.precursor_df['rt_norm'] = self.consensus_speclibase.precursor_df['rt_observed'] / self.consensus_speclibase.precursor_df['rt_observed'].max()

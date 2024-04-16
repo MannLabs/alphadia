@@ -6,7 +6,7 @@ logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr
-from alphadia.outputAccumulator import TransferLearningAccumulator, AccumulationBroadcaster
+from alphadia.outputaccumulator import TransferLearningAccumulator, AccumulationBroadcaster
 
 import pandas as pd
 import numpy as np
