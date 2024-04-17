@@ -2,7 +2,7 @@
 
 # Creating the wheel
 # Creating the wheel
-pip git+install https://github.com/huggingface/huggingface_hub.git
+pip install git+https://github.com/huggingface/huggingface_hub.git
 python -c 'from huggingface_hub import get_full_repo_name; print("success")'
 
 python setup.py sdist bdist_wheel
