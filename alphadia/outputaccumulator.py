@@ -42,7 +42,43 @@ logger = logging.getLogger()
 class SpecLibFlatFromOutput(SpecLibFlat):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+    def _calculate_fragment_position(self):
+        """
+        Calculate the position of the fragments based on the type and number of the fragment.
+        """
+        # Fragtypes from ascii to char
+        available_frag_types = self._fragment_df["type"].unique()
+        self.frag_types_as_char = {i: chr(i) for i in available_frag_types}
 
+        mapped_frag_types = self._fragment_df["type"].map(
+            self.frag_types_as_char
+        )
+        a_b_c_fragments = mapped_frag_types.isin(["a", "b", "c"])
+        x_y_z_fragments = mapped_frag_types.isin(["x", "y", "z"])
+
+        precursor_idx_to_nAA = (
+            self._precursor_df[["precursor_idx", "nAA"]]
+            .set_index("precursor_idx")
+            .to_dict()["nAA"]
+        )
+        # For X,Y,Z frags calculate the position as being the nAA of the precursor - number of the fragment
+        x_y_z_number = (
+            self._fragment_df.loc[x_y_z_fragments, "precursor_idx"].map(
+                precursor_idx_to_nAA
+            )
+            - self._fragment_df.loc[x_y_z_fragments, "number"]
+        )
+        self._fragment_df.loc[x_y_z_fragments, "position"] = x_y_z_number - 1
+
+        # For A,B,C frags calculate the position as being the number of the fragment
+        self._fragment_df.loc[a_b_c_fragments, "position"] = (
+            self._fragment_df.loc[a_b_c_fragments, "number"] - 1
+        )
+
+        # Change position to int
+        self._fragment_df["position"] = self._fragment_df["position"].astype(
+            int
+        )
     def parse_output_folder(
         self,
         folder: str,
@@ -136,39 +172,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
             if "position" in frag_df.columns:
                 self._fragment_df.loc[:, "position"] = frag_df.loc[:, "position"]
             else:
-                # Fragtypes from ascii to char
-                available_frag_types = self._fragment_df["type"].unique()
-                self.frag_types_as_char = {i: chr(i) for i in available_frag_types}
-
-                mapped_frag_types = self._fragment_df["type"].map(
-                    self.frag_types_as_char
-                )
-                a_b_c_fragments = mapped_frag_types.isin(["a", "b", "c"])
-                x_y_z_fragments = mapped_frag_types.isin(["x", "y", "z"])
-
-                precursor_idx_to_nAA = (
-                    self._precursor_df[["precursor_idx", "nAA"]]
-                    .set_index("precursor_idx")
-                    .to_dict()["nAA"]
-                )
-                # For X,Y,Z frags calculate the position as being the nAA of the precursor - number of the fragment
-                x_y_z_number = (
-                    self._fragment_df.loc[x_y_z_fragments, "precursor_idx"].map(
-                        precursor_idx_to_nAA
-                    )
-                    - self._fragment_df.loc[x_y_z_fragments, "number"]
-                )
-                self._fragment_df.loc[x_y_z_fragments, "position"] = x_y_z_number - 1
-
-                # For A,B,C frags calculate the position as being the number of the fragment
-                self._fragment_df.loc[a_b_c_fragments, "position"] = (
-                    self._fragment_df.loc[a_b_c_fragments, "number"] - 1
-                )
-
-                # Change position to int
-                self._fragment_df["position"] = self._fragment_df["position"].astype(
-                    int
-                )
+                self._calculate_fragment_position()
 
         return self._precursor_df, self._fragment_df
 
@@ -214,10 +218,10 @@ def process_folder(folder):
     SpecLibBase
         The SpecLibBase object obtained from the output folder.
     """
-    specLibFlat_object = SpecLibFlatFromOutput()
-    psm, frag_df = specLibFlat_object.parse_output_folder(folder)
-    specLibFlat_object._fragment_df["loss_type"] = 0
-    speclibase = specLibFlat_object.to_SpecLibBase()
+    speclibflat_object = SpecLibFlatFromOutput()
+    psm, frag_df = speclibflat_object.parse_output_folder(folder)
+    speclibflat_object._fragment_df["loss_type"] = 0
+    speclibase = speclibflat_object.to_SpecLibBase()
     return speclibase
 
 
@@ -239,13 +243,13 @@ class AccumulationBroadcaster:
             threading.Lock()
         )  # Lock to prevent two processes trying to update the same subscriber at the same time
 
-    def subscribe(self, subscriber):
+    def subscribe(self, subscriber: BaseAccumulator):
         assert isinstance(
             subscriber, BaseAccumulator
         ), f"subscriber must be an instance of BaseAccumulator, got {type(subscriber)}"
         self._subscribers.append(subscriber)
 
-    def _update_subscriber(self, subscriber, speclibase):
+    def _update_subscriber(self, subscriber:BaseAccumulator, speclibase: base.SpecLibBase):
         subscriber.update(speclibase)
 
     def _broadcast(self, result):
@@ -274,7 +278,7 @@ class AccumulationBroadcaster:
 
 @nb.jit(nopython=True)
 def _get_top_indices_from_freq(
-    number_of_readings_per_precursor, keep_top, len_of_precursor_df
+    number_of_readings_per_precursor: np.ndarray, keep_top: int, len_of_precursor_df: int
 ):
     """
     Get the indices of the top keep_top elements in the array number_of_readings_per_precursor.
@@ -296,7 +300,8 @@ def _get_top_indices_from_freq(
     indices = np.zeros(len_of_precursor_df, dtype=np.bool_)
     i = 0
     for n in number_of_readings_per_precursor:
-        indices[i : i + min(n, keep_top)] = np.ones(min(n, keep_top), dtype=np.bool_)
+        to_keep = min(n, keep_top)
+        indices[i : i + to_keep] = np.ones(to_keep, dtype=np.bool_)
         i += n
 
     return indices
@@ -357,7 +362,7 @@ class TransferLearningAccumulator(BaseAccumulator):
 
         # Select the top keep_top precursors
 
-        # First get the numbero of readings per precursor such as mod_seq_hash _ maps to number of rows with the same mod_seq_hash
+        # First get the number of readings per precursor such as mod_seq_hash _ maps to number of rows with the same mod_seq_hash
         number_of_readings_per_precursor = self.consensus_speclibase._precursor_df[
             "mod_seq_hash"
         ].value_counts(sort=False)
