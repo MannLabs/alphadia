@@ -38,6 +38,7 @@ library_prediction:
   nce: 25.0
   instrument: QE
   save_hdf: True
+  checkpoint_folder_path: None
 
 search:
   channel_filter: '0'
