@@ -158,16 +158,20 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
+        def _parse_modifications(mod_str: str) -> typing.List[str]:
+            """Parse modification string."""
+            return [] if mod_str == "" else mod_str.split(";")
+
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
         fasta_digest = libtransform.FastaDigest(
             enzyme=self.config["library_prediction"]["enzyme"],
-            fixed_modifications=self.config["library_prediction"][
-                "fixed_modifications"
-            ].split(";"),
-            variable_modifications=self.config["library_prediction"][
-                "variable_modifications"
-            ].split(";"),
+            fixed_modifications=_parse_modifications(
+                self.config["library_prediction"]["fixed_modifications"]
+            ),
+            variable_modifications=_parse_modifications(
+                self.config["library_prediction"]["variable_modifications"]
+            ),
             max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
