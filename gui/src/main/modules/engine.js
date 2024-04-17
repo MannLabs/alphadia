@@ -1,4 +1,4 @@
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const StringDecoder = require('string_decoder').StringDecoder;
 const Transform = require('stream').Transform;
 
@@ -313,7 +313,7 @@ function hasBinary(binaryPath){
 function hasAlphaDIABundled(binaryPath){
     return new Promise((resolve, reject) => {
         try {
-            exec(binaryPath + " --version", (err, stdout, stderr) => {
+            execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
                 console.log(stdout)
                 resolve(stdout.trim())
@@ -403,10 +403,24 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             }
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
+            
+            // split binary path into directory and binary name
+            const cwd = path.dirname(this.config.binaryPath)
+            const binaryName = path.basename(this.config.binaryPath)
 
-            run.process = spawn(this.config.binaryPath,["--config", 
-                                        path.join(workflow.output_directory.path, "config.yaml")
-                                    ] , { env:{...process.env, PATH}, shell: true});
+            // spawn process for alphaDIA backend
+            // pass config.yaml as argument
+            // use binary location as cwd and binary name as command
+            run.process = spawn(binaryName,
+                ["--config", 
+                path.join(workflow.output_directory.path, "config.yaml")
+                ], 
+                {
+                    env:{...process.env, PATH}, 
+                    shell: true, 
+                    cwd: cwd
+                });
+
             run.pid = run.process.pid
 
             const stdoutTransform = lineBreakTransform();
