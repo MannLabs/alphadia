@@ -411,7 +411,7 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             // spawn process for alphaDIA backend
             // pass config.yaml as argument
             // use binary location as cwd and binary name as command
-            run.process = spawn(binaryName,
+            run.process = spawn('./' + binaryName,
                 ["--config", 
                 path.join(workflow.output_directory.path, "config.yaml")
                 ], 

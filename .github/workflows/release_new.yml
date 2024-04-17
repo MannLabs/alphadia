@@ -108,48 +108,48 @@ jobs:
           asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
           asset_content_type: application/zip
 
-  #Create_Windows_Installer:
-  #  needs: [Create_Draft_On_GitHub, Version_Bumped]
-  #  env:
-  #      ARCH: x64
-  #  runs-on: windows-latest
-  #  steps:
-  #  - name : Checkout code
-  #    uses: actions/checkout@v4
+  Create_Windows_Installer:
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
+    runs-on: windows-latest
+    steps:
+    - name : Checkout code
+      uses: actions/checkout@v4
+    
+    # Build backend
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        activate-environment: alpha
+        python-version: "3.11"
+
+    - name: Build Backend
+      shell: powershell
+      run: |
+        release/windows/build_backend.ps1
+    
+    - name: Check if Innosetup is installed
+      shell: powershell
+      run: |
+        if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+          Write-Host "Inno Setup is not installed"
+          exit 1
+        }
+        else {
+          Write-Host "Inno Setup is installed"
+        }
 
   #  - name: Setup Node.js
   #    uses: actions/setup-node@v4
-
-  #  - name: Install conda
-  #    uses: conda-incubator/setup-miniconda@v3
-  #    with:
-  #      miniconda-version: "latest"
-  #      continue-on-error: true
-  #      auto-update-conda: true
-  #      activate-environment: alpha
-  #      python-version: "3.11"
-    
-  #  - name: Check if Innosetup is installed
-  #    shell: powershell
-  #    run: |
-  #      if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
-  #        Write-Host "Inno Setup is not installed"
-  #        exit 1
-  #      }
-  #      else {
-  #        Write-Host "Inno Setup is installed"
-  #      }
     
   #  - name: Build GUI
   #    shell: powershell
   #    run: |
   #      release/windows/build_gui.ps1
 
-  #  - name: Build Backend
-  #    shell: powershell
-  #    run: |
-  #      release/windows/build_backend.ps1
-    
   #  - name: Build Installer
   #    shell: powershell
   #    run: |
