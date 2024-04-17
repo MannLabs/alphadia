@@ -313,8 +313,12 @@ class TransferLearningAccumulator(BaseAccumulator):
 
         keep_top : int, optional
             The number of top precursors to keep, by default 3
+
         norm_w_calib : bool, optional
-            Whether to normalize the retention time with the calibration, by default True
+            If true, advanced normalization of retention times will be performed.
+            Retention times are normalized using calibrated deviation from the library at the start of the gradient and max normalization at the end of the gradient.
+
+            If false, max normalization will be performed, by default True
 
         """
         self._keep_top = keep_top
@@ -374,37 +378,29 @@ class TransferLearningAccumulator(BaseAccumulator):
 
     def post_process(self):
         """
-        Post process the consensus_speclibase by normalizing the retention time and mobility.
+        Post process the consensus_speclibase by normalizing retention times.
         """
         if self._norm_w_calib:
-            # rt normalization from observed rt
-            deviation_from_calib = (
-                self.consensus_speclibase.precursor_df["rt_observed"]
-                - self.consensus_speclibase.precursor_df["rt_calibrated"]
-            ) / self.consensus_speclibase.precursor_df["rt_calibrated"]
 
-            self.consensus_speclibase.precursor_df[
-                "rt_norm"
-            ] = self.consensus_speclibase.precursor_df["rt_library"] * (
-                1 + deviation_from_calib
-            )
-            # Normalize rt
-            self.consensus_speclibase.precursor_df["rt_norm"] = (
-                self.consensus_speclibase.precursor_df["rt_norm"]
-                / self.consensus_speclibase.precursor_df["rt_norm"].max()
-            )
+            # instead of a simple max normalization, we want to use a weighted average of the two normalizations
+            # At the start of the retention time we will normalize using the calibrated deviation from the library
+            # At the end of the retention time we will normalize using the max normalization
 
-            rt_observed_norm = (
-                self.consensus_speclibase.precursor_df["rt_observed"]
-                / self.consensus_speclibase.precursor_df["rt_observed"].max()
-            )
+            precursor_df = self.consensus_speclibase.precursor_df
 
-            self.consensus_speclibase.precursor_df["rt_norm"] = (
-                (1 - self.consensus_speclibase.precursor_df["rt_norm"])
-                * self.consensus_speclibase.precursor_df["rt_norm"]
-            ) + (self.consensus_speclibase.precursor_df["rt_norm"] * rt_observed_norm)
+            # caclulate max normalization
+            max_norm = precursor_df['rt_observed'].values / np.max(precursor_df['rt_observed'].values)
+
+            # calculate calibrated normalization
+            deviation_from_calib = (precursor_df['rt_observed'].values - precursor_df['rt_calibrated'].values)/ precursor_df['rt_calibrated'].values
+            calibrated_norm = precursor_df['rt_library'].values* (1+ deviation_from_calib)
+            calibrated_norm = calibrated_norm / calibrated_norm.max()
+
+            # use max norm as weight and combine the two normalizations
+            self.consensus_speclibase.precursor_df['rt_norm'] = (1-max_norm) * calibrated_norm + max_norm * max_norm
 
         else:
+            # max normalization
             self.consensus_speclibase.precursor_df["rt_norm"] = (
                 self.consensus_speclibase.precursor_df["rt_observed"]
                 / self.consensus_speclibase.precursor_df["rt_observed"].max()
