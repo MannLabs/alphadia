@@ -212,7 +212,7 @@
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "QE",
+                    "value": "Fusion",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
@@ -302,6 +302,22 @@
                     "value": 100,
                     "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
+                },
+                {
+                    "id": "quant_window",
+                    "name": "Quant window",
+                    "value": 3,
+                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
+                    "type": "integer"
+
+                },
+                {
+                    "id": "quant_all",
+                    "name": "Use all MS2 observations",
+                    "value": false,
+                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
+                    "type": "boolean"
+
                 }
             ]
         },
@@ -455,14 +471,14 @@
                 {
                     "id": "min_k_fragments",
                     "name": "Minimum number of fragments",
-                    "value": 3,
+                    "value": 12,
                     "description": "Minimum number of fragments required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "min_correlation",
                     "name": "Minimum correlation",
-                    "value": 0.7,
+                    "value": 0.9,
                     "description": "Minimum correlation required for quantification.",
                     "type": "float"
                 },
@@ -476,7 +492,7 @@
                 {
                     "id": "min_nonnan",
                     "name": "Minimum number of non-nan values",
-                    "value": 1,
+                    "value": 3,
                     "description": "Minimum number of non-nan values required for quantification.",
                     "type": "integer"
                 },

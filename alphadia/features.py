@@ -325,6 +325,55 @@ def or_envelope_2d(x):
 
 
 @nb.njit
+def center_envelope(x):
+    center_index = x.shape[2] // 2
+
+    for a0 in range(x.shape[0]):
+        for a1 in range(x.shape[1]):
+            left_intensity = (
+                x[a0, a1, center_index - 1] + x[a0, a1, center_index]
+            ) * 0.5
+            right_intensity = (
+                x[a0, a1, center_index + 1] + x[a0, a1, center_index]
+            ) * 0.5
+
+            for i in range(1, center_index + 1):
+                x[a0, a1, center_index - i] = min(
+                    left_intensity, x[a0, a1, center_index - i]
+                )
+                left_intensity = (
+                    x[a0, a1, center_index - i] + x[a0, a1, center_index - i - 1]
+                ) * 0.5
+
+                x[a0, a1, center_index + i] = min(
+                    right_intensity, x[a0, a1, center_index + i]
+                )
+                right_intensity = (
+                    x[a0, a1, center_index + i] + x[a0, a1, center_index + i + 1]
+                ) * 0.5
+
+
+@nb.njit
+def center_envelope_1d(x):
+    center_index = x.shape[1] // 2
+
+    for a0 in range(x.shape[0]):
+        left_intensity = (x[a0, center_index - 1] + x[a0, center_index]) * 0.5
+        right_intensity = (x[a0, center_index + 1] + x[a0, center_index]) * 0.5
+
+        for i in range(1, center_index + 1):
+            x[a0, center_index - i] = min(left_intensity, x[a0, center_index - i])
+            left_intensity = (
+                x[a0, center_index - i] + x[a0, center_index - i - 1]
+            ) * 0.5
+
+            x[a0, center_index + i] = min(right_intensity, x[a0, center_index + i])
+            right_intensity = (
+                x[a0, center_index + i] + x[a0, center_index + i + 1]
+            ) * 0.5
+
+
+@nb.njit
 def weighted_mean_a1(array, weight_mask):
     """
     takes an array of shape (a, b) and a mask of shape (a, b)
@@ -674,6 +723,7 @@ def fragment_features(
     fragments: np.ndarray,
     feature_array: nb_float32_array,
     quant_window: nb.uint32 = 3,
+    quant_all: nb.boolean = False,
 ):
     fragment_feature_dict = nb.typed.Dict.empty(
         key_type=nb.types.unicode_type, value_type=float_array
@@ -709,10 +759,20 @@ def fragment_features(
         n_fragments, -1
     )
 
-    # most intense observation across all observations
-    best_observation = np.argmax(observation_importance)
-    # (n_fragments, n_frames)
-    best_profile = fragments_frame_profile[:, best_observation]
+    if quant_all:
+        best_profile = np.sum(fragments_frame_profile, axis=1)
+
+    else:
+        # most intense observation across all observations
+        best_observation = np.argmax(observation_importance)
+
+        # (n_fragments, n_frames)
+        best_profile = fragments_frame_profile[:, best_observation]
+
+    center_envelope_1d(best_profile)
+
+    # handle rare case where the best observation is at the edge of the frame
+    quant_window = min((best_profile.shape[1] // 2) - 1, quant_window)
 
     # center the profile around the expected frame center
     center = best_profile.shape[1] // 2
@@ -731,7 +791,7 @@ def fragment_features(
         (best_profile[:, 1:] + best_profile[:, :-1]) * delta_rt.reshape(1, -1) * 0.5,
         axis=-1,
     )
-    fragment_area_norm = fragment_area / quant_durarion
+    fragment_area_norm = fragment_area * quant_window
 
     observed_fragment_intensity = np.sum(best_profile, axis=-1)
 

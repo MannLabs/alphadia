@@ -6,8 +6,9 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, hybridselection, fragcomp, utils
+from alphadia import plexscoring, fragcomp, utils
 from alphadia import fdrexperimental as fdrx
+from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
 
 # alpha family imports
@@ -16,6 +17,8 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -86,15 +89,14 @@ feature_columns = [
     "mean_ms2_mass_error",
     "n_overlapping",
     "mean_overlapping_intensity",
-    "mean_overlapping_mass_error" "n_K",
+    "mean_overlapping_mass_error",
+    "n_K",
     "n_R",
     "n_P",
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
-    test_size=0.001,
-    batch_size=5000,
-    learning_rate=0.001,
+    test_size=0.001, batch_size=5000, learning_rate=0.001, epochs=10
 )
 
 
@@ -196,7 +198,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             (self.spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
             & (self.spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
         ]
-        self.spectral_library.remove_unused_fragments()
+        # self.spectral_library.remove_unused_fragmen
         precursor_after = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
         precursor_removed = precursor_before - precursor_after
         self.reporter.log_string(
@@ -366,18 +368,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"=== checking if epoch conditions were reached ===", verbosity="info"
         )
-
-        if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
-            self.reporter.log_string(
-                f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
-                verbosity="info",
-            )
+        if self.dia_data.has_ms1:
+            if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
+                self.reporter.log_string(
+                    f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
+                    verbosity="info",
+                )
+                continue_calibration = True
+            else:
+                self.reporter.log_string(
+                    f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
+                    verbosity="info",
+                )
 
         if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
             self.reporter.log_string(
@@ -529,33 +531,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df_filtered,
             "precursor",
             plot=True,
+            skip=["mz"] if not self.dia_data.has_ms1 else [],
             # neptune_run = self.neptune
         )
 
-        m1_70 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-            precursor_df_filtered, 0.70
-        )
-        m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-            precursor_df_filtered, 0.95
-        )
-        rt_70 = self.calibration_manager.get_estimator("precursor", "rt").ci(
-            precursor_df_filtered, 0.70
-        )
         rt_99 = self.calibration_manager.get_estimator("precursor", "rt").ci(
             precursor_df_filtered, 0.95
         )
 
-        # top_intensity_precursors = precursor_df_filtered.sort_values(by=['intensity'], ascending=False)
-        median_precursor_intensity = precursor_df_filtered[
-            "weighted_ms1_intensity"
-        ].median()
-        top_intensity_precursors = precursor_df_filtered[
-            precursor_df_filtered["weighted_ms1_intensity"] > median_precursor_intensity
-        ]
         fragments_df_filtered = fragments_df[
-            fragments_df["precursor_idx"].isin(
-                top_intensity_precursors["precursor_idx"]
-            )
+            fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
         ]
 
         min_fragments = 500
@@ -584,22 +569,30 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run = self.neptune
         )
 
-        m2_70 = self.calibration_manager.get_estimator("fragment", "mz").ci(
-            fragments_df_filtered, 0.70
-        )
         m2_99 = self.calibration_manager.get_estimator("fragment", "mz").ci(
             fragments_df_filtered, 0.95
         )
 
         self.com.fit(
             {
-                "ms1_error": max(m1_99, self.config["search"]["target_ms1_tolerance"]),
                 "ms2_error": max(m2_99, self.config["search"]["target_ms2_tolerance"]),
                 "rt_error": max(rt_99, self.config["search"]["target_rt_tolerance"]),
                 "column_type": "calibrated",
                 "num_candidates": self.config["search"]["target_num_candidates"],
             }
         )
+
+        if self.dia_data.has_ms1:
+            m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
+                precursor_df_filtered, 0.95
+            )
+            self.com.fit(
+                {
+                    "ms1_error": max(
+                        m1_99, self.config["search"]["target_ms1_tolerance"]
+                    ),
+                }
+            )
 
         if self.dia_data.has_mobility:
             mobility_99 = self.calibration_manager.get_estimator(
@@ -616,10 +609,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # if self.neptune is not None:
             #    self.neptune['eval/99_mobility_error'].log(mobility_99)
 
+        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        print("score cutoff", percentile_001)
+
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
+                "score_cutoff": percentile_001,
             }
         )
 
@@ -664,12 +661,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run=self.neptune
         )
 
-    def extract_batch(self, batch_df):
+    def extract_batch(self, batch_df, apply_cutoff=False):
         self.reporter.log_string(
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
 
-        config = hybridselection.HybridCandidateConfig()
+        config = search.HybridCandidateConfig()
         config.update(self.config["selection_config"])
         config.update(
             {
@@ -684,7 +681,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        extraction = hybridselection.HybridCandidateSelection(
+        extraction = search.HybridCandidateSelection(
             self.dia_data.jitclass(),
             batch_df,
             self.spectral_library.fragment_df,
@@ -693,12 +690,32 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column=f"mobility_{self.com.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}",
+            precursor_mz_column=f"mz_{self.com.column_type}"
+            if self.dia_data.has_ms1
+            else "mz_library",
             fragment_mz_column=f"mz_{self.com.column_type}",
             fwhm_rt=self.optimization_manager.fwhm_rt,
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
+
+        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+
+        if apply_cutoff:
+            num_before = len(candidates_df)
+            self.reporter.log_string(
+                f"Applying score cutoff of {self.optimization_manager.score_cutoff}",
+                verbosity="info",
+            )
+            candidates_df = candidates_df[
+                candidates_df["score"] > self.optimization_manager.score_cutoff
+            ]
+            num_after = len(candidates_df)
+            num_removed = num_before - num_after
+            self.reporter.log_string(
+                f"Removed {num_removed} precursors with score below cutoff",
+                verbosity="info",
+            )
 
         config = plexscoring.CandidateConfig()
         config.update(self.config["scoring_config"])
@@ -709,6 +726,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "fragment_mz_tolerance": self.com.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "quant_window": self.config["search"]["quant_window"],
+                "quant_all": self.config["search"]["quant_all"],
             }
         )
 
@@ -721,7 +739,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column=f"mobility_{self.com.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}",
+            precursor_mz_column=f"mz_{self.com.column_type}"
+            if self.dia_data.has_ms1
+            else "mz_library",
             fragment_mz_column=f"mz_{self.com.column_type}",
         )
 
@@ -751,9 +771,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
         features_df, fragments_df = self.extract_batch(
-            self.spectral_library._precursor_df
+            self.spectral_library._precursor_df,
+            apply_cutoff=True,
         )
+
         precursor_df = self.fdr_correction(features_df, fragments_df)
+
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
         logger.info(f"Removing fragments below FDR threshold")

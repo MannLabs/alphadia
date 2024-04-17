@@ -4,10 +4,11 @@ import numpy as np
 from alphadia import utils
 from alphadia.numba.fragments import get_ion_group_mapping
 
+from alphadia.numba.fft import convolve_fourier
+
 from alphadia.numba.numeric import (
     symetric_limits_1d,
     symetric_limits_2d,
-    convolve_fourier,
     save_corrcoeff,
     fragment_correlation,
     fragment_correlation_different,

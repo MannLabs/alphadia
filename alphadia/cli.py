@@ -65,8 +65,8 @@ parser.add_argument(
     "-d",
     type=str,
     help="Directory containing raw data input files.",
-    nargs="?",
-    default=None,
+    action="append",
+    default=[],
 )
 parser.add_argument(
     "--regex",
@@ -211,23 +211,16 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
 
     config_directory = config["directory"] if "directory" in config else None
     directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
-    directory = utils.windows_to_wsl(args.directory) if args.wsl else args.directory
-
     if directory is not None:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
-    # filter files based on regex
-    # pattern = re.compile()
+    directory_list = (
+        utils.windows_to_wsl(args.directory) if args.wsl else args.directory
+    )
+    for directory in directory_list:
+        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
-    print("args.regex", args.regex)
-
-    for path in raw_path_list:
-        print("path", path)
-        print("os.path.basename(path)", os.path.basename(path))
-        # print('re.search(args.regex, os.path.basename(path))', re.search(args.regex, os.path.basename(path)))
-        # print('re.search(args.regex, os.path.basename(path)) is not None', re.search(args.regex, os.path.basename(path)) is not None)
-        # print('')
-
+    # filter raw files by regex
     len_before = len(raw_path_list)
     raw_path_list = [
         f
@@ -307,7 +300,12 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
 
 def run(*args, **kwargs):
     # parse command line arguments
-    args = parser.parse_args()
+    args, unknown = parser.parse_known_args()
+
+    if unknown:
+        print(f"Unknown arguments: {unknown}")
+        parser.print_help()
+        return
 
     if args.version:
         print(f"{alphadia.__version__}")
@@ -317,7 +315,11 @@ def run(*args, **kwargs):
 
     output_directory = parse_output_directory(args, config)
     if output_directory is None:
-        raise ValueError("No output directory specified.")
+        # print help message if no output directory specified
+        parser.print_help()
+
+        print("No output directory specified.")
+        return
 
     reporting.init_logging(output_directory)
     raw_path_list = parse_raw_path_list(args, config)

@@ -7,7 +7,7 @@ import typing
 # alphadia imports
 from alphadia import validate, utils, features, quadrupole
 from alphadia.numba import fragments
-from alphadia.data import bruker, thermo
+from alphadia.data import bruker, alpharaw
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
@@ -168,6 +168,7 @@ class CandidateConfigJIT:
     top_k_isotopes: nb.uint32
     reference_channel: nb.int16
     quant_window: nb.uint32
+    quant_all: nb.boolean
 
     precursor_mz_tolerance: nb.float32
     fragment_mz_tolerance: nb.float32
@@ -181,6 +182,7 @@ class CandidateConfigJIT:
         top_k_isotopes: nb.uint32,
         reference_channel: nb.int16,
         quant_window: nb.uint32,
+        quant_all: nb.boolean,
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
     ) -> None:
@@ -197,6 +199,7 @@ class CandidateConfigJIT:
         self.top_k_isotopes = top_k_isotopes
         self.reference_channel = reference_channel
         self.quant_window = quant_window
+        self.quant_all = quant_all
 
         self.precursor_mz_tolerance = precursor_mz_tolerance
         self.fragment_mz_tolerance = fragment_mz_tolerance
@@ -217,6 +220,7 @@ class CandidateConfig(config.JITConfig):
         self.top_k_isotopes = 4
         self.reference_channel = -1
         self.quant_window = 3
+        self.quant_all = False
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
 
@@ -297,6 +301,16 @@ class CandidateConfig(config.JITConfig):
     @quant_window.setter
     def quant_window(self, value):
         self._quant_window = value
+
+    @property
+    def quant_all(self) -> bool:
+        """Quantify all fragments in the quantification window.
+        Default: `quant_all = False`"""
+        return self._quant_all
+
+    @quant_all.setter
+    def quant_all(self, value):
+        self._quant_all = value
 
     @property
     def precursor_mz_tolerance(self) -> float:
@@ -597,6 +611,12 @@ class Candidate:
             isotope_mz,
         )
 
+        # mask fragments by qtf
+        qtf_mask = np.reshape(
+            np.sum(qtf, axis=0) / qtf.shape[0], (1, qtf.shape[1], qtf.shape[2], 1)
+        ).astype(np.float32)
+        dense_fragments[0] = dense_fragments[0] * qtf_mask
+
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
             qtf, dense_precursors, self.isotope_intensity
@@ -637,9 +657,9 @@ class Candidate:
         fragments.apply_mask(fragment_mask_1d)
 
         # (n_fragments, n_observations, n_frames)
-        fragments_frame_profile = features.or_envelope_2d(
-            features.frame_profile_2d(dense_fragments[0])
-        )
+
+        fragments_frame_profile = features.frame_profile_2d(dense_fragments[0])
+        # features.center_envelope(fragments_frame_profile)
 
         cycle_len = jit_data.cycle.shape[1]
 
@@ -675,6 +695,7 @@ class Candidate:
         feature_array = np.zeros(NUM_FEATURES, dtype=np.float32)
         feature_array[28] = np.mean(fragment_mask_1d)
 
+        # works
         features.location_features(
             jit_data,
             self.scan_start,
@@ -694,9 +715,11 @@ class Candidate:
             template,
             feature_array,
         )
+        # works
 
         # retrive first fragment features
         # (n_valid_fragments)
+
         mz_observed, mass_error, height, intensity = features.fragment_features(
             dense_fragments,
             fragments_frame_profile,
@@ -706,6 +729,7 @@ class Candidate:
             fragments,
             feature_array,
             quant_window=config.quant_window,
+            quant_all=config.quant_all,
         )
 
         # store fragment features if requested
@@ -735,6 +759,9 @@ class Candidate:
             psm_proto_df.fragment_mass_error[
                 self.output_idx, : len(mass_error)
             ] = mass_error
+            psm_proto_df.fragment_position[
+                self.output_idx, : len(fragments.position)
+            ] = fragments.position
             psm_proto_df.fragment_number[
                 self.output_idx, : len(fragments.number)
             ] = fragments.number
@@ -1267,6 +1294,7 @@ class OuptutPsmDF:
     fragment_mass_error: nb.float32[:, ::1]
     fragment_correlation: nb.float32[:, ::1]
 
+    fragment_position: nb.uint8[:, ::1]
     fragment_number: nb.uint8[:, ::1]
     fragment_type: nb.uint8[:, ::1]
     fragment_charge: nb.uint8[:, ::1]
@@ -1293,6 +1321,7 @@ class OuptutPsmDF:
         self.fragment_mass_error = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
         self.fragment_correlation = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
 
+        self.fragment_position = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_number = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_charge = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
@@ -1310,6 +1339,7 @@ class OuptutPsmDF:
             self.fragment_intensity.flatten()[mask],
             self.fragment_mass_error.flatten()[mask],
             self.fragment_correlation.flatten()[mask],
+            self.fragment_position.flatten()[mask],
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
             self.fragment_charge.flatten()[mask],
@@ -1363,7 +1393,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, thermo.ThermoJIT],
+        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,
@@ -1731,6 +1761,11 @@ class CandidateScoring:
             if self.mobility_column not in precursor_df_columns
             else []
         )
+        precursor_df_columns += (
+            [self.precursor_mz_column]
+            if self.precursor_mz_column not in precursor_df_columns
+            else []
+        )
 
         df = utils.merge_missing_columns(
             df,
@@ -1786,6 +1821,7 @@ class CandidateScoring:
             "intensity",
             "mass_error",
             "correlation",
+            "position",
             "number",
             "type",
             "charge",
