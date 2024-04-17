@@ -42,6 +42,7 @@ logger = logging.getLogger()
 class SpecLibFlatFromOutput(SpecLibFlat):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
     def _calculate_fragment_position(self):
         """
         Calculate the position of the fragments based on the type and number of the fragment.
@@ -50,9 +51,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         available_frag_types = self._fragment_df["type"].unique()
         self.frag_types_as_char = {i: chr(i) for i in available_frag_types}
 
-        mapped_frag_types = self._fragment_df["type"].map(
-            self.frag_types_as_char
-        )
+        mapped_frag_types = self._fragment_df["type"].map(self.frag_types_as_char)
         a_b_c_fragments = mapped_frag_types.isin(["a", "b", "c"])
         x_y_z_fragments = mapped_frag_types.isin(["x", "y", "z"])
 
@@ -76,9 +75,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         )
 
         # Change position to int
-        self._fragment_df["position"] = self._fragment_df["position"].astype(
-            int
-        )
+        self._fragment_df["position"] = self._fragment_df["position"].astype(int)
+
     def parse_output_folder(
         self,
         folder: str,
@@ -249,7 +247,9 @@ class AccumulationBroadcaster:
         ), f"subscriber must be an instance of BaseAccumulator, got {type(subscriber)}"
         self._subscribers.append(subscriber)
 
-    def _update_subscriber(self, subscriber:BaseAccumulator, speclibase: base.SpecLibBase):
+    def _update_subscriber(
+        self, subscriber: BaseAccumulator, speclibase: base.SpecLibBase
+    ):
         subscriber.update(speclibase)
 
     def _broadcast(self, result):
@@ -278,7 +278,9 @@ class AccumulationBroadcaster:
 
 @nb.jit(nopython=True)
 def _get_top_indices_from_freq(
-    number_of_readings_per_precursor: np.ndarray, keep_top: int, len_of_precursor_df: int
+    number_of_readings_per_precursor: np.ndarray,
+    keep_top: int,
+    len_of_precursor_df: int,
 ):
     """
     Get the indices of the top keep_top elements in the array number_of_readings_per_precursor.
