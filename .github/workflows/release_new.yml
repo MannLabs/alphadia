@@ -130,7 +130,22 @@ jobs:
       shell: powershell
       run: |
         release/windows/build_backend.ps1
+
+    - name: Test Backend
+      shell: powershell
+      run: |
+        dist\alphadia\alphadia.exe --version
+
+    # Build GUI
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
     
+    - name: Build GUI
+      shell: powershell
+      run: |
+        release/windows/build_gui.ps1
+
+    # combine backend and GUI
     - name: Check if Innosetup is installed
       shell: powershell
       run: |
@@ -142,29 +157,21 @@ jobs:
           Write-Host "Inno Setup is installed"
         }
 
-  #  - name: Setup Node.js
-  #    uses: actions/setup-node@v4
-    
-  #  - name: Build GUI
-  #    shell: powershell
-  #    run: |
-  #      release/windows/build_gui.ps1
+    - name: Build Installer
+      shell: powershell
+      run: |
+        release/windows/build_installer.ps1
 
-  #  - name: Build Installer
-  #    shell: powershell
-  #    run: |
-  #      release/windows/build_installer.ps1
-
-  #  - name: List output files
-  #    run: |
-  #      ls dist
+    - name: List output files
+      run: |
+        ls dist
   
-  #  - name: Upload a Release Asset
-  #    uses: actions/upload-release-asset@v1
-  #    env:
-  #        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #    with:
-  #        upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-  #        asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
-  #        asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
-  #        asset_content_type: application/zip
+    - name: Upload a Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+          asset_content_type: application/zip
