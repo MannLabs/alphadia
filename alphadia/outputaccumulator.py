@@ -381,7 +381,6 @@ class TransferLearningAccumulator(BaseAccumulator):
         Post process the consensus_speclibase by normalizing retention times.
         """
         if self._norm_w_calib:
-
             # instead of a simple max normalization, we want to use a weighted average of the two normalizations
             # At the start of the retention time we will normalize using the calibrated deviation from the library
             # At the end of the retention time we will normalize using the max normalization
@@ -389,15 +388,24 @@ class TransferLearningAccumulator(BaseAccumulator):
             precursor_df = self.consensus_speclibase.precursor_df
 
             # caclulate max normalization
-            max_norm = precursor_df['rt_observed'].values / np.max(precursor_df['rt_observed'].values)
+            max_norm = precursor_df["rt_observed"].values / np.max(
+                precursor_df["rt_observed"].values
+            )
 
             # calculate calibrated normalization
-            deviation_from_calib = (precursor_df['rt_observed'].values - precursor_df['rt_calibrated'].values)/ precursor_df['rt_calibrated'].values
-            calibrated_norm = precursor_df['rt_library'].values* (1+ deviation_from_calib)
+            deviation_from_calib = (
+                precursor_df["rt_observed"].values
+                - precursor_df["rt_calibrated"].values
+            ) / precursor_df["rt_calibrated"].values
+            calibrated_norm = precursor_df["rt_library"].values * (
+                1 + deviation_from_calib
+            )
             calibrated_norm = calibrated_norm / calibrated_norm.max()
 
             # use max norm as weight and combine the two normalizations
-            self.consensus_speclibase.precursor_df['rt_norm'] = (1-max_norm) * calibrated_norm + max_norm * max_norm
+            self.consensus_speclibase.precursor_df["rt_norm"] = (
+                1 - max_norm
+            ) * calibrated_norm + max_norm * max_norm
 
         else:
             # max normalization
