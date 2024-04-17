@@ -197,7 +197,9 @@ class Plan:
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
                 mp_process_num=self.config["general"]["thread_count"],
-                checkpoint_folder_path=self.config["library_prediction"]["checkpoint_folder_path"],
+                checkpoint_folder_path=self.config["library_prediction"][
+                    "checkpoint_folder_path"
+                ],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
