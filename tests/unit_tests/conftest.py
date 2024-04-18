@@ -79,7 +79,7 @@ def mock_precursor_df(
     )
 
 
-def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
+def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     """Create a mock fragment dataframe as it's found as the individual search outputs
 
     Parameters
@@ -100,43 +100,48 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
 
     precursor_intensity = np.random.rand(n_precursor, 1)
 
-    fragment_precursor_idx = np.repeat(np.arange(n_precursor), n_fragments).reshape(
-        (n_precursor, n_fragments)
-    )
-    fragment_mz = np.random.rand(n_precursor, n_fragments) * 200 + 2000
-    fragment_charge = np.random.choice([1, 2], size=(n_precursor, n_fragments))
-    fragment_charge = np.array(fragment_charge, dtype=np.uint8)
+    # create a dataframe with n_precursor * n_fragments rows
+
+    # each column is a list of n_precursor * n_fragments elements
+    fragment_precursor_idx = np.repeat(np.arange(n_precursor), n_fragments).flatten()
+    fragment_mz = np.random.rand(n_precursor * n_fragments) * 2000 + 200
+    fragment_charge = np.random.choice([1, 2], size=(n_precursor* n_fragments)).astype(np.uint8).flatten()
+    
     fragment_number = np.tile(
-        np.arange(1, n_fragments // 2 + 1), n_precursor * 2
-    ).reshape((n_fragments, n_precursor))
-    fragment_number = np.array(fragment_number, dtype=np.uint8)
-    fragment_type = np.tile(np.repeat([ord("b")], n_fragments), n_precursor).reshape(
-        (n_fragments, n_precursor)
-    )
-    fragment_type = np.array(fragment_type, dtype=np.uint8)
-    fragment_height = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_position = fragment_number - 1
-    fragment_position = np.array(fragment_position, dtype=np.uint8)
-    fragment_intensity = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_correlation = np.random.rand(n_precursor, n_fragments)
+        np.concatenate(
+            [np.arange(1, n_fragments // 2 + 1), np.arange(10 // 2, 0,-1)]
+        ), n_precursor
+    ).astype(np.uint8).flatten()
+
+    fragment_type = np.tile(
+        np.repeat([ord("b"),ord("y")], n_fragments//2), n_precursor
+    ).astype(np.uint8).flatten()
+    
+    fragment_height = (10 ** (precursor_intensity * 3) * np.random.rand(
+        n_fragments
+    )).flatten()
+
+    fragment_position = np.tile(np.arange(0, n_fragments // 2), n_precursor*2).astype(np.uint8).flatten()
+
+    fragment_intensity = (10 ** (precursor_intensity * 3) * np.random.rand(
+        n_fragments
+    )).flatten()
+    fragment_correlation = np.random.rand(n_precursor * n_fragments).flatten()
 
     return pd.DataFrame(
         {
-            "precursor_idx": fragment_precursor_idx.flatten(),
-            "mz": fragment_mz.flatten(),
-            "charge": fragment_charge.flatten(),
-            "number": fragment_number.flatten(),
-            "type": fragment_type.flatten(),
-            "position": fragment_position.flatten(),
-            "height": fragment_height.flatten(),
-            "intensity": fragment_intensity.flatten(),
-            "correlation": fragment_correlation.flatten(),
+            "precursor_idx": fragment_precursor_idx,
+            "mz": fragment_mz,
+            "charge": fragment_charge,
+            "number": fragment_number,
+            "type": fragment_type,
+            "position": fragment_position,
+            "height": fragment_height,
+            "intensity": fragment_intensity,
+            "correlation": fragment_correlation,
         }
     )
+    
 
 
 def pytest_configure(config):
