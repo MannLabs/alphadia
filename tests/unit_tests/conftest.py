@@ -105,27 +105,42 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     # each column is a list of n_precursor * n_fragments elements
     fragment_precursor_idx = np.repeat(np.arange(n_precursor), n_fragments).flatten()
     fragment_mz = np.random.rand(n_precursor * n_fragments) * 2000 + 200
-    fragment_charge = np.random.choice([1, 2], size=(n_precursor* n_fragments)).astype(np.uint8).flatten()
-    
-    fragment_number = np.tile(
-        np.concatenate(
-            [np.arange(1, n_fragments // 2 + 1), np.arange(10 // 2, 0,-1)]
-        ), n_precursor
-    ).astype(np.uint8).flatten()
+    fragment_charge = (
+        np.random.choice([1, 2], size=(n_precursor * n_fragments))
+        .astype(np.uint8)
+        .flatten()
+    )
 
-    fragment_type = np.tile(
-        np.repeat([ord("b"),ord("y")], n_fragments//2), n_precursor
-    ).astype(np.uint8).flatten()
-    
-    fragment_height = (10 ** (precursor_intensity * 3) * np.random.rand(
-        n_fragments
-    )).flatten()
+    fragment_number = (
+        np.tile(
+            np.concatenate(
+                [np.arange(1, n_fragments // 2 + 1), np.arange(10 // 2, 0, -1)]
+            ),
+            n_precursor,
+        )
+        .astype(np.uint8)
+        .flatten()
+    )
 
-    fragment_position = np.tile(np.arange(0, n_fragments // 2), n_precursor*2).astype(np.uint8).flatten()
+    fragment_type = (
+        np.tile(np.repeat([ord("b"), ord("y")], n_fragments // 2), n_precursor)
+        .astype(np.uint8)
+        .flatten()
+    )
 
-    fragment_intensity = (10 ** (precursor_intensity * 3) * np.random.rand(
-        n_fragments
-    )).flatten()
+    fragment_height = (
+        10 ** (precursor_intensity * 3) * np.random.rand(n_fragments)
+    ).flatten()
+
+    fragment_position = (
+        np.tile(np.arange(0, n_fragments // 2), n_precursor * 2)
+        .astype(np.uint8)
+        .flatten()
+    )
+
+    fragment_intensity = (
+        10 ** (precursor_intensity * 3) * np.random.rand(n_fragments)
+    ).flatten()
     fragment_correlation = np.random.rand(n_precursor * n_fragments).flatten()
 
     return pd.DataFrame(
@@ -141,7 +156,6 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
             "correlation": fragment_correlation,
         }
     )
-    
 
 
 def pytest_configure(config):
