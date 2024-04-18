@@ -6,6 +6,10 @@ logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr
+from alphadia.outputaccumulator import (
+    TransferLearningAccumulator,
+    AccumulationBroadcaster,
+)
 
 import pandas as pd
 import numpy as np
@@ -20,6 +24,7 @@ from typing import List, Tuple, Iterator, Union
 import numba as nb
 from alphabase.spectral_library import base
 from alphabase.peptide import precursor
+
 
 import directlfq.utils as lfqutils
 import directlfq.normalization as lfqnorm
@@ -303,6 +308,7 @@ class SearchPlanOutput:
     STAT_OUTPUT = "stat"
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
+    TRANSFER_OUTPUT = "speclib.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -369,6 +375,56 @@ class SearchPlanOutput:
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
+        self._transfer_Learning_lib = self.build_transfer_library(
+            folder_list, keep_top=3, number_of_processes=4, save=True
+        )
+
+    def build_transfer_library(
+        self,
+        folder_list: List[str],
+        keep_top: int = 3,
+        number_of_processes: int = 4,
+        save: bool = True,
+    ) -> base.SpecLibBase:
+        """
+        A function to get the transfer library
+
+        Parameters
+        ----------
+        folder_list : List[str]
+            The list of output folders.
+
+        keep_top : int
+            The number of top runs to keep per each precursor, based on the proba. (smaller the proba, better the run)
+
+        number_of_processes : int, optional
+            The number of processes to use, by default 2
+
+        save : bool, optional
+            Whether to save the transfer library to disk, by default True
+
+        Returns
+        -------
+        base.SpecLibBase
+            The transfer Learning library
+        """
+        logger.info("Building transfer library")
+        transferAccumulator = TransferLearningAccumulator(
+            keep_top=keep_top, norm_w_calib=True
+        )
+        accumulationBroadcaster = AccumulationBroadcaster(
+            folder_list, number_of_processes
+        )
+        accumulationBroadcaster.subscribe(transferAccumulator)
+        accumulationBroadcaster.run()
+        logger.info(
+            f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
+        )
+        if save:
+            transferAccumulator.consensus_speclibase.save_hdf(
+                os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
+            )
+        return transferAccumulator.consensus_speclibase
 
         return psm_df
 
@@ -524,7 +580,6 @@ class SearchPlanOutput:
 
         if not self.config["fdr"]["keep_decoys"]:
             psm_df = psm_df[psm_df["decoy"] == 0]
-
         if save:
             logger.info("Writing precursor output to disk")
             psm_df.to_csv(
