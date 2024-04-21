@@ -67,12 +67,12 @@ jobs:
         python -c "import platform; print(platform.machine())"
 
     - name: Build backend
-      shell: bash -l {0}
+      shell: bash -el {0}
       run: |
         release/macos/build_backend_macos.sh
 
     - name: Test backend
-      shell: bash -l {0}
+      shell: bash -el {0}
       run: |
         dist/alphadia/alphadia --version
 
@@ -86,7 +86,7 @@ jobs:
 
     # combine backend and GUI
     - name: Build package
-      shell: bash -l {0}
+      shell: bash -el {0}
       run: |
         release/macos/build_pkg_macos.sh
 
@@ -169,6 +169,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
           upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-x64.exe
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
           asset_content_type: application/zip
