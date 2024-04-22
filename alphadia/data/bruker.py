@@ -655,7 +655,9 @@ class TimsTOFTransposeJIT(object):
                                 relative_precursor_index[i],
                                 relative_scan,
                                 relative_precursor,
-                            ] = accumulated_intensity + new_intensity
+                            ] = (
+                                accumulated_intensity + new_intensity
+                            )
                             dense_output[
                                 1,
                                 j,
