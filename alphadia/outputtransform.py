@@ -268,9 +268,13 @@ class QuantBuilder:
         _intensity_df = intensity_df.drop(columns=columns_to_drop)
 
         lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
-        lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False) #save compute time by avoiding the creation of a normalized ion table
-        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas() #avoid read-only pandas bug on linux if applicable
-        lfqconfig.set_log_processed_proteins(log_processed_proteins=True) #here you can chose wether to log the processed proteins or not
+        lfqconfig.set_compile_normalized_ion_table(
+            compile_normalized_ion_table=False
+        )  # save compute time by avoiding the creation of a normalized ion table
+        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()  # avoid read-only pandas bug on linux if applicable
+        lfqconfig.set_log_processed_proteins(
+            log_processed_proteins=True
+        )  # here you can chose wether to log the processed proteins or not
 
         _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
 
