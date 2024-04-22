@@ -81,7 +81,7 @@ function workflowToConfig(workflow) {
     if (workflow.library.path != "") {
         output["library"] = workflow.library.path
     }
-    
+
     if (workflow.fasta_list.path != "") {
         output["fasta_list"] = workflow.fasta_list.path
     }
@@ -93,7 +93,7 @@ function workflowToConfig(workflow) {
     if (workflow.output_directory.path != "") {
         output["output_directory"] = workflow.output_directory.path
     }
-    
+
     workflow.config.forEach((config) => {
         output[config.id] = {}
         config.parameters.forEach((parameter) => {
@@ -102,7 +102,7 @@ function workflowToConfig(workflow) {
     })
 
     return output
-}    
+}
 
 module.exports = {
     discoverWorkflows,

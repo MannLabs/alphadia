@@ -51,7 +51,7 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
 
 
 def wsl_to_windows(
-    path: typing.Union[str, list, tuple]
+    path: typing.Union[str, list, tuple],
 ) -> typing.Union[str, list, tuple]:
     """Converts a WSL path to a Windows path.
 
@@ -89,7 +89,7 @@ def wsl_to_windows(
 
 
 def windows_to_wsl(
-    path: typing.Union[str, list, tuple]
+    path: typing.Union[str, list, tuple],
 ) -> typing.Union[str, list, tuple]:
     """Converts a Windows path to a WSL path.
 

@@ -26,7 +26,7 @@ const ParameterGroup = ({parameterGroup, sx}) => {
           },
             ...(Array.isArray(sx) ? sx : [sx]),
             ]}
-            >   
+            >
                 <Grid container spacing={0}>
                     <Grid item xs={12} sx={{paddingBottom: 1}}>
                         <ButtonBase onClick={() => {setOpen(!open)}}>
@@ -50,19 +50,19 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                                 <ParameterInput
                                     parameter = {parameter}
                                     onChange = {(value) => {dispatch(
-                                        {type: 'updateParameter', 
+                                        {type: 'updateParameter',
                                         parameterGroupId: parameterGroup.id,
                                         parameterId: parameter.id,
                                         value: value
                                         })}}
-                                /> 
+                                />
                             </Grid>
                         )
                     })}
                     </Collapse>
                 </Grid>
-                
-        </Box>  
+
+        </Box>
     )
 }
 

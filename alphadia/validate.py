@@ -179,7 +179,7 @@ class Schema:
         :widths: 1 1 1
         :header-rows: 1
 
-        * - Name 
+        * - Name
           - Required
           - Type
 """

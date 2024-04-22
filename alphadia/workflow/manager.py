@@ -282,7 +282,7 @@ class CalibrationManager(BaseManager):
         -------
         dict
             Calibration group dict with `name` and `estimators` keys\
-        
+
         """
         for group in self.estimator_groups:
             if group["name"] == group_name:

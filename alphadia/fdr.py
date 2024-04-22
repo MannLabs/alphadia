@@ -82,8 +82,9 @@ def perform_fdr(
     target_len, decoy_len = len(df_target), len(df_decoy)
     df_target.dropna(subset=available_columns, inplace=True)
     df_decoy.dropna(subset=available_columns, inplace=True)
-    target_dropped, decoy_dropped = target_len - len(df_target), decoy_len - len(
-        df_decoy
+    target_dropped, decoy_dropped = (
+        target_len - len(df_target),
+        decoy_len - len(df_decoy),
     )
 
     if target_dropped > 0:

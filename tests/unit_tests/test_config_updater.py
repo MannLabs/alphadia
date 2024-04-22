@@ -20,7 +20,7 @@ general:
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
-  
+
 library_prediction:
   predict: False
   enzyme: trypsin

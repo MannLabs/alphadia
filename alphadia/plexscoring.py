@@ -367,7 +367,6 @@ float_array = nb.types.float32[:]
 
 @nb.experimental.jitclass()
 class Candidate:
-
     """
     __init__ will be called single threaded, initialize will later be called multithreaded.
     Therefore as much as possible should be done in initialize.
@@ -744,33 +743,33 @@ class Candidate:
             psm_proto_df.fragment_mz_library[
                 self.output_idx, : len(fragments.mz_library)
             ] = fragments.mz_library
-            psm_proto_df.fragment_mz[
-                self.output_idx, : len(fragments.mz)
-            ] = fragments.mz
-            psm_proto_df.fragment_mz_observed[
-                self.output_idx, : len(mz_observed)
-            ] = mz_observed
+            psm_proto_df.fragment_mz[self.output_idx, : len(fragments.mz)] = (
+                fragments.mz
+            )
+            psm_proto_df.fragment_mz_observed[self.output_idx, : len(mz_observed)] = (
+                mz_observed
+            )
 
             psm_proto_df.fragment_height[self.output_idx, : len(height)] = height
-            psm_proto_df.fragment_intensity[
-                self.output_idx, : len(intensity)
-            ] = intensity
+            psm_proto_df.fragment_intensity[self.output_idx, : len(intensity)] = (
+                intensity
+            )
 
-            psm_proto_df.fragment_mass_error[
-                self.output_idx, : len(mass_error)
-            ] = mass_error
+            psm_proto_df.fragment_mass_error[self.output_idx, : len(mass_error)] = (
+                mass_error
+            )
             psm_proto_df.fragment_position[
                 self.output_idx, : len(fragments.position)
             ] = fragments.position
-            psm_proto_df.fragment_number[
-                self.output_idx, : len(fragments.number)
-            ] = fragments.number
-            psm_proto_df.fragment_type[
-                self.output_idx, : len(fragments.type)
-            ] = fragments.type
-            psm_proto_df.fragment_charge[
-                self.output_idx, : len(fragments.charge)
-            ] = fragments.charge
+            psm_proto_df.fragment_number[self.output_idx, : len(fragments.number)] = (
+                fragments.number
+            )
+            psm_proto_df.fragment_type[self.output_idx, : len(fragments.type)] = (
+                fragments.type
+            )
+            psm_proto_df.fragment_charge[self.output_idx, : len(fragments.charge)] = (
+                fragments.charge
+            )
 
         # ============= FRAGMENT MOBILITY CORRELATIONS =============
         # will be skipped if no mobility dimension is present
@@ -803,9 +802,9 @@ class Candidate:
         )
 
         if config.collect_fragments:
-            psm_proto_df.fragment_correlation[
-                self.output_idx, : len(correlation)
-            ] = correlation
+            psm_proto_df.fragment_correlation[self.output_idx, : len(correlation)] = (
+                correlation
+            )
 
         psm_proto_df.features[self.output_idx] = feature_array
         psm_proto_df.valid[self.output_idx] = True

@@ -66,10 +66,10 @@ const MultiSelect = ({
 
         </Grid>
         <Grid item xs={3} position={'relative'}>
-            <Button 
-                variant="outlined" 
-                sx={{float: 'right', ml:1, minWidth: "115px"}} 
-                disabled={!active} 
+            <Button
+                variant="outlined"
+                sx={{float: 'right', ml:1, minWidth: "115px"}}
+                disabled={!active}
                 onClick={handleSelect}>
                 Select Files
             </Button>

@@ -28,7 +28,6 @@ import matplotlib as mpl
 
 @nb.experimental.jitclass()
 class HybridCandidateConfigJIT:
-
     """
     Numba compatible config object for the HybridCandidate class.
     Please see the documentation of the HybridCandidateConfig class for more information on the parameters and their default values.
