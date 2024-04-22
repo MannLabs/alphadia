@@ -16,12 +16,9 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import LogisticRegression
 
-import multiprocessing as mp
 
 from typing import List, Tuple, Iterator, Union
-import numba as nb
 from alphabase.spectral_library import base
 from alphabase.peptide import precursor
 
@@ -569,10 +566,10 @@ class SearchPlanOutput:
         logger.progress(
             "================ Protein FDR =================",
         )
-        logger.progress(f"Unique protein groups in output")
+        logger.progress("Unique protein groups in output")
         logger.progress(f"  1% protein FDR: {pg_count:,}")
         logger.progress("")
-        logger.progress(f"Unique precursor in output")
+        logger.progress("Unique precursor in output")
         logger.progress(f"  1% protein FDR: {precursor_count:,}")
         logger.progress(
             "================================================",

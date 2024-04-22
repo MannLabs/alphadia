@@ -813,9 +813,6 @@ class TimsTOFTransposeJIT(object):
         )
 
 
-import numba as nb
-
-
 @alphatims.utils.pjit()
 def transpose_chunk(
     chunk_idx,

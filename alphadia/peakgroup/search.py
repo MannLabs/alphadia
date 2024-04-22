@@ -3,14 +3,11 @@ import logging
 
 logger = logging.getLogger()
 import os
-import time
-import typing
 
 # alphadia imports
 from alphadia import utils
 from alphadia.numba import fragments, numeric, config, fft
-from alphadia import validate, utils
-from alphadia.data import bruker, alpharaw
+from alphadia import validate
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import assemble_isotope_mz
 
@@ -21,9 +18,6 @@ import alphatims
 import numba as nb
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import patches
-import matplotlib as mpl
 
 
 @nb.experimental.jitclass()

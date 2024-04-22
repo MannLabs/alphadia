@@ -8,7 +8,6 @@ import pickle
 from alphadia.plotting.utils import density_scatter
 
 # alpha family imports
-import alphatims.utils
 from alphabase.statistics.regression import LOESSRegression
 
 # third party imports

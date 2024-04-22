@@ -1563,11 +1563,11 @@ class CandidateScoring:
         )
 
         # check if channel column is present
-        if not "channel" in candidates_df.columns:
+        if "channel" not in candidates_df.columns:
             candidates_df["channel"] = np.zeros(len(candidates_df), dtype=np.uint8)
 
         # check if monoisotopic abundance column is present
-        if not "i_0" in candidates_df.columns:
+        if "i_0" not in candidates_df.columns:
             candidates_df["i_0"] = np.ones(len(candidates_df), dtype=np.float32)
 
         # calculate score groups

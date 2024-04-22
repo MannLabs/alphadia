@@ -283,7 +283,7 @@ def get_isotope_columns(colnames):
     isotopes = np.array(sorted(isotopes))
 
     if not np.all(np.diff(isotopes) == 1):
-        logging.warning(f"Isotopes are not consecutive")
+        logging.warning("Isotopes are not consecutive")
 
     return isotopes
 
@@ -640,7 +640,7 @@ def merge_missing_columns(
         raise ValueError(f"Columns {missing_columns} must be present in right_df")
 
     if on is None:
-        raise ValueError(f"Parameter on must be specified")
+        raise ValueError("Parameter on must be specified")
 
     if not all([col in left_df.columns for col in on]):
         raise ValueError(f"Columns {on} must be present in left_df")
@@ -649,7 +649,7 @@ def merge_missing_columns(
         raise ValueError(f"Columns {on} must be present in right_df")
 
     if how not in ["left", "right", "inner", "outer"]:
-        raise ValueError(f"Parameter how must be one of left, right, inner, outer")
+        raise ValueError("Parameter how must be one of left, right, inner, outer")
 
     # merge
     return left_df.merge(right_df[on + missing_columns], on=on, how=how)

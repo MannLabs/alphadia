@@ -5,7 +5,6 @@
 import unittest
 
 # local
-import alphadia.cli
 
 if __name__ == "__main__":
     unittest.main()

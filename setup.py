@@ -2,7 +2,6 @@
 
 # builtin
 import setuptools
-import re
 import os
 
 # local

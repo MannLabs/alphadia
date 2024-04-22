@@ -2,7 +2,6 @@
 
 # native imports
 import logging
-import time
 import yaml
 import os
 import re

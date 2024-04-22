@@ -2,7 +2,6 @@
 """This module provides unit tests for alphadia.cli."""
 
 # builtin
-import unittest
 
 # local
 from alphadia.utils import (

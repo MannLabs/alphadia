@@ -1,5 +1,4 @@
 # native imports
-import time
 
 # alphadia imports
 from alphadia import utils
