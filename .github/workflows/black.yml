@@ -1,9 +1,10 @@
 name: Black linter
 
 on:
-  pull_request:
-    paths:
-      - '**.py'
+  # never run
+  push:
+    branches:
+      - this-branch-should-not-exist
 
 jobs:
   lint:
