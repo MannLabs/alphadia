@@ -408,10 +408,13 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             const cwd = path.dirname(this.config.binaryPath)
             const binaryName = path.basename(this.config.binaryPath)
 
+            // prefix for windows and unix systems
+            const prefix = process.platform == "win32" ? "" : "./"
+
             // spawn process for alphaDIA backend
             // pass config.yaml as argument
             // use binary location as cwd and binary name as command
-            run.process = spawn(binaryName,
+            run.process = spawn(prefix + binaryName,
                 ["--config", 
                 path.join(workflow.output_directory.path, "config.yaml")
                 ], 

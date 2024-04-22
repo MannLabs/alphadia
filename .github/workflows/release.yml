@@ -1,10 +1,9 @@
 on:
-  push:
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
-
-name: Release on GitHub
+name: Release bundled installer
 
 jobs:
   Version_Bumped:
@@ -13,8 +12,8 @@ jobs:
       version: ${{ steps.master_version_bumped.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - uses: conda-incubator/setup-miniconda@v2
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
@@ -43,59 +42,133 @@ jobs:
           draft: true
           prerelease: false
 
-  Create_MacOS_GUI:
-    runs-on: macos-latest
+  Create_MacOS_Installer:
     needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
+        EAGER_IMPORT: true
+    runs-on: macos-latest-xlarge
     steps:
     - name : Checkout code
-      uses: actions/checkout@v3
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-    - name: Install dependencies
+      uses: actions/checkout@v4
+
+    # Build backend
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        activate-environment: alpha
+        python-version: "3.11"
+    
+    - name: Check arm64
+      shell: bash -el {0}
       run: |
-        cd gui
-        npm install
+        python -c "import platform; print(platform.machine())"
+
+    - name: Build backend
+      shell: bash -el {0}
+      run: |
+        release/macos/build_backend_macos.sh
+
+    - name: Test backend
+      shell: bash -el {0}
+      run: |
+        dist/alphadia/alphadia --version
+
+    # Build GUI
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+
     - name: Build GUI
       run: |
-        cd gui
-        npm run make
+        release/macos/build_gui_macos.sh
+
+    # combine backend and GUI
+    - name: Build package
+      shell: bash -el {0}
+      run: |
+        release/macos/build_pkg_macos.sh
+
     - name: List output files
       run: |
-        ls gui/out/make/zip/darwin/x64
+        ls dist
+
+    # Upload the package
     - name: Upload a Release Asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-        asset_path: gui/out/make/zip/darwin/x64/alphadia-gui-darwin-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-        asset_name: alphadia-gui-darwin-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-        asset_content_type: application/zip
-  Create_Win_GUI:
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          asset_content_type: application/zip
+
+  Create_Windows_Installer:
+    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    env:
+        ARCH: x64
     runs-on: windows-latest
-    needs: [Create_Draft_On_GitHub, Version_Bumped]
     steps:
     - name : Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+    
+    # Build backend
+    - name: Install conda
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        activate-environment: alpha
+        python-version: "3.11"
+
+    - name: Build Backend
+      shell: powershell
+      run: |
+        release/windows/build_backend.ps1
+
+    - name: Test Backend
+      shell: powershell
+      run: |
+        dist\alphadia\alphadia.exe --version
+
+    # Build GUI
     - name: Setup Node.js
-      uses: actions/setup-node@v2
-    - name: Install dependencies
-      run: |
-        cd gui
-        npm install
+      uses: actions/setup-node@v4
+    
     - name: Build GUI
+      shell: powershell
       run: |
-        cd gui
-        npm run make
+        release/windows/build_gui.ps1
+
+    # combine backend and GUI
+    - name: Check if Innosetup is installed
+      shell: powershell
+      run: |
+        if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+          Write-Host "Inno Setup is not installed"
+          exit 1
+        }
+        else {
+          Write-Host "Inno Setup is installed"
+        }
+
+    - name: Build Installer
+      shell: powershell
+      run: |
+        release/windows/build_installer.ps1
+
     - name: List output files
       run: |
-        ls -R gui/out/make
+        ls dist
+  
     - name: Upload a Release Asset
       uses: actions/upload-release-asset@v1
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-        asset_path: gui/out/make/zip/win32/x64/alphadia-gui-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-        asset_name: alphadia-gui-win32-x64-${{ needs.Version_Bumped.outputs.version }}.zip
-        asset_content_type: application/zip
+          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
+          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
+          asset_content_type: application/zip
