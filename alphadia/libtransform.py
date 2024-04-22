@@ -162,10 +162,10 @@ class FastaDigest(ProcessingStep):
 
     def validate(self, input: typing.List[str]) -> bool:
         if not isinstance(input, list):
-            logger.error(f"Input fasta list is not a list")
+            logger.error("Input fasta list is not a list")
             return False
         if len(input) == 0:
-            logger.error(f"Input fasta list is empty")
+            logger.error("Input fasta list is empty")
             return False
 
         return True
@@ -191,9 +191,9 @@ class FastaDigest(ProcessingStep):
             precursor_mz_max=self.precursor_mz[1],
             decoy=None,
         )
-        logger.info(f"Digesting fasta file")
+        logger.info("Digesting fasta file")
         fasta_lib.get_peptides_from_fasta_list(input)
-        logger.info(f"Adding modifications")
+        logger.info("Adding modifications")
         fasta_lib.add_modifications()
 
         fasta_lib.precursor_df["proteins"] = fasta_lib.precursor_df[
@@ -220,7 +220,7 @@ class FastaDigest(ProcessingStep):
             & (fasta_lib.precursor_df["precursor_mz"] < self.precursor_mz[1])
         ]
 
-        logger.info(f"Removing non-canonical amino acids")
+        logger.info("Removing non-canonical amino acids")
         forbidden = ["B", "J", "X", "Z"]
 
         masks = []
@@ -280,7 +280,7 @@ class PeptDeepPrediction(ProcessingStep):
         model_mgr.nce = self.nce
         model_mgr.instrument = self.instrument
 
-        logger.info(f"Predicting RT, MS2 and mobility")
+        logger.info("Predicting RT, MS2 and mobility")
         res = model_mgr.predict_all(
             input.precursor_df,
             predict_items=["rt", "ms2", "mobility"],
@@ -289,15 +289,15 @@ class PeptDeepPrediction(ProcessingStep):
         )
 
         if "fragment_mz_df" in res:
-            logger.info(f"Adding fragment mz information")
+            logger.info("Adding fragment mz information")
             input._fragment_mz_df = res["fragment_mz_df"][frag_types]
 
         if "fragment_intensity_df" in res:
-            logger.info(f"Adding fragment intensity information")
+            logger.info("Adding fragment intensity information")
             input._fragment_intensity_df = res["fragment_intensity_df"][frag_types]
 
         if "precursor_df" in res:
-            logger.info(f"Adding precursor information")
+            logger.info("Adding precursor information")
             input._precursor_df = res["precursor_df"]
 
         return input
@@ -317,15 +317,15 @@ class PrecursorInitializer(ProcessingStep):
         valid = isinstance(input, SpecLibBase)
 
         if len(input.precursor_df) == 0:
-            logger.error(f"Input library has no precursor information")
+            logger.error("Input library has no precursor information")
             valid = False
 
         if len(input.fragment_intensity_df) == 0:
-            logger.error(f"Input library has no fragment intensity information")
+            logger.error("Input library has no fragment intensity information")
             valid = False
 
         if len(input.fragment_mz_df) == 0:
-            logger.error(f"Input library has no fragment mz information")
+            logger.error("Input library has no fragment mz information")
             valid = False
 
         return valid
@@ -393,7 +393,7 @@ class AnnotateFasta(ProcessingStep):
         protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
         if self.drop_decoy and "decoy" in input.precursor_df.columns:
-            logger.info(f"Dropping decoys from input library before annotation")
+            logger.info("Dropping decoys from input library before annotation")
             input._precursor_df = input._precursor_df[input._precursor_df["decoy"] == 0]
 
         input._precursor_df = fasta.annotate_precursor_df(
@@ -438,7 +438,7 @@ class DecoyGenerator(ProcessingStep):
         decoy_values = input.precursor_df["decoy"].unique()
         if len(decoy_values) > 1:
             logger.warning(
-                f"Input library already contains decoys. Skipping decoy generation. \n Please note that decoys generated outside of alphabase are not supported."
+                "Input library already contains decoys. Skipping decoy generation. \n Please note that decoys generated outside of alphabase are not supported."
             )
             return input
 
@@ -490,7 +490,7 @@ class IsotopeGenerator(ProcessingStep):
 
         if len(existing_isotopes) > 0:
             logger.warning(
-                f"Input library already contains isotope information. Skipping isotope generation. \n Please note that isotope generation outside of alphabase is not supported."
+                "Input library already contains isotope information. Skipping isotope generation. \n Please note that isotope generation outside of alphabase is not supported."
             )
             return input
 
@@ -519,7 +519,7 @@ class RTNormalization(ProcessingStep):
             ]
         ):
             logger.error(
-                f"Input library has no RT information. Please enable RT prediction or provide RT information."
+                "Input library has no RT information. Please enable RT prediction or provide RT information."
             )
             valid = False
         return valid
@@ -528,7 +528,7 @@ class RTNormalization(ProcessingStep):
         """Normalize the retention time of the spectral library."""
         if len(input.precursor_df) == 0:
             logger.warning(
-                f"Input library has no precursor information. Skipping RT normalization"
+                "Input library has no precursor information. Skipping RT normalization"
             )
             return input
 
@@ -538,7 +538,7 @@ class RTNormalization(ProcessingStep):
                 or "rt_norm_pred" in input.precursor_df.columns
             ):
                 logger.warning(
-                    f"Input library already contains normalized RT information. Skipping RT normalization"
+                    "Input library already contains normalized RT information. Skipping RT normalization"
                 )
                 return input
 
@@ -656,7 +656,7 @@ class LogFlatLibraryStats(ProcessingStep):
     def forward(self, input: SpecLibFlat) -> SpecLibFlat:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
 
-        logger.info(f"============ Library Stats ============")
+        logger.info("============ Library Stats ============")
         logger.info(f"Number of precursors: {len(input.precursor_df):,}")
 
         if "decoy" in input.precursor_df.columns:
@@ -665,7 +665,7 @@ class LogFlatLibraryStats(ProcessingStep):
             logger.info(f"\tthereof targets:{n_targets:,}")
             logger.info(f"\tthereof decoys: {n_decoys:,}")
         else:
-            logger.warning(f"no decoy column was found")
+            logger.warning("no decoy column was found")
 
         if "elution_group_idx" in input.precursor_df.columns:
             n_elution_groups = len(input.precursor_df["elution_group_idx"].unique())
@@ -674,13 +674,13 @@ class LogFlatLibraryStats(ProcessingStep):
             logger.info(f"\taverage size: {average_precursors_per_group:.2f}")
 
         else:
-            logger.warning(f"no elution_group_idx column was found")
+            logger.warning("no elution_group_idx column was found")
 
         if "proteins" in input.precursor_df.columns:
             n_proteins = len(input.precursor_df["proteins"].unique())
             logger.info(f"Number of proteins: {n_proteins:,}")
         else:
-            logger.warning(f"no proteins column was found")
+            logger.warning("no proteins column was found")
 
         if "channel" in input.precursor_df.columns:
             channels = input.precursor_df["channel"].unique()
@@ -688,14 +688,14 @@ class LogFlatLibraryStats(ProcessingStep):
             logger.info(f"Number of channels: {n_channels:,} ({channels})")
 
         else:
-            logger.warning(f"no channel column was found, will assume only one channel")
+            logger.warning("no channel column was found, will assume only one channel")
 
         isotopes = utils.get_isotope_columns(input.precursor_df.columns)
 
         if len(isotopes) > 0:
             logger.info(f"Isotopes Distribution for {len(isotopes)} isotopes")
 
-        logger.info(f"=======================================")
+        logger.info("=======================================")
 
         return input
 

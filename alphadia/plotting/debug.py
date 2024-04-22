@@ -184,7 +184,7 @@ def plot_fragments(
             )
             axs[mass_index, frag].imshow(masked, cmap="RdBu")
 
-            axs[mass_index, frag].set_xlabel(f"frame")
+            axs[mass_index, frag].set_xlabel("frame")
         axs[mass_index, 0].set_ylabel(f"observation {obs}\n scan")
         axs[dense_index, 0].set_ylabel(f"observation {obs}\n scan")
 
@@ -259,7 +259,7 @@ def plot_template(dense_precursors, qtf, template, isotope_intensity):
                 qtf[i_isotope, i_observation] * isotope_intensity[i_isotope], scan_range
             )
             axs[i_observation, i_qtf].set_xlim(0, 1)
-            axs[-1, i_dense].set_xlabel(f"frame")
+            axs[-1, i_dense].set_xlabel("frame")
 
         # remove xticks from all but last row
         if i_observation < n_observations - 1:
@@ -267,7 +267,7 @@ def plot_template(dense_precursors, qtf, template, isotope_intensity):
                 ax.set_xticks([])
 
         # bold title
-        axs[0, -1].set_title(f"template", fontweight="bold")
+        axs[0, -1].set_title("template", fontweight="bold")
 
         axs[i_observation, -1].imshow(
             template[i_observation],

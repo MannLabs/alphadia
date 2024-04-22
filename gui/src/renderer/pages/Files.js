@@ -31,7 +31,7 @@ const Files = () => {
                     />
                 </FullWidthBox>
                 <FullWidthBox>
-                    <MultiSelect 
+                    <MultiSelect
                             label="Fasta File(s)"
                             active={method.fasta_list.active}
                             path={method.fasta_list.path}
@@ -49,7 +49,7 @@ const Files = () => {
                 <FullWidthBox sx={{flexGrow: 1}}>
                     <FileViewer path={method.raw_path_list.path}/>
                 </FullWidthBox>
-        </Box>  
+        </Box>
     )
 }
 

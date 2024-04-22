@@ -9,7 +9,7 @@ const buildPalette = (mode) => {
             selected: isDark? "rgb(17,71,74)" : "#bbf3f6",
             hover: isDark? "#282828" : "#e8fbfc",
             dark: "#8eebf0",
-            contrastText: "#009ba3"            
+            contrastText: "#009ba3"
         },
         success: {
             main: "rgb(75, 211, 26)",
@@ -68,7 +68,7 @@ const getDesignTokens = (mode) => ({
 
             .MuiLink-root {
                 color: ${themeParam.palette.text.primary};
-                text-decoration: none; 
+                text-decoration: none;
                 border-bottom:1px dashed;
             }
 
@@ -79,11 +79,11 @@ const getDesignTokens = (mode) => ({
             .MuiListItemIcon-root {
                 color: inherit !important;
             }
-            
+
             `,
         },
     },
-    
+
 });
 
 export default getDesignTokens;

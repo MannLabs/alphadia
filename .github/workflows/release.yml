@@ -24,7 +24,7 @@ jobs:
           cd misc
           . ./check_version.sh
           echo "version=$current_version" >> $GITHUB_OUTPUT
-   
+
   Create_Draft_On_GitHub:
     runs-on: ubuntu-latest
     needs: Version_Bumped
@@ -60,7 +60,7 @@ jobs:
         auto-update-conda: true
         activate-environment: alpha
         python-version: "3.11"
-    
+
     - name: Check arm64
       shell: bash -el {0}
       run: |
@@ -113,7 +113,7 @@ jobs:
     steps:
     - name : Checkout code
       uses: actions/checkout@v4
-    
+
     # Build backend
     - name: Install conda
       uses: conda-incubator/setup-miniconda@v3
@@ -136,7 +136,7 @@ jobs:
     # Build GUI
     - name: Setup Node.js
       uses: actions/setup-node@v4
-    
+
     - name: Build GUI
       shell: powershell
       run: |
@@ -162,7 +162,7 @@ jobs:
     - name: List output files
       run: |
         ls dist
-  
+
     - name: Upload a Release Asset
       uses: actions/upload-release-asset@v1
       env:

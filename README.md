@@ -44,7 +44,7 @@ If you want to use `.raw` files on Thermo instruments alphaRaw is required, whic
 
 #### 2. Setting up the environment
 
-For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise dependancy conflicts can occur with already existing packages. 
+For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise dependancy conflicts can occur with already existing packages.
 
 ```bash
 conda create --name alpha python=3.9 -y
@@ -52,7 +52,7 @@ conda activate alpha
 ```
 
 #### 3. Setting up the repository
-***Depending on the state of the project the repository might not be public yet. In this case it is required that you generate a ssh key and link it to you GitHub account. [More](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)*** 
+***Depending on the state of the project the repository might not be public yet. In this case it is required that you generate a ssh key and link it to you GitHub account. [More](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)***
 
 Navigate to a folder where you would like to install alphaDIA
 ```bash

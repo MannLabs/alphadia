@@ -15,7 +15,7 @@ const Profile = class {
         "clippy": false,
         "WSLExecutionEngine": {
             "envName": "alpha",
-            
+
         },
         "CMDExecutionEngine": {
             "envName": "alpha",

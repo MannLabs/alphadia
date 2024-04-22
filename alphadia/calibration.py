@@ -8,7 +8,6 @@ import pickle
 from alphadia.plotting.utils import density_scatter
 
 # alpha family imports
-import alphatims.utils
 from alphabase.statistics.regression import LOESSRegression
 
 # third party imports
@@ -609,7 +608,7 @@ class CalibrationManager:
         -------
         dict
             Calibration group dict with `name` and `estimators` keys\
-        
+
         """
         for group in self.estimator_groups:
             if group["name"] == group_name:

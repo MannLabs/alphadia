@@ -46,7 +46,7 @@ def density_scatter(
     y: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
     axis: plt.Axes = None,
     s: float = 1,
-    **kwargs
+    **kwargs,
 ):
     """
     Scatter plot colored by kerneld density estimation

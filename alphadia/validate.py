@@ -139,7 +139,7 @@ class Schema:
         self.schema = properties
         for property in self.schema:
             if not isinstance(property, Property):
-                raise ValueError(f"Schema must contain only Property objects")
+                raise ValueError("Schema must contain only Property objects")
 
     def __call__(self, df, logging=True):
         """
@@ -171,7 +171,7 @@ class Schema:
             Docstring for the schema
         """
 
-        docstring = f"""
+        docstring = """
     Schema
     ------
 
@@ -179,7 +179,7 @@ class Schema:
         :widths: 1 1 1
         :header-rows: 1
 
-        * - Name 
+        * - Name
           - Required
           - Type
 """

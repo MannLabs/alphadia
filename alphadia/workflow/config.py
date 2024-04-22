@@ -1,5 +1,5 @@
 """
-This module is responsible for a reporting feature to allow updating the default configuration 
+This module is responsible for a reporting feature to allow updating the default configuration
 using a list of experiment configurations in an interactive way by visualizing to the user the modifications/updates
 that will be applied to the default configuration by every experiment configuration in the list.
 
@@ -21,11 +21,10 @@ In our analysis, we focus on discerning changes between the default configuratio
 - The order of experiments holds significance, with configurations later in the sequence taking precedence in terms of their impact on changes.
 - But we still define the source of the update to be the first experiment that triggered the change.
 """
+
 import yaml
-import os
-from typing import List, Tuple, Dict, Any, Optional, Union
+from typing import List, Dict, Any, Union
 import copy
-from math import isnan
 import json
 import pandas as pd
 import numpy as np

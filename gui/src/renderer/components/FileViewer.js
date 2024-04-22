@@ -41,10 +41,10 @@ const FileViewer = ({
     })
 
     return (
-    <DataGrid 
-        rows={rows} 
-        columns={columns} 
-        pageSize={5} 
+    <DataGrid
+        rows={rows}
+        columns={columns}
+        pageSize={5}
         rowHeight={40}
         density="compact"
         />

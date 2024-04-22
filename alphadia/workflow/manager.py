@@ -103,7 +103,7 @@ class BaseManager:
                                 f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
                                 verbosity="warning",
                             )
-                except Exception as e:
+                except Exception:
                     self.reporter.log_string(
                         f"Failed to load {self.__class__.__name__} from {self.path}",
                         verbosity="error",
@@ -282,7 +282,7 @@ class CalibrationManager(BaseManager):
         -------
         dict
             Calibration group dict with `name` and `estimators` keys\
-        
+
         """
         for group in self.estimator_groups:
             if group["name"] == group_name:

@@ -91,7 +91,7 @@ def test_output_transform():
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
-    protein_df = pd.read_csv(os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t")
+    protein_df = pd.read_csv(os.path.join(temp_folder, "pg.matrix.tsv"), sep="\t")
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:

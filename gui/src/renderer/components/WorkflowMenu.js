@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import { usePopupState, bindTrigger, bindMenu } from 'material-ui-popup-state/hooks'
 
 import { Box, Typography, ButtonBase, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material'
-import MenuBookIcon from '@mui/icons-material/MenuBook'; 
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 
@@ -55,7 +55,7 @@ const WorkflowMenu = ({
                     {workflows.map((workflowName, index) => {
                         return (
                             <MenuItem
-                                key={index} 
+                                key={index}
                                 onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
                                 sx={{color: theme.palette.success.main}}
                             >
@@ -63,7 +63,7 @@ const WorkflowMenu = ({
                             </MenuItem>
                         )
                     })}
-                                
+
                     <Divider />
                     <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >
                         <ListItemIcon>
