@@ -12,7 +12,7 @@ from alphadia.testmetric import (
 
 from peptdeep.settings import global_settings
 from peptdeep.pretrained_models import ModelManager
-from peptdeep.model.model_interface import LR_SchedulerInterface, ModelInterface
+from peptdeep.model.model_interface import LR_SchedulerInterface, ModelInterface, CallbackHandler
 from peptdeep.model.ms2 import  normalize_fragment_intensities
 from peptdeep.model.charge import  ChargeModelForModAASeq
 import logging
@@ -127,7 +127,28 @@ class EarlyStopping:
     
 
       
-        
+'''
+
+class CAlbackHandler
+    def __init__(self, model:ModelInterface, test_callback:Callable):
+        self.model = model
+        self.test_callback = test_callback
+    
+    def epoch_callback(self, epoch:int, epoch_loss:float):
+    
+    def batch_callback(self, epoch:int, batch:int, batch_loss:float):
+
+'''
+
+class CustomCallbackHandler(CallbackHandler):
+    def __init__(self, test_callback, **callback_args):
+        super().__init__()
+        self.test_callback = test_callback
+        self.callback_args = callback_args
+    
+    def epoch_callback(self, epoch:int, epoch_loss:float):
+        self.test_callback(epoch, epoch_loss, **self.callback_args)
+    
 
 class FinetuneManager(ModelManager):
     def __init__(self, mask_modloss: bool = False, device: str = "gpu",settings: dict = {}):
@@ -242,16 +263,18 @@ class FinetuneManager(ModelManager):
                                             )
 
 
-        # Create an epoch callback function to test the model
-        test_callback = functools.partial(
+
+        #Lets create a callback handler
+        callback_handler = CustomCallbackHandler(
             self.test_ms2,
             precursor_df=test_psm_df,
             target_fragment_intensity_df=test_inten_df,
-            metricAccumulator=test_metric_manager
+            metricAccumulator=test_metric_manager,
         )
+                                                 
 
-        # Now Lets set the callback function
-        self.ms2_model.set_epoch_callback(test_callback)
+        # Now Lets set the callback handler
+        self.ms2_model.set_callback_handler(callback_handler)
 
         # Change the learning rate scheduler
         self.ms2_model.set_lr_scheduler_class(CustomScheduler)
@@ -346,14 +369,17 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(model_name="rt", 
                                             test_interval=self.settings['test_interval'],
                                             tests=[L1LossTestMetric(),LinearRegressionTestMetric(), AbsErrorPercentileTestMetric(95)])
-        # Create an epoch callback function to test the model 
-        test_callback = functools.partial(
+   
+
+        # Create a callback handler
+        callback_handler = CustomCallbackHandler(
             self.test_rt,
             test_df=test_df,
             metricAccumulator=test_metric_manager
         )
-        # Now Lets set the callback function
-        self.rt_model.set_epoch_callback(test_callback)
+        print(issubclass(type(callback_handler), CallbackHandler))
+        # Set the callback handler
+        self.rt_model.set_callback_handler(callback_handler)
 
         # Change the learning rate scheduler
         self.rt_model.set_lr_scheduler_class(CustomScheduler)
@@ -464,14 +490,16 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(model_name="charge",
                                             test_interval=self.settings['test_interval'],
                                             tests=[CELossTestMetric(), AccuracyTestMetric(), PrecisionRecallTestMetric()])
-        # Create an epoch callback function to test the model 
-        test_callback = functools.partial(
+
+        # Create a callback handler
+        callback_handler = CustomCallbackHandler(
             self.test_charge,
             test_df=test_df,
             metricAccumulator=test_metric_manager
         )
-        # Now Lets set the callback function
-        self.charge_model.set_epoch_callback(test_callback)
+
+        # Set the callback handler
+        self.charge_model.set_callback_handler(callback_handler)
 
         # Change the learning rate scheduler
         self.charge_model.set_lr_scheduler_class(CustomScheduler)
