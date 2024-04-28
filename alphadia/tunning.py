@@ -47,15 +47,12 @@ class CustomScheduler(LR_SchedulerInterface):
 
     def __init__(self,
         optimizer:torch.optim.Optimizer,
-        num_warmup_steps:int,
-        num_training_steps:int,
-        num_cycles:float=0.5,
-        last_epoch:int=-1,
-        start_lr:float=0.001
+        start_lr:float=0.001,
+        **kwargs
     ):
         self.optimizer = optimizer
-        self.num_warmup_steps = num_warmup_steps
-        self.num_training_steps = num_training_steps
+        self.num_warmup_steps = kwargs.get("num_warmup_steps", 5)
+        self.num_training_steps = kwargs.get("num_training_steps", 50)
         self.lamda_lr = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode='min',
@@ -83,10 +80,9 @@ class CustomScheduler(LR_SchedulerInterface):
             The learning rate for the next epoch.
 
         """
-        self.epoch = epoch
-        if epoch < self.num_warmup_steps:
-            lr =  float(epoch*self.start_lr) / float(max(1, self.num_warmup_steps))
-            # print(f"lr: {lr}")
+        self.epoch = epoch+1
+        if self.epoch < self.num_warmup_steps:
+            lr =  float((self.epoch)*self.start_lr) / float(max(1, self.num_warmup_steps))
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = lr
         else:
@@ -107,9 +103,6 @@ class EarlyStopping:
         self.counter = 0
 
     def step(self, val_loss: float):
-        # We check for conditions
-        # 1. If the validation loss is increasing or stopped decreasing significantly
-
         if val_loss > self.best_loss*(1-self.margin) or abs(val_loss - self.last_loss)/self.last_loss < self.margin:
             self.counter += 1
             if self.counter >= self.patience:
@@ -126,19 +119,6 @@ class EarlyStopping:
         self.counter = 0
     
 
-      
-'''
-
-class CAlbackHandler
-    def __init__(self, model:ModelInterface, test_callback:Callable):
-        self.model = model
-        self.test_callback = test_callback
-    
-    def epoch_callback(self, epoch:int, epoch_loss:float):
-    
-    def batch_callback(self, epoch:int, batch:int, batch_loss:float):
-
-'''
 
 class CustomCallbackHandler(CallbackHandler):
     def __init__(self, test_callback, **callback_args):
@@ -147,15 +127,16 @@ class CustomCallbackHandler(CallbackHandler):
         self.callback_args = callback_args
     
     def epoch_callback(self, epoch:int, epoch_loss:float):
-        self.test_callback(epoch, epoch_loss, **self.callback_args)
+        return self.test_callback(epoch, epoch_loss, **self.callback_args)
+
     
 
 class FinetuneManager(ModelManager):
     def __init__(self, mask_modloss: bool = False, device: str = "gpu",settings: dict = {}):
         super().__init__(mask_modloss, device)
         self.settings = settings
-
         self.early_stopping = EarlyStopping(patience= (settings['lr_patience']/settings['test_interval'])*3)
+
     def test_ms2(self,
                 epoch:int,
                 epoch_loss:float,
@@ -212,7 +193,7 @@ class FinetuneManager(ModelManager):
                 "target": target_fragment_intensity_df[columns],
             }
             results = metricAccumulator.test(test_input)
-            logger.progress(f"Epoch {epoch}: Lr:{current_lr} Training loss: {epoch_loss}, Test loss: {results['test_loss'].values[-1]}")
+            logger.progress(f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}")
             continue_training = self.early_stopping.step(results["test_loss"].values[-1])
             return continue_training
     def finetune_ms2(self, psm_df: pd.DataFrame, matched_intensity_df: pd.DataFrame)->pd.DataFrame:
@@ -264,7 +245,7 @@ class FinetuneManager(ModelManager):
 
 
 
-        #Lets create a callback handler
+        # create a callback handler
         callback_handler = CustomCallbackHandler(
             self.test_ms2,
             precursor_df=test_psm_df,
@@ -273,7 +254,7 @@ class FinetuneManager(ModelManager):
         )
                                                  
 
-        # Now Lets set the callback handler
+        # set the callback handler
         self.ms2_model.set_callback_handler(callback_handler)
 
         # Change the learning rate scheduler
@@ -283,7 +264,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Train the model
-        logger.progress("Fine-tuning MS2 model")
+        logger.progress(" Fine-tuning MS2 model")
         self.ms2_model.train(
             precursor_df= train_psm_df,
             fragment_intensity_df=tr_inten_df,
@@ -295,9 +276,9 @@ class FinetuneManager(ModelManager):
 
         metrics = test_metric_manager.get_stats()
         # Print the last entry of all metrics
-        msg ="Fine tuning finished at "
+        msg =" Fine tuning finished at "
         for col in metrics.columns:
-            msg += f"{col}: {metrics[col].values[-1]} \n"
+            msg += f" {col}: {round(metrics[col].values[-1],5)} \n"
         logger.progress(msg)
 
         return metrics
@@ -338,9 +319,8 @@ class FinetuneManager(ModelManager):
                 "target": test_df["rt_norm"].values,
             }
             results = metricAccumulator.test(test_input)
-            
-            logger.progress(f"Epoch {epoch}: Lr:{current_lr} Training loss: {epoch_loss}, Test loss: {results['test_loss'].values[-1]}")
-            
+            logger.progress(f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}")
+
             loss = results["test_loss"].values[-1]
 
             continue_training = self.early_stopping.step(loss)
@@ -377,7 +357,6 @@ class FinetuneManager(ModelManager):
             test_df=test_df,
             metricAccumulator=test_metric_manager
         )
-        print(issubclass(type(callback_handler), CallbackHandler))
         # Set the callback handler
         self.rt_model.set_callback_handler(callback_handler)
 
@@ -388,7 +367,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
         
         # Train the model
-        logger.progress("Fine-tuning RT model")
+        logger.progress(" Fine-tuning RT model")
         self.rt_model.train(train_df,
                 batch_size=self.settings['batch_size'],
                 epoch=self.settings['epochs'],
@@ -398,9 +377,9 @@ class FinetuneManager(ModelManager):
         
         metrics = test_metric_manager.get_stats()
         # Print the last entry of all metrics
-        msg ="Fine tuning finished at "
+        msg =" Fine tuning finished at "
         for col in metrics.columns:
-            msg += f"{col}: {metrics[col].values[-1]} \n"
+            msg += f" {col}: {round(metrics[col].values[-1],5)} \n"
         logger.progress(msg)
 
         return metrics
@@ -440,8 +419,8 @@ class FinetuneManager(ModelManager):
                 "predicted": np.array(pred["charge_probs"].values.tolist()),
             }
             results = metricAccumulator.test(test_inp)
-            logger.progress(f"Epoch {epoch}: Lr:{current_lr} Training loss: {epoch_loss}, Test loss: {results['test_loss'].values[-1]}")
-            
+            logger.progress(f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}")
+
             loss = results["test_loss"].values[-1]
 
             continue_training = self.early_stopping.step(loss)
@@ -508,7 +487,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Train the model
-        logger.progress("Fine-tuning Charge model")
+        logger.progress(" Fine-tuning Charge model")
         self.charge_model.train(psm_df,
                 batch_size=self.settings['batch_size'],
                 epoch=self.settings['epochs'],
@@ -518,9 +497,9 @@ class FinetuneManager(ModelManager):
 
         metrics = test_metric_manager.get_stats()
         # Print the last entry of all metrics
-        msg ="Fine tuning finished at "
+        msg =" Fine tuning finished at "
         for col in metrics.columns:
-            msg += f"{col}: {metrics[col].values[-1]} \n"
+            msg += f" {col}: {round(metrics[col].values[-1],5)} \n"
         logger.progress(msg)
 
         return metrics
