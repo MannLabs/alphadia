@@ -364,9 +364,19 @@ class PrecisionRecallTestMetric(TestMetricInterface):
 
 class MetricManager:
     """
-    A class for managing metrics. The MetricManager class is used to accumulate training loss and test metrics over time for plotting and reporting.
+    A class for managing metrics. The MetricManager class is used to accumulate training loss, learning rate, and calculate test metrics over time.
+    
+    parameters
+    ----------
+    model_name : str
+        The name of the model being trained/tested.
+    test_interval : int
+        The interval of epochs between two test iterations.
+    tests : List[TestMetricInterface]
+        A list of test metrics to calculate at each epoch.
     """
     def __init__(self, model_name:str, test_interval:int = 1, tests:List[TestMetricInterface] = None):
+        
         self.model_name = model_name
         self.tests = tests
         self.training_loss_accumulators = MetricAccumulator("train_loss")
@@ -436,7 +446,7 @@ class MetricManager:
         Returns
         -------
         pd.DataFrame
-            A pandas dataframe containing the training loss and test metrics accumulated so far.
+            A pandas dataframe containing the training loss, learning rate and test metrics accumulated so far.
 
         """
 

@@ -1,7 +1,6 @@
 import torch
 import pandas as pd
 import numpy as np
-import functools
 
 from alphabase.spectral_library.flat import *
 
@@ -12,7 +11,7 @@ from alphadia.finetunemetrics import (
 
 from peptdeep.settings import global_settings
 from peptdeep.pretrained_models import ModelManager
-from peptdeep.model.model_interface import LR_SchedulerInterface, ModelInterface, CallbackHandler
+from peptdeep.model.model_interface import LR_SchedulerInterface, CallbackHandler
 from peptdeep.model.ms2 import  normalize_fragment_intensities
 from peptdeep.model.charge import  ChargeModelForModAASeq
 import logging
@@ -43,6 +42,19 @@ settings = {
 class CustomScheduler(LR_SchedulerInterface):
     """
     A Lr scheduler that includes a warmup phase and then a ReduceLROnPlateau scheduler.
+
+    Parameters
+    ----------
+    optimizer : torch.optim.Optimizer
+        The optimizer object.
+    start_lr : float
+        The starting learning rate. Defaults to 0.001.
+    **kwargs : dict
+        Additional keyword arguments. It includes:
+        - num_warmup_steps: int
+            The number of warmup steps. Defaults to 5.
+        - num_training_steps: int
+            The number of training steps. Defaults to 50.
     """
 
     def __init__(self,
