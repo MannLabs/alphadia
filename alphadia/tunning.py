@@ -5,7 +5,7 @@ import functools
 
 from alphabase.spectral_library.flat import *
 
-from alphadia.testmetric import (
+from alphadia.finetunemetrics import (
     MetricManager, L1LossTestMetric, LinearRegressionTestMetric, AbsErrorPercentileTestMetric,
     CELossTestMetric, AccuracyTestMetric, PrecisionRecallTestMetric, Ms2SimilarityTestMetric
 )
