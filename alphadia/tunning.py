@@ -95,6 +95,10 @@ class CustomScheduler(LR_SchedulerInterface):
         return [self.optimizer.param_groups[0]["lr"]]
 
 class EarlyStopping:
+    """
+    A class to implement early stopping based on the validation loss. 
+    Checks if the validation loss is not improving for a certain number of epochs (patience).
+    """
     def __init__(self, patience: int = 5 ,margin: float = 0.05):
         self.patience = patience
         self.best_loss = np.inf
@@ -103,6 +107,19 @@ class EarlyStopping:
         self.counter = 0
 
     def step(self, val_loss: float):
+        """
+        Step the early stopping criteria and see if the training should continue.
+
+        Parameters
+        ----------
+        val_loss : float
+            The validation loss value.
+        
+        Returns
+        -------
+        continue_training : bool
+            Whether to continue training or not based on the early stopping criteria.
+        """
         if val_loss > self.best_loss*(1-self.margin) or abs(val_loss - self.last_loss)/self.last_loss < self.margin:
             self.counter += 1
             if self.counter >= self.patience:
@@ -114,6 +131,9 @@ class EarlyStopping:
         return True
     
     def reset(self):
+        """
+        Reset the early stopping criteria.
+        """
         self.best_loss = np.inf
         self.last_loss = np.inf
         self.counter = 0
@@ -121,23 +141,64 @@ class EarlyStopping:
 
 
 class CustomCallbackHandler(CallbackHandler):
+    """
+    A custom callback handler that allows for setting callback methods for the 
+    training loop implemented in the model Interface.
+
+    parameters
+    ----------
+    test_callback : function
+        The test callback function to be called after each epoch.
+    **callback_args : dict
+        The arguments to pass to the test callback function.
+    """
     def __init__(self, test_callback, **callback_args):
+        
         super().__init__()
         self.test_callback = test_callback
         self.callback_args = callback_args
     
     def epoch_callback(self, epoch:int, epoch_loss:float):
+        """
+        The epoch callback method that is called after each epoch.
+
+        Parameters
+        ----------
+        epoch : int
+            The current epoch number.
+        epoch_loss : float
+            The loss value of the current epoch.
+
+        Returns
+        -------
+        bool: continue_training
+            Whether to continue training or not based on the early stopping criteria.
+        """
         return self.test_callback(epoch, epoch_loss, **self.callback_args)
 
     
 
 class FinetuneManager(ModelManager):
+    """
+    FinetuneManager class that handles the fine tuning of the models. It inherits from the ModelManager class which is used to intialize and manage the loading and saving of the models.
+    The finetune manager implements the fine tuning of the MS2, RT and Charge models.
+
+    Parameters
+    ----------
+    mask_modloss : bool 
+        Whether to mask the modification loss or not. defaults to False.
+    device : str
+        The device to use for training the models. defaults to "gpu".
+    settings : dict
+        The settings for the fine tuning process. 
+
+    """
     def __init__(self, mask_modloss: bool = False, device: str = "gpu",settings: dict = {}):
         super().__init__(mask_modloss, device)
         self.settings = settings
         self.early_stopping = EarlyStopping(patience= (settings['lr_patience']/settings['test_interval'])*3)
 
-    def test_ms2(self,
+    def _test_ms2(self,
                 epoch:int,
                 epoch_loss:float,
                 precursor_df: pd.DataFrame,
@@ -247,7 +308,7 @@ class FinetuneManager(ModelManager):
 
         # create a callback handler
         callback_handler = CustomCallbackHandler(
-            self.test_ms2,
+            self._test_ms2,
             precursor_df=test_psm_df,
             target_fragment_intensity_df=test_inten_df,
             metricAccumulator=test_metric_manager,
@@ -284,7 +345,7 @@ class FinetuneManager(ModelManager):
         return metrics
         
 
-    def test_rt(self, 
+    def _test_rt(self, 
                 epoch:int,
                 epoch_loss:float, 
                 test_df: pd.DataFrame, 
@@ -353,7 +414,7 @@ class FinetuneManager(ModelManager):
 
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
-            self.test_rt,
+            self._test_rt,
             test_df=test_df,
             metricAccumulator=test_metric_manager
         )
@@ -384,7 +445,7 @@ class FinetuneManager(ModelManager):
 
         return metrics
 
-    def test_charge(self, 
+    def _test_charge(self, 
                     epoch:int,
                     epoch_loss:float,
                     test_df: pd.DataFrame,
@@ -472,7 +533,7 @@ class FinetuneManager(ModelManager):
 
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
-            self.test_charge,
+            self._test_charge,
             test_df=test_df,
             metricAccumulator=test_metric_manager
         )
