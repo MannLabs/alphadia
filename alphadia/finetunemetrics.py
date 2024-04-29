@@ -122,6 +122,7 @@ class LinearRegressionTestMetric(TestMetricInterface):
         targets = test_input["target"]
         new_stats = linear_regression(predictions, targets)
         new_stats = pd.DataFrame(new_stats)
+        new_stats.columns = self.columns
         self._update_stats(new_stats, epoch)
 
         return new_stats
@@ -214,7 +215,7 @@ class Ms2SimilarityTestMetric(TestMetricInterface):
             A dictionary containing the test input data. The dictionary should contain the following keys:
             - "predicted": A numpy array of predicted values.
             - "target": A numpy array of target values.
-            - "psm_df": A pandas dataframe containing the PSMs for the test set. This is currently only required for MS2 similarity metrics.
+            - "psm_df": A pandas dataframe containing the PSMs for the test set.
 
         epoch : int
             The epoch at which the test metric is calculated.
@@ -439,8 +440,8 @@ class MetricManager:
 
         """
 
-        result = self.training_loss_accumulators.stats if not self.training_loss_accumulators.stats.empty else pd.DataFrame()
-        if not self.lr_accumulator.stats.empty:
+        result = self.training_loss_accumulators.stats if self.training_loss_accumulators.stats is not None else pd.DataFrame()
+        if self.lr_accumulator.stats is not None:
             result = pd.concat([result, self.lr_accumulator.stats], axis=1)
         for test_metric in self.tests:
             stats = test_metric.stats
