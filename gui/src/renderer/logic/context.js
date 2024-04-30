@@ -21,7 +21,7 @@ const initialMethod = {
         active: true,
         path: ""
     },
-    config: [          
+    config: [
     ]
 }
 
@@ -61,7 +61,7 @@ export function methodReducer(method, action) {
         case "updateWorkflow":
             console.log(action)
             return {...method, ...action.workflow}
-            
+
         case "updateOutput":
             console.log(action)
             return {...method, output_directory: {...method.output_directory, path: action.path}}

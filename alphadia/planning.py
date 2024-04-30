@@ -4,14 +4,13 @@ import logging
 logger = logging.getLogger()
 import socket
 from pathlib import Path
-import yaml
 import os
 from datetime import datetime
 import typing
 
 # alphadia imports
-from alphadia import utils, libtransform, outputtransform
-from alphadia.workflow import peptidecentric, base, reporting
+from alphadia import libtransform, outputtransform
+from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.config import Config
 import alphadia
 import alpharaw
@@ -25,11 +24,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
-import numpy as np
-import pandas as pd
-import os, psutil
 import torch
-import numba as nb
 
 
 class Plan:
@@ -107,7 +102,7 @@ class Plan:
 
         self.config.update([update_config], print_modifications=True)
 
-        if not "output" in self.config:
+        if "output" not in self.config:
             self.config["output"] = output_folder
 
         self.load_library()
@@ -142,13 +137,13 @@ class Plan:
         self._spectral_library = spectral_library
 
     def log_environment(self):
-        logger.progress(f"=================== Environment ===================")
+        logger.progress("=================== Environment ===================")
         logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
         logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
         logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
         logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
-        logger.progress(f"===================================================")
+        logger.progress("===================================================")
 
     def load_library(self):
         """
@@ -158,16 +153,20 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
+        def _parse_modifications(mod_str: str) -> typing.List[str]:
+            """Parse modification string."""
+            return [] if mod_str == "" else mod_str.split(";")
+
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
         fasta_digest = libtransform.FastaDigest(
             enzyme=self.config["library_prediction"]["enzyme"],
-            fixed_modifications=self.config["library_prediction"][
-                "fixed_modifications"
-            ].split(";"),
-            variable_modifications=self.config["library_prediction"][
-                "variable_modifications"
-            ].split(";"),
+            fixed_modifications=_parse_modifications(
+                self.config["library_prediction"]["fixed_modifications"]
+            ),
+            variable_modifications=_parse_modifications(
+                self.config["library_prediction"]["variable_modifications"]
+            ),
             max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
@@ -197,6 +196,9 @@ class Plan:
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
                 mp_process_num=self.config["general"]["thread_count"],
+                checkpoint_folder_path=self.config["library_prediction"][
+                    "checkpoint_folder_path"
+                ],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)

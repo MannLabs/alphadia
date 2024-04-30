@@ -1,8 +1,8 @@
 outputtransform
 ===============
 
-The outputtransform module contains functionality to perform the consensus workflow. 
-Individual search workflows, part of a joined search plan, are combined. 
+The outputtransform module contains functionality to perform the consensus workflow.
+Individual search workflows, part of a joined search plan, are combined.
 
 This includes:
 

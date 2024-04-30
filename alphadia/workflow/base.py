@@ -170,7 +170,6 @@ class WorkflowBase:
         if self.config["general"]["wsl"]:
             # copy file to /tmp
             import shutil
-            import tempfile
 
             tmp_path = "/tmp"
             tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))

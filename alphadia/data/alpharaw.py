@@ -12,7 +12,6 @@ from alphadia import utils
 from alpharaw import thermo as alpharawthermo
 from alpharaw import sciex as alpharawsciex
 from alpharaw import mzml as alpharawmzml
-from alpharaw.ms_data_base import MSData_Base
 
 # third party imports
 import numpy as np
@@ -263,9 +262,9 @@ class AlphaRaw(alpharawthermo.MSData_Base):
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
-        except ValueError as e:
+        except ValueError:
             logger.warning(
-                f"Failed to determine DIA cycle, will retry without MS1 spectra."
+                "Failed to determine DIA cycle, will retry without MS1 spectra."
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]

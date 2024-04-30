@@ -8,7 +8,7 @@ Please make sure that conda is available and custom environments can be created.
 ### 2. Setting up the conda environment
 First we will create a new conda environment and install python 3.11. Depending on the cluster a lower python version might be needed.
 ```bash
-conda create -n alphadia 
+conda create -n alphadia
 conda activate alphadia
 ```
 Please make sure you include the conda-forge channel

@@ -9,9 +9,6 @@ from alphadia import fdr
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager
 
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPClassifier
 
 import torch
 

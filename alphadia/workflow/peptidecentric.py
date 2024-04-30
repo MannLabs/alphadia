@@ -1,12 +1,11 @@
 # native imports
-import os
 import logging
 
 logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, fragcomp, utils
+from alphadia import plexscoring, utils
 from alphadia import fdrexperimental as fdrx
 from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
@@ -17,7 +16,6 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 
 feature_columns = [
@@ -366,7 +364,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         continue_calibration = False
 
         self.reporter.log_string(
-            f"=== checking if epoch conditions were reached ===", verbosity="info"
+            "=== checking if epoch conditions were reached ===", verbosity="info"
         )
         if self.dia_data.has_ms1:
             if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
@@ -434,7 +432,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         self.reporter.log_string(
-            f"==============================================", verbosity="info"
+            "==============================================", verbosity="info"
         )
         return continue_calibration
 
@@ -779,7 +777,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
-        logger.info(f"Removing fragments below FDR threshold")
+        logger.info("Removing fragments below FDR threshold")
 
         # to be optimized later
         fragments_df["candidate_idx"] = utils.candidate_hash(
@@ -806,7 +804,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         decoy_precursors_percentages = decoy_precursors / total_precursors * 100
 
         self.reporter.log_string(
-            f"============================= Precursor FDR =============================",
+            "============================= Precursor FDR =============================",
             verbosity="progress",
         )
         self.reporter.log_string(
@@ -821,8 +819,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        self.reporter.log_string(f"", verbosity="progress")
-        self.reporter.log_string(f"Precursor Summary:", verbosity="progress")
+        self.reporter.log_string("", verbosity="progress")
+        self.reporter.log_string("Precursor Summary:", verbosity="progress")
 
         for channel in precursor_df["channel"].unique():
             precursor_05fdr = len(
@@ -851,8 +849,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
 
-        self.reporter.log_string(f"", verbosity="progress")
-        self.reporter.log_string(f"Protein Summary:", verbosity="progress")
+        self.reporter.log_string("", verbosity="progress")
+        self.reporter.log_string("Protein Summary:", verbosity="progress")
 
         for channel in precursor_df["channel"].unique():
             proteins_05fdr = precursor_df[
@@ -876,7 +874,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         self.reporter.log_string(
-            f"=========================================================================",
+            "=========================================================================",
             verbosity="progress",
         )
 
@@ -899,7 +897,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
 
-        if not "multiplexing" in self.config:
+        if "multiplexing" not in self.config:
             raise ValueError("no multiplexing config found")
         self.reporter.log_string(
             f"=== Multiplexing {len(reference_candidates):,} precursors ===",

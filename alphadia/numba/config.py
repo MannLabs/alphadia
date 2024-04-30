@@ -175,5 +175,5 @@ class JITConfig:
         for key, value in self.__dict__.items():
             repr += f"{key}={value} \n"
 
-        repr += f">"
+        repr += ">"
         return repr

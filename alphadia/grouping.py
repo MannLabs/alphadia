@@ -7,7 +7,7 @@
 # third party imports
 import numpy as np
 import pandas as pd
-from typing import List, Any
+from typing import Any
 from numpy.typing import NDArray
 
 

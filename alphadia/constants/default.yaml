@@ -15,7 +15,7 @@ general:
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
-  
+
 library_prediction:
   predict: False
   enzyme: trypsin
@@ -38,6 +38,7 @@ library_prediction:
   nce: 25.0
   instrument: QE
   save_hdf: True
+  checkpoint_folder_path: None
 
 search:
   channel_filter: '0'
@@ -139,12 +140,12 @@ optimization_manager:
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
 calibration_manager:
   - name: fragment
-    estimators: 
+    estimators:
       - name: mz
         model: LOESSRegression
         model_args:
           n_kernels: 2
-        input_columns: 
+        input_columns:
           - mz_library
         target_columns:
           - mz_observed
@@ -152,12 +153,12 @@ calibration_manager:
           - mz_calibrated
         transform_deviation: 1e6
   - name: precursor
-    estimators: 
+    estimators:
         - name: mz
           model: LOESSRegression
           model_args:
             n_kernels: 2
-          input_columns: 
+          input_columns:
             - mz_library
           target_columns:
             - mz_observed
@@ -168,7 +169,7 @@ calibration_manager:
           model: LOESSRegression
           model_args:
             n_kernels: 6
-          input_columns: 
+          input_columns:
             - rt_library
           target_columns:
             - rt_observed
@@ -178,7 +179,7 @@ calibration_manager:
           model: LOESSRegression
           model_args:
             n_kernels: 2
-          input_columns: 
+          input_columns:
             - mobility_library
           target_columns:
             - mobility_observed

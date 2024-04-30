@@ -1,5 +1,4 @@
 # native imports
-import math
 
 # alphadia imports
 from alphadia import utils

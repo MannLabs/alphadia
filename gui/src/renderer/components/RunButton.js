@@ -73,11 +73,11 @@ const RunButton = ({
         if (profile.running) {
             return;
         }
-        
+
         // check if method is valid
         const validation = validateMethod(method);
         if (!validation.valid) {
-            alert(validation.message);     
+            alert(validation.message);
             return;
         }
 

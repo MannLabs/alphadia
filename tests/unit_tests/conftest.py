@@ -1,7 +1,6 @@
 import pytest
 import os
 import re
-from alphadia import data
 import pandas as pd
 import numpy as np
 import matplotlib

@@ -31,7 +31,7 @@ Introduction to your first DIA search with alphaDIA.
 ```
 
 ```{toctree}
-:caption: 
+:caption:
 :hidden:
 
 contributing/index

@@ -16,12 +16,9 @@ import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
-from sklearn.linear_model import LogisticRegression
 
-import multiprocessing as mp
 
 from typing import List, Tuple, Iterator, Union
-import numba as nb
 from alphabase.spectral_library import base
 from alphabase.peptide import precursor
 
@@ -268,6 +265,13 @@ class QuantBuilder:
         _intensity_df = intensity_df.drop(columns=columns_to_drop)
 
         lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
+        lfqconfig.set_compile_normalized_ion_table(
+            compile_normalized_ion_table=False
+        )  # save compute time by avoiding the creation of a normalized ion table
+        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()  # avoid read-only pandas bug on linux if applicable
+        lfqconfig.set_log_processed_proteins(
+            log_processed_proteins=True
+        )  # here you can chose wether to log the processed proteins or not
 
         _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
 
@@ -569,10 +573,10 @@ class SearchPlanOutput:
         logger.progress(
             "================ Protein FDR =================",
         )
-        logger.progress(f"Unique protein groups in output")
+        logger.progress("Unique protein groups in output")
         logger.progress(f"  1% protein FDR: {pg_count:,}")
         logger.progress("")
-        logger.progress(f"Unique precursor in output")
+        logger.progress("Unique precursor in output")
         logger.progress(f"  1% protein FDR: {precursor_count:,}")
         logger.progress(
             "================================================",
