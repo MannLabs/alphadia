@@ -1,21 +1,21 @@
-import numpy as np 
+import numpy as np
 import pandas as pd
 from typing import List
 from peptdeep.utils import linear_regression
 from peptdeep.model.ms2 import calc_ms2_similarity
 
 
-    
-class MetricAccumulator():
+class MetricAccumulator:
     """
-    Accumulator for any metric. 
+    Accumulator for any metric.
     """
-    def __init__(self,name:str):
+
+    def __init__(self, name: str):
         self.name = name
         self.columns = [name]
         self.stats = None
-    
-    def accumulate(self, epoch:int, loss:float):
+
+    def accumulate(self, epoch: int, loss: float):
         """
         Accumulate a metric at a given epoch.
 
@@ -27,10 +27,8 @@ class MetricAccumulator():
             The value of the metric.
 
         """
-        
-        new_stats = pd.DataFrame({
-            self.name: [loss]
-        })
+
+        new_stats = pd.DataFrame({self.name: [loss]})
         new_stats.index = [epoch]
         new_stats.index.name = "epoch"
         new_stats.columns = self.columns
@@ -40,17 +38,19 @@ class MetricAccumulator():
             self.stats = pd.concat([self.stats, new_stats])
 
 
-
-class TestMetricInterface():
+class TestMetricInterface:
     """
     An interface for test metrics. Test metrics are classes that calculate a metric on the test set at a given epoch
     and accumulate the metric over time for reporting.
     """
-    def __init__(self, columns:List[str]):
-        self.columns = columns # a list of column names for the stats dataframe
-        self.stats = None # Stats is a pandas dataframe that stores the test metric over time
 
-    def _update_stats(self, new_stats:pd.DataFrame, epoch:int):
+    def __init__(self, columns: List[str]):
+        self.columns = columns  # a list of column names for the stats dataframe
+        self.stats = (
+            None  # Stats is a pandas dataframe that stores the test metric over time
+        )
+
+    def _update_stats(self, new_stats: pd.DataFrame, epoch: int):
         """
         Update the stats dataframe with new stats at a given epoch.
 
@@ -69,8 +69,7 @@ class TestMetricInterface():
         else:
             self.stats = pd.concat([self.stats, new_stats])
 
-
-    def test(self,test_input:dict, epoch:int):
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -91,14 +90,15 @@ class TestMetricInterface():
 
         """
         raise NotImplementedError
-    
- 
+
 
 class LinearRegressionTestMetric(TestMetricInterface):
     def __init__(self):
-        super().__init__(columns=['test_r_square', 'test_r', 'test_slope', 'test_intercept'])
-    
-    def test(self, test_input:dict, epoch:int):
+        super().__init__(
+            columns=["test_r_square", "test_r", "test_slope", "test_intercept"]
+        )
+
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -117,7 +117,7 @@ class LinearRegressionTestMetric(TestMetricInterface):
             A pandas dataframe containing the test metric at the given epoch.
 
         """
-        
+
         predictions = test_input["predicted"]
         targets = test_input["target"]
         new_stats = linear_regression(predictions, targets)
@@ -127,14 +127,13 @@ class LinearRegressionTestMetric(TestMetricInterface):
 
         return new_stats
 
-    
 
 class AbsErrorPercentileTestMetric(TestMetricInterface):
-    def __init__(self, percentile:int):
+    def __init__(self, percentile: int):
         super().__init__(columns=[f"abs_error_{percentile}th_percentile"])
         self.percentile = percentile
 
-    def test(self, test_input:dict ,epoch:int):
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -157,19 +156,19 @@ class AbsErrorPercentileTestMetric(TestMetricInterface):
         predictions = test_input["predicted"]
         targets = test_input["target"]
         abs_error = np.abs(predictions - targets)
-        new_stats = pd.DataFrame([np.percentile(abs_error, self.percentile)], columns=self.columns)
+        new_stats = pd.DataFrame(
+            [np.percentile(abs_error, self.percentile)], columns=self.columns
+        )
         self._update_stats(new_stats, epoch)
 
         return new_stats
-    
-
 
 
 class L1LossTestMetric(TestMetricInterface):
     def __init__(self):
         super().__init__(columns=["test_loss"])
-    
-    def test(self, test_input:dict ,epoch:int):
+
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -196,16 +195,20 @@ class L1LossTestMetric(TestMetricInterface):
         self._update_stats(new_stats, epoch)
 
         return new_stats
-    
-
 
 
 class Ms2SimilarityTestMetric(TestMetricInterface):
     def __init__(self):
-        super().__init__(columns=["test_pcc_mean","test_cos_mean","test_sa_mean","test_spc_mean"])
-        self.metrics = ['PCC', 'COS', 'SA', 'SPC']
-    
-    def test(self, test_input:dict, epoch:int, ):
+        super().__init__(
+            columns=["test_pcc_mean", "test_cos_mean", "test_sa_mean", "test_spc_mean"]
+        )
+        self.metrics = ["PCC", "COS", "SA", "SPC"]
+
+    def test(
+        self,
+        test_input: dict,
+        epoch: int,
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -229,27 +232,31 @@ class Ms2SimilarityTestMetric(TestMetricInterface):
         psm_df = test_input["psm_df"]
         predicted_fragments = test_input["predicted"]
         target_fragments = test_input["target"]
-        psm_df, _ = calc_ms2_similarity(psm_df=psm_df, predict_intensity_df=predicted_fragments, fragment_intensity_df=target_fragments)
-        metrics= psm_df[self.metrics]
-        new_stats = pd.DataFrame({
-            "PCC-mean": [metrics["PCC"].median()],
-            "COS-mean": [metrics["COS"].median()],
-            "SA-mean": [metrics["SA"].median()],
-            "SPC-mean": [metrics["SPC"].median()]
-        })
-        
+        psm_df, _ = calc_ms2_similarity(
+            psm_df=psm_df,
+            predict_intensity_df=predicted_fragments,
+            fragment_intensity_df=target_fragments,
+        )
+        metrics = psm_df[self.metrics]
+        new_stats = pd.DataFrame(
+            {
+                "PCC-mean": [metrics["PCC"].median()],
+                "COS-mean": [metrics["COS"].median()],
+                "SA-mean": [metrics["SA"].median()],
+                "SPC-mean": [metrics["SPC"].median()],
+            }
+        )
+
         self._update_stats(new_stats, epoch)
 
         return new_stats
-
-    
 
 
 class CELossTestMetric(TestMetricInterface):
     def __init__(self):
         super().__init__(columns=["test_loss"])
-    
-    def test(self, test_input:dict ,epoch:int):
+
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -273,7 +280,7 @@ class CELossTestMetric(TestMetricInterface):
         targets = test_input["target"]
         ce_loss = np.mean(-np.sum(targets * np.log(predictions), axis=1))
         new_stats = pd.DataFrame([ce_loss], columns=self.columns)
-        
+
         self._update_stats(new_stats, epoch)
 
         return new_stats
@@ -283,8 +290,7 @@ class AccuracyTestMetric(TestMetricInterface):
     def __init__(self):
         super().__init__(columns=["test_accuracy"])
 
-    
-    def test(self, test_input:dict,epoch:int):
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -311,17 +317,17 @@ class AccuracyTestMetric(TestMetricInterface):
 
         accuracy = np.mean(predictions == targets)
         new_stats = pd.DataFrame([accuracy], columns=self.columns)
-        
+
         self._update_stats(new_stats, epoch)
 
         return new_stats
-   
+
 
 class PrecisionRecallTestMetric(TestMetricInterface):
     def __init__(self):
         super().__init__(columns=["test_precision", "test_recall"])
 
-    def test(self, test_input:dict,epoch:int):
+    def test(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -354,18 +360,19 @@ class PrecisionRecallTestMetric(TestMetricInterface):
         precision = np.diag(confusion_matrix) / np.sum(confusion_matrix, axis=0)
         recall = np.diag(confusion_matrix) / np.sum(confusion_matrix, axis=1)
 
-        new_stats = pd.DataFrame(np.array([np.mean(precision), np.mean(recall)]).reshape(1,2), columns=self.columns)
-
+        new_stats = pd.DataFrame(
+            np.array([np.mean(precision), np.mean(recall)]).reshape(1, 2),
+            columns=self.columns,
+        )
 
         self._update_stats(new_stats, epoch)
         return new_stats
-    
-    
+
 
 class MetricManager:
     """
     A class for managing metrics. The MetricManager class is used to accumulate training loss, learning rate, and calculate test metrics over time.
-    
+
     parameters
     ----------
     model_name : str
@@ -375,8 +382,13 @@ class MetricManager:
     tests : List[TestMetricInterface]
         A list of test metrics to calculate at each epoch.
     """
-    def __init__(self, model_name:str, test_interval:int = 1, tests:List[TestMetricInterface] = None):
-        
+
+    def __init__(
+        self,
+        model_name: str,
+        test_interval: int = 1,
+        tests: List[TestMetricInterface] = None,
+    ):
         self.model_name = model_name
         self.tests = tests
         self.training_loss_accumulators = MetricAccumulator("train_loss")
@@ -384,10 +396,9 @@ class MetricManager:
         self.epoch = 0
         self.test_interval = test_interval
 
-
-    def test(self, test_inp:dict)->pd.DataFrame:
+    def test(self, test_inp: dict) -> pd.DataFrame:
         """
-        Calculate the test metrics at the current epoch by calling the test method of each test metric passed to the MetricManager 
+        Calculate the test metrics at the current epoch by calling the test method of each test metric passed to the MetricManager
         during initialization.
 
         Parameters
@@ -406,11 +417,11 @@ class MetricManager:
         """
         result = pd.DataFrame()
         for test_metric in self.tests:
-            result = pd.concat([result, test_metric.test(test_inp,self.epoch)], axis=1)
+            result = pd.concat([result, test_metric.test(test_inp, self.epoch)], axis=1)
         self.epoch += self.test_interval
         return result
-    
-    def accumulate_training_loss(self, epoch:int, loss:float):
+
+    def accumulate_training_loss(self, epoch: int, loss: float):
         """
         Accumulate the training loss at the given epoch.
 
@@ -425,21 +436,21 @@ class MetricManager:
 
         self.training_loss_accumulators.accumulate(epoch, loss)
 
-    def accumulate_learning_rate(self, epoch:int, lr:float):
+    def accumulate_learning_rate(self, epoch: int, lr: float):
         """
         Accumulate the learning rate at the given epoch.
-        
+
         Parameters
         ----------
         epoch : int
             The epoch at which the learning rate was calculated.
         lr : float
             The value of the learning rate.
-            
+
         """
         self.lr_accumulator.accumulate(epoch, lr)
-    
-    def get_stats(self)->pd.DataFrame:
+
+    def get_stats(self) -> pd.DataFrame:
         """
         Get the stats for the training loss and test metrics accumulated so far.
 
@@ -450,7 +461,11 @@ class MetricManager:
 
         """
 
-        result = self.training_loss_accumulators.stats if self.training_loss_accumulators.stats is not None else pd.DataFrame()
+        result = (
+            self.training_loss_accumulators.stats
+            if self.training_loss_accumulators.stats is not None
+            else pd.DataFrame()
+        )
         if self.lr_accumulator.stats is not None:
             result = pd.concat([result, self.lr_accumulator.stats], axis=1)
         for test_metric in self.tests:
@@ -459,4 +474,3 @@ class MetricManager:
         result.reset_index(inplace=True)
 
         return result
-    
