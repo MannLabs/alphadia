@@ -134,6 +134,11 @@ optimization_manager:
   fwhm_mobility: 0.01
   score_cutoff: 0
 
+transfer_learning:
+  transfer_learning: False
+  fragment_types: 'b;y'
+  max_charge: 2
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.

@@ -5,13 +5,15 @@ logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, utils
+from alphadia import plexscoring, utils, fragcomp
 from alphadia import fdrexperimental as fdrx
 from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.peptide.fragment import get_charged_frag_types
 
 # third party imports
 import numpy as np
@@ -997,3 +999,125 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.log_precursor_df(psm_df)
 
         return psm_df
+
+    def requantify_fragments(self, psm_df):
+        self.reporter.log_string(
+            f"=== Transfer learning quantification of {len(psm_df):,} precursors ===",
+            verbosity="progress",
+        )
+
+        self.com.fit(
+            {
+                "ms1_error": self.config["search"]["target_ms1_tolerance"],
+                "ms2_error": self.config["search"]["target_ms2_tolerance"],
+                "column_type": "calibrated",
+            }
+        )
+
+        optional_columns = [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+        ]
+        optional_columns += ["rt_observed"] if "rt_observed" in psm_df.columns else []
+        optional_columns += (
+            ["mobility_observed"] if "mobility_observed" in psm_df.columns else []
+        )
+        optional_columns += ["mz_observed"] if "mz_observed" in psm_df.columns else []
+
+        scored_candidates = plexscoring.candidate_features_to_candidates(
+            psm_df, optional_columns=optional_columns
+        )
+
+        # create speclib with fragment_types of interest
+        candidate_speclib = SpecLibBase()
+        candidate_speclib.precursor_df = scored_candidates
+
+        fragment_types = self.config["transfer_learning"]["fragment_types"].split(";")
+        max_charge = self.config["transfer_learning"]["max_charge"]
+        candidate_speclib.charged_frag_types = get_charged_frag_types(
+            fragment_types, max_charge
+        )
+
+        self.reporter.log_string(
+            f"creating library for charged fragment types: {candidate_speclib.charged_frag_types}",
+            verbosity="info",
+        )
+
+        candidate_speclib.calc_fragment_mz_df()
+
+        candidate_speclib._fragment_intensity_df = (
+            candidate_speclib.fragment_mz_df.copy()
+        )
+        candidate_speclib._fragment_intensity_df[
+            candidate_speclib.charged_frag_types
+        ] = 1
+
+        # create flat speclib
+        candidate_speclib_flat = SpecLibFlat()
+        candidate_speclib_flat.parse_base_library(candidate_speclib)
+        del candidate_speclib
+
+        candidate_speclib_flat.fragment_df.rename(
+            columns={"mz": "mz_library"}, inplace=True
+        )
+        candidate_speclib_flat.fragment_df["cardinality"] = 0
+
+        self.reporter.log_string(
+            f"Calibrating library",
+            verbosity="info",
+        )
+
+        # calibrate
+        self.calibration_manager.predict(
+            candidate_speclib_flat.precursor_df, "precursor"
+        )
+        self.calibration_manager.predict(candidate_speclib_flat.fragment_df, "fragment")
+
+        self.reporter.log_string(
+            f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
+            verbosity="info",
+        )
+
+        config = plexscoring.CandidateConfig()
+        config.top_k_fragments = 1000
+
+        scoring = plexscoring.CandidateScoring(
+            self.dia_data.jitclass(),
+            candidate_speclib_flat.precursor_df,
+            candidate_speclib_flat.fragment_df,
+            config=config,
+            precursor_mz_column=f"mz_{self.com.column_type}",
+            fragment_mz_column=f"mz_{self.com.column_type}",
+        )
+
+        # we disregard the precursors, as we want to keep the original scoring from the top12 search
+        # this works fine as there is no index pointing from the precursors to the fragments
+        # only the fragments arre indexed by precursor_idx and rank
+        _, frag_df = scoring(scored_candidates)
+
+        # establish mapping
+        # TODO: we are reusing the FragmentCompetition class here which should be refactored
+        frag_comp = fragcomp.FragmentCompetition()
+        scored_candidates["_candidate_idx"] = utils.candidate_hash(
+            scored_candidates["precursor_idx"].values, scored_candidates["rank"].values
+        )
+        frag_df["_candidate_idx"] = utils.candidate_hash(
+            frag_df["precursor_idx"].values, frag_df["rank"].values
+        )
+        scored_candidates = frag_comp.add_frag_start_stop_idx(
+            scored_candidates, frag_df
+        )
+
+        return scored_candidates, frag_df

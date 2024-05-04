@@ -637,7 +637,10 @@ def merge_missing_columns(
 
     # check conditions
     if not all([col in right_df.columns for col in missing_columns]):
-        raise ValueError(f"Columns {missing_columns} must be present in right_df")
+        # identify missing columns
+        log_missing_columns = list(set(missing_columns) - set(right_df.columns))
+
+        raise ValueError(f"Columns {log_missing_columns} must be present in right_df")
 
     if on is None:
         raise ValueError("Parameter on must be specified")
