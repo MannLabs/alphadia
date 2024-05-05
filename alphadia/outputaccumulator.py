@@ -29,6 +29,7 @@ import numpy as np
 import os
 import multiprocessing
 import threading
+from tqdm import tqdm
 
 from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -123,7 +124,9 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = pd.read_csv(os.path.join(folder, "psm.tsv"), sep="\t")
         frag_df = pd.read_csv(os.path.join(folder, "frag.tsv"), sep="\t")
 
-        assert set(selected_precursor_columns).issubset(
+        assert set(
+            selected_precursor_columns
+        ).issubset(
             psm_df.columns
         ), f"selected_precursor_columns must be a subset of psm_df.columns didnt find {set(selected_precursor_columns) - set(psm_df.columns)}"
         psm_df = psm_df[selected_precursor_columns]
@@ -159,7 +162,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         # ----------------- Fragment -----------------
 
         self._fragment_df = frag_df[
-            ["mz", "intensity", "precursor_idx", "frag_idx"]
+            ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
         ].copy()
 
         for col in ["number", "type", "charge"]:
@@ -237,9 +240,7 @@ class AccumulationBroadcaster:
         self._folders = folders
         self._number_of_processes = number_of_processes
         self._subscribers = []
-        self._lock = (
-            threading.Lock()
-        )  # Lock to prevent two processes trying to update the same subscriber at the same time
+        self._lock = threading.Lock()  # Lock to prevent two processes trying to update the same subscriber at the same time
 
     def subscribe(self, subscriber: BaseAccumulator):
         assert isinstance(
@@ -310,7 +311,13 @@ def _get_top_indices_from_freq(
 
 
 class TransferLearningAccumulator(BaseAccumulator):
-    def __init__(self, keep_top: int = 3, norm_w_calib: bool = True):
+    def __init__(
+        self,
+        keep_top: int = 3,
+        norm_w_calib: bool = True,
+        precursor_correlation_cutoff=0.5,
+        fragment_correlation_cutoff=0.75,
+    ):
         """
         TransferLearningAccumulator is used to accumulate the information from the output folders for fine-tuning by selecting
         the top keep_top precursors and their fragments from all the output folders. The current measure of score is the probA
@@ -327,10 +334,18 @@ class TransferLearningAccumulator(BaseAccumulator):
 
             If false, max normalization will be performed, by default True
 
+        precursor_correlation_cutoff : float, optional
+            Only precursors with a median fragment correlation above this cutoff will be used for MS2 learning, by default 0.5
+
+        fragment_correlation_cutoff : float, optional
+            The cutoff for the fragment correlation relative to the median fragment correlation for a precursor, by default 0.75
+
         """
         self._keep_top = keep_top
         self.consensus_speclibase = None
         self._norm_w_calib = norm_w_calib
+        self.precursor_correlation_cutoff = precursor_correlation_cutoff
+        self.fragment_correlation_cutoff = fragment_correlation_cutoff
 
     def update(self, speclibase: base.SpecLibBase):
         """
@@ -420,3 +435,50 @@ class TransferLearningAccumulator(BaseAccumulator):
                 self.consensus_speclibase.precursor_df["rt_observed"]
                 / self.consensus_speclibase.precursor_df["rt_observed"].max()
             )
+
+        logger.info(
+            f"Processed {len(self.consensus_speclibase.precursor_df)} precursors for transfer learning"
+        )
+
+        logger.info(
+            f"Performing quality control for tranfsfer learning. Precursor correlation cutoff: {self.precursor_correlation_cutoff}, Fragment correlation cutoff: {self.fragment_correlation_cutoff}"
+        )
+
+        use_for_ms2 = np.zeros(len(self.consensus_speclibase.precursor_df), dtype=bool)
+
+        precursor_df = self.consensus_speclibase.precursor_df
+        fragment_intensity_df = self.consensus_speclibase.fragment_intensity_df
+        fragment_correlation_df = self.consensus_speclibase._fragment_correlation_df
+
+        for i, (start_idx, stop_idx) in tqdm(
+            enumerate(
+                zip(precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"])
+            )
+        ):
+            flat_correlation = fragment_correlation_df.iloc[
+                start_idx:stop_idx
+            ].values.flatten()
+            flat_intensity = fragment_intensity_df.iloc[
+                start_idx:stop_idx
+            ].values.flatten()
+
+            intensity_mask = flat_intensity > 0.0
+            median_correlation = np.median(flat_correlation[intensity_mask])
+
+            use_for_ms2[i] = median_correlation > self.precursor_correlation_cutoff
+
+            fragment_intensity_df.iloc[start_idx:stop_idx] = fragment_intensity_df.iloc[
+                start_idx:stop_idx
+            ] * (
+                fragment_correlation_df.iloc[start_idx:stop_idx]
+                > median_correlation * self.fragment_correlation_cutoff
+            )
+
+        self.consensus_speclibase.precursor_df["use_for_ms2"] = use_for_ms2
+
+        n_total = len(use_for_ms2)
+        n_use_for_ms2 = np.sum(use_for_ms2)
+
+        logger.info(
+            f"Number of precursors: {n_total}, Number of precursors used for MS2 learning: {n_use_for_ms2}"
+        )
