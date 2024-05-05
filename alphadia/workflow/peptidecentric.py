@@ -1091,7 +1091,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         config = plexscoring.CandidateConfig()
-        config.top_k_fragments = 1000
+        config.update(
+            {
+                "top_k_fragments": 1000,
+                "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
+                "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
+            }
+        )
 
         scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
