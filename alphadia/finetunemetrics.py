@@ -38,9 +38,9 @@ class MetricAccumulator:
             self.stats = pd.concat([self.stats, new_stats])
 
 
-class TestMetricInterface:
+class TestMetricBase:
     """
-    An interface for test metrics. Test metrics are classes that calculate a metric on the test set at a given epoch
+    An Base class for test metrics. Test metrics are classes that calculate a metric on the test set at a given epoch
     and accumulate the metric over time for reporting.
     """
 
@@ -92,7 +92,7 @@ class TestMetricInterface:
         raise NotImplementedError
 
 
-class LinearRegressionTestMetric(TestMetricInterface):
+class LinearRegressionTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(
             columns=["test_r_square", "test_r", "test_slope", "test_intercept"]
@@ -128,7 +128,7 @@ class LinearRegressionTestMetric(TestMetricInterface):
         return new_stats
 
 
-class AbsErrorPercentileTestMetric(TestMetricInterface):
+class AbsErrorPercentileTestMetric(TestMetricBase):
     def __init__(self, percentile: int):
         super().__init__(columns=[f"abs_error_{percentile}th_percentile"])
         self.percentile = percentile
@@ -164,7 +164,7 @@ class AbsErrorPercentileTestMetric(TestMetricInterface):
         return new_stats
 
 
-class L1LossTestMetric(TestMetricInterface):
+class L1LossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_loss"])
 
@@ -197,7 +197,7 @@ class L1LossTestMetric(TestMetricInterface):
         return new_stats
 
 
-class Ms2SimilarityTestMetric(TestMetricInterface):
+class Ms2SimilarityTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(
             columns=["test_pcc_mean", "test_cos_mean", "test_sa_mean", "test_spc_mean"]
@@ -252,7 +252,7 @@ class Ms2SimilarityTestMetric(TestMetricInterface):
         return new_stats
 
 
-class CELossTestMetric(TestMetricInterface):
+class CELossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_loss"])
 
@@ -286,7 +286,7 @@ class CELossTestMetric(TestMetricInterface):
         return new_stats
 
 
-class AccuracyTestMetric(TestMetricInterface):
+class AccuracyTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_accuracy"])
 
@@ -323,7 +323,7 @@ class AccuracyTestMetric(TestMetricInterface):
         return new_stats
 
 
-class PrecisionRecallTestMetric(TestMetricInterface):
+class PrecisionRecallTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_precision", "test_recall"])
 
@@ -379,7 +379,7 @@ class MetricManager:
         The name of the model being trained/tested.
     test_interval : int
         The interval of epochs between two test iterations.
-    tests : List[TestMetricInterface]
+    tests : List[TestMetricBase]
         A list of test metrics to calculate at each epoch.
     """
 
@@ -387,7 +387,7 @@ class MetricManager:
         self,
         model_name: str,
         test_interval: int = 1,
-        tests: List[TestMetricInterface] = None,
+        tests: List[TestMetricBase] = None,
     ):
         self.model_name = model_name
         self.tests = tests
