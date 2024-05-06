@@ -282,7 +282,7 @@ class FinetuneManager(ModelManager):
             results = metricAccumulator.test(test_input)
             # Using zero padded strings and 4 decimal places
             logger.progress(
-                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
+                f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
 
             )
             continue_training = self.early_stopping.step(
@@ -409,7 +409,7 @@ class FinetuneManager(ModelManager):
             }
             results = metricAccumulator.test(test_input)
             logger.progress(
-                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
+                f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
 
             loss = results["test_loss"].values[-1]
@@ -516,7 +516,7 @@ class FinetuneManager(ModelManager):
             }
             results = metricAccumulator.test(test_inp)
             logger.progress(
-                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
+                f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
 
             loss = results["test_loss"].values[-1]
