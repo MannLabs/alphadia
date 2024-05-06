@@ -28,16 +28,14 @@ logger = logging.getLogger()
 settings = {
     # --------- USer settings ------------
     "batch_size": 4000,
-    "max_lr": 0.001,
+    "max_lr": 0.002,
     "train_ratio": 0.8,
     "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
     "minimum_psms": 1200,
-    "start_lr": 0.001,
-    "target_batch_size": 4000,
     "epochs": 51,
-    "warmup_epochs": 5,
+    "warmup_epochs": 10,
     # --------------------------
     "nce": 25,
     "instrument": "Lumos",
@@ -63,7 +61,7 @@ class CustomScheduler(LR_SchedulerInterface):
     """
 
     def __init__(
-        self, optimizer: torch.optim.Optimizer, start_lr: float = 0.001, **kwargs
+        self, optimizer: torch.optim.Optimizer, max_lr: float = settings["max_lr"], **kwargs
     ):
         self.optimizer = optimizer
         self.num_warmup_steps = kwargs.get("num_warmup_steps", 5)
@@ -75,7 +73,7 @@ class CustomScheduler(LR_SchedulerInterface):
             factor=0.5,
             verbose=True,
         )
-        self.start_lr = start_lr
+        self.max_lr = max_lr
         self.epoch = 0
 
     def step(self, epoch: int, loss: float) -> float:
@@ -97,7 +95,7 @@ class CustomScheduler(LR_SchedulerInterface):
         """
         self.epoch = epoch + 1
         if self.epoch < self.num_warmup_steps:
-            lr = float((self.epoch) * self.start_lr) / float(
+            lr = float((self.epoch) * self.max_lr) / float(
                 max(1, self.num_warmup_steps)
             )
             for param_group in self.optimizer.param_groups:
@@ -222,6 +220,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] / settings["test_interval"]) * 3
         )
+        self.start_lr = settings["max_lr"]/settings["warmup_epochs"]
 
     def _test_ms2(
         self,
@@ -281,8 +280,10 @@ class FinetuneManager(ModelManager):
                 "target": target_fragment_intensity_df[columns],
             }
             results = metricAccumulator.test(test_input)
+            # Using zero padded strings and 4 decimal places
             logger.progress(
-                f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}"
+                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
+
             )
             continue_training = self.early_stopping.step(
                 results["test_loss"].values[-1]
@@ -358,7 +359,7 @@ class FinetuneManager(ModelManager):
             epoch=self.settings["epochs"],
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.settings["start_lr"],
+            lr=self.start_lr ,
         )
 
         metrics = test_metric_manager.get_stats()
@@ -408,7 +409,7 @@ class FinetuneManager(ModelManager):
             }
             results = metricAccumulator.test(test_input)
             logger.progress(
-                f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}"
+                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
             )
 
             loss = results["test_loss"].values[-1]
@@ -465,7 +466,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.settings["start_lr"],
+            lr=self.start_lr,
         )
 
         metrics = test_metric_manager.get_stats()
@@ -515,7 +516,7 @@ class FinetuneManager(ModelManager):
             }
             results = metricAccumulator.test(test_inp)
             logger.progress(
-                f" Epoch {epoch}: Lr:{round(current_lr,5)} Training loss: {round(epoch_loss,5)}, Test loss: {round(results['test_loss'].values[-1],5)}"
+                f"Epoch {epoch:<5} Lr: {current_lr:.5f} Training loss: {epoch_loss:.4f}, Test loss: {results['test_loss'].values[-1]:.4f}"
             )
 
             loss = results["test_loss"].values[-1]
@@ -601,7 +602,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.settings["start_lr"],
+            lr=self.start_lr,
         )
 
         metrics = test_metric_manager.get_stats()
