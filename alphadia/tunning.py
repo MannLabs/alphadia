@@ -1,6 +1,7 @@
 import torch
 import pandas as pd
 import numpy as np
+from torch.optim.lr_scheduler import LambdaLR
 
 from alphabase.spectral_library.flat import *
 
@@ -28,14 +29,14 @@ logger = logging.getLogger()
 settings = {
     # --------- USer settings ------------
     "batch_size": 4000,
-    "max_lr": 0.002,
+    "max_lr": 0.001,
     "train_ratio": 0.8,
     "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
     "minimum_psms": 1200,
     "epochs": 51,
-    "warmup_epochs": 10,
+    "warmup_epochs": 5,
     # --------------------------
     "nce": 25,
     "instrument": "Lumos",
@@ -61,21 +62,31 @@ class CustomScheduler(LR_SchedulerInterface):
     """
 
     def __init__(
-        self, optimizer: torch.optim.Optimizer, max_lr: float = settings["max_lr"], **kwargs
+        self, optimizer: torch.optim.Optimizer, **kwargs
     ):
         self.optimizer = optimizer
         self.num_warmup_steps = kwargs.get("num_warmup_steps", 5)
         self.num_training_steps = kwargs.get("num_training_steps", 50)
-        self.lamda_lr = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        self.reduceLROnPlateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
             patience=settings["lr_patience"],
             factor=0.5,
             verbose=True,
         )
-        self.max_lr = max_lr
-        self.epoch = 0
+        self.warmupLr = LambdaLR(optimizer, self._warmup)
 
+    def _warmup(self, epoch: int):
+        """
+        Warmup the learning rate.
+
+        Parameters
+        ----------
+        epoch : int
+            The current epoch number.
+        """
+        return float(epoch+1) / float(max(1, self.num_warmup_steps))
+    
     def step(self, epoch: int, loss: float) -> float:
         """
         Get the learning rate for the next epoch.
@@ -93,15 +104,10 @@ class CustomScheduler(LR_SchedulerInterface):
             The learning rate for the next epoch.
 
         """
-        self.epoch = epoch + 1
-        if self.epoch < self.num_warmup_steps:
-            lr = float((self.epoch) * self.max_lr) / float(
-                max(1, self.num_warmup_steps)
-            )
-            for param_group in self.optimizer.param_groups:
-                param_group["lr"] = lr
+        if epoch < self.num_warmup_steps:
+            self.warmupLr.step(epoch)
         else:
-            return self.lamda_lr.step(loss)
+            self.reduceLROnPlateau.step(loss)
 
     def get_last_lr(self):
         """
@@ -220,7 +226,6 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] / settings["test_interval"]) * 3
         )
-        self.start_lr = settings["max_lr"]/settings["warmup_epochs"]
 
     def _test_ms2(
         self,
@@ -359,7 +364,7 @@ class FinetuneManager(ModelManager):
             epoch=self.settings["epochs"],
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.start_lr ,
+            lr=settings["max_lr"],
         )
 
         metrics = test_metric_manager.get_stats()
@@ -466,7 +471,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.start_lr,
+            lr=settings["max_lr"],
         )
 
         metrics = test_metric_manager.get_stats()
@@ -602,7 +607,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=self.start_lr,
+            lr=settings["max_lr"],
         )
 
         metrics = test_metric_manager.get_stats()
