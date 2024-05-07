@@ -419,7 +419,7 @@ class SearchPlanOutput:
         logger.progress("======== Building transfer library ========")
         transferAccumulator = TransferLearningAccumulator(
             keep_top=self.config["transfer_learning"]["top_k_samples"],
-            norm_w_calib=self.config["transfer_learning"]["fancy_calibration"],
+            norm_delta_max=self.config["transfer_learning"]["norm_delta_max"],
             precursor_correlation_cutoff=self.config["transfer_learning"][
                 "precursor_correlation_cutoff"
             ],
