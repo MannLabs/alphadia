@@ -223,6 +223,11 @@ def process_folder(folder):
     psm, frag_df = speclibflat_object.parse_output_folder(folder)
     speclibflat_object._fragment_df["loss_type"] = 0
     speclibase = speclibflat_object.to_SpecLibBase()
+    # sort columns
+    for dense_df_name in speclibase.available_dense_fragment_dfs():
+        df = getattr(speclibase, dense_df_name)
+        setattr(speclibase, dense_df_name, df[df.columns.sort_values()])
+
     return speclibase
 
 
