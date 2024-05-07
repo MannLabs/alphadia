@@ -321,7 +321,7 @@ class TransferLearningAccumulator(BaseAccumulator):
         keep_top: int = 3,
         norm_w_calib: bool = True,
         precursor_correlation_cutoff=0.5,
-        fragment_correlation_cutoff=0.75,
+        fragment_correlation_ratio=0.75,
     ):
         """
         TransferLearningAccumulator is used to accumulate the information from the output folders for fine-tuning by selecting
@@ -342,7 +342,7 @@ class TransferLearningAccumulator(BaseAccumulator):
         precursor_correlation_cutoff : float, optional
             Only precursors with a median fragment correlation above this cutoff will be used for MS2 learning, by default 0.5
 
-        fragment_correlation_cutoff : float, optional
+        fragment_correlation_ratio : float, optional
             The cutoff for the fragment correlation relative to the median fragment correlation for a precursor, by default 0.75
 
         """
@@ -350,7 +350,7 @@ class TransferLearningAccumulator(BaseAccumulator):
         self.consensus_speclibase = None
         self._norm_w_calib = norm_w_calib
         self.precursor_correlation_cutoff = precursor_correlation_cutoff
-        self.fragment_correlation_cutoff = fragment_correlation_cutoff
+        self.fragment_correlation_ratio = fragment_correlation_ratio
 
     def update(self, speclibase: base.SpecLibBase):
         """
@@ -446,7 +446,7 @@ class TransferLearningAccumulator(BaseAccumulator):
         )
 
         logger.info(
-            f"Performing quality control for tranfsfer learning. Precursor correlation cutoff: {self.precursor_correlation_cutoff}, Fragment correlation cutoff: {self.fragment_correlation_cutoff}"
+            f"Performing quality control for tranfsfer learning. Precursor correlation cutoff: {self.precursor_correlation_cutoff}, Fragment correlation cutoff: {self.fragment_correlation_ratio}"
         )
 
         use_for_ms2 = np.zeros(len(self.consensus_speclibase.precursor_df), dtype=bool)
@@ -476,7 +476,7 @@ class TransferLearningAccumulator(BaseAccumulator):
                 start_idx:stop_idx
             ] * (
                 fragment_correlation_df.iloc[start_idx:stop_idx]
-                > median_correlation * self.fragment_correlation_cutoff
+                > median_correlation * self.fragment_correlation_ratio
             )
 
         self.consensus_speclibase.precursor_df["use_for_ms2"] = use_for_ms2

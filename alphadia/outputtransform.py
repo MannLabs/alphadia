@@ -379,9 +379,11 @@ class SearchPlanOutput:
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
-        self._transfer_Learning_lib = self.build_transfer_library(
-            folder_list, keep_top=3, number_of_processes=4, save=True
-        )
+
+        if self.config["transfer_learning"]["transfer_learning"]:
+            self._transfer_Learning_lib = self.build_transfer_library(
+                folder_list, save=True
+            )
 
     def build_transfer_library(
         self,
@@ -414,7 +416,14 @@ class SearchPlanOutput:
         """
         logger.info("Building transfer library")
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=keep_top, norm_w_calib=True
+            keep_top=self.config["transfer_learning"]["top_k_samples"],
+            norm_w_calib=self.config["transfer_learning"]["fancy_calibration"],
+            precursor_correlation_cutoff=self.config["transfer_learning"][
+                "precursor_correlation_cutoff"
+            ],
+            fragment_correlation_ratio=self.config["transfer_learning"][
+                "fragment_correlation_ratio"
+            ],
         )
         accumulationBroadcaster = AccumulationBroadcaster(
             folder_list, number_of_processes
@@ -429,8 +438,6 @@ class SearchPlanOutput:
                 os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
             )
         return transferAccumulator.consensus_speclibase
-
-        return psm_df
 
     def load_precursor_table(self):
         """Load precursor table from output folder.
