@@ -382,10 +382,8 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
-        if self.config["transfer_learning"]["transfer_learning"]:
-            self._transfer_Learning_lib = self.build_transfer_library(
-                folder_list, save=True
-            )
+        if self.config["transfer_learning"]["enabled"]:
+            _ = self.build_transfer_library(folder_list, save=True)
 
     def build_transfer_library(
         self,

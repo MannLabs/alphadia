@@ -138,7 +138,7 @@ optimization_manager:
 # currently only the library is created with transfer learning
 transfer_learning:
   # if true, the library is created with transfer learning
-  transfer_learning: False
+  enabled: False
 
   # semicolon separated list of fragment types to include in the library. possible values are 'a', 'b', 'c', 'x', 'y', 'z'
   fragment_types: 'b;y'

@@ -10,12 +10,14 @@ from alphadia.utils import (
     calculate_score_groups,
     wsl_to_windows,
     windows_to_wsl,
+    merge_missing_columns,
 )
 
 
 # global
 import numpy as np
 import pandas as pd
+import pytest
 
 
 def test_amean0():
@@ -107,3 +109,38 @@ def test_wsl_conversion():
 
     assert wsl_to_windows(test_path) == expected_path
     assert windows_to_wsl(expected_path) == test_path
+
+
+@pytest.fixture()
+def left_and_right_df():
+    left_df = pd.DataFrame([{"idx": 1, "col_1": 0, "col_2": 0}])
+
+    right_df = pd.DataFrame([{"idx": 1, "col_3": 0, "col_4": 0}])
+    return left_df, right_df
+
+
+def test_merge_missing_fail_on(left_and_right_df):
+    # given:
+    left_df, right_df = left_and_right_df
+
+    # when, then
+    with pytest.raises(ValueError):
+        df = merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
+
+
+def test_merge_missing_fail_right(left_and_right_df):
+    # given:
+    left_df, right_df = left_and_right_df
+
+    # when, then
+    with pytest.raises(ValueError):
+        df = merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
+
+
+def test_merge_missing(left_and_right_df):
+    # given
+    left_df, right_df = left_and_right_df
+    # when
+    df = merge_missing_columns(left_df, right_df, ["col_3"], on="idx")
+    # then
+    assert np.all(df.columns == ["idx", "col_1", "col_2", "col_3"])
