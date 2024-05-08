@@ -1000,7 +1000,27 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return psm_df
 
-    def requantify_fragments(self, psm_df):
+    def requantify_fragments(
+        self, psm_df: pd.DataFrame
+    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+        """Requantify confident precursor identifications for transfer learning.
+
+        Parameters
+        ----------
+
+        psm_df: pd.DataFrame
+            Dataframe with peptide identifications
+
+        Returns
+        -------
+
+        psm_df: pd.DataFrame
+            Dataframe with existing peptide identifications but updated frag_start_idx and frag_stop_idx
+
+        frag_df: pd.DataFrame
+            Dataframe with fragments in long format
+        """
+
         self.reporter.log_string(
             f"=== Transfer learning quantification of {len(psm_df):,} precursors ===",
             verbosity="progress",
@@ -1030,11 +1050,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             "sequence",
             "charge",
         ]
-        optional_columns += ["rt_observed"] if "rt_observed" in psm_df.columns else []
-        optional_columns += (
-            ["mobility_observed"] if "mobility_observed" in psm_df.columns else []
-        )
-        optional_columns += ["mz_observed"] if "mz_observed" in psm_df.columns else []
+        for col in ["rt_observed", "mobility_observed", "mz_observed"]:
+            optional_columns += [col] if col in psm_df.columns else []
 
         scored_candidates = plexscoring.candidate_features_to_candidates(
             psm_df, optional_columns=optional_columns
@@ -1060,13 +1077,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         candidate_speclib._fragment_intensity_df = (
             candidate_speclib.fragment_mz_df.copy()
         )
+        # set all fragment weights to 1 to make sure all are quantified
         candidate_speclib._fragment_intensity_df[
             candidate_speclib.charged_frag_types
-        ] = 1
+        ] = 1.0
 
         # create flat speclib
         candidate_speclib_flat = SpecLibFlat()
         candidate_speclib_flat.parse_base_library(candidate_speclib)
+        # delete immediately to free memory
         del candidate_speclib
 
         candidate_speclib_flat.fragment_df.rename(
@@ -1093,7 +1112,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = plexscoring.CandidateConfig()
         config.update(
             {
-                "top_k_fragments": 1000,
+                "top_k_fragments": 1000,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
                 "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
                 "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
             }
