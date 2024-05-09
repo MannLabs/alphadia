@@ -9,6 +9,7 @@ const MultiSelect = ({
     path = [],
     tooltipText = "",
     onChange = () => {},
+    onAppend = () => {},
     ...props
 }) => {
 
@@ -27,7 +28,7 @@ const MultiSelect = ({
     if (type === "folder") {
         handleSelect = () => {
             window.electronAPI.getMultipleFolders().then((folder) => {
-                onChange(folder);
+                onAppend(folder);
             }).catch((err) => {
                 console.log(err);
             })
@@ -35,7 +36,7 @@ const MultiSelect = ({
     } else {
         handleSelect = () => {
             window.electronAPI.getMultipleFiles().then((file) => {
-                onChange(file);
+                onAppend(file);
             }).catch((err) => {
                 console.log(err);
             })

@@ -34,6 +34,9 @@ export function methodReducer(method, action) {
         case 'updateFasta':
             return {...method, fasta_list: {...method.fasta_list, path: action.path}}
 
+        case 'appendFasta':
+            return {...method, fasta_list: {...method.fasta_list, path: method.fasta_list.path.concat(action.path)}}
+
         case 'updateFiles':
             return {...method, raw_path_list: {...method.raw_path_list, path: action.path}}
 
