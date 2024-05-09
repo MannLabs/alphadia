@@ -190,6 +190,7 @@ class Plan:
 
         if self.config["library_prediction"]["predict"]:
             logger.progress("Predicting library properties.")
+
             pept_deep_prediction = libtransform.PeptDeepPrediction(
                 use_gpu=self.config["general"]["use_gpu"],
                 fragment_mz=self.config["library_prediction"]["fragment_mz"],
@@ -198,6 +199,12 @@ class Plan:
                 mp_process_num=self.config["general"]["thread_count"],
                 checkpoint_folder_path=self.config["library_prediction"][
                     "checkpoint_folder_path"
+                ],
+                fragment_types=self.config["library_prediction"][
+                    "fragment_types"
+                ].split(";"),
+                max_fragment_charge=self.config["library_prediction"][
+                    "max_fragment_charge"
                 ],
             )
 

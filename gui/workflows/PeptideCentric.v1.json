@@ -203,6 +203,20 @@
                     "type": "float_range"
                 },
                 {
+                    "id": "fragment_types",
+                    "name": "Fragment types",
+                    "value": "b;y",
+                    "description": "Semicolon separated list of fragment types. \n Supported types: b, y, b_modloss, y_modloss. \n Must be supported by the chosen PeptDeep model.",
+                    "type": "string"
+                },
+                {
+                    "id": "max_fragment_charge",
+                    "name": "Maximum fragment charge",
+                    "value": 2,
+                    "description": "Fragments will be generated up to this charge state. Must be supported by the chosen PeptDeep model.",
+                    "type": "integer"
+                },
+                {
                     "id": "nce",
                     "name": "Normalized collision energy",
                     "value": 25.0,
