@@ -43,7 +43,7 @@ const Files = () => {
                     <InputFileSelect
                             active={method.raw_path_list.active}
                             path={method.raw_path_list.path}
-                            onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}
+                            onChange={(path) => {dispatch({type: 'appendFiles', path: path})}}
                     />
                 </FullWidthBox>
                 <FullWidthBox sx={{flexGrow: 1}}>
