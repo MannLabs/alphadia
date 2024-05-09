@@ -47,7 +47,7 @@ const Files = () => {
                     />
                 </FullWidthBox>
                 <FullWidthBox sx={{flexGrow: 1}}>
-                    <FileViewer path={method.raw_path_list.path}/>
+                    <FileViewer path={method.raw_path_list.path} onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}/>
                 </FullWidthBox>
         </Box>
     )

@@ -1,4 +1,15 @@
-import { DataGrid } from "@mui/x-data-grid";
+import { Button } from "@mui/material";
+import DeleteIcon from '@mui/icons-material/Delete';
+import {
+  DataGrid,
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+  GridToolbarFilterButton,
+  GridToolbarExport,
+  GridToolbarDensitySelector,
+  useGridApiContext
+} from '@mui/x-data-grid';
+import * as React from 'react'
 
 const columns = [
     { field: 'id', headerName: 'Index', width: 50 },
@@ -40,12 +51,50 @@ const FileViewer = ({
         }
     })
 
+
+
+    function CustomToolbar() {
+
+      const apiRef = useGridApiContext();
+
+      const handleDelete = () => {
+        // Get all selected row IDs
+      const selectedIDs = [...apiRef.current.getSelectedRows().keys()];
+
+      // Filter out the rows that are selected
+      const newPath = path.filter((_, index) => !selectedIDs.includes(index));
+      onChange(newPath);
+
+      // Clear row selection
+      apiRef.current.setRowSelectionModel([]);
+      }
+
+
+      return (
+        <GridToolbarContainer>
+          <Button
+              startIcon={<DeleteIcon />}
+              onClick={handleDelete}
+              >
+              Remove
+          </Button>
+          <GridToolbarFilterButton />
+          <GridToolbarExport
+          />
+        </GridToolbarContainer>
+      );
+    }
+
     return (
     <DataGrid
         rows={rows}
         columns={columns}
         pageSize={5}
         rowHeight={40}
+        checkboxSelection
+        slots={{
+          toolbar: CustomToolbar,
+        }}
         density="compact"
         />
 )}
