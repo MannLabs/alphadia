@@ -90,9 +90,6 @@ feature_columns = [
     "n_overlapping",
     "mean_overlapping_intensity",
     "mean_overlapping_mass_error",
-    "n_K",
-    "n_R",
-    "n_P",
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
