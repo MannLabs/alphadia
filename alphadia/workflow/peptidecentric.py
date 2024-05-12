@@ -1017,6 +1017,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         frag_df: pd.DataFrame
             Dataframe with fragments in long format
         """
+        # remove decoys
+        psm_df = psm_df[psm_df["decoy"] == 0]
 
         self.reporter.log_string(
             f"=== Transfer learning quantification of {len(psm_df):,} precursors ===",
