@@ -32,7 +32,7 @@ settings = {
     "batch_size": 1000,
     "max_lr": 0.0005,
     "train_ratio": 0.8,
-    "test_interval": 2,
+    "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
     "minimum_psms": 1200,
@@ -123,7 +123,7 @@ class EarlyStopping:
     Checks if the validation loss is not improving for a certain number of epochs (patience).
     """
 
-    def __init__(self, patience: int = 5, margin: float = 0.05):
+    def __init__(self, patience: int = 5, margin: float = 0.01):
         self.patience = patience
         self.best_loss = np.inf
         self.last_loss = np.inf
@@ -145,7 +145,7 @@ class EarlyStopping:
             Whether to continue training or not based on the early stopping criteria.
         """
         if (
-            val_loss > self.best_loss * (1 - self.margin)
+            val_loss > self.best_loss * (1 + self.margin)
             or abs(val_loss - self.last_loss) / self.last_loss < self.margin
         ):
             self.counter += 1
@@ -226,7 +226,7 @@ class FinetuneManager(ModelManager):
         super().__init__(mask_modloss, device)
         self.settings = settings
         self.early_stopping = EarlyStopping(
-            patience=(settings["lr_patience"] // settings["test_interval"]) * 3
+            patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
     def _order_intensities(self, precursor_df_target: pd.DataFrame, precursor_df_pred: pd.DataFrame, target_intensity_df: pd.DataFrame,pred_intensity_df: pd.DataFrame) -> pd.DataFrame:
         """
