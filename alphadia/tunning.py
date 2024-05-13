@@ -276,7 +276,7 @@ class FinetuneManager(ModelManager):
         epoch_loss: float,
         precursor_df: pd.DataFrame,
         target_fragment_intensity_df: pd.DataFrame,
-        metricAccumulator: MetricManager,
+        metric_accumulator: MetricManager,
         default_instrument: str = "Lumos",
         default_nce: float = 30.0,
     ) -> bool:
@@ -293,7 +293,7 @@ class FinetuneManager(ModelManager):
             The PSM dataframe.
         target_fragment_intensity_df : pd.DataFrame
             The matched fragment intensity dataframe.
-        metricAccumulator : MetricManager
+        metric_accumulator : MetricManager
             The metric manager object.
         default_instrument : str
             The default instrument name.
@@ -310,10 +310,10 @@ class FinetuneManager(ModelManager):
         if epoch % self.settings["test_interval"] == 0:
             self.ms2_model.model.eval()
             
-            metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
+            metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
             current_lr = 0
             current_lr = self.ms2_model.optimizer.param_groups[0]["lr"]
-            metricAccumulator.accumulate_learning_rate(epoch, current_lr)
+            metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             if "instrument" not in precursor_df.columns:
                 precursor_df["instrument"] = default_instrument
             if "nce" not in precursor_df.columns:
@@ -331,7 +331,7 @@ class FinetuneManager(ModelManager):
                 "predicted": ordered_pred,
                 "target": target_fragment_intensity_df,
             }
-            results = metricAccumulator.test(test_input)
+            results = metric_accumulator.test(test_input)
             # Using zero padded strings and 4 decimal places
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
@@ -422,7 +422,7 @@ class FinetuneManager(ModelManager):
             self._test_ms2,
             precursor_df=test_psm_df,
             target_fragment_intensity_df=test_inten_df,
-            metricAccumulator=test_metric_manager,
+            metric_accumulator=test_metric_manager,
         )
 
         # set the callback handler
@@ -462,7 +462,7 @@ class FinetuneManager(ModelManager):
         epoch: int,
         epoch_loss: float,
         test_df: pd.DataFrame,
-        metricAccumulator: MetricManager,
+        metric_accumulator: MetricManager,
     ) -> bool:
         """
         Test the RT model using the PSM dataframe and accumulate both the training loss and test metrics.
@@ -475,7 +475,7 @@ class FinetuneManager(ModelManager):
             The train loss value of the current epoch.
         test_df : pd.DataFrame
             The PSM dataframe.
-        metricAccumulator : MetricManager
+        metric_accumulator : MetricManager
             The metric manager object.
 
         Returns
@@ -486,15 +486,15 @@ class FinetuneManager(ModelManager):
         continue_training = True
         if epoch % self.settings["test_interval"] == 0:
             self.rt_model.model.eval()
-            metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
+            metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
             current_lr = self.rt_model.optimizer.param_groups[0]["lr"]
-            metricAccumulator.accumulate_learning_rate(epoch, current_lr)
+            metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             pred = self.rt_model.predict(test_df)
             test_input = {
                 "predicted": pred["rt_pred"].values,
                 "target": test_df["rt_norm"].values,
             }
-            results = metricAccumulator.test(test_input)
+            results = metric_accumulator.test(test_input)
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
@@ -536,7 +536,7 @@ class FinetuneManager(ModelManager):
 
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
-            self._test_rt, test_df=test_df, metricAccumulator=test_metric_manager
+            self._test_rt, test_df=test_df, metric_accumulator=test_metric_manager
         )
         # Set the callback handler
         self.rt_model.set_callback_handler(callback_handler)
@@ -572,7 +572,7 @@ class FinetuneManager(ModelManager):
         epoch: int,
         epoch_loss: float,
         test_df: pd.DataFrame,
-        metricAccumulator: MetricManager,
+        metric_accumulator: MetricManager,
     ) -> bool:
         """
         Test the charge model using the PSM dataframe and accumulate both the training loss and test metrics.
@@ -585,7 +585,7 @@ class FinetuneManager(ModelManager):
             The train loss value of the current epoch.
         test_df : pd.DataFrame
             The PSM dataframe.
-        metricAccumulator : MetricManager
+        metric_accumulator : MetricManager
             The metric manager object.
 
         Returns
@@ -596,15 +596,15 @@ class FinetuneManager(ModelManager):
         continue_training = True
         if epoch % self.settings["test_interval"] == 0:
             self.charge_model.model.eval()
-            metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
+            metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
             current_lr = self.charge_model.optimizer.param_groups[0]["lr"]
-            metricAccumulator.accumulate_learning_rate(epoch, current_lr)
+            metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             pred = self.charge_model.predict(test_df)
             test_inp = {
                 "target": np.array(test_df["charge_indicators"].values.tolist()),
                 "predicted": np.array(pred["charge_probs"].values.tolist()),
             }
-            results = metricAccumulator.test(test_inp)
+            results = metric_accumulator.test(test_inp)
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
@@ -674,7 +674,7 @@ class FinetuneManager(ModelManager):
 
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
-            self._test_charge, test_df=test_df, metricAccumulator=test_metric_manager
+            self._test_charge, test_df=test_df, metric_accumulator=test_metric_manager
         )
 
         # Set the callback handler
