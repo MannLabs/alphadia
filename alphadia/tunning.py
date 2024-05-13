@@ -68,14 +68,14 @@ class CustomScheduler(LR_SchedulerInterface):
         self.optimizer = optimizer
         self.num_warmup_steps = kwargs.get("num_warmup_steps", 5)
         self.num_training_steps = kwargs.get("num_training_steps", 50)
-        self.reduceLROnPlateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
             patience=settings["lr_patience"],
             factor=0.5,
             verbose=True,
         )
-        self.warmupLr = LambdaLR(optimizer, self._warmup)
+        self.warmup_lr = LambdaLR(optimizer, self._warmup)
 
     def _warmup(self, epoch: int):
         """
@@ -106,9 +106,9 @@ class CustomScheduler(LR_SchedulerInterface):
 
         """
         if epoch < self.num_warmup_steps:
-            self.warmupLr.step(epoch)
+            self.warmup_lr.step(epoch)
         else:
-            self.reduceLROnPlateau.step(loss)
+            self.reduce_lr_on_plateau.step(loss)
 
     def get_last_lr(self):
         """
@@ -395,22 +395,22 @@ class FinetuneManager(ModelManager):
         test_psm_df = psm_df.drop(train_psm_df.index).copy()
 
 
-        tr_inten_df = pd.DataFrame()
+        train_intensity_df = pd.DataFrame()
         for frag_type in self.ms2_model.charged_frag_types:
             if frag_type in matched_intensity_df.columns:
-                tr_inten_df[frag_type] = matched_intensity_df[frag_type]
+                train_intensity_df[frag_type] = matched_intensity_df[frag_type]
             else:
-                tr_inten_df[frag_type] = 0.0
+                train_intensity_df[frag_type] = 0.0
 
-        test_inten_df = tr_inten_df.copy()
+        test_intensity_df = train_intensity_df.copy()
 
         self.set_default_nce_instrument(train_psm_df)
         self.set_default_nce_instrument(test_psm_df)
 
-        train_psm_df, tr_inten_df = remove_unused_fragments(train_psm_df, [tr_inten_df])
-        tr_inten_df = tr_inten_df[0]
-        test_psm_df, test_inten_df = remove_unused_fragments(test_psm_df, [test_inten_df])
-        test_inten_df = test_inten_df[0]
+        train_psm_df, train_intensity_df = remove_unused_fragments(train_psm_df, [train_intensity_df])
+        train_intensity_df = train_intensity_df[0]
+        test_psm_df, test_intensity_df = remove_unused_fragments(test_psm_df, [test_intensity_df])
+        test_intensity_df = test_intensity_df[0]
 
         # Create a metric manager
         test_metric_manager = MetricManager(
@@ -423,7 +423,7 @@ class FinetuneManager(ModelManager):
         callback_handler = CustomCallbackHandler(
             self._test_ms2,
             precursor_df=test_psm_df,
-            target_fragment_intensity_df=test_inten_df,
+            target_fragment_intensity_df=test_intensity_df,
             metric_accumulator=test_metric_manager,
         )
 
@@ -437,13 +437,13 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Test the model before training
-        self._test_ms2(-1, 0, test_psm_df, test_inten_df, test_metric_manager)
+        self._test_ms2(-1, 0, test_psm_df, test_intensity_df, test_metric_manager)
         # Train the model
         logger.progress(" Fine-tuning MS2 model")
         self.ms2_model.model.train()
         self.ms2_model.train(
             precursor_df=train_psm_df,
-            fragment_intensity_df=tr_inten_df,
+            fragment_intensity_df=train_intensity_df,
             epoch=self.settings["epochs"],
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
