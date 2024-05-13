@@ -224,6 +224,7 @@ class FinetuneManager(ModelManager):
         self, mask_modloss: bool = False, device: str = "gpu", settings: dict = {}
     ):
         super().__init__(mask_modloss, device)
+        self.device = device
         self.settings = settings
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
@@ -633,7 +634,7 @@ class FinetuneManager(ModelManager):
 
         if self.charge_model is None:
             self.charge_model = ChargeModelForModAASeq(
-                max_charge=max_charge, min_charge=min_charge
+                max_charge=max_charge, min_charge=min_charge, device=self.device
             )
             self.charge_model.predict_batch_size = global_settings["model_mgr"][
                 "predict"
