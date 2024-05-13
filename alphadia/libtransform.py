@@ -243,11 +243,39 @@ class PeptDeepPrediction(ProcessingStep):
         mp_process_num: int = 8,
         fragment_mz: typing.List[int] = [100, 2000],
         nce: int = 25,
-        instrument: str = "Astral",
+        instrument: str = "Lumos",
         checkpoint_folder_path: typing.Optional[str] = None,
+        fragment_types: typing.List[str] = ["b", "y"],
+        max_fragment_charge: int = 2,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
-        Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
+
+        Parameters
+        ----------
+
+        use_gpu : bool, optional
+            Use GPU for prediction. Default is True.
+
+        mp_process_num : int, optional
+            Number of processes to use for prediction. Default is 8.
+
+        fragment_mz : List[int], optional
+            MZ range for fragment prediction. Default is [100, 2000].
+
+        nce : int, optional
+            Normalized collision energy for prediction. Default is 25.
+
+        instrument : str, optional
+            Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
+
+        checkpoint_folder_path : str, optional
+            Path to a folder containing PeptDeep models. If not provided, the default models will be used.
+
+        fragment_types : List[str], optional
+            Fragment types to predict. Default is ["b", "y"].
+
+        max_fragment_charge : int, optional
+            Maximum charge state to predict. Default is 2.
         """
         super().__init__()
         self.use_gpu = use_gpu
@@ -257,11 +285,18 @@ class PeptDeepPrediction(ProcessingStep):
         self.mp_process_num = mp_process_num
         self.checkpoint_folder_path = checkpoint_folder_path
 
+        self.fragment_types = fragment_types
+        self.max_fragment_charge = max_fragment_charge
+
     def validate(self, input: typing.List[str]) -> bool:
         return True
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
-        frag_types = get_charged_frag_types(["b", "y"], 2)
+        charged_frag_types = get_charged_frag_types(
+            self.fragment_types, self.max_fragment_charge
+        )
+
+        input.charged_frag_types = charged_frag_types
 
         # Check if CPU or GPU/MPS should be used
         device = "cpu"
@@ -284,17 +319,19 @@ class PeptDeepPrediction(ProcessingStep):
         res = model_mgr.predict_all(
             input.precursor_df,
             predict_items=["rt", "ms2", "mobility"],
-            frag_types=frag_types,
+            frag_types=charged_frag_types,
             process_num=self.mp_process_num,
         )
 
         if "fragment_mz_df" in res:
             logger.info("Adding fragment mz information")
-            input._fragment_mz_df = res["fragment_mz_df"][frag_types]
+            input._fragment_mz_df = res["fragment_mz_df"][charged_frag_types]
 
         if "fragment_intensity_df" in res:
             logger.info("Adding fragment intensity information")
-            input._fragment_intensity_df = res["fragment_intensity_df"][frag_types]
+            input._fragment_intensity_df = res["fragment_intensity_df"][
+                charged_frag_types
+            ]
 
         if "precursor_df" in res:
             logger.info("Adding precursor information")
@@ -443,6 +480,8 @@ class DecoyGenerator(ProcessingStep):
             return input
 
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())
+
+        decoy_lib.charged_frag_types = input.charged_frag_types
         decoy_lib.decoy_sequence(mp_process_num=self.mp_process_num)
         decoy_lib.calc_precursor_mz()
         decoy_lib.remove_unused_fragments()

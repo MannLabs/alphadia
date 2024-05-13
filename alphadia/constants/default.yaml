@@ -36,7 +36,11 @@ library_prediction:
     - 200
     - 2000
   nce: 25.0
-  instrument: QE
+  # semicolon separated list of fragment types. Supported types are: a, b, c, x, y, z, b_modloss, y_modloss
+  fragment_types: 'b;y'
+  # maximum charge state for predicted fragments
+  max_fragment_charge: 2
+  instrument: Lumos
   save_hdf: True
   checkpoint_folder_path: None
 
