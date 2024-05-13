@@ -30,7 +30,9 @@ class MetricAccumulator:
         new_stats = pd.DataFrame({self.name: [loss]})
         new_stats.index = [epoch]
         new_stats.index.name = "epoch"
-        self.stats = new_stats if self.stats is None else pd.concat([self.stats, new_stats])
+        self.stats = (
+            new_stats if self.stats is None else pd.concat([self.stats, new_stats])
+        )
 
 
 class TestMetricBase:
@@ -59,7 +61,9 @@ class TestMetricBase:
         """
         new_stats.index = [epoch]
         new_stats.index.name = "epoch"
-        self.stats = new_stats if self.stats is None else pd.concat([self.stats, new_stats])
+        self.stats = (
+            new_stats if self.stats is None else pd.concat([self.stats, new_stats])
+        )
 
     def calculate_test_metric(self, test_input: dict, epoch: int):
         """
@@ -408,7 +412,10 @@ class MetricManager:
         """
         result = pd.DataFrame()
         for test_metric in self.test_metrics:
-            result = pd.concat([result, test_metric.calculate_test_metric(test_inp, self.epoch)], axis=1)
+            result = pd.concat(
+                [result, test_metric.calculate_test_metric(test_inp, self.epoch)],
+                axis=1,
+            )
         self.epoch += self.test_interval
         return result
 
