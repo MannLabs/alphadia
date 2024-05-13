@@ -413,7 +413,7 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(
             model_name="ms2",
             test_interval=self.settings["test_interval"],
-            tests=[L1LossTestMetric()],
+            tests=[L1LossTestMetric(), Ms2SimilarityTestMetric()],
         )
 
         # create a callback handler
