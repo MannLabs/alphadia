@@ -56,7 +56,7 @@ def test_LinearRegressionTestMetric():
     test_inp = get_regression_test_input()
     # When
     metric = finetunemetrics.LinearRegressionTestMetric()
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -87,7 +87,7 @@ def test_AbsErrorPercentileTestMetric():
     percentile = 95
     # When
     metric = finetunemetrics.AbsErrorPercentileTestMetric(percentile=percentile)
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -107,7 +107,7 @@ def test_L1LossTestMetric():
 
     # When
     metric = finetunemetrics.L1LossTestMetric()
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -128,7 +128,7 @@ def test_CELossTestMetric():
 
     # When
     metric = finetunemetrics.CELossTestMetric()
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -148,7 +148,7 @@ def test_AccuracyTestMetric():
 
     # When
     metric = finetunemetrics.AccuracyTestMetric()
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -171,7 +171,7 @@ def test_PrecisionRecallTestMetric():
 
     # When
     metric = finetunemetrics.PrecisionRecallTestMetric()
-    results = metric.test(epoch=0, test_input=test_inp)
+    results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
     assert isclose(
@@ -210,8 +210,8 @@ def test_MetricManager():
 
     test_inp = get_regression_test_input()
     # When
-    for i in range(10):
-        metric_manager.test(test_inp)
+    for _ in range(10):
+        metric_manager.calculate_test_metric(test_inp)
 
     # Then
     df = metric_manager.get_stats()

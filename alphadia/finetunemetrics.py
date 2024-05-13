@@ -12,7 +12,6 @@ class MetricAccumulator:
 
     def __init__(self, name: str):
         self.name = name
-        self.columns = [name]
         self.stats = None
 
     def accumulate(self, epoch: int, loss: float):
@@ -31,11 +30,7 @@ class MetricAccumulator:
         new_stats = pd.DataFrame({self.name: [loss]})
         new_stats.index = [epoch]
         new_stats.index.name = "epoch"
-        new_stats.columns = self.columns
-        if self.stats is None:
-            self.stats = new_stats
-        else:
-            self.stats = pd.concat([self.stats, new_stats])
+        self.stats = new_stats if self.stats is None else pd.concat([self.stats, new_stats])
 
 
 class TestMetricBase:
@@ -64,12 +59,9 @@ class TestMetricBase:
         """
         new_stats.index = [epoch]
         new_stats.index.name = "epoch"
-        if self.stats is None:
-            self.stats = new_stats
-        else:
-            self.stats = pd.concat([self.stats, new_stats])
+        self.stats = new_stats if self.stats is None else pd.concat([self.stats, new_stats])
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -98,7 +90,7 @@ class LinearRegressionTestMetric(TestMetricBase):
             columns=["test_r_square", "test_r", "test_slope", "test_intercept"]
         )
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -133,7 +125,7 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
         super().__init__(columns=[f"abs_error_{percentile}th_percentile"])
         self.percentile = percentile
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -168,7 +160,7 @@ class L1LossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_loss"])
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -204,7 +196,7 @@ class Ms2SimilarityTestMetric(TestMetricBase):
         )
         self.metrics = ["PCC", "COS", "SA", "SPC"]
 
-    def test(
+    def calculate_test_metric(
         self,
         test_input: dict,
         epoch: int,
@@ -256,7 +248,7 @@ class CELossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_loss"])
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -280,7 +272,6 @@ class CELossTestMetric(TestMetricBase):
         targets = test_input["target"]
         ce_loss = np.mean(-np.sum(targets * np.log(predictions), axis=1))
         new_stats = pd.DataFrame([ce_loss], columns=self.columns)
-
         self._update_stats(new_stats, epoch)
 
         return new_stats
@@ -290,7 +281,7 @@ class AccuracyTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_accuracy"])
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -327,7 +318,7 @@ class PrecisionRecallTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["test_precision", "test_recall"])
 
-    def test(self, test_input: dict, epoch: int):
+    def calculate_test_metric(self, test_input: dict, epoch: int):
         """
         Calculate the test metric at a given epoch.
 
@@ -379,7 +370,7 @@ class MetricManager:
         The name of the model being trained/tested.
     test_interval : int
         The interval of epochs between two test iterations.
-    tests : List[TestMetricBase]
+    test_metrics : List[TestMetricBase]
         A list of test metrics to calculate at each epoch.
     """
 
@@ -387,16 +378,16 @@ class MetricManager:
         self,
         model_name: str,
         test_interval: int = 1,
-        tests: List[TestMetricBase] = None,
+        test_metrics: List[TestMetricBase] = None,
     ):
         self.model_name = model_name
-        self.tests = tests
+        self.test_metrics = test_metrics
         self.training_loss_accumulators = MetricAccumulator("train_loss")
         self.lr_accumulator = MetricAccumulator("learning_rate")
         self.epoch = 0
         self.test_interval = test_interval
 
-    def test(self, test_inp: dict) -> pd.DataFrame:
+    def calculate_test_metric(self, test_inp: dict) -> pd.DataFrame:
         """
         Calculate the test metrics at the current epoch by calling the test method of each test metric passed to the MetricManager
         during initialization.
@@ -416,8 +407,8 @@ class MetricManager:
 
         """
         result = pd.DataFrame()
-        for test_metric in self.tests:
-            result = pd.concat([result, test_metric.test(test_inp, self.epoch)], axis=1)
+        for test_metric in self.test_metrics:
+            result = pd.concat([result, test_metric.calculate_test_metric(test_inp, self.epoch)], axis=1)
         self.epoch += self.test_interval
         return result
 

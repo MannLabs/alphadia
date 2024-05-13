@@ -333,7 +333,7 @@ class FinetuneManager(ModelManager):
                 "predicted": ordered_pred,
                 "target": target_fragment_intensity_df,
             }
-            results = metric_accumulator.test(test_input)
+            results = metric_accumulator.calculate_test_metric(test_input)
             # Using zero padded strings and 4 decimal places
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
@@ -416,7 +416,7 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(
             model_name="ms2",
             test_interval=self.settings["test_interval"],
-            tests=[L1LossTestMetric(), Ms2SimilarityTestMetric()],
+            test_metrics=[L1LossTestMetric(), Ms2SimilarityTestMetric()],
         )
 
         # create a callback handler
@@ -500,7 +500,7 @@ class FinetuneManager(ModelManager):
                 "predicted": pred["rt_pred"].values,
                 "target": test_df["rt_norm"].values,
             }
-            results = metric_accumulator.test(test_input)
+            results = metric_accumulator.calculate_test_metric(test_input)
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
@@ -533,7 +533,7 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(
             model_name="rt",
             test_interval=self.settings["test_interval"],
-            tests=[
+            test_metrics=[
                 L1LossTestMetric(),
                 LinearRegressionTestMetric(),
                 AbsErrorPercentileTestMetric(95),
@@ -615,7 +615,7 @@ class FinetuneManager(ModelManager):
                 "target": np.array(test_df["charge_indicators"].values.tolist()),
                 "predicted": np.array(pred["charge_probs"].values.tolist()),
             }
-            results = metric_accumulator.test(test_inp)
+            results = metric_accumulator.calculate_test_metric(test_inp)
             logger.progress(
                 f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   Test loss: {results['test_loss'].values[-1]:.4f}"
             )
@@ -676,7 +676,7 @@ class FinetuneManager(ModelManager):
         test_metric_manager = MetricManager(
             model_name="charge",
             test_interval=self.settings["test_interval"],
-            tests=[
+            test_metrics=[
                 CELossTestMetric(),
                 AccuracyTestMetric(),
                 PrecisionRecallTestMetric(),
