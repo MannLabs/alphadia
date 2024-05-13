@@ -311,8 +311,10 @@ class FinetuneManager(ModelManager):
             self.ms2_model.model.eval()
             
             metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
-            current_lr = 0
-            current_lr = self.ms2_model.optimizer.param_groups[0]["lr"]
+            if epoch == -1: # Before training
+                current_lr = 0
+            else:
+                current_lr = self.ms2_model.optimizer.param_groups[0]["lr"]
             metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             if "instrument" not in precursor_df.columns:
                 precursor_df["instrument"] = default_instrument
@@ -434,7 +436,8 @@ class FinetuneManager(ModelManager):
         # Reset the early stopping
         self.early_stopping.reset()
 
-
+        # Test the model before training
+        self._test_ms2(-1, 0, test_psm_df, test_inten_df, test_metric_manager)
         # Train the model
         logger.progress(" Fine-tuning MS2 model")
         self.ms2_model.model.train()
@@ -487,7 +490,10 @@ class FinetuneManager(ModelManager):
         if epoch % self.settings["test_interval"] == 0:
             self.rt_model.model.eval()
             metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
-            current_lr = self.rt_model.optimizer.param_groups[0]["lr"]
+            if epoch == -1: # Before training
+                current_lr = 0
+            else:
+                current_lr = self.rt_model.optimizer.param_groups[0]["lr"]
             metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             pred = self.rt_model.predict(test_df)
             test_input = {
@@ -547,6 +553,8 @@ class FinetuneManager(ModelManager):
         # Reset the early stopping
         self.early_stopping.reset()
 
+        # Test the model before training
+        self._test_rt(-1, 0, test_df, test_metric_manager)
         # Train the model
         logger.progress(" Fine-tuning RT model")
         self.rt_model.model.train()
@@ -597,7 +605,10 @@ class FinetuneManager(ModelManager):
         if epoch % self.settings["test_interval"] == 0:
             self.charge_model.model.eval()
             metric_accumulator.accumulate_training_loss(epoch, epoch_loss)
-            current_lr = self.charge_model.optimizer.param_groups[0]["lr"]
+            if epoch == -1: # Before training
+                current_lr = 0
+            else:
+                current_lr = self.charge_model.optimizer.param_groups[0]["lr"]
             metric_accumulator.accumulate_learning_rate(epoch, current_lr)
             pred = self.charge_model.predict(test_df)
             test_inp = {
@@ -685,6 +696,9 @@ class FinetuneManager(ModelManager):
 
         # Reset the early stopping
         self.early_stopping.reset()
+
+        # Test the model before training
+        self._test_charge(-1, 0, test_df, test_metric_manager)
 
         # Train the model
         logger.progress(" Fine-tuning Charge model")
