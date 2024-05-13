@@ -1,8 +1,9 @@
 import torch
 import pandas as pd
 import numpy as np
+from tqdm import tqdm
 from torch.optim.lr_scheduler import LambdaLR
-
+from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import *
 
 from alphadia.finetunemetrics import (
@@ -28,10 +29,10 @@ logger = logging.getLogger()
 
 settings = {
     # --------- USer settings ------------
-    "batch_size": 4000,
-    "max_lr": 0.001,
+    "batch_size": 1000,
+    "max_lr": 0.0005,
     "train_ratio": 0.8,
-    "test_interval": 1,
+    "test_interval": 2,
     "lr_patience": 3,
     # --------- Our settings ------------
     "minimum_psms": 1200,
@@ -200,6 +201,7 @@ class CustomCallbackHandler(CallbackHandler):
             Whether to continue training or not based on the early stopping criteria.
         """
         return self.test_callback(epoch, epoch_loss, **self.callback_args)
+    
 
 
 class FinetuneManager(ModelManager):
@@ -224,9 +226,49 @@ class FinetuneManager(ModelManager):
         super().__init__(mask_modloss, device)
         self.settings = settings
         self.early_stopping = EarlyStopping(
-            patience=(settings["lr_patience"] / settings["test_interval"]) * 3
+            patience=(settings["lr_patience"] // settings["test_interval"]) * 3
         )
+    def _order_intensities(self, precursor_df_target: pd.DataFrame, precursor_df_pred: pd.DataFrame, target_intensity_df: pd.DataFrame,pred_intensity_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Rearrange the predicted fragment intensities to match the order used by the start and stop indices in the precursor_df_target.
+        This is used because when the fragment intensities are predicted, peptdeep changes the frag_start_idx and frag_stop_idx, 
+        so with this function we can directly compare the predicted intensities with the target intensities.
 
+        Parameters
+        ----------
+        precursor_df_target : pd.DataFrame
+            The PSM dataframe before prediction.
+        precursor_df_pred : pd.DataFrame
+            The PSM dataframe after prediction.
+        target_intensity_df : pd.DataFrame
+            The target fragment intensity dataframe.
+        pred_intensity_df : pd.DataFrame
+            The predicted fragment intensity dataframe.
+
+        Returns
+        -------
+        pd.DataFrame
+            The rearranged predicted fragment intensity dataframe.
+        """
+        new_pred = target_intensity_df.copy()
+        for i in range(len(precursor_df_pred)):
+            cur_mod_seq_hash = precursor_df_pred.iloc[i]["mod_seq_charge_hash"]
+            cur_proba = precursor_df_pred.iloc[i]["proba"]
+
+            # find the index of the the same mod_seq_hash and proba in the precursor_df
+            target = precursor_df_target[(precursor_df_target["mod_seq_charge_hash"] == cur_mod_seq_hash) & (precursor_df_target["proba"] == cur_proba)]
+            target_idx = target.index[0]
+
+            
+            pred_start_idx = precursor_df_pred.iloc[i]["frag_start_idx"]
+            pred_end_idx = precursor_df_pred.iloc[i]["frag_stop_idx"]
+
+            target_start_idx = precursor_df_target.loc[target_idx]["frag_start_idx"]
+            target_end_idx = precursor_df_target.loc[target_idx]["frag_stop_idx"]
+
+            new_pred.iloc[target_start_idx:target_end_idx, :] = pred_intensity_df.iloc[pred_start_idx:pred_end_idx, :]
+        return new_pred
+    
     def _test_ms2(
         self,
         epoch: int,
@@ -263,26 +305,30 @@ class FinetuneManager(ModelManager):
             Whether to continue training or not based on the early stopping criteria.
 
         """
-
+        continue_training = True
         if epoch % self.settings["test_interval"] == 0:
+            self.ms2_model.model.eval()
+            
             metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
+            current_lr = 0
             current_lr = self.ms2_model.optimizer.param_groups[0]["lr"]
             metricAccumulator.accumulate_learning_rate(epoch, current_lr)
-
             if "instrument" not in precursor_df.columns:
                 precursor_df["instrument"] = default_instrument
             if "nce" not in precursor_df.columns:
                 precursor_df["nce"] = default_nce
-            columns = np.intersect1d(
-                self.ms2_model.charged_frag_types,
-                target_fragment_intensity_df.columns.values,
-            )
+          
+            precursor_copy = precursor_df.copy()
+            pred_intensities = self.ms2_model.predict(precursor_copy)
 
-            pred = self.ms2_model.predict(precursor_df)[columns]
+
+             # Lets rearrange the prediction to have the same order as the target
+            ordered_pred = self._order_intensities(precursor_df, precursor_copy, target_fragment_intensity_df, pred_intensities)
+                   
             test_input = {
                 "psm_df": precursor_df,
-                "predicted": pred,
-                "target": target_fragment_intensity_df[columns],
+                "predicted": ordered_pred,
+                "target": target_fragment_intensity_df,
             }
             results = metricAccumulator.test(test_input)
             # Using zero padded strings and 4 decimal places
@@ -293,8 +339,34 @@ class FinetuneManager(ModelManager):
             continue_training = self.early_stopping.step(
                 results["test_loss"].values[-1]
             )
-            return continue_training
+            self.ms2_model.model.train()
+        return continue_training
+    def _normalize_intensity(self, precursor_df: pd.DataFrame, fragment_intensity_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Normalize the fragment intensity dataframe inplace.
 
+        Parameters
+        ----------
+        precursor_df : pd.DataFrame
+            The PSM dataframe.
+        fragment_intensity_df : pd.DataFrame
+            The fragment intensity dataframe.
+
+        Returns
+        -------
+        pd.DataFrame
+            The normalized fragment intensity dataframe.
+        """
+        for start, stop in zip(precursor_df['frag_start_idx'], precursor_df['frag_stop_idx']):
+            iloc_slice = fragment_intensity_df.iloc[start:stop, :]
+            max_intensity = np.max(iloc_slice.values.flatten())
+            if np.isnan(max_intensity):
+                fragment_intensity_df.iloc[start:stop, :] = 0
+                continue
+            if max_intensity != 0:
+                fragment_intensity_df.iloc[start:stop, :] = iloc_slice / max_intensity
+                
+    
     def finetune_ms2(
         self, psm_df: pd.DataFrame, matched_intensity_df: pd.DataFrame
     ) -> pd.DataFrame:
@@ -313,10 +385,12 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
+        self._normalize_intensity(psm_df, matched_intensity_df)
 
         # Shuffle the psm_df and split it into train and test
-        train_psm_df = psm_df.sample(frac=self.settings["train_ratio"])
-        test_psm_df = psm_df.drop(train_psm_df.index)
+        train_psm_df = psm_df.sample(frac=self.settings["train_ratio"]).copy()
+        test_psm_df = psm_df.drop(train_psm_df.index).copy()
+
 
         tr_inten_df = pd.DataFrame()
         for frag_type in self.ms2_model.charged_frag_types:
@@ -326,17 +400,20 @@ class FinetuneManager(ModelManager):
                 tr_inten_df[frag_type] = 0.0
 
         test_inten_df = tr_inten_df.copy()
-        normalize_fragment_intensities(train_psm_df, tr_inten_df)
-        normalize_fragment_intensities(test_psm_df, test_inten_df)
 
         self.set_default_nce_instrument(train_psm_df)
         self.set_default_nce_instrument(test_psm_df)
+
+        train_psm_df, tr_inten_df = remove_unused_fragments(train_psm_df, [tr_inten_df])
+        tr_inten_df = tr_inten_df[0]
+        test_psm_df, test_inten_df = remove_unused_fragments(test_psm_df, [test_inten_df])
+        test_inten_df = test_inten_df[0]
 
         # Create a metric manager
         test_metric_manager = MetricManager(
             model_name="ms2",
             test_interval=self.settings["test_interval"],
-            tests=[L1LossTestMetric(), Ms2SimilarityTestMetric()],
+            tests=[L1LossTestMetric()],
         )
 
         # create a callback handler
@@ -356,8 +433,10 @@ class FinetuneManager(ModelManager):
         # Reset the early stopping
         self.early_stopping.reset()
 
+
         # Train the model
         logger.progress(" Fine-tuning MS2 model")
+        self.ms2_model.model.train()
         self.ms2_model.train(
             precursor_df=train_psm_df,
             fragment_intensity_df=tr_inten_df,
@@ -365,6 +444,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
             lr=settings["max_lr"],
+            verbose=True,
         )
 
         metrics = test_metric_manager.get_stats()
@@ -402,8 +482,9 @@ class FinetuneManager(ModelManager):
         bool
             Whether to continue training or not based on the early stopping criteria.
         """
-
+        continue_training = True
         if epoch % self.settings["test_interval"] == 0:
+            self.rt_model.model.eval()
             metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
             current_lr = self.rt_model.optimizer.param_groups[0]["lr"]
             metricAccumulator.accumulate_learning_rate(epoch, current_lr)
@@ -420,7 +501,8 @@ class FinetuneManager(ModelManager):
             loss = results["test_loss"].values[-1]
 
             continue_training = self.early_stopping.step(loss)
-            return continue_training
+            self.rt_model.model.train()
+        return continue_training
 
     def finetune_rt(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -466,6 +548,7 @@ class FinetuneManager(ModelManager):
 
         # Train the model
         logger.progress(" Fine-tuning RT model")
+        self.rt_model.model.train()
         self.rt_model.train(
             train_df,
             batch_size=self.settings["batch_size"],
@@ -509,8 +592,9 @@ class FinetuneManager(ModelManager):
         bool
             Whether to continue training or not based on the early stopping criteria.
         """
-
+        continue_training = True
         if epoch % self.settings["test_interval"] == 0:
+            self.charge_model.model.eval()
             metricAccumulator.accumulate_training_loss(epoch, epoch_loss)
             current_lr = self.charge_model.optimizer.param_groups[0]["lr"]
             metricAccumulator.accumulate_learning_rate(epoch, current_lr)
@@ -527,7 +611,8 @@ class FinetuneManager(ModelManager):
             loss = results["test_loss"].values[-1]
 
             continue_training = self.early_stopping.step(loss)
-            return continue_training
+            self.charge_model.model.train()
+        return continue_training
 
     def finetune_charge(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -602,6 +687,7 @@ class FinetuneManager(ModelManager):
 
         # Train the model
         logger.progress(" Fine-tuning Charge model")
+        self.charge_model.model.train()
         self.charge_model.train(
             psm_df,
             batch_size=self.settings["batch_size"],
