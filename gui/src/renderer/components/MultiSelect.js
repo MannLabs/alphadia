@@ -1,5 +1,6 @@
-import { Grid, Stack, Typography, Tooltip, Button } from "@mui/material";
+import { Grid, Stack, Typography, Tooltip, Button, Chip } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import { useTheme } from '@emotion/react';
 
 const MultiSelect = ({
     label = "File",
@@ -8,8 +9,11 @@ const MultiSelect = ({
     path = [],
     tooltipText = "",
     onChange = () => {},
+    onAppend = () => {},
     ...props
 }) => {
+
+    const theme = useTheme();
 
     // set color based on activity status
     const color = active ? "primary" : "divider";
@@ -24,7 +28,7 @@ const MultiSelect = ({
     if (type === "folder") {
         handleSelect = () => {
             window.electronAPI.getMultipleFolders().then((folder) => {
-                onChange(folder);
+                onAppend(folder);
             }).catch((err) => {
                 console.log(err);
             })
@@ -32,7 +36,7 @@ const MultiSelect = ({
     } else {
         handleSelect = () => {
             window.electronAPI.getMultipleFiles().then((file) => {
-                onChange(file);
+                onAppend(file);
             }).catch((err) => {
                 console.log(err);
             })
@@ -50,20 +54,26 @@ const MultiSelect = ({
             </Stack>
         </Grid>
         <Grid item xs={6} zeroMinWidth sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>
-            <Typography component="span" noWrap >
-                {
-                    // iterate fileNames and display with line break
-                    fileNames.map((fileName) => {
-                        return (
-                            <Typography component="span" noWrap key={fileName}>
-                                {fileName}
-                                <br/>
-                            </Typography>
-                        )
-                    })
-                }
-            </Typography>
-
+            {
+                // iterate fileNames and display with line break
+                fileNames.map((fileName, i) => {
+                    return (
+                        <Chip
+                        sx={{marginRight: theme.spacing(0.5), marginBottom: theme.spacing(0.5)}}
+                        label={fileName}
+                        key={i}
+                        size="small"
+                        onDelete={
+                            () => {
+                                let newPaths = path.slice();
+                                newPaths.splice(i, 1);
+                                onChange(newPaths);
+                            }
+                        }
+                        />
+                    )
+                })
+            }
         </Grid>
         <Grid item xs={3} position={'relative'}>
             <Button

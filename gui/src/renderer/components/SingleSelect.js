@@ -1,4 +1,4 @@
-import { Grid, Stack, Typography, Tooltip, Button } from "@mui/material";
+import { Grid, Stack, Typography, Tooltip, Button, Chip } from "@mui/material";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 
 const SingleSelect = ({
@@ -49,9 +49,15 @@ const SingleSelect = ({
             </Stack>
         </Grid>
         <Grid item xs={6} zeroMinWidth sx={{overflow: 'hidden', textOverflow: 'ellipsis'}}>
-            <Typography component="span" noWrap >
-                {fileName}
-            </Typography>
+
+            {fileName == ''? '':
+                <Chip
+
+                label={fileName}
+                size="small"
+                onDelete={() => {onChange("")}}
+                />
+            }
 
         </Grid>
         <Grid item xs={3} position={'relative'}>

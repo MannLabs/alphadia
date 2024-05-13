@@ -9,14 +9,12 @@
         "active": true,
         "required": false,
         "path": [
-            ""
         ]
     },
     "raw_path_list": {
         "active": true,
         "required": false,
         "path": [
-            ""
         ]
     },
     "output_directory": {
