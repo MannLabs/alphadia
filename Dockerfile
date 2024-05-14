@@ -1,13 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Dockerfile reference guide at
-# https://docs.docker.com/go/dockerfile-reference/
-
-# Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
-
-ARG PYTHON_VERSION=3.9.19
-FROM --platform=linux/amd64 python:${PYTHON_VERSION}-slim as base
+FROM --platform=linux/amd64 mosthege/pythonnet:python3.9.16-mono6.12-pythonnet3.0.1
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -38,17 +31,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements/requirements.txt,target=requirements/requirements.txt \
     python -m pip install -r requirements/requirements.txt
 
-
-# Copy the source code into the container.
 COPY . .
 
 RUN pip install .
 
-# Expose the port that the application listens on.
-EXPOSE 8000
-
-# Switch to the non-privileged user to run the application.
-USER appuser
-
 # Run the application.
-CMD alphadia --version
+CMD alphadia --config data/config/config.yaml
