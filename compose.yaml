@@ -7,13 +7,4 @@ services:
     volumes:
         - type: bind
           source: /home/alphadia/magnus/data
-          target: /app/data/library
-        - type: bind
-          source: /home/alphadia/magnus/data/astral_lf_dia_200ng
-          target: /app/data/raw
-        - type: bind
-          source: /home/alphadia/magnus/data
-          target: /app/data/config
-        - type: bind
-          source: ./run/output
-          target: /app/data/output
+          target: /app/data/
