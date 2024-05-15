@@ -1,37 +1,63 @@
-![Pip installation](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
-![GUI and PyPi releases](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
+![Release](https://img.shields.io/badge/release-v1.5.5-brightgreen)
+![License](https://img.shields.io/badge/License-Apache-brightgreen)
+![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
+![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
 
-# alphaDIA
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <a href="https://github.com/othneildrew/Best-README-Template">
+    <img src="release/logos/alphadia.png" alt="Logo" width="80" height="80">
+  </a>
+
+  <h3 align="center">alphaDIA</h3>
+
+  <p align="center">
+    <a href="https://github.com/MannLabs/alphadia">Preprint</a>
+    ·
+    <a href="https://github.com/Mannlabs/alphadia/releases/latest">Download</a>
+    ·
+    <a href="https://github.com/MannLabs/alphadia/discussions">Discussion</a>
+    ·
+    <a href="https://github.com/MannLabs/alphadia">Documentation</a>
+  </p>
+</div>
+
 
 ![preview](assets/preview.gif)
 
-An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann). To enable all hyperlinks in this document, please view it at [GitHub](https://github.com/MannLabs/alphadia).
-
-## Content
-
-* [**Installation**](#installation)
-  * [**One-click GUI**](#one-click-gui)
-  * [**Developer installer**](#developer)
-* [**Usage**](#usage)
-  * [**Jupyter**](#jupyter-notebooks)
-  * [**GUI**](#gui)
-  * [**CLI**](#cli)
+## Table of Contents</summary>
+<ol>
+  <li>
+    <a href="#installation">Installation</a>
+    <ul>
+      <li><a href="#one-click-gui">One-click GUI</a></li>
+      <li><a href="#developer">Developer install</a></li>
+    </ul>
+  </li>
+  <li>
+    <a href="#getting-started">Getting started</a>
+  </li>
+</ol>
 
 
 ## Installation
 
 AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
-* [**One-click GUI installer:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible.
+* [**One-click GUI install:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible. Currently available for **mac** and **windows**.
 
-* [**Developer installer:**](#developer) Choose this installation if you are familiar with CLI tools, [conda](https://docs.conda.io/en/latest/) and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+* [**Developer install:**](#developer) Choose this installation if you are familiar with CLI tools, Conda and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
-### One-click GUI
+### One-click GUI install
 
-One-click installation is not available during the beta phase.
+You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
-### Developer
+* **Windows** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
+* **MacOS** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an arm based M1/2/3 processor for the One-click installer. Save the installer and open the parent folder in Finder. Right-click or two finger click and select *open*. If you receive a warning during installation click *Open*.
+
+### Developer install
 
 AlphaDIA can also be installed in editable (i.e. developer) mode with a few `bash` commands. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a transparent location of your choice.
 
@@ -94,43 +120,35 @@ npm run dev
 ```
 
 ---
-## Usage
+## Getting started
 
-There are three ways to use AlphaDIA:
+This guide will show you how to perform your first search using the One-click GUI.
+### 1. Prerequisites
+Make sure you have installed the GUI using the one-click installer. To verify your installation, open alphaDIA and make sure that the `BundledExecutionEngine` is selected.
 
-* [**Python**](#jupyter-notebooks)
-* [**GUI**](#gui)
-* [**CLI**](#cli)
+<img src="assets/select_engine.gif" alt="Logo" width="400" height="auto">
 
-### Jupyter notebooks
+### 2. Test data
 
-AlphaDIA can be imported as a Python package into any Python script or notebook with the command `import alphadia`.
+For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral. Download the test samples and save them: [HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk), [RAW files].(https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
 
-A brief [Jupyter notebook search](nbs/search/library_search.ipynb) blueprint is can be found in the repository.
+### 3. Search settings
 
-### GUI
+#### Input Files
+Import the library `.hdf` file and select the thre `.raw` files. You can select a human `.fasta` file for reannotation but it's generally not recommended for empirical spectral libraries.
 
-Make sure that the the GUI was installed as part of the development install.
+#### Method Settings
+Alltough alphaDIA is highly custamizable, we will only set a limited number of settings here. Go to the *Search* settings and make the following changes: 
+* Number of candidates: 5
+* MS1 Tolerance 4ppm
+* MS2 Tolerance 7ppm
 
-```bash
-cd alphadia/gui
-npm run dev
-```
+#### Output files
+Select an output folder where the search progress and the final results should be saved.
 
-If you want to create the GUI executable run:
-```bash
-npm run make
-```
+### 4. Run the search
+Click *Run Workflow* to start the search and see the progress.
 
-### CLI
-
-The CLI can be run with the following command (after activating the `conda` environment with `conda activate alphadia` or if an alias was set to the alphadia executable):
-
-```bash
-alphadia -h
-```
-
-It is possible to get help about each function and their (required) parameters by using the `-h` flag.
 
 ---
 ## Troubleshooting
