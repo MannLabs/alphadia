@@ -1017,80 +1017,23 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         frag_df: pd.DataFrame
             Dataframe with fragments in long format
         """
-        # remove decoys
-        psm_df = psm_df[psm_df["decoy"] == 0]
 
         self.reporter.log_string(
-            f"=== Transfer learning quantification of {len(psm_df):,} precursors ===",
+            f"=== Transfer learning quantification ===",
             verbosity="progress",
         )
 
-        self.com.fit(
-            {
-                "ms1_error": self.config["search"]["target_ms1_tolerance"],
-                "ms2_error": self.config["search"]["target_ms2_tolerance"],
-                "column_type": "calibrated",
-            }
-        )
-
-        optional_columns = [
-            "proba",
-            "score",
-            "qval",
-            "channel",
-            "rt_library",
-            "mz_library",
-            "mobility_library",
-            "genes",
-            "proteins",
-            "decoy",
-            "mods",
-            "mod_sites",
-            "sequence",
-            "charge",
-        ]
-        for col in ["rt_observed", "mobility_observed", "mz_observed"]:
-            optional_columns += [col] if col in psm_df.columns else []
-
-        scored_candidates = plexscoring.candidate_features_to_candidates(
-            psm_df, optional_columns=optional_columns
-        )
-
-        # create speclib with fragment_types of interest
-        candidate_speclib = SpecLibBase()
-        candidate_speclib.precursor_df = scored_candidates
-
         fragment_types = self.config["transfer_learning"]["fragment_types"].split(";")
         max_charge = self.config["transfer_learning"]["max_charge"]
-        candidate_speclib.charged_frag_types = get_charged_frag_types(
-            fragment_types, max_charge
-        )
 
         self.reporter.log_string(
-            f"creating library for charged fragment types: {candidate_speclib.charged_frag_types}",
+            f"creating library for charged fragment types: {fragment_types}",
             verbosity="info",
         )
 
-        candidate_speclib.calc_fragment_mz_df()
-
-        candidate_speclib._fragment_intensity_df = (
-            candidate_speclib.fragment_mz_df.copy()
+        candidate_speclib_flat, scored_candidates = build_candidate_speclib_flat(
+            psm_df, fragment_types=fragment_types, max_charge=max_charge
         )
-        # set all fragment weights to 1 to make sure all are quantified
-        candidate_speclib._fragment_intensity_df[
-            candidate_speclib.charged_frag_types
-        ] = 1.0
-
-        # create flat speclib
-        candidate_speclib_flat = SpecLibFlat()
-        candidate_speclib_flat.parse_base_library(candidate_speclib)
-        # delete immediately to free memory
-        del candidate_speclib
-
-        candidate_speclib_flat.fragment_df.rename(
-            columns={"mz": "mz_library"}, inplace=True
-        )
-        candidate_speclib_flat.fragment_df["cardinality"] = 0
 
         self.reporter.log_string(
             f"Calibrating library",
@@ -1122,8 +1065,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            precursor_mz_column=f"mz_{self.com.column_type}",
-            fragment_mz_column=f"mz_{self.com.column_type}",
+            precursor_mz_column=f"mz_calibrated",
+            fragment_mz_column=f"mz_calibrated",
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
@@ -1145,3 +1088,101 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         return scored_candidates, frag_df
+
+
+def build_candidate_speclib_flat(
+    psm_df: pd.DataFrame,
+    fragment_types: typing.List[str] = ["b", "y"],
+    max_charge: int = 2,
+    optional_columns: typing.List[str] = [
+        "proba",
+        "score",
+        "qval",
+        "channel",
+        "rt_library",
+        "mz_library",
+        "mobility_library",
+        "genes",
+        "proteins",
+        "decoy",
+        "mods",
+        "mod_sites",
+        "sequence",
+        "charge",
+    ],
+) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
+    """Build a candidate spectral library for transfer learning.
+
+    Parameters
+    ----------
+
+    psm_df: pd.DataFrame
+        Dataframe with peptide identifications
+
+    fragment_types: typing.List[str], optional
+        List of fragment types to include in the library, by default ['b','y']
+
+    max_charge: int, optional
+        Maximum fragment charge state to consider, by default 2
+
+    optional_columns: typing.List[str], optional
+        List of optional columns to include in the library, by default [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+        ]
+
+    Returns
+    -------
+    candidate_speclib_flat: SpecLibFlat
+        Candidate spectral library in flat format
+
+    scored_candidates: pd.DataFrame
+        Dataframe with scored candidates
+    """
+    # remove decoys
+    psm_df = psm_df[psm_df["decoy"] == 0]
+
+    for col in ["rt_observed", "mobility_observed", "mz_observed"]:
+        optional_columns += [col] if col in psm_df.columns else []
+
+    scored_candidates = plexscoring.candidate_features_to_candidates(
+        psm_df, optional_columns=optional_columns
+    )
+
+    # create speclib with fragment_types of interest
+    candidate_speclib = SpecLibBase()
+    candidate_speclib.precursor_df = scored_candidates
+
+    candidate_speclib.charged_frag_types = get_charged_frag_types(
+        fragment_types, max_charge
+    )
+
+    candidate_speclib.calc_fragment_mz_df()
+
+    candidate_speclib._fragment_intensity_df = candidate_speclib.fragment_mz_df.copy()
+    # set all fragment weights to 1 to make sure all are quantified
+    candidate_speclib._fragment_intensity_df[candidate_speclib.charged_frag_types] = 1.0
+
+    # create flat speclib
+    candidate_speclib_flat = SpecLibFlat()
+    candidate_speclib_flat.parse_base_library(candidate_speclib)
+    # delete immediately to free memory
+    del candidate_speclib
+
+    candidate_speclib_flat.fragment_df.rename(
+        columns={"mz": "mz_library"}, inplace=True
+    )
+    candidate_speclib_flat.fragment_df["cardinality"] = 0
+    return candidate_speclib_flat, scored_candidates
