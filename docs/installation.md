@@ -79,3 +79,39 @@ You should get an ouptut like this:
 ```
 1.5.5
 ```
+
+## Use the dockerized version
+The containerized version can be used to run alphadia e.g. on cloud platforms.
+Note that this container is not optimized for performance yet, and does not run on Apple Silicone chips
+(M1/M2/M3) due to problems with mono.
+
+1) Install the latest version of docker (https://docs.docker.com/engine/install/).
+2) Build the image (this step is obsolote once the container is available on Docker hub)
+```bash
+docker build -t alphadia-docker .
+```
+3) Set up your data to match the expected folder structure:
+- Create a folder and store its name in a variable, e.g. `DATA_FOLDER=/home/username/data; mkdir -p $DATA_FOLDER`
+- In this folder, create 4 subfolders:
+  - `library`: put your library file there
+  - `raw`: put your raw data there
+  - `output`: (this is where the output files will be stored)
+  - `config`: create a file named `config.yaml` there, with the following content:
+```yaml
+library: /app/data/library/LIBRARY_FILE.hdf
+raw_path_list:
+  - /app/data/raw/RAW_FILE_1.raw
+  - /app/data/raw/RAW_FILE_2.raw
+  - ...
+output_directory: /app/data/output
+```
+  Substitute `LIBRARY_FILE` and `RAW_FILE` with your respective file names, but preserve the `/app/data/../` prefix.
+  The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there 
+  in your `config.yaml`.
+
+4) Start the container
+```bash
+docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
+```
+Alphadia will start running immediately. Alternatively, you can run an interactive session with
+`docker run  --rm -it  alphadia-docker bash`
