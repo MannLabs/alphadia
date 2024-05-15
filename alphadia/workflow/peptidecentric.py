@@ -1031,7 +1031,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="info",
         )
 
-        candidate_speclib_flat, scored_candidates = build_candidate_speclib_flat(
+        candidate_speclib_flat, scored_candidates = _build_candidate_speclib_flat(
             psm_df, fragment_types=fragment_types, max_charge=max_charge
         )
 
@@ -1090,7 +1090,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return scored_candidates, frag_df
 
 
-def build_candidate_speclib_flat(
+def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
     fragment_types: typing.List[str] = ["b", "y"],
     max_charge: int = 2,
