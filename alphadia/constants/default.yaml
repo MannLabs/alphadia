@@ -138,6 +138,33 @@ optimization_manager:
   fwhm_mobility: 0.01
   score_cutoff: 0
 
+# This section controls transfer learning
+# currently only the library is created with transfer learning
+transfer_learning:
+  # if true, the library is created with transfer learning
+  enabled: False
+
+  # semicolon separated list of fragment types to include in the library. possible values are 'a', 'b', 'c', 'x', 'y', 'z'
+  fragment_types: 'b;y'
+
+  # maximum charge for fragments
+  max_charge: 2
+
+  # If a given precursor appears multiple times in an experiment,
+  # only the top_k_samples with the highest scores are included in the library
+  top_k_samples: 3
+
+  # (experimental) Perform advanced rt calibration:
+  # If set to false retention times will be normalised by the maximum retention time observed in the experiment
+  # If set to true, a combination of maximum normalisation and deviation from the calibration curve will be used
+  norm_delta_max: true
+
+  # Use only precursors for ms2 training with a median XIC correlation above this threshold
+  precursor_correlation_cutoff: 0.5
+
+  # include only fragments with a XIC correlation at least 0.75 of the median for all fragments
+  fragment_correlation_ratio: 0.75
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.

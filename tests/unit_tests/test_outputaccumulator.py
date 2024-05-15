@@ -47,6 +47,15 @@ def prepare_input_data():
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
         },
+        "transfer_learning": {
+            "enabled": True,
+            "fragment_types": "b;y",
+            "max_charge": 2,
+            "top_k_samples": 3,
+            "norm_delta_max": True,
+            "precursor_correlation_cutoff": 0.5,
+            "fragment_correlation_ratio": 0.75,
+        },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
@@ -103,10 +112,11 @@ def test_complete_output_accumulation():
     """
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
-    keep_top = 2
+    config["transfer_learning"]["top_k_samples"] = 2
+
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, keep_top=keep_top, save=True)
+    _ = output.build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -135,9 +145,10 @@ def test_selection_of_precursors():
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
     keep_top = 2
+    config["transfer_learning"]["top_k_samples"] = keep_top
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, keep_top=keep_top, save=True)
+    _ = output.build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -175,10 +186,11 @@ def test_keep_top_constraint():
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
     keep_top = 2
+    config["transfer_learning"]["top_k_samples"] = keep_top
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, keep_top=keep_top, save=True)
+    _ = output.build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True

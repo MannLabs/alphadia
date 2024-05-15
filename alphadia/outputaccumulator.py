@@ -29,6 +29,7 @@ import numpy as np
 import os
 import multiprocessing
 import threading
+from tqdm import tqdm
 
 from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -123,7 +124,9 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = pd.read_csv(os.path.join(folder, "psm.tsv"), sep="\t")
         frag_df = pd.read_csv(os.path.join(folder, "frag.tsv"), sep="\t")
 
-        assert set(selected_precursor_columns).issubset(
+        assert set(
+            selected_precursor_columns
+        ).issubset(
             psm_df.columns
         ), f"selected_precursor_columns must be a subset of psm_df.columns didnt find {set(selected_precursor_columns) - set(psm_df.columns)}"
         psm_df = psm_df[selected_precursor_columns]
@@ -159,7 +162,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         # ----------------- Fragment -----------------
 
         self._fragment_df = frag_df[
-            ["mz", "intensity", "precursor_idx", "frag_idx"]
+            ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
         ].copy()
 
         for col in ["number", "type", "charge"]:
@@ -220,6 +223,11 @@ def process_folder(folder):
     psm, frag_df = speclibflat_object.parse_output_folder(folder)
     speclibflat_object._fragment_df["loss_type"] = 0
     speclibase = speclibflat_object.to_SpecLibBase()
+    # sort columns
+    for dense_df_name in speclibase.available_dense_fragment_dfs():
+        df = getattr(speclibase, dense_df_name)
+        setattr(speclibase, dense_df_name, df[df.columns.sort_values()])
+
     return speclibase
 
 
@@ -237,9 +245,7 @@ class AccumulationBroadcaster:
         self._folders = folders
         self._number_of_processes = number_of_processes
         self._subscribers = []
-        self._lock = (
-            threading.Lock()
-        )  # Lock to prevent two processes trying to update the same subscriber at the same time
+        self._lock = threading.Lock()  # Lock to prevent two processes trying to update the same subscriber at the same time
 
     def subscribe(self, subscriber: BaseAccumulator):
         assert isinstance(
@@ -310,7 +316,13 @@ def _get_top_indices_from_freq(
 
 
 class TransferLearningAccumulator(BaseAccumulator):
-    def __init__(self, keep_top: int = 3, norm_w_calib: bool = True):
+    def __init__(
+        self,
+        keep_top: int = 3,
+        norm_delta_max: bool = True,
+        precursor_correlation_cutoff: float = 0.5,
+        fragment_correlation_ratio: float = 0.75,
+    ):
         """
         TransferLearningAccumulator is used to accumulate the information from the output folders for fine-tuning by selecting
         the top keep_top precursors and their fragments from all the output folders. The current measure of score is the probA
@@ -327,10 +339,18 @@ class TransferLearningAccumulator(BaseAccumulator):
 
             If false, max normalization will be performed, by default True
 
+        precursor_correlation_cutoff : float, optional
+            Only precursors with a median fragment correlation above this cutoff will be used for MS2 learning, by default 0.5
+
+        fragment_correlation_ratio : float, optional
+            The cutoff for the fragment correlation relative to the median fragment correlation for a precursor, by default 0.75
+
         """
         self._keep_top = keep_top
         self.consensus_speclibase = None
-        self._norm_w_calib = norm_w_calib
+        self._norm_delta_max = norm_delta_max
+        self._precursor_correlation_cutoff = precursor_correlation_cutoff
+        self._fragment_correlation_ratio = fragment_correlation_ratio
 
     def update(self, speclibase: base.SpecLibBase):
         """
@@ -387,36 +407,153 @@ class TransferLearningAccumulator(BaseAccumulator):
         """
         Post process the consensus_speclibase by normalizing retention times.
         """
-        if self._norm_w_calib:
-            # instead of a simple max normalization, we want to use a weighted average of the two normalizations
-            # At the start of the retention time we will normalize using the calibrated deviation from the library
-            # At the end of the retention time we will normalize using the max normalization
 
-            precursor_df = self.consensus_speclibase.precursor_df
+        logger.info(
+            "Performing quality control for transfer learning."
+            + f"Normalize by delta: {self._norm_delta_max}"
+            + f"Precursor correlation cutoff: {self._precursor_correlation_cutoff}"
+            + f"Fragment correlation cutoff: {self._fragment_correlation_ratio}"
+        )
 
-            # caclulate max normalization
-            max_norm = precursor_df["rt_observed"].values / np.max(
-                precursor_df["rt_observed"].values
+        if self._norm_delta_max:
+            self.consensus_speclibase = normalize_rt_delta_max(
+                self.consensus_speclibase
             )
-
-            # calculate calibrated normalization
-            deviation_from_calib = (
-                precursor_df["rt_observed"].values
-                - precursor_df["rt_calibrated"].values
-            ) / precursor_df["rt_calibrated"].values
-            calibrated_norm = precursor_df["rt_library"].values * (
-                1 + deviation_from_calib
-            )
-            calibrated_norm = calibrated_norm / calibrated_norm.max()
-
-            # use max norm as weight and combine the two normalizations
-            self.consensus_speclibase.precursor_df["rt_norm"] = (
-                1 - max_norm
-            ) * calibrated_norm + max_norm * max_norm
-
         else:
-            # max normalization
-            self.consensus_speclibase.precursor_df["rt_norm"] = (
-                self.consensus_speclibase.precursor_df["rt_observed"]
-                / self.consensus_speclibase.precursor_df["rt_observed"].max()
-            )
+            self.consensus_speclibase = normalize_rt_max(self.consensus_speclibase)
+
+        self.consensus_speclibase = ms2_quality_control(
+            self.consensus_speclibase,
+            self._precursor_correlation_cutoff,
+            self._fragment_correlation_ratio,
+        )
+
+
+def normalize_rt_max(spec_lib_base: base.SpecLibBase) -> base.SpecLibBase:
+    """
+    Normalize the retention times of the precursors in the SpecLibBase object using max normalization.
+
+    Parameters
+    ----------
+
+    spec_lib_base : SpecLibBase
+        The SpecLibBase object to be normalized.
+
+    Returns
+    -------
+
+    SpecLibBase
+        The SpecLibBase object with the retention times normalized using max normalization.
+
+    """
+
+    spec_lib_base.precursor_df["rt_norm"] = (
+        spec_lib_base.precursor_df["rt_observed"]
+        / spec_lib_base.precursor_df["rt_observed"].max()
+    )
+
+    return spec_lib_base
+
+
+def normalize_rt_delta_max(spec_lib_base: base.SpecLibBase) -> base.SpecLibBase:
+    """
+    Normalize the retention times of the precursors in the SpecLibBase object using delta max normalization.
+
+    Parameters
+    ----------
+
+    spec_lib_base : SpecLibBase
+        The SpecLibBase object to be normalized.
+
+    Returns
+    -------
+
+    SpecLibBase
+        The SpecLibBase object with the retention times normalized using delta max normalization.
+
+    """
+
+    # instead of a simple max normalization, we want to use a weighted average of the two normalizations
+    # At the start of the retention time we will normalize using the calibrated deviation from the library
+    # At the end of the retention time we will normalize using the max normalization
+
+    precursor_df = spec_lib_base.precursor_df
+
+    # caclulate max normalization
+    max_norm = precursor_df["rt_observed"].values / np.max(
+        precursor_df["rt_observed"].values
+    )
+
+    # calculate calibrated normalization
+    deviation_from_calib = (
+        precursor_df["rt_observed"].values - precursor_df["rt_calibrated"].values
+    ) / precursor_df["rt_calibrated"].values
+    calibrated_norm = precursor_df["rt_library"].values * (1 + deviation_from_calib)
+    calibrated_norm = calibrated_norm / calibrated_norm.max()
+
+    # use max norm as weight and combine the two normalizations
+    spec_lib_base.precursor_df["rt_norm"] = (
+        1 - max_norm
+    ) * calibrated_norm + max_norm * max_norm
+
+    return spec_lib_base
+
+
+def ms2_quality_control(
+    spec_lib_base: base.SpecLibBase,
+    precursor_correlation_cutoff: float = 0.5,
+    fragment_correlation_ratio: float = 0.75,
+):
+    """
+    Perform quality control for transfer learning by filtering out precursors with low median fragment correlation and fragments with low correlation.
+
+    Parameters
+    ----------
+
+    spec_lib_base : SpecLibBase
+        The SpecLibBase object to be normalized.
+
+    precursor_correlation_cutoff : float
+        Only precursors with a median fragment correlation above this cutoff will be used for MS2 learning. Default is 0.5.
+
+    fragment_correlation_ratio : float
+        The cutoff for the fragment correlation relative to the median fragment correlation for a precursor. Default is 0.75.
+
+    Returns
+    -------
+
+    SpecLibBase
+        The SpecLibBase object with the precursors and fragments that pass the quality
+        control filters.
+    """
+
+    use_for_ms2 = np.zeros(len(spec_lib_base.precursor_df), dtype=bool)
+
+    precursor_df = spec_lib_base.precursor_df
+    fragment_intensity_df = spec_lib_base.fragment_intensity_df
+    fragment_correlation_df = spec_lib_base._fragment_correlation_df
+
+    for i, (start_idx, stop_idx) in tqdm(
+        enumerate(zip(precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"]))
+    ):
+        # get XIC correlations and intensities for the precursor
+        fragment_correlation_view = fragment_correlation_df.iloc[start_idx:stop_idx]
+        flat_correlation = fragment_correlation_view.values.flatten()
+
+        fragment_intensity_view = fragment_intensity_df.iloc[start_idx:stop_idx]
+        flat_intensity = fragment_intensity_view.values.flatten()
+
+        # calculate the median correlation for the precursor
+        intensity_mask = flat_intensity > 0.0
+        median_correlation = np.median(flat_correlation[intensity_mask])
+
+        # use the precursor for MS2 learning if the median correlation is above the cutoff
+        use_for_ms2[i] = median_correlation > precursor_correlation_cutoff
+
+        fragment_intensity_view[:] = fragment_intensity_view * (
+            fragment_correlation_view > median_correlation * fragment_correlation_ratio
+        )
+
+    spec_lib_base.precursor_df["use_for_ms2"] = use_for_ms2
+
+    return spec_lib_base

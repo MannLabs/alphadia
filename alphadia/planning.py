@@ -301,6 +301,9 @@ class Plan:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
+                if self.config["transfer_learning"]["enabled"]:
+                    psm_df, frag_df = workflow.requantify_fragments(psm_df)
+
                 psm_df["run"] = raw_name
                 psm_df.to_csv(psm_location, sep="\t", index=False)
                 frag_df.to_csv(frag_location, sep="\t", index=False)

@@ -11,6 +11,7 @@ from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
 )
 
+
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
@@ -20,6 +21,7 @@ from sklearn.neural_network import MLPClassifier
 
 from typing import List, Tuple, Iterator, Union
 from alphabase.spectral_library import base
+from alphabase.spectral_library.base import SpecLibBase
 from alphabase.peptide import precursor
 
 
@@ -379,9 +381,9 @@ class SearchPlanOutput:
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
-        self._transfer_Learning_lib = self.build_transfer_library(
-            folder_list, keep_top=3, number_of_processes=4, save=True
-        )
+
+        if self.config["transfer_learning"]["enabled"]:
+            _ = self.build_transfer_library(folder_list, save=True)
 
     def build_transfer_library(
         self,
@@ -412,9 +414,16 @@ class SearchPlanOutput:
         base.SpecLibBase
             The transfer Learning library
         """
-        logger.info("Building transfer library")
+        logger.progress("======== Building transfer library ========")
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=keep_top, norm_w_calib=True
+            keep_top=self.config["transfer_learning"]["top_k_samples"],
+            norm_delta_max=self.config["transfer_learning"]["norm_delta_max"],
+            precursor_correlation_cutoff=self.config["transfer_learning"][
+                "precursor_correlation_cutoff"
+            ],
+            fragment_correlation_ratio=self.config["transfer_learning"][
+                "fragment_correlation_ratio"
+            ],
         )
         accumulationBroadcaster = AccumulationBroadcaster(
             folder_list, number_of_processes
@@ -424,13 +433,14 @@ class SearchPlanOutput:
         logger.info(
             f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
         )
+        log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
         if save:
+            logging.info("Writing transfer library to disk")
             transferAccumulator.consensus_speclibase.save_hdf(
                 os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
             )
-        return transferAccumulator.consensus_speclibase
 
-        return psm_df
+        return transferAccumulator.consensus_speclibase
 
     def load_precursor_table(self):
         """Load precursor table from output folder.
@@ -901,4 +911,126 @@ def perform_protein_fdr(psm_df):
                 how="left",
             ),
         ]
+    )
+
+
+def transfer_library_stat_df(transfer_library: SpecLibBase) -> pd.DataFrame:
+    """create statistics dataframe for transfer library
+
+    Parameters
+    ----------
+
+    transfer_library : SpecLibBase
+        transfer library
+
+    Returns
+    -------
+
+    pd.DataFrame
+        statistics dataframe
+    """
+
+    # get unique modifications
+    modifications = (
+        transfer_library.precursor_df["mods"].str.split(";").explode().unique()
+    )
+    modifications = [mod for mod in modifications if mod != ""]
+
+    statistics_df = []
+    for mod in modifications:
+        mod_df = transfer_library.precursor_df[
+            transfer_library.precursor_df["mods"].str.contains(mod)
+        ]
+        mod_ms2_df = mod_df[mod_df["use_for_ms2"]]
+        statistics_df.append(
+            {
+                "modification": mod,
+                "num_precursors": len(mod_df),
+                "num_unique_precursor": len(mod_df["mod_seq_charge_hash"].unique()),
+                "num_ms2_precursors": len(mod_ms2_df),
+                "num_unique_ms2_precursor": len(
+                    mod_ms2_df["mod_seq_charge_hash"].unique()
+                ),
+            }
+        )
+
+    # add unmodified
+    mod_df = transfer_library.precursor_df[transfer_library.precursor_df["mods"] == ""]
+    mod_ms2_df = mod_df[mod_df["use_for_ms2"]]
+    statistics_df.append(
+        {
+            "modification": "",
+            "num_precursors": len(mod_df),
+            "num_unique_precursor": len(mod_df["mod_seq_charge_hash"].unique()),
+            "num_ms2_precursors": len(mod_ms2_df),
+            "num_unique_ms2_precursor": len(mod_ms2_df["mod_seq_charge_hash"].unique()),
+        }
+    )
+
+    # add total
+    statistics_df.append(
+        {
+            "modification": "Total",
+            "num_precursors": len(transfer_library.precursor_df),
+            "num_unique_precursor": len(
+                transfer_library.precursor_df["mod_seq_charge_hash"].unique()
+            ),
+            "num_ms2_precursors": len(
+                transfer_library.precursor_df[
+                    transfer_library.precursor_df["use_for_ms2"]
+                ]
+            ),
+            "num_unique_ms2_precursor": len(
+                transfer_library.precursor_df[
+                    transfer_library.precursor_df["use_for_ms2"]
+                ]["mod_seq_charge_hash"].unique()
+            ),
+        }
+    )
+
+    return pd.DataFrame(statistics_df)
+
+
+def log_stat_df(stat_df: pd.DataFrame):
+    """log statistics dataframe to console
+
+    Parameters
+    ----------
+
+    stat_df : pd.DataFrame
+        statistics dataframe
+    """
+
+    # iterate over all modifications d
+    # print with space padding
+    space = 12
+    logger.info(
+        "Modification".ljust(25)
+        + "Total".rjust(space)
+        + "Unique".rjust(space)
+        + "Total MS2".rjust(space)
+        + "Unique MS2".rjust(space)
+    )
+
+    for i, row in stat_df.iterrows():
+        if row["modification"] == "Total":
+            continue
+        logger.info(
+            row["modification"].ljust(25)
+            + f'{row["num_precursors"]:,}'.rjust(space)
+            + f'{row["num_unique_precursor"]:,}'.rjust(space)
+            + f'{row["num_ms2_precursors"]:,}'.rjust(space)
+            + f'{row["num_unique_ms2_precursor"]:,}'.rjust(space)
+        )
+    # log line
+    logger.info("-" * 25 + " " + "-" * space * 4)
+
+    # log total
+    total = stat_df[stat_df["modification"] == "Total"].iloc[0]
+    logger.info(
+        "Total".ljust(25)
+        + f'{total["num_precursors"]:,}'.rjust(space)
+        + f'{total["num_unique_precursor"]:,}'.rjust(space)
+        + f'{total["num_ms2_precursors"]:,}'.rjust(space)
+        + f'{total["num_unique_ms2_precursor"]:,}'.rjust(space)
     )
