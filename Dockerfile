@@ -37,4 +37,4 @@ RUN pip install .
 
 USER alphadiauser
 
-CMD alphadia --config data/config/config.yaml
+CMD alphadia --config  /app/data/config/config.yaml
