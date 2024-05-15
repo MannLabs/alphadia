@@ -82,6 +82,9 @@ You should get an output like this:
 
 ## Use the dockerized version
 The containerized version can be used to run alphaDIA e.g. on cloud platforms.
+It can be used to run alphaDIA for multiple input files, as well as for single files only
+(trivial parallelization on computing clusters).
+
 Note that this container is not optimized for performance yet, and does not run on Apple Silicone chips
 (M1/M2/M3) due to problems with mono. Also, it currently relies on the input files being organized
 in a specific folder structure.
@@ -96,7 +99,7 @@ docker build -t alphadia-docker .
 - In this folder, create 4 subfolders:
   - `library`: put your library file here, make it writeable for any user (`chmod o+rw *`)
   - `raw`: put your raw data here
-  - `output`: make this folder writeable for any user: `chmod -R o+rwx output` (this is where the output files will be stored) 
+  - `output`: make this folder writeable for any user: `chmod -R o+rwx output` (this is where the output files will be stored)
   - `config`: create a file named `config.yaml` here, with the following content:
 ```yaml
 library: /app/data/library/LIBRARY_FILE.hdf
@@ -107,7 +110,7 @@ raw_path_list:
 output_directory: /app/data/output
 ```
   Substitute `LIBRARY_FILE` and `RAW_FILE` with your respective file names, but preserve the `/app/data/../` prefix.
-  The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there 
+  The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there
   in your `config.yaml`.
 
 4) Start the container (this command will change once the container is available on Docker hub)
