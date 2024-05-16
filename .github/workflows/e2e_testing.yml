@@ -20,7 +20,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            conda-env-path: "/usr/share/miniconda3/envs/alphadia"
+            conda-env-path: "/usr/share/miniconda/envs/alphadia"
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
