@@ -12,7 +12,7 @@ cd e2e_tests || exit
 
 # python prepare_test_data.py $TEST_CASE_NAME
 ls *
-ls */*
+# ls */*
 
 # cat $TEST_CASE_NAME/config.yaml
 
@@ -21,7 +21,7 @@ which alphadia
 
 # alphadia --config $TEST_CASE_NAME/config.yaml
 
-ls */*
+# ls */*
 
 python calc_metrics.py $TEST_CASE_NAME
 

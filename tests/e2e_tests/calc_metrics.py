@@ -28,7 +28,6 @@ input_file_name = "stat.tsv"
 # -
 print("reading from", base_path + output_dir + input_file_name)
 
-df = pd.read_csv(base_path + output_dir + input_file_name, sep="\t")
 
 # +
 
@@ -41,6 +40,8 @@ run["e2e-test"] = "jahuu" + base_path
 # run["config"] = # TODO add more metatdate: commit hash, ...
 
 try:
+    df = pd.read_csv(base_path + output_dir + input_file_name, sep="\t")
+
     for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
         run[f"stat/{col}_mean"] = df[col].mean()
         run[f"stat/{col}_std"] = df[col].std()
