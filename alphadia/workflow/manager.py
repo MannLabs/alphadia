@@ -9,7 +9,8 @@ logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
-from alphadia import calibration, fdr
+from alphadia.calibration.provider import calibration_model_provider, Calibration
+from alphadia import fdr
 from alphadia.workflow import reporting
 
 # alpha family imports
@@ -211,7 +212,7 @@ class CalibrationManager(BaseManager):
 
         .. code-block:: python
 
-            calibration_manager = calibration.CalibrationManager()
+            calibration_manager = CalibrationManager()
             calibration_manager.load_config([{
                 'name': 'mz_calibration',
                 'estimators': [
@@ -239,9 +240,7 @@ class CalibrationManager(BaseManager):
             )
             for estimator in group["estimators"]:
                 try:
-                    template = calibration.calibration_model_provider.get_model(
-                        estimator["model"]
-                    )
+                    template = calibration_model_provider.get_model(estimator["model"])
                     model_args = (
                         estimator["model_args"] if "model_args" in estimator else {}
                     )
@@ -253,9 +252,7 @@ class CalibrationManager(BaseManager):
                     )
 
             group_copy = {"name": group["name"]}
-            group_copy["estimators"] = [
-                calibration.Calibration(**x) for x in group["estimators"]
-            ]
+            group_copy["estimators"] = [Calibration(**x) for x in group["estimators"]]
             self.estimator_groups.append(group_copy)
 
     def get_group_names(self):
