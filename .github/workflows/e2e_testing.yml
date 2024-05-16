@@ -28,7 +28,10 @@ jobs:
       - name: Conda info
         shell: bash -el {0}
         run: conda info
-      - name: Test pip installation with all loose dependencies
+      - uses: actions/cache@v3
+        name: Pip installation with loose dependencies
+        with:
+          path: ~/.cache/pip
         shell: bash -el {0}
         run: |
           cd misc

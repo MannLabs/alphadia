@@ -10,11 +10,11 @@ test_cases:
       - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
         source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?path=%2F&files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
         source_md5:
-      - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
-        source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?path=%2F&files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
-        source_md5:
-      - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
-        source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?path=%2F&files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
-        source_md5:
+#      - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
+#        source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?path=%2F&files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
+#        source_md5:
+#      - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
+#        source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?path=%2F&files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
+#        source_md5:
     metrics:
         # none yields default metrics

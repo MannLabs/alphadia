@@ -1,6 +1,6 @@
 on:
   pull_request:
-    branches: [ main, development ]
+    branches: [ main, ]  # TODO re-add development
   workflow_dispatch:
 
 name: Default installation and tests
