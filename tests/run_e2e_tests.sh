@@ -5,7 +5,7 @@ TEST_CASE_NAME=$1
 eval "$(conda shell.bash hook)"
 conda activate alphadia
 
-cd e2e_tests || exit
+cd e2e_tests
 
 python prepare_test_data.py $TEST_CASE_NAME
 ls */*

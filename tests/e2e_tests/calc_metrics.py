@@ -1,6 +1,6 @@
 """Calculate metrics and upload them to neptune.
 
-To extend the metrics, create a new class that inherits from Metrics and implement the _calc method.
+To extend the metrics, create a new class that inherits from Metrics and implement the _calc() method.
 """
 
 import os
@@ -85,7 +85,7 @@ class BasicStats(Metrics):
 
 
 if __name__ == "__main__":
-    test_case_name = sys.argv[1]  # "basic_e2e"  #
+    test_case_name = sys.argv[1]
 
     test_case = get_test_case(test_case_name)
     selected_metrics = test_case["metrics"]  # ['BasicStats', "BasicStats2"]

@@ -70,7 +70,7 @@ def get_test_case(test_case_name: str) -> dict:
 
 
 if __name__ == "__main__":
-    test_case_name = sys.argv[1]  # "basic_e2e"
+    test_case_name = sys.argv[1]
     target_path = test_case_name + "/"
 
     os.makedirs(target_path + "output", exist_ok=True)

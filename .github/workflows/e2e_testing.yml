@@ -15,10 +15,6 @@ jobs:
       matrix:
         include:
           - os: AlphaDIA
-#            conda-env-path: |
-#              /usr/share/miniconda/envs/alphadia
-#              /home/runner/conda/envs
-#              /home/runner/.condarc
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
