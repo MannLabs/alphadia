@@ -1,9 +1,9 @@
 """
-Test the finetunemetrics module.
+Test the metrics module.
 """
 
 import numpy as np
-from alphadia import finetunemetrics
+from alphadia.transferlearning import metrics
 from scipy import stats, linalg
 from math import isclose
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score
@@ -37,7 +37,7 @@ def test_MetricAccumulator():
     """
 
     # Given
-    metric_accumulator = finetunemetrics.MetricAccumulator(name="mse")
+    metric_accumulator = metrics.MetricAccumulator(name="mse")
 
     metrics = np.random.rand(10)
     # When
@@ -55,7 +55,7 @@ def test_LinearRegressionTestMetric():
     # Given
     test_inp = get_regression_test_input()
     # When
-    metric = finetunemetrics.LinearRegressionTestMetric()
+    metric = metrics.LinearRegressionTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -86,7 +86,7 @@ def test_AbsErrorPercentileTestMetric():
 
     percentile = 95
     # When
-    metric = finetunemetrics.AbsErrorPercentileTestMetric(percentile=percentile)
+    metric = metrics.AbsErrorPercentileTestMetric(percentile=percentile)
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -106,7 +106,7 @@ def test_L1LossTestMetric():
     test_inp = get_regression_test_input()
 
     # When
-    metric = finetunemetrics.L1LossTestMetric()
+    metric = metrics.L1LossTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -127,7 +127,7 @@ def test_CELossTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = finetunemetrics.CELossTestMetric()
+    metric = metrics.CELossTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -147,7 +147,7 @@ def test_AccuracyTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = finetunemetrics.AccuracyTestMetric()
+    metric = metrics.AccuracyTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -170,7 +170,7 @@ def test_PrecisionRecallTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = finetunemetrics.PrecisionRecallTestMetric()
+    metric = metrics.PrecisionRecallTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -199,12 +199,12 @@ def test_MetricManager():
     Test the MetricManager class
     """
     # Given
-    metric_manager = finetunemetrics.MetricManager(
+    metric_manager = metrics.MetricManager(
         model_name="test_model",
         test_interval=2,
         test_metrics=[
-            finetunemetrics.LinearRegressionTestMetric(),
-            finetunemetrics.L1LossTestMetric(),
+            metrics.LinearRegressionTestMetric(),
+            metrics.L1LossTestMetric(),
         ],
     )
 
@@ -235,12 +235,12 @@ def test_lrAccumulation():
     # Given
     lr = np.random.rand(10)
 
-    metric_manager = finetunemetrics.MetricManager(
+    metric_manager = metrics.MetricManager(
         model_name="test_model",
         test_interval=1,
         test_metrics=[
-            finetunemetrics.LinearRegressionTestMetric(),
-            finetunemetrics.L1LossTestMetric(),
+            metrics.LinearRegressionTestMetric(),
+            metrics.L1LossTestMetric(),
         ],
     )
 
@@ -263,12 +263,12 @@ def test_trainLossAccumulation():
     # Given
     train_loss = np.random.rand(10)
 
-    metric_manager = finetunemetrics.MetricManager(
+    metric_manager = metrics.MetricManager(
         model_name="test_model",
         test_interval=1,
         test_metrics=[
-            finetunemetrics.LinearRegressionTestMetric(),
-            finetunemetrics.L1LossTestMetric(),
+            metrics.LinearRegressionTestMetric(),
+            metrics.L1LossTestMetric(),
         ],
     )
 
