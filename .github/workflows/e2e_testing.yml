@@ -19,6 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
+        conda-env-path: /usr/share/miniconda3/envs/alphadia
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
@@ -33,7 +34,13 @@ jobs:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
+      - uses: actions/cache@v3
+        with:
+          path: ${{ matrix.conda-env-path }}
+          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}
+        id: cache
       - name: Pip installation with loose dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
         shell: bash -el {0}
         run: |
           cd misc
