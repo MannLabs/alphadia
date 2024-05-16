@@ -1,10 +1,23 @@
 test_cases:
   - name: basic_e2e
     config:
-      # none yields default config
+      # add any non-default configuration here
+      search_initial:
+        initial_num_candidates: 1
+        initial_rt_tolerance: 300
+      search:
+        target_num_candidates: 1
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 100
+      calibration:
+        batch_size: 1000
     library:
-      - target_name: hela_library.hdf
-        source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk/download
+#      - target_name: hela_library.hdf
+#        source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk/download
+#        source_md5:
+      - target_name: hela_library.small.hdf
+        source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz/download
         source_md5:
     raw_data:
       - target_name: 20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw

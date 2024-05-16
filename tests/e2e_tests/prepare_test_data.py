@@ -45,18 +45,17 @@ def _download_all_files(test_case: dict, target_path: str) -> None:
 
 
 def _add_paths_to_config_file(
-    config_name: str, target_path: str, library: str, raw_files: list[str]
+    target_path: str, library: str, raw_files: list[str], extra_config: dict = {}
 ) -> None:
     """Add paths to the config file."""
     config_to_write = {
         "library": target_path + library,
         "raw_path_list": [target_path + r for r in raw_files],
         "output_directory": target_path + "output",
-        "general": {"thread_count": 8},
-    }
+    } | extra_config
 
     # append to the config file or create a new one
-    yaml.safe_dump(config_to_write, open(target_path + config_name, "a"))
+    yaml.safe_dump(config_to_write, open(target_path + DEFAULT_CONFIG_FILE_NAME, "w"))
 
 
 def _get_test_case(test_case_name: str) -> dict:
@@ -75,16 +74,14 @@ if __name__ == "__main__":
 
     test_case = _get_test_case(test_case_name)
 
-    if test_case["config"] is not None:
-        _download_file(
-            test_case["config"]["source_url"], target_path + DEFAULT_CONFIG_FILE_NAME
-        )
-
     library_name = test_case["library"][0]["target_name"]
     raw_file_names = [r["target_name"] for r in test_case["raw_data"]]
-
-    _add_paths_to_config_file(
-        DEFAULT_CONFIG_FILE_NAME, target_path, library_name, raw_file_names
+    extra_config = (
+        test_case["config"]
+        if ("config" in test_case and test_case["config"]) is not None
+        else {}
     )
+
+    _add_paths_to_config_file(target_path, library_name, raw_file_names, extra_config)
 
     _download_all_files(test_case, target_path)
