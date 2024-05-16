@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest-8core
+          - os: AlphaDIA
             conda-env-path: |
               /usr/share/miniconda/envs/alphadia
               /home/runner/conda/envs
