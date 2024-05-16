@@ -31,7 +31,7 @@ print("reading from", test_case_name + output_dir + input_file_name)
 
 # +
 
-run = neptune.init_run(project=neptune_project, label=test_case_name)
+run = neptune.init_run(project=neptune_project, tags=test_case_name)
 
 run["e2e-test"] = test_case_name
 # run["config"] = # TODO add config
