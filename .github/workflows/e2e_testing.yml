@@ -20,7 +20,10 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            conda-env-path: "/usr/share/miniconda/envs/alphadia"
+            conda-env-path: |
+              /usr/share/miniconda/envs/alphadia
+              /home/runner/conda/envs
+              /home/runner/.condarc
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
@@ -36,7 +39,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ matrix.conda-env-path }}
-          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-1
+          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-2
         id: conda-cache
       - name: Setup pip cache
         if: steps.conda-cache.outputs.cache-hit != 'true'
