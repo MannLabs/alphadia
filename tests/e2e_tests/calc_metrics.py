@@ -24,8 +24,8 @@ def _load_tsv(file_path: str) -> pd.DataFrame:
 def _load_hdf(file_path: str) -> dict[str, pd.DataFrame]:
     """Load a hdf file into a dictionary of keys."""
     hdfs = {}
-    with pd.HDFStore(file_path) as st:
-        for key in st.keys():
+    with pd.HDFStore(file_path) as store:
+        for key in store.keys():
             hdfs[key] = pd.read_hdf(file_path, key)
     return hdfs
 

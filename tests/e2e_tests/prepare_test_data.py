@@ -20,17 +20,19 @@ CONFIG_SOURCE_PATH = "../../alphadia/constants/default.yaml"
 
 def _download_file(url: str, target_name: str) -> None:
     """Download a file from the given url to the target path."""
+    # could potentially reuse testing.py:download_datashare()
     print(f"downloading {url} to {target_name}")
 
     response = requests.get(url, stream=True)
-    if response.status_code == 200:
-        with open(target_name, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        print(f"Download complete: {target_name}")
-    else:
+    if response.status_code != 200:
         print("Failed to download the file")
+        return
+
+    with open(target_name, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+    print(f"Download complete: {target_name}")
 
 
 def _download_all_files(test_case: dict, target_path: str) -> None:
@@ -46,17 +48,16 @@ def _download_all_files(test_case: dict, target_path: str) -> None:
             _download_file(item_data["source_url"], target)
 
 
-def _add_paths_to_config_file(
-    target_path: str, library: str, raw_files: list[str], extra_config: dict = {}
+def _create_config_file(
+    target_path: str, library: str, raw_files: list[str], extra_config: dict
 ) -> None:
-    """Add paths to the config file."""
+    """Create the config file from paths to the input files and optional extra_config."""
     config_to_write = {
         "library": target_path + library,
         "raw_path_list": [target_path + r for r in raw_files],
         "output_directory": target_path + "/" + OUTPUT_DIR_NAME,
     } | extra_config
 
-    # append to the config file or create a new one
     yaml.safe_dump(config_to_write, open(target_path + DEFAULT_CONFIG_FILE_NAME, "w"))
 
 
@@ -78,12 +79,11 @@ if __name__ == "__main__":
 
     library_name = test_case["library"][0]["target_name"]
     raw_file_names = [r["target_name"] for r in test_case["raw_data"]]
-    extra_config = (
-        test_case["config"]
-        if ("config" in test_case and test_case["config"]) is not None
-        else {}
-    )
+    try:
+        extra_config = test_case["config"]
+    except (KeyError, TypeError):
+        extra_config = {}
 
-    _add_paths_to_config_file(target_path, library_name, raw_file_names, extra_config)
+    _create_config_file(target_path, library_name, raw_file_names, extra_config)
 
     _download_all_files(test_case, target_path)
