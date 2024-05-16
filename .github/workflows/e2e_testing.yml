@@ -1,8 +1,8 @@
 on:
   pull_request:
-    branches: [ main, development ]  # TODO remove development here
+    branches: [ main ]
   push:
-    branches: [ main, development ]
+    branches: [ development ]
   workflow_dispatch:
 
 name: End to end testing
@@ -28,23 +28,13 @@ jobs:
       - name: Conda info
         shell: bash -el {0}
         run: conda info
-#      - name: Setup conda cache
-        # https://dev.to/epassaro/caching-anaconda-environments-in-github-actions-5hde
-        # TODO we must make sure the cache is not used if anything code-related changes. Maybe just for developing?
-#        uses: actions/cache@v3
-#        with:
-#          path: ${{ matrix.conda-env-path }}
-#          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-2
-#        id: conda-cache
       - name: Setup pip cache
-#        if: steps.conda-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Pip installation with loose dependencies
-#        if: steps.conda-cache.outputs.cache-hit != 'true'
         shell: bash -el {0}
         run: |
           cd misc
