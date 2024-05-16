@@ -37,6 +37,7 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Setup conda cache
+        # TODO we must make sure the cache is not used if anything code-related changes. Maybe just for developing?
         uses: actions/cache@v3
         with:
           path: ${{ matrix.conda-env-path }}
