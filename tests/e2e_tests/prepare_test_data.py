@@ -4,6 +4,7 @@ Reads the test case from the yaml file, downloads the required files to the targ
 """
 
 import os.path
+import sys
 
 import yaml
 import requests
@@ -66,8 +67,7 @@ def _get_test_case(test_case_name: str) -> dict:
 
 
 if __name__ == "__main__":
-    # TODO: make these command line arguments
-    test_case_name = "basic_e2e"  # sys.argv[1]
+    test_case_name = sys.argv[1]  # "basic_e2e"
     target_path = test_case_name + "/"
 
     if not os.path.exists(target_path):
