@@ -5,12 +5,7 @@ on:
     branches: [ main, development ]
   workflow_dispatch:
 
-name: end to end testing
-
-env:
-#  TEST_DATA_DIR: C:\actions-runner\_data
-#  CONDA: C:\Users\wallmann\Miniconda3
-  NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
+name: End to end testing
 
 jobs:
   end2end_testing:
@@ -20,10 +15,10 @@ jobs:
       matrix:
         include:
           - os: AlphaDIA
-            conda-env-path: |
-              /usr/share/miniconda/envs/alphadia
-              /home/runner/conda/envs
-              /home/runner/.condarc
+#            conda-env-path: |
+#              /usr/share/miniconda/envs/alphadia
+#              /home/runner/conda/envs
+#              /home/runner/.condarc
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
@@ -33,23 +28,23 @@ jobs:
       - name: Conda info
         shell: bash -el {0}
         run: conda info
-      - name: Setup conda cache
+#      - name: Setup conda cache
         # https://dev.to/epassaro/caching-anaconda-environments-in-github-actions-5hde
         # TODO we must make sure the cache is not used if anything code-related changes. Maybe just for developing?
-        uses: actions/cache@v3
-        with:
-          path: ${{ matrix.conda-env-path }}
-          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-2
-        id: conda-cache
+#        uses: actions/cache@v3
+#        with:
+#          path: ${{ matrix.conda-env-path }}
+#          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-2
+#        id: conda-cache
       - name: Setup pip cache
-        if: steps.conda-cache.outputs.cache-hit != 'true'
+#        if: steps.conda-cache.outputs.cache-hit != 'true'
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Pip installation with loose dependencies
-        if: steps.conda-cache.outputs.cache-hit != 'true'
+#        if: steps.conda-cache.outputs.cache-hit != 'true'
         shell: bash -el {0}
         run: |
           cd misc
@@ -58,6 +53,7 @@ jobs:
         shell: bash -el {0}
         env:
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+          NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
         run: |
           cd tests
            . ./run_e2e_tests.sh basic_e2e

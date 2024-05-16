@@ -3,6 +3,7 @@
 To extend the metrics, create a new class that inherits from Metrics and implement the _calc method.
 """
 
+import os
 import sys
 from abc import ABC
 from typing import Union
@@ -10,10 +11,9 @@ from typing import Union
 import pandas as pd
 import neptune
 
-from tests.e2e_tests.prepare_test_data import get_test_case
+from tests.e2e_tests.prepare_test_data import get_test_case, OUTPUT_DIR_NAME
 
-# TODO take from github
-NEPTUNE_PROJECT_NAME = "MannLabs/alphaDIA-e2e-tests"
+NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 
 
 def _load_tsv(file_path: str) -> pd.DataFrame:
@@ -85,22 +85,18 @@ class BasicStats(Metrics):
 
 
 if __name__ == "__main__":
-    output_dir = "/output/"
-
-    test_case_name = "basic_e2e"  # sys.argv[1]
+    test_case_name = sys.argv[1]  # "basic_e2e"  #
 
     test_case = get_test_case(test_case_name)
-
     selected_metrics = test_case["metrics"]  # ['BasicStats', "BasicStats2"]
 
     run = {}
-
     run["test_case"] = test_case_name
     # neptune_run["config"] = # TODO add config ?
     # neptune_run["commit_hash"] = # TODO add more metadata: commit hash, ...
 
     try:
-        data_store = DataStore(test_case_name + output_dir)
+        data_store = DataStore(test_case_name + "/" + OUTPUT_DIR_NAME)
 
         metrics_classes = [
             cls for cls in Metrics.__subclasses__() if cls.__name__ in selected_metrics

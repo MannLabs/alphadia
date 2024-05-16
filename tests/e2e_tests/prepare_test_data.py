@@ -9,6 +9,8 @@ import sys
 import yaml
 import requests
 
+OUTPUT_DIR_NAME = "output"
+
 TEST_CASES_FILE_NAME = "e2e_test_cases.yaml"
 
 DEFAULT_CONFIG_FILE_NAME = "config.yaml"
@@ -51,7 +53,7 @@ def _add_paths_to_config_file(
     config_to_write = {
         "library": target_path + library,
         "raw_path_list": [target_path + r for r in raw_files],
-        "output_directory": target_path + "output",
+        "output_directory": target_path + "/" + OUTPUT_DIR_NAME,
     } | extra_config
 
     # append to the config file or create a new one
