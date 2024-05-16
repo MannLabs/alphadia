@@ -58,7 +58,7 @@ def _add_paths_to_config_file(
     yaml.safe_dump(config_to_write, open(target_path + DEFAULT_CONFIG_FILE_NAME, "w"))
 
 
-def _get_test_case(test_case_name: str) -> dict:
+def get_test_case(test_case_name: str) -> dict:
     """Get the test case from the yaml file."""
     with open(TEST_CASES_FILE_NAME, "r") as file:
         test_cases = yaml.safe_load(file)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
     os.makedirs(target_path + "output", exist_ok=True)
 
-    test_case = _get_test_case(test_case_name)
+    test_case = get_test_case(test_case_name)
 
     library_name = test_case["library"][0]["target_name"]
     raw_file_names = [r["target_name"] for r in test_case["raw_data"]]
