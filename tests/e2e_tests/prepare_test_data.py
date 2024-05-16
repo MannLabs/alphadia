@@ -52,6 +52,7 @@ def _add_paths_to_config_file(
         "library": target_path + library,
         "raw_path_list": [target_path + r for r in raw_files],
         "output_directory": target_path + "output",
+        "general": {"thread_count": 8},
     }
 
     # append to the config file or create a new one

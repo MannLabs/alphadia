@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# eval "$(conda shell.bash hook)"
+eval "$(conda shell.bash hook)"
 
 
 TEST_CASE_NAME=$1
