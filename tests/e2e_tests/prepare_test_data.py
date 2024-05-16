@@ -70,8 +70,7 @@ if __name__ == "__main__":
     test_case_name = sys.argv[1]  # "basic_e2e"
     target_path = test_case_name + "/"
 
-    if not os.path.exists(target_path):
-        os.makedirs(target_path)
+    os.makedirs(target_path + "output", exist_ok=True)
 
     test_case = _get_test_case(test_case_name)
 
