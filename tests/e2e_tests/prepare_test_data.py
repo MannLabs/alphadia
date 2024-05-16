@@ -86,4 +86,4 @@ if __name__ == "__main__":
         DEFAULT_CONFIG_FILE_NAME, target_path, library_name, raw_file_names
     )
 
-    # _download_all_files(test_case, target_path)
+    _download_all_files(test_case, target_path)
