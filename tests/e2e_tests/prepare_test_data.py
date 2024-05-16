@@ -36,7 +36,7 @@ def _download_all_files(test_case: dict, target_path: str) -> None:
         for item_data in test_case[item]:
             target = target_path + item_data["target_name"]
             if os.path.exists(target):
-                # TODO use cached verson only after passed md5 check
+                # TODO use cached version only after passed md5 check
                 print(f"using cached version of {target}")
                 continue
 

@@ -1,0 +1,40 @@
+on:
+  pull_request:
+    branches: [ main, development ]  # TODO remove development here
+  push:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+name: end to end testing
+
+env:
+#  TEST_DATA_DIR: C:\actions-runner\_data
+#  CONDA: C:\Users\wallmann\Miniconda3
+  NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
+
+jobs:
+  end2end_testing:
+    name: Test loose pip installation on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+      - name: Conda info
+        shell: bash -el {0}
+        run: conda info
+      - name: Test pip installation with all loose dependencies
+        shell: bash -el {0}
+        run: |
+          cd misc
+          . ./loose_pip_install.sh
+      - name: Run e2e tests
+        shell: bash -el {0}
+        run: |
+          cd tests
+           . ./run_e2e_tests.sh
