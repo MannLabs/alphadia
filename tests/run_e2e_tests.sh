@@ -2,12 +2,11 @@
 
 TEST_CASE_NAME=$1
 
+conda activate alphadia
+
 cd e2e_tests || exit
 
-ls /usr/share/miniconda/envs/alphadia
-conda info --envs
 
-conda activate alphadia
 
 
 python prepare_test_data.py $TEST_CASE_NAME
@@ -15,6 +14,9 @@ ls *
 ls */*
 
 cat $TEST_CASE_NAME/config.yaml
+
+echo which alphadia
+which alphadia
 
 alphadia --config $TEST_CASE_NAME/config.yaml
 

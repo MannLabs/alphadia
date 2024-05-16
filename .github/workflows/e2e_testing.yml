@@ -36,7 +36,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ matrix.conda-env-path }}
-          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}
+          key: ${{ matrix.os }}-conda-${{ hashFiles('**/requirements.txt') }}-1
         id: conda-cache
       - name: Setup pip cache
         if: steps.conda-cache.outputs.cache-hit != 'true'
