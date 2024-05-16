@@ -3,6 +3,10 @@
 TEST_CASE_NAME=$1
 
 cd e2e_tests || exit
+
+ls /usr/share/miniconda/envs/alphadia
+conda info --envs
+
 conda activate alphadia
 
 
