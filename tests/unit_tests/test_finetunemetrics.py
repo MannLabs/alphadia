@@ -39,12 +39,12 @@ def test_MetricAccumulator():
     # Given
     metric_accumulator = metrics.MetricAccumulator(name="mse")
 
-    metrics = np.random.rand(10)
+    metric_list = np.random.rand(10)
     # When
-    for i, metric in enumerate(metrics):
+    for i, metric in enumerate(metric_list):
         metric_accumulator.accumulate(epoch=i, loss=metric)
     # Then
-    assert np.all(metric_accumulator.stats.loc[:, "mse"].values == metrics)
+    assert np.all(metric_accumulator.stats.loc[:, "mse"].values == metric_list)
 
 
 def test_LinearRegressionTestMetric():
