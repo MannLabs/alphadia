@@ -20,27 +20,25 @@ import neptune
 neptune_project = "MannLabs/alphaDIA-e2e-tests"
 
 # +
-base_path = sys.argv[1]
+test_case_name = sys.argv[1]
 
 output_dir = "/output/"
 input_file_name = "stat.tsv"
 
 # -
-print("reading from", base_path + output_dir + input_file_name)
+print("reading from", test_case_name + output_dir + input_file_name)
 
 
 # +
 
-run = neptune.init_run(
-    project=neptune_project,
-)
+run = neptune.init_run(project=neptune_project, label=test_case_name)
 
-run["e2e-test"] = "jahuu" + base_path
+run["e2e-test"] = test_case_name
 # run["config"] = # TODO add config
 # run["config"] = # TODO add more metatdate: commit hash, ...
 
 try:
-    df = pd.read_csv(base_path + output_dir + input_file_name, sep="\t")
+    df = pd.read_csv(test_case_name + output_dir + input_file_name, sep="\t")
 
     for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
         run[f"stat/{col}_mean"] = df[col].mean()
