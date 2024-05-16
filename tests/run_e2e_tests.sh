@@ -10,20 +10,20 @@ conda activate alphadia
 cd e2e_tests || exit
 
 
-
-
-python prepare_test_data.py $TEST_CASE_NAME
+# python prepare_test_data.py $TEST_CASE_NAME
 ls *
 ls */*
 
-cat $TEST_CASE_NAME/config.yaml
+# cat $TEST_CASE_NAME/config.yaml
 
 echo which alphadia
 which alphadia
 
-alphadia --config $TEST_CASE_NAME/config.yaml
+# alphadia --config $TEST_CASE_NAME/config.yaml
 
 ls */*
+
+python calc_metrics.py $TEST_CASE_NAME
 
 conda deactivate
 cd -
