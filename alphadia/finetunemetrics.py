@@ -466,7 +466,7 @@ class MetricManager:
         )
         if self.lr_accumulator.stats is not None:
             result = pd.concat([result, self.lr_accumulator.stats], axis=1)
-        for test_metric in self.tests:
+        for test_metric in self.test_metrics:
             stats = test_metric.stats
             result = pd.concat([result, stats], axis=1)
         result.reset_index(inplace=True)

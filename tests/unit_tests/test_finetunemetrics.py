@@ -202,7 +202,7 @@ def test_MetricManager():
     metric_manager = finetunemetrics.MetricManager(
         model_name="test_model",
         test_interval=2,
-        tests=[
+        test_metrics=[
             finetunemetrics.LinearRegressionTestMetric(),
             finetunemetrics.L1LossTestMetric(),
         ],
@@ -238,7 +238,7 @@ def test_lrAccumulation():
     metric_manager = finetunemetrics.MetricManager(
         model_name="test_model",
         test_interval=1,
-        tests=[
+        test_metrics=[
             finetunemetrics.LinearRegressionTestMetric(),
             finetunemetrics.L1LossTestMetric(),
         ],
@@ -266,7 +266,7 @@ def test_trainLossAccumulation():
     metric_manager = finetunemetrics.MetricManager(
         model_name="test_model",
         test_interval=1,
-        tests=[
+        test_metrics=[
             finetunemetrics.LinearRegressionTestMetric(),
             finetunemetrics.L1LossTestMetric(),
         ],
