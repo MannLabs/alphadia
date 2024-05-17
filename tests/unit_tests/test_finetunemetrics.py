@@ -208,7 +208,7 @@ def test_MetricManager():
     Test the MetricManager class
     """
     # Given
-    metric_manager = metrics.MetricManager(
+    metric_manager = MetricManager(
         model_name="test_model",
         test_interval=2,
         test_metrics=[
