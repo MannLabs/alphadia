@@ -18,7 +18,7 @@ jobs:
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v3
         if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
         with:
@@ -48,7 +48,7 @@ jobs:
           cd tests
           source /home/alphadia/miniconda3/etc/profile.d/conda.sh
           eval "$(conda shell.bash hook)"
-          conda activate alphadia
+          conda activate $RUN_NAME
            . ./run_e2e_tests.sh basic_e2e
           conda deactivate
       - name: Cleanup
