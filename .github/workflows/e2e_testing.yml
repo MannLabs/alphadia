@@ -1,6 +1,6 @@
 on:
   pull_request:
-    branches: [ main ]
+    branches:
   push:
     branches: [ main, development ]
   workflow_dispatch:
@@ -17,8 +17,11 @@ jobs:
           - os: self-hosted
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
+      - name: Add SHORT_SHA env property with commit short sha
+        run: echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
       - name: Conda info
         shell: bash -el {0}
         run: conda info
@@ -34,7 +37,7 @@ jobs:
           NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
         run: |
           cd tests
-           . ./run_e2e_tests.sh basic_e2e $RUN_NAME
+           . ./run_e2e_tests.sh basic_e2e $RUN_NAME $SHORT_SHA $BRANCH_NAME
       - name: Cleanup
         if: always()
         shell: bash -el {0}
