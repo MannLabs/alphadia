@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import LambdaLR
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import *
 
-from alphadia.finetunemetrics import (
+from alphadia.transferlearning.metrics import (
     MetricManager,
     L1LossTestMetric,
     LinearRegressionTestMetric,
@@ -25,7 +25,6 @@ from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
 logger = logging.getLogger()
-
 
 settings = {
     # --------- USer settings ------------
