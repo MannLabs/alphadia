@@ -9,7 +9,7 @@ logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
-from alphadia.calibration.provider import calibration_model_provider, Calibration
+from alphadia.calibration.property import calibration_model_provider, Calibration
 from alphadia import fdr
 from alphadia.workflow import reporting
 

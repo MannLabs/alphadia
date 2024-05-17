@@ -6,9 +6,6 @@ from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.estimator_checks import check_estimator
 
 
-EPSILON = 1e-6
-
-
 class LOESSRegression(BaseEstimator, RegressorMixin):
     """scikit-learn estimator which implements a LOESS style local polynomial regression. The number of basis functions or kernels can be explicitly defined which allows for faster and cheaper training and inference.
 
@@ -38,16 +35,10 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         polynomial_degree: int = 2,
         uniform=False,
     ):
-        self.n_kernels = n_kernels
-        self.kernel_size = kernel_size
-        self.polynomial_degree = polynomial_degree
-        self.uniform = uniform
-
-    def get_params(self, deep: bool = True):
-        return super().get_params(deep)
-
-    def set_params(self, **params):
-        return super().set_params(**params)
+        self._n_kernels = n_kernels
+        self._kernel_size = kernel_size
+        self._polynomial_degree = polynomial_degree
+        self._uniform = uniform
 
     def _more_tags(self):
         return {"X_types": ["1darray"]}
@@ -70,12 +61,12 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         minval = x[0]
         maxval = x[-1]
 
-        interval_size = (maxval - minval) / self.n_kernels
+        interval_size = (maxval - minval) / self._n_kernels
 
         start = np.arange(minval, maxval, interval_size) - (interval_size / 2) * (
-            self.kernel_size - 1
+            self._kernel_size - 1
         )
-        stop = start + interval_size + (interval_size) * (self.kernel_size - 1)
+        stop = start + interval_size + (interval_size) * (self._kernel_size - 1)
         return np.column_stack([start, stop])
 
     def _kernel_indices_uniform(self, x: np.ndarray):
@@ -115,12 +106,12 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         """
 
         num_datapoints = len(x)
-        interval_size = num_datapoints // self.n_kernels
+        interval_size = num_datapoints // self._n_kernels
 
-        start = np.arange(0, self.n_kernels) * interval_size
+        start = np.arange(0, self._n_kernels) * interval_size
         end = start + interval_size
 
-        interval_extension = (interval_size * self.kernel_size - interval_size) // 2
+        interval_extension = (interval_size * self._kernel_size - interval_size) // 2
 
         start = start - interval_extension
         start = np.maximum(0, start)
@@ -167,23 +158,23 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             raise ValueError("At least two datapoints required for fitting.")
 
         # sanity check for number of datapoints, reduce n_kernels if needed
-        degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
+        degrees_freedom = (1 + self._polynomial_degree) * self._n_kernels
 
         if len(x.flat) < degrees_freedom:
             print(
-                f"Curve fitting with {self.n_kernels} kernels and polynomials of {self.polynomial_degree} degree requires at least {degrees_freedom} datapoints."
+                f"Curve fitting with {self._n_kernels} kernels and polynomials of {self._polynomial_degree} degree requires at least {degrees_freedom} datapoints."
             )
 
-            self.n_kernels = np.max([len(x.flat) // (1 + self.polynomial_degree), 1])
+            self._n_kernels = np.max([len(x.flat) // (1 + self._polynomial_degree), 1])
 
-            print(f"Number of kernels will be reduced to {self.n_kernels} kernels.")
+            print(f"Number of kernels will be reduced to {self._n_kernels} kernels.")
 
         # sanity check for number of datapoints, reduce degree of polynomial if necessary
-        degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
+        degrees_freedom = (1 + self._polynomial_degree) * self._n_kernels
         if len(x.flat) < degrees_freedom:
-            self.polynomial_degree = len(x.flat) - 1
+            self._polynomial_degree = len(x.flat) - 1
 
-            print(f"Polynomial degree will be reduced to {self.polynomial_degree}.")
+            print(f"Polynomial degree will be reduced to {self._polynomial_degree}.")
 
         # reshape both arrays to column arrays
         if len(x.shape) == 1:
@@ -205,7 +196,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         x_sorted = x.flat[idx_sorted]
 
         # stores if uniform training is still possible this round
-        uniform = self.uniform
+        uniform = self._uniform
 
         # === start === kernel indices ===
         # get kernel indices matrix of shape (n_kernels, 2)
@@ -213,7 +204,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             kernel_indices = self._kernel_indices_uniform(x_sorted)
 
             # check number of datapoints per kernel
-            if np.any(np.diff(kernel_indices) < (1 + self.polynomial_degree)):
+            if np.any(np.diff(kernel_indices) < (1 + self._polynomial_degree)):
                 print(
                     "Too few datapoints per kernel. Uniform kernels will be replaced by density kernels."
                 )
@@ -233,8 +224,8 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         else:
             # scale max and scale mean will then be used for calculating the weighht matrix
-            self.scale_mean = np.zeros((self.n_kernels))
-            self.scale_max = np.zeros((self.n_kernels))
+            self.scale_mean = np.zeros((self._n_kernels))
+            self.scale_max = np.zeros((self._n_kernels))
 
             # scale mean and max are calculated and contain the scaling before applying the kernel
             for i, area in enumerate(kernel_indices):
@@ -250,11 +241,11 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         w = self._get_weight_matrix(x)
 
         # build design matrix
-        polynomial_transform = PolynomialFeatures(self.polynomial_degree)
+        polynomial_transform = PolynomialFeatures(self._polynomial_degree)
         x_design = polynomial_transform.fit_transform(x)
         number_of_dimensions = len(x_design[0])
 
-        self.beta = np.zeros((number_of_dimensions, self.n_kernels))
+        self.beta = np.zeros((number_of_dimensions, self._n_kernels))
 
         for i, weights in enumerate(w.T):
             loadings = np.linalg.inv(x_design.T * weights @ x_design) @ x_design.T
@@ -286,7 +277,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             x = x[..., np.newaxis]
 
         w = self._get_weight_matrix(x)
-        polynomial_transform = PolynomialFeatures(self.polynomial_degree)
+        polynomial_transform = PolynomialFeatures(self._polynomial_degree)
         x_design = polynomial_transform.fit_transform(x)
 
         return np.sum(x_design @ self.beta * w, axis=1)
@@ -311,7 +302,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             Weight matrix with the shape (n_datapoints, n_kernels).
 
         """
-        w = np.tile(x, (1, self.n_kernels))
+        w = np.tile(x, (1, self._n_kernels))
 
         w = w - self.scale_mean
         w = w / self.scale_max
@@ -344,7 +335,7 @@ def _apply_kernel(w):
         return w
 
 
-def _tricubic(x):
+def _tricubic(x, EPSILON=1e-6):
     """tricubic weight kernel"""
     epsilon = EPSILON
     mask = np.abs(x) <= 1

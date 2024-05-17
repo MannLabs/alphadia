@@ -1,4 +1,4 @@
-from alphadia.calibration.provider import Calibration
+from alphadia.calibration.property import Calibration
 from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 
