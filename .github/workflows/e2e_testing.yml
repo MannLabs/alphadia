@@ -18,6 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
+        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
         with:
           auto-update-conda: true
           python-version: ${{ matrix.python-version }}
@@ -25,12 +26,14 @@ jobs:
         shell: bash -el {0}
         run: conda info
       - name: Setup pip cache
+        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Pip installation with loose dependencies
+        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
         shell: bash -el {0}
         run: |
           cd misc
