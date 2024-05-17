@@ -249,8 +249,6 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         for i, weights in enumerate(w.T):
             loadings = np.linalg.inv(x_design.T * weights @ x_design) @ x_design.T
-            beta = (loadings * weights) @ y
-            y_m = np.sum(x_design @ beta, axis=1)
             self.beta[:, i] = np.ravel((loadings * weights) @ y)
 
         return self
