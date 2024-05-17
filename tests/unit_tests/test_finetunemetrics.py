@@ -3,7 +3,16 @@ Test the metrics module.
 """
 
 import numpy as np
-from alphadia.transferlearning import metrics
+from alphadia.transferlearning import (
+    MetricAccumulator,
+    LinearRegressionTestMetric,
+    AbsErrorPercentileTestMetric,
+    L1LossTestMetric,
+    CELossTestMetric,
+    AccuracyTestMetric,
+    PrecisionRecallTestMetric,
+    MetricManager,
+)
 from scipy import stats, linalg
 from math import isclose
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score
@@ -37,7 +46,7 @@ def test_MetricAccumulator():
     """
 
     # Given
-    metric_accumulator = metrics.MetricAccumulator(name="mse")
+    metric_accumulator = MetricAccumulator(name="mse")
 
     metric_list = np.random.rand(10)
     # When
@@ -55,7 +64,7 @@ def test_LinearRegressionTestMetric():
     # Given
     test_inp = get_regression_test_input()
     # When
-    metric = metrics.LinearRegressionTestMetric()
+    metric = LinearRegressionTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -86,7 +95,7 @@ def test_AbsErrorPercentileTestMetric():
 
     percentile = 95
     # When
-    metric = metrics.AbsErrorPercentileTestMetric(percentile=percentile)
+    metric = AbsErrorPercentileTestMetric(percentile=percentile)
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -106,7 +115,7 @@ def test_L1LossTestMetric():
     test_inp = get_regression_test_input()
 
     # When
-    metric = metrics.L1LossTestMetric()
+    metric = L1LossTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -127,7 +136,7 @@ def test_CELossTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = metrics.CELossTestMetric()
+    metric = CELossTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -147,7 +156,7 @@ def test_AccuracyTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = metrics.AccuracyTestMetric()
+    metric = AccuracyTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -170,7 +179,7 @@ def test_PrecisionRecallTestMetric():
     test_inp = get_classification_test_input()
 
     # When
-    metric = metrics.PrecisionRecallTestMetric()
+    metric = PrecisionRecallTestMetric()
     results = metric.calculate_test_metric(epoch=0, test_input=test_inp)
 
     # Then
@@ -203,8 +212,8 @@ def test_MetricManager():
         model_name="test_model",
         test_interval=2,
         test_metrics=[
-            metrics.LinearRegressionTestMetric(),
-            metrics.L1LossTestMetric(),
+            LinearRegressionTestMetric(),
+            L1LossTestMetric(),
         ],
     )
 
@@ -235,12 +244,12 @@ def test_lrAccumulation():
     # Given
     lr = np.random.rand(10)
 
-    metric_manager = metrics.MetricManager(
+    metric_manager = MetricManager(
         model_name="test_model",
         test_interval=1,
         test_metrics=[
-            metrics.LinearRegressionTestMetric(),
-            metrics.L1LossTestMetric(),
+            LinearRegressionTestMetric(),
+            L1LossTestMetric(),
         ],
     )
 
@@ -263,12 +272,12 @@ def test_trainLossAccumulation():
     # Given
     train_loss = np.random.rand(10)
 
-    metric_manager = metrics.MetricManager(
+    metric_manager = MetricManager(
         model_name="test_model",
         test_interval=1,
         test_metrics=[
-            metrics.LinearRegressionTestMetric(),
-            metrics.L1LossTestMetric(),
+            LinearRegressionTestMetric(),
+            L1LossTestMetric(),
         ],
     )
 
