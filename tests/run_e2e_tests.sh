@@ -2,8 +2,8 @@
 set -e -u
 TEST_CASE_NAME=$1
 ENV_NAME=$2
-SHORT_SHA=$3
-BRANCH_NAME=$4
+SHORT_SHA=${3:-sha_na}
+BRANCH_NAME=${4:-branch_na}
 
 cd e2e_tests
 
