@@ -1,8 +1,8 @@
 on:
   pull_request:
-    branches: [ main, development ]
+    branches: [ main ]
   push:
-    branches: [ development, '**' ]
+    branches: [ main, development ]
   workflow_dispatch:
 
 name: End to end testing
@@ -19,21 +19,9 @@ jobs:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
     steps:
       - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v3
-        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
-        with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
       - name: Conda info
         shell: bash -el {0}
         run: conda info
-      - name: Setup pip cache
-        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: ${{ runner.os }}-pip-
       - name: Pip installation with loose dependencies
         shell: bash -el {0}
         run: |
@@ -44,13 +32,9 @@ jobs:
         env:
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
           NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
-#          source /home/alphadia/miniconda3/etc/profile.d/conda.sh
-#          eval "$(conda shell.bash hook)"
-          #conda activate $RUN_NAME          conda deactivate
         run: |
           cd tests
            . ./run_e2e_tests.sh basic_e2e $RUN_NAME
-
       - name: Cleanup
         if: always()
         shell: bash -el {0}
