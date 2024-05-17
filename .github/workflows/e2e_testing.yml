@@ -33,7 +33,6 @@ jobs:
           key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
           restore-keys: ${{ runner.os }}-pip-
       - name: Pip installation with loose dependencies
-        if: ${{ ! startsWith(matrix.os, 'self-hosted') }}
         shell: bash -el {0}
         run: |
           cd misc
