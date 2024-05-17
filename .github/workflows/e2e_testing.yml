@@ -14,7 +14,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: AlphaDIA
+          - os: self-hosted
     steps:
       - uses: actions/checkout@v3
       - uses: conda-incubator/setup-miniconda@v3
