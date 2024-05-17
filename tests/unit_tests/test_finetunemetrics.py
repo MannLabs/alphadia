@@ -3,7 +3,7 @@ Test the metrics module.
 """
 
 import numpy as np
-from alphadia.transferlearning import (
+from alphadia.transferlearning.metrics import (
     MetricAccumulator,
     LinearRegressionTestMetric,
     AbsErrorPercentileTestMetric,
