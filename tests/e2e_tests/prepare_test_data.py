@@ -18,28 +18,28 @@ DEFAULT_CONFIG_FILE_NAME = "config.yaml"
 CONFIG_SOURCE_PATH = "../../alphadia/constants/default.yaml"
 
 
-def _download_file(url: str, target_name: str) -> None:
-    """Download a file from the given url to the target path."""
+def _download_file(url: str, target_path: str) -> None:
+    """Download a file from the given `url` to the `target_path`."""
     # could potentially reuse testing.py:download_datashare()
-    print(f"downloading {url} to {target_name}")
+    print(f"downloading {url} to {target_path}")
 
     response = requests.get(url, stream=True)
     if response.status_code != 200:
         print("Failed to download the file")
         return
 
-    with open(target_name, "wb") as f:
+    with open(target_path, "wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
-    print(f"Download complete: {target_name}")
+    print(f"Download complete: {target_path}")
 
 
 def _download_all_files(test_case: dict, target_path: str) -> None:
     """Download all files in the test case."""
     for item in ["library", "raw_data"]:
         for item_data in test_case[item]:
-            target = target_path + item_data["target_name"]
+            target = os.path.join(target_path, item_data["target_name"])
             if os.path.exists(target):
                 # TODO use cached version only after passed md5 check
                 print(f"using cached version of {target}")
@@ -53,12 +53,15 @@ def _create_config_file(
 ) -> None:
     """Create the config file from paths to the input files and optional extra_config."""
     config_to_write = {
-        "library": target_path + library,
-        "raw_path_list": [target_path + r for r in raw_files],
-        "output_directory": target_path + "/" + OUTPUT_DIR_NAME,
+        "library": os.path.join(target_path, library),
+        "raw_path_list": [
+            os.path.join(target_path, raw_file) for raw_file in raw_files
+        ],
+        "output_directory": os.path.join(target_path, OUTPUT_DIR_NAME),
     } | extra_config
 
-    yaml.safe_dump(config_to_write, open(target_path + DEFAULT_CONFIG_FILE_NAME, "w"))
+    config_target_path = os.path.join(target_path, DEFAULT_CONFIG_FILE_NAME)
+    yaml.safe_dump(config_to_write, open(config_target_path, "w"))
 
 
 def get_test_case(test_case_name: str) -> dict:
@@ -71,9 +74,9 @@ def get_test_case(test_case_name: str) -> dict:
 
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
-    target_path = test_case_name + "/"
+    target_path = test_case_name
 
-    os.makedirs(target_path + "output", exist_ok=True)
+    os.makedirs(os.path.join(target_path, OUTPUT_DIR_NAME), exist_ok=True)
 
     test_case = get_test_case(test_case_name)
 

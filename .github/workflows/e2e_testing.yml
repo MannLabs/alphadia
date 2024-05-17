@@ -1,6 +1,6 @@
 on:
   pull_request:
-    branches: [ main ]
+    branches: [ main, development ]
   push:
     branches: [ development ]
   workflow_dispatch:
@@ -42,4 +42,6 @@ jobs:
           NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
         run: |
           cd tests
+          conda activate alphadia
            . ./run_e2e_tests.sh basic_e2e
+          conda deactivate
