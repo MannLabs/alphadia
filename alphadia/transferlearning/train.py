@@ -225,7 +225,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
-    from tqdm import tqdm
+
     def _reset_frag_idx(self, df):
         """
         Reset the frag_start_idx and frag_stop_idx of the dataframe so both columns will be monotonically increasing.
@@ -241,65 +241,63 @@ class FinetuneManager(ModelManager):
             The dataframe with the reset indices.
         """
         new_df = df.copy()
-        number_of_fragments = new_df['frag_stop_idx'] - new_df['frag_start_idx']
+        number_of_fragments = new_df["frag_stop_idx"] - new_df["frag_start_idx"]
         accumlated_frags = number_of_fragments.cumsum()
 
         new_frag_start_idx = accumlated_frags - number_of_fragments
         new_frag_stop_idx = accumlated_frags
 
-        new_df['frag_start_idx'] = new_frag_start_idx
-        new_df['frag_stop_idx'] = new_frag_stop_idx
+        new_df["frag_start_idx"] = new_frag_start_idx
+        new_df["frag_stop_idx"] = new_frag_stop_idx
         return new_df
 
-
     def _order_intensities(
-            self,
-            precursor_df_to_align_with: pd.DataFrame, 
-            prev_precursor_df: pd.DataFrame, 
-            frags_to_be_reordered: pd.DataFrame,
-        ) -> pd.DataFrame:
-            """
-            Rearrange the fragment intensities to match the order used by the start and stop indices in precursor_df_to_align_with.
-            The goal of this is to reorder the fragment intensities using a newer precursor_df that only has different start and stop indices.
+        self,
+        precursor_df_to_align_with: pd.DataFrame,
+        prev_precursor_df: pd.DataFrame,
+        frags_to_be_reordered: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Rearrange the fragment intensities to match the order used by the start and stop indices in precursor_df_to_align_with.
+        The goal of this is to reorder the fragment intensities using a newer precursor_df that only has different start and stop indices.
 
-            Parameters
-            ----------
-            precursor_df_to_align_with : pd.DataFrame
-                The dataframe with the new frag_start_idx and frag_stop_idx to respect.
-            prev_precursor_df : pd.DataFrame
-                The dataframe with the old frag_start_idx and frag_stop_idx.
+        Parameters
+        ----------
+        precursor_df_to_align_with : pd.DataFrame
+            The dataframe with the new frag_start_idx and frag_stop_idx to respect.
+        prev_precursor_df : pd.DataFrame
+            The dataframe with the old frag_start_idx and frag_stop_idx.
 
-            frags_to_be_reordered : pd.DataFrame
-                The fragment intensity dataframe to be reordered.
-            Returns
-            -------
-            pd.DataFrame
-                The reordered fragment intensity dataframe.
-            """
-            reordered = frags_to_be_reordered.copy()
-            for i in tqdm(range(len(precursor_df_to_align_with))):
-                cur_mod_seq_hash = precursor_df_to_align_with.iloc[i]["mod_seq_charge_hash"]
-                cur_proba = precursor_df_to_align_with.iloc[i]["proba"]
+        frags_to_be_reordered : pd.DataFrame
+            The fragment intensity dataframe to be reordered.
+        Returns
+        -------
+        pd.DataFrame
+            The reordered fragment intensity dataframe.
+        """
+        reordered = frags_to_be_reordered.copy()
+        for i in tqdm(range(len(precursor_df_to_align_with))):
+            cur_mod_seq_hash = precursor_df_to_align_with.iloc[i]["mod_seq_charge_hash"]
+            cur_proba = precursor_df_to_align_with.iloc[i]["proba"]
 
-                # find the index of the the same mod_seq_hash and proba in the prev_precursor_df
-                target = prev_precursor_df[
-                    (prev_precursor_df["mod_seq_charge_hash"] == cur_mod_seq_hash)
-                    & (prev_precursor_df["proba"] == cur_proba)
-                ]
-                target_idx = target.index[0]
+            # find the index of the the same mod_seq_hash and proba in the prev_precursor_df
+            target = prev_precursor_df[
+                (prev_precursor_df["mod_seq_charge_hash"] == cur_mod_seq_hash)
+                & (prev_precursor_df["proba"] == cur_proba)
+            ]
+            target_idx = target.index[0]
 
-                new_start_idx = precursor_df_to_align_with.iloc[i]["frag_start_idx"]
-                new_end_idx = precursor_df_to_align_with.iloc[i]["frag_stop_idx"]
+            new_start_idx = precursor_df_to_align_with.iloc[i]["frag_start_idx"]
+            new_end_idx = precursor_df_to_align_with.iloc[i]["frag_stop_idx"]
 
-                old_start_idx = prev_precursor_df.loc[target_idx]["frag_start_idx"]
-                old_end_idx = prev_precursor_df.loc[target_idx]["frag_stop_idx"]
+            old_start_idx = prev_precursor_df.loc[target_idx]["frag_start_idx"]
+            old_end_idx = prev_precursor_df.loc[target_idx]["frag_stop_idx"]
 
-                reordered.iloc[new_start_idx:new_end_idx, :] = frags_to_be_reordered.iloc[
-                    old_start_idx:old_end_idx, :
-                ]
-            return reordered
-     
-   
+            reordered.iloc[new_start_idx:new_end_idx, :] = frags_to_be_reordered.iloc[
+                old_start_idx:old_end_idx, :
+            ]
+        return reordered
+
     def _test_ms2(
         self,
         epoch: int,
@@ -454,7 +452,6 @@ class FinetuneManager(ModelManager):
             prev_frag_df=test_intensity_df,
         )
 
-
         # Create a metric manager
         test_metric_manager = MetricManager(
             model_name="ms2",
@@ -480,7 +477,13 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Test the model before training
-        self._test_ms2(-1, 0, reordered_test_psm_df, reordered_test_intensity_df, test_metric_manager)
+        self._test_ms2(
+            -1,
+            0,
+            reordered_test_psm_df,
+            reordered_test_intensity_df,
+            test_metric_manager,
+        )
         # Train the model
         logger.progress(" Fine-tuning MS2 model")
         self.ms2_model.model.train()
