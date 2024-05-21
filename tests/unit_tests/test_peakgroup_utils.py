@@ -5,7 +5,7 @@ import pytest
 from alphadia.peakgroup.utils import assemble_isotope_mz
 
 
-@nb.njit
+@nb.njit(cache=True)
 def wrap_assemble_isotope_mz(mz, charge, intensities):
     return assemble_isotope_mz(mz, charge, intensities)
 

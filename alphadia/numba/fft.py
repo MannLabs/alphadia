@@ -120,7 +120,7 @@ def _(x, s=None):
     return funcx_impl
 
 
-@nb.njit
+@nb.njit(cache=True)
 def roll(a, delta0, delta1):
     b = np.zeros_like(a)
     b[delta0:, delta1:] = a[:-delta0, :-delta1]
