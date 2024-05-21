@@ -99,10 +99,10 @@ git pull
 
 #### 4. Installation
 
-Finally, AlphaDIA and all its dependancies need to be installed. To take advantage of all features use the `-e` flag for a development install.
+Finally, alphaDIA and all its depend=encies need to be installed. To take advantage of all features use the `-e` flag for a development install.
 
 ```bash
-pip install -e "./alphadia"
+pip install -e "."
 ```
 
 ***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
@@ -138,7 +138,7 @@ For the first search we will be using a spectral library to search 60SPD bulk He
 Import the library `.hdf` file and select the thre `.raw` files. You can select a human `.fasta` file for reannotation but it's generally not recommended for empirical spectral libraries.
 
 #### Method Settings
-Alltough alphaDIA is highly custamizable, we will only set a limited number of settings here. Go to the *Search* settings and make the following changes: 
+Alltough alphaDIA is highly custamizable, we will only set a limited number of settings here. Go to the *Search* settings and make the following changes:
 * Number of candidates: 5
 * MS1 Tolerance 4ppm
 * MS2 Tolerance 7ppm
