@@ -558,9 +558,9 @@ def pjit(
     import numpy as np
 
     def parallel_compiled_func_inner(func):
-        numba_func = numba.njit(nogil=True, **kwargs)(func)
+        numba_func = numba.njit(nogil=True, cache=True, **kwargs)(func)
 
-        @numba.njit(nogil=True)
+        @numba.njit(nogil=True, cache=True)
         def numba_func_parallel(
             iterable,
             thread_id,
