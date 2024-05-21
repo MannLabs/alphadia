@@ -202,7 +202,7 @@ def slice(inst, slices):
         return impl
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def slice_manual(inst, slices):
     precursor_idx = []
     fragments_mz_library = []
@@ -258,7 +258,7 @@ def slice_manual(inst, slices):
     return f
 
 
-@nb.njit
+@nb.njit(cache=True)
 def get_ion_group_mapping(
     ion_precursor,
     ion_mz,

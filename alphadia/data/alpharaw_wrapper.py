@@ -15,7 +15,7 @@ from alphadia import utils
 logger = logging.getLogger()
 
 
-@nb.njit(parallel=False, fastmath=True)
+@nb.njit(parallel=False, fastmath=True, cache=True)
 def search_sorted_left(slice, value):
     left = 0
     right = len(slice)
@@ -29,7 +29,7 @@ def search_sorted_left(slice, value):
     return left
 
 
-@nb.njit(inline="always", fastmath=True)
+@nb.njit(inline="always", fastmath=True, cache=True)
 def search_sorted_refernce_left(array, left, right, value):
     while left < right:
         mid = (left + right) >> 1
@@ -87,7 +87,7 @@ def get_cycle_length(cycle_signature: np.ndarray):
     return peak_index[argmax]
 
 
-@nb.njit
+@nb.njit(cache=True)
 def get_cycle_start(
     cycle_signature: np.ndarray,
     cycle_length: int,
@@ -122,7 +122,7 @@ def get_cycle_start(
     return -1
 
 
-@nb.njit
+@nb.njit(cache=True)
 def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
     """Assert that the found DIA cycle is valid.
 
@@ -207,7 +207,7 @@ def determine_dia_cycle(
     return cycle, cycle_start, cycle_length
 
 
-@nb.njit
+@nb.njit(cache=True)
 def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     """Calculate the DIA cycle quadrupole mask for each score group.
 

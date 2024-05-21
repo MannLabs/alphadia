@@ -1,6 +1,6 @@
 # native imports
 import logging
-
+from pjit import pjit
 # alpha family imports
 import alphatims.utils
 import numba as nb
@@ -1355,7 +1355,7 @@ class OuptutPsmDF:
         )
 
 
-@alphatims.utils.pjit()
+@pjit
 def _executor(
     i,
     sg_container,
@@ -1381,7 +1381,7 @@ def _executor(
     )
 
 
-@alphatims.utils.pjit()
+@pjit
 def transfer_feature(
     idx, score_group_container, feature_array, precursor_idx_array, rank_array
 ):
