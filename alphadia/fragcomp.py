@@ -12,6 +12,8 @@ from alphadia.pjit import pjit
 
 from alphadia.pjit import pjit
 
+from alphadia.pjit import pjit
+
 logger = logging.getLogger(__name__)
 
 
