@@ -7,7 +7,7 @@ from alphadia.numba.fft import convolve_fourier, irfft2, rfft2
 
 @pytest.mark.parametrize("shape", [(100, 2), (2, 100), (100, 100)])
 def test_rfft2_np_agreement(shape, tol=1e-6):
-    @nb.njit
+    @nb.njit(cache=True)
     def njit_rfft2(x):
         return rfft2(x)
 
@@ -19,7 +19,7 @@ def test_rfft2_np_agreement(shape, tol=1e-6):
 
 @pytest.mark.parametrize("shape", [(128, 128), (2, 2), (128, 2), (2, 2)])
 def test_irfft2_np_agreement(shape, tol=1e-6):
-    @nb.njit
+    @nb.njit(cache=True)
     def njit_r2r(x):
         return irfft2(rfft2(x))
 
@@ -32,7 +32,7 @@ def test_irfft2_np_agreement(shape, tol=1e-6):
 
 
 def test_conv_np_agreement():
-    @nb.njit
+    @nb.njit(cache=True)
     def conv(x, y):
         y = rfft2(y, x.shape)
         return irfft2(rfft2(x) * y)
@@ -55,7 +55,7 @@ def test_conv_np_agreement():
     ],
 )
 def test_fft_typing(x, should_fail):
-    @nb.njit
+    @nb.njit(cache=True)
     def njit_r2r(x):
         return irfft2(rfft2(x))
 
@@ -78,7 +78,7 @@ def test_convolve_fourier(shape):
     upper_bound = shape[-2] // 2 + filter.shape[-2] // 2
     target[..., lower_bound:upper_bound, lower_bound:upper_bound] = 1
 
-    @nb.njit
+    @nb.njit(cache=True)
     def nb_wrapper(dense, filter):
         return convolve_fourier(dense, filter)
 
@@ -102,7 +102,7 @@ def test_convolve_fourier_typing(shape, kernel_shape, should_fail):
     dense = np.zeros(shape).astype(np.float32)
     filter = np.ones(kernel_shape).astype(np.float32)
 
-    @nb.njit
+    @nb.njit(cache=True)
     def nb_wrapper(dense, filter):
         return convolve_fourier(dense, filter)
 

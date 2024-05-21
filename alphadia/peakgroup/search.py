@@ -284,7 +284,10 @@ class CandidateDF:
         )
 
 
-@alphatims.utils.pjit()
+from alphadia.pjit import pjit
+
+
+@pjit
 def _executor(
     i,
     jit_data,
@@ -307,7 +310,7 @@ def _executor(
     )
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def select_candidates(
     i,
     jit_data,
@@ -446,7 +449,7 @@ def select_candidates(
     )
 
 
-@nb.njit(fastmath=True)
+@nb.njit(fastmath=True, cache=True)
 def build_features(smooth_precursor, smooth_fragment):
     n_features = 1
 
@@ -467,7 +470,7 @@ def build_features(smooth_precursor, smooth_fragment):
     return features
 
 
-@nb.njit
+@nb.njit(cache=True)
 def join_close_peaks(
     peak_scan_list, peak_cycle_list, peak_score_list, scan_tolerance, cycle_tolerance
 ):
@@ -523,7 +526,7 @@ def join_close_peaks(
     return peak_mask
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def join_overlapping_candidates(
     scan_limits_list, cycle_limits_list, p_scan_overlap=0.01, p_cycle_overlap=0.6
 ):
@@ -603,7 +606,7 @@ def join_overlapping_candidates(
     return joined_mask
 
 
-@nb.njit(fastmath=True)
+@nb.njit(fastmath=True, cache=True)
 def build_candidates(
     precursor_idx,
     candidate_container,
