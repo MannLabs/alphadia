@@ -5,6 +5,10 @@ on:
 
 name: Default installation and tests
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   #stable_installation:
   #  name: Test stable pip installation on ${{ matrix.os }}
