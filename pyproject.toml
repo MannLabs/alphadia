@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphadia"
+requires-python = ">=3.9.0"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+authors = [
+    {name = "Mann Labs", email = "opensource@alphapept.com"},
+]
+description = "An open-source Python package of the AlphaPept ecosystem"
+readme = "README.md"
+keywords = [
+    "bioinformatics",
+    "software",
+    "AlphaPept ecosystem",
+]
+license = {file = "LICENSE.txt"}
+classifiers = [
+     "Development Status :: 3 - Alpha",
+    # "Development Status :: 4 - Beta",
+    # "Development Status :: 5 - Production/Stable",
+    # "Development Status :: 6 - Mature",
+    # "Development Status :: 7 - Inactive"
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.urls]
+"Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
+#Documentation = "https://readthedocs.org"
+Repository = "https://github.com/MannLabs/alphadia"
+Issues = "https://github.com/MannLabs/alphadia/issues"
+#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.dynamic]
+# https://stackoverflow.com/a/73600610
+dependencies = {file = ["requirements/requirements.txt"]}
+optional-dependencies = {dev = { file = ["requirements/requirements_development.txt"] }}
+version = {attr = "alphadia.__version__"}
+
+[project.scripts]
+alphadia = "alphadia.cli:run"
