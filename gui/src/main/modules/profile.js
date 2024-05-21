@@ -7,7 +7,7 @@ const { dialog } = require('electron')
 const Profile = class {
 
     config = {
-        "version": "1.5.5",
+        "version": "1.5.5+test",
         "conda": {
             "envName": "alpha",
             "path": ""
