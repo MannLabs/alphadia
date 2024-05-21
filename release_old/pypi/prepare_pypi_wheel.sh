@@ -4,6 +4,7 @@ conda activate alphadia_pypi_wheel
 pip install twine
 rm -rf dist
 rm -rf build
-python setup.py sdist bdist_wheel
+pip install build
+python -m build
 twine check dist/*
 conda deactivate

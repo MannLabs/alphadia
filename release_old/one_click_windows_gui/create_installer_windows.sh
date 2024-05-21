@@ -12,7 +12,8 @@ conda create -n alphadia_installer python=3.8 -y
 conda activate alphadia_installer
 
 # Creating the wheel
-python setup.py sdist bdist_wheel
+pip install build
+python -m build
 
 # Setting up the local package
 cd release/one_click_windows_gui

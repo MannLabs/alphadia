@@ -16,7 +16,8 @@ conda create -n alphadiainstaller python=3.9 -y
 conda activate alphadiainstaller
 
 # Creating the wheel
-python setup.py sdist bdist_wheel
+pip install build
+python -m build
 
 # Setting up the local package
 cd release/one_click_macos_gui
