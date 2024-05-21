@@ -1,6 +1,6 @@
 # native imports
 import logging
-
+from pjit import pjit
 # alpha family imports
 import alphatims.utils
 import numba as nb
