@@ -1,3 +1,3 @@
 #!python
 
-__version__ = "1.5.5-test"
+__version__ = "1.5.5+test"
