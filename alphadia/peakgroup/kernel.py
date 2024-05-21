@@ -13,7 +13,7 @@ from alphadia.data import alpharaw_wrapper, bruker
 logger = logging.getLogger()
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
     """multivariate normal distribution, probability density function
 
