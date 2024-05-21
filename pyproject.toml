@@ -44,7 +44,7 @@ find = {}
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
 dependencies = {file = ["requirements/requirements.txt"]}
-optional-dependencies = {dev = { file = ["requirements/requirements_development.txt"] }}
+optional-dependencies = {development = { file = ["requirements/requirements_development.txt"] }}
 version = {attr = "alphadia.__version__"}
 
 [project.scripts]
