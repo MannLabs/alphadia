@@ -1,6 +1,6 @@
 on:
   pull_request:
-    branches:
+    types: [ labeled ]
   push:
     branches: [ main, development ]
   workflow_dispatch:
@@ -13,12 +13,9 @@ concurrency:
 
 jobs:
   end2end_testing:
-    name: End to end test on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: self-hosted
+    name: End to end test
+    runs-on: self-hosted
+    if: contains(github.event.pull_request.labels.*.name, 'test:e2e')
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
