@@ -1009,7 +1009,7 @@ def log_stat_df(stat_df: pd.DataFrame):
         + "Unique MS2".rjust(space)
     )
 
-    for i, row in stat_df.iterrows():
+    for _, row in stat_df.iterrows():
         if row["modification"] == "Total":
             continue
         logger.info(

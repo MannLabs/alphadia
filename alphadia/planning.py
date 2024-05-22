@@ -33,10 +33,10 @@ class Plan:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: list[str] = [],
+        raw_path_list: list[str] = None,
         library_path: typing.Union[str, None] = None,
-        fasta_path_list: list[str] = [],
-        config: typing.Union[dict, None] = {},
+        fasta_path_list: list[str] = None,
+        config: typing.Union[dict, None] = None,
         config_base_path: typing.Union[str, None] = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
@@ -58,6 +58,12 @@ class Plan:
             dict to update the default config. Can be used for debugging purposes etc.
 
         """
+        if config is None:
+            config = {}
+        if fasta_path_list is None:
+            fasta_path_list = []
+        if raw_path_list is None:
+            raw_path_list = []
         self.output_folder = output_folder
         reporting.init_logging(self.output_folder)
 
@@ -265,10 +271,12 @@ class Plan:
         self,
         figure_path=None,
         neptune_token=None,
-        neptune_tags=[],
+        neptune_tags=None,
         keep_decoys=False,
         fdr=0.01,
     ):
+        if neptune_tags is None:
+            neptune_tags = []
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []

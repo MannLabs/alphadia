@@ -48,9 +48,9 @@ def mock_precursor_df(
     random_mobility = np.random.rand(n_precursor)
     # Generate random 6 amino acid
     sequences = []
-    for i in range(n_precursor):
+    for _i in range(n_precursor):
         sequence = ""
-        for j in range(6):
+        for _j in range(6):
             sequence += chr(np.random.randint(65, 91))
         sequences.append(sequence)
     return pd.DataFrame(

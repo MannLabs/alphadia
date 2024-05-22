@@ -732,7 +732,7 @@ class AlphaRawJIT:
         for i, cycle_idx in enumerate(
             range(precursor_cycle_start, precursor_cycle_stop)
         ):
-            for j, precursor_idx in enumerate(precursor_idx_list):
+            for precursor_idx in precursor_idx_list:
                 scan_idx = precursor_idx + cycle_idx * cycle_length
 
                 peak_start_idx = self.peak_start_idx_list[scan_idx]

@@ -57,7 +57,7 @@ def test_get_ion_group_mapping():
 def fuzz_symetric_limits_1d():
     # test both the numba and the python version
     for f in [symetric_limits_1d, symetric_limits_1d.py_func]:
-        for i in range(1000):
+        for _i in range(1000):
             x = np.random.random(int(np.random.random() * 20))
             center = int(np.random.random() * 20)
             f = np.random.random() * 2
@@ -83,7 +83,7 @@ def fuzz_symetric_limits_1d():
 
 def fuzz_symetric_limits_2d():
     for f in [symetric_limits_2d, symetric_limits_2d.py_func]:
-        for i in range(1000):
+        for _i in range(1000):
             size = np.random.randint(10, 20)
             sigma_x, sigma_y = np.random.random(2) * 10
 

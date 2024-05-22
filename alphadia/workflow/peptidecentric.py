@@ -1094,24 +1094,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: list[str] = ["b", "y"],
+    fragment_types: list[str] = None,
     max_charge: int = 2,
-    optional_columns: list[str] = [
-        "proba",
-        "score",
-        "qval",
-        "channel",
-        "rt_library",
-        "mz_library",
-        "mobility_library",
-        "genes",
-        "proteins",
-        "decoy",
-        "mods",
-        "mod_sites",
-        "sequence",
-        "charge",
-    ],
+    optional_columns: list[str] = None,
 ) -> tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
@@ -1154,6 +1139,25 @@ def _build_candidate_speclib_flat(
         Dataframe with scored candidates
     """
     # remove decoys
+    if optional_columns is None:
+        optional_columns = [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+        ]
+    if fragment_types is None:
+        fragment_types = ["b", "y"]
     psm_df = psm_df[psm_df["decoy"] == 0]
 
     for col in ["rt_observed", "mobility_observed", "mz_observed"]:

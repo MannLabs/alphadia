@@ -23,9 +23,9 @@ class Calibration:
         self,
         name: str = "",
         function: object = None,
-        input_columns: list[str] = [],
-        target_columns: list[str] = [],
-        output_columns: list[str] = [],
+        input_columns: list[str] = None,
+        target_columns: list[str] = None,
+        output_columns: list[str] = None,
         transform_deviation: typing.Union[None, float] = None,
         **kwargs,
     ):
@@ -61,6 +61,12 @@ class Calibration:
 
         """
 
+        if output_columns is None:
+            output_columns = []
+        if target_columns is None:
+            target_columns = []
+        if input_columns is None:
+            input_columns = []
         self.name = name
         self.function = function
         self.input_columns = input_columns

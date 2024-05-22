@@ -67,7 +67,7 @@ def run_test_on_raw(name, jit_data):
 
 
 def fuzz_get_frame_indices(jit_data):
-    for i in range(1):
+    for _ in range(1):
         start_index = np.random.randint(0, jit_data.rt_values.shape[0], size=1)[0]
         stop_index = np.random.randint(
             start_index, jit_data.rt_values.shape[0], size=1
@@ -98,7 +98,7 @@ def fuzz_get_frame_indices(jit_data):
 
 
 def fuzz_get_frame_indices_tolerance(jit_data):
-    for i in range(1000):
+    for _i in range(1000):
         rt = jit_data.rt_values[
             np.random.randint(0, jit_data.rt_values.shape[0], size=1)
         ][0]
@@ -127,7 +127,7 @@ def fuzz_get_frame_indices_tolerance(jit_data):
 
 
 def fuzz_get_scan_indices(jit_data):
-    for i in range(1000):
+    for _i in range(1000):
         start_index = np.random.randint(0, jit_data.mobility_values.shape[0], size=1)[0]
         stop_index = np.random.randint(
             start_index, jit_data.mobility_values.shape[0], size=1
@@ -152,7 +152,7 @@ def fuzz_get_scan_indices(jit_data):
 
 
 def fuzz_get_scan_indices_tolerance(jit_data):
-    for i in range(1000):
+    for _i in range(1000):
         mobility = jit_data.mobility_values[
             np.random.randint(0, jit_data.mobility_values.shape[0], size=1)
         ][0]
@@ -181,7 +181,7 @@ def fuzz_get_scan_indices_tolerance(jit_data):
 
 
 def fuzz_get_dense(jit_data):
-    for i in range(100):
+    for _i in range(100):
         min_mz = jit_data.mz_values.min()
         max_mz = jit_data.mz_values.max()
         use_q = np.random.randint(0, 2, dtype=bool)
