@@ -42,7 +42,10 @@ def _download_all_files(test_case: dict, target_path: str) -> dict:
     """Download all files in the test case."""
 
     downloaded_files = defaultdict(list)
-    for item in ["library", "raw_data"]:
+    for item in ["library", "fasta", "raw_data"]:
+        if item not in test_case:
+            continue
+
         for item_data in test_case[item]:
             file_name = DataShareDownloader(
                 item_data["source_url"], target_path
@@ -53,14 +56,20 @@ def _download_all_files(test_case: dict, target_path: str) -> dict:
 
 
 def _create_config_file(
-    target_path: str, library_path: str, raw_file_paths: list[str], extra_config: dict
+    target_path: str, downloaded_files: dict, extra_config: dict
 ) -> None:
     """Create the config file from paths to the input files and optional extra_config."""
+
     config_to_write = {
-        "library": library_path,
-        "raw_path_list": raw_file_paths,
+        "raw_path_list": downloaded_files["raw_data"],
         "output_directory": os.path.join(target_path, OUTPUT_DIR_NAME),
     } | extra_config
+
+    if "library" in downloaded_files:
+        config_to_write = config_to_write | {"library": downloaded_files["library"][0]}
+
+    if "fasta" in downloaded_files:
+        config_to_write = config_to_write | {"fasta_list": downloaded_files["fasta"]}
 
     config_target_path = os.path.join(target_path, DEFAULT_CONFIG_FILE_NAME)
     yaml.safe_dump(config_to_write, open(config_target_path, "w"))
@@ -84,11 +93,9 @@ if __name__ == "__main__":
 
     downloaded_files = _download_all_files(test_case, target_path)
 
-    library_path = downloaded_files["library"][0]
-    raw_file_paths = downloaded_files["raw_data"]
     try:
         extra_config = test_case["config"]
     except (KeyError, TypeError):
         extra_config = {}
 
-    _create_config_file(target_path, library_path, raw_file_paths, extra_config)
+    _create_config_file(target_path, downloaded_files, extra_config)
