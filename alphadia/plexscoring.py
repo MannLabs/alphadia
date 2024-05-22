@@ -1114,7 +1114,7 @@ class ScoreGroupContainer:
                 if len(candidate.features) not in known_feature_lengths:
                     known_feature_lengths += [len(candidate.features)]
                     # add all new features to the list of known columns
-                    for key in candidate.features.keys():
+                    for key in candidate.features:
                         if key not in known_columns:
                             known_columns += [key]
         return known_columns

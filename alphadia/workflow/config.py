@@ -160,7 +160,7 @@ def print_recursively(
                 )
                 continue
 
-            elif isinstance(value, list) or isinstance(value, dict):
+            elif isinstance(value, (list, dict)):
                 print_w_style(
                     f"{key}",
                     style=style,

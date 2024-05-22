@@ -557,14 +557,13 @@ def build_features(
     features["mean_observation_score"] = 0
     features["var_observation_score"] = 1
 
-    if np.sum(peak_fragment_mask_1d) > 0:
-        if n_observations > 1:
-            observation_score = cosine_similarity_a1(
-                total_template_intensity,
-                observed_fragment_intensity[peak_fragment_mask_1d],
-            ).astype(np.float32)
-            features["mean_observation_score"] = np.mean(observation_score)
-            features["var_observation_score"] = np.var(observation_score)
+    if np.sum(peak_fragment_mask_1d) > 0 and n_observations > 1:
+        observation_score = cosine_similarity_a1(
+            total_template_intensity,
+            observed_fragment_intensity[peak_fragment_mask_1d],
+        ).astype(np.float32)
+        features["mean_observation_score"] = np.mean(observation_score)
+        features["var_observation_score"] = np.var(observation_score)
 
     fragment_features["mz_library"] = fragments.mz_library[fragment_mask_1d]
     fragment_features["mz_observed"] = observed_fragment_mz_mean[

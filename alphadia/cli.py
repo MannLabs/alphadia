@@ -202,13 +202,13 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     raw_path_list : list
         List of raw files.
     """
-    config_raw_path_list = config["raw_path_list"] if "raw_path_list" in config else []
+    config_raw_path_list = config.get("raw_path_list", [])
     raw_path_list = (
         utils.windows_to_wsl(config_raw_path_list) if args.wsl else config_raw_path_list
     )
     raw_path_list += utils.windows_to_wsl(args.file) if args.wsl else args.file
 
-    config_directory = config["directory"] if "directory" in config else None
+    config_directory = config.get("directory")
     directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
     if directory is not None:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
@@ -286,7 +286,7 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
         List of fasta files.
     """
 
-    config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
+    config_fasta_path_list = config.get("fasta_list", [])
     fasta_path_list = (
         utils.windows_to_wsl(config_fasta_path_list)
         if args.wsl

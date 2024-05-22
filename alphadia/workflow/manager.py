@@ -242,9 +242,7 @@ class CalibrationManager(BaseManager):
             for estimator in group["estimators"]:
                 try:
                     template = calibration_model_provider.get_model(estimator["model"])
-                    model_args = (
-                        estimator["model_args"] if "model_args" in estimator else {}
-                    )
+                    model_args = estimator.get("model_args", {})
                     estimator["function"] = template(**model_args)
                 except Exception as e:
                     self.reporter.log_string(

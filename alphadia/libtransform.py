@@ -106,7 +106,7 @@ class DynamicLoader(ProcessingStep):
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
         valid = True
-        valid &= isinstance(input, str) or isinstance(input, Path)
+        valid &= isinstance(input, (str, Path))
 
         if not os.path.exists(input):
             logger.error(f"Input path {input} does not exist")

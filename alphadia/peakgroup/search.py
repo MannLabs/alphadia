@@ -628,10 +628,7 @@ def build_candidates(
 ):
     cycle_length = jit_data.cycle.shape[1]
 
-    if weights is None:
-        feature_weights = np.ones(1)
-    else:
-        feature_weights = weights
+    feature_weights = np.ones(1) if weights is None else weights
 
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
