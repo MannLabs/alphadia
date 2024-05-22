@@ -132,7 +132,7 @@ if __name__ == "__main__":
     test_results["run_time_minutes"] = run_time_minutes
     test_results["short_sha"] = short_sha
     test_results["branch_name"] = branch_name
-    test_results["test_case_details"] = test_case
+    test_results["test_case_details"] = str(test_case)
 
     output_path = os.path.join(test_case_name, OUTPUT_DIR_NAME)
 
