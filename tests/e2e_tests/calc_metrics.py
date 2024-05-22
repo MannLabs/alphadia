@@ -42,7 +42,7 @@ class OutputFiles:
         return [
             v
             for k, v in cls.__dict__.items()
-            if not k.startswith("__") and not k == "all_values"
+            if not k.startswith("__") and k != "all_values"
         ]
 
 
