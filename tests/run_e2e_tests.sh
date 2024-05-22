@@ -12,9 +12,9 @@ ls */*
 
 cat $TEST_CASE_NAME/config.yaml
 
-conda run -n $ENV_NAME --live-stream alphadia  --config $TEST_CASE_NAME/config.yaml
+conda run -n $ENV_NAME --no-capture-output alphadia --config $TEST_CASE_NAME/config.yaml
 ls */*
 
-conda run -n $ENV_NAME python calc_metrics.py $TEST_CASE_NAME $SHORT_SHA $BRANCH_NAME
+conda run -n $ENV_NAME --no-capture-output python calc_metrics.py $TEST_CASE_NAME $SHORT_SHA $BRANCH_NAME
 
 cd -
