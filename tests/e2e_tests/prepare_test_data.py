@@ -70,7 +70,8 @@ def _create_config_file(
         }
 
     config_target_path = os.path.join(target_path, DEFAULT_CONFIG_FILE_NAME)
-    yaml.safe_dump(config_to_write, open(config_target_path, "w"))
+    with open(config_target_path, "w") as fh:
+        yaml.safe_dump(config_to_write, fh)
 
 
 def get_test_case(test_case_name: str) -> dict:

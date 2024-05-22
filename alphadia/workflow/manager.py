@@ -515,13 +515,15 @@ class FDRManager(BaseManager):
         if len(available_columns) == 0:
             raise ValueError("No feature columns found in features_df")
 
-        if decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise":
-            if "decoy" not in features_df.columns:
-                raise ValueError("decoy column not found in features_df")
+        if (
+            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        ) and "decoy" not in features_df.columns:
+            raise ValueError("decoy column not found in features_df")
 
-        if decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel":
-            if "channel" not in features_df.columns:
-                raise ValueError("channel column not found in features_df")
+        if (
+            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
+        ) and "channel" not in features_df.columns:
+            raise ValueError("channel column not found in features_df")
 
         if decoy_strategy == "channel" and decoy_channel == -1:
             raise ValueError("decoy_channel must be set if decoy_type is channel")
@@ -535,11 +537,12 @@ class FDRManager(BaseManager):
             )
             decoy_channel = -1
 
-        if decoy_strategy == "channel" and decoy_channel > -1:
-            if decoy_channel not in features_df["channel"].unique():
-                raise ValueError(
-                    f"decoy_channel {decoy_channel} not found in features_df"
-                )
+        if (
+            decoy_strategy == "channel"
+            and decoy_channel > -1
+            and decoy_channel not in features_df["channel"].unique()
+        ):
+            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
         self.reporter.log_string(
             f"performing {decoy_strategy} FDR with {len(available_columns)} features"
