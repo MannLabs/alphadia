@@ -33,6 +33,8 @@ jobs:
     steps:
       - name: Draft Release
         id: draft_release
+        # TODO this action is deprecated, replace with https://github.com/ncipollo/release-action
+        # cf. https://github.com/actions/create-release/issues/119#issuecomment-783010321
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
