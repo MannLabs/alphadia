@@ -12,9 +12,12 @@ ls */*
 
 cat $TEST_CASE_NAME/config.yaml
 
+TIMESTAMP_START=$(date +%s)
 conda run -n $ENV_NAME --no-capture-output alphadia --config $TEST_CASE_NAME/config.yaml
 ls */*
 
-conda run -n $ENV_NAME --no-capture-output python calc_metrics.py $TEST_CASE_NAME $SHORT_SHA $BRANCH_NAME
+RUN_TIME=$(($(date +%s) - $TIMESTAMP_START))
+
+conda run -n $ENV_NAME --no-capture-output python calc_metrics.py $TEST_CASE_NAME $RUN_TIME $SHORT_SHA $BRANCH_NAME
 
 cd -
