@@ -16,9 +16,15 @@ jobs:
     name: End to end test
     runs-on: self-hosted
     if: contains(github.event.pull_request.labels.*.name, 'test:e2e')
+    strategy:
+      matrix:
+        # test case name as defined in e2e_test_cases.yaml
+        test_case: [ "basic", "astral", ] #"synchropasef_e2e" ]
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+      NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
     steps:
       - uses: actions/checkout@v4
       - name: Conda info
@@ -29,16 +35,12 @@ jobs:
         run: |
           cd misc
           . ./loose_pip_install.sh $RUN_NAME
-      - name: Run e2e tests
+      - name: Run e2e tests '{{ matrix.test_case }}'
         shell: bash -el {0}
-        # continue-on-error: true
-        env:
-          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
-          NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+        continue-on-error: true
         run: |
           cd tests
-           . ./run_e2e_tests.sh basic_e2e $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
-           . ./run_e2e_tests.sh synchropasef_e2e $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
+           . ./run_e2e_tests.sh {{ matrix.test_case }} $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
       - name: Cleanup
         if: always()
         shell: bash -el {0}
