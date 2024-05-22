@@ -286,5 +286,6 @@ def test_feed_forward_save():
         torch.load(os.path.join(tempfolder, "test_feed_forward_save.pth"))
     )
 
-    y_pred = new_classifier.predict(x)
+    y_pred = new_classifier.predict(x)  # noqa: F841     # TODO fix this test
+
     # assert np.all(y_pred == y)
