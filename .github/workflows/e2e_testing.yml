@@ -36,8 +36,8 @@ jobs:
           cd misc
           . ./loose_pip_install.sh $RUN_NAME
       - name: Run e2e tests '{{ matrix.test_case }}'
-        shell: bash -el {0}
         continue-on-error: true
+        shell: bash -el {0}
         run: |
           cd tests
            . ./run_e2e_tests.sh {{ matrix.test_case }} $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
