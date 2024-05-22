@@ -1,5 +1,7 @@
 import logging
 
+from alphadia.testing import DataShareDownloader
+
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
@@ -13,7 +15,7 @@ import socket
 from alphadia.extraction.planning import Plan
 from alphadia.extraction.calibration import RunCalibration
 from alphadia.extraction.data import TimsTOFDIA
-from alphadia.extraction.testing import update_datashare
+from alphadia.testing import DataShareDownloader
 from alphadia.extraction.scoring import (
     fdr_correction,
     unpack_fragment_info,
@@ -62,7 +64,7 @@ if __name__ == "__main__":
 
     dependency_list = dependencies["file_list"]
     for element in dependency_list:
-        update_datashare(element, output_dir)
+        DataShareDownloader(element, output_dir).download()
 
     # annotate library with predicted fragments
     psm_lib_location = os.path.join(output_dir, "brunner_2022_1ng_rep01.hdf")

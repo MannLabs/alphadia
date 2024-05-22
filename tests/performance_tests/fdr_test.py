@@ -127,7 +127,9 @@ def main():
 
     print(f"Downloading test data from {args.url}...")
     temp_directory = tempfile.gettempdir()
-    test_data_location = testing.update_datashare(args.url, temp_directory)
+    test_data_location = testing.DataShareDownloader(
+        args.url, temp_directory
+    ).download()
     print(f"Saved test data to {test_data_location}")
 
     features_df = pd.read_csv(test_data_location, sep="\t")

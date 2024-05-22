@@ -5,9 +5,12 @@ Reads the test case from the yaml file, downloads the required files to the targ
 
 import os.path
 import sys
+from collections import defaultdict
 
 import yaml
 import requests
+
+from alphadia.testing import DataShareDownloader
 
 OUTPUT_DIR_NAME = "output"
 
@@ -35,28 +38,27 @@ def _download_file(url: str, target_path: str) -> None:
     print(f"Download complete: {target_path}")
 
 
-def _download_all_files(test_case: dict, target_path: str) -> None:
+def _download_all_files(test_case: dict, target_path: str) -> dict:
     """Download all files in the test case."""
+
+    downloaded_files = defaultdict(list)
     for item in ["library", "raw_data"]:
         for item_data in test_case[item]:
-            target = os.path.join(target_path, item_data["target_name"])
-            if os.path.exists(target):
-                # TODO use cached version only after passed md5 check
-                print(f"using cached version of {target}")
-                continue
+            file_name = DataShareDownloader(
+                item_data["source_url"], target_path
+            ).download()
+            downloaded_files[item].append(file_name)
 
-            _download_file(item_data["source_url"], target)
+    return downloaded_files
 
 
 def _create_config_file(
-    target_path: str, library: str, raw_files: list[str], extra_config: dict
+    target_path: str, library_path: str, raw_file_paths: list[str], extra_config: dict
 ) -> None:
     """Create the config file from paths to the input files and optional extra_config."""
     config_to_write = {
-        "library": os.path.join(target_path, library),
-        "raw_path_list": [
-            os.path.join(target_path, raw_file) for raw_file in raw_files
-        ],
+        "library": library_path,
+        "raw_path_list": raw_file_paths,
         "output_directory": os.path.join(target_path, OUTPUT_DIR_NAME),
     } | extra_config
 
@@ -80,13 +82,13 @@ if __name__ == "__main__":
 
     test_case = get_test_case(test_case_name)
 
-    library_name = test_case["library"][0]["target_name"]
-    raw_file_names = [r["target_name"] for r in test_case["raw_data"]]
+    downloaded_files = _download_all_files(test_case, target_path)
+
+    library_path = downloaded_files["library"][0]
+    raw_file_paths = downloaded_files["raw_data"]
     try:
         extra_config = test_case["config"]
     except (KeyError, TypeError):
         extra_config = {}
 
-    _create_config_file(target_path, library_name, raw_file_names, extra_config)
-
-    _download_all_files(test_case, target_path)
+    _create_config_file(target_path, library_path, raw_file_paths, extra_config)
