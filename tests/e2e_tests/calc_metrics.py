@@ -100,6 +100,8 @@ class BasicStats(Metrics):
 
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
+    short_sha = sys.argv[2]
+    branch_name = sys.argv[3]
 
     test_case = get_test_case(test_case_name)
     selected_metrics = test_case["metrics"]  # ['BasicStats', "BasicStats2"]
@@ -124,7 +126,8 @@ if __name__ == "__main__":
         print(e)
     finally:
         neptune_run = neptune.init_run(
-            project=NEPTUNE_PROJECT_NAME, tags=test_case_name
+            project=NEPTUNE_PROJECT_NAME,
+            tags=[test_case_name, short_sha, branch_name],
         )
         for k, v in test_results.items():
             neptune_run[k] = v

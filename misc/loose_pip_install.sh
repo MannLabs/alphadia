@@ -1,3 +1,7 @@
-conda create -n alphadia python=3.9 -y
-conda run -n alphadia --no-capture-output pip install -e '../.[development]'
-conda run -n alphadia --no-capture-output alphadia -v
+ENV_NAME=${1:-alphadia}
+
+conda create -n $ENV_NAME python=3.9 -y
+
+# conda 'run' vs. 'activate', cf. https://stackoverflow.com/a/72395091
+conda run -n $ENV_NAME --no-capture-output pip install -e '../.[development]'
+conda run -n $ENV_NAME --no-capture-output alphadia -v
