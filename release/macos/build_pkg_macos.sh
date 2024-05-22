@@ -2,7 +2,7 @@
 
 # Set up package name and version
 PACKAGE_NAME="alphadia"
-PACKAGE_VERSION="1.5.5+test"
+PACKAGE_VERSION="1.5.5"
 
 ARCH=$(uname -m)
 if [ "$ARCH" == "x86_64" ]; then

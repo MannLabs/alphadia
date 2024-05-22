@@ -21,7 +21,7 @@ python -m build
 
 # Setting up the local package
 cd release/one_click_macos_gui
-pip install "../../dist/alphadia-1.5.5+test-py3-none-any.whl"
+pip install "../../dist/alphadia-1.5.5-py3-none-any.whl"
 
 # Creating the stand-alone pyinstaller folder
 pip install pyinstaller==4.2
