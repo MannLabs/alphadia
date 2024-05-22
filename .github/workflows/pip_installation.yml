@@ -1,9 +1,13 @@
 on:
   pull_request:
-    branches: [ main, development ]
+    branches:
   workflow_dispatch:
 
 name: Default installation and tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   #stable_installation:
@@ -38,7 +42,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-13, windows-latest]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - name: Setup pip cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
       - uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true

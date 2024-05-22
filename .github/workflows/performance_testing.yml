@@ -6,6 +6,10 @@ on:
 
 name: performance testing
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   TEST_DATA_DIR: C:\actions-runner\_data
   CONDA: C:\Users\wallmann\Miniconda3
