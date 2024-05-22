@@ -1,4 +1,4 @@
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const StringDecoder = require('string_decoder').StringDecoder;
 const Transform = require('stream').Transform;
 
@@ -36,7 +36,7 @@ function lineBreakTransform () {
         }
         cb();
     },
-    
+
     flush(cb) {
         this._last += decoder.end()
         if (this._last) { this.push(this._last.slice(0, 1000)) }
@@ -64,7 +64,7 @@ class BaseExecutionEngine {
         // raise error if not implemented by subclass
         throw new Error("checkAvailability() not implemented by subclass")
     }
-    
+
     getStatus(){
         return {
             name: this.name,
@@ -90,7 +90,7 @@ function buildCondaPATH(username, platform){
             "/Users/" + username + "/anaconda3/bin/",
             "/Users/" + username + "/miniconda/bin/",
             "/Users/" + username + "/anaconda/bin/",
-            "/anaconda/bin/", 
+            "/anaconda/bin/",
         ]
     } else if (platform == "win32"){
         return [
@@ -188,13 +188,13 @@ class CMDExecutionEngine extends BaseExecutionEngine {
 
     checkAvailability(){
         return new Promise((resolve, reject) => {
-            
+
             if (this.valid_plattforms.indexOf(process.platform) == -1){
                 this.available = false
                 this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
                 resolve(this)
             }
-            
+
             console.log(this.config)
             return hasConda(this.config.condaPath).then((conda_path) => {
                 this.discoveredCondaPath = conda_path
@@ -254,12 +254,12 @@ class CMDExecutionEngine extends BaseExecutionEngine {
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
 
-            run.process = spawn("conda", ["run", 
-                                        "-n" , 
-                                        this.config.envName, 
-                                        "--no-capture-output", 
+            run.process = spawn("conda", ["run",
+                                        "-n" ,
+                                        this.config.envName,
+                                        "--no-capture-output",
                                         "alphadia",
-                                        "--config", 
+                                        "--config",
                                         path.join(workflow.output_directory.path, "config.yaml")
                                     ] , { env:{...process.env, PATH}, shell: true});
             run.pid = run.process.pid
@@ -313,7 +313,7 @@ function hasBinary(binaryPath){
 function hasAlphaDIABundled(binaryPath){
     return new Promise((resolve, reject) => {
         try {
-            exec(binaryPath + " --version", (err, stdout, stderr) => {
+            execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
                 console.log(stdout)
                 resolve(stdout.trim())
@@ -324,7 +324,7 @@ function hasAlphaDIABundled(binaryPath){
         }
     })
 }
-        
+
 class BundledExecutionEngine extends BaseExecutionEngine {
 
     name = "BundledExecutionEngine"
@@ -404,9 +404,26 @@ class BundledExecutionEngine extends BaseExecutionEngine {
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
 
-            run.process = spawn(this.config.binaryPath,["--config", 
-                                        path.join(workflow.output_directory.path, "config.yaml")
-                                    ] , { env:{...process.env, PATH}, shell: true});
+            // split binary path into directory and binary name
+            const cwd = path.dirname(this.config.binaryPath)
+            const binaryName = path.basename(this.config.binaryPath)
+
+            // prefix for windows and unix systems
+            const prefix = process.platform == "win32" ? "" : "./"
+
+            // spawn process for alphaDIA backend
+            // pass config.yaml as argument
+            // use binary location as cwd and binary name as command
+            run.process = spawn(prefix + binaryName,
+                ["--config",
+                path.join(workflow.output_directory.path, "config.yaml")
+                ],
+                {
+                    env:{...process.env, PATH},
+                    shell: true,
+                    cwd: cwd
+                });
+
             run.pid = run.process.pid
 
             const stdoutTransform = lineBreakTransform();

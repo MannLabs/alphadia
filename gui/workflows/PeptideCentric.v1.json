@@ -9,14 +9,12 @@
         "active": true,
         "required": false,
         "path": [
-            ""
         ]
     },
     "raw_path_list": {
         "active": true,
         "required": false,
         "path": [
-            ""
         ]
     },
     "output_directory": {
@@ -30,7 +28,7 @@
             "name": "General",
             "hidden": false,
             "parameters": [
-                {   
+                {
                     "id": "thread_count",
                     "name": "Number of Threads",
                     "value": 10,
@@ -86,14 +84,14 @@
             "name": "Library prediction",
             "hidden": false,
             "parameters": [
-                {   
+                {
                     "id": "predict",
                     "name": "Predict Library",
                     "value": false,
                     "description": "Use alphaPeptDeep to predict peptide. \n If a FASTA file is provided an in silico digest will be performed. \n If a spectral library is provided precursor properties for library precursor will be performed.",
                     "type": "boolean"
                 },
-                {   
+                {
                     "id": "enzyme",
                     "name": "Enzyme",
                     "value": "trypsin",
@@ -173,34 +171,48 @@
                     "description": "Number of missed cleavages for in-silico digest.",
                     "type": "integer"
                 },
-                {   
+                {
                     "id": "precursor_len",
                     "name": "Precursor length",
                     "value": [7, 35],
                     "description": "Number of amino acids of generated precursors.",
                     "type": "integer_range"
                 },
-                
-                {   
+
+                {
                     "id": "precursor_charge",
                     "name": "Precursor charge",
                     "value": [2, 4],
                     "description": "Charge states of generated precursors.",
                     "type": "integer_range"
-                }, 
-                {   
+                },
+                {
                     "id": "precursor_mz",
                     "name": "Precursor mz",
                     "value": [400.0, 1200.0],
                     "description": "Size limit for generated precursors.",
                     "type": "float_range"
                 },
-                {   
+                {
                     "id": "fragment_mz",
                     "name": "Fragment mz",
                     "value": [200.0, 2000.0],
                     "description": "Size limit for generated fragments.",
                     "type": "float_range"
+                },
+                {
+                    "id": "fragment_types",
+                    "name": "Fragment types",
+                    "value": "b;y",
+                    "description": "Semicolon separated list of fragment types. \n Supported types: b, y, b_modloss, y_modloss. \n Must be supported by the chosen PeptDeep model.",
+                    "type": "string"
+                },
+                {
+                    "id": "max_fragment_charge",
+                    "name": "Maximum fragment charge",
+                    "value": 2,
+                    "description": "Fragments will be generated up to this charge state. Must be supported by the chosen PeptDeep model.",
+                    "type": "integer"
                 },
                 {
                     "id": "nce",
@@ -238,7 +250,7 @@
                     "name": "Save library as HDF",
                     "value": true,
                     "description": "Store the library as alphaBase HDF file. This will speed up subsequent searches and will include predicted properties.",
-                    "type": "boolean"          
+                    "type": "boolean"
                 }
             ]
         },
@@ -252,7 +264,7 @@
                     "name": "Channel Filter",
                     "value": "",
                     "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
-                    "type": "string"          
+                    "type": "string"
                 },
                 {
                     "id": "exclude_shared_ions",
@@ -426,7 +438,7 @@
             "name": "Multiplexing",
             "hidden": true,
             "parameters": [
-                {   
+                {
                     "id": "multiplexed_quant",
                     "name": "Enable Multiplexing",
                     "value": false,

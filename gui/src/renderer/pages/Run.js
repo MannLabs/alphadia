@@ -15,7 +15,7 @@ import { useProfile } from '../logic/profile';
 function parseConsoleOutput(input, theme) {
     const escapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
     const matches = input.matchAll(escapeRegex);
-  
+
     if (!matches || matches.length === 0) {
       return input; // No escape character pairs found, return original string
     }
@@ -38,13 +38,13 @@ function parseConsoleOutput(input, theme) {
       );
       currentIndex = startIndex + match[0].length;
     }
-  
+
     // Push any remaining plain text after the last escape character pair
     if (currentIndex < input.length) {
       const remainingText = input.substring(currentIndex);
       result.push(remainingText);
     }
-  
+
     return result;
   }
 
@@ -61,7 +61,7 @@ function parseConsoleOutput(input, theme) {
       '37;20': 'white',
       '38;20': 'inherit',
     };
-  
+
     return colorMap[colorCode] || 'inherit'; // Default color is black
   }
 
@@ -76,7 +76,7 @@ function parseConsoleOutput(input, theme) {
         }
         return acc;
     }, []).reverse()
-}          
+}
 
 const Output = () => {
 
@@ -98,18 +98,18 @@ const Output = () => {
 
     const updateItems = (currentLengthRef) => {
         window.electronAPI.getOutputRowsNew(-1,{limit:100, offset: currentLengthRef}).then((newItems) => {
-            
+
             setItems( items => [...items, ...newItems]);
             //setItems((items)=>{applyCarriageReturns([...items, ...newItems])});
         });
     }
-    
+
     React.useEffect(() => {
         setItems([]);
         currentLengthRef.current = 0;
 
         let isMounted = true;
-        
+
         const interval = setInterval(() => {
             window.electronAPI.getOutputLengthNew(-1).then((length) => {
                 if (isMounted){
@@ -130,7 +130,7 @@ const Output = () => {
         }
 
 
-        
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -147,13 +147,13 @@ const Output = () => {
             // The user is scrolling forward and the end of the list is near
             // attach scrolling to the end of the list
             if (scrollDirection === "forward") {
-                
+
                 // scrollOffset is the number of pixels from the top of the list
                 // listRef?.props?.height is the height of the list in pixels
                 // listRef?.props?.itemSize is the height of each item in pixels
                 // bottomElement is the index of the bottom element in the list
                 const bottomElement = (scrollOffset + listRef?.props?.height) / listRef?.props?.itemSize;
-                
+
                 // if the bottom element is within 5 elements of the end of the list
                 if ((items.length - bottomElement) < 3)
                     setScrollAttached(true);
@@ -171,7 +171,7 @@ const Output = () => {
         if (scrollAttached) {
             listRef?.scrollToItem?.(items.length, 'end')
         }
-        
+
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [listRef, items.length])
 

@@ -1,1 +1,121 @@
 # Installation
+
+## Install alphaDIA on a SLURM cluster
+
+### 1. Prerequisites
+Please make sure that conda is available and custom environments can be created.
+
+### 2. Setting up the conda environment
+First we will create a new conda environment and install python 3.11. Depending on the cluster a lower python version might be needed.
+```bash
+conda create -n alphadia
+conda activate alphadia
+```
+Please make sure you include the conda-forge channel
+```bash
+conda install python=3.11 -c conda-forge
+```
+
+### 3. Installing mono
+We will next install mono to support reading proprietary vendor formats like Thermo `.raw` files.
+```bash
+conda install mono -c conda-forge
+```
+
+Make sure mono is installed by running
+```bash
+mono --version
+```
+
+Make sure the output looks something like this:
+```
+Mono JIT compiler version 6.12.0.90 (tarball Fri Mar  5 04:37:13 UTC 2021)
+Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-project.com
+	TLS:           __thread
+	SIGSEGV:       altstack
+	Notifications: epoll
+	Architecture:  amd64
+	Disabled:      none
+	Misc:          softdebug
+	Interpreter:   yes
+	LLVM:          supported, not enabled.
+	Suspend:       hybrid
+	GC:            sgen (concurrent by default)
+```
+### 4. Installing alphaDIA
+Next we will need to install alphaDIA. As there is no public release yet, we can't use `pip install alphadia`.
+Below you can find hosted `.tar.gz` versions for now.
+- [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
+- [alphadia-v1.5.5](https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download)
+
+Navigate to your home directory or a directory where you have 'write' and 'execute' permissions.
+```bash
+cd ~
+```
+
+Copy the link for the most recent version and download it using wget.
+```bash
+wget https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download -O alphadia.tar.gz
+```
+
+Untar the file
+```bash
+tar -xf ./alphadia.tar.gz
+```
+
+You should get a folder named `alphadia-x.x.x`
+
+Install alphaDIA using pip, this might take some time.
+```bash
+pip install -e ./alphadia-1.5.5
+```
+
+Verify the alphaDIA installation by running:
+```bash
+alphadia -h
+```
+
+You should get an output like this:
+```
+1.5.5
+```
+
+## Use the dockerized version
+The containerized version can be used to run alphaDIA e.g. on cloud platforms.
+It can be used to run alphaDIA for multiple input files, as well as for single files only
+(trivial parallelization on computing clusters).
+
+Note that this container is not optimized for performance yet, and does not run on Apple Silicone chips
+(M1/M2/M3) due to problems with mono. Also, it currently relies on the input files being organized
+in a specific folder structure.
+
+1) Install the latest version of docker (https://docs.docker.com/engine/install/).
+2) Build the image (this step is obsolete once the container is available on Docker hub)
+```bash
+docker build -t alphadia-docker .
+```
+3) Set up your data to match the expected folder structure:
+- Create a folder and store its name in a variable, e.g. `DATA_FOLDER=/home/username/data; mkdir -p $DATA_FOLDER`
+- In this folder, create 4 subfolders:
+  - `library`: put your library file here, make it writeable for any user (`chmod o+rw *`)
+  - `raw`: put your raw data here
+  - `output`: make this folder writeable for any user: `chmod -R o+rwx output` (this is where the output files will be stored)
+  - `config`: create a file named `config.yaml` here, with the following content:
+```yaml
+library: /app/data/library/LIBRARY_FILE.hdf
+raw_path_list:
+  - /app/data/raw/RAW_FILE_1.raw
+  - /app/data/raw/RAW_FILE_2.raw
+  - ...
+output_directory: /app/data/output
+```
+  Substitute `LIBRARY_FILE` and `RAW_FILE` with your respective file names, but preserve the `/app/data/../` prefix.
+  The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there
+  in your `config.yaml`.
+
+4) Start the container (this command will change once the container is available on Docker hub)
+```bash
+docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
+```
+AlphaDIA will start running immediately. Alternatively, you can run an interactive session with
+`docker run -v $DATA_FOLDER:/app/data/ --rm -it alphadia-docker bash`

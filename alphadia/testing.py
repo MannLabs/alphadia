@@ -226,7 +226,7 @@ def download_datashare(
         print(f"{filename} successfully downloaded")
 
         return path
-    except Exception as e:
+    except Exception:
         print(f"Could not download {filename} from datashare")
 
         return None

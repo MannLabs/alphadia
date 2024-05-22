@@ -1,0 +1,47 @@
+on:
+  pull_request:
+    branches: [ main, development ]
+  push:
+    branches: [ development ]
+  workflow_dispatch:
+
+name: End to end testing
+
+jobs:
+  end2end_testing:
+    name: End to end test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: AlphaDIA
+    steps:
+      - uses: actions/checkout@v3
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          python-version: ${{ matrix.python-version }}
+      - name: Conda info
+        shell: bash -el {0}
+        run: conda info
+      - name: Setup pip cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+      - name: Pip installation with loose dependencies
+        shell: bash -el {0}
+        run: |
+          cd misc
+          . ./loose_pip_install.sh
+      - name: Run e2e tests
+        shell: bash -el {0}
+        env:
+          NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+          NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+        run: |
+          cd tests
+          conda activate alphadia
+           . ./run_e2e_tests.sh basic_e2e
+          conda deactivate

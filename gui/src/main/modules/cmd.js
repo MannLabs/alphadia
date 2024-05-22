@@ -14,7 +14,7 @@ function condaPATH(username, platform){
             "/Users/" + username + "/anaconda3/bin/",
             "/Users/" + username + "/miniconda/bin/",
             "/Users/" + username + "/anaconda/bin/",
-            "/anaconda/bin/", 
+            "/anaconda/bin/",
         ]
     } else if (platform == "win32"){
         return [
@@ -63,14 +63,14 @@ const CondaEnvironment = class {
 
     std = [];
     pid = null;
-    
+
     constructor(profile){
         this.profile = profile;
 
         this.initPromise = this.discoverCondaPATH().then((pathUpdate) => {
             this.pathUpdate = pathUpdate;
             this.exists.conda = true;
-            
+
         }).then(() => {
             return this.checkCondaVersion().then((info) => {
 
@@ -96,15 +96,15 @@ const CondaEnvironment = class {
         }).then(() => {
             this.ready = [this.exists.conda, this.exists.python, this.exists.alphadia].every(Boolean);
             this.initPending = false;
-            
+
         }).catch((error) => {
             dialog.showErrorBox("Conda not found", "Conda could not be found on your system. Please make sure conda is installed and added to your PATH." + error)
         })
     }
-    
+
     discoverCondaPATH(){
         return new Promise((resolve, reject) => {
-            
+
             // 1st choice: conda is already in PATH
             // 2nd choice: conda path from profile setting is used
             // 3rd choice: default conda paths are tested
@@ -199,17 +199,17 @@ const CondaEnvironment = class {
                 reject("Environment not ready");
                 return;
             }
-            
-            
+
+
             const PATH = process.env.PATH + ":" + this.pathUpdate
             const tokens = cmd.split(" ")
             const cmdp = spawn(tokens[0], tokens.slice(1), { env:{...process.env, PATH}, shell: true});
-            
+
             const stdoutTransform = lineBreakTransform();
             cmdp.stdout.pipe(stdoutTransform).on('data', (data) => {
                 this.std.push(data.toString())
             });
-            
+
             const stderrTransform = lineBreakTransform();
             cmdp.stderr.pipe(stderrTransform).on('data', (data) => {
                 this.std.push(data.toString())
@@ -254,14 +254,14 @@ function lineBreakTransform () {
         transform(chunk, encoding, cb) {
         if ( this._last === undefined ) { this._last = "" }
         this._last += decoder.write(chunk);
-        var list = this._last.split(/\n/);          
+        var list = this._last.split(/\n/);
         this._last = list.pop();
         for (var i = 0; i < list.length; i++) {
             this.push( list[i].slice(0, 1000) );
         }
         cb();
     },
-    
+
     flush(cb) {
         this._last += decoder.end()
         if (this._last) { this.push(this._last.slice(0, 1000)) }
@@ -278,4 +278,3 @@ function lineBreakTransform () {
 module.exports = {
     CondaEnvironment
 }
-

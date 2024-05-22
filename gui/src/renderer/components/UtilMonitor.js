@@ -14,7 +14,7 @@ const UtilMonitor = ({sx = []}) => {
         usedMemPercentage: 0
     });
 
-    
+
     React.useEffect(() => {
         setInterval(() => {
             window.electronAPI.getUtilisation().then((utilisation) => {
@@ -33,12 +33,12 @@ const UtilMonitor = ({sx = []}) => {
         ]}
         >
         <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-            <Typography 
-                component="div" 
+            <Typography
+                component="div"
                 sx={{
-                    fontWeight: 400, 
-                    fontSize: "0.8rem", 
-                    fontFamily: "Roboto Mono", 
+                    fontWeight: 400,
+                    fontSize: "0.8rem",
+                    fontFamily: "Roboto Mono",
                     minWidth:"70px"}}>
                     CPU: {utilisation.cpu.toFixed(2)}%
                 </Typography>
@@ -46,10 +46,10 @@ const UtilMonitor = ({sx = []}) => {
                 RAM: {(utilisation.usedMemMb/1024).toFixed(2)} GB / {(utilisation.totalMemMb/1024).toFixed(2)} GB ({utilisation.usedMemPercentage}%)
             </Typography>
         </Stack>
-    
+
         </Box>
     )
 }
-  
+
 
 export default UtilMonitor

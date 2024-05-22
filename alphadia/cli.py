@@ -2,7 +2,6 @@
 
 # native imports
 import logging
-import time
 import yaml
 import os
 import re
@@ -14,9 +13,6 @@ logger = logging.getLogger()
 import alphadia
 from alphadia.workflow import reporting
 from alphadia import utils
-
-
-
 
 
 # alpha family imports

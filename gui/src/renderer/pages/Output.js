@@ -10,7 +10,7 @@ const Output = () => {
     const dispatch = useMethodDispatch();
     return (
     <Box>
-        <SingleSelect 
+        <SingleSelect
             type="folder"
             label="Output Folder"
             active={method.output_directory.active}

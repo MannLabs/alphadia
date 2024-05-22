@@ -14,13 +14,13 @@ const ParameterInput = ({
     }) => {
 
         let input = null;
-        
+
         switch (parameter.type) {
             case "integer":
                 input = (
                     <TextField
                     id="outlined-number"
-                    type="number"  
+                    type="number"
                     variant="standard"
                     size="small"
                     sx = {{width: "150px"}}
@@ -33,7 +33,7 @@ const ParameterInput = ({
                 input = (
                     <TextField
                     id="outlined-number"
-                    type="number"  
+                    type="number"
                     variant="standard"
                     size="small"
                     sx = {{width: "150px"}}
@@ -57,7 +57,7 @@ const ParameterInput = ({
             case "boolean":
                 input = (
                     <Box sx={{width: "150px"}}>
-                        <StyledCheckbox 
+                        <StyledCheckbox
                             checked={parameter.value}
                             size='small'
                             onChange={(event) => {onChange(event.target.checked)}}
@@ -86,7 +86,7 @@ const ParameterInput = ({
                     <Box sx={{width: "150px"}}>
                     <TextField
                         id="outlined-number"
-                        type="number"  
+                        type="number"
                         variant="standard"
                         size="small"
                         sx = {{width: "70px"}}
@@ -96,7 +96,7 @@ const ParameterInput = ({
                     />
                     <TextField
                         id="outlined-number"
-                        type="number"  
+                        type="number"
                         variant="standard"
                         size="small"
                         sx = {{width: "70px", marginLeft: "10px"}}
@@ -112,7 +112,7 @@ const ParameterInput = ({
                     <Box sx={{width: "150px"}}>
                     <TextField
                         id="outlined-number"
-                        type="number"  
+                        type="number"
                         variant="standard"
                         size="small"
                         sx = {{width: "70px"}}
@@ -122,7 +122,7 @@ const ParameterInput = ({
                     />
                     <TextField
                         id="outlined-number"
-                        type="number"  
+                        type="number"
                         variant="standard"
                         size="small"
                         sx = {{width: "70px", marginLeft: "10px"}}
@@ -144,7 +144,7 @@ const ParameterInput = ({
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
     return (
-        
+
             <Stack
             direction="row"
             justifyContent="space-between"
@@ -158,14 +158,11 @@ const ParameterInput = ({
                 </Typography>
             </Tooltip>
                 {input}
-            
+
             </Stack>
-        
-        
+
+
     )
 }
 
 export default ParameterInput
-
-
-

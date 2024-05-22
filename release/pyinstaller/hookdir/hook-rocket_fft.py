@@ -1,16 +1,8 @@
-from PyInstaller.utils.hooks import (
-    collect_data_files,
-    collect_submodules,
-    copy_metadata,
-    collect_dynamic_libs,
-)
 from PyInstaller.compat import is_win
 
 print("==================================")
 print("hook-rocket_fft.py")
 print("==================================")
-import ctypes.util
-from PyInstaller.log import logger
 
 hiddenimports = ["rocket_fft"]
 module_collection_mode = "py"

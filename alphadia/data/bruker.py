@@ -21,7 +21,6 @@ from numba.experimental import jitclass
 
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
-
     """Transposed TimsTOF data structure."""
 
     def __init__(
@@ -814,9 +813,6 @@ class TimsTOFTransposeJIT(object):
             scan_limits,
             mass_tolerance,
         )
-
-
-import numba as nb
 
 
 @alphatims.utils.pjit()

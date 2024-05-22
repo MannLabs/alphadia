@@ -1,12 +1,12 @@
 
 # AlphaDIA Documentation
-**Version:** 1.5.4 | [Github](https://github.com/MannLabs/alphadia)
+**Version:** 1.5.5 | [Github](https://github.com/MannLabs/alphadia)
 
 Open-source DIA search engine built with the alphaX ecosystem. Built with [alpharaw](https://github.com/MannLabs/alpharaw) and [alphatims](https://github.com/MannLabs/alphatims) for raw file acces. Spectral libraries are predicted with [peptdeep](https://github.com/MannLabs/alphapeptdeep) and managed by [alphabase](https://github.com/MannLabs/alphabase). Quantification is powered by [directLFQ](https://github.com/MannLabs/directLFQ).
 
 **Please cite:**
 > The curse of dimensionality in proteomics – a new processing paradigm for DIA data.<br>
-> Wallmann, Skowronek, Thielert, XXX Mann<br>
+> Wallmann, Skowronek, XXX Mann<br>
 > bioarxiv.com/XXX
 
 
@@ -27,10 +27,11 @@ Introduction to your first DIA search with alphaDIA.
 
 🔧 Installation<installation>
 🚀 Quickstart<quickstart>
+📚 Guides<guides>
 ```
 
 ```{toctree}
-:caption: 📚 Guides
+:caption:
 :hidden:
 
 contributing/index

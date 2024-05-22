@@ -4,14 +4,13 @@ import logging
 logger = logging.getLogger()
 import socket
 from pathlib import Path
-import yaml
 import os
 from datetime import datetime
 import typing
 
 # alphadia imports
-from alphadia import utils, libtransform, outputtransform
-from alphadia.workflow import peptidecentric, base, reporting
+from alphadia import libtransform, outputtransform
+from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.config import Config
 import alphadia
 import alpharaw
@@ -25,11 +24,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
-import numpy as np
-import pandas as pd
-import os, psutil
 import torch
-import numba as nb
 
 from alphabase.constants import modification
 
@@ -82,11 +77,11 @@ class Plan:
         self.output_folder = output_folder
         reporting.init_logging(self.output_folder)
 
-        logger.progress("      _   _      _         ___ ___   _   ")
-        logger.progress("     /_\ | |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _ \| | '_ \\ ' \/ _` | |) | | / _ \ ")
-        logger.progress("   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\")
-        logger.progress("           |_|                            ")
+        logger.progress("          _      _         ___ ___   _   ")
+        logger.progress("     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
+        logger.progress("    / _` | | '_ \ ' \\/ _` | |) | | / _ \ ")
+        logger.progress("    \__,_|_| .__/_||_\__,_|___/___/_/ \_\\")
+        logger.progress("           |_|                           ")
         logger.progress("")
 
         self.spectral_library = None
@@ -125,7 +120,7 @@ class Plan:
 
         self.config.update([update_config], print_modifications=True)
 
-        if not "output" in self.config:
+        if "output" not in self.config:
             self.config["output"] = output_folder
 
         self.load_library()
@@ -160,13 +155,13 @@ class Plan:
         self._spectral_library = spectral_library
 
     def log_environment(self):
-        logger.progress(f"=================== Environment ===================")
+        logger.progress("=================== Environment ===================")
         logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
         logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
         logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
         logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
-        logger.progress(f"===================================================")
+        logger.progress("===================================================")
 
     def load_library(self):
         """
@@ -176,16 +171,20 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
+        def _parse_modifications(mod_str: str) -> typing.List[str]:
+            """Parse modification string."""
+            return [] if mod_str == "" else mod_str.split(";")
+
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
         fasta_digest = libtransform.FastaDigest(
             enzyme=self.config["library_prediction"]["enzyme"],
-            fixed_modifications=self.config["library_prediction"][
-                "fixed_modifications"
-            ].split(";"),
-            variable_modifications=self.config["library_prediction"][
-                "variable_modifications"
-            ].split(";"),
+            fixed_modifications=_parse_modifications(
+                self.config["library_prediction"]["fixed_modifications"]
+            ),
+            variable_modifications=_parse_modifications(
+                self.config["library_prediction"]["variable_modifications"]
+            ),
             max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
             missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
             precursor_len=self.config["library_prediction"]["precursor_len"],
@@ -209,13 +208,22 @@ class Plan:
 
         if self.config["library_prediction"]["predict"]:
             logger.progress("Predicting library properties.")
+
             pept_deep_prediction = libtransform.PeptDeepPrediction(
                 use_gpu=self.config["general"]["use_gpu"],
                 fragment_mz=self.config["library_prediction"]["fragment_mz"],
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
                 mp_process_num=self.config["general"]["thread_count"],
-                checkpoint=self.config["library_prediction"]["checkpoint"],
+                checkpoint_folder_path=self.config["library_prediction"][
+                    "checkpoint_folder_path"
+                ],
+                fragment_types=self.config["library_prediction"][
+                    "fragment_types"
+                ].split(";"),
+                max_fragment_charge=self.config["library_prediction"][
+                    "max_fragment_charge"
+                ],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
@@ -310,6 +318,9 @@ class Plan:
                 if self.config["multiplexing"]["multiplexed_quant"]:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+                if self.config["transfer_learning"]["enabled"]:
+                    psm_df, frag_df = workflow.requantify_fragments(psm_df)
 
                 psm_df["run"] = raw_name
                 psm_df.to_csv(psm_location, sep="\t", index=False)

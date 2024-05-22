@@ -170,28 +170,27 @@ class WorkflowBase:
         if self.config["general"]["wsl"]:
             # copy file to /tmp
             import shutil
-            import tempfile
 
             tmp_path = "/tmp"
             tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
             shutil.copyfile(dia_data_path, tmp_dia_data_path)
             dia_data_path = tmp_dia_data_path
 
-        if file_extension == ".d":
+        if file_extension.lower() == ".d":
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self.config["general"]["mmap_detector_events"],
             )
 
-        elif file_extension == ".hdf":
+        elif file_extension.lower() == ".hdf":
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self.config["general"]["mmap_detector_events"],
             )
 
-        elif file_extension == ".raw":
+        elif file_extension.lower() == ".raw":
             self.reporter.log_metric("raw_data_type", "thermo")
             # check if cv selection exists
             cv = None
@@ -206,7 +205,7 @@ class WorkflowBase:
                 cv=cv,
             )
 
-        elif file_extension == ".mzml":
+        elif file_extension.lower() == ".mzml":
             self.reporter.log_metric("raw_data_type", "mzml")
 
             dia_data = alpharaw.MzML(
@@ -214,7 +213,7 @@ class WorkflowBase:
                 process_count=self.config["general"]["thread_count"],
             )
 
-        elif file_extension == ".wiff":
+        elif file_extension.lower() == ".wiff":
             self.reporter.log_metric("raw_data_type", "sciex")
 
             dia_data = alpharaw.Sciex(

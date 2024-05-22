@@ -1,7 +1,6 @@
-from alphadia import calibration
-
+from alphadia.calibration.property import Calibration
 from sklearn.linear_model import LinearRegression
-from alphabase.statistics.regression import LOESSRegression
+from alphadia.calibration.models import LOESSRegression
 
 import numpy as np
 import pandas as pd
@@ -18,7 +17,7 @@ def test_uninitialized_calibration():
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
     # test that an error is raised if the calibration is not initialized
-    mz_calibration = calibration.Calibration()
+    mz_calibration = Calibration()
     with pytest.raises(ValueError):
         mz_calibration.fit(mz_df)
 
@@ -28,7 +27,7 @@ def test_fit_predict_linear():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = calibration.Calibration(
+    mz_calibration = Calibration(
         name="mz_calibration",
         function=LinearRegression(),
         input_columns=["library_mz"],
@@ -47,7 +46,7 @@ def test_fit_predict_loess():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = calibration.Calibration(
+    mz_calibration = Calibration(
         name="mz_calibration",
         function=LOESSRegression(),
         input_columns=["library_mz"],
@@ -66,7 +65,7 @@ def test_save_load():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = calibration.Calibration(
+    mz_calibration = Calibration(
         name="mz_calibration",
         function=LinearRegression(),
         input_columns=["library_mz"],
@@ -83,7 +82,7 @@ def test_save_load():
     path = os.path.join(tempfile.tempdir, "mz_calibration.pkl")
     mz_calibration.save(path)
 
-    mz_calibration_loaded = calibration.Calibration()
+    mz_calibration_loaded = Calibration()
     mz_calibration_loaded.load(path)
     mz_calibration_loaded.predict(df_loaded)
 

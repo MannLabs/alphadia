@@ -1,12 +1,8 @@
-from typing import Any
-from alphadia import data, planning, utils
-from alphadia.workflow import manager, peptidecentric
+from alphadia import utils
 from alphatims import utils as timsutils
 import logging
-import os
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 logger = logging.getLogger(__name__)
 import numba as nb
@@ -289,7 +285,9 @@ class FragmentCompetition(object):
 
         # important to sort by window_idx and proba
         psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
-        psm_df["valid"] = True
+
+        valid = np.ones(len(psm_df)).astype(bool)
+        # psm_df["valid"] = True
 
         timsutils.set_threads(self.thread_count)
         thread_plan_df = self.get_thread_plan_df(psm_df)
@@ -299,11 +297,13 @@ class FragmentCompetition(object):
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
             psm_df["rt_observed"].values,
-            psm_df["valid"].values,
+            valid,
             psm_df["_frag_start_idx"].values,
             psm_df["_frag_stop_idx"].values,
             frag_df["mz_observed"].values,
         )
+
+        psm_df["valid"] = valid
 
         # clean up
         psm_df.drop(

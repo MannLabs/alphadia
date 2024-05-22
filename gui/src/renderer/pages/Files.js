@@ -31,11 +31,12 @@ const Files = () => {
                     />
                 </FullWidthBox>
                 <FullWidthBox>
-                    <MultiSelect 
+                    <MultiSelect
                             label="Fasta File(s)"
                             active={method.fasta_list.active}
                             path={method.fasta_list.path}
                             tooltipText="Select the fasta file which you would like to use."
+                            onAppend={(path) => {dispatch({type: 'appendFasta', path: path})}}
                             onChange={(path) => {dispatch({type: 'updateFasta', path: path})}}
                     />
                 </FullWidthBox>
@@ -43,13 +44,15 @@ const Files = () => {
                     <InputFileSelect
                             active={method.raw_path_list.active}
                             path={method.raw_path_list.path}
-                            onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}
+                            onChange={(path) => {dispatch({type: 'appendFiles', path: path})}}
                     />
                 </FullWidthBox>
                 <FullWidthBox sx={{flexGrow: 1}}>
-                    <FileViewer path={method.raw_path_list.path}/>
+                    <FileViewer
+                            path={method.raw_path_list.path}
+                            onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}/>
                 </FullWidthBox>
-        </Box>  
+        </Box>
     )
 }
 
