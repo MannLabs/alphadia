@@ -405,7 +405,7 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
         ("frame_max_index", nb.core.types.int64),
     ]
 )
-class AlphaRawJIT(object):
+class AlphaRawJIT:
     """Numba compatible AlphaRaw data structure."""
 
     def __init__(

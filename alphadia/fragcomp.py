@@ -132,7 +132,7 @@ def compete_for_fragments(
     valid[precursor_start_idx:precursor_stop_idx] = valid_window
 
 
-class FragmentCompetition(object):
+class FragmentCompetition:
     def __init__(
         self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8
     ):

@@ -18,7 +18,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
 
-from typing import List, Tuple, Iterator, Union
+from typing import List, Tuple, Union
+from collections.abc import Iterator
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.peptide import precursor

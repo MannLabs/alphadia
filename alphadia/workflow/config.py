@@ -489,11 +489,11 @@ class Config:
         self.translated_config = {}
 
     def from_yaml(self, path: str) -> None:
-        with open(path, "r") as f:
+        with open(path) as f:
             self.config = yaml.safe_load(f)
 
     def from_json(self, path: str) -> None:
-        with open(path, "r") as f:
+        with open(path) as f:
             self.config = json.load(f)
 
     def to_yaml(self, path: str) -> None:

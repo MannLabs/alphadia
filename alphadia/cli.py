@@ -134,7 +134,7 @@ def parse_config(args: argparse.Namespace) -> dict:
 
     config = {}
     if args.config is not None:
-        with open(args.config, "r") as f:
+        with open(args.config) as f:
             config = yaml.safe_load(f)
 
     try:

@@ -37,7 +37,7 @@ def test_logging():
     python_logger.critical("test")
 
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
-    with open(os.path.join(tempfolder, "log.txt"), "r") as f:
+    with open(os.path.join(tempfolder, "log.txt")) as f:
         assert len(f.readlines()) == 5
     time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
@@ -87,7 +87,7 @@ def test_jsonl_backend():
         jsonl_backend.log_string("test")
 
     assert os.path.exists(os.path.join(tempfolder, "events.jsonl"))
-    with open(os.path.join(tempfolder, "events.jsonl"), "r") as f:
+    with open(os.path.join(tempfolder, "events.jsonl")) as f:
         assert len(f.readlines()) == 5
     time.sleep(1)
     os.remove(os.path.join(tempfolder, "events.jsonl"))
@@ -109,7 +109,7 @@ def test_log_backend():
     stdout_backend.log_string("test", verbosity="critical")
 
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
-    with open(os.path.join(tempfolder, "log.txt"), "r") as f:
+    with open(os.path.join(tempfolder, "log.txt")) as f:
         assert len(f.readlines()) == 5
     # time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
