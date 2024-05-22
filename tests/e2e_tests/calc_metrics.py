@@ -36,6 +36,15 @@ class OutputFiles:
     # SPECLIB = "speclib.hdf"
     # SPECLIB_MBR = "speclib.mbr.hdf"
 
+    @classmethod
+    def all_values(cls) -> list[str]:
+        """Get all values of the class as a list of str."""
+        return [
+            k
+            for k, v in cls.__dict__.items()
+            if not k.startswith("__") and not k == "all_values"
+        ]
+
 
 file_name_to_read_method_mapping = {
     OutputFiles.PG_MATRIX: _load_tsv,
@@ -151,9 +160,7 @@ if __name__ == "__main__":
             neptune_run[k] = v
 
         # files
-        for file_name in [
-            v for v in OutputFiles.__dict__.values() if not v.startswith("__")
-        ]:
+        for file_name in OutputFiles.all_values():
             file_path = os.path.join(output_path, file_name)
             if os.path.exists(file_path):
                 neptune_run["output/" + file_name].track_files(file_path)
