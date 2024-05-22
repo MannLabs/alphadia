@@ -59,11 +59,11 @@ class Plan:
         self.output_folder = output_folder
         reporting.init_logging(self.output_folder)
 
-        logger.progress("      _   _      _         ___ ___   _   ")
-        logger.progress("     /_\ | |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _ \| | '_ \\ ' \/ _` | |) | | / _ \ ")
-        logger.progress("   /_/ \_\_| .__/_||_\__,_|___/___/_/ \_\\")
-        logger.progress("           |_|                            ")
+        logger.progress("          _      _         ___ ___   _   ")
+        logger.progress("     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
+        logger.progress("    / _` | | '_ \ ' \\/ _` | |) | | / _ \ ")
+        logger.progress("    \__,_|_| .__/_||_\__,_|___/___/_/ \_\\")
+        logger.progress("           |_|                           ")
         logger.progress("")
 
         self.spectral_library = None
