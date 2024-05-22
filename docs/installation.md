@@ -48,7 +48,7 @@ Below you can find hosted `.tar.gz` versions for now.
 - [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
 - [alphadia-v1.5.5](https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download)
 
-Navigate to your home directory or a directory where you have write and execute permissions.
+Navigate to your home directory or a directory where you have 'write' and 'execute' permissions.
 ```bash
 cd ~
 ```
@@ -75,7 +75,47 @@ Verify the alphaDIA installation by running:
 alphadia -h
 ```
 
-You should get an ouptut like this:
+You should get an output like this:
 ```
 1.5.5
 ```
+
+## Use the dockerized version
+The containerized version can be used to run alphaDIA e.g. on cloud platforms.
+It can be used to run alphaDIA for multiple input files, as well as for single files only
+(trivial parallelization on computing clusters).
+
+Note that this container is not optimized for performance yet, and does not run on Apple Silicone chips
+(M1/M2/M3) due to problems with mono. Also, it currently relies on the input files being organized
+in a specific folder structure.
+
+1) Install the latest version of docker (https://docs.docker.com/engine/install/).
+2) Build the image (this step is obsolete once the container is available on Docker hub)
+```bash
+docker build -t alphadia-docker .
+```
+3) Set up your data to match the expected folder structure:
+- Create a folder and store its name in a variable, e.g. `DATA_FOLDER=/home/username/data; mkdir -p $DATA_FOLDER`
+- In this folder, create 4 subfolders:
+  - `library`: put your library file here, make it writeable for any user (`chmod o+rw *`)
+  - `raw`: put your raw data here
+  - `output`: make this folder writeable for any user: `chmod -R o+rwx output` (this is where the output files will be stored)
+  - `config`: create a file named `config.yaml` here, with the following content:
+```yaml
+library: /app/data/library/LIBRARY_FILE.hdf
+raw_path_list:
+  - /app/data/raw/RAW_FILE_1.raw
+  - /app/data/raw/RAW_FILE_2.raw
+  - ...
+output_directory: /app/data/output
+```
+  Substitute `LIBRARY_FILE` and `RAW_FILE` with your respective file names, but preserve the `/app/data/../` prefix.
+  The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there
+  in your `config.yaml`.
+
+4) Start the container (this command will change once the container is available on Docker hub)
+```bash
+docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
+```
+AlphaDIA will start running immediately. Alternatively, you can run an interactive session with
+`docker run -v $DATA_FOLDER:/app/data/ --rm -it alphadia-docker bash`
