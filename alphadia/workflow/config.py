@@ -412,12 +412,12 @@ def recursive_fill_table(
         Value of the key
     """
     if isinstance(value, dict):
-        for key, value in value.items():
-            recursive_fill_table(df, experiment_name, parent_key + "." + key, value)
+        for k, v in value.items():
+            recursive_fill_table(df, experiment_name, parent_key + "." + k, v)
     elif isinstance(value, list):
-        for i, value in enumerate(value):
+        for i, v in enumerate(value):
             recursive_fill_table(
-                df, experiment_name, parent_key + "[" + str(i) + "]", value
+                df, experiment_name, parent_key + "[" + str(i) + "]", v
             )
     else:
         # Check if t he value is different from the last recorded value

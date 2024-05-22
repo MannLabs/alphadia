@@ -5,7 +5,7 @@ To extend the metrics, create a new class that inherits from Metrics and impleme
 
 import os
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any
 
 import pandas as pd
@@ -101,6 +101,7 @@ class Metrics(ABC):
             self._calc()
         return self._metrics
 
+    @abstractmethod
     def _calc(self) -> None:
         """Calculate the metrics."""
         raise NotImplementedError

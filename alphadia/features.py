@@ -458,8 +458,8 @@ def build_features(
     # create weight matrix to exclude empty isotopes
     i, j = np.nonzero(observed_precursor_mz == 0)
     precursor_weights = isotope_intensity.copy()
-    for i, j in zip(i, j):
-        precursor_weights[i, j] = 0
+    for ii, jj in zip(i, j):
+        precursor_weights[ii, jj] = 0
 
     observed_precursor_intensity = weighted_center_mean_2d(
         dense_precursors[0], p_expected_scan_center, p_expected_frame_center

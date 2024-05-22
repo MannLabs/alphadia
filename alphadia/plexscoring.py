@@ -921,7 +921,7 @@ class ScoreGroup:
 
         # process reference channel features
         if config.reference_channel >= 0:
-            for idx, candidate in enumerate(self.candidates):
+            for idx, _ in enumerate(self.candidates):
                 if idx == reference_channel_idx:
                     continue
                 # candidate.process_reference_channel(
@@ -1911,12 +1911,10 @@ class CandidateScoring:
         logger.info("Collecting candidate features")
         candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
         validate.candidate_features_df(candidate_features_df)
-        candidate_features_df
 
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
         validate.fragment_features_df(fragment_features_df)
-        fragment_features_df
 
         logger.info("Finished candidate scoring")
 

@@ -19,7 +19,7 @@ def wrap_assemble_isotope_mz(mz, charge, intensities):
 )
 def test_assemble_isotope_mz(should_fail, mz, charge, intensities):
     if should_fail:
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             wrap_assemble_isotope_mz(mz, charge, intensities)
     else:
         wrap_assemble_isotope_mz(mz, charge, intensities)
