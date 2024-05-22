@@ -83,7 +83,7 @@ class BaseManager:
             try:
                 with open(self.path, "wb") as f:
                     pickle.dump(self, f)
-            except:
+            except Exception:
                 self.reporter.log_string(
                     f"Failed to save {self.__class__.__name__} to {self.path}",
                     verbosity="error",
@@ -613,7 +613,7 @@ class FDRManager(BaseManager):
         return psm_df
 
     def save_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )
@@ -626,7 +626,7 @@ class FDRManager(BaseManager):
             )
 
     def load_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )

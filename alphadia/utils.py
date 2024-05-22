@@ -275,7 +275,7 @@ def get_isotope_columns(colnames):
         if col[:2] == "i_":
             try:
                 isotopes.append(int(col[2:]))
-            except:
+            except Exception:
                 logging.warning(
                     f"Column {col} does not seem to be a valid isotope column"
                 )
@@ -390,9 +390,6 @@ def fourier_filter(dense_stack, kernel):
 
     """
 
-    k0 = kernel.shape[0]
-    k1 = kernel.shape[1]
-
     # make sure both dimensions are even
     scan_mod = dense_stack.shape[3] % 2
     frame_mod = dense_stack.shape[4] % 2
@@ -418,6 +415,8 @@ def fourier_filter(dense_stack, kernel):
 
             smooth_output[i, j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
 
+    # k0 = kernel.shape[0]
+    # k1 = kernel.shape[1]
     # with nb.objmode(smooth_output='float32[:,:,:,:]'):
     #    # roll back to original position
     #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
@@ -623,10 +622,10 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-    if type(on) == str:
+    if isinstance(on, str):
         on = [on]
 
-    if type(right_columns) == str:
+    if isinstance(right_columns, str):
         right_columns = [right_columns]
 
     missing_from_left = list(set(right_columns) - set(left_df.columns))

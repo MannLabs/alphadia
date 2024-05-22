@@ -465,14 +465,6 @@ def build_features(
         dense_precursors[0], p_expected_scan_center, p_expected_frame_center
     ).reshape(n_precursors, n_isotopes)
 
-    # sum precursor
-    sum_precursor_intensity = np.sum(
-        np.sum(dense_precursors[0], axis=-1), axis=-1
-    ).astype(np.float32)
-    sum_fragment_intensity = np.sum(
-        np.sum(dense_fragments[0], axis=-1), axis=-1
-    ).astype(np.float32)
-
     # (n_precursor, n_isotopes)
     mass_error_array = (observed_precursor_mz - isotope_mz) / isotope_mz * 1e6
 
@@ -724,10 +716,6 @@ def fragment_features(
     quant_window: nb.uint32 = 3,
     quant_all: nb.boolean = False,
 ):
-    fragment_feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=float_array
-    )
-
     n_observations = observation_importance.shape[0]
     n_fragments = dense_fragments.shape[1]
     feature_array[17] = float(n_observations)
@@ -780,7 +768,6 @@ def fragment_features(
 
     # (quant_window * 2 + 1)
     frame_rt_quant = frame_rt[center - quant_window : center + quant_window + 1]
-    quant_durarion = frame_rt_quant[-1] - frame_rt_quant[0]
 
     # (quant_window * 2)
     delta_rt = frame_rt_quant[1:] - frame_rt_quant[:-1]
@@ -1019,8 +1006,6 @@ def profile_features(
     feature_array,
 ):
     n_observations = len(observation_importance)
-    # most intense observation across all observations
-    best_observation = np.argmax(observation_importance)
 
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
@@ -1203,8 +1188,6 @@ def reference_features(
         key_type=nb.types.unicode_type, value_type=nb.types.float32
     )
 
-    n_observation = reference_observation_importance.shape[0]
-    n_fragments = reference_fragments_scan_profile.shape[0]
     fragment_idx_sorted = np.argsort(fragment_lib_intensity)[::-1]
 
     if (

@@ -1,4 +1,5 @@
 # native imports
+import os
 import typing
 
 # alphadia imports
@@ -6,7 +7,7 @@ import typing
 # alpha family imports
 
 # third party imports
-from matplotlib import cm, patches
+from matplotlib import patches
 import numpy as np
 import matplotlib.pyplot as plt
 

@@ -155,7 +155,7 @@ def main():
             epochs=args.epochs,
             learning_rate=args.learning_rate,
             weight_decay=args.weight_decay,
-            layers=[int(l) for l in args.layers.split(",")],
+            layers=[int(arg) for arg in args.layers.split(",")],
             dropout=args.dropout,
         )
 

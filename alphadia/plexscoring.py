@@ -14,9 +14,11 @@ from alphadia.plotting.debug import (
     plot_fragments,
     plot_template,
 )
+from alphadia.numba import config
 
 # alpha family imports
 import alphatims.utils
+
 
 # third party imports
 import pandas as pd
@@ -153,9 +155,6 @@ def multiplex_candidates(
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
-
-
-from alphadia.numba import config
 
 
 @nb.experimental.jitclass()
@@ -585,7 +584,7 @@ class Candidate:
         for i in range(_dense_precursors.shape[1]):
             dense_precursors[0, i, 0] = np.sum(_dense_precursors[0, i], axis=0)
             for k in range(_dense_precursors.shape[3]):
-                for l in range(_dense_precursors.shape[4]):
+                for l in range(_dense_precursors.shape[4]):  # noqa: E741
                     sum = 0
                     count = 0
                     for j in range(_dense_precursors.shape[2]):

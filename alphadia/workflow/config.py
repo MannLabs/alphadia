@@ -431,9 +431,7 @@ def recursive_fill_table(
             df.loc[parent_key, experiment_name] = value
 
 
-def get_update_table(
-    default_config: "Config", configs: List["Config"]
-) -> "pandas.DataFrame":
+def get_update_table(default_config: "Config", configs: List["Config"]) -> pd.DataFrame:
     """
     Returns a table of the modifications happening to the config
     such that the rows are the keys and the columns are the experiments
@@ -454,7 +452,7 @@ def get_update_table(
 
     Returns
     -------
-    df : pandas.DataFrame
+    df : pd.DataFrame
         Table of modifications
     """
 

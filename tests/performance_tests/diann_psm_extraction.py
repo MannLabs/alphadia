@@ -1,8 +1,5 @@
 import logging
 
-from alphadia.test_data_downloader import DataShareDownloader
-
-
 import os
 import neptune.new as neptune
 import pathlib

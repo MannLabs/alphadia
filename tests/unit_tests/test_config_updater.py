@@ -1,4 +1,4 @@
-from alphadia.workflow.config import *
+from alphadia.workflow.config import Config, get_update_table
 import yaml
 from io import StringIO
 import pandas as pd

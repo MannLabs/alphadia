@@ -692,9 +692,6 @@ class TimsTOFTransposeJIT(object):
             len(unique_precursor_index)
         )
 
-        relative_precursor_index = precursor_index_reverse[precursor_index]
-
-        n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
         # scan valuesa

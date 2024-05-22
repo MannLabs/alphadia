@@ -137,7 +137,6 @@ class QuantBuilder:
         quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
         quality_df.rename(columns={"correlation": raw_name}, inplace=True)
 
-        df_list = []
         for raw_name, df in df_iterable:
             df = prepare_df(df, self.psm_df, column=self.column)
 

@@ -68,7 +68,6 @@ def mock_precursor_df(
             "charge": precursor_charge,
             "proteins": proteins,
             "genes": genes,
-            "decoy": decoy,
             "proba": proba,
             "qval": qval,
             "sequence": sequences,
