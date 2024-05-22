@@ -58,7 +58,7 @@ class ProcessingStep:
 
 
 class ProcessingPipeline:
-    def __init__(self, steps: typing.List[ProcessingStep]) -> None:
+    def __init__(self, steps: list[ProcessingStep]) -> None:
         """Processing pipeline for loading and transforming spectral libraries.
         The pipeline is a list of ProcessingStep objects. Each step is called in order and the output of the previous step is passed to the next step.
 
@@ -138,15 +138,15 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
-        variable_modifications: typing.List[str] = [
+        fixed_modifications: list[str] = ["Carbamidomethyl@C"],
+        variable_modifications: list[str] = [
             "Oxidation@M",
             "Acetyl@Prot N-term",
         ],
         missed_cleavages: int = 1,
-        precursor_len: typing.List[int] = [7, 35],
-        precursor_charge: typing.List[int] = [2, 4],
-        precursor_mz: typing.List[int] = [400, 1200],
+        precursor_len: list[int] = [7, 35],
+        precursor_charge: list[int] = [2, 4],
+        precursor_mz: list[int] = [400, 1200],
         max_var_mod_num: int = 1,
     ) -> None:
         """Digest a FASTA file into a spectral library.
@@ -162,7 +162,7 @@ class FastaDigest(ProcessingStep):
         self.precursor_mz = precursor_mz
         self.max_var_mod_num = max_var_mod_num
 
-    def validate(self, input: typing.List[str]) -> bool:
+    def validate(self, input: list[str]) -> bool:
         if not isinstance(input, list):
             logger.error("Input fasta list is not a list")
             return False
@@ -172,7 +172,7 @@ class FastaDigest(ProcessingStep):
 
         return True
 
-    def forward(self, input: typing.List[str]) -> SpecLibBase:
+    def forward(self, input: list[str]) -> SpecLibBase:
         frag_types = get_charged_frag_types(["b", "y"], 2)
 
         model_mgr = ModelManager()
@@ -243,11 +243,11 @@ class PeptDeepPrediction(ProcessingStep):
         self,
         use_gpu: bool = True,
         mp_process_num: int = 8,
-        fragment_mz: typing.List[int] = [100, 2000],
+        fragment_mz: list[int] = [100, 2000],
         nce: int = 25,
         instrument: str = "Lumos",
         checkpoint_folder_path: typing.Optional[str] = None,
-        fragment_types: typing.List[str] = ["b", "y"],
+        fragment_types: list[str] = ["b", "y"],
         max_fragment_charge: int = 2,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
@@ -290,7 +290,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
 
-    def validate(self, input: typing.List[str]) -> bool:
+    def validate(self, input: list[str]) -> bool:
         return True
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
@@ -390,7 +390,7 @@ class PrecursorInitializer(ProcessingStep):
 class AnnotateFasta(ProcessingStep):
     def __init__(
         self,
-        fasta_path_list: typing.List[str],
+        fasta_path_list: list[str],
         drop_unannotated: bool = True,
         drop_decoy: bool = True,
     ) -> None:

@@ -18,7 +18,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
 
-from typing import List, Tuple, Union
+from typing import Union
 from collections.abc import Iterator
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
@@ -33,7 +33,7 @@ import directlfq.config as lfqconfig
 logger = logging.getLogger()
 
 
-def get_frag_df_generator(folder_list: List[str]):
+def get_frag_df_generator(folder_list: list[str]):
     """Return a generator that yields a tuple of (raw_name, frag_df)
 
     Parameters
@@ -81,8 +81,8 @@ class QuantBuilder:
         self.column = column
 
     def accumulate_frag_df_from_folders(
-        self, folder_list: List[str]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, folder_list: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Accumulate the fragment data from a list of folders
 
         Parameters
@@ -104,8 +104,8 @@ class QuantBuilder:
         return self.accumulate_frag_df(df_iterable)
 
     def accumulate_frag_df(
-        self, df_iterable: Iterator[Tuple[str, pd.DataFrame]]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
 
         Parameters
@@ -179,7 +179,7 @@ class QuantBuilder:
         min_correlation: float = 0.5,
         top_n: int = 3,
         group_column: str = "pg",
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Filter the fragment data by quality
 
         Parameters
@@ -351,7 +351,7 @@ class SearchPlanOutput:
 
     def build(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         base_spec_lib: base.SpecLibBase,
     ):
         """Build output from a list of seach outputs
@@ -384,7 +384,7 @@ class SearchPlanOutput:
 
     def build_transfer_library(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         keep_top: int = 3,
         number_of_processes: int = 4,
         save: bool = True,
@@ -467,7 +467,7 @@ class SearchPlanOutput:
 
     def build_precursor_table(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         save: bool = True,
         base_spec_lib: base.SpecLibBase = None,
     ):
@@ -604,7 +604,7 @@ class SearchPlanOutput:
 
     def build_stat_df(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         psm_df: Union[pd.DataFrame, None] = None,
         save: bool = True,
     ):
@@ -656,7 +656,7 @@ class SearchPlanOutput:
 
     def build_lfq_tables(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         psm_df: Union[pd.DataFrame, None] = None,
         save: bool = True,
     ):

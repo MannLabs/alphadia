@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-from typing import List
 from peptdeep.utils import linear_regression
 from peptdeep.model.ms2 import calc_ms2_similarity
 
@@ -41,7 +40,7 @@ class TestMetricBase:
     and accumulate the metric over time for reporting.
     """
 
-    def __init__(self, columns: List[str]):
+    def __init__(self, columns: list[str]):
         self.columns = columns  # a list of column names for the stats dataframe
         self.stats = (
             None  # Stats is a pandas dataframe that stores the test metric over time
@@ -382,7 +381,7 @@ class MetricManager:
         self,
         model_name: str,
         test_interval: int = 1,
-        test_metrics: List[TestMetricBase] = None,
+        test_metrics: list[TestMetricBase] = None,
     ):
         self.model_name = model_name
         self.test_metrics = test_metrics

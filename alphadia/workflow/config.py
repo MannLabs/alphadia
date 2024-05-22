@@ -23,7 +23,7 @@ In our analysis, we focus on discerning changes between the default configuratio
 """
 
 import yaml
-from typing import List, Dict, Any, Union
+from typing import Any, Union
 import copy
 import json
 import pandas as pd
@@ -33,7 +33,7 @@ import logging
 logger = logging.getLogger()
 
 
-def get_tree_structure(last_item_arr: List[bool], update=False):
+def get_tree_structure(last_item_arr: list[bool], update=False):
     tree_structure = ""
     for i in last_item_arr[:-1]:
         if i:
@@ -105,7 +105,7 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
 
 
 def print_recursively(
-    config: Union[Dict[str, Any], List[Any]],
+    config: Union[dict[str, Any], list[Any]],
     level: int = 0,
     style: str = "auto",
     last_item: bool = False,
@@ -179,8 +179,8 @@ def print_recursively(
 
 
 def translate_config(
-    default_config: Union[Dict[str, Any], List[Any]], name: str
-) -> Union[Dict[str, Any], List[Any]]:
+    default_config: Union[dict[str, Any], list[Any]], name: str
+) -> Union[dict[str, Any], list[Any]]:
     """
     Takes as input a dictionary or list of dictianry that contains config values and a name of experiment
     and changes every leaf value to a tuple (value, name)
@@ -216,7 +216,7 @@ def translate_config(
     return default_config
 
 
-def translate_config_back(config: Union[Dict[str, Any], List[Any]]):
+def translate_config_back(config: Union[dict[str, Any], list[Any]]):
     """
     Takes as input a dictionary or list of dictionary that contains config values and changes every leaf value from a tuple (value, name) to value
 
@@ -253,13 +253,13 @@ def translate_config_back(config: Union[Dict[str, Any], List[Any]]):
 
 
 def update_recursive(
-    config: Dict[str, Any],
-    experiment_configs: List[Union[Dict[str, Any], List[Any]]],
+    config: dict[str, Any],
+    experiment_configs: list[Union[dict[str, Any], list[Any]]],
     level: int = 0,
     print_output: bool = True,
     is_leaf_node: bool = False,
     last_item_arr=[],
-) -> Union[Dict[str, Any], List[Any]]:
+) -> Union[dict[str, Any], list[Any]]:
     """
     Recursively update the default config with the experiments config
     print the config in a tree structure using pipes and dashes and colors to indicate the changes
@@ -431,7 +431,7 @@ def recursive_fill_table(
             df.loc[parent_key, experiment_name] = value
 
 
-def get_update_table(default_config: "Config", configs: List["Config"]) -> pd.DataFrame:
+def get_update_table(default_config: "Config", configs: list["Config"]) -> pd.DataFrame:
     """
     Returns a table of the modifications happening to the config
     such that the rows are the keys and the columns are the experiments
@@ -504,10 +504,10 @@ class Config:
         with open(path, "w") as f:
             json.dump(self.config, f)
 
-    def from_dict(self, config: Dict[str, Any]) -> None:
+    def from_dict(self, config: dict[str, Any]) -> None:
         self.config = config
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self.config
 
     def __getitem__(self, key: str) -> Any:
@@ -545,7 +545,7 @@ class Config:
         temp = copy.deepcopy(self.translated_config)
         self.config = translate_config_back(temp)
 
-    def update(self, experiments: List["Config"], print_modifications: bool = True):
+    def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
         Updates the config with the experiment configs,
         and allow for multiple experiment configs to be added.

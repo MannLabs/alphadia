@@ -110,7 +110,7 @@ def density_scatter(
 
 
 def plot_image_collection(
-    images: typing.List[np.ndarray], image_width: float = 4, image_height: float = 6
+    images: list[np.ndarray], image_width: float = 4, image_height: float = 6
 ):
     n_images = len(images)
     fig, ax = plt.subplots(1, n_images, figsize=(n_images * image_width, image_height))

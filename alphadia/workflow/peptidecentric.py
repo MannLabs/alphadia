@@ -1001,7 +1001,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def requantify_fragments(
         self, psm_df: pd.DataFrame
-    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
@@ -1094,9 +1094,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: typing.List[str] = ["b", "y"],
+    fragment_types: list[str] = ["b", "y"],
     max_charge: int = 2,
-    optional_columns: typing.List[str] = [
+    optional_columns: list[str] = [
         "proba",
         "score",
         "qval",
@@ -1112,7 +1112,7 @@ def _build_candidate_speclib_flat(
         "sequence",
         "charge",
     ],
-) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
+) -> tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
     Parameters

@@ -22,7 +22,6 @@ TransferLearningAccumulator
 
 """
 
-from typing import List, Tuple
 import numba as nb
 import pandas as pd
 import numpy as np
@@ -81,7 +80,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
     def parse_output_folder(
         self,
         folder: str,
-        selected_precursor_columns: List[str] = [
+        selected_precursor_columns: list[str] = [
             "precursor_idx",
             "sequence",
             "flat_frag_start_idx",
@@ -101,7 +100,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
             "mod_sites",
             "proba",
         ],
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
 
