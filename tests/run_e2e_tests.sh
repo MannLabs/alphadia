@@ -7,7 +7,7 @@ BRANCH_NAME=${4:-branch_na}
 
 cd e2e_tests
 
-conda run -n $ENV_NAME python prepare_test_data.py $TEST_CASE_NAME
+conda run -n $ENV_NAME --no-capture-output python prepare_test_data.py $TEST_CASE_NAME
 ls */*
 
 cat $TEST_CASE_NAME/config.yaml
