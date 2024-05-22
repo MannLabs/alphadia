@@ -1,7 +1,7 @@
 import tempfile
 import pytest
 import os
-from alphadia import planning, testing
+from alphadia import planning
 from alphadia.test_data_downloader import DataShareDownloader
 from alphabase.constants import _const
 
