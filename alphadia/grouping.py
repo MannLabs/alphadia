@@ -15,26 +15,19 @@ def group_and_parsimony(
     precursor_idx: NDArray[np.int64],
     precursor_ids: NDArray[Any],
 ):
-    """
-    Function to group ids based on precursor indices and return groups & master ids as lists
+    """Function to group ids based on precursor indices and return groups & master ids as lists
 
-    Parameters
-    ----------
-
-        precursor_idx : np.array[int]
-            array containing unique integer indices corresponding to each peptide precursor
-
-        precursor_ids : np.array[str]
-            array of variable length semicolon separated str belonging to a given peptide precursor id
+    Args:
+        precursor_idx (np.array[int]): array containing unique integer indices corresponding 
+            to each peptide precursor
+        precursor_ids (np.array[str]): array of variable length semicolon separated str belonging 
+            to a given peptide precursor id
 
     Returns
-    -------
-
-        ids : list[str]
-            list of ids linked to a given peptide precursor, such that each precursor only belongs to one id. This list is ordered by precursor_idx.
-
-        groups : list[str]
-            list of semicolon separated ids belonging to a given peptide precursor, such that each precursor only belongs to one group. This list is ordered by precursor_idx.
+        ids (list[str]): list of ids linked to a given peptide precursor, such that each 
+            precursor only belongs to one id. This list is ordered by precursor_idx.
+        groups (list[str]): list of semicolon separated ids belonging to a given peptide precursor, 
+            such that each precursor only belongs to one group. This list is ordered by precursor_idx.
 
     """
 
@@ -53,11 +46,12 @@ def group_and_parsimony(
 
     # loop bounds max iterations
     for _ in range(len(id_dict)):
-        # remove longest set from dict as query & remove query peptided from all other sets
+        # remove longest set from dict as query & remove query peptide from all other sets
         query_id = max(id_dict.keys(), key=lambda x: len(id_dict[x]))
         query_peptides = id_dict.pop(query_id)
         query_group = [query_id]
 
+        # break if query is empty. Sorting step means that all remaining sets are empty
         if len(query_peptides) == 0:
             break
 
@@ -67,6 +61,8 @@ def group_and_parsimony(
                 continue
             new_subject_set = subject_peptides - query_peptides
             id_dict[subject_protein] = new_subject_set
+            # With the following lines commented out, the query will only eliminate peptides from 
+            # respective subject proteins, but we will not add them to the query group
             # if len(new_subject_set) == 0:
             #    query_group.append(subject_protein)
 
@@ -90,12 +86,17 @@ def group_and_parsimony(
             f"Not all precursors were found in the output of the grouping function. {len(return_dict)} precursors were found, but {len(precursor_idx)} were expected."
         )
 
-    # order by precursor index
+    # check that all return_dict keys are unique. Assume same length and unique keys constitutes match to precursor_idx
+    if len(return_dict) != len(set(return_dict.keys())):
+        raise ValueError(
+            "Not all precursors were found in the output of the grouping function. Duplicate precursors were found."
+        )
+
+    # order by precursor index and return as lists
     return_dict_ordered = {key: return_dict[key] for key in precursor_idx}
     ids, groups = zip(*return_dict_ordered.values())
 
     return ids, groups
-
 
 def perform_grouping(
     psm: pd.DataFrame,
@@ -105,8 +106,14 @@ def perform_grouping(
 ):
     """Highest level function for grouping proteins in precursor table
 
-    Parameters:
-        gene_or_protein (str, optional): Column to group proteins by. Defaults to "proteins".
+    Args:
+        psm (pd.DataFrame) : Precursor table with columns "precursor_idx" and protein & decoy columns.
+        gene_or_protein (str, optional) : Column to group proteins by. Defaults to "proteins".
+        decoy_column (str, optional) : Column to use for decoy annotation. Defaults to "decoy".
+        group (bool, optional) : Whether to group proteins. Defaults to True.
+
+    Returns:
+        pd.DataFrame: Precursor table with grouped proteins
 
     """
 
