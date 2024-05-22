@@ -116,7 +116,7 @@ npm install
 
 The GUI can be started by typing
 ```bash
-npm run dev``
+npm run dev
 ```
 
 ---
