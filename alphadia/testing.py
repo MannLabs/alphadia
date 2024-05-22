@@ -1,4 +1,3 @@
-# native imports
 import os
 import base64
 from urllib.request import urlopen
@@ -8,12 +7,6 @@ import zipfile
 import progressbar
 import logging
 import typing
-
-# alphadia imports
-
-# alpha family imports
-
-# third party imports
 
 
 class Progress:  # pragma: no cover
@@ -34,8 +27,8 @@ class Progress:  # pragma: no cover
             self.pbar.finish()
 
 
-def encode_url_onedrive(sharing_url: str) -> str:  # pragma: no cover
-    """encode onedrive sharing link as url for downloading files
+def _encode_url_onedrive(sharing_url: str) -> str:  # pragma: no cover
+    """Encode onedrive sharing link as url for downloading files.
 
     Parameters
     ----------
@@ -54,8 +47,8 @@ def encode_url_onedrive(sharing_url: str) -> str:  # pragma: no cover
     return encoded_url
 
 
-def filename_onedrive(sharing_url: str) -> str:  # pragma: no cover
-    """get filename from onedrive sharing link
+def _get_filename_onedrive(sharing_url: str) -> str:  # pragma: no cover
+    """Get filename from onedrive sharing link.
 
     Parameters
     ----------
@@ -69,7 +62,7 @@ def filename_onedrive(sharing_url: str) -> str:  # pragma: no cover
 
     """
 
-    encoded_url = encode_url_onedrive(sharing_url)
+    encoded_url = _encode_url_onedrive(sharing_url)
 
     try:
         remotefile = urlopen(encoded_url)
@@ -82,10 +75,10 @@ def filename_onedrive(sharing_url: str) -> str:  # pragma: no cover
     return params["filename"]
 
 
-def download_onedrive(
+def _download_onedrive(
     sharing_url: str, output_dir: str
 ) -> typing.Union[str, None]:  # pragma: no cover
-    """download file from onedrive sharing link
+    """Download file from onedrive sharing link.
 
     Parameters
     ----------
@@ -101,8 +94,8 @@ def download_onedrive(
         local path to downloaded file
 
     """
-    filename = filename_onedrive(sharing_url)
-    encoded_url = encode_url_onedrive(sharing_url)
+    filename = _get_filename_onedrive(sharing_url)
+    encoded_url = _encode_url_onedrive(sharing_url)
 
     output_path = os.path.join(output_dir, filename)
     try:
@@ -117,7 +110,7 @@ def download_onedrive(
 def update_onedrive(
     sharing_url: str, output_dir: str, unzip: bool = True
 ) -> None:  # pragma: no cover
-    """download file from onedrive sharing link if it does not yet exist
+    """Download file from onedrive sharing link if it does not yet exist.
 
     Parameters
     ----------
@@ -132,11 +125,11 @@ def update_onedrive(
 
     """
 
-    filename = filename_onedrive(sharing_url)
+    filename = _get_filename_onedrive(sharing_url)
     output_path = os.path.join(output_dir, filename)
     if not os.path.exists(output_path):
         print(f"{filename} does not yet exist")
-        download_onedrive(sharing_url, output_dir)
+        _download_onedrive(sharing_url, output_dir)
 
         # if file ends with .zip and zip=True
         if unzip and filename.endswith(".zip"):
@@ -149,8 +142,8 @@ def update_onedrive(
         print(f"{filename} already exists")
 
 
-def encode_url_datashare(sharing_url: str) -> str:  # pragma: no cover
-    """encode datashare sharing link as url for downloading files
+def _encode_url_datashare(sharing_url: str) -> str:  # pragma: no cover
+    """Encode datashare sharing link as url for downloading files.
 
     Parameters
     ----------
@@ -164,12 +157,14 @@ def encode_url_datashare(sharing_url: str) -> str:  # pragma: no cover
 
     """
 
-    encoded_url = f"{sharing_url}/download"
-    return encoded_url
+    if "/download?" not in sharing_url:
+        return f"{sharing_url}/download"
+
+    return sharing_url
 
 
-def filename_datashare(sharing_url: str, tar=False) -> str:  # pragma: no cover
-    """get filename from onedrive sharing link
+def _get_filename_datashare(sharing_url: str, tar=False) -> str:  # pragma: no cover
+    """Fet filename from datashare sharing link.
 
     Parameters
     ----------
@@ -183,12 +178,11 @@ def filename_datashare(sharing_url: str, tar=False) -> str:  # pragma: no cover
 
     """
 
-    encoded_url = encode_url_datashare(sharing_url)
+    encoded_url = _encode_url_datashare(sharing_url)
 
     try:
         remotefile = urlopen(encoded_url)
     except:
-        # print(f'Could not open {sharing_url} for reading filename')
         raise ValueError(f"Could not open {sharing_url} for reading filename") from None
 
     info = remotefile.info()["Content-Disposition"]
@@ -197,7 +191,7 @@ def filename_datashare(sharing_url: str, tar=False) -> str:  # pragma: no cover
     return filename
 
 
-def download_datashare(
+def _download_from_datashare(
     sharing_url: str, output_dir: str
 ) -> typing.Union[str, None]:  # pragma: no cover
     """download file from datashare sharing link
@@ -216,8 +210,8 @@ def download_datashare(
         local path to downloaded file
 
     """
-    filename = filename_datashare(sharing_url)
-    encoded_url = encode_url_datashare(sharing_url)
+    filename = _get_filename_datashare(sharing_url)
+    encoded_url = _encode_url_datashare(sharing_url)
 
     output_path = os.path.join(output_dir, filename)
 
@@ -233,8 +227,8 @@ def download_datashare(
 
 
 def update_datashare(
-    sharing_url: str, output_dir: str, force=False
-) -> None:  # pragma: no cover
+    sharing_url: str, output_dir: str, force_download=False
+) -> str:  # pragma: no cover
     """download file from datashare sharing link if it does not yet exist
 
     Parameters
@@ -248,50 +242,44 @@ def update_datashare(
     unzip : bool
         unzip file if it ends with .zip
 
-    force : bool
+    force_download : bool
         force download even if file already exists
 
     """
 
-    filename = filename_datashare(sharing_url)
+    filename = _get_filename_datashare(sharing_url)
     output_path = os.path.join(output_dir, filename)
     unzipped_path = os.path.join(output_dir, filename.replace(".zip", ""))
 
-    # file does not yet exist
     if not os.path.exists(unzipped_path):
         print(f"{filename} does not yet exist")
-        download_datashare(sharing_url, output_dir)
+        _download_from_datashare(sharing_url, output_dir)
 
-        # if file ends with .zip and zip=True
-        if filename.endswith(".zip"):
-            with zipfile.ZipFile(output_path, "r") as zip_ref:
-                zip_ref.extractall(output_dir)
-            print(f"{filename} successfully unzipped")
+        _handle_archive(filename, output_dir, output_path)
+
+    elif force_download:
+        print(f"{filename} already exists, but force_download=True")
+
+        try:
             os.remove(output_path)
+            print(f"{filename} successfully removed")
+        except Exception as e:
+            logging.error(f"Could not remove {filename}")
+            return
 
-    # file already exists
+        _download_from_datashare(sharing_url, output_dir)
+
+        _handle_archive(filename, output_dir, output_path)
     else:
-        # force download
-        if force:
-            print(f"{filename} already exists, but force=True")
-
-            # remove file
-            try:
-                os.remove(output_path)
-                print(f"{filename} successfully removed")
-            except:
-                logging.error(f"Could not remove {filename}")
-                return
-
-            download_datashare(sharing_url, output_dir)
-
-            # if file ends with .zip and zip=True
-            if filename.endswith(".zip"):
-                with zipfile.ZipFile(output_path, "r") as zip_ref:
-                    zip_ref.extractall(output_dir)
-                print(f"{filename} successfully unzipped")
-                os.remove(output_path)
-
         print(f"{filename} already exists")
 
     return unzipped_path
+
+
+def _handle_archive(filename: str, output_dir: str, output_path: str) -> None:
+    """Unpack archive and remove it."""
+    if filename.endswith(".zip"):
+        with zipfile.ZipFile(output_path, "r") as zip_ref:
+            zip_ref.extractall(output_dir)
+        print(f"{filename} successfully unzipped")
+        os.remove(output_path)
