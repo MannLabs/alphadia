@@ -1,5 +1,4 @@
 # native imports
-import os
 import logging
 import typing
 import pickle

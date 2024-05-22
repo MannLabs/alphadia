@@ -7,14 +7,18 @@ import os
 import re
 import json
 
-logger = logging.getLogger()
-
 # alphadia imports
 import alphadia
 from alphadia.workflow import reporting
 from alphadia import utils
 
+# alpha family imports
 from alphabase.constants import modification
+
+# third party imports
+import argparse
+
+logger = logging.getLogger()
 
 modification.add_new_modifications(
     {
@@ -31,10 +35,6 @@ modification.add_new_modifications(
     }
 )
 
-# alpha family imports
-
-# third party imports
-import argparse
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
 parser.add_argument(

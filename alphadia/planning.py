@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import socket
 from pathlib import Path
 import os
@@ -25,6 +24,9 @@ from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
 import torch
+
+
+logger = logging.getLogger()
 
 
 class Plan:

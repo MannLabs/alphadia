@@ -3,8 +3,6 @@ import math
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 from alphadia import utils
 
@@ -18,6 +16,9 @@ import numpy as np
 import numba as nb
 from numba.core import types
 from numba.experimental import jitclass
+
+
+logger = logging.getLogger()
 
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
@@ -655,9 +656,7 @@ class TimsTOFTransposeJIT(object):
                                 relative_precursor_index[i],
                                 relative_scan,
                                 relative_precursor,
-                            ] = (
-                                accumulated_intensity + new_intensity
-                            )
+                            ] = accumulated_intensity + new_intensity
                             dense_output[
                                 1,
                                 j,

@@ -2,7 +2,6 @@
 import logging
 import os
 
-logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr
@@ -29,8 +28,6 @@ import directlfq.utils as lfqutils
 import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
 import directlfq.config as lfqconfig
-
-import logging
 
 logger = logging.getLogger()
 

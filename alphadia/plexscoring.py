@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import typing
 
 # alphadia imports
@@ -23,6 +22,8 @@ import alphatims.utils
 import pandas as pd
 import numpy as np
 import numba as nb
+
+logger = logging.getLogger()
 
 NUM_FEATURES = 46
 

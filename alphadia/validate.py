@@ -1,9 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-
-# alphadia imports
 
 # alpha family imports
 
@@ -11,7 +8,10 @@ logger = logging.getLogger()
 import pandas as pd
 import numpy as np
 
+logger = logging.getLogger()
 
+
+# alphadia imports
 class Property:
     """Column property base class"""
 

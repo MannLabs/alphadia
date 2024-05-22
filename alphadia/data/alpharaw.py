@@ -3,8 +3,6 @@ import math
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 from alphadia import utils
 
@@ -17,6 +15,8 @@ from alpharaw import mzml as alpharawmzml
 import numpy as np
 import numba as nb
 import pandas as pd
+
+logger = logging.getLogger()
 
 
 @nb.njit(parallel=False, fastmath=True)

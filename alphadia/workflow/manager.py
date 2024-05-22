@@ -5,7 +5,6 @@ import pickle
 from copy import deepcopy
 import logging
 
-logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
@@ -21,6 +20,8 @@ import numpy as np
 import xxhash
 
 import torch
+
+logger = logging.getLogger()
 
 
 class BaseManager:

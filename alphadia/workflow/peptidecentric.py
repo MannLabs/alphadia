@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import typing
 
 # alphadia imports
@@ -19,6 +18,9 @@ from alphabase.peptide.fragment import get_charged_frag_types
 import numpy as np
 import pandas as pd
 import seaborn as sns
+
+
+logger = logging.getLogger()
 
 feature_columns = [
     "reference_intensity_correlation",

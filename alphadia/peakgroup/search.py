@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import os
 
 # alphadia imports
@@ -18,6 +17,9 @@ import alphatims
 import numba as nb
 import numpy as np
 import pandas as pd
+
+
+logger = logging.getLogger()
 
 
 @nb.experimental.jitclass()
