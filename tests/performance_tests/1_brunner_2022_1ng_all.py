@@ -11,7 +11,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 from alphadia.extraction.planning import Plan
-from alphadia.testing import DataShareDownloader
+from alphadia.test_data_downloader import DataShareDownloader
 from alphabase.spectral_library.base import SpecLibBase
 
 if __name__ == "__main__":

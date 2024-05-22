@@ -8,9 +8,8 @@ import sys
 from collections import defaultdict
 
 import yaml
-import requests
 
-from alphadia.testing import DataShareDownloader
+from alphadia.test_data_downloader import DataShareDownloader
 
 OUTPUT_DIR_NAME = "output"
 
@@ -19,23 +18,6 @@ TEST_CASES_FILE_NAME = "e2e_test_cases.yaml"
 DEFAULT_CONFIG_FILE_NAME = "config.yaml"
 
 CONFIG_SOURCE_PATH = "../../alphadia/constants/default.yaml"
-
-
-def _download_file(url: str, target_path: str) -> None:
-    """Download a file from the given `url` to the `target_path`."""
-    # could potentially reuse testing.py:download_datashare()
-    print(f"downloading {url} to {target_path}")
-
-    response = requests.get(url, stream=True)
-    if response.status_code != 200:
-        print("Failed to download the file")
-        return
-
-    with open(target_path, "wb") as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            if chunk:
-                f.write(chunk)
-    print(f"Download complete: {target_path}")
 
 
 def _download_all_files(test_case: dict, target_path: str) -> dict:
