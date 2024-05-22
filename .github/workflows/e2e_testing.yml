@@ -7,6 +7,10 @@ on:
 
 name: End to end testing
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   end2end_testing:
     name: End to end test on ${{ matrix.os }}
