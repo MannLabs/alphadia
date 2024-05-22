@@ -24,6 +24,7 @@ from peptdeep.model.ms2 import normalize_fragment_intensities
 from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
+from alphadia.workflow import reporting
 logger = logging.getLogger()
 
 settings = {
@@ -253,47 +254,38 @@ class FinetuneManager(ModelManager):
 
     def _order_intensities(
         self,
-        precursor_df_to_align_with: pd.DataFrame,
-        prev_precursor_df: pd.DataFrame,
-        frags_to_be_reordered: pd.DataFrame,
+        reordered_precursor_df: pd.DataFrame,
+        unordered_precursor_df: pd.DataFrame,
+        unordered_frag_df: pd.DataFrame,
     ) -> pd.DataFrame:
         """
-        Rearrange the fragment intensities to match the order used by the start and stop indices in precursor_df_to_align_with.
+        Rearrange the fragment intensities to match the order used by the start and stop indices in reordered_precursor_df.
         The goal of this is to reorder the fragment intensities using a newer precursor_df that only has different start and stop indices.
 
         Parameters
         ----------
-        precursor_df_to_align_with : pd.DataFrame
+        reordered_precursor_df : pd.DataFrame
             The dataframe with the new frag_start_idx and frag_stop_idx to respect.
-        prev_precursor_df : pd.DataFrame
+        unordered_precursor_df : pd.DataFrame
             The dataframe with the old frag_start_idx and frag_stop_idx.
 
-        frags_to_be_reordered : pd.DataFrame
+        unordered_frag_df : pd.DataFrame
             The fragment intensity dataframe to be reordered.
         Returns
         -------
         pd.DataFrame
             The reordered fragment intensity dataframe.
         """
-        reordered = frags_to_be_reordered.copy()
-        for i in tqdm(range(len(precursor_df_to_align_with))):
-            cur_mod_seq_hash = precursor_df_to_align_with.iloc[i]["mod_seq_charge_hash"]
-            cur_proba = precursor_df_to_align_with.iloc[i]["proba"]
+        reordered = unordered_frag_df.copy()
+        for i in tqdm(range(len(reordered_precursor_df))):
+      
+            new_start_idx = reordered_precursor_df.iloc[i]["frag_start_idx"]
+            new_end_idx = reordered_precursor_df.iloc[i]["frag_stop_idx"]
 
-            # find the index of the the same mod_seq_hash and proba in the prev_precursor_df
-            target = prev_precursor_df[
-                (prev_precursor_df["mod_seq_charge_hash"] == cur_mod_seq_hash)
-                & (prev_precursor_df["proba"] == cur_proba)
-            ]
-            target_idx = target.index[0]
+            old_start_idx = unordered_precursor_df.iloc[i]["frag_start_idx"]
+            old_end_idx = unordered_precursor_df.iloc[i]["frag_stop_idx"]
 
-            new_start_idx = precursor_df_to_align_with.iloc[i]["frag_start_idx"]
-            new_end_idx = precursor_df_to_align_with.iloc[i]["frag_stop_idx"]
-
-            old_start_idx = prev_precursor_df.loc[target_idx]["frag_start_idx"]
-            old_end_idx = prev_precursor_df.loc[target_idx]["frag_stop_idx"]
-
-            reordered.iloc[new_start_idx:new_end_idx, :] = frags_to_be_reordered.iloc[
+            reordered.iloc[new_start_idx:new_end_idx, :] = unordered_frag_df.iloc[
                 old_start_idx:old_end_idx, :
             ]
         return reordered
@@ -446,10 +438,9 @@ class FinetuneManager(ModelManager):
 
         reordered_test_psm_df = self._reset_frag_idx(test_psm_df)
         reordered_test_intensity_df = self._order_intensities(
-            precursor_df_to_align_with=reordered_test_psm_df,
-            prev_precursor_df=test_psm_df,
-            frags_to_be_reordered=test_intensity_df,
-            prev_frag_df=test_intensity_df,
+            reordered_precursor_df=reordered_test_psm_df,
+            unordered_precursor_df=test_psm_df,
+            unordered_frag_df=test_intensity_df,
         )
 
         # Create a metric manager
