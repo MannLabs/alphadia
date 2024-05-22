@@ -1,14 +1,6 @@
 # native imports
 import logging
-
 import os
-
-# alphadia imports
-from alphadia import utils
-from alphadia.numba import fragments, numeric, config, fft
-from alphadia import validate
-from alphadia.peakgroup.kernel import GaussianKernel
-from alphadia.peakgroup.utils import assemble_isotope_mz
 
 # alpha family imports
 import alphatims
@@ -18,6 +10,11 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
+# alphadia imports
+from alphadia import utils, validate
+from alphadia.numba import config, fft, fragments, numeric
+from alphadia.peakgroup.kernel import GaussianKernel
+from alphadia.peakgroup.utils import assemble_isotope_mz
 
 logger = logging.getLogger()
 

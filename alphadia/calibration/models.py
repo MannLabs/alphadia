@@ -1,7 +1,6 @@
 import numpy as np
-
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class LOESSRegression(BaseEstimator, RegressorMixin):

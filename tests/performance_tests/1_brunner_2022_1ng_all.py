@@ -1,14 +1,11 @@
 import logging
-
-
 import os
 
 import matplotlib
+from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.extraction.planning import Plan
 from alphadia.test_data_downloader import DataShareDownloader
-from alphabase.spectral_library.base import SpecLibBase
-
 
 matplotlib.use("Agg")
 

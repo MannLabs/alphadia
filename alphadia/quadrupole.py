@@ -1,16 +1,16 @@
 # native imports
 
 # alphadia imports
-from alphadia import utils
-
 # alpha family imports
 import alphatims.utils
 
 # third party imports
 import numba as nb
-from numba.experimental import jitclass
 import numpy as np
+from numba.experimental import jitclass
 from scipy.optimize import curve_fit
+
+from alphadia import utils
 
 
 @alphatims.utils.njit

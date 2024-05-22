@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from peptdeep.utils import linear_regression
 from peptdeep.model.ms2 import calc_ms2_similarity
+from peptdeep.utils import linear_regression
 
 
 class MetricAccumulator:

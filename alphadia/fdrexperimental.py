@@ -1,20 +1,18 @@
 # native imports
-from abc import ABC, abstractmethod
 import warnings
+from abc import ABC, abstractmethod
 from copy import deepcopy
 
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from sklearn import model_selection
-from tqdm import tqdm
 from torchmetrics.classification import BinaryAUROC
+from tqdm import tqdm
 
 
 class Classifier(ABC):

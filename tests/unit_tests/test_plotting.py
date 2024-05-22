@@ -1,9 +1,8 @@
 import matplotlib
 import numpy as np
 
-from alphadia.plotting.utils import lighten_color
-
 from alphadia.plotting.cycle import plot_cycle
+from alphadia.plotting.utils import lighten_color
 
 
 def test_lighten_color():

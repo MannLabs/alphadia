@@ -4,20 +4,19 @@
 # builtin
 
 # local
-from alphadia.utils import (
-    amean0,
-    amean1,
-    calculate_score_groups,
-    wsl_to_windows,
-    windows_to_wsl,
-    merge_missing_columns,
-)
-
-
 # global
 import numpy as np
 import pandas as pd
 import pytest
+
+from alphadia.utils import (
+    amean0,
+    amean1,
+    calculate_score_groups,
+    merge_missing_columns,
+    windows_to_wsl,
+    wsl_to_windows,
+)
 
 
 def test_amean0():

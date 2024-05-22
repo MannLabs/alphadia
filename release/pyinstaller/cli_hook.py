@@ -1,9 +1,9 @@
 import sys
 
-
 if __name__ == "__main__":
-    from alphadia import cli
     import multiprocessing
+
+    from alphadia import cli
 
     # catch pyinstaller bug
     # subprocess.CalledProcessError: Command '['/Applications/alphaDIA.app/Contents/Frameworks/alphadia', '-sS', '-c', 'import platform; print(platform.mac_ver()[0])']' returned non-zero exit status 2.

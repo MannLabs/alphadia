@@ -22,19 +22,17 @@ TransferLearningAccumulator
 
 """
 
-import numba as nb
-import pandas as pd
-import numpy as np
-import os
+import logging
 import multiprocessing
+import os
 import threading
-from tqdm import tqdm
 
+import numba as nb
+import numpy as np
+import pandas as pd
 from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
-
-
-import logging
+from tqdm import tqdm
 
 logger = logging.getLogger()
 

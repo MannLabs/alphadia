@@ -1,22 +1,22 @@
 #!python
 
 # native imports
+# third party imports
+import argparse
+import json
 import logging
-import yaml
 import os
 import re
-import json
 
-# alphadia imports
-import alphadia
-from alphadia.workflow import reporting
-from alphadia import utils
+import yaml
 
 # alpha family imports
 from alphabase.constants import modification
 
-# third party imports
-import argparse
+# alphadia imports
+import alphadia
+from alphadia import utils
+from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 

@@ -1,15 +1,14 @@
 # native imports
 import typing
 
-# alphadia imports
-
-# alpha family imports
-
-# third party imports
-from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+# alphadia imports
+# alpha family imports
+# third party imports
+from scipy.stats import gaussian_kde
 
 
 def lighten_color(color, amount=0.5):
@@ -30,8 +29,9 @@ def lighten_color(color, amount=0.5):
     tuple
         lightened color
     """
-    import matplotlib.colors as mc
     import colorsys
+
+    import matplotlib.colors as mc
 
     try:
         c = mc.cnames[color]

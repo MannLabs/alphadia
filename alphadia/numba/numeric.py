@@ -5,8 +5,8 @@
 # alpha family imports
 
 # third party imports
-import numpy as np
 import numba as nb
+import numpy as np
 
 
 @nb.njit(parallel=False, fastmath=True)

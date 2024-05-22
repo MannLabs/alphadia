@@ -1,9 +1,10 @@
-import pytest
 import os
 import re
-import pandas as pd
-import numpy as np
+
 import matplotlib
+import numpy as np
+import pandas as pd
+import pytest
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt

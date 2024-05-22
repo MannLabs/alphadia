@@ -1,25 +1,23 @@
 # native imports
-import os
-import typing
-import pickle
-from copy import deepcopy
 import logging
+import os
+import pickle
+import typing
+from copy import deepcopy
 
+import numpy as np
+
+# alpha family imports
+# third party imports
+import pandas as pd
+import torch
+import xxhash
 
 # alphadia imports
 import alphadia
-from alphadia.calibration.property import calibration_model_provider, Calibration
 from alphadia import fdr
+from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.workflow import reporting
-
-# alpha family imports
-
-# third party imports
-import pandas as pd
-import numpy as np
-import xxhash
-
-import torch
 
 logger = logging.getLogger()
 

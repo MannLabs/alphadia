@@ -1,25 +1,25 @@
-import torch
-import pandas as pd
+import logging
+
 import numpy as np
-from torch.optim.lr_scheduler import LambdaLR
+import pandas as pd
+import torch
 from alphabase.peptide.fragment import remove_unused_fragments
+from peptdeep.model.charge import ChargeModelForModAASeq
+from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
+from peptdeep.pretrained_models import ModelManager
+from peptdeep.settings import global_settings
+from torch.optim.lr_scheduler import LambdaLR
 
 from alphadia.transferlearning.metrics import (
-    MetricManager,
+    AbsErrorPercentileTestMetric,
+    AccuracyTestMetric,
+    CELossTestMetric,
     L1LossTestMetric,
     LinearRegressionTestMetric,
-    AbsErrorPercentileTestMetric,
-    CELossTestMetric,
-    AccuracyTestMetric,
-    PrecisionRecallTestMetric,
+    MetricManager,
     Ms2SimilarityTestMetric,
+    PrecisionRecallTestMetric,
 )
-
-from peptdeep.settings import global_settings
-from peptdeep.pretrained_models import ModelManager
-from peptdeep.model.model_interface import LR_SchedulerInterface, CallbackHandler
-from peptdeep.model.charge import ChargeModelForModAASeq
-import logging
 
 logger = logging.getLogger()
 

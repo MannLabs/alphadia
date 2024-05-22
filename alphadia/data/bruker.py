@@ -1,22 +1,22 @@
 # native imports
+import logging
 import math
 import os
-import logging
 
-# alphadia imports
-from alphadia import utils
-
-# alpha family imports
-import alphatims.utils
 import alphatims.bruker
 import alphatims.tempmmap as tm
 
+# alpha family imports
+import alphatims.utils
+import numba as nb
+
 # third party imports
 import numpy as np
-import numba as nb
 from numba.core import types
 from numba.experimental import jitclass
 
+# alphadia imports
+from alphadia import utils
 
 logger = logging.getLogger()
 

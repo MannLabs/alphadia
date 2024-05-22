@@ -63,8 +63,8 @@ select =  [
     "B",
     # flake8-simplify
     "SIM",
-#    # isort
-#    "I",
+    # isort
+    "I",
 ]
 ignore = [
     "E501",  # Line too long  (ruff wraps code, but not docstrings)

@@ -1,21 +1,22 @@
 # native imports
 import logging
-import typing
 import pickle
+import typing
 
-# alphadia imports
-from alphadia.plotting.utils import density_scatter
-from alphadia.calibration.models import LOESSRegression
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
-
 import sklearn.base
+from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures
+
+from alphadia.calibration.models import LOESSRegression
+
+# alphadia imports
+from alphadia.plotting.utils import density_scatter
 
 
 class Calibration:

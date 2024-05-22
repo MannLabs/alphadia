@@ -1,23 +1,21 @@
 # native imports
-import traceback
+import base64
+import json
 import logging
 import os
 import time
-from datetime import datetime, timedelta
+import traceback
 import typing
 import warnings
-import json
-import base64
+from datetime import datetime, timedelta
 from io import BytesIO
 
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 import matplotlib
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.figure import Figure
 
 # global variable which tracks if any logger has been initiated
 # As soon as its instantiated the default logger will be configured with a path to save the log file

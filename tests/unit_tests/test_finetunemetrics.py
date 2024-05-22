@@ -2,20 +2,22 @@
 Test the metrics module.
 """
 
-import numpy as np
-from alphadia.transferlearning.metrics import (
-    MetricAccumulator,
-    LinearRegressionTestMetric,
-    AbsErrorPercentileTestMetric,
-    L1LossTestMetric,
-    CELossTestMetric,
-    AccuracyTestMetric,
-    PrecisionRecallTestMetric,
-    MetricManager,
-)
-from scipy import stats, linalg
 from math import isclose
-from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score
+
+import numpy as np
+from scipy import linalg, stats
+from sklearn.metrics import accuracy_score, log_loss, precision_score, recall_score
+
+from alphadia.transferlearning.metrics import (
+    AbsErrorPercentileTestMetric,
+    AccuracyTestMetric,
+    CELossTestMetric,
+    L1LossTestMetric,
+    LinearRegressionTestMetric,
+    MetricAccumulator,
+    MetricManager,
+    PrecisionRecallTestMetric,
+)
 
 
 def get_regression_test_input():

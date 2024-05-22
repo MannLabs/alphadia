@@ -1,18 +1,16 @@
 import os
+import tempfile
 import warnings
+
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import tempfile
+import torch
 
 from alphadia import fdr
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager
-
-
-import torch
-
-import matplotlib
 
 feature_columns = [
     "base_width_mobility",

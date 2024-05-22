@@ -5,10 +5,9 @@
 # alpha family imports
 
 # third party imports
-from numba.extending import overload_method
-import numpy as np
-
 import numba as nb
+import numpy as np
+from numba.extending import overload_method
 
 
 @nb.experimental.jitclass()

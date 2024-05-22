@@ -1,16 +1,17 @@
-import tempfile
 import os
 import shutil
-import numpy as np
-import pandas as pd
-import yaml
-import pytest
+import tempfile
 from pathlib import Path
 
-from alphadia.calibration.property import Calibration
+import numpy as np
+import pandas as pd
+import pytest
+import yaml
 from sklearn.linear_model import LinearRegression
+
 from alphadia.calibration.models import LOESSRegression
-from alphadia.workflow import manager, base
+from alphadia.calibration.property import Calibration
+from alphadia.workflow import base, manager
 
 
 def test_base_manager():
