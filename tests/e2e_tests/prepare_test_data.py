@@ -20,17 +20,29 @@ DEFAULT_CONFIG_FILE_NAME = "config.yaml"
 CONFIG_SOURCE_PATH = "../../alphadia/constants/default.yaml"
 
 
+class YamlKeys:
+    """String constants for the yaml keys."""
+
+    TEST_CASES = "test_cases"
+    NAME = "name"
+    CONFIG = "config"
+    LIBRARY = "library"
+    FASTA = "fasta"
+    RAW_DATA = "raw_data"
+    SOURCE_URL = "source_url"
+
+
 def _download_all_files(test_case: dict, target_path: str) -> dict:
     """Download all files in the test case."""
 
     downloaded_files = defaultdict(list)
-    for item in ["library", "fasta", "raw_data"]:
+    for item in [YamlKeys.LIBRARY, YamlKeys.FASTA, YamlKeys.RAW_DATA]:
         if item not in test_case:
             continue
 
         for item_data in test_case[item]:
             file_name = DataShareDownloader(
-                item_data["source_url"], target_path
+                item_data[YamlKeys.SOURCE_URL], target_path
             ).download()
             downloaded_files[item].append(file_name)
 
@@ -43,15 +55,19 @@ def _create_config_file(
     """Create the config file from paths to the input files and optional extra_config."""
 
     config_to_write = {
-        "raw_path_list": downloaded_files["raw_data"],
+        "raw_path_list": downloaded_files[YamlKeys.RAW_DATA],
         "output_directory": os.path.join(target_path, OUTPUT_DIR_NAME),
     } | extra_config
 
-    if "library" in downloaded_files:
-        config_to_write = config_to_write | {"library": downloaded_files["library"][0]}
+    if YamlKeys.LIBRARY in downloaded_files:
+        config_to_write = config_to_write | {
+            "library": downloaded_files[YamlKeys.LIBRARY][0]
+        }
 
-    if "fasta" in downloaded_files:
-        config_to_write = config_to_write | {"fasta_list": downloaded_files["fasta"]}
+    if YamlKeys.FASTA in downloaded_files:
+        config_to_write = config_to_write | {
+            "fasta_list": downloaded_files[YamlKeys.FASTA]
+        }
 
     config_target_path = os.path.join(target_path, DEFAULT_CONFIG_FILE_NAME)
     yaml.safe_dump(config_to_write, open(config_target_path, "w"))
@@ -62,7 +78,9 @@ def get_test_case(test_case_name: str) -> dict:
     with open(TEST_CASES_FILE_NAME, "r") as file:
         test_cases = yaml.safe_load(file)
 
-    return [c for c in test_cases["test_cases"] if c["name"] == test_case_name][0]
+    return [
+        c for c in test_cases[YamlKeys.TEST_CASES] if c[YamlKeys.NAME] == test_case_name
+    ][0]
 
 
 if __name__ == "__main__":
@@ -76,7 +94,7 @@ if __name__ == "__main__":
     downloaded_files = _download_all_files(test_case, target_path)
 
     try:
-        extra_config = test_case["config"]
+        extra_config = test_case[YamlKeys.CONFIG]
     except (KeyError, TypeError):
         extra_config = {}
 
