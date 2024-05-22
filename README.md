@@ -89,6 +89,7 @@ Next, download the alphaDIA repository from GitHub with a `git` command. This cr
 
 ```bash
 git clone git@github.com:MannLabs/alphadia.git
+cd alphadia
 ```
 
 Switch to development branch and pull the most recent version.
@@ -102,7 +103,7 @@ git pull
 Finally, AlphaDIA and all its dependancies need to be installed. To take advantage of all features use the `-e` flag for a development install.
 
 ```bash
-pip install -e "./alphadia"
+pip install -e .
 ```
 
 ***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
@@ -110,7 +111,7 @@ pip install -e "./alphadia"
 If you want to use the GUI you will need to install all frontend packages using npm.
 
 ```bash
-cd alphadia/gui
+cd gui
 npm install
 ```
 
