@@ -1,8 +1,7 @@
-# 169:import os
+"""Test that the strict and loose requirements files are aligned."""
+
 import os
 import re
-
-import pytest
 
 from packaging.requirements import Requirement
 
