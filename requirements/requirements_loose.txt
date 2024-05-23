@@ -13,4 +13,4 @@ torchmetrics
 directlfq
 pythonnet
 zstandard
-scipy
+scipy==1.12.0 # test: tolerate_version

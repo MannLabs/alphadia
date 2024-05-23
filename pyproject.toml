@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "alphadia"
 requires-python = ">=3.9.0"
-dynamic = ["version", "dependencies", "optional-dependencies"]
+dynamic = ["version", "optional-dependencies"]
 
 authors = [
     {name = "Mann Labs", email = "opensource@alphapept.com"},
@@ -43,9 +43,59 @@ find = {}
 
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
-dependencies = {file = ["requirements/requirements.txt"]}
-optional-dependencies = {development = { file = ["requirements/requirements_development.txt"] }}
+# no mandatory dependencies: user needs to specify "loose" or "stable" excplicitly
+optional-dependencies = { stable = { file = ["requirements/requirements.txt",
+] }, development = { file = ["requirements/requirements_development.txt",
+] }, loose = { file = ["requirements/requirements_loose.txt",
+] }}
 version = {attr = "alphadia.__version__"}
 
 [project.scripts]
 alphadia = "alphadia.cli:run"
+
+
+[tool.ruff.lint]
+select =  [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+#    # pyupgrade
+#    "UP",
+#    # flake8-bugbear
+#    "B",
+#    # flake8-simplify
+#    "SIM",
+#    # isort
+#    "I",
+]
+ignore = [
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+#
+#    "S101",  # Use of assert detected. The enclosed code will be removed when compiling to optimised byte code.
+#    "COM812",  # Missing trailing comma in a dictionary
+#    "D",  # docstrings
+#    "ANN",  #  type annotations
+]
+
+
+[tool.ruff.lint]
+select =  [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+ignore = [
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028"  #  No explicit `stacklevel` keyword argument found (for warnings)
+]

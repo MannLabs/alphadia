@@ -99,13 +99,13 @@ git pull
 
 #### 4. Installation
 
-Finally, alphaDIA and all its dependencies need to be installed. To take advantage of all features use the `-e` flag for a development install.
-
+Finally, alphaDIA and all its dependencies need to be installed:
 ```bash
-pip install -e "."
+pip install ".[stable]"
 ```
-
-***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
+This will install alphaDIA with fixed versions as defined in `requirements.txt`. Alternatively, use
+`pip install -e ".[loose]"` to have less strict versioning. This is not recommended, but may be useful to avoid
+version clashes if alphaDIA is imported as a library into a defined python requirement.
 
 If you want to use the GUI you will need to install all frontend packages using npm.
 
@@ -167,6 +167,14 @@ There are currently no plans to draft a manuscript.
 ## How to contribute
 
 If you like this software, you can give us a [star](https://github.com/MannLabs/alphadia/stargazers) to boost our visibility! All direct contributions are also welcome. Feel free to post a new [issue](https://github.com/MannLabs/alphadia/issues) or clone the repository and create a [pull request](https://github.com/MannLabs/alphadia/pulls) with a new branch. For an even more interactive participation, check out the [discussions](https://github.com/MannLabs/alphadia/discussions) and the [the Contributors License Agreement](misc/CLA.md).
+
+##### Developers' install
+To take advantage of all features use the `-e` flag for a development install,
+and add the `development` tag to install additional packages required for development only, e.g.
+```bash
+pip install -e ".[stable,development]"
+```
+***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
 
 ---
 ## Changelog
