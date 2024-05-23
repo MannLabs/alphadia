@@ -46,7 +46,8 @@ find = {}
 # no mandatory dependencies: user needs to specify "loose" or "stable" excplicitly
 optional-dependencies = { stable = { file = ["requirements/requirements.txt",
 ] }, loose = { file = ["requirements/requirements_loose.txt",
-] }, development = { file = ["requirements/requirements_development.txt",
+] }, test = { file = [ "requirements/requirements_test.txt",
+] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt"
 ] }}
 version = {attr = "alphadia.__version__"}
 

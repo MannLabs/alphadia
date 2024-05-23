@@ -15,9 +15,6 @@ pipdeptree
 ipykernel
 tqdm
 psutil
-coverage
-coverage-badge
-pytest
 
 pre-commit ~= 3.7
 pywin32; sys_platform=='win32'
