@@ -106,6 +106,7 @@ pip install ".[stable]"
 This will install alphaDIA with fixed versions as defined in `requirements.txt`. Alternatively, use
 `pip install -e ".[loose]"` to have less strict versioning. This is not recommended, but may be useful to avoid
 version clashes if alphaDIA is imported as a library into a defined python requirement.
+See below for a "developer" installation.
 
 If you want to use the GUI you will need to install all frontend packages using npm.
 
