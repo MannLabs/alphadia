@@ -43,7 +43,7 @@ find = {}
 
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
-# no mandatory dependencies: user needs to specify "loose" or "stable" excplicitly
+# no mandatory dependencies: user needs to specify "stable" or "loose" explicitly
 optional-dependencies = { stable = { file = ["requirements/requirements.txt",
 ] }, loose = { file = ["requirements/requirements_loose.txt",
 ] }, test = { file = [ "requirements/requirements_test.txt",

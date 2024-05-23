@@ -23,9 +23,9 @@ def _split_at_first_hash(input_string: str) -> tuple[str, ...]:
     return tuple([p.strip() for p in parts])
 
 
-def parse_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
+def _read_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
     """
-    Parse a requirements file and return a dictionary of packages with their comments.
+    Read a requirements file and return a dictionary of packages with their comments.
 
     Parameters
     ----------
@@ -50,7 +50,7 @@ def parse_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
                 req = Requirement(req_string)
                 if req.name in packages:
                     raise ValueError(
-                        f"Duplicate package '{req.name}' found in requirements file"
+                        f"Duplicate package '{req.name}' found in requirements file '{file_path}'"
                     )
 
                 packages[req.name] = (req, comment)
@@ -82,8 +82,8 @@ def test_requirements():
     file_path_strict = os.path.join(requirements_path, file_name_strict)
     file_path_loose = os.path.join(requirements_path, file_name_loose)
 
-    reqs_strict = parse_requirements(file_path_strict)
-    reqs_loose = parse_requirements(file_path_loose)
+    reqs_strict = _read_requirements(file_path_strict)
+    reqs_loose = _read_requirements(file_path_loose)
 
     req_loose_names = reqs_loose.keys()
     req_strict_names = reqs_strict.keys()
@@ -97,18 +97,18 @@ def test_requirements():
     for req, _ in reqs_strict.values():
         assert (
             len(req.specifier) == 1
-        ), f"Requirement '{req}' does not have one defined version in {file_name_strict}"
+        ), f"Requirement '{req}' does not have one defined version in '{file_name_strict}'"
         assert str(
             list(req.specifier)[0]
         ).startswith(
             "=="
-        ), f"Requirement '{req}' does not have a fixed version ('==') in {file_name_strict}"
+        ), f"Requirement '{req}' does not have a fixed version ('==') in '{file_name_strict}'"
 
     for req_name, (req, comment) in reqs_loose.items():
         if comment != TOLERATE_VERSION_COMMENT:
             assert (
                 len(req.specifier) == 0
-            ), f"Requirement '{req}' must not have a defined version in {file_name_loose}"
+            ), f"Requirement '{req}' must not have a defined version in '{file_name_loose}'"
         else:
             # here we rely on the test for 'fixed version' above to access the specifier
             specifier_strict = reqs_strict[req_name][0].specifier
@@ -116,4 +116,4 @@ def test_requirements():
             specifier_loose = req.specifier
             assert specifier_loose.contains(
                 version_strict
-            ), f"Requirement '{req}' is too strict in {file_name_loose}"
+            ), f"Requirement '{req}' is too strict in '{file_name_loose}'"
