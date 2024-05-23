@@ -45,14 +45,13 @@ find = {}
 # https://stackoverflow.com/a/73600610
 # no mandatory dependencies: user needs to specify "loose" or "stable" excplicitly
 optional-dependencies = { stable = { file = ["requirements/requirements.txt",
-] }, development = { file = ["requirements/requirements_development.txt",
 ] }, loose = { file = ["requirements/requirements_loose.txt",
+] }, development = { file = ["requirements/requirements_development.txt",
 ] }}
 version = {attr = "alphadia.__version__"}
 
 [project.scripts]
 alphadia = "alphadia.cli:run"
-
 
 [tool.ruff.lint]
 select =  [
@@ -77,25 +76,4 @@ ignore = [
 #    "COM812",  # Missing trailing comma in a dictionary
 #    "D",  # docstrings
 #    "ANN",  #  type annotations
-]
-
-
-[tool.ruff.lint]
-select =  [
-    # pycodestyle
-    "E",
-    # Pyflakes
-    "F",
-    # pyupgrade
-    "UP",
-    # flake8-bugbear
-    "B",
-    # flake8-simplify
-    "SIM",
-    # isort
-    "I",
-]
-ignore = [
-    "E501",  # Line too long  (ruff wraps code, but not docstrings)
-    "B028"  #  No explicit `stacklevel` keyword argument found (for warnings)
 ]
