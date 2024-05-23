@@ -1,3 +1,6 @@
+# Dependencies required for running the "loose" version of alphaDIA.
+# All dependencies that are also included in `requirements.txt` must be added also here,
+# with no or a looser version constraint (enforced by a test).
 numba
 argparse
 alpharaw>=0.3.1  # test: tolerate_version

@@ -58,6 +58,14 @@ def parse_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
     return packages
 
 
+def _get_requirements_path():
+    """Get the path to the requirements directory."""
+    path_to_current_file = os.path.realpath(__file__)
+    current_directory = os.path.split(path_to_current_file)[0]
+    requirements_path = os.path.join(current_directory, "../../requirements/")
+    return requirements_path
+
+
 def test_requirements():
     """Test the strict and loose requirements.
 
@@ -68,9 +76,9 @@ def test_requirements():
     stated by the "test:tolerate_version" comment.
     """
 
-    requirements_path = "../../requirements/"
     file_name_strict = "requirements.txt"
     file_name_loose = "requirements_loose.txt"
+    requirements_path = _get_requirements_path()
     file_path_strict = os.path.join(requirements_path, file_name_strict)
     file_path_loose = os.path.join(requirements_path, file_name_loose)
 
