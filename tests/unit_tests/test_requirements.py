@@ -1,4 +1,5 @@
 # 169:import os
+import os
 import re
 
 import pytest
@@ -6,7 +7,7 @@ import pytest
 from packaging.requirements import Requirement
 
 # special comment to tolerate version in loose requirements file
-TOLERATE_VERSION_COMMENT = "test:tolerate_version"
+TOLERATE_VERSION_COMMENT = "test: tolerate_version"
 
 
 def _split_at_first_hash(input_string: str) -> tuple[str, ...]:

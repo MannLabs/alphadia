@@ -1,0 +1,16 @@
+numba
+argparse
+alpharaw>=0.3.1  # test: tolerate_version
+alphatims
+alphabase>=1.1.2 # test: tolerate_version
+peptdeep
+progressbar
+neptune
+seaborn
+rocket_fft
+xxhash
+torchmetrics
+directlfq
+pythonnet
+zstandard
+scipy
