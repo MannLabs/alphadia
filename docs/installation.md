@@ -140,7 +140,7 @@ Afterwards, verify the alphaDIA installation by running:
 `alphadia -h`
 which should give an output like this ```1.5.5```.
 
-#### Obsolote once available on pip:
+#### Obsolete once available on pip:
 As long as there is no public release yet, we can't use `pip install alphadia`.
 Below you can find hosted `.tar.gz` versions for now.
 - [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
