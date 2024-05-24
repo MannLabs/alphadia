@@ -46,25 +46,32 @@
 
 AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
-* [**One-click GUI install:**](#one-click-gui) Choose this installation if you only want the GUI and/or keep things as simple as possible. Currently available for **mac** and **windows**.
+* [**One-click GUI installation:**](#one-click-gui-install) Choose this installation if you only want the GUI and/or keep things as simple as possible. Currently available for **mac** and **windows**.
 
-* [**Developer install:**](#developer) Choose this installation if you are familiar with CLI tools, Conda and Python. This installation allows access to all available features of AlphaDIA and even allows to modify its source code directly. Generally, the developer version of AlphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
-### One-click GUI install
+
+* [**Library and CLI installation:**](#library-and-cli-install) Choose this installation if you want to use alphaDIA as a library or its command-line interface. You need to be familiar with CLI tools, Conda and Python.
+It allows access to all available features of alphaDIA.
+
+* [**Developer installation:**](docs/installation.md#developers-install) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+
+* [**Docker installation:**](docs/installation.md#use-the-dockerized-version) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+
+
+### One-click GUI installation
 
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
 * **Windows** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
 * **MacOS** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an arm based M1/2/3 processor for the One-click installer. Save the installer and open the parent folder in Finder. Right-click or two finger click and select *open*. If you receive a warning during installation click *Open*.
 
-### Developer install
+### Library and CLI installation
+If you want to use alphaDIA as a python library (e.g. for importing it into Jupyter notebooks) or only use the command-line interface,
+you can install alphaDIA via `pip`.
 
-AlphaDIA can also be installed in editable (i.e. developer) mode with a few `bash` commands. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a transparent location of your choice.
-
-#### 1. Prerequisite
-Please make sure you have a valid installation of conda or miniconda. We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
-
-If you want to use or extend the GUI, please install NodeJS as described on their  [website](https://nodejs.org/en/download).
+#### 1. Prerequisites
+Please make sure you have a valid installation of conda or miniconda.
+We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
 If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. You can find the mono installation instructions [here](https://www.mono-project.com/download/stable/#download-lin). A detailed guide to installing alphaRaw can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
@@ -73,52 +80,28 @@ If you want to use `.raw` files on Thermo instruments alphaRaw is required, whic
 For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise dependancy conflicts can occur with already existing packages.
 
 ```bash
-conda create --name alpha python=3.9 -y
-conda activate alpha
+conda create --name alphadia python=3.9 -y
+conda activate alphadia
 ```
 
-#### 3. Setting up the repository
-***Depending on the state of the project the repository might not be public yet. In this case it is required that you generate a ssh key and link it to you GitHub account. [More](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)***
 
-Navigate to a folder where you would like to install alphaDIA
+
+#### 3. Installation
+
+Finally, alphaDIA and all its dependencies can be installed by
 ```bash
-cd ~/Documents/git
+pip install alphadia[stable]
 ```
+We strongly recommend using the `stable` version, which has all dependencies fixed,
+for reasons of reproducibility and integrity.
 
-Next, download the alphaDIA repository from GitHub with a `git` command. This creates a new alphaDIA subfolder in your current directory.
-
-```bash
-git clone git@github.com:MannLabs/alphadia.git
-```
-
-Switch to development branch and pull the most recent version.
-```bash
-git switch development
-git pull
-```
-
-#### 4. Installation
-
-Finally, alphaDIA and all its dependencies need to be installed:
-```bash
-pip install ".[stable]"
-```
-This will install alphaDIA with fixed versions as defined in `requirements.txt`. Alternatively, use
-`pip install -e ".[loose]"` to have less strict versioning. This is not recommended, but may be useful to avoid
+Alternatively, use
+`pip install alphadia`, which comes with less version constraints. This is not recommended, but may be useful to avoid
 version clashes if alphaDIA is imported as a library into a defined python requirement.
-See below for a "developer" installation.
+Note however, that this "loose" version might be affected e.g. by breaking changes of third-party dependencies.
 
-If you want to use the GUI you will need to install all frontend packages using npm.
 
-```bash
-cd alphadia/gui
-npm install
-```
 
-The GUI can be started by typing
-```bash
-npm run dev
-```
 
 ---
 ## Getting started
@@ -162,20 +145,12 @@ In case of issues, check out the following:
 ---
 ## Citations
 
-There are currently no plans to draft a manuscript.
+There are currently only vague plans to draft a manuscript.
 
 ---
 ## How to contribute
 
 If you like this software, you can give us a [star](https://github.com/MannLabs/alphadia/stargazers) to boost our visibility! All direct contributions are also welcome. Feel free to post a new [issue](https://github.com/MannLabs/alphadia/issues) or clone the repository and create a [pull request](https://github.com/MannLabs/alphadia/pulls) with a new branch. For an even more interactive participation, check out the [discussions](https://github.com/MannLabs/alphadia/discussions) and the [the Contributors License Agreement](misc/CLA.md).
-
-##### Developers' install
-To take advantage of all features use the `-e` flag for a development install,
-and add the `development` tag to install additional packages required for development only, e.g.
-```bash
-pip install -e ".[stable,development]"
-```
-***By using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.***
 
 ---
 ## Changelog
