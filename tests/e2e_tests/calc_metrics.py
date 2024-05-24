@@ -156,7 +156,7 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
     return fig
 
 
-def _get_history_plot(test_results: dict):
+def _get_history_plots(test_results: dict, metrics_classes: list):
     """Get all past runs from neptune, add the current one and create plots."""
 
     test_results = test_results.copy()
@@ -169,12 +169,15 @@ def _get_history_plot(test_results: dict):
     df = pd.concat([runs_table_df, test_results_df])
 
     test_case_name = test_results["test_case"]
-    # TODO do this for all metrics
-    fig = _basic_plot(
-        df, test_case_name, "BasicStats/proteins_mean", "BasicStats/proteins_std"
-    )
 
-    return [("BasicStats/proteins_mean", fig)]
+    figs = []
+    for metrics_class in [cls.__name__ for cls in metrics_classes]:
+        # TODO find a smarter way to get the metrics
+        for metric in [k for k in test_results.keys() if k.startswith(metrics_class)]:
+            fig = _basic_plot(df, test_case_name, metric)
+            figs.append((metric, fig))
+
+    return figs
 
 
 if __name__ == "__main__":
@@ -227,7 +230,7 @@ if __name__ == "__main__":
                 neptune_run["output/" + file_name].track_files(file_path)
 
         try:
-            history_plots = _get_history_plot(test_results)
+            history_plots = _get_history_plots(test_results, metrics_classes)
 
             for name, plot in history_plots:
                 neptune_run[f"plots/{name}"].upload(plot)
