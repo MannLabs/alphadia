@@ -75,7 +75,7 @@ Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
 ##### Setting up mono [MacOS/Linux only]
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. You can find the mono installation instructions [here](https://www.mono-project.com/download/stable/#download-lin). A detailed guide to installing alphaRaw can be found [here](https://github.com/MannLabs/alpharaw#installation).
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
 
