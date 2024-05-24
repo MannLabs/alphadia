@@ -113,7 +113,12 @@ def test_requirements():
             # here we rely on the test for 'fixed version' above to access the specifier
             specifier_strict = reqs_strict[req_name][0].specifier
             version_strict = str(list(specifier_strict)[0]).replace("==", "")
+
             specifier_loose = req.specifier
             assert specifier_loose.contains(
                 version_strict
             ), f"Requirement '{req}' is too strict in '{file_name_loose}'"
+
+            assert str(specifier_loose).startswith(
+                ">="
+            ), f"Requirement '{req}' must be defined by '>=' in '{file_name_strict}'"

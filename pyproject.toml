@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "alphadia"
 requires-python = ">=3.9.0"
-dynamic = ["version", "optional-dependencies"]
+dynamic = ["version", "dependencies", "optional-dependencies"]
 
 authors = [
     {name = "Mann Labs", email = "opensource@alphapept.com"},
@@ -43,9 +43,8 @@ find = {}
 
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
-# no mandatory dependencies: user needs to specify "stable" or "loose" explicitly
+dependencies = {file = ["requirements/requirements_loose.txt"]}
 optional-dependencies = { stable = { file = ["requirements/requirements.txt",
-] }, loose = { file = ["requirements/requirements_loose.txt",
 ] }, test = { file = [ "requirements/requirements_test.txt",
 ] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt"
 ] }}
