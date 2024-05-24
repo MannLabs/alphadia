@@ -1,7 +1,8 @@
 import tempfile
 import pytest
 import os
-from alphadia import planning, testing
+from alphadia import planning
+from alphadia.test_data_downloader import DataShareDownloader
 from alphabase.constants import _const
 
 
@@ -63,7 +64,9 @@ def test_library_loading():
     for test_dict in test_cases:
         print("Testing {}".format(test_dict["name"]))
 
-        test_data_location = testing.update_datashare(test_dict["url"], temp_directory)
+        test_data_location = DataShareDownloader(
+            test_dict["url"], temp_directory
+        ).download()
         plan = planning.Plan(temp_directory, library_path=test_data_location)
         assert len(plan.spectral_library.precursor_df) > 0
         assert len(plan.spectral_library.fragment_df) > 0

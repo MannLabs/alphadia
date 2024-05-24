@@ -26,12 +26,32 @@ def _load_speclib_hdf(file_path: str) -> dict[str, pd.DataFrame]:
     raise NotImplementedError("Loading speclib hdf is not implemented yet.")
 
 
+class OutputFiles:
+    """String constants for the output file names."""
+
+    PG_MATRIX = "pg.matrix.tsv"
+    PRECURSORS = "precursors.tsv"
+    STAT = "stat.tsv"
+    LOG = "log.txt"
+    # SPECLIB = "speclib.hdf"
+    # SPECLIB_MBR = "speclib.mbr.hdf"
+
+    @classmethod
+    def all_values(cls) -> list[str]:
+        """Get all values of the class as a list of str."""
+        return [
+            v
+            for k, v in cls.__dict__.items()
+            if not k.startswith("__") and not k == "all_values"
+        ]
+
+
 file_name_to_read_method_mapping = {
-    "pg.matrix.tsv": _load_tsv,
-    "precursors.tsv": _load_tsv,
-    "stat.tsv": _load_tsv,
-    "speclib.hdf": _load_speclib_hdf,
-    "speclib.mbr.hdf": _load_speclib_hdf,
+    OutputFiles.PG_MATRIX: _load_tsv,
+    OutputFiles.PRECURSORS: _load_tsv,
+    OutputFiles.STAT: _load_tsv,
+    # OutputFiles.SPECLIB: _load_speclib_hdf,
+    # OutputFiles.SPECLIB_MBR: _load_speclib_hdf,
 }
 
 
@@ -91,7 +111,7 @@ class BasicStats(Metrics):
 
     def _calc(self):
         """Calculate metrics."""
-        df = self._data_store["stat.tsv"]
+        df = self._data_store[OutputFiles.STAT]
 
         for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
             self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
@@ -100,23 +120,28 @@ class BasicStats(Metrics):
 
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
-    short_sha = sys.argv[2]
-    branch_name = sys.argv[3]
+    run_time_minutes = int(sys.argv[2]) / 60
+    short_sha = sys.argv[3]
+    branch_name = sys.argv[4]
 
     test_case = get_test_case(test_case_name)
-    selected_metrics = test_case["metrics"]  # ['BasicStats', "BasicStats2"]
+    selected_metrics = test_case["metrics"]  # ['BasicStats', ]
 
     test_results = {}
     test_results["test_case"] = test_case_name
-    # test_results["config"] = # TODO add config ?
-    # test_results["commit_hash"] = # TODO add more metadata: commit hash, ...
+    test_results["run_time_minutes"] = run_time_minutes
+    test_results["short_sha"] = short_sha
+    test_results["branch_name"] = branch_name
+    test_results["test_case_details"] = str(test_case)
+
+    output_path = os.path.join(test_case_name, OUTPUT_DIR_NAME)
+
+    metrics_classes = [
+        cls for cls in Metrics.__subclasses__() if cls.__name__ in selected_metrics
+    ]
 
     try:
-        data_store = DataStore(os.path.join(test_case_name, OUTPUT_DIR_NAME))
-
-        metrics_classes = [
-            cls for cls in Metrics.__subclasses__() if cls.__name__ in selected_metrics
-        ]
+        data_store = DataStore(output_path)
 
         for cl in metrics_classes:
             metrics = cl(data_store).get()
@@ -129,6 +154,17 @@ if __name__ == "__main__":
             project=NEPTUNE_PROJECT_NAME,
             tags=[test_case_name, short_sha, branch_name],
         )
+
+        # metrics
         for k, v in test_results.items():
+            print(f"adding {k}={v}")
             neptune_run[k] = v
+
+        # files
+        for file_name in OutputFiles.all_values():
+            print("adding", file_name)
+            file_path = os.path.join(output_path, file_name)
+            if os.path.exists(file_path):
+                neptune_run["output/" + file_name].track_files(file_path)
+
         neptune_run.stop()
