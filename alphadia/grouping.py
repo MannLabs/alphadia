@@ -75,6 +75,7 @@ def group_and_parsimony(
     id_group = [";".join(x) for x in id_group]
 
     # reshape output data and align with precursor dataframe input. Use dictionary for efficient ordering
+    # TODO consider iterating over precursor_idx directly
     return_dict = {}
     for i, peptide_set in enumerate(precursor_set):
         for key in peptide_set:
@@ -83,16 +84,18 @@ def group_and_parsimony(
     # check that all precursors are found again
     if len(return_dict) != len(precursor_idx):
         raise ValueError(
-            f"Not all precursors were found in the output of the grouping function. {len(return_dict)} precursors were found, but {len(precursor_idx)} were expected."
+            f"""Not all precursors were found in the output of the grouping function. {len(return_dict)} precursors were found, but {len(precursor_idx)} were expected."""
         )
 
     # check that all return_dict keys are unique. Assume same length and unique keys constitutes match to precursor_idx
     if len(return_dict) != len(set(return_dict.keys())):
         raise ValueError(
-            "Not all precursors were found in the output of the grouping function. Duplicate precursors were found."
+            """Not all precursors were found in the output of the grouping function. 
+            Duplicate precursors were found."""
         )
 
     # order by precursor index and return as lists
+    # TODO look above, order by precursor_idx directly?
     return_dict_ordered = {key: return_dict[key] for key in precursor_idx}
     ids, groups = zip(*return_dict_ordered.values())
 
@@ -122,17 +125,20 @@ def perform_grouping(
 
     # create non-duplicated view of precursor table
     duplicate_mask = ~psm.duplicated(subset=["precursor_idx"], keep="first")
-    # make sure column is string
+    
+    # make sure column is string and subset to relevant columns
     psm[genes_or_proteins] = psm[genes_or_proteins].astype(str)
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
 
     # check if duplicate precursors exist
+    # TODO: consider removing check for duplicates since duplicate masking is implemented above
     if upsm.duplicated(subset=["precursor_idx"]).any():
         raise ValueError(
-            "The same precursor was found annotated to different proteins. Please make sure all precursors were searched with the same library."
+            """The same precursor was found annotated to different proteins. 
+            Please make sure all precursors were searched with the same library."""
         )
 
-    # handle case with only one decoy class:
+    # greedy set cover on all proteins if there is only one decoy class
     unique_decoys = upsm[decoy_column].unique()
     if len(unique_decoys) == 1:
         upsm[decoy_column] = -1
@@ -141,15 +147,19 @@ def perform_grouping(
         )
         upsm = upsm[["precursor_idx", "pg_master", "pg", genes_or_proteins]]
     else:
+        # handle case with multiple decoy classes
         target_mask = upsm[decoy_column] == 0
         decoy_mask = upsm[decoy_column] == 1
 
+        # greedy set cover on targets
         t_df = upsm[target_mask].copy()
+        # TODO: consider directly assigning to t_df["pg_master"], t_df["pg"] = group_and_parsimony(...)
         new_columns = group_and_parsimony(
             t_df.precursor_idx.values, t_df[genes_or_proteins].values
         )
         t_df["pg_master"], t_df["pg"] = new_columns
 
+        # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
         new_columns = group_and_parsimony(
             d_df.precursor_idx.values, d_df[genes_or_proteins].values
@@ -160,7 +170,10 @@ def perform_grouping(
             ["precursor_idx", "pg_master", "pg", genes_or_proteins]
         ]
 
+    # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that 
+    # are never master proteins
     if group:
+        # select all master protein groups
         allowed_pg = upsm["pg"].str.split(";", expand=True)[0].unique()
         allowed_set_pg = set(allowed_pg)
 
