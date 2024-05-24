@@ -86,10 +86,6 @@ conda create --name alphadia python=3.9 -y
 conda activate alphadia
 ```
 
-
-
-#### 3. Installation
-
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
 pip install alphadia[stable]
@@ -104,7 +100,6 @@ Note however, that this "loose" version might be affected e.g. by breaking chang
 
 Finally, run `alphadia -v` to check if the installation was successful;
 `alphadia -h` will give you a list of command-line options.
-
 
 ---
 ## Getting started

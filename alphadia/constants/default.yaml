@@ -41,7 +41,6 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  save_hdf: True
   checkpoint_folder_path: None
 
 search:
