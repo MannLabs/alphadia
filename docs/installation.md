@@ -1,83 +1,53 @@
 # Installation
 
-## Install alphaDIA on a SLURM cluster
+## Developer installation
 
-### 1. Prerequisites
-Please make sure that conda is available and custom environments can be created.
+AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
 
-### 2. Setting up the conda environment
-First we will create a new conda environment and install python 3.11. Depending on the cluster a lower python version might be needed.
+Make sure to first read the prerequisites section [here](../README.md#1-prerequisites)  to have all necessary software
+(conda, mono) installed.
+
+### 1. Setting up the repository
+
+Navigate to a folder where you would like to install alphaDIA and
+ download the alphaDIA repository. This creates a subfolder `alphadia` in your current directory
 ```bash
-conda create -n alphadia
-conda activate alphadia
+cd ~/work/search_engines
+git clone git@github.com:MannLabs/alphadia.git
+cd alphadia
 ```
-Please make sure you include the conda-forge channel
+
+Optionally, to get the latest features, switch to the `development` branch and pull the most recent version
 ```bash
-conda install python=3.11 -c conda-forge
+git switch development
+git pull
 ```
 
-### 3. Installing mono
-We will next install mono to support reading proprietary vendor formats like Thermo `.raw` files.
+### 2. Installation: backend
+
+Use pip to install alphaDIA, using the `development` tag to install additional packages required for development only
 ```bash
-conda install mono -c conda-forge
+pip install -e ".[stable,development]"
 ```
+If you need less strict versions for third-party dependencies, use
+`pip install -e ".[development]"`, but make sure to read the corresponding caveats [here](../README.md#3-installation).
 
-Make sure mono is installed by running
+Note: by using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.
+
+
+### 3. Installation: GUI (optional)
+
+If you want to use or extend the GUI, please install NodeJS as described on their  [website](https://nodejs.org/en/download).
+
+Install all frontend packages using npm
 ```bash
-mono --version
+cd gui
+npm install
 ```
 
-Make sure the output looks something like this:
-```
-Mono JIT compiler version 6.12.0.90 (tarball Fri Mar  5 04:37:13 UTC 2021)
-Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-project.com
-	TLS:           __thread
-	SIGSEGV:       altstack
-	Notifications: epoll
-	Architecture:  amd64
-	Disabled:      none
-	Misc:          softdebug
-	Interpreter:   yes
-	LLVM:          supported, not enabled.
-	Suspend:       hybrid
-	GC:            sgen (concurrent by default)
-```
-### 4. Installing alphaDIA
-Next we will need to install alphaDIA. As there is no public release yet, we can't use `pip install alphadia`.
-Below you can find hosted `.tar.gz` versions for now.
-- [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
-- [alphadia-v1.5.5](https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download)
-
-Navigate to your home directory or a directory where you have 'write' and 'execute' permissions.
+The GUI can then be started by typing
 ```bash
-cd ~
-```
-
-Copy the link for the most recent version and download it using wget.
-```bash
-wget https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download -O alphadia.tar.gz
-```
-
-Untar the file
-```bash
-tar -xf ./alphadia.tar.gz
-```
-
-You should get a folder named `alphadia-x.x.x`
-
-Install alphaDIA using pip, this might take some time.
-```bash
-pip install -e ./alphadia-1.5.5
-```
-
-Verify the alphaDIA installation by running:
-```bash
-alphadia -h
-```
-
-You should get an output like this:
-```
-1.5.5
+npm run dev
 ```
 
 ## Use the dockerized version
@@ -119,3 +89,76 @@ docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 ```
 AlphaDIA will start running immediately. Alternatively, you can run an interactive session with
 `docker run -v $DATA_FOLDER:/app/data/ --rm -it alphadia-docker bash`
+
+## Installing alphaDIA on a SLURM cluster
+
+### 1. Prerequisites
+Check the prerequisites section [here](../README.md#1-prerequisites).
+
+### 2. Set up environment
+Create and activate a conda environment as described [here](../README.md#2-setting-up-the-environment).
+
+### 3. Installing mono
+Install mono to support reading proprietary vendor formats like Thermo `.raw` files.
+
+Please make sure you include the conda-forge channel
+```bash
+conda install python=3.9 -c conda-forge
+```
+Then install mono by
+```bash
+conda install mono -c conda-forge
+```
+
+Make sure mono is installed by running
+```bash
+mono --version
+```
+
+Make sure the output looks something like this:
+```
+Mono JIT compiler version 6.12.0.90 (tarball Fri Mar  5 04:37:13 UTC 2021)
+Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-project.com
+	TLS:           __thread
+	SIGSEGV:       altstack
+	Notifications: epoll
+	Architecture:  amd64
+	Disabled:      none
+	Misc:          softdebug
+	Interpreter:   yes
+	LLVM:          supported, not enabled.
+	Suspend:       hybrid
+	GC:            sgen (concurrent by default)
+```
+
+
+### 4. Installing alphaDIA
+
+Install alphaDIA using pip as described [here](../README.md#3-installation).
+
+Afterwards, verify the alphaDIA installation by running:
+`alphadia -h`
+which should give an output like this ```1.5.5```.
+
+#### Obsolete once available on pip:
+As long as there is no public release yet, we can't use `pip install alphadia`.
+Below you can find hosted `.tar.gz` versions for now.
+- [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
+- [alphadia-v1.5.5](https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download)
+
+Copy the link for the most recent version and download it using wget.
+```bash
+wget https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download -O alphadia.tar.gz
+```
+
+Untar the file
+```bash
+tar -xf ./alphadia.tar.gz
+```
+
+You should get a folder named `alphadia-x.x.x`
+
+Install alphaDIA using pip, this might take some time.
+```bash
+pip install -e ./alphadia-1.5.5
+```

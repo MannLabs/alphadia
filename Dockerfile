@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 COPY . .
 
-RUN pip install .
+RUN pip install ".[stable]"
 
 USER alphadiauser
 
