@@ -1,6 +1,5 @@
 on:
   pull_request:
-    branches:
   workflow_dispatch:
 
 name: Default installation and tests
