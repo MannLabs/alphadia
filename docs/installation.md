@@ -1,6 +1,6 @@
 # Installation
 
-## Developers' install
+## Developer installation
 
 AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
 
@@ -9,13 +9,10 @@ Make sure to first read the prerequisites section [here](../README.md#1-prerequi
 
 ### 1. Setting up the repository
 
-Navigate to a folder where you would like to install alphaDIA
+Navigate to a folder where you would like to install alphaDIA and
+ download the alphaDIA repository. This creates a subfolder `alphadia` in your current directory
 ```bash
 cd ~/work/search_engines
-```
-
-Next, download the alphaDIA repository, which creates a subfolder `alphadia` in your current directory
-```bash
 git clone git@github.com:MannLabs/alphadia.git
 cd alphadia
 ```
@@ -38,7 +35,7 @@ If you need less strict versions for third-party dependencies, use
 Note: by using the editable flag `-e`, all modifications to the [alphaDIA source code folder](alphadia ) are directly reflected when running alphaDIA. Note that the alphaDIA folder cannot be moved and/or renamed if an editable version is installed.
 
 
-### 2. Installation: GUI
+### 3. Installation: GUI (optional)
 
 If you want to use or extend the GUI, please install NodeJS as described on their  [website](https://nodejs.org/en/download).
 

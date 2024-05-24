@@ -46,34 +46,35 @@
 
 AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
-* [**One-click GUI installation:**](#one-click-gui-install) Choose this installation if you only want the GUI and/or keep things as simple as possible. Currently available for **mac** and **windows**.
+* [**One-click GUI installation:**](#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
 
-
-
-* [**Library and CLI installation:**](#library-and-cli-install) Choose this installation if you want to use alphaDIA as a library or its command-line interface. You need to be familiar with CLI tools, Conda and Python.
+* [**Library and CLI installation:**](#library-and-cli-installation) Choose this installation if you want to use alphaDIA as a library or its command-line interface. You need to be familiar with CLI tools, Conda and Python.
 It allows access to all available features of alphaDIA.
 
-* [**Developer installation:**](docs/installation.md#developers-install) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+* [**Developer installation:**](docs/installation.md#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
 * [**Docker installation:**](docs/installation.md#use-the-dockerized-version) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
 
 
 ### One-click GUI installation
-
+Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
-* **Windows** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an arm based M1/2/3 processor for the One-click installer. Save the installer and open the parent folder in Finder. Right-click or two finger click and select *open*. If you receive a warning during installation click *Open*.
+* **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
+* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*.
+
+As of now, **Linux** users need follow the steps for the
+[developer installation](docs/installation.md#developer-installation) in order to use the GUI.
 
 ### Library and CLI installation
 If you want to use alphaDIA as a python library (e.g. for importing it into Jupyter notebooks) or only use the command-line interface,
-you can install alphaDIA via `pip`.
+you can install alphaDIA via `pip`. This is currently also the preferred way for Linux users that do not need the GUI.
 
 #### 1. Prerequisites
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. You can find the mono installation instructions [here](https://www.mono-project.com/download/stable/#download-lin). A detailed guide to installing alphaRaw can be found [here](https://github.com/MannLabs/alpharaw#installation).
+**MacOS/Linux only:** If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. You can find the mono installation instructions [here](https://www.mono-project.com/download/stable/#download-lin). A detailed guide to installing alphaRaw can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
 
@@ -100,7 +101,8 @@ Alternatively, use
 version clashes if alphaDIA is imported as a library into a defined python requirement.
 Note however, that this "loose" version might be affected e.g. by breaking changes of third-party dependencies.
 
-
+Finally, run `alphadia -v` to check if the installation was successful;
+`alphadia -h` will give you a list of command-line options.
 
 
 ---
@@ -156,6 +158,7 @@ If you like this software, you can give us a [star](https://github.com/MannLabs/
 ## Changelog
 
 See the [HISTORY.md](HISTORY.md) for a full overview of the changes made in each version.
+
 ---
 ## About
 
