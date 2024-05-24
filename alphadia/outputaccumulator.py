@@ -100,6 +100,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
             "mods",
             "mod_sites",
             "proba",
+            "decoy",
         ],
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -132,9 +133,15 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = psm_df[selected_precursor_columns]
         # validate.precursors_flat_from_output(psm_df)
 
+        # remove decoy precursors
+        psm_df = psm_df[psm_df["decoy"] == 0]
+
         self._precursor_df = pd.DataFrame()
         for col in psm_df.columns:
             self._precursor_df[col] = psm_df[col]
+
+        self._precursor_df["decoy"] = self._precursor_df["decoy"].astype(int)
+        self._precursor_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
 
         # self._precursor_df.set_index('precursor_idx', inplace=True)
         # Change the data type of the mods column to string

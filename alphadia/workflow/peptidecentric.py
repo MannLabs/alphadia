@@ -1109,6 +1109,9 @@ def _build_candidate_speclib_flat(
         "mod_sites",
         "sequence",
         "charge",
+        "rt_observed",
+        "mobility_observed",
+        "mz_observed",
     ],
 ) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
@@ -1141,6 +1144,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
+            "rt_observed", "mobility_observed", "mz_observed"
         ]
 
     Returns
@@ -1152,13 +1156,13 @@ def _build_candidate_speclib_flat(
         Dataframe with scored candidates
     """
     # remove decoys
-    psm_df = psm_df[psm_df["decoy"] == 0]
+    # psm_df = psm_df[psm_df["decoy"] == 0]
 
-    for col in ["rt_observed", "mobility_observed", "mz_observed"]:
-        optional_columns += [col] if col in psm_df.columns else []
+    # make copy to avoid modifying the original dataframe
+    _optional_columns = [col for col in optional_columns if col in psm_df.columns]
 
     scored_candidates = plexscoring.candidate_features_to_candidates(
-        psm_df, optional_columns=optional_columns
+        psm_df, optional_columns=_optional_columns
     )
 
     # create speclib with fragment_types of interest
