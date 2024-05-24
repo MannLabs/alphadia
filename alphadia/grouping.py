@@ -14,6 +14,7 @@ from numpy.typing import NDArray
 def group_and_parsimony(
     precursor_idx: NDArray[np.int64],
     precursor_ids: NDArray[Any],
+    return_groups: bool = False,
 ):
     """Function to group ids based on precursor indices and return groups & master ids as lists
 
@@ -63,8 +64,8 @@ def group_and_parsimony(
             id_dict[subject_protein] = new_subject_set
             # With the following lines commented out, the query will only eliminate peptides from 
             # respective subject proteins, but we will not add them to the query group
-            # if len(new_subject_set) == 0:
-            #    query_group.append(subject_protein)
+            if return_groups and len(new_subject_set) == 0:
+               query_group.append(subject_protein)
 
         # save query to output lists
         id_group.append(query_group)
@@ -106,6 +107,7 @@ def perform_grouping(
     genes_or_proteins: str = "proteins",
     decoy_column: str = "decoy",
     group: bool = True,
+    return_parsimony_groups: bool = False,
 ):
     """Highest level function for grouping proteins in precursor table
 
@@ -143,7 +145,7 @@ def perform_grouping(
     if len(unique_decoys) == 1:
         upsm[decoy_column] = -1
         upsm["pg_master"], upsm["pg"] = group_and_parsimony(
-            upsm.precursor_idx.values, upsm[genes_or_proteins].values
+            upsm.precursor_idx.values, upsm[genes_or_proteins].values, return_parsimony_groups
         )
         upsm = upsm[["precursor_idx", "pg_master", "pg", genes_or_proteins]]
     else:
@@ -155,14 +157,14 @@ def perform_grouping(
         t_df = upsm[target_mask].copy()
         # TODO: consider directly assigning to t_df["pg_master"], t_df["pg"] = group_and_parsimony(...)
         new_columns = group_and_parsimony(
-            t_df.precursor_idx.values, t_df[genes_or_proteins].values
+            t_df.precursor_idx.values, t_df[genes_or_proteins].values, return_parsimony_groups
         )
         t_df["pg_master"], t_df["pg"] = new_columns
 
         # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
         new_columns = group_and_parsimony(
-            d_df.precursor_idx.values, d_df[genes_or_proteins].values
+            d_df.precursor_idx.values, d_df[genes_or_proteins].values, return_parsimony_groups
         )
         d_df["pg_master"], d_df["pg"] = new_columns
 
@@ -173,7 +175,7 @@ def perform_grouping(
     # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that 
     # are never master proteins
     if group:
-        # select all master protein groups
+        # select all master protein groups, which are the first in the semicolon separated list
         allowed_pg = upsm["pg"].str.split(";", expand=True)[0].unique()
         allowed_set_pg = set(allowed_pg)
 
