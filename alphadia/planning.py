@@ -223,8 +223,9 @@ class Plan:
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
-        if self.config["library_prediction"]["save_hdf"]:
-            spectral_library.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        library_path = os.path.join(self.output_folder, "speclib.hdf")
+        logger.info(f"Saving library to {library_path}")
+        spectral_library.save_hdf(library_path)
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
