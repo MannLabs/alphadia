@@ -107,7 +107,7 @@ scoring_config:
   fragment_mz_tolerance: 15
 
 multiplexing:
-  multiplexed_quant: False
+  enabled: False
   target_channels: '4,8'
   decoy_channel: 12
   reference_channel: 0

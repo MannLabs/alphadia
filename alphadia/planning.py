@@ -26,6 +26,24 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import torch
 
+from alphabase.constants import modification
+
+modification.add_new_modifications(
+    {
+        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
+        "Dimethyl:d12@Any N-term": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@R": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@K": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Label:13C(12)@K": {"composition": "C(12)"},
+    }
+)
+
 
 class Plan:
     def __init__(
@@ -298,7 +316,7 @@ class Plan:
                 psm_df, frag_df = workflow.extraction()
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
-                if self.config["multiplexing"]["multiplexed_quant"]:
+                if self.config["multiplexing"]["enabled"]:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
