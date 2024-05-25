@@ -139,7 +139,6 @@ dmypy.json
 
 # Data
 testdata/
-nbs/debug/dev_grouping_comparison_data/
 
 ######################
 # OS generated files #
