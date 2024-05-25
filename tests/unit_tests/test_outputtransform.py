@@ -30,6 +30,9 @@ def test_output_transform():
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
         },
+        "multiplexing": {
+            "enabled": False,
+        },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
