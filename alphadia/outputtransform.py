@@ -648,7 +648,9 @@ class SearchPlanOutput:
         for folder in folder_list:
             raw_name = os.path.basename(folder)
             stat_df_list.append(
-                build_stat_df(raw_name, psm_df[psm_df["run"] == raw_name], all_channels)
+                _build_run_stat_df(
+                    raw_name, psm_df[psm_df["run"] == raw_name], all_channels
+                )
             )
 
         stat_df = pd.concat(stat_df_list)
@@ -813,8 +815,27 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def build_stat_df(raw_name, run_df, channels=[0]):
-    """Build stat dataframe for run"""
+def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] = [0]):
+    """Build stat dataframe for a single run.
+
+    Parameters
+    ----------
+
+    raw_name: str
+        Name of the raw file
+
+    run_df: pd.DataFrame
+        Dataframe containing the precursor data
+
+    channels: List[int]
+        List of channels to include in the output
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe containing the statistics
+
+    """
 
     out_df = []
 
