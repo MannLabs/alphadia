@@ -19,15 +19,15 @@ def group_and_parsimony(
     """Function to group ids based on precursor indices and return groups & master ids as lists
 
     Args:
-        precursor_idx (np.array[int]): array containing unique integer indices corresponding 
+        precursor_idx (np.array[int]): array containing unique integer indices corresponding
             to each peptide precursor
-        precursor_ids (np.array[str]): array of variable length semicolon separated str belonging 
+        precursor_ids (np.array[str]): array of variable length semicolon separated str belonging
             to a given peptide precursor id
 
     Returns
-        ids (list[str]): list of ids linked to a given peptide precursor, such that each 
+        ids (list[str]): list of ids linked to a given peptide precursor, such that each
             precursor only belongs to one id. This list is ordered by precursor_idx.
-        groups (list[str]): list of semicolon separated ids belonging to a given peptide precursor, 
+        groups (list[str]): list of semicolon separated ids belonging to a given peptide precursor,
             such that each precursor only belongs to one group. This list is ordered by precursor_idx.
 
     """
@@ -62,10 +62,10 @@ def group_and_parsimony(
                 continue
             new_subject_set = subject_peptides - query_peptides
             id_dict[subject_protein] = new_subject_set
-            # With the following lines commented out, the query will only eliminate peptides from 
+            # With the following lines commented out, the query will only eliminate peptides from
             # respective subject proteins, but we will not add them to the query group
             if return_groups and len(new_subject_set) == 0:
-               query_group.append(subject_protein)
+                query_group.append(subject_protein)
 
         # save query to output lists
         id_group.append(query_group)
@@ -102,6 +102,7 @@ def group_and_parsimony(
 
     return ids, groups
 
+
 def perform_grouping(
     psm: pd.DataFrame,
     genes_or_proteins: str = "proteins",
@@ -127,7 +128,7 @@ def perform_grouping(
 
     # create non-duplicated view of precursor table
     duplicate_mask = ~psm.duplicated(subset=["precursor_idx"], keep="first")
-    
+
     # make sure column is string and subset to relevant columns
     psm[genes_or_proteins] = psm[genes_or_proteins].astype(str)
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
@@ -145,7 +146,9 @@ def perform_grouping(
     if len(unique_decoys) == 1:
         upsm[decoy_column] = -1
         upsm["pg_master"], upsm["pg"] = group_and_parsimony(
-            upsm.precursor_idx.values, upsm[genes_or_proteins].values, return_parsimony_groups
+            upsm.precursor_idx.values,
+            upsm[genes_or_proteins].values,
+            return_parsimony_groups,
         )
         upsm = upsm[["precursor_idx", "pg_master", "pg", genes_or_proteins]]
     else:
@@ -157,14 +160,18 @@ def perform_grouping(
         t_df = upsm[target_mask].copy()
         # TODO: consider directly assigning to t_df["pg_master"], t_df["pg"] = group_and_parsimony(...)
         new_columns = group_and_parsimony(
-            t_df.precursor_idx.values, t_df[genes_or_proteins].values, return_parsimony_groups
+            t_df.precursor_idx.values,
+            t_df[genes_or_proteins].values,
+            return_parsimony_groups,
         )
         t_df["pg_master"], t_df["pg"] = new_columns
 
         # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
         new_columns = group_and_parsimony(
-            d_df.precursor_idx.values, d_df[genes_or_proteins].values, return_parsimony_groups
+            d_df.precursor_idx.values,
+            d_df[genes_or_proteins].values,
+            return_parsimony_groups,
         )
         d_df["pg_master"], d_df["pg"] = new_columns
 
@@ -172,7 +179,7 @@ def perform_grouping(
             ["precursor_idx", "pg_master", "pg", genes_or_proteins]
         ]
 
-    # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that 
+    # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that
     # are never master proteins
     if group:
         # select all master protein groups, which are the first in the semicolon separated list

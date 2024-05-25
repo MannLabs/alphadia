@@ -20,7 +20,7 @@ def construct_test_cases():
         "proteins": ["A", "A", "B", "B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "B", "B"],
-        "pg": ["A", "A", "B", "B"], # heuristic grouping
+        "pg": ["A", "A", "B", "B"],  # heuristic grouping
     }
 
     differentiable_proteins_input = {
@@ -33,7 +33,7 @@ def construct_test_cases():
         "proteins": ["A", "A;B", "A;B", "B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "B"],
-        "pg": ["A", "A;B", "A;B", "B"], # heuristic grouping
+        "pg": ["A", "A;B", "A;B", "B"],  # heuristic grouping
     }
 
     indistinguishable_proteins_input = {
@@ -46,7 +46,7 @@ def construct_test_cases():
         "proteins": ["A;B", "A;B", "A;B", "A;B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A", "A", "A", "A"], # heuristic grouping
+        "pg": ["A", "A", "A", "A"],  # heuristic grouping
     }
 
     subset_proteins_input = {
@@ -59,33 +59,33 @@ def construct_test_cases():
         "proteins": ["A", "A;B", "A;B", "A;B"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A", "A", "A", "A"], # heuristic grouping
+        "pg": ["A", "A", "A", "A"],  # heuristic grouping
     }
 
     subsumable_proteins_input = {
         "precursor_idx": [1, 2, 3, 4],
         "proteins": ["A", "A;B", "B;C", "C"],
-        "decoy": [0, 0, 0, 0], # heuristic grouping
+        "decoy": [0, 0, 0, 0],  # heuristic grouping
     }
     subsumable_proteins_expected = {
         "precursor_idx": [1, 2, 3, 4],
         "proteins": ["A", "A;B", "B;C", "C"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "C", "C"],
-        "pg": ["A", "A", "C", "C"], # heuristic grouping
+        "pg": ["A", "A", "C", "C"],  # heuristic grouping
     }
 
     shared_only_proteins_input = {
         "precursor_idx": [1, 2, 3, 4],
         "proteins": ["A;B", "A;B;C", "A;B;C", "A;C"],
-        "decoy": [0, 0, 0, 0], # heuristic grouping
+        "decoy": [0, 0, 0, 0],  # heuristic grouping
     }
     shared_only_proteins_expected = {
         "precursor_idx": [1, 2, 3, 4],
         "proteins": ["A;B", "A;B;C", "A;B;C", "A;C"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["A", "A", "A", "A"],
-        "pg": ["A", "A", "A", "A"], # heuristic grouping
+        "pg": ["A", "A", "A", "A"],  # heuristic grouping
     }
 
     circular_proteins_input = {
@@ -98,7 +98,7 @@ def construct_test_cases():
         "proteins": ["A;B;C", "B;C;D", "C;D;E", "D;E;A"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["C", "C", "C", "A"],
-        "pg": ["A;C", "C", "C", "A"], # heuristic grouping
+        "pg": ["A;C", "C", "C", "A"],  # heuristic grouping
     }
 
     complex_example_proteins_input = {
@@ -111,15 +111,11 @@ def construct_test_cases():
         "proteins": ["P1;P2;P3;P4", "P1;P4", "P2", "P2;P5"],
         "decoy": [0, 0, 0, 0],
         "pg_master": ["P2", "P1", "P2", "P2"],
-        "pg": ["P1;P2", "P1", "P2", "P2"], # heuristic grouping
+        "pg": ["P1;P2", "P1", "P2", "P2"],  # heuristic grouping
     }
 
     test_cases = [
-        (
-            "distinct_proteins", 
-            distinct_proteins_input, 
-            distinct_proteins_expected
-        ),
+        ("distinct_proteins", distinct_proteins_input, distinct_proteins_expected),
         (
             "differentiable proteins",
             differentiable_proteins_input,
@@ -130,26 +126,14 @@ def construct_test_cases():
             indistinguishable_proteins_input,
             indistinguishable_proteins_expected,
         ),
-        (
-            "subset proteins", 
-            subset_proteins_input, 
-            subset_proteins_expected
-        ),
+        ("subset proteins", subset_proteins_input, subset_proteins_expected),
         (
             "subsumable proteins",
             subsumable_proteins_input,
             subsumable_proteins_expected,
         ),
-        (
-            "shared only", 
-            shared_only_proteins_input, 
-            shared_only_proteins_expected
-        ),
-        (
-            "circular", 
-            circular_proteins_input, 
-            circular_proteins_expected
-        ),
+        ("shared only", shared_only_proteins_input, shared_only_proteins_expected),
+        ("circular", circular_proteins_input, circular_proteins_expected),
         (
             "complex example",
             complex_example_proteins_input,
