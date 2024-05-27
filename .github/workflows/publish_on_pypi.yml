@@ -10,66 +10,66 @@ jobs:
       version: ${{ steps.master_version_bumped.outputs.version }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - uses: conda-incubator/setup-miniconda@v2
         with:
+          miniconda-version: "latest"
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.9"
       - name: Master version bumped
         id: master_version_bumped
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: |
-          current_version=$(grep "__version__" alphapept/__init__.py | cut -f3 -d ' ' | sed 's/"//g')
-          current_version_as_regex=$(echo $current_version | sed 's/\./\\./g')
-          conda create -n version_check python=3.8 pip=20.1 -y
-          conda activate version_check
-          set +e
-          already_on_pypi=$(pip install alphapept== 2>&1 | grep -c "$current_version_as_regex")
-          set -e
-          conda deactivate
-          if [ $already_on_pypi -ne 0 ]; then
-            echo "Version is already on PyPi"
-            exit 1
-          fi
-          echo ::set-output name=version::$current_version
+          cd misc
+          . ./check_version.sh
+          echo "version=$current_version" >> $GITHUB_OUTPUT
   Create_PyPi_Release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
+          miniconda-version: "latest"
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.9"
       - name: Conda info
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: conda info
       - name: Prepare distribution
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: |
-          conda create -n alphapept python=3.8 -y
+          conda create -n alphadia python=3.9 -y
           pip install twine
-          conda activate alphapept
+          conda activate alphadia
           rm -rf dist
           rm -rf build
           python setup.py sdist bdist_wheel
           twine check dist/*
           conda deactivate
       - name: Publish distribution to Test PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@v1
         with:
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          password: ${{ secrets.PYPI_TEST_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
-      - name: Test PyPI test release
-        shell: bash -l {0}
+      - name: Test PyPI-test loose release
+        shell: bash -le {0}
         run: |
-          conda create -n alphapept_pip_test python=3.8 -y
-          conda activate alphapept_pip_test
-          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphapept[stable, gui-stable]"
-          alphapept
+          conda create -n alphadia_pip_loose_test python=3.9 -y
+          conda activate alphadia_pip_loose_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia"
+          alphadia -v
+          conda deactivate
+      - name: Test PyPI-test stable release
+        shell: bash -le {0}
+        run: |
+          conda create -n alphadia_pip_stable_test python=3.9 -y
+          conda activate alphadia_pip_stable_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia[stable]"
+          alphadia -v
           conda deactivate
       - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
   Test_PyPi_Release:
@@ -80,19 +80,20 @@ jobs:
       matrix:
         os: [ubuntu-latest, macOS-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
+          miniconda-version: "latest"
           auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.9"
       - name: Conda info
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: conda info
       - name: Test pip installation from PyPi
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: |
-          conda create -n alphapept_pip_test python=3.8 -y
-          conda activate alphapept_pip_test
-          pip install "alphapept[stable,gui-stable]"
-          alphapept
+          conda create -n alphadia_pip_test python=3.9 -y
+          conda activate alphadia_pip_test
+          pip install "alphadia[stable]"
+          alphadia -v
           conda deactivate
