@@ -1,6 +1,5 @@
 recursive-include alpakaweird *
 
-recursive-exclude alphadia *
 recursive-exclude tests *
 recursive-exclude gui *
 recursive-exclude release *
