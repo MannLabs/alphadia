@@ -1,3 +1,1 @@
-# Dependencies required for developing alphaDIA
-# Also, `requirements_test.txt` is required for developing
 pre-commit

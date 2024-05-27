@@ -1,4 +1,1 @@
-# Dependencies required for running the "stable" version of alphaDIA.
-# Only usage of fixed versions is allowed, and all dependencies listed here must also be
-# included in `requirements_loose.txt` (enforced by a test).
 numpy==1.26.0

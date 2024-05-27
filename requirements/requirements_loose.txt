@@ -1,4 +1,1 @@
-# Dependencies required for running the "loose" version of alphaDIA.
-# All dependencies that are also included in `requirements.txt` must be added also here.
-# Only no or a looser version constraint set by '>=' is allowed (enforced by a test).
 numpy
