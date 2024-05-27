@@ -1,8 +1,8 @@
-recursive-include alphadia *
-include LICENSE.txt
-include README.md
-recursive-exclude logs *
+recursive-include alpakaweird *
+recursive-exclude alphadia *
 recursive-exclude tests *
-
+recursive-exclude gui *
+recursive-exclude release *
+recursive-exclude docs *
 global-exclude */__pycache__/*
 global-exclude *.pyc *.nbi *.nbc

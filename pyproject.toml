@@ -3,19 +3,18 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "alphadia"
+name = "alpakaweird"
 requires-python = ">=3.9.0"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
 authors = [
-    {name = "Mann Labs", email = "opensource@alphapept.com"},
+    {name = "Alfa Beer", email = "alfa@beer.com"},
 ]
-description = "An open-source Python package of the AlphaPept ecosystem"
+description = "An open-source Python package of alpakaweird."
 readme = "README.md"
 keywords = [
     "bioinformatics",
     "software",
-    "AlphaPept ecosystem",
 ]
 license = {file = "LICENSE.txt"}
 classifiers = [
@@ -32,14 +31,14 @@ classifiers = [
 ]
 
 [project.urls]
-"Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
 #Documentation = "https://readthedocs.org"
-Repository = "https://github.com/MannLabs/alphadia"
-Issues = "https://github.com/MannLabs/alphadia/issues"
 #Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
 
-[tool.setuptools.packages]
-find = {}
+[tool.setuptools.packages.find]
+# All the following settings are optional:
+where = ["."]  # ["."] by default
+include = ["alpakaweird*"]  # ["*"] by default
+#exclude = ["mypackage.tests*"]
 
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
@@ -48,7 +47,7 @@ optional-dependencies = { stable = { file = ["requirements/requirements.txt",
 ] }, test = { file = [ "requirements/requirements_test.txt",
 ] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt"
 ] }}
-version = {attr = "alphadia.__version__"}
+version = {attr = "alpakaweird.__version__"}
 
 [project.scripts]
-alphadia = "alphadia.cli:run"
+alpakaweird = "alpakaweird.cli:run"

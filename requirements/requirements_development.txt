@@ -1,21 +1,3 @@
 # Dependencies required for developing alphaDIA
 # Also, `requirements_test.txt` is required for developing
-jupyter
-jupyter_contrib_nbextensions
-pyinstaller
-
-autodocsumm
-sphinx-rtd-theme
-nbsphinx
-myst_parser
-sphinx_design
-furo
-
-twine
-bumpversion
-pipdeptree
-ipykernel
-psutil
-
-pre-commit==3.7.0
-pywin32; sys_platform=='win32'
+pre-commit
