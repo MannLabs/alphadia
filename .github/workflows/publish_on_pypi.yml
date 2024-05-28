@@ -1,0 +1,104 @@
+on:
+  workflow_dispatch:
+
+name: Publish on PyPi
+
+jobs:
+  Version_Bumped:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.master_version_bumped.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: "3.9"
+      - name: Master version bumped
+        id: master_version_bumped
+        shell: bash -le {0}
+        run: |
+          cd misc
+          . ./check_version.sh
+          echo "version=$current_version" >> $GITHUB_OUTPUT
+  Create_PyPi_Release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: "3.9"
+      - name: Conda info
+        shell: bash -le {0}
+        run: conda info
+      - name: Setup pip cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - name: Prepare distribution
+        shell: bash -le {0}
+        run: |
+          conda create -n alpakaweird python=3.9 -y
+          pip install twine build
+          conda activate alpakaweird
+          rm -rf dist
+          rm -rf build
+          python -m build
+          twine check dist/*
+          conda deactivate
+      - name: Publish distribution to Test PyPI
+        uses: pypa/gh-action-pypi-publish@v1
+        with:
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          repository_url: https://test.pypi.org/legacy/
+      - name: Test PyPI-test loose release
+        shell: bash -le {0}
+        run: |
+          conda create -n alpakaweird_pip_loose_test python=3.9 -y
+          conda activate alpakaweird_pip_loose_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alpakaweird"
+          alpakaweird -v
+          conda deactivate
+      - name: Test PyPI-test stable release
+        shell: bash -le {0}
+        run: |
+          conda create -n alpakaweird_pip_stable_test python=3.9 -y
+          conda activate alpakaweird_pip_stable_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alpakaweird[stable]"
+          alpakaweird -v
+          conda deactivate
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+  Test_PyPi_Release:
+    name: Test_PyPi_version_on_${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: Create_PyPi_Release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: "3.9"
+      - name: Conda info
+        shell: bash -le {0}
+        run: conda info
+      - name: Test pip installation from PyPi
+        shell: bash -le {0}
+        run: |
+          conda create -n alpakaweird_pip_test python=3.9 -y
+          conda activate alpakaweird_pip_test
+          pip install "alpakaweird[stable]"
+          alpakaweird -v
+          conda deactivate
