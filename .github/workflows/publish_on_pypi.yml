@@ -20,7 +20,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_to_release }}
+          ref: vgihjbhjbj1.5.5 #${{ inputs.tag_to_release }}
       - uses: conda-incubator/setup-miniconda@v3
         with:
           miniconda-version: "latest"
