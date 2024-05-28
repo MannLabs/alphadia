@@ -1,0 +1,133 @@
+test_cases:
+# Explanation of format:
+#  - name: some_name
+#    config:
+#      # add any non-default configuration here
+#    raw_data:
+#    - source_url: https://source_of_file or folder
+#    library:
+#    - source_url: https://source_of_file
+#    fasta:
+#    - source_url: https://source_of_file
+#    metrics:
+#      # possible selections are all subclasses of the calc_metrics.py:Metrics class
+
+  - name: basic
+    config:
+      search_initial:
+        initial_num_candidates: 1
+        initial_rt_tolerance: 300
+      search:
+        target_num_candidates: 1
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 100
+      calibration:
+        batch_size: 1000
+    library:
+#      - source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk # hela_hybrid.hdf
+      - source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz # hela_hybrid.small.hdf
+    raw_data:
+      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
+    metrics:
+      - BasicStats
+
+
+  - name: synchropasef
+    config:
+      search:
+        target_num_candidates: 5
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_mobility_tolerance: 0.04
+        target_rt_tolerance: 50
+        quant_window: 6
+        quant_all: true
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 30
+        initial_ms2_tolerance: 30
+        initial_mobility_tolerance: 0.08
+        initial_rt_tolerance: 240
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=MSFragger_library_60SPD_2.tsv
+    raw_data:
+      - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-E7_1_41539.d
+      - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F1_1_41545.d
+      - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F7_1_41551.d
+    metrics:
+      - BasicStats
+
+  - name: astral
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 200
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 10
+        initial_ms2_tolerance: 15
+        initial_rt_tolerance: 300
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=2024_01_12_human.fasta
+    raw_data:
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+    metrics:
+      - BasicStats
+
+
+#  - name: astral_mixed_species
+#    config:
+#      library_prediction:
+#        predict: true
+#        fixed_modifications: 'Carbamidomethyl@C'
+#        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+#        max_var_mod_num: 2
+#        missed_cleavages: 1
+#        precursor_mz:
+#          - 380
+#          - 980
+#        nce: 25
+#        instrument: Lumos
+#      search:
+#        target_num_candidates: 3
+#        target_ms1_tolerance: 4
+#        target_ms2_tolerance: 7
+#        target_rt_tolerance: 200
+#      search_initial:
+#        initial_num_candidates: 1
+#        initial_ms1_tolerance: 10
+#        initial_ms2_tolerance: 15
+#        initial_rt_tolerance: 300
+#      search_output:
+#        peptide_level_lfq: true
+#        precursor_level_lfq: true
+#    library:
+#      - source_url: https://datashare.biochem.mpg.de/s/Q9D8N2mq8vlzQ1f  #speclib.mbr.hdf
+#    raw_data:
+#      - source_url: ...
+#    metrics:
+#      - BasicStats

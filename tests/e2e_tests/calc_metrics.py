@@ -1,0 +1,170 @@
+"""Calculate metrics and upload them to neptune.
+
+To extend the metrics, create a new class that inherits from Metrics and implement the _calc() method.
+"""
+
+import os
+import sys
+from abc import ABC
+from typing import Any
+
+import pandas as pd
+import neptune
+
+from tests.e2e_tests.prepare_test_data import get_test_case, OUTPUT_DIR_NAME
+
+NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
+
+
+def _load_tsv(file_path: str) -> pd.DataFrame:
+    """Load a tsv file."""
+    return pd.read_csv(file_path, sep="\t")
+
+
+def _load_speclib_hdf(file_path: str) -> dict[str, pd.DataFrame]:
+    """Load a hdf file into a dictionary of keys."""
+    raise NotImplementedError("Loading speclib hdf is not implemented yet.")
+
+
+class OutputFiles:
+    """String constants for the output file names."""
+
+    PG_MATRIX = "pg.matrix.tsv"
+    PRECURSORS = "precursors.tsv"
+    STAT = "stat.tsv"
+    LOG = "log.txt"
+    # SPECLIB = "speclib.hdf"
+    # SPECLIB_MBR = "speclib.mbr.hdf"
+
+    @classmethod
+    def all_values(cls) -> list[str]:
+        """Get all values of the class as a list of str."""
+        return [
+            v
+            for k, v in cls.__dict__.items()
+            if not k.startswith("__") and not k == "all_values"
+        ]
+
+
+file_name_to_read_method_mapping = {
+    OutputFiles.PG_MATRIX: _load_tsv,
+    OutputFiles.PRECURSORS: _load_tsv,
+    OutputFiles.STAT: _load_tsv,
+    # OutputFiles.SPECLIB: _load_speclib_hdf,
+    # OutputFiles.SPECLIB_MBR: _load_speclib_hdf,
+}
+
+
+class DataStore:
+    def __init__(self, data_dir: str):
+        """Data store to read and cache data.
+
+        Output files defined in `file_name_to_read_method_mapping` can be accessed as attributes, e.g.
+            `stat_df = DataStore('/home/output')["stat.tsv"]`
+
+        Parameters
+        ----------
+        data_dir : str
+            Absolute path to the directory containing alphaDIA output data.
+        """
+        self._data_dir = data_dir
+        self._data = {}
+
+    def __getitem__(self, key: str) -> pd.DataFrame:
+        """Get data from the data store."""
+        if key not in self._data:
+            file_path = os.path.join(self._data_dir, key)
+            print("loading", file_path)
+            self._data[key] = file_name_to_read_method_mapping[key](file_path)
+        return self._data[key]
+
+
+class Metrics(ABC):
+    """Abstract class for metrics."""
+
+    def __init__(self, data_store: DataStore):
+        """Initialize Metrics.
+
+        Parameters
+        ----------
+        data_store : DataStore
+            Data store to get the data from.
+        """
+
+        self._data_store = data_store
+        self._metrics = {}
+        self._name = self.__class__.__name__
+
+    def get(self) -> dict[str, Any]:
+        """Get the metrics."""
+        if not self._metrics:
+            self._calc()
+        return self._metrics
+
+    def _calc(self) -> None:
+        """Calculate the metrics."""
+        raise NotImplementedError
+
+
+class BasicStats(Metrics):
+    """Basic statistics."""
+
+    def _calc(self):
+        """Calculate metrics."""
+        df = self._data_store[OutputFiles.STAT]
+
+        for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
+            self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
+            self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+
+
+if __name__ == "__main__":
+    test_case_name = sys.argv[1]
+    run_time_minutes = int(sys.argv[2]) / 60
+    short_sha = sys.argv[3]
+    branch_name = sys.argv[4]
+
+    test_case = get_test_case(test_case_name)
+    selected_metrics = test_case["metrics"]  # ['BasicStats', ]
+
+    test_results = {}
+    test_results["test_case"] = test_case_name
+    test_results["run_time_minutes"] = run_time_minutes
+    test_results["short_sha"] = short_sha
+    test_results["branch_name"] = branch_name
+    test_results["test_case_details"] = str(test_case)
+
+    output_path = os.path.join(test_case_name, OUTPUT_DIR_NAME)
+
+    metrics_classes = [
+        cls for cls in Metrics.__subclasses__() if cls.__name__ in selected_metrics
+    ]
+
+    try:
+        data_store = DataStore(output_path)
+
+        for cl in metrics_classes:
+            metrics = cl(data_store).get()
+            print(cl, metrics)
+            test_results |= metrics
+    except Exception as e:
+        print(e)
+    finally:
+        neptune_run = neptune.init_run(
+            project=NEPTUNE_PROJECT_NAME,
+            tags=[test_case_name, short_sha, branch_name],
+        )
+
+        # metrics
+        for k, v in test_results.items():
+            print(f"adding {k}={v}")
+            neptune_run[k] = v
+
+        # files
+        for file_name in OutputFiles.all_values():
+            print("adding", file_name)
+            file_path = os.path.join(output_path, file_name)
+            if os.path.exists(file_path):
+                neptune_run["output/" + file_name].track_files(file_path)
+
+        neptune_run.stop()

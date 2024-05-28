@@ -43,7 +43,7 @@ def _generate_patch_collection_nomobility(
 
     n_frames = _cycle.shape[0]
 
-    cmap = cm.get_cmap(cmap_name)
+    cmap = plt.get_cmap(cmap_name)
 
     # a slice is a rectangular region in the quadrupole, scan space
     slice_collection = []
@@ -186,7 +186,7 @@ def _generate_patch_collection_mobility(
 
     """
 
-    cmap = cm.get_cmap(cmap_name)
+    cmap = plt.get_cmap(cmap_name)
 
     # a slice is a rectangular reagion in the quadrupole, scan space
     patch_collection = []

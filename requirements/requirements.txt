@@ -1,19 +1,20 @@
-numba
-argparse
-alpharaw>=0.3.1
-alphatims
-alphabase>=1.1.2
-peptdeep
-progressbar
-neptune
-seaborn
-rocket_fft
-xxhash
-torchmetrics
-directlfq
-pythonnet
-
-zstandard
-
+# Dependencies required for running the "stable" version of alphaDIA.
+# Only usage of fixed versions is allowed, and all dependencies listed here must also be
+# included in `requirements_loose.txt` (enforced by a test).
+numba==0.59.1
+argparse==1.4.0
+alpharaw==0.4.5
+alphatims==1.0.8
+alphabase==1.2.3
+peptdeep==1.1.9
+progressbar==2.5
+neptune==1.10.4
+seaborn==0.13.2
+rocket_fft==0.2.5
+xxhash==3.4.1
+torchmetrics==1.4.0.post0
+directlfq==0.2.19
+pythonnet==3.0.3
+zstandard==0.22.0
 # not direct dependencies but we have to restrict the versions
-scipy==1.12
+scipy==1.12.0

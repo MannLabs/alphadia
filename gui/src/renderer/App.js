@@ -66,7 +66,7 @@ const App = () => {
         }).catch((error) => {
             alert(error);
         });
-        
+
         window.electronAPI.onThemeChange((_event, value) => {
             setMode(value ? 'dark' : 'light');
         })
@@ -92,8 +92,8 @@ const App = () => {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AppLayout>
-        <MenuDrawer 
-            workflows={profile.workflows.map((workflow) => workflow.name)} 
+        <MenuDrawer
+            workflows={profile.workflows.map((workflow) => workflow.name)}
             currentWorkflow={profile.currentWorkflow}
             onWorkflowChange={handleWorkflowChange}
             onSetRunningState={handleSetRunningState}

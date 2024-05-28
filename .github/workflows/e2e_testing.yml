@@ -1,0 +1,43 @@
+on:
+  pull_request:
+    types: [ labeled ]
+  push:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+name: End to end testing
+
+jobs:
+  end2end_testing:
+    name: End to end test
+    runs-on: self-hosted
+    if: contains(github.event.pull_request.labels.*.name, 'test:e2e')
+    strategy:
+      matrix:
+        # test case name as defined in e2e_test_cases.yaml
+        test_case: [ "basic", "synchropasef", "astral", ]
+    env:
+      RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+      NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conda info
+        shell: bash -el {0}
+        run: conda info
+      - name: Pip installation with loose dependencies
+        shell: bash -el {0}
+        run: |
+          cd misc
+          . ./pip_install.sh stable $RUN_NAME
+      - name: Run e2e tests
+        shell: bash -el {0}
+        run: |
+          cd tests
+           . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
+      - name: Cleanup
+        if: always()
+        shell: bash -el {0}
+        run: |
+          conda remove -n $RUN_NAME --all

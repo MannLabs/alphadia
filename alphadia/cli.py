@@ -2,7 +2,6 @@
 
 # native imports
 import logging
-import time
 import yaml
 import os
 import re
@@ -15,22 +14,6 @@ import alphadia
 from alphadia.workflow import reporting
 from alphadia import utils
 
-from alphabase.constants import modification
-
-modification.add_new_modifications(
-    {
-        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
-        "Dimethyl:d12@Any N-term": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-        "Dimethyl:d12@R": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-        "Dimethyl:d12@K": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-    }
-)
 
 # alpha family imports
 

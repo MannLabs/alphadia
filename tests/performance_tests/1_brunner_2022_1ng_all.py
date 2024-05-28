@@ -5,24 +5,13 @@ logging.basicConfig(
 )
 
 import os
-import neptune.new as neptune
-import pathlib
-import socket
 
 import matplotlib
 
 matplotlib.use("Agg")
 
 from alphadia.extraction.planning import Plan
-from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.data import TimsTOFDIA
-from alphadia.extraction.testing import update_datashare
-from alphadia.extraction.scoring import (
-    fdr_correction,
-    unpack_fragment_info,
-    MS2ExtractionWorkflow,
-)
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
+from alphadia.test_data_downloader import DataShareDownloader
 from alphabase.spectral_library.base import SpecLibBase
 
 if __name__ == "__main__":
@@ -58,7 +47,7 @@ if __name__ == "__main__":
 
     dependency_list = dependencies["file_list"]
     for element in dependency_list:
-        update_datashare(element, output_dir)
+        DataShareDownloader(element, output_dir).download()
 
     file_names = [
         "20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D1_1_2944.d",

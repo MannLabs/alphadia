@@ -9,7 +9,8 @@ logger = logging.getLogger()
 
 # alphadia imports
 import alphadia
-from alphadia import calibration, fdr
+from alphadia.calibration.property import calibration_model_provider, Calibration
+from alphadia import fdr
 from alphadia.workflow import reporting
 
 # alpha family imports
@@ -103,7 +104,7 @@ class BaseManager:
                                 f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
                                 verbosity="warning",
                             )
-                except Exception as e:
+                except Exception:
                     self.reporter.log_string(
                         f"Failed to load {self.__class__.__name__} from {self.path}",
                         verbosity="error",
@@ -211,7 +212,7 @@ class CalibrationManager(BaseManager):
 
         .. code-block:: python
 
-            calibration_manager = calibration.CalibrationManager()
+            calibration_manager = CalibrationManager()
             calibration_manager.load_config([{
                 'name': 'mz_calibration',
                 'estimators': [
@@ -239,9 +240,7 @@ class CalibrationManager(BaseManager):
             )
             for estimator in group["estimators"]:
                 try:
-                    template = calibration.calibration_model_provider.get_model(
-                        estimator["model"]
-                    )
+                    template = calibration_model_provider.get_model(estimator["model"])
                     model_args = (
                         estimator["model_args"] if "model_args" in estimator else {}
                     )
@@ -253,9 +252,7 @@ class CalibrationManager(BaseManager):
                     )
 
             group_copy = {"name": group["name"]}
-            group_copy["estimators"] = [
-                calibration.Calibration(**x) for x in group["estimators"]
-            ]
+            group_copy["estimators"] = [Calibration(**x) for x in group["estimators"]]
             self.estimator_groups.append(group_copy)
 
     def get_group_names(self):
@@ -282,7 +279,7 @@ class CalibrationManager(BaseManager):
         -------
         dict
             Calibration group dict with `name` and `estimators` keys\
-        
+
         """
         for group in self.estimator_groups:
             if group["name"] == group_name:
@@ -604,7 +601,7 @@ class FDRManager(BaseManager):
                 )
 
             psm_df = pd.concat(psm_df_list)
-            psm_df = psm_df[psm_df["channel"] != decoy_channel].copy()
+            psm_df.loc[psm_df["channel"] == decoy_channel, "decoy"] = 1
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 

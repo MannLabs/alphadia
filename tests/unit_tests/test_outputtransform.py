@@ -4,115 +4,7 @@ import pandas as pd
 import numpy as np
 import os
 import shutil
-
-
-def _mock_precursor_df(
-    n_precursor: int = 100,
-) -> pd.DataFrame:
-    """Create a mock precursor dataframe as it's found as the individual search outputs
-
-    Parameters
-    ----------
-
-    n_precursor : int
-        Number of precursors to generate
-
-    Returns
-    -------
-
-    precursor_df : pd.DataFrame
-        A mock precursor dataframe
-    """
-
-    precursor_idx = np.arange(n_precursor)
-    decoy = np.zeros(n_precursor)
-    precursor_mz = np.random.rand(n_precursor) * 2000 + 500
-    precursor_charge = np.random.choice([2, 3], size=n_precursor)
-
-    proteins = np.arange(26)
-    protein_names = [chr(ord("A") + i).upper() + "PROT" for i in proteins]
-
-    proteins = np.random.choice(protein_names, size=n_precursor)
-    genes = proteins
-
-    decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
-    proba = np.zeros(n_precursor) + decoy * np.random.rand(n_precursor)
-    qval = np.random.rand(n_precursor) * 10e-3
-
-    return pd.DataFrame(
-        {
-            "precursor_idx": precursor_idx,
-            "decoy": decoy,
-            "mz_library": precursor_mz,
-            "charge": precursor_charge,
-            "proteins": proteins,
-            "genes": genes,
-            "decoy": decoy,
-            "proba": proba,
-            "qval": qval,
-            "sequence": ["AAAAAA"] * n_precursor,
-            "mods": [""] * n_precursor,
-            "mod_sites": [""] * n_precursor,
-        }
-    )
-
-
-_mock_precursor_df()
-
-
-def _mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
-    """Create a mock fragment dataframe as it's found as the individual search outputs
-
-    Parameters
-    ----------
-
-    n_fragments : int
-        Number of fragments per precursor
-
-    n_precursor : int
-        Number of precursors to generate
-
-    Returns
-    -------
-
-    fragment_df : pd.DataFrame
-        A mock fragment dataframe
-    """
-
-    precursor_intensity = np.random.rand(n_precursor, 1)
-
-    fragment_precursor_idx = np.repeat(np.arange(n_precursor), n_fragments).reshape(
-        (n_precursor, n_fragments)
-    )
-    fragment_mz = np.random.rand(n_precursor, n_fragments) * 200 + 2000
-    fragment_charge = np.random.choice([1, 2], size=(n_precursor, n_fragments))
-    fragment_number = np.tile(np.arange(n_fragments // 2), n_precursor * 2).reshape(
-        (n_fragments, n_precursor)
-    )
-    fragment_type = np.tile(
-        np.repeat([ord("b"), ord("y")], n_fragments // 2), n_precursor
-    ).reshape((n_fragments, n_precursor))
-
-    fragment_height = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_intensity = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_correlation = np.random.rand(n_precursor, n_fragments)
-
-    return pd.DataFrame(
-        {
-            "precursor_idx": fragment_precursor_idx.flatten(),
-            "mz": fragment_mz.flatten(),
-            "charge": fragment_charge.flatten(),
-            "number": fragment_number.flatten(),
-            "type": fragment_type.flatten(),
-            "height": fragment_height.flatten(),
-            "intensity": fragment_intensity.flatten(),
-            "correlation": fragment_correlation.flatten(),
-        }
-    )
+from conftest import mock_precursor_df, mock_fragment_df
 
 
 def test_output_transform():
@@ -122,6 +14,7 @@ def test_output_transform():
         "general": {
             "thread_count": 8,
         },
+        "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
             "inference_strategy": "heuristic",
@@ -137,6 +30,9 @@ def test_output_transform():
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
         },
+        "multiplexing": {
+            "enabled": False,
+        },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
@@ -148,8 +44,8 @@ def test_output_transform():
     # setup raw folders
     raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
 
-    psm_base_df = _mock_precursor_df(n_precursor=100)
-    fragment_base_df = _mock_fragment_df(n_precursor=200)
+    psm_base_df = mock_precursor_df(n_precursor=100)
+    fragment_base_df = mock_fragment_df(n_precursor=200)
 
     for raw_folder in raw_folders:
         os.makedirs(raw_folder, exist_ok=True)
@@ -199,7 +95,7 @@ def test_output_transform():
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
-    protein_df = pd.read_csv(os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t")
+    protein_df = pd.read_csv(os.path.join(temp_folder, "pg.matrix.tsv"), sep="\t")
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:
@@ -207,7 +103,5 @@ def test_output_transform():
             if i == j:
                 continue
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
-
-    import shutil
 
     shutil.rmtree(temp_folder)

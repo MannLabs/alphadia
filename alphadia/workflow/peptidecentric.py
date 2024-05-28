@@ -1,23 +1,23 @@
 # native imports
-import os
 import logging
 
 logger = logging.getLogger()
 import typing
 
 # alphadia imports
-from alphadia import plexscoring, fragcomp, utils
+from alphadia import plexscoring, utils, fragcomp
 from alphadia import fdrexperimental as fdrx
 from alphadia.peakgroup import search
 from alphadia.workflow import manager, base
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.peptide.fragment import get_charged_frag_types
 
 # third party imports
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 
 feature_columns = [
@@ -90,9 +90,6 @@ feature_columns = [
     "n_overlapping",
     "mean_overlapping_intensity",
     "mean_overlapping_mass_error",
-    "n_K",
-    "n_R",
-    "n_P",
 ]
 
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
@@ -366,7 +363,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         continue_calibration = False
 
         self.reporter.log_string(
-            f"=== checking if epoch conditions were reached ===", verbosity="info"
+            "=== checking if epoch conditions were reached ===", verbosity="info"
         )
         if self.dia_data.has_ms1:
             if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
@@ -434,7 +431,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         self.reporter.log_string(
-            f"==============================================", verbosity="info"
+            "==============================================", verbosity="info"
         )
         return continue_calibration
 
@@ -779,7 +776,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
-        logger.info(f"Removing fragments below FDR threshold")
+        logger.info("Removing fragments below FDR threshold")
 
         # to be optimized later
         fragments_df["candidate_idx"] = utils.candidate_hash(
@@ -806,7 +803,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         decoy_precursors_percentages = decoy_precursors / total_precursors * 100
 
         self.reporter.log_string(
-            f"============================= Precursor FDR =============================",
+            "============================= Precursor FDR =============================",
             verbosity="progress",
         )
         self.reporter.log_string(
@@ -821,8 +818,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        self.reporter.log_string(f"", verbosity="progress")
-        self.reporter.log_string(f"Precursor Summary:", verbosity="progress")
+        self.reporter.log_string("", verbosity="progress")
+        self.reporter.log_string("Precursor Summary:", verbosity="progress")
 
         for channel in precursor_df["channel"].unique():
             precursor_05fdr = len(
@@ -851,8 +848,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
 
-        self.reporter.log_string(f"", verbosity="progress")
-        self.reporter.log_string(f"Protein Summary:", verbosity="progress")
+        self.reporter.log_string("", verbosity="progress")
+        self.reporter.log_string("Protein Summary:", verbosity="progress")
 
         for channel in precursor_df["channel"].unique():
             proteins_05fdr = precursor_df[
@@ -876,7 +873,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         self.reporter.log_string(
-            f"=========================================================================",
+            "=========================================================================",
             verbosity="progress",
         )
 
@@ -899,7 +896,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
 
-        if not "multiplexing" in self.config:
+        if "multiplexing" not in self.config:
             raise ValueError("no multiplexing config found")
         self.reporter.log_string(
             f"=== Multiplexing {len(reference_candidates):,} precursors ===",
@@ -976,7 +973,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column="mz_calibrated",
             fragment_mz_column="mz_calibrated",
             rt_column="rt_calibrated",
-            mobility_column="mobility_calibrated",
+            mobility_column=f"mobility_calibrated"
+            if self.dia_data.has_mobility
+            else "mobility_library",
         )
 
         multiplexed_candidates["rank"] = 0
@@ -999,3 +998,193 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.log_precursor_df(psm_df)
 
         return psm_df
+
+    def requantify_fragments(
+        self, psm_df: pd.DataFrame
+    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+        """Requantify confident precursor identifications for transfer learning.
+
+        Parameters
+        ----------
+
+        psm_df: pd.DataFrame
+            Dataframe with peptide identifications
+
+        Returns
+        -------
+
+        psm_df: pd.DataFrame
+            Dataframe with existing peptide identifications but updated frag_start_idx and frag_stop_idx
+
+        frag_df: pd.DataFrame
+            Dataframe with fragments in long format
+        """
+
+        self.reporter.log_string(
+            f"=== Transfer learning quantification ===",
+            verbosity="progress",
+        )
+
+        fragment_types = self.config["transfer_learning"]["fragment_types"].split(";")
+        max_charge = self.config["transfer_learning"]["max_charge"]
+
+        self.reporter.log_string(
+            f"creating library for charged fragment types: {fragment_types}",
+            verbosity="info",
+        )
+
+        candidate_speclib_flat, scored_candidates = _build_candidate_speclib_flat(
+            psm_df, fragment_types=fragment_types, max_charge=max_charge
+        )
+
+        self.reporter.log_string(
+            f"Calibrating library",
+            verbosity="info",
+        )
+
+        # calibrate
+        self.calibration_manager.predict(
+            candidate_speclib_flat.precursor_df, "precursor"
+        )
+        self.calibration_manager.predict(candidate_speclib_flat.fragment_df, "fragment")
+
+        self.reporter.log_string(
+            f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
+            verbosity="info",
+        )
+
+        config = plexscoring.CandidateConfig()
+        config.update(
+            {
+                "top_k_fragments": 1000,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
+                "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
+                "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
+            }
+        )
+
+        scoring = plexscoring.CandidateScoring(
+            self.dia_data.jitclass(),
+            candidate_speclib_flat.precursor_df,
+            candidate_speclib_flat.fragment_df,
+            config=config,
+            precursor_mz_column=f"mz_calibrated",
+            fragment_mz_column=f"mz_calibrated",
+        )
+
+        # we disregard the precursors, as we want to keep the original scoring from the top12 search
+        # this works fine as there is no index pointing from the precursors to the fragments
+        # only the fragments arre indexed by precursor_idx and rank
+        _, frag_df = scoring(scored_candidates)
+
+        # establish mapping
+        # TODO: we are reusing the FragmentCompetition class here which should be refactored
+        frag_comp = fragcomp.FragmentCompetition()
+        scored_candidates["_candidate_idx"] = utils.candidate_hash(
+            scored_candidates["precursor_idx"].values, scored_candidates["rank"].values
+        )
+        frag_df["_candidate_idx"] = utils.candidate_hash(
+            frag_df["precursor_idx"].values, frag_df["rank"].values
+        )
+        scored_candidates = frag_comp.add_frag_start_stop_idx(
+            scored_candidates, frag_df
+        )
+
+        return scored_candidates, frag_df
+
+
+def _build_candidate_speclib_flat(
+    psm_df: pd.DataFrame,
+    fragment_types: typing.List[str] = ["b", "y"],
+    max_charge: int = 2,
+    optional_columns: typing.List[str] = [
+        "proba",
+        "score",
+        "qval",
+        "channel",
+        "rt_library",
+        "mz_library",
+        "mobility_library",
+        "genes",
+        "proteins",
+        "decoy",
+        "mods",
+        "mod_sites",
+        "sequence",
+        "charge",
+    ],
+) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
+    """Build a candidate spectral library for transfer learning.
+
+    Parameters
+    ----------
+
+    psm_df: pd.DataFrame
+        Dataframe with peptide identifications
+
+    fragment_types: typing.List[str], optional
+        List of fragment types to include in the library, by default ['b','y']
+
+    max_charge: int, optional
+        Maximum fragment charge state to consider, by default 2
+
+    optional_columns: typing.List[str], optional
+        List of optional columns to include in the library, by default [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+        ]
+
+    Returns
+    -------
+    candidate_speclib_flat: SpecLibFlat
+        Candidate spectral library in flat format
+
+    scored_candidates: pd.DataFrame
+        Dataframe with scored candidates
+    """
+    # remove decoys
+    psm_df = psm_df[psm_df["decoy"] == 0]
+
+    for col in ["rt_observed", "mobility_observed", "mz_observed"]:
+        optional_columns += [col] if col in psm_df.columns else []
+
+    scored_candidates = plexscoring.candidate_features_to_candidates(
+        psm_df, optional_columns=optional_columns
+    )
+
+    # create speclib with fragment_types of interest
+    candidate_speclib = SpecLibBase()
+    candidate_speclib.precursor_df = scored_candidates
+
+    candidate_speclib.charged_frag_types = get_charged_frag_types(
+        fragment_types, max_charge
+    )
+
+    candidate_speclib.calc_fragment_mz_df()
+
+    candidate_speclib._fragment_intensity_df = candidate_speclib.fragment_mz_df.copy()
+    # set all fragment weights to 1 to make sure all are quantified
+    candidate_speclib._fragment_intensity_df[candidate_speclib.charged_frag_types] = 1.0
+
+    # create flat speclib
+    candidate_speclib_flat = SpecLibFlat()
+    candidate_speclib_flat.parse_base_library(candidate_speclib)
+    # delete immediately to free memory
+    del candidate_speclib
+
+    candidate_speclib_flat.fragment_df.rename(
+        columns={"mz": "mz_library"}, inplace=True
+    )
+    candidate_speclib_flat.fragment_df["cardinality"] = 0
+    return candidate_speclib_flat, scored_candidates

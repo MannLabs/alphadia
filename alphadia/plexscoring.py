@@ -29,6 +29,7 @@ NUM_FEATURES = 46
 
 def candidate_features_to_candidates(
     candidate_features_df: pd.DataFrame,
+    optional_columns: typing.List[str] = ["proba"],
 ):
     """create candidates_df from candidate_features_df
 
@@ -58,9 +59,6 @@ def candidate_features_to_candidates(
         "frame_start",
         "frame_stop",
         "frame_center",
-    ]
-    optional_columns = [
-        "proba",
     ]
 
     # select required columns
@@ -367,7 +365,6 @@ float_array = nb.types.float32[:]
 
 @nb.experimental.jitclass()
 class Candidate:
-
     """
     __init__ will be called single threaded, initialize will later be called multithreaded.
     Therefore as much as possible should be done in initialize.
@@ -744,33 +741,33 @@ class Candidate:
             psm_proto_df.fragment_mz_library[
                 self.output_idx, : len(fragments.mz_library)
             ] = fragments.mz_library
-            psm_proto_df.fragment_mz[
-                self.output_idx, : len(fragments.mz)
-            ] = fragments.mz
-            psm_proto_df.fragment_mz_observed[
-                self.output_idx, : len(mz_observed)
-            ] = mz_observed
+            psm_proto_df.fragment_mz[self.output_idx, : len(fragments.mz)] = (
+                fragments.mz
+            )
+            psm_proto_df.fragment_mz_observed[self.output_idx, : len(mz_observed)] = (
+                mz_observed
+            )
 
             psm_proto_df.fragment_height[self.output_idx, : len(height)] = height
-            psm_proto_df.fragment_intensity[
-                self.output_idx, : len(intensity)
-            ] = intensity
+            psm_proto_df.fragment_intensity[self.output_idx, : len(intensity)] = (
+                intensity
+            )
 
-            psm_proto_df.fragment_mass_error[
-                self.output_idx, : len(mass_error)
-            ] = mass_error
+            psm_proto_df.fragment_mass_error[self.output_idx, : len(mass_error)] = (
+                mass_error
+            )
             psm_proto_df.fragment_position[
                 self.output_idx, : len(fragments.position)
             ] = fragments.position
-            psm_proto_df.fragment_number[
-                self.output_idx, : len(fragments.number)
-            ] = fragments.number
-            psm_proto_df.fragment_type[
-                self.output_idx, : len(fragments.type)
-            ] = fragments.type
-            psm_proto_df.fragment_charge[
-                self.output_idx, : len(fragments.charge)
-            ] = fragments.charge
+            psm_proto_df.fragment_number[self.output_idx, : len(fragments.number)] = (
+                fragments.number
+            )
+            psm_proto_df.fragment_type[self.output_idx, : len(fragments.type)] = (
+                fragments.type
+            )
+            psm_proto_df.fragment_charge[self.output_idx, : len(fragments.charge)] = (
+                fragments.charge
+            )
 
         # ============= FRAGMENT MOBILITY CORRELATIONS =============
         # will be skipped if no mobility dimension is present
@@ -803,9 +800,9 @@ class Candidate:
         )
 
         if config.collect_fragments:
-            psm_proto_df.fragment_correlation[
-                self.output_idx, : len(correlation)
-            ] = correlation
+            psm_proto_df.fragment_correlation[self.output_idx, : len(correlation)] = (
+                correlation
+            )
 
         psm_proto_df.features[self.output_idx] = feature_array
         psm_proto_df.valid[self.output_idx] = True
@@ -1564,11 +1561,11 @@ class CandidateScoring:
         )
 
         # check if channel column is present
-        if not "channel" in candidates_df.columns:
+        if "channel" not in candidates_df.columns:
             candidates_df["channel"] = np.zeros(len(candidates_df), dtype=np.uint8)
 
         # check if monoisotopic abundance column is present
-        if not "i_0" in candidates_df.columns:
+        if "i_0" not in candidates_df.columns:
             candidates_df["i_0"] = np.ones(len(candidates_df), dtype=np.float32)
 
         # calculate score groups

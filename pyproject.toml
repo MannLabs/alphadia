@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphaDIA"
+requires-python = ">=3.9.0"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+authors = [
+    {name = "Mann Labs", email = "wallmann@biochem.mpg.de"}
+]
+description = "A novel proteomics search engine for DIA data based on end-to-end transfer learning."
+readme = "README.md"
+keywords = [
+    "mass spectrometry",
+    "proteomics",
+    "search engine",
+    "DIA",
+    "data-independent acquisition",
+    "bioinformatics",
+    "AlphaPept",
+    "AlphaPept ecosystem",
+]
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    # "Development Status :: 5 - Production/Stable",
+    # "Development Status :: 6 - Mature",
+    # "Development Status :: 7 - Inactive"
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.urls]
+
+"Paper preprint" = "https://www.biochem.mpg.de/mann"
+Repository = "https://github.com/MannLabs/alphadia"
+#Documentation = "https://readthedocs.org"
+#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+Issues = "https://github.com/MannLabs/alphadia/issues"
+"Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.dynamic]
+# https://stackoverflow.com/a/73600610
+dependencies = {file = ["requirements/requirements_loose.txt"]}
+optional-dependencies = { stable = { file = ["requirements/requirements.txt",
+] }, test = { file = [ "requirements/requirements_test.txt",
+] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt"
+] }}
+version = {attr = "alphadia.__version__"}
+
+[project.scripts]
+alphadia = "alphadia.cli:run"

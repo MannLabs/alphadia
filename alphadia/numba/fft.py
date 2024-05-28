@@ -11,7 +11,7 @@ from rocket_fft.overloads import (
 )
 from rocket_fft import pocketfft
 
-from numba.extending import overload, register_jitable
+from numba.extending import overload
 
 
 class NumbaContextOnly(Exception):

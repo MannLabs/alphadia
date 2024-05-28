@@ -1,16 +1,15 @@
 import tempfile
 import os
 import shutil
-import pickle
 import numpy as np
 import pandas as pd
 import yaml
 import pytest
 from pathlib import Path
 
-from alphadia import calibration
+from alphadia.calibration.property import Calibration
 from sklearn.linear_model import LinearRegression
-from alphabase.statistics.regression import LOESSRegression
+from alphadia.calibration.models import LOESSRegression
 from alphadia.workflow import manager, base
 
 
@@ -102,15 +101,9 @@ def test_calibration_manager_init():
     assert calibration_manager.get_estimator("precursor", "rt").name == "rt"
     assert calibration_manager.get_estimator("fragment", "mz").name == "mz"
 
-    assert isinstance(
-        calibration_manager.get_estimator("precursor", "mz"), calibration.Calibration
-    )
-    assert isinstance(
-        calibration_manager.get_estimator("precursor", "rt"), calibration.Calibration
-    )
-    assert isinstance(
-        calibration_manager.get_estimator("fragment", "mz"), calibration.Calibration
-    )
+    assert isinstance(calibration_manager.get_estimator("precursor", "mz"), Calibration)
+    assert isinstance(calibration_manager.get_estimator("precursor", "rt"), Calibration)
+    assert isinstance(calibration_manager.get_estimator("fragment", "mz"), Calibration)
 
     assert isinstance(
         calibration_manager.get_estimator("precursor", "mz").function, LinearRegression

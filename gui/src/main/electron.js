@@ -84,13 +84,13 @@ app.whenReady().then(() => {
 
     console.log(app.getLocale())
     console.log(app.getSystemLocale())
-    createWindow(); 
+    createWindow();
 
     ipcMain.handle('get-engine-status', () => executionManager.getEngineStatus())
 
     ipcMain.handle('start-workflow-new', (event, workflow, engineIdx) => executionManager.startWorkflow(workflow, engineIdx))
     ipcMain.handle('abort-workflow-new', (event, runIdx) => executionManager.abortWorkflow(runIdx))
-    
+
     ipcMain.handle('get-output-length-new', (event, runIdx) => executionManager.getOutputLength(runIdx))
     ipcMain.handle('get-output-rows-new', (event, runIdx, {limit, offset}) => executionManager.getOutputRows(runIdx, limit, offset))
 

@@ -14,12 +14,12 @@ import TerminalIcon from '@mui/icons-material/Terminal';
 const DrawerContainer = styled('div')(({ theme }) => ({
     width: 240,
     flexShrink: 0,
-  
+
     '& .MuiPaper-root': {
       backgroundColor: theme.palette.background.default,
       width: 240,
       boxSizing: 'border-box',
-  
+
     },
   }));
 
@@ -91,10 +91,10 @@ const MenuDrawer = ({
         </Box>
 
         <ListStyled>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"home"}
-                component={NavLink} 
-                to="/" 
+                component={NavLink}
+                to="/"
                 activeClassName="Mui-selected">
                 <ListItemIcon>
                     <HomeIcon />
@@ -104,17 +104,17 @@ const MenuDrawer = ({
             <ListSubheader component="div" sx={{backgroundColor: "transparent"}}>
                 Method Setup
             </ListSubheader>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"files"}
-                component={NavLink} 
-                to="/files" 
+                component={NavLink}
+                to="/files"
                 activeClassName="Mui-selected" >
                 <ListItemIcon>
                     <FolderIcon />
                 </ListItemIcon>
                 <ListItemText primary="Input Files" />
             </ListItemButtonStyled >
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"method"}
                 component={NavLink}
                 to="/method"
@@ -124,7 +124,7 @@ const MenuDrawer = ({
                 </ListItemIcon>
             <ListItemText primary="Method Settings" />
             </ListItemButtonStyled>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"output"}
                 component={NavLink}
                 to="/output"
@@ -134,13 +134,13 @@ const MenuDrawer = ({
                 </ListItemIcon>
                 <ListItemText primary="Output Files" />
             </ListItemButtonStyled>
-            
+
         </ListStyled>
         <List sx={{padding: 0, position: "absolute", bottom: 0, width: "100%"}}>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"console"}
-                component={NavLink} 
-                to="/run" 
+                component={NavLink}
+                to="/run"
                 activeClassName="Mui-selected" >
                 <ListItemIcon>
                     <TerminalIcon />

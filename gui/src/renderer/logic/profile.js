@@ -25,7 +25,7 @@ export function profileReducer(profile, action) {
             if (action.idx >= profile.executionEngines.length) {
                 throw new Error(`Invalid execution engine index: ${action.idx}`);
             }
-            
+
 
             if (! profile.executionEngines[action.idx].available) {
                 throw new Error(`Execution engine not available: ${profile.executionEngines[action.idx].name}`);

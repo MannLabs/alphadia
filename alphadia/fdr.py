@@ -12,12 +12,11 @@ from alphadia import fragcomp
 # third party imports
 import pandas as pd
 import numpy as np
-import numba as nb
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import sklearn
 
-from typing import Union, Optional, Tuple, List
+from typing import Union, Optional, List
 
 
 def perform_fdr(
@@ -82,8 +81,9 @@ def perform_fdr(
     target_len, decoy_len = len(df_target), len(df_decoy)
     df_target.dropna(subset=available_columns, inplace=True)
     df_decoy.dropna(subset=available_columns, inplace=True)
-    target_dropped, decoy_dropped = target_len - len(df_target), decoy_len - len(
-        df_decoy
+    target_dropped, decoy_dropped = (
+        target_len - len(df_target),
+        decoy_len - len(df_decoy),
     )
 
     if target_dropped > 0:
@@ -100,7 +100,7 @@ def perform_fdr(
             f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
         )
         logger.warning(
-            f"FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
+            "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
         )
 
     X_target = df_target[available_columns].values
@@ -144,7 +144,7 @@ def perform_fdr(
                 start_idx = len(psm_df)
 
             # make sure fragments are not reused
-            if not df_fragments is None:
+            if df_fragments is not None:
                 if dia_cycle is None:
                     raise ValueError(
                         "dia_cycle must be provided if reuse_fragments is False"

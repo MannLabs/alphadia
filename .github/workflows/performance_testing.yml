@@ -6,16 +6,20 @@ on:
 
 name: performance testing
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 env:
   TEST_DATA_DIR: C:\actions-runner\_data
   CONDA: C:\Users\wallmann\Miniconda3
   NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
 
 jobs:
-  loose_installation:
+  performance_testing:
     name: Performance testing
     runs-on: self-hosted
-    
+
     steps:
       - uses: actions/checkout@v3
       - name: Install alphadia

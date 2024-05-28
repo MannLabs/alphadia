@@ -51,7 +51,7 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
 
 
 def wsl_to_windows(
-    path: typing.Union[str, list, tuple]
+    path: typing.Union[str, list, tuple],
 ) -> typing.Union[str, list, tuple]:
     """Converts a WSL path to a Windows path.
 
@@ -89,7 +89,7 @@ def wsl_to_windows(
 
 
 def windows_to_wsl(
-    path: typing.Union[str, list, tuple]
+    path: typing.Union[str, list, tuple],
 ) -> typing.Union[str, list, tuple]:
     """Converts a Windows path to a WSL path.
 
@@ -283,7 +283,7 @@ def get_isotope_columns(colnames):
     isotopes = np.array(sorted(isotopes))
 
     if not np.all(np.diff(isotopes) == 1):
-        logging.warning(f"Isotopes are not consecutive")
+        logging.warning("Isotopes are not consecutive")
 
     return isotopes
 
@@ -623,24 +623,23 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-
-    missing_columns = list(set(right_columns) - set(left_df.columns))
-
     if type(on) == str:
         on = [on]
 
-    if type(missing_columns) == str:
-        missing_columns = [missing_columns]
+    if type(right_columns) == str:
+        right_columns = [right_columns]
 
-    if len(missing_columns) == 0:
+    missing_from_left = list(set(right_columns) - set(left_df.columns))
+    missing_from_right = list(set(missing_from_left) - set(right_df.columns))
+
+    if len(missing_from_left) == 0:
         return left_df
 
-    # check conditions
-    if not all([col in right_df.columns for col in missing_columns]):
-        raise ValueError(f"Columns {missing_columns} must be present in right_df")
+    if missing_from_right:
+        raise ValueError(f"Columns {missing_from_right} must be present in right_df")
 
     if on is None:
-        raise ValueError(f"Parameter on must be specified")
+        raise ValueError("Parameter on must be specified")
 
     if not all([col in left_df.columns for col in on]):
         raise ValueError(f"Columns {on} must be present in left_df")
@@ -649,7 +648,7 @@ def merge_missing_columns(
         raise ValueError(f"Columns {on} must be present in right_df")
 
     if how not in ["left", "right", "inner", "outer"]:
-        raise ValueError(f"Parameter how must be one of left, right, inner, outer")
+        raise ValueError("Parameter how must be one of left, right, inner, outer")
 
     # merge
-    return left_df.merge(right_df[on + missing_columns], on=on, how=how)
+    return left_df.merge(right_df[on + missing_from_left], on=on, how=how)
