@@ -1,5 +1,13 @@
 on:
   workflow_dispatch:
+#    inputs:
+#      commit_to_release:
+#        description: 'Enter commit hash to release (example: 1a2b3c4)'
+#        required: true
+#      tag_to_release:
+#        description: 'Enter tag to release (example: 1.5.5)'
+#        required: true
+
 
 name: Release bundled installer
 
@@ -11,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+#        with:
+#          ref: ${{ commit_to_release }}
       - name: Get new release tag
         id: get_new_release_tag
         shell: bash -l {0}

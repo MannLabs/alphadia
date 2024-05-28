@@ -2,6 +2,8 @@ on:
   workflow_dispatch:
   pull_request:
     types: [ labeled ]  # TODO remove this line when the workflow is ready to be used
+#  release:
+#    types: [published]  # TODO
 
 name: Publish on PyPi
 
