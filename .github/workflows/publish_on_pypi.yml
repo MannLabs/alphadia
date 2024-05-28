@@ -42,21 +42,21 @@ jobs:
           twine check dist/*
           conda deactivate
           conda env remove --name alphadia_build -y
-#      - name: Publish distribution to Test-PyPI
-#        uses: pypa/gh-action-pypi-publish@release/v1
-#        with:
-#          repository-url: https://test.pypi.org/legacy/
-#          user: __token__
-#          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-#      - name: Test Test-PyPI loose installation
-#        shell: bash -le {0}
-#        run: |
-#          conda create -n pip_loose_test python=${{ env.PYTHON_VERSION }} -y
-#          conda activate pip_loose_test
-#          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia"
-#          alphadia -v
-#          conda deactivate
-#          conda env remove --name pip_stable_test -y
+      - name: Publish distribution to Test-PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      - name: Test Test-PyPI loose installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_loose_test python=${{ env.PYTHON_VERSION }} -y
+          conda activate pip_loose_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia"
+          alphadia -v
+          conda deactivate
+          conda env remove --name pip_stable_test -y
       - name: Test Test-PyPI stable installation
         shell: bash -le {0}
         run: |
