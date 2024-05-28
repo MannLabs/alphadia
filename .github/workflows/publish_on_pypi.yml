@@ -40,17 +40,17 @@ jobs:
         shell: bash -le {0}
         run: |
           conda create -n alphadia python=3.9 -y
-          pip install twine
+          pip install twine build
           conda activate alphadia
           rm -rf dist
           rm -rf build
-          python setup.py sdist bdist_wheel
+          python -m build
           twine check dist/*
           conda deactivate
       - name: Publish distribution to Test PyPI
         uses: pypa/gh-action-pypi-publish@v1
         with:
-          password: ${{ secrets.PYPI_TEST_API_TOKEN }}
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
       - name: Test PyPI-test loose release
         shell: bash -le {0}
