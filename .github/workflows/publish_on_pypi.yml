@@ -17,7 +17,8 @@ jobs:
           miniconda-version: "latest"
           auto-update-conda: true
           python-version: "3.9"
-      - id: check_is_version_bumped
+      - name: Check if version has been bumped
+        id: check_is_version_bumped
         shell: bash -le {0}
         run: |
           cd misc
