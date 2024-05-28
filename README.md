@@ -1,4 +1,4 @@
-![Release](https://img.shields.io/badge/release-v1.5.5-brightgreen)
+![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 ![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
 ![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
