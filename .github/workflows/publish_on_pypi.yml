@@ -6,7 +6,6 @@ on:
       tag_to_release:
         description: 'Enter tag to release (example: v1.5.5)'
         required: true
-        default: 'v1.5.5'
 
 name: Publish on PyPi
 
@@ -20,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: vgihjbhjbj1.5.5 #${{ inputs.tag_to_release }}
+          ref: ${{ inputs.tag_to_release || 'v1.5.5' }} # TODO remove default after this is available on main
       - uses: conda-incubator/setup-miniconda@v3
         with:
           miniconda-version: "latest"
