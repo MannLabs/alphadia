@@ -1,9 +1,12 @@
 on:
+  pull_request:
+    types: [labeled]   # TODO remove after this is available on main
   workflow_dispatch:
     inputs:
       tag_to_release:
         description: 'Enter tag to release (example: v1.5.5)'
         required: true
+        default: 'v1.5.5'
 
 name: Publish on PyPi
 
@@ -13,6 +16,7 @@ env:
 jobs:
   Create_PyPi_Release:
     runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'tmp:pypi')  # TODO remove after this is available on main
     steps:
       - uses: actions/checkout@v4
         with:
