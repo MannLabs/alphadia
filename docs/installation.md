@@ -137,28 +137,4 @@ Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-proj
 Install alphaDIA using pip as described [here](../README.md#3-installation).
 
 Afterwards, verify the alphaDIA installation by running:
-`alphadia -h`
-which should give an output like this ```1.5.5```.
-
-#### Obsolete once available on pip:
-As long as there is no public release yet, we can't use `pip install alphadia`.
-Below you can find hosted `.tar.gz` versions for now.
-- [alphadia-v1.5.4](https://datashare.biochem.mpg.de/s/Llz4lEJhQacZWGr/download)
-- [alphadia-v1.5.5](https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download)
-
-Copy the link for the most recent version and download it using wget.
-```bash
-wget https://datashare.biochem.mpg.de/s/nryp3IUrVs9jucg/download -O alphadia.tar.gz
-```
-
-Untar the file
-```bash
-tar -xf ./alphadia.tar.gz
-```
-
-You should get a folder named `alphadia-x.x.x`
-
-Install alphaDIA using pip, this might take some time.
-```bash
-pip install -e ./alphadia-1.5.5
-```
+`alphadia -h` which should give an output like this ```1.5.5```.

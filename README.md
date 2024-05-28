@@ -88,7 +88,7 @@ conda activate alphadia
 
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
-pip install alphadia[stable]
+pip install "alphadia[stable]"
 ```
 We strongly recommend using the `stable` version, which has all dependencies fixed,
 for reasons of reproducibility and integrity.

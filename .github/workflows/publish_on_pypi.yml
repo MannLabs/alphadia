@@ -1,0 +1,103 @@
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [ labeled ]  # TODO remove this line when the workflow is ready to be used
+
+name: Publish on PyPi
+
+env:
+  PYTHON_VERSION: "3.9"
+
+jobs:
+  Create_PyPi_Release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: $PYTHON_VERSION
+      - name: Conda info
+        shell: bash -le {0}
+        run: conda info
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - name: Prepare distribution
+        shell: bash -le {0}
+        run: |
+          conda create -n alphadia_build python=$PYTHON_VERSION -y
+          conda activate alphadia_build
+          python -m pip install --upgrade pip
+          pip install build twine
+          rm -rf dist
+          rm -rf build
+          python -m build
+          twine check dist/*
+          conda deactivate
+      - name: Publish distribution to Test-PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      - name: Test Test-PyPI loose installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_loose_test python=$PYTHON_VERSION -y
+          conda activate pip_loose_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia"
+          alphadia -v
+          conda deactivate
+      - name: Test Test-PyPI stable installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_stable_test python=$PYTHON_VERSION -y
+          conda activate pip_stable_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia[stable]"
+          alphadia -v
+          conda deactivate
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
+  Test_PyPi_Release:
+    name: Test_PyPi_version_on_${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    needs: Create_PyPi_Release
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniconda-version: "latest"
+          auto-update-conda: true
+          python-version: $PYTHON_VERSION
+      - name: Conda info
+        shell: bash -le {0}
+        run: conda info
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - name: Test PyPI stable installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_stable python=$PYTHON_VERSION -y
+          conda activate pip_stable
+          pip install "alphadia[stable]"
+          alphadia -v
+          conda deactivate
+      - name: Test PyPI loose installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_loose python=$PYTHON_VERSION -y
+          conda activate pip_loose
+          pip install alphadia
+          alphadia -v
+          conda deactivate
