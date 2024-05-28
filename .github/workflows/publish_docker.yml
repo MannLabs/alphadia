@@ -25,7 +25,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_to_release || 'v1.5.5' }} # TODO remove default after this is available on main
+          ref: ${{ inputs.tag_to_release || 'v1.6.0' }} # TODO remove default after this is available on main
 
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
