@@ -8,10 +8,11 @@ requires-python = ">=3.9.0"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
 authors = [
-    {name = "Mann Labs", email = "opensource@alphapept.com"},  # TODO
+    {name = "Georg Wallmann", email = "wallmann@biochem.mpg.de"},
+    {name = "Matthias Mann", email = "mmann@biochem.mpg.de"}
 ]
 maintainers = [
-    {name = "Mann Labs", email = "opensource@alphapept.com"},  # TODO
+    {name = "Georg Wallmann", email = "wallmann@biochem.mpg.de"}
 ]
 description = "A novel proteomics search engine for DIA data based on end-to-end transfer learning."
 readme = "README.md"
