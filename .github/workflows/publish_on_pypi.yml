@@ -1,6 +1,4 @@
 on:
-  pull_request:
-    types: [labeled]   # TODO remove after this is available on main
   workflow_dispatch:
     inputs:
       tag_to_release:
@@ -15,11 +13,10 @@ env:
 jobs:
   Create_PyPi_Release:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'tmp:pypi')  # TODO remove after this is available on main
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag_to_release || 'v1.5.5' }} # TODO remove default after this is available on main
+          ref: ${{ inputs.tag_to_release }}
       - uses: conda-incubator/setup-miniconda@v3
         with:
           miniconda-version: "latest"
