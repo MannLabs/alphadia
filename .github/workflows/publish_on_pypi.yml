@@ -5,25 +5,10 @@ on:
 
 name: Publish on PyPi
 
+env:
+  PYTHON_VERSION: "3.9"
+
 jobs:
-  Version_Bumped:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.master_version_bumped.outputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
-          auto-update-conda: true
-          python-version: "3.9"
-      - name: Check if version has been bumped
-        id: check_is_version_bumped
-        shell: bash -le {0}
-        run: |
-          cd misc
-          . ./check_version.sh
-          echo "version=$current_version" >> $GITHUB_OUTPUT
   Create_PyPi_Release:
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +17,7 @@ jobs:
         with:
           miniconda-version: "latest"
           auto-update-conda: true
-          python-version: "3.9"
+          python-version: $PYTHON_VERSION
       - name: Conda info
         shell: bash -le {0}
         run: conda info
@@ -43,7 +28,7 @@ jobs:
       - name: Prepare distribution
         shell: bash -le {0}
         run: |
-          conda create -n alpakaweird python=3.9 -y
+          conda create -n alpakaweird python=$PYTHON_VERSION -y
           conda activate alpakaweird
           python -m pip install --upgrade pip
           pip install build twine
@@ -61,16 +46,16 @@ jobs:
       - name: Test Test-PyPI loose installation
         shell: bash -le {0}
         run: |
-          conda create -n alpakaweird_pip_loose_test python=3.9 -y
-          conda activate alpakaweird_pip_loose_test
+          conda create -n pip_loose_test python=$PYTHON_VERSION -y
+          conda activate pip_loose_test
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alpakaweird"
           alpakaweird -v
           conda deactivate
       - name: Test Test-PyPI stable installation
         shell: bash -le {0}
         run: |
-          conda create -n alpakaweird_pip_stable_test python=3.9 -y
-          conda activate alpakaweird_pip_stable_test
+          conda create -n pip_stable_test python=$PYTHON_VERSION -y
+          conda activate pip_stable_test
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alpakaweird[stable]"
           alpakaweird -v
           conda deactivate
@@ -92,15 +77,23 @@ jobs:
 #        with:
 #          miniconda-version: "latest"
 #          auto-update-conda: true
-#          python-version: "3.9"
+#          python-version: $PYTHON_VERSION
 #      - name: Conda info
 #        shell: bash -le {0}
 #        run: conda info
-#      - name: Test pip installation from PyPi
+#      - name: Test PyPI stable installation
 #        shell: bash -le {0}
 #        run: |
-#          conda create -n alpakaweird_pip_test python=3.9 -y
-#          conda activate alpakaweird_pip_test
+#          conda create -n pip_stable python=$PYTHON_VERSION -y
+#          conda activate pip_stable
 #          pip install "alpakaweird[stable]"
+#          alpakaweird -v
+#          conda deactivate
+#      - name: Test PyPI loose installation
+#        shell: bash -le {0}
+#        run: |
+#          conda create -n pip_loose python=$PYTHON_VERSION -y
+#          conda activate pip_loose
+#          pip install "alpakaweird"
 #          alpakaweird -v
 #          conda deactivate
