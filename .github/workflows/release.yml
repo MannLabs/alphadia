@@ -2,6 +2,10 @@ on:
   pull_request:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      tag_to_release:
+        description: 'Enter tag to release (example: v1.5.5)'
+        required: true
 
 name: Release bundled installer
 
@@ -13,6 +17,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag_to_release }}
       - uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
