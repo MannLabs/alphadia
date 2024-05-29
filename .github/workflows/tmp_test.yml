@@ -1,0 +1,29 @@
+name: Get Release info
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  get_info:
+    runs-on: ubuntu-latest
+    steps:
+      - id: test1
+        run: |
+          echo "${{ github.event.release.name }}"
+          echo "${{ github.event.release }}"
+          if [[ "${{ github.event.release.name }}" == "$latest_release"* ]]; then
+            echo "This release is marked as the latest."
+          else
+            echo "This release is not marked as the latest."
+          fi
+      - id: test2
+        run: |
+          RELEASE_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/latest")
+
+          LATEST_RELEASE_NAME=$(echo "$RELEASE_JSON" | jq -r '.name')
+          IS_LATEST=$(echo "$RELEASE_JSON" | jq -r '.prerelease')
+
+          echo "Latest release name: $LATEST_RELEASE_NAME"
+          echo "Is latest release: $IS_LATEST"
