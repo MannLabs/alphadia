@@ -2,7 +2,7 @@ on:
   workflow_dispatch:
     inputs:
       commit_to_release:
-        description: 'Enter commit hash to release (example: 1a2b3c4)'
+        description: 'Enter commit hash to release (example: ef4037cb571f99cb4919b520fde7174972aae473)'
         required: true
       tag_to_release:
         description: 'Enter tag to release (example: v1.5.5)'
@@ -15,7 +15,7 @@ jobs:
   Get_New_Version:
     runs-on: ubuntu-latest
     outputs:
-      new_version: ${{ steps.get_new_release_tag.outputs.new_version }}
+      new_version: ${{ steps.check_release_tag.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,11 +23,10 @@ jobs:
           ref: ${{ inputs.commit_to_release }}
 
       - name: Check release tag
+        id: check_release_tag
         shell: bash -le {0}
         run: |
-          ./misc/get_current_version.sh
           CURRENT_VERSION=$(./misc/get_current_version.sh)
-          echo ${CURRENT_VERSION}
           if [ "v${CURRENT_VERSION}" != "${{ inputs.tag_to_release }}" ]; then
             echo Code version "v${CURRENT_VERSION}" does not match the tag to release ${{ inputs.tag_to_release }}
             exit 1
