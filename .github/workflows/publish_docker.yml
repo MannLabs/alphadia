@@ -57,8 +57,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/alphadia:latest,
-            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }},
-            ${{ steps.meta.outputs.tags }}
+            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
           labels: ${{ steps.meta.outputs.labels }}
 
 
