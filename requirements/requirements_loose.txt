@@ -13,6 +13,7 @@ seaborn
 rocket_fft
 xxhash
 torchmetrics
+transformers<=4.40.2
 directlfq
 pythonnet
 zstandard
