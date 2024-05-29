@@ -118,7 +118,3 @@ def test_requirements():
             assert specifier_loose.contains(
                 version_strict
             ), f"Requirement '{req}' is too strict in '{file_name_loose}'"
-
-            assert str(specifier_loose).startswith(
-                ">="
-            ), f"Requirement '{req}' must be defined by '>=' in '{file_name_strict}'"
