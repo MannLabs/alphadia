@@ -55,7 +55,7 @@ The containerized version can be used to run alphaDIA e.g. on cloud platforms.
 It can be used to run alphaDIA for multiple input files, as well as for single files only
 (trivial parallelization on computing clusters).
 
-Note that this container is not optimized neither for performance nor size yet, and does not run on Apple Silicone chips
+Note that this container is not optimized neither for performance nor size yet, and does not run on Apple Silicon chips
 (M1/M2/M3) due to problems with mono. Also, it currently relies on the input files being organized
 in a specific folder structure.
 

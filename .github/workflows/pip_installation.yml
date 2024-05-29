@@ -2,7 +2,7 @@ on:
   pull_request:
   workflow_dispatch:
 
-name: Default installation and tests
+name: Perform installation and run tests
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
