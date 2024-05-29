@@ -2,7 +2,7 @@ name: Get Release info
 
 on:
   release:
-    types: [created]
+    types:
 
 jobs:
   get_info:
