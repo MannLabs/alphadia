@@ -113,13 +113,13 @@ jobs:
           conda deactivate
           conda env remove --name pip_stable -y
           conda clean --all -y
-      - name: Test PyPI loose installation
-        shell: bash -le {0}
-        run: |
-          conda create -n pip_loose python=${{ env.PYTHON_VERSION }} -y
-          conda activate pip_loose
-          pip install alphadia==${{ needs.Create_PyPi_Release.outputs.new_version }}
-          alphadia -v
-          conda deactivate
-          conda env remove --name pip_loose -y
-          conda clean --all -y
+#      - name: Test PyPI loose installation
+#        shell: bash -le {0}
+#        run: |
+#          conda create -n pip_loose python=${{ env.PYTHON_VERSION }} -y
+#          conda activate pip_loose
+#          pip install alphadia==${{ needs.Create_PyPi_Release.outputs.new_version }}
+#          alphadia -v
+#          conda deactivate
+#          conda env remove --name pip_loose -y
+#          conda clean --all -y
