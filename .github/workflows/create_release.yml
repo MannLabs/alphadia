@@ -9,7 +9,7 @@ on:
         required: true
 
 
-name: Release bundled installer
+name: Create Draft Release
 
 jobs:
   Get_New_Version:
