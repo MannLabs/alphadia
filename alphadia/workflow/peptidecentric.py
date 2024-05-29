@@ -97,6 +97,12 @@ classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
 )
 
 
+class CalibrationError(Exception):
+    """Raised when calibration fails"""
+
+    pass
+
+
 class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
@@ -489,7 +495,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                             "Searched all data without finding recalibration target",
                             verbosity="error",
                         )
-                        raise RuntimeError(
+                        raise CalibrationError(
                             "Searched all data without finding recalibration target"
                         )
 
