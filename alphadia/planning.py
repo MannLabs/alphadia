@@ -351,6 +351,11 @@ class Plan:
                     f"   3. There was a fundamental issue with search parameters"
                 )
                 continue
+            except Exception as e:
+                logger.error(
+                    f"Search for {raw_name} failed with error {e}", exc_info=True
+                )
+                raise e
 
         try:
             base_spec_lib = SpecLibBase()
@@ -362,12 +367,7 @@ class Plan:
             output.build(workflow_folder_list, base_spec_lib)
 
         except Exception as e:
-            # get full traceback
-            import traceback
-
-            traceback.print_exc()
-            print(e)
-            logger.error(f"Output failed with error {e}")
+            logger.error(f"Output failed with error {e}", exc_info=True)
             return
 
         logger.progress("=================== Search Finished ===================")
