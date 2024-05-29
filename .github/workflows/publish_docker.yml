@@ -36,11 +36,17 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
-#      - name: Extract metadata (tags, labels) for Docker
-#        id: meta
-#        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-#        with:
-#          images: mannlabs/alphadia
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: mannlabs/alphadia
+
+      - name: show metadata
+        run: |
+          echo "${{ steps.meta.outputs.tags }}"
+          echo "${{ steps.meta.outputs.labels }}"
+          echo "${{ steps.meta.outputs }}"
 
       - name: Build and push Docker image
         id: push
@@ -51,8 +57,9 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/alphadia:latest,
-            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
-#          labels: ${{ steps.meta.outputs.labels }}
+            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }},
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
 
 
 #      - name: Generate artifact attestation

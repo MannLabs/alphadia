@@ -60,11 +60,7 @@ Note that this container is not optimized for performance yet, and does not run 
 in a specific folder structure.
 
 1) Install the latest version of docker (https://docs.docker.com/engine/install/).
-2) Build the image (this step is obsolete once the container is available on Docker hub)
-```bash
-docker build -t alphadia-docker .
-```
-3) Set up your data to match the expected folder structure:
+2) Set up your data to match the expected folder structure:
 - Create a folder and store its name in a variable, e.g. `DATA_FOLDER=/home/username/data; mkdir -p $DATA_FOLDER`
 - In this folder, create 4 subfolders:
   - `library`: put your library file here, make it writeable for any user (`chmod o+rw *`)
@@ -83,12 +79,22 @@ output_directory: /app/data/output
   The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there
   in your `config.yaml`.
 
-4) Start the container (this command will change once the container is available on Docker hub)
+3) Start the container
+```bash
+docker run -v $DATA_FOLDER:/app/data/ mannlabs/alphadia:latest
+```
+After initial download of the container, alphaDIA will start running immediately. Alternatively, you can run an interactive session with
+`docker run -v $DATA_FOLDER:/app/data/ -it mannlabs/alphadia:latest bash`
+
+### Build the image yourself (advanced users)
+If you want to build the image yourself, you can do so by
+```bash
+docker build -t alphadia-docker .
+```
+and run it with
 ```bash
 docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 ```
-AlphaDIA will start running immediately. Alternatively, you can run an interactive session with
-`docker run -v $DATA_FOLDER:/app/data/ --rm -it alphadia-docker bash`
 
 ## Installing alphaDIA on a SLURM cluster
 
