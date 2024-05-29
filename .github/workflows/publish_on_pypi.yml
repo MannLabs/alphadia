@@ -49,6 +49,7 @@ jobs:
           python -m build
           twine check dist/*
           conda deactivate
+          conda env remove --name alphadia_build -y
       - name: Publish distribution to Test-PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -63,6 +64,7 @@ jobs:
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia==${{ steps.get_current_version.outputs.new_version }}"
           alphadia -v
           conda deactivate
+          conda env remove --name pip_stable_test -y
       - name: Test Test-PyPI stable installation
         shell: bash -le {0}
         run: |
@@ -71,6 +73,7 @@ jobs:
           pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia[stable]==${{ steps.get_current_version.outputs.new_version }}"
           alphadia -v
           conda deactivate
+          conda env remove --name pip_stable_test -y
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -105,6 +108,7 @@ jobs:
           pip install "alphadia[stable]==${{ needs.Create_PyPi_Release.outputs.new_version }}"
           alphadia -v
           conda deactivate
+          conda env remove --name pip_stable -y
       - name: Test PyPI loose installation
         shell: bash -le {0}
         run: |
@@ -113,3 +117,4 @@ jobs:
           pip install alphadia==${{ needs.Create_PyPi_Release.outputs.new_version }}"
           alphadia -v
           conda deactivate
+          conda env remove --name pip_loose -y
