@@ -633,7 +633,11 @@ class SearchPlanOutput:
         """
         logger.progress("Building search statistics")
 
-        all_channels = set(self.config["search"]["channel_filter"].split(",")) + {0}
+        if self.config["search"]["channel_filter"] == "":
+            all_channels = {0}
+        else:
+            all_channels = set(self.config["search"]["channel_filter"].split(","))
+
         if self.config["multiplexing"]["enabled"]:
             all_channels &= set(
                 self.config["multiplexing"]["target_channels"].split(",")
