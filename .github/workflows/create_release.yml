@@ -23,11 +23,13 @@ jobs:
           ref: ${{ inputs.commit_to_release }}
 
       - name: Check release tag
-        shell: bash -l {0}
+        shell: bash -le {0}
         run: |
-          CURRENT_VERSION=$(misc/get_current_version.sh)
+          ./misc/get_current_version.sh
+          CURRENT_VERSION=$(./misc/get_current_version.sh)
+          echo ${CURRENT_VERSION}
           if [ "v${CURRENT_VERSION}" != "${{ inputs.tag_to_release }}" ]; then
-            echo Code version ("v${CURRENT_VERSION}") does not match the tag to release (${{ inputs.tag_to_release }})
+            echo Code version "v${CURRENT_VERSION}" does not match the tag to release ${{ inputs.tag_to_release }}
             exit 1
           fi
           echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
