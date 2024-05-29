@@ -2,8 +2,8 @@
 name: Publish Docker image
 
 on:
-#  release:
-#    types: [published]
+  release:
+    types: [released]
   pull_request:
     types: [labeled]   # TODO remove after this is available on main
   workflow_dispatch:
@@ -24,20 +24,22 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_to_release || 'v1.6.0' }} # TODO remove default after this is available on main
-
+      - name: Get current version
+        shell: bash -l {0}
+        run: |
+          CURRENT_VERSION=$(grep "__version__" alphadia/__init__.py | cut -f3 -d ' ' | sed 's/"//g')
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
       - name: Log in to Docker Hub
         uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-        with:
-          images: mannlabs/alphadia
+#      - name: Extract metadata (tags, labels) for Docker
+#        id: meta
+#        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+#        with:
+#          images: mannlabs/alphadia
 
       - name: Build and push Docker image
         id: push
@@ -46,13 +48,13 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: latest, ${{ steps.get_new_release_tag.outputs.current_version }}
+#          labels: ${{ steps.meta.outputs.labels }}
 
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+#      - name: Generate artifact attestation
+#        uses: actions/attest-build-provenance@v1
+#        with:
+#          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+#          subject-digest: ${{ steps.push.outputs.digest }}
+#          push-to-registry: true
