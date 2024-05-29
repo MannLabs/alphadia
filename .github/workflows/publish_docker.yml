@@ -49,7 +49,9 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/alphadia:latest, ${{ env.REGISTRY }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/alphadia:latest,
+            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
 #          labels: ${{ steps.meta.outputs.labels }}
 
 
