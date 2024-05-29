@@ -49,7 +49,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: latest, ${{ steps.get_current_version.outputs.current_version }}
+          tags: ${{ env.REGISTRY }}/alphadia:latest, ${{ env.REGISTRY }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
 #          labels: ${{ steps.meta.outputs.labels }}
 
 
