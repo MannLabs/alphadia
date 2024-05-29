@@ -33,6 +33,9 @@ RUN adduser \
 #    python -m pip install -r requirements/requirements.txt
 
 COPY pyproject.toml pyproject.toml
+COPY docs docs
+COPY gui gui
+COPY requirements requirements
 COPY alphadia alphadia
 
 RUN pip install  --no-cache-dir ".[stable]"
