@@ -12,6 +12,8 @@ import alphadia
 from alphadia.workflow import reporting
 from alphadia import utils
 
+import argparse
+
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
 parser.add_argument(
