@@ -33,55 +33,55 @@ jobs:
         run: |
          CURRENT_VERSION=$(./misc/get_current_version.sh)
          echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-#      - uses: actions/cache@v4
-#        with:
-#          path: ~/.cache/pip
-#          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-#      - name: Prepare distribution
-#        shell: bash -le {0}
-#        run: |
-#          conda create -n alphadia_build python=${{ env.PYTHON_VERSION }} -y
-#          conda activate alphadia_build
-#          python -m pip install --upgrade pip
-#          pip install build twine
-#          rm -rf dist
-#          rm -rf build
-#          python -m build
-#          twine check dist/*
-#          conda deactivate
-#          conda env remove --name alphadia_build -y
-#          conda clean --all -y
-#      - name: Publish distribution to Test-PyPI
-#        uses: pypa/gh-action-pypi-publish@release/v1
-#        with:
-#          repository-url: https://test.pypi.org/legacy/
-#          user: __token__
-#          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-#      - name: Test Test-PyPI loose installation
-#        shell: bash -le {0}
-#        run: |
-#          conda create -n pip_loose_test python=${{ env.PYTHON_VERSION }} -y
-#          conda activate pip_loose_test
-#          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia==${{ steps.get_current_version.outputs.new_version }}"
-#          alphadia -v
-#          conda deactivate
-#          conda env remove --name pip_stable_test -y
-#          conda clean --all -y
-#      - name: Test Test-PyPI stable installation
-#        shell: bash -le {0}
-#        run: |
-#          conda create -n pip_stable_test python=${{ env.PYTHON_VERSION }} -y
-#          conda activate pip_stable_test
-#          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia[stable]==${{ steps.get_current_version.outputs.new_version }}"
-#          alphadia -v
-#          conda deactivate
-#          conda env remove --name pip_stable_test -y
-#          conda clean --all -y
-#      - name: Publish distribution to PyPI
-#        uses: pypa/gh-action-pypi-publish@release/v1
-#        with:
-#          user: __token__
-#          password: ${{ secrets.PYPI_API_TOKEN }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+      - name: Prepare distribution
+        shell: bash -le {0}
+        run: |
+          conda create -n alphadia_build python=${{ env.PYTHON_VERSION }} -y
+          conda activate alphadia_build
+          python -m pip install --upgrade pip
+          pip install build twine
+          rm -rf dist
+          rm -rf build
+          python -m build
+          twine check dist/*
+          conda deactivate
+          conda env remove --name alphadia_build -y
+          conda clean --all -y
+      - name: Publish distribution to Test-PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      - name: Test Test-PyPI loose installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_loose_test python=${{ env.PYTHON_VERSION }} -y
+          conda activate pip_loose_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia==${{ steps.get_current_version.outputs.new_version }}"
+          alphadia -v
+          conda deactivate
+          conda env remove --name pip_stable_test -y
+          conda clean --all -y
+      - name: Test Test-PyPI stable installation
+        shell: bash -le {0}
+        run: |
+          conda create -n pip_stable_test python=${{ env.PYTHON_VERSION }} -y
+          conda activate pip_stable_test
+          pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple "alphadia[stable]==${{ steps.get_current_version.outputs.new_version }}"
+          alphadia -v
+          conda deactivate
+          conda env remove --name pip_stable_test -y
+          conda clean --all -y
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
   Test_PyPi_Release:
     name: Test_PyPi_version_on_${{ matrix.os }}
     runs-on: ${{ matrix.os }}
