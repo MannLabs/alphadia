@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python -m pip install -r requirements/requirements.txt
 
 COPY pyproject.toml pyproject.toml
-COPY alpadia alphadia
+COPY alphadia alphadia
 
 RUN pip install ".[stable]"
 
