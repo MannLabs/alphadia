@@ -52,7 +52,7 @@ find = {}
 dependencies = {file = ["requirements/requirements_loose.txt"]}
 optional-dependencies = { stable = { file = ["requirements/requirements.txt",
 ] }, test = { file = [ "requirements/requirements_test.txt",
-] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt"
+] }, development = { file = ["requirements/requirements_development.txt", "requirements/requirements_test.txt", "requirements/requirements_docs.txt"
 ] }}
 version = {attr = "alphadia.__version__"}
 
