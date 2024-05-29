@@ -22,8 +22,8 @@ jobs:
     steps:
       - name: Check out the repo
         uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_to_release || 'v1.6.0' }} # TODO remove default after this is available on main
+#        with:
+#          ref: ${{ inputs.tag_to_release || 'v1.6.0' }} # TODO remove default after this is available on main
       - name: Get current version
         id: get_current_version
         shell: bash -l {0}
