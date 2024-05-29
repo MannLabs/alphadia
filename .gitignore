@@ -160,3 +160,9 @@ gui/out/
 # mono crash logs #
 ###################
 mono_crash*
+
+###################
+# IDEs            #
+###################
+.idea
+.vscode

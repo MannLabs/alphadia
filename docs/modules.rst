@@ -16,6 +16,5 @@ Modules
     alphadia/planning
     alphadia/plexscoring
     alphadia/quadrupole
-    alphadia/testing
     alphadia/utils
     alphadia/validate
