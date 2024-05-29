@@ -244,13 +244,6 @@
                         "Exploris",
                         "Exploris480"
                     ]
-                },
-                {
-                    "id": "save_hdf",
-                    "name": "Save library as HDF",
-                    "value": true,
-                    "description": "Store the library as alphaBase HDF file. This will speed up subsequent searches and will include predicted properties.",
-                    "type": "boolean"
                 }
             ]
         },

@@ -25,6 +25,24 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import torch
 
+from alphabase.constants import modification
+
+modification.add_new_modifications(
+    {
+        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
+        "Dimethyl:d12@Any N-term": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@R": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@K": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Label:13C(12)@K": {"composition": "C(12)"},
+    }
+)
+
 
 logger = logging.getLogger()
 
@@ -225,8 +243,9 @@ class Plan:
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
-        if self.config["library_prediction"]["save_hdf"]:
-            spectral_library.save_hdf(os.path.join(self.output_folder, "speclib.hdf"))
+        library_path = os.path.join(self.output_folder, "speclib.hdf")
+        logger.info(f"Saving library to {library_path}")
+        spectral_library.save_hdf(library_path)
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
@@ -299,7 +318,7 @@ class Plan:
                 psm_df, frag_df = workflow.extraction()
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
-                if self.config["multiplexing"]["multiplexed_quant"]:
+                if self.config["multiplexing"]["enabled"]:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 

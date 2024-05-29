@@ -21,6 +21,7 @@ from peptdeep.model.model_interface import LR_SchedulerInterface, CallbackHandle
 from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
+from alphadia.workflow import reporting
 logger = logging.getLogger()
 
 settings = {
@@ -223,56 +224,68 @@ class FinetuneManager(ModelManager):
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
 
-    def _order_intensities(
-        self,
-        precursor_df_target: pd.DataFrame,
-        precursor_df_pred: pd.DataFrame,
-        target_intensity_df: pd.DataFrame,
-        pred_intensity_df: pd.DataFrame,
-    ) -> pd.DataFrame:
+    def _reset_frag_idx(self, df):
         """
-        Rearrange the predicted fragment intensities to match the order used by the start and stop indices in the precursor_df_target.
-        This is used because when the fragment intensities are predicted, peptdeep changes the frag_start_idx and frag_stop_idx,
-        so with this function we can directly compare the predicted intensities with the target intensities.
+        Reset the frag_start_idx and frag_stop_idx of the dataframe so both columns will be monotonically increasing.
 
         Parameters
         ----------
-        precursor_df_target : pd.DataFrame
-            The PSM dataframe before prediction.
-        precursor_df_pred : pd.DataFrame
-            The PSM dataframe after prediction.
-        target_intensity_df : pd.DataFrame
-            The target fragment intensity dataframe.
-        pred_intensity_df : pd.DataFrame
-            The predicted fragment intensity dataframe.
+        df : pd.DataFrame
+            The dataframe to reset the indices.
 
         Returns
         -------
         pd.DataFrame
-            The rearranged predicted fragment intensity dataframe.
+            The dataframe with the reset indices.
         """
-        new_pred = target_intensity_df.copy()
-        for i in range(len(precursor_df_pred)):
-            cur_mod_seq_hash = precursor_df_pred.iloc[i]["mod_seq_charge_hash"]
-            cur_proba = precursor_df_pred.iloc[i]["proba"]
+        new_df = df.copy()
+        number_of_fragments = new_df["frag_stop_idx"] - new_df["frag_start_idx"]
+        accumlated_frags = number_of_fragments.cumsum()
 
-            # find the index of the the same mod_seq_hash and proba in the precursor_df
-            target = precursor_df_target[
-                (precursor_df_target["mod_seq_charge_hash"] == cur_mod_seq_hash)
-                & (precursor_df_target["proba"] == cur_proba)
+        new_frag_start_idx = accumlated_frags - number_of_fragments
+        new_frag_stop_idx = accumlated_frags
+
+        new_df["frag_start_idx"] = new_frag_start_idx
+        new_df["frag_stop_idx"] = new_frag_stop_idx
+        return new_df
+
+    def _order_intensities(
+        self,
+        reordered_precursor_df: pd.DataFrame,
+        unordered_precursor_df: pd.DataFrame,
+        unordered_frag_df: pd.DataFrame,
+    ) -> pd.DataFrame:
+        """
+        Rearrange the fragment intensities to match the order used by the start and stop indices in reordered_precursor_df.
+        The goal of this is to reorder the fragment intensities using a newer precursor_df that only has different start and stop indices.
+
+        Parameters
+        ----------
+        reordered_precursor_df : pd.DataFrame
+            The dataframe with the new frag_start_idx and frag_stop_idx to respect.
+        unordered_precursor_df : pd.DataFrame
+            The dataframe with the old frag_start_idx and frag_stop_idx.
+
+        unordered_frag_df : pd.DataFrame
+            The fragment intensity dataframe to be reordered.
+        Returns
+        -------
+        pd.DataFrame
+            The reordered fragment intensity dataframe.
+        """
+        reordered = unordered_frag_df.copy()
+        for i in tqdm(range(len(reordered_precursor_df))):
+      
+            new_start_idx = reordered_precursor_df.iloc[i]["frag_start_idx"]
+            new_end_idx = reordered_precursor_df.iloc[i]["frag_stop_idx"]
+
+            old_start_idx = unordered_precursor_df.iloc[i]["frag_start_idx"]
+            old_end_idx = unordered_precursor_df.iloc[i]["frag_stop_idx"]
+
+            reordered.iloc[new_start_idx:new_end_idx, :] = unordered_frag_df.iloc[
+                old_start_idx:old_end_idx, :
             ]
-            target_idx = target.index[0]
-
-            pred_start_idx = precursor_df_pred.iloc[i]["frag_start_idx"]
-            pred_end_idx = precursor_df_pred.iloc[i]["frag_stop_idx"]
-
-            target_start_idx = precursor_df_target.loc[target_idx]["frag_start_idx"]
-            target_end_idx = precursor_df_target.loc[target_idx]["frag_stop_idx"]
-
-            new_pred.iloc[target_start_idx:target_end_idx, :] = pred_intensity_df.iloc[
-                pred_start_idx:pred_end_idx, :
-            ]
-        return new_pred
+        return reordered
 
     def _test_ms2(
         self,
@@ -328,17 +341,9 @@ class FinetuneManager(ModelManager):
             precursor_copy = precursor_df.copy()
             pred_intensities = self.ms2_model.predict(precursor_copy)
 
-            # Lets rearrange the prediction to have the same order as the target
-            ordered_pred = self._order_intensities(
-                precursor_df,
-                precursor_copy,
-                target_fragment_intensity_df,
-                pred_intensities,
-            )
-
             test_input = {
                 "psm_df": precursor_df,
-                "predicted": ordered_pred,
+                "predicted": pred_intensities,
                 "target": target_fragment_intensity_df,
             }
             results = metric_accumulator.calculate_test_metric(test_input)
@@ -426,6 +431,15 @@ class FinetuneManager(ModelManager):
         )
         test_intensity_df = test_intensity_df[0]
 
+        # Prepare order for peptdeep prediction
+
+        reordered_test_psm_df = self._reset_frag_idx(test_psm_df)
+        reordered_test_intensity_df = self._order_intensities(
+            reordered_precursor_df=reordered_test_psm_df,
+            unordered_precursor_df=test_psm_df,
+            unordered_frag_df=test_intensity_df,
+        )
+
         # Create a metric manager
         test_metric_manager = MetricManager(
             model_name="ms2",
@@ -436,8 +450,8 @@ class FinetuneManager(ModelManager):
         # create a callback handler
         callback_handler = CustomCallbackHandler(
             self._test_ms2,
-            precursor_df=test_psm_df,
-            target_fragment_intensity_df=test_intensity_df,
+            precursor_df=reordered_test_psm_df,
+            target_fragment_intensity_df=reordered_test_intensity_df,
             metric_accumulator=test_metric_manager,
         )
 
@@ -451,7 +465,13 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Test the model before training
-        self._test_ms2(-1, 0, test_psm_df, test_intensity_df, test_metric_manager)
+        self._test_ms2(
+            -1,
+            0,
+            reordered_test_psm_df,
+            reordered_test_intensity_df,
+            test_metric_manager,
+        )
         # Train the model
         logger.progress(" Fine-tuning MS2 model")
         self.ms2_model.model.train()
@@ -462,7 +482,6 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
             lr=settings["max_lr"],
-            verbose=True,
         )
 
         metrics = test_metric_manager.get_stats()

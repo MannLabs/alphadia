@@ -201,8 +201,12 @@ def determine_dia_cycle(
     )
 
     cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[cycle_start:cycle_length]
-    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[cycle_start:cycle_length]
+    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[
+        cycle_start : cycle_start + cycle_length
+    ]
+    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[
+        cycle_start : cycle_start + cycle_length
+    ]
 
     return cycle, cycle_start, cycle_length
 
@@ -587,6 +591,16 @@ class AlphaRawJIT(object):
 
         """
 
+        # intensities below HIGH_EPSILON will be set to zero
+        HIGH_EPSILON = 1e-26
+
+        # LOW_EPSILON will be used to avoid division errors
+        # as LOW_EPSILON will be added to the numerator and denominator
+        # intensity values approaching LOW_EPSILON would result in updated dim1 values with 1
+        # therefore, LOW_EPSILON should be orderes of magnitude smaller than HIGH_EPSILON
+        # TODO: refactor the calculation of dim1 for performance and numerical stability
+        LOW_EPSILON = 1e-36
+
         # (n_tof_slices, 2) array of start, stop mz for each slice
         mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
@@ -633,14 +647,16 @@ class AlphaRawJIT(object):
                         accumulated_dim1 = dense_output[1, k, j, 0, i]
 
                         new_intensity = self.intensity_values[idx]
+                        new_intensity = new_intensity * (new_intensity > HIGH_EPSILON)
                         new_mz_value = self.mz_values[idx]
 
                         if absolute_masses:
                             new_dim1 = (
                                 accumulated_dim1 * accumulated_intensity
                                 + new_intensity * new_mz_value
-                                + 1e-6
-                            ) / (accumulated_intensity + new_intensity + 1e-6)
+                                + LOW_EPSILON
+                            ) / (accumulated_intensity + new_intensity + LOW_EPSILON)
+
                         else:
                             new_error = (
                                 (new_mz_value - mz_query_list[k])
@@ -650,8 +666,8 @@ class AlphaRawJIT(object):
                             new_dim1 = (
                                 accumulated_dim1 * accumulated_intensity
                                 + new_intensity * new_error
-                                + 1e-6
-                            ) / (accumulated_intensity + new_intensity + 1e-6)
+                                + LOW_EPSILON
+                            ) / (accumulated_intensity + new_intensity + LOW_EPSILON)
 
                         dense_output[0, k, j, 0, i] = (
                             accumulated_intensity + new_intensity

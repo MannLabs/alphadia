@@ -14,6 +14,7 @@ def test_output_transform():
         "general": {
             "thread_count": 8,
         },
+        "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
             "inference_strategy": "heuristic",
@@ -28,6 +29,9 @@ def test_output_transform():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
+        },
+        "multiplexing": {
+            "enabled": False,
         },
     }
 

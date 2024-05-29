@@ -1,3 +1,5 @@
+# Dependencies required for developing alphaDIA
+# Also, `requirements_test.txt` is required for developing
 jupyter
 jupyter_contrib_nbextensions
 pyinstaller
@@ -13,11 +15,7 @@ twine
 bumpversion
 pipdeptree
 ipykernel
-tqdm
 psutil
-coverage
-coverage-badge
-pytest
 
-pre-commit ~= 3.7
+pre-commit==3.7.0
 pywin32; sys_platform=='win32'
