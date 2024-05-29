@@ -25,6 +25,7 @@ jobs:
         with:
           ref: ${{ inputs.tag_to_release || 'v1.6.0' }} # TODO remove default after this is available on main
       - name: Get current version
+        id: get_current_version
         shell: bash -l {0}
         run: |
           CURRENT_VERSION=$(grep "__version__" alphadia/__init__.py | cut -f3 -d ' ' | sed 's/"//g')
@@ -48,7 +49,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: latest, ${{ steps.get_new_release_tag.outputs.current_version }}
+          tags: latest, ${{ steps.get_current_version.outputs.current_version }}
 #          labels: ${{ steps.meta.outputs.labels }}
 
 
