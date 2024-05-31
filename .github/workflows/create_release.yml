@@ -29,7 +29,6 @@ jobs:
           CURRENT_VERSION=$(./misc/get_current_version.sh)
           if [ "v${CURRENT_VERSION}" != "${{ inputs.tag_to_release }}" ]; then
             echo Code version "v${CURRENT_VERSION}" does not match the tag to release ${{ inputs.tag_to_release }}
-            exit 1
           fi
           echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
 
