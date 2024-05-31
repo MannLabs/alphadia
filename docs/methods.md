@@ -1,8 +1,9 @@
 # Technlogy
 
 ```{toctree}
-    :maxdepth: 2
-
+    :maxdepth: 1
+methods/command-line
+methods/configuration
 methods/calibration
 
 ```
