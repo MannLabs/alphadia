@@ -2,20 +2,20 @@
 
 AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
 
-* [**One-click GUI installation:**](docs/installation.md#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
+* [**One-click GUI installation:**](#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
 
-* [**Developer installation:**](docs/installation.md#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+* [**Developer installation:**](#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
-* [**Docker installation:**](docs/installation.md#docker-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+* [**Docker installation:**](#docker-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
 
-* [**Slurm installation:**](docs/installation.md#u#slurm-cluster-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+* [**Slurm installation:**](#slurm-cluster-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
 
 ## One-click GUI installation
 Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
 * **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer and [mono](#setting-up-mono-macoslinux-only) to be installed. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*.
+* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 As of now, **Linux** users need follow the steps for the
 [developer installation](docs/installation.md#developer-installation) in order to use the GUI.
@@ -24,8 +24,7 @@ As of now, **Linux** users need follow the steps for the
 
 AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
 
-Make sure to first read the prerequisites section [here](../README.md#1-prerequisites)  to have all necessary software
-(conda, mono) installed.
+Make sure you have an conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
 
 ### 1. Setting up the repository
 
@@ -57,7 +56,7 @@ Note: by using the editable flag `-e`, all modifications to the [alphaDIA source
 
 ### 3. Installation: GUI (optional)
 
-If you want to use or extend the GUI, please install NodeJS as described on their  [website](https://nodejs.org/en/download).
+If you want to use or extend the GUI, please install NodeJS as described on their [website](https://nodejs.org/en/download).
 
 Install all frontend packages using npm
 ```bash
