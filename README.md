@@ -46,6 +46,8 @@ AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferr
 
 * [**One-click GUI installation:**](#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
 
+* [**Pip installation**](#pip-installation)This version allows you to use alphaDIA as a package within your conda environment. You will only have access to the search engine backend and the command line but not the GUI.
+
 * [**Developer installation:**](docs/installation.md#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
 * [**Docker installation:**](docs/installation.md#use-the-dockerized-version) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
@@ -62,8 +64,7 @@ You can download the latest release of alphaDIA [here](https://github.com/Mannla
 As of now, **Linux** users need follow the steps for the
 [developer installation](docs/installation.md#developer-installation) in order to use the GUI.
 
-### Quickstart - Developer install
-You can find the full development install instructions [**Here**](docs/installation.md#developer-installation).
+### Pip installation
 If you want to use alphaDIA as a python library (e.g. for importing it into Jupyter notebooks) or only use the command-line interface,
 you can install alphaDIA via `pip`.
 
@@ -80,7 +81,7 @@ Finally, alphaDIA and all its dependencies can be installed by
 pip install "alphadia[stable]"
 ```
 We strongly recommend using the `stable` version, which has all dependencies fixed,
-for reasons of reproducibility and integrity. If you want all development dependencies use `[development,stable]`.
+for reasons of reproducibility and integrity.
 
 Alternatively, use
 `pip install alphadia`, which comes with less version constraints. This is not recommended, but may be useful to avoid

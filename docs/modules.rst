@@ -10,7 +10,6 @@ Modules
     alphadia/features
     alphadia/fragcomp
     alphadia/grouping
-    alphadia/hybridselection
     alphadia/libtransform
     alphadia/outputtransform
     alphadia/planning

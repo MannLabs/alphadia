@@ -32,19 +32,9 @@ Introduction to your first DIA search with alphaDIA.
 ```
 
 ```{toctree}
-:caption:
-:hidden:
-
-contributing/index
-kitchen-sink/index
-stability
-changelog
-license
-```
-
-```{toctree}
 :caption: Development
 :hidden:
-contributing
+
 modules
+contributing
 ```
