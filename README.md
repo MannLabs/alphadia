@@ -24,8 +24,6 @@
   </p>
 </div>
 
-
-
 ![preview](assets/preview.gif)
 
 ## Manuscript
