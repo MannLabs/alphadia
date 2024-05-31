@@ -29,8 +29,10 @@
 ![preview](assets/preview.gif)
 
 ## Manuscript
-Please cite:
-AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics
+**Please cite:**
+> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann<br>
+> bioarxiv.com/XXX.XXX.XXX
 
 alphaDIA of the alphaX ecosystem:
 - alphaPept
