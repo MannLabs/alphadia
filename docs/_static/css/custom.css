@@ -10,3 +10,7 @@
 .autosummary.longtable{
     width: 100%;
 }
+
+.sidebar-brand{
+    width: 50%;
+}

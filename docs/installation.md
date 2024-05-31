@@ -1,5 +1,25 @@
 # Installation
 
+AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferred installation:
+
+* [**One-click GUI installation:**](docs/installation.md#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
+
+* [**Developer installation:**](docs/installation.md#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
+
+* [**Docker installation:**](docs/installation.md#docker-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+
+* [**Slurm installation:**](docs/installation.md#u#slurm-cluster-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+
+## One-click GUI installation
+Currently available for **MacOS** and **Windows**.
+You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
+
+* **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
+* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer and [mono](#setting-up-mono-macoslinux-only) to be installed. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*.
+
+As of now, **Linux** users need follow the steps for the
+[developer installation](docs/installation.md#developer-installation) in order to use the GUI.
+
 ## Developer installation
 
 AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
@@ -50,7 +70,7 @@ The GUI can then be started by typing
 npm run dev
 ```
 
-## Use the dockerized version
+## Docker Installation
 The containerized version can be used to run alphaDIA e.g. on cloud platforms.
 It can be used to run alphaDIA for multiple input files, as well as for single files only
 (trivial parallelization on computing clusters).
@@ -59,8 +79,11 @@ Note that this container is not optimized neither for performance nor size yet, 
 (M1/M2/M3) due to problems with mono. Also, it currently relies on the input files being organized
 in a specific folder structure.
 
-1) Install the latest version of docker (https://docs.docker.com/engine/install/).
-2) Set up your data to match the expected folder structure:
+### 1. Setting up Docker
+Install the latest version of docker (https://docs.docker.com/engine/install/).
+
+### 2. Prepare folder structure
+Set up your data to match the expected folder structure:
 - Create a folder and store its name in a variable, e.g. `DATA_FOLDER=/home/username/data; mkdir -p $DATA_FOLDER`
 - In this folder, create 4 subfolders:
   - `library`: put your library file here, make it writeable for any user (`chmod o+rw *`)
@@ -79,14 +102,14 @@ output_directory: /app/data/output
   The rest of the config values are taken from `default.yaml`, unless you overwrite any value from there
   in your `config.yaml`.
 
-3) Start the container
+### 3. Start the container
 ```bash
 docker run -v $DATA_FOLDER:/app/data/ mannlabs/alphadia:latest
 ```
 After initial download of the container, alphaDIA will start running immediately. Alternatively, you can run an interactive session with
 `docker run -v $DATA_FOLDER:/app/data/ -it mannlabs/alphadia:latest bash`
 
-### Build the image yourself (advanced users)
+### 4. (Advanced) Build the image yourself
 If you want to build the image yourself, you can do so by
 ```bash
 docker build -t alphadia-docker .
@@ -96,7 +119,7 @@ and run it with
 docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 ```
 
-## Installing alphaDIA on a SLURM cluster
+## Slurm cluster Installation
 
 ### 1. Prerequisites
 Check the prerequisites section [here](../README.md#1-prerequisites).
@@ -140,7 +163,9 @@ Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-proj
 
 ### 4. Installing alphaDIA
 
-Install alphaDIA using pip as described [here](../README.md#3-installation).
-
+Install alphaDIA using pip:
+```bash
+pip install "alphadia[stable]"
+```
 Afterwards, verify the alphaDIA installation by running:
-`alphadia -h` which should give an output like this ```1.5.5```.
+`alphadia --version` which should output the current version.
