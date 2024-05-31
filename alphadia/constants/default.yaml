@@ -62,10 +62,16 @@ search_advanced:
 
 calibration:
   min_epochs: 3
+
+  # TODO: remove as not relevant anymore
   max_epochs: 20
   batch_size: 8000
   recalibration_target: 200
+
+  # TODO: remove this parameter
   final_full_calibration: False
+
+  # TODO: remove this parameter
   norm_rt_mode: 'linear'
 
 search_initial:

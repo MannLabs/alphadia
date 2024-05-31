@@ -131,7 +131,7 @@ Install mono to support reading proprietary vendor formats like Thermo `.raw` fi
 
 Please make sure you include the conda-forge channel
 ```bash
-conda install python=3.9 -c conda-forge
+conda install python=3.11 -c conda-forge
 ```
 Then install mono by
 ```bash

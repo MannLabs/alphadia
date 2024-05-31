@@ -28,7 +28,7 @@ Introduction to your first DIA search with alphaDIA.
 🔧 Installation<installation>
 🚀 Quickstart<quickstart>
 📚 Guides<guides>
-Technology<technology>
+📖 Methods<methods>
 ```
 
 ```{toctree}
@@ -43,7 +43,7 @@ license
 ```
 
 ```{toctree}
-:caption: 📖 Development
+:caption: Development
 :hidden:
 contributing
 modules
