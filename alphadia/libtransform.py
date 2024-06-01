@@ -301,7 +301,11 @@ class PeptDeepPrediction(ProcessingStep):
         # Check if CPU or GPU/MPS should be used
         device = "cpu"
         if self.use_gpu:
-            device = "mps" if os.uname().sysname == "Darwin" else "gpu"
+            try:
+                device = "mps" if os.uname().sysname == "Darwin" else "gpu"
+            except AttributeError:
+                # Windows does not support uname
+                device = "gpu"
 
         model_mgr = ModelManager(device=device)
         if self.checkpoint_folder_path is not None:
