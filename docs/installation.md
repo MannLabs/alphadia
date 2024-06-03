@@ -10,7 +10,7 @@ AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferr
 
 * [**Docker installation:**](#docker-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
 
-* [**Slurm installation:**](#slurm-cluster-installation) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
+* [**Slurm installation:**](#slurm-cluster-installation) Choose this for running alphaDIA on a research cluster with Slurm.
 
 ## One-click GUI installation
 Currently available for **MacOS** and **Windows**.

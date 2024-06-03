@@ -7,7 +7,7 @@ Open-source DIA search engine built with the alphaX ecosystem. Built with [alpha
 **Please cite:**
 > **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
 > Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann<br>
-> bioarxiv.com/XXX.XXX.XXX
+> [biorxiv.org](https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1)
 
 
 :::{card} Installation
