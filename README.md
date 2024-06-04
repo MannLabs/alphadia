@@ -1,8 +1,10 @@
 ![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 ![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
+![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
 ![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
+
 
 <!-- PROJECT LOGO -->
 <br />
@@ -20,7 +22,7 @@
     ·
     <a href="https://github.com/MannLabs/alphadia/discussions">Discussion</a>
     ·
-    <a href="https://github.com/MannLabs/alphadia">Documentation</a>
+    <a href="https://alphadia.readthedocs.io/en/latest/">Documentation</a>
   </p>
 </div>
 
