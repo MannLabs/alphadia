@@ -26,6 +26,20 @@
 
 ![preview](assets/preview.gif)
 
+## Features
+- Empirical library and fully predicted library search
+- Label free quantification
+- DIA multiplexing
+
+We support the following vendor and processing modes:
+
+| Platform              | Empirical lib | Predicted lib |
+| :---------------- | :------: | :----: |
+| Thermo .raw |   ✅   | ✅ |
+| Sciex .wiff |   ✅   | ✅ |
+| Bruker .d |  ✅   | ⚠️ |
+> ⚠️ **Predicted libraries with Bruker .d data**<br>Alltough search is possible, alphaDIA's feature-free search takes a long time with fully predicted libraries. We are still evaluating how to better support fully predicted libraries.
+
 ## Manuscript
 **Please cite:**
 > **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
