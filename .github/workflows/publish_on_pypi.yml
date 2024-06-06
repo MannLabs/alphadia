@@ -31,7 +31,7 @@ jobs:
         id: get_current_version
         shell: bash -l {0}
         run: |
-         CURRENT_VERSION=$(misc/get_current_version.sh)
+         CURRENT_VERSION=$(./misc/get_current_version.sh)
          echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
       - uses: actions/cache@v4
         with:
@@ -50,6 +50,7 @@ jobs:
           twine check dist/*
           conda deactivate
           conda env remove --name alphadia_build -y
+          conda clean --all -y
       - name: Publish distribution to Test-PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -65,6 +66,7 @@ jobs:
           alphadia -v
           conda deactivate
           conda env remove --name pip_stable_test -y
+          conda clean --all -y
       - name: Test Test-PyPI stable installation
         shell: bash -le {0}
         run: |
@@ -74,6 +76,7 @@ jobs:
           alphadia -v
           conda deactivate
           conda env remove --name pip_stable_test -y
+          conda clean --all -y
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -109,12 +112,14 @@ jobs:
           alphadia -v
           conda deactivate
           conda env remove --name pip_stable -y
+          conda clean --all -y
       - name: Test PyPI loose installation
         shell: bash -le {0}
         run: |
           conda create -n pip_loose python=${{ env.PYTHON_VERSION }} -y
           conda activate pip_loose
-          pip install alphadia==${{ needs.Create_PyPi_Release.outputs.new_version }}"
+          pip install alphadia==${{ needs.Create_PyPi_Release.outputs.new_version }}
           alphadia -v
           conda deactivate
           conda env remove --name pip_loose -y
+          conda clean --all -y

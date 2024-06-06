@@ -46,8 +46,8 @@ html_css_files = [
 ]
 
 html_theme_options = {
-    "light_logo": "logo/logo_black_outline.svg",
-    "dark_logo": "logo/logo_white_outline.svg",
+    "light_logo": "logo/alphadia.png",
+    "dark_logo": "logo/alphadia.png",
     "sidebar_hide_name": True,
 }
 

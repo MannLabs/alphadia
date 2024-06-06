@@ -1,4 +1,4 @@
-# Development
+# Contributing
 
 ## Release a new version
 Note: Releases need to be done from the `main` branch.

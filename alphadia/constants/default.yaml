@@ -61,18 +61,39 @@ search_advanced:
   top_k_fragments: 12
 
 calibration:
+
+  # minimum number of times (epochs) the updated calibration target has to been passed
   min_epochs: 3
-  max_epochs: 20
+
+  # Number of precursors searched and scored per batch
   batch_size: 8000
+
+  # recalibration target for the first epoch. For subsequent epochs, the target will increase by this amount.
   recalibration_target: 200
+
+  # TODO: remove as not relevant anymore
+  max_epochs: 20
+
+  # TODO: remove this parameter
   final_full_calibration: False
+
+  # TODO: remove this parameter
   norm_rt_mode: 'linear'
 
 search_initial:
+  # Number of peak groups identified in the convolution score to classify with target decoy comeptition
   initial_num_candidates: 1
+
+  # initial ms1 tolerance in ppm
   initial_ms1_tolerance: 30
+
+  # initial ms2 tolerance in ppm
   initial_ms2_tolerance: 30
+
+  # initial ion mobility tolerance in 1/K_0
   initial_mobility_tolerance: 0.08
+
+  # initial retention time tolerance in seconds
   initial_rt_tolerance: 240
 
 selection_config:

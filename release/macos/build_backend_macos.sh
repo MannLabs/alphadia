@@ -6,7 +6,7 @@ python -c "from huggingface_hub import get_full_repo_name; print('success')"
 
 pip install build
 python -m build
-pip install "dist/alphadia-1.6.1-py3-none-any.whl[stable]"
+pip install "dist/alphadia-1.6.2-py3-none-any.whl[stable]"
 
 # Creating the stand-alone pyinstaller folder
 pip install pyinstaller

@@ -1,8 +1,10 @@
 ![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 ![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
+![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
 ![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
+
 
 <!-- PROJECT LOGO -->
 <br />
@@ -14,33 +16,46 @@
   <h3 align="center">alphaDIA</h3>
 
   <p align="center">
-    <a href="https://github.com/MannLabs/alphadia">Preprint</a>
+    <a href="https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1">Preprint</a>
     ·
     <a href="https://github.com/Mannlabs/alphadia/releases/latest">Download</a>
     ·
     <a href="https://github.com/MannLabs/alphadia/discussions">Discussion</a>
     ·
-    <a href="https://github.com/MannLabs/alphadia">Documentation</a>
+    <a href="https://alphadia.readthedocs.io/en/latest/">Documentation</a>
   </p>
 </div>
 
-
 ![preview](assets/preview.gif)
 
-## Table of Contents</summary>
-<ol>
-  <li>
-    <a href="#installation">Installation</a>
-    <ul>
-      <li><a href="#one-click-gui">One-click GUI</a></li>
-      <li><a href="#developer">Developer install</a></li>
-    </ul>
-  </li>
-  <li>
-    <a href="#getting-started">Getting started</a>
-  </li>
-</ol>
+## Features
+- Empirical library and fully predicted library search
+- Label free quantification
+- DIA multiplexing
 
+We support the following vendor and processing modes:
+
+| Platform              | Empirical lib | Predicted lib |
+| :---------------- | :------: | :----: |
+| Thermo .raw |   ✅   | ✅ |
+| Sciex .wiff |   ✅   | ✅ |
+| Bruker .d |  ✅   | ⚠️ |
+> ⚠️ **Predicted libraries with Bruker .d data**<br>Alltough search is possible, alphaDIA's feature-free search takes a long time with fully predicted libraries. We are still evaluating how to better support fully predicted libraries.
+
+## Manuscript
+**Please cite:**
+> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann<br>
+> [biorxiv.org](https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1)
+
+alphaDIA is part of the alphaX ecosystem:
+- [alphaPept](https://github.com/MannLabs/alphapept)
+- [alphaTims](https://github.com/MannLabs/alphatims)
+- [alphaPeptDeep](https://github.com/MannLabs/alphapeptdeep)
+- [alphaRaw](https://github.com/MannLabs/alpharaw)
+- [alphaBase](https://github.com/MannLabs/alphabase)
+- [directLFQ](https://github.com/MannLabs/directlfq)
+- [alphaTims](https://github.com/MannLabs/alphatims)
 
 ## Installation
 
@@ -48,43 +63,36 @@ AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferr
 
 * [**One-click GUI installation:**](#one-click-gui-installation) Choose this installation if you only want the GUI and/or keep things as simple as possible.
 
-* [**Library and CLI installation:**](#library-and-cli-installation) Choose this installation if you want to use alphaDIA as a library or its command-line interface. You need to be familiar with CLI tools, Conda and Python.
-It allows access to all available features of alphaDIA.
+* [**Pip installation**](#pip-installation)This version allows you to use alphaDIA in your python environment (provided e.g. by conda). You will only have access to the search engine backend and the command line but not the GUI.
 
 * [**Developer installation:**](docs/installation.md#developer-installation) This installation allows to modify alphaDIA's source code directly. Generally, the developer version of alphaDIA outperforms the precompiled versions which makes this the installation of choice for high-throughput experiments.
 
 * [**Docker installation:**](docs/installation.md#use-the-dockerized-version) Choose this for running alphaDIA in a Docker container, which is useful if you want to run it in a cloud environment.
 
+* [**Slurm installation:**](docs/installation.md#slurm-cluster-installation) Choose this for running alphaDIA on a research cluster with Slurm.
 
 ### One-click GUI installation
 Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
 * **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer and [mono](#setting-up-mono-macoslinux-only) to be installed. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*.
+* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 As of now, **Linux** users need follow the steps for the
 [developer installation](docs/installation.md#developer-installation) in order to use the GUI.
 
-### Library and CLI installation
+### Pip installation
 If you want to use alphaDIA as a python library (e.g. for importing it into Jupyter notebooks) or only use the command-line interface,
-you can install alphaDIA via `pip`. This is currently also the preferred way for Linux users that do not need the GUI.
+you can install alphaDIA via `pip`.
 
 #### 1. Prerequisites
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-##### Setting up mono [MacOS/Linux only]
 If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
-
-For any Python package, it is highly recommended to use a separate [conda virtual environment](https://docs.conda.io/en/latest/), as otherwise dependancy conflicts can occur with already existing packages.
-
-```bash
-conda create --name alphadia python=3.9 -y
-conda activate alphadia
-```
+For any Python package, it is highly recommended to use a separate, as otherwise dependancy conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/).
 
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
