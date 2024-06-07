@@ -660,7 +660,7 @@ class InitFlatColumns(ProcessingStep):
                 "rt_norm_pred",
                 "irt",
             ],
-            "mobility_library": ["mobility_library", "mobility"],
+            "mobility_library": ["mobility_library", "mobility", "mobility_pred"],
         }
 
         fragment_columns = {
@@ -680,6 +680,7 @@ class InitFlatColumns(ProcessingStep):
 
         if "mobility_library" not in input.precursor_df.columns:
             input.precursor_df["mobility_library"] = 0
+            logger.warning("Library contains no ion mobility annotations")
 
         validate.precursors_flat_schema(input.precursor_df)
         validate.fragments_flat_schema(input.fragment_df)
