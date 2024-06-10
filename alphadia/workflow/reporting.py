@@ -25,7 +25,7 @@ __is_initiated__ = False
 
 # Add a new logging level to the default logger
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
-PROGRESS_LEVELV_NUM = 100
+PROGRESS_LEVELV_NUM = 21
 logging.PROGRESS = PROGRESS_LEVELV_NUM
 logging.addLevelName(PROGRESS_LEVELV_NUM, "PROGRESS")
 
