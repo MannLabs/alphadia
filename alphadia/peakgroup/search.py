@@ -1041,7 +1041,7 @@ class HybridCandidateSelection(object):
                     precursor_flat_lookup
                 ]
 
-        # save features for training if desired.
+        # DEBUG: save features for training if desired.
         if self.feature_path is not None:
             feature_matrix = np.zeros(
                 (len(candidates), len(candidates[0].features)), dtype=np.float32

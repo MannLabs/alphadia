@@ -445,20 +445,10 @@ class SearchPlanOutput:
             Precursor table
         """
 
-        if not os.path.exists(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv")
-        ):
-            logger.error(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-            raise FileNotFoundError(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-        logger.info(f"Reading {self.PRECURSOR_OUTPUT}.tsv file")
-        psm_df = pd.read_csv(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+        return read_df(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_type=self.config["file_format"],
         )
-        return psm_df
 
     def build_precursor_table(
         self,

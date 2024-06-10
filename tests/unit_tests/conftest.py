@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 import matplotlib
+import tempfile
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
@@ -184,3 +185,14 @@ def pytest_configure(config):
         pytest.test_data[raw_folder] = raw_files
 
     # important to supress matplotlib output
+
+
+def _random_tempfolder():
+    tempdir = tempfile.gettempdir()
+    # 6 alphanumeric characters
+    random_foldername = "alphadia_" + "".join(
+        np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), 6)
+    )
+    path = os.path.join(tempdir, random_foldername)
+    os.mkdir(path)
+    return path

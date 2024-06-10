@@ -129,6 +129,8 @@ search_output:
   num_samples_quadratic: 50
   min_nonnan: 3
   normalize_lfq: True
+  # can be either "parquet" or "tsv"
+  file_format: "parquet"
 
 # configuration for the optimization manager
 # initial parameters, will nbe optimized
