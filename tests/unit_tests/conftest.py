@@ -13,6 +13,7 @@ plt.ioff()
 
 def mock_precursor_df(
     n_precursor: int = 100,
+    with_decoy=True,
 ) -> pd.DataFrame:
     """Create a mock precursor dataframe as it's found as the individual search outputs
 
@@ -30,7 +31,6 @@ def mock_precursor_df(
     """
 
     precursor_idx = np.arange(n_precursor)
-    decoy = np.zeros(n_precursor)
     precursor_mz = np.random.rand(n_precursor) * 2000 + 500
     precursor_charge = np.random.choice([2, 3], size=n_precursor)
 
@@ -40,7 +40,10 @@ def mock_precursor_df(
     proteins = np.random.choice(protein_names, size=n_precursor)
     genes = proteins
 
-    decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
+    if with_decoy:
+        decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
+    else:
+        decoy = np.zeros(n_precursor)
     proba = np.zeros(n_precursor) + decoy * np.random.rand(n_precursor)
     qval = np.random.rand(n_precursor) * 10e-3
 
