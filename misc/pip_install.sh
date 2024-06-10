@@ -3,7 +3,7 @@ set -e -u
 INSTALL_TYPE=$1 # stable, loose, etc..
 ENV_NAME=${2:-alphadia}
 
-conda create -n $ENV_NAME python=3.11 -y
+conda create -n $ENV_NAME python=3.9 -y
 
 if [ "$INSTALL_TYPE" = "loose" ]; then
   INSTALL_STRING=""
