@@ -54,22 +54,14 @@ def get_frag_df_generator(folder_list: List[str]):
 
     for folder in folder_list:
         raw_name = os.path.basename(folder)
-        frag_path = os.path.join(folder, "frag.tsv")
+        frag_path = os.path.join(folder, "frag.parquet")
 
         if not os.path.exists(frag_path):
             logger.warning(f"no frag file found for {raw_name}")
         else:
             try:
                 logger.info(f"reading frag file for {raw_name}")
-                run_df = pd.read_csv(
-                    frag_path,
-                    sep="\t",
-                    dtype={
-                        "precursor_idx": np.uint32,
-                        "number": np.uint8,
-                        "type": np.uint8,
-                    },
-                )
+                run_df = pd.read_parquet(frag_path)
             except Exception as e:
                 logger.warning(f"Error reading frag file for {raw_name}")
                 logger.warning(e)
@@ -497,7 +489,7 @@ class SearchPlanOutput:
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.tsv")
+            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.parquet")
 
             logger.info(f"Building output for {raw_name}")
 
@@ -506,7 +498,7 @@ class SearchPlanOutput:
                 run_df = pd.DataFrame()
             else:
                 try:
-                    run_df = pd.read_csv(psm_path, sep="\t")
+                    run_df = pd.read_parquet(psm_path)
                 except Exception as e:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)

@@ -122,8 +122,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
 
         """
-        psm_df = pd.read_csv(os.path.join(folder, "psm.tsv"), sep="\t")
-        frag_df = pd.read_csv(os.path.join(folder, "frag.tsv"), sep="\t")
+        psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
+        frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
         assert set(
             selected_precursor_columns
