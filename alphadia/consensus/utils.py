@@ -78,7 +78,7 @@ def write_df(df, path_no_format, file_format="parquet"):
         df.to_parquet(file_path, index=False)
 
     elif file_format == "tsv":
-        df.to_csv(file_path, sep="\t", index=False)
+        df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
 
     else:
         raise ValueError("I don't know how you ended up here")

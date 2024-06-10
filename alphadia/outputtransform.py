@@ -10,7 +10,7 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
     AccumulationBroadcaster,
 )
-
+from alphadia.consensus.utils import read_df, write_df
 
 import pandas as pd
 import numpy as np
@@ -578,11 +578,10 @@ class SearchPlanOutput:
             psm_df = psm_df[psm_df["decoy"] == 0]
         if save:
             logger.info("Writing precursor output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return psm_df
@@ -630,11 +629,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
-            stat_df.to_csv(
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                stat_df,
+                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}"),
+                file_format="tsv",
             )
 
         return stat_df
@@ -712,11 +710,11 @@ class SearchPlanOutput:
 
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-                lfq_df.to_csv(
-                    os.path.join(self.output_folder, f"{group_nice}.matrix.tsv"),
-                    sep="\t",
-                    index=False,
-                    float_format="%.6f",
+
+                write_df(
+                    lfq_df,
+                    os.path.join(self.output_folder, f"{group_nice}.matrix"),
+                    file_format=self.config["search_output"]["file_format"],
                 )
 
         protein_df_melted = lfq_df.melt(
@@ -727,11 +725,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing psm output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return lfq_df
