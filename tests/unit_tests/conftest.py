@@ -187,12 +187,12 @@ def pytest_configure(config):
     # important to supress matplotlib output
 
 
-def _random_tempfolder():
+def random_tempfolder():
     tempdir = tempfile.gettempdir()
     # 6 alphanumeric characters
     random_foldername = "alphadia_" + "".join(
         np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), 6)
     )
     path = os.path.join(tempdir, random_foldername)
-    os.mkdir(path)
+    os.makedirs(path, exist_ok=True)
     return path

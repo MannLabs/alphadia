@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import os
-from conftest import _random_tempfolder
+from conftest import random_tempfolder
 from alphadia.consensus.utils import read_df, write_df
 
 
@@ -12,7 +12,7 @@ from alphadia.consensus.utils import read_df, write_df
 def test_read_write(format, should_fail):
     # given
     df = pd.DataFrame([{"a": "a", "b": "b"}, {"a": "a", "b": "b"}])
-    path = os.path.join(_random_tempfolder())
+    path = os.path.join(random_tempfolder())
 
     # when
     if should_fail:

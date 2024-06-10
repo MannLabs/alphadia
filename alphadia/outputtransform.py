@@ -447,7 +447,7 @@ class SearchPlanOutput:
 
         return read_df(
             os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
-            file_type=self.config["file_format"],
+            file_format=self.config["search_output"]["file_format"],
         )
 
     def build_precursor_table(
