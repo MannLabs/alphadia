@@ -384,9 +384,18 @@ class SearchPlanOutput:
 
     def build_transfer_model(self):
         logger.progress("Train PeptDeep Models")
+
+        transfer_lib_path = os.path.join(
+            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+        )
+        if not os.path.exists:
+            raise ValueError(
+                f"Transfer learning library was not found at {self.TRANSFER_OUTPUT}.hdf. Did you enable library generation?"
+            )
+
         transfer_lib = SpecLibBase()
         transfer_lib.load_hdf(
-            os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"),
+            transfer_lib_path,
             load_mod_seq=True,
         )
 
