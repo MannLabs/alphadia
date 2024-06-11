@@ -239,7 +239,7 @@ def process_folder(folder):
 
 
 def error_callback(e):
-    logger.error(e)
+    logger.error(e, exc_info=True)
 
 
 class AccumulationBroadcaster:
