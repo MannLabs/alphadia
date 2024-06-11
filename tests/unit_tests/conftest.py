@@ -77,6 +77,7 @@ def mock_precursor_df(
             "sequence": sequences,
             "mods": [""] * n_precursor,
             "mod_sites": [""] * n_precursor,
+            "channel": [0] * n_precursor,
         }
     )
 

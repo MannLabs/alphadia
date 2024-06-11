@@ -4,7 +4,7 @@ on:
       - 'alpha'
   workflow_dispatch:
 
-name: performance testing
+name: Performance test
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -16,7 +16,7 @@ env:
   NEPTUNE_TOKEN: ${{ secrets.NEPTUNE_TOKEN }}
 
 jobs:
-  loose_installation:
+  performance_testing:
     name: Performance testing
     runs-on: self-hosted
 

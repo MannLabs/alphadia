@@ -201,8 +201,12 @@ def determine_dia_cycle(
     )
 
     cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[cycle_start:cycle_length]
-    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[cycle_start:cycle_length]
+    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[
+        cycle_start : cycle_start + cycle_length
+    ]
+    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[
+        cycle_start : cycle_start + cycle_length
+    ]
 
     return cycle, cycle_start, cycle_length
 
