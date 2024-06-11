@@ -11,7 +11,7 @@ jobs:
   end2end_testing:
     name: End to end test
     runs-on: self-hosted
-    if: contains(github.event.pull_request.labels.*.name, 'test:e2e')
+    if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
         # test case name as defined in e2e_test_cases.yaml
@@ -30,7 +30,7 @@ jobs:
         shell: bash -el {0}
         run: |
           cd misc
-          . ./loose_pip_install.sh $RUN_NAME
+          . ./pip_install.sh stable $RUN_NAME
       - name: Run e2e tests
         shell: bash -el {0}
         run: |

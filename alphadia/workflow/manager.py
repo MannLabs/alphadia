@@ -601,7 +601,7 @@ class FDRManager(BaseManager):
                 )
 
             psm_df = pd.concat(psm_df_list)
-            psm_df = psm_df[psm_df["channel"] != decoy_channel].copy()
+            psm_df.loc[psm_df["channel"] == decoy_channel, "decoy"] = 1
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 

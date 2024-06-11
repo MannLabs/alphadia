@@ -1,0 +1,4 @@
+# Dependencies required for testing alphaDIA.
+coverage
+coverage-badge
+pytest
