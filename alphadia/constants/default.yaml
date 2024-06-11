@@ -142,7 +142,7 @@ optimization_manager:
 # This section controls transfer learning
 # currently only the library is created with transfer learning
 transfer_library:
-  # if true, the library is created with transfer learning
+  # if true, the library is created for transfer learning
   enabled: False
 
   # semicolon separated list of fragment types to include in the library. possible values are 'a', 'b', 'c', 'x', 'y', 'z'
@@ -167,16 +167,39 @@ transfer_library:
   fragment_correlation_ratio: 0.75
 
 transfer_learning:
+
+  # if true, a custom peptdeep model will be created using the transfer learned library
   enabled: False
+
+  # number of precursors per batch
   batch_size: 2000
+
+  # maximum learning rate per batch.
+  # The maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler
   max_lr: 0.0001
+
+  # TODO remove and replaced by fixed 70:20:10 split
   train_ratio: 0.8
+
+  # test every n intervals
   test_interval: 1
+
+  # learning rate patience after which the lr will be halved
   lr_patience: 3
-  minimum_psms: 1200
+
+  # minimum precursor number to perform transfer learning
+  minimum_psms: 10000
+
+  # maximum number of epochs
   epochs: 51
+
+  # number of warmup epochs during which the lr is ramped up
   warmup_epochs: 5
+
+  # normalised collision energy encoded during training
   nce: 25
+
+  # instrument type encoded during training
   instrument: 'Lumos'
 
 # configuration for the calibration manager
