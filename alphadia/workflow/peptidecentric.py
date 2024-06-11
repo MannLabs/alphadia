@@ -1023,8 +1023,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        fragment_types = self.config["transfer_learning"]["fragment_types"].split(";")
-        max_charge = self.config["transfer_learning"]["max_charge"]
+        fragment_types = self.config["transfer_library"]["fragment_types"].split(";")
+        max_charge = self.config["transfer_library"]["max_charge"]
 
         self.reporter.log_string(
             f"creating library for charged fragment types: {fragment_types}",
