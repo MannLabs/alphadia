@@ -167,7 +167,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
             self._precursor_df[col] = values
 
         # ----------------- Fragment -----------------
-
+        # Filer fragments that are not used in the precursors
+        frag_df = frag_df[frag_df["precursor_idx"].isin(self._precursor_df["precursor_idx"])]
         self._fragment_df = frag_df[
             ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
         ].copy()
