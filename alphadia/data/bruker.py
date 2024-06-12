@@ -7,6 +7,7 @@ logger = logging.getLogger()
 
 # alphadia imports
 from alphadia import utils
+from alphadia.data.stats import log_stats
 
 # alpha family imports
 import alphatims.utils
@@ -94,6 +95,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         # Precompile
         logger.info(f"Successfully imported data from {bruker_d_folder_name}")
+        log_stats(self.rt_values, self.cycle)
 
     def transpose(self):
         # abort if transposed data is already present
@@ -655,9 +657,7 @@ class TimsTOFTransposeJIT(object):
                                 relative_precursor_index[i],
                                 relative_scan,
                                 relative_precursor,
-                            ] = (
-                                accumulated_intensity + new_intensity
-                            )
+                            ] = accumulated_intensity + new_intensity
                             dense_output[
                                 1,
                                 j,

@@ -8,6 +8,8 @@ logger = logging.getLogger()
 # alphadia imports
 from alphadia import utils
 
+from alphadia.data.stats import log_stats
+
 # alpha family imports
 from alpharaw import thermo as alpharawthermo
 from alpharaw import sciex as alpharawsciex
@@ -339,6 +341,7 @@ class MzML(AlphaRaw, alpharawmzml.MzMLReader):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
 
 class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
@@ -346,6 +349,7 @@ class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
 
 class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
@@ -353,6 +357,7 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
     def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
         """
