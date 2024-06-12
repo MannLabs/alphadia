@@ -80,7 +80,7 @@ def test_output_transform():
                 "proteins",
                 "genes",
                 "proba",
-                "qval",
+                "precursor.qval_run",
                 "run",
             ]
         ]

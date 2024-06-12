@@ -76,7 +76,7 @@ def perform_fdr(
 
     psm_df : pd.DataFrame
         A dataframe of PSMs with q-values and probabilities.
-        The columns `qval` and `proba` are added to the input dataframes.
+        The columns `precursor.qval_run` and `proba` are added to the input dataframes.
     """
     target_len, decoy_len = len(df_target), len(df_decoy)
     df_target.dropna(subset=available_columns, inplace=True)
@@ -139,7 +139,9 @@ def perform_fdr(
         if dia_cycle.shape[2] <= 2:
             # use a FDR of 10% as starting point
             # if there are no PSMs with a FDR < 10% use all PSMs
-            start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
+            start_idx = psm_df["precursor.qval_run"].searchsorted(
+                fdr_heuristic, side="left"
+            )
             if start_idx == 0:
                 start_idx = len(psm_df)
 
@@ -163,7 +165,7 @@ def perform_fdr(
         y_train,
         y_test,
         classifier,
-        psm_df["qval"],
+        psm_df["precursor.qval_run"],
         figure_path=figure_path,
         neptune_run=neptune_run,
     )
@@ -272,7 +274,7 @@ def get_q_values(
     _df: pd.DataFrame,
     score_column: str = "proba",
     decoy_column: str = "_decoy",
-    qval_column: str = "qval",
+    qval_column: str = "precursor.qval_run",
 ):
     """Calculates q-values for a dataframe containing PSMs.
 

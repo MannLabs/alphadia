@@ -156,7 +156,7 @@ def test_get_q_values():
     test_df = fdr.get_q_values(test_df, "proba", "_decoy")
 
     assert np.allclose(
-        test_df["qval"].values,
+        test_df["precursor.qval_run"].values,
         np.array([0.0, 0.0, 0.0, 0.2, 0.2, 0.2, 0.4, 0.6, 0.8, 1.0]),
     )
 
@@ -182,7 +182,7 @@ def test_fdr():
 
     test_df = pd.read_csv(test_data_path, sep="\t")
     if "proba" in test_df.columns:
-        test_df.drop(columns=["proba", "qval"], inplace=True)
+        test_df.drop(columns=["proba", "precursor.qval_run"], inplace=True)
     # run the fdr
 
     fdr_manager = manager.FDRManager(
@@ -196,7 +196,9 @@ def test_fdr():
         competetive=False,
     )
 
-    regular_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
+    regular_channel_ids = psm_df[psm_df["precursor.qval_run"] < 0.01][
+        "channel"
+    ].value_counts()
 
     psm_df = fdr_manager.fit_predict(
         test_df,
@@ -204,7 +206,9 @@ def test_fdr():
         competetive=True,
     )
 
-    competitive_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
+    competitive_channel_ids = psm_df[psm_df["precursor.qval_run"] < 0.01][
+        "channel"
+    ].value_counts()
 
     assert np.all(competitive_channel_ids.values > regular_channel_ids.values)
     assert np.all(regular_channel_ids.values > 1500)
@@ -216,7 +220,7 @@ def test_fdr():
         competetive=True,
     )
 
-    channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
+    channel_ids = psm_df[psm_df["precursor.qval_run"] < 0.01]["channel"].value_counts()
     assert np.all(channel_ids.values > 1500)
 
     psm_df = fdr_manager.fit_predict(
@@ -226,8 +230,12 @@ def test_fdr():
         decoy_channel=8,
     )
 
-    d0_ids = len(psm_df[(psm_df["qval"] < 0.01) & (psm_df["channel"] == 0)])
-    d4_ids = len(psm_df[(psm_df["qval"] < 0.01) & (psm_df["channel"] == 4)])
+    d0_ids = len(
+        psm_df[(psm_df["precursor.qval_run"] < 0.01) & (psm_df["channel"] == 0)]
+    )
+    d4_ids = len(
+        psm_df[(psm_df["precursor.qval_run"] < 0.01) & (psm_df["channel"] == 4)]
+    )
 
     assert d0_ids > 100
     assert d4_ids < 100

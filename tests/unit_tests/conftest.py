@@ -70,7 +70,7 @@ def mock_precursor_df(
             "genes": genes,
             "decoy": decoy,
             "proba": proba,
-            "qval": qval,
+            "precursor.qval_run": qval,
             "sequence": sequences,
             "mods": [""] * n_precursor,
             "mod_sites": [""] * n_precursor,

@@ -525,7 +525,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         pass
 
     def recalibration(self, precursor_df, fragments_df):
-        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
+        precursor_df_filtered = precursor_df[precursor_df["precursor.qval_run"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
@@ -633,7 +633,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def check_recalibration(self, precursor_df):
         self.com.accumulated_precursors = len(precursor_df)
         self.com.accumulated_precursors_01FDR = len(
-            precursor_df[precursor_df["qval"] < 0.01]
+            precursor_df[precursor_df["precursor.qval_run"] < 0.01]
         )
 
         self.reporter.log_string(
@@ -780,7 +780,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         precursor_df = self.fdr_correction(features_df, fragments_df)
 
-        precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
+        precursor_df = precursor_df[
+            precursor_df["precursor.qval_run"] <= self.config["fdr"]["fdr"]
+        ]
 
         logger.info("Removing fragments below FDR threshold")
 
@@ -830,21 +832,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         for channel in precursor_df["channel"].unique():
             precursor_05fdr = len(
                 precursor_df[
-                    (precursor_df["qval"] < 0.05)
+                    (precursor_df["precursor.qval_run"] < 0.05)
                     & (precursor_df["decoy"] == 0)
                     & (precursor_df["channel"] == channel)
                 ]
             )
             precursor_01fdr = len(
                 precursor_df[
-                    (precursor_df["qval"] < 0.01)
+                    (precursor_df["precursor.qval_run"] < 0.01)
                     & (precursor_df["decoy"] == 0)
                     & (precursor_df["channel"] == channel)
                 ]
             )
             precursor_001fdr = len(
                 precursor_df[
-                    (precursor_df["qval"] < 0.001)
+                    (precursor_df["precursor.qval_run"] < 0.001)
                     & (precursor_df["decoy"] == 0)
                     & (precursor_df["channel"] == channel)
                 ]
@@ -859,17 +861,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         for channel in precursor_df["channel"].unique():
             proteins_05fdr = precursor_df[
-                (precursor_df["qval"] < 0.05)
+                (precursor_df["precursor.qval_run"] < 0.05)
                 & (precursor_df["decoy"] == 0)
                 & (precursor_df["channel"] == channel)
             ]["proteins"].nunique()
             proteins_01fdr = precursor_df[
-                (precursor_df["qval"] < 0.01)
+                (precursor_df["precursor.qval_run"] < 0.01)
                 & (precursor_df["decoy"] == 0)
                 & (precursor_df["channel"] == channel)
             ]["proteins"].nunique()
             proteins_001fdr = precursor_df[
-                (precursor_df["qval"] < 0.001)
+                (precursor_df["precursor.qval_run"] < 0.001)
                 & (precursor_df["decoy"] == 0)
                 & (precursor_df["channel"] == channel)
             ]["proteins"].nunique()
@@ -884,10 +886,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         precursor_01fdr = len(
-            precursor_df[(precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)]
+            precursor_df[
+                (precursor_df["precursor.qval_run"] < 0.01)
+                & (precursor_df["decoy"] == 0)
+            ]
         )
         proteins_01fdr = precursor_df[
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
+            (precursor_df["precursor.qval_run"] < 0.01) & (precursor_df["decoy"] == 0)
         ]["proteins"].nunique()
 
         # if self.neptune is not None:
@@ -1105,7 +1110,7 @@ def _build_candidate_speclib_flat(
     optional_columns: typing.List[str] = [
         "proba",
         "score",
-        "qval",
+        "precursor.qval_run",
         "channel",
         "rt_library",
         "mz_library",
@@ -1137,7 +1142,7 @@ def _build_candidate_speclib_flat(
         List of optional columns to include in the library, by default [
             "proba",
             "score",
-            "qval",
+            "precursor.qval_run",
             "channel",
             "rt_library",
             "mz_library",

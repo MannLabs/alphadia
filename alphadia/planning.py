@@ -314,11 +314,15 @@ class Plan:
                 workflow.calibration()
 
                 psm_df, frag_df = workflow.extraction()
-                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+                psm_df = psm_df[
+                    psm_df["precursor.qval_run"] <= self.config["fdr"]["fdr"]
+                ]
 
                 if self.config["multiplexing"]["enabled"]:
                     psm_df = workflow.requantify(psm_df)
-                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+                    psm_df = psm_df[
+                        psm_df["precursor.qval_run"] <= self.config["fdr"]["fdr"]
+                    ]
 
                 if self.config["transfer_learning"]["enabled"]:
                     psm_df, frag_df = workflow.requantify_fragments(psm_df)

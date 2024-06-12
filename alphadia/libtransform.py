@@ -754,7 +754,7 @@ class MbrLibraryBuilder(ProcessingStep):
         return True
 
     def forward(self, psm_df, base_library):
-        psm_df = psm_df[psm_df["qval"] <= self.fdr]
+        psm_df = psm_df[psm_df["precursor.qval_run"] <= self.fdr]
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         rt_df = psm_df.groupby("elution_group_idx", as_index=False).agg(
