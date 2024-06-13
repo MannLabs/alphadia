@@ -130,7 +130,7 @@ search_output:
   min_nonnan: 3
   normalize_lfq: True
   # can be either "parquet" or "tsv"
-  file_format: "parquet"
+  file_format: "tsv"
 
 # configuration for the optimization manager
 # initial parameters, will nbe optimized

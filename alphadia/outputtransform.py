@@ -580,7 +580,7 @@ class SearchPlanOutput:
             logger.info("Writing precursor output to disk")
             write_df(
                 psm_df,
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
                 file_format=self.config["search_output"]["file_format"],
             )
 
@@ -631,7 +631,7 @@ class SearchPlanOutput:
             logger.info("Writing stat output to disk")
             write_df(
                 stat_df,
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}"),
+                os.path.join(self.output_folder, self.STAT_OUTPUT),
                 file_format="tsv",
             )
 
