@@ -4,6 +4,9 @@ from ctypes import Structure, c_double
 import typing
 import re
 import platform
+import torch
+
+logger = logging.getLogger()
 
 # alphadia imports
 
@@ -39,7 +42,12 @@ def get_torch_device(use_gpu: bool = False):
 
     device = "cpu"
     if use_gpu:
-        device = "mps" if platform.system() == "Darwin" else "gpu"
+        if platform.system() == "Darwin":
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+        else:
+            device = "gpu" if torch.cuda.is_available() else "cpu"
+
+    logger.info(f"Device set to {device}")
 
     return device
 
