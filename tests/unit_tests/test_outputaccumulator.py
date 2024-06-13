@@ -98,9 +98,9 @@ def prepare_input_data():
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
-        psm_dfs[i].to_csv(os.path.join(raw_folder, "psm.tsv"), sep="\t", index=False)
-        fragment_dfs[i].to_csv(
-            os.path.join(raw_folder, "frag.tsv"), sep="\t", index=False
+        psm_dfs[i].to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+        fragment_dfs[i].to_parquet(
+            os.path.join(raw_folder, "frag.parquet"), index=False
         )
 
     return config, temp_folder, raw_folders, psm_dfs, fragment_dfs

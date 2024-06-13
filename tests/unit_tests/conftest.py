@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 import matplotlib
+import tempfile
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
@@ -22,6 +23,9 @@ def mock_precursor_df(
 
     n_precursor : int
         Number of precursors to generate
+
+    with_decoy : bool
+        If True, half of the precursors will be decoys
 
     Returns
     -------
@@ -185,3 +189,23 @@ def pytest_configure(config):
         pytest.test_data[raw_folder] = raw_files
 
     # important to supress matplotlib output
+
+
+def random_tempfolder():
+    """Create a randomly named temp folder in the system temp folder
+
+    Returns
+    -------
+    path : str
+        Path to the created temp folder
+
+    """
+    tempdir = tempfile.gettempdir()
+    # 6 alphanumeric characters
+    random_foldername = "alphadia_" + "".join(
+        np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), 6)
+    )
+    path = os.path.join(tempdir, random_foldername)
+    os.makedirs(path, exist_ok=True)
+    print(f"Created temp folder: {path}")
+    return path

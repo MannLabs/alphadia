@@ -29,6 +29,7 @@ def test_output_transform():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
+            "file_format": "parquet",
         },
         "multiplexing": {
             "enabled": False,
@@ -56,8 +57,8 @@ def test_output_transform():
             fragment_base_df["precursor_idx"].isin(psm_df["precursor_idx"])
         ]
 
-        frag_df.to_csv(os.path.join(raw_folder, "frag.tsv"), sep="\t", index=False)
-        psm_df.to_csv(os.path.join(raw_folder, "psm.tsv"), sep="\t", index=False)
+        frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
+        psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
@@ -65,8 +66,8 @@ def test_output_transform():
     _ = output.build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
-    psm_df = pd.read_csv(
-        os.path.join(temp_folder, f"{output.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+    psm_df = pd.read_parquet(
+        os.path.join(temp_folder, f"{output.PRECURSOR_OUTPUT}.parquet"),
     )
     assert all(
         [
@@ -95,7 +96,7 @@ def test_output_transform():
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
-    protein_df = pd.read_csv(os.path.join(temp_folder, "pg.matrix.tsv"), sep="\t")
+    protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:

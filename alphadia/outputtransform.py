@@ -10,7 +10,7 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
     AccumulationBroadcaster,
 )
-
+from alphadia.consensus.utils import read_df, write_df
 
 import pandas as pd
 import numpy as np
@@ -54,22 +54,14 @@ def get_frag_df_generator(folder_list: List[str]):
 
     for folder in folder_list:
         raw_name = os.path.basename(folder)
-        frag_path = os.path.join(folder, "frag.tsv")
+        frag_path = os.path.join(folder, "frag.parquet")
 
         if not os.path.exists(frag_path):
             logger.warning(f"no frag file found for {raw_name}")
         else:
             try:
                 logger.info(f"reading frag file for {raw_name}")
-                run_df = pd.read_csv(
-                    frag_path,
-                    sep="\t",
-                    dtype={
-                        "precursor_idx": np.uint32,
-                        "number": np.uint8,
-                        "type": np.uint8,
-                    },
-                )
+                run_df = pd.read_parquet(frag_path)
             except Exception as e:
                 logger.warning(f"Error reading frag file for {raw_name}")
                 logger.warning(e)
@@ -453,20 +445,10 @@ class SearchPlanOutput:
             Precursor table
         """
 
-        if not os.path.exists(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv")
-        ):
-            logger.error(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-            raise FileNotFoundError(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-        logger.info(f"Reading {self.PRECURSOR_OUTPUT}.tsv file")
-        psm_df = pd.read_csv(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+        return read_df(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_format=self.config["search_output"]["file_format"],
         )
-        return psm_df
 
     def build_precursor_table(
         self,
@@ -497,7 +479,7 @@ class SearchPlanOutput:
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.tsv")
+            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.parquet")
 
             logger.info(f"Building output for {raw_name}")
 
@@ -506,7 +488,7 @@ class SearchPlanOutput:
                 run_df = pd.DataFrame()
             else:
                 try:
-                    run_df = pd.read_csv(psm_path, sep="\t")
+                    run_df = pd.read_parquet(psm_path)
                 except Exception as e:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
@@ -596,11 +578,10 @@ class SearchPlanOutput:
             psm_df = psm_df[psm_df["decoy"] == 0]
         if save:
             logger.info("Writing precursor output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return psm_df
@@ -661,11 +642,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
-            stat_df.to_csv(
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                stat_df,
+                os.path.join(self.output_folder, self.STAT_OUTPUT),
+                file_format="tsv",
             )
 
         return stat_df
@@ -743,11 +723,11 @@ class SearchPlanOutput:
 
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-                lfq_df.to_csv(
-                    os.path.join(self.output_folder, f"{group_nice}.matrix.tsv"),
-                    sep="\t",
-                    index=False,
-                    float_format="%.6f",
+
+                write_df(
+                    lfq_df,
+                    os.path.join(self.output_folder, f"{group_nice}.matrix"),
+                    file_format=self.config["search_output"]["file_format"],
                 )
 
         protein_df_melted = lfq_df.melt(
@@ -758,11 +738,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing psm output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return lfq_df
