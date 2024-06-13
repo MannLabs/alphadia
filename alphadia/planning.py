@@ -125,8 +125,7 @@ class Plan:
 
         # set log level
         level_to_set = self.config["general"]["log_level"]
-        level_code = logging.getLevelNamesMapping().get(level_to_set)
-        if level_code is None:
+        if (level_code := logging.getLevelNamesMapping().get(level_to_set)) is None:
             logger.error(f"Setting logging to unknown level {level_to_set}")
         else:
             logger.setLevel(level_code)
