@@ -123,6 +123,13 @@ class Plan:
         if "output" not in self.config:
             self.config["output"] = output_folder
 
+        # set log level
+        level_to_set = self.config["general"]["log_level"]
+        if (level_code := logging.getLevelNamesMapping().get(level_to_set)) is None:
+            logger.error(f"Setting logging to unknown level {level_to_set}")
+        else:
+            logger.setLevel(level_code)
+
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
