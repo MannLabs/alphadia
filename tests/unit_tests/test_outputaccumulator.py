@@ -1,6 +1,7 @@
 import os
 import tempfile
 import numpy as np
+import pandas as pd
 from conftest import mock_precursor_df, mock_fragment_df
 from alphadia import outputtransform
 from alphabase.spectral_library.base import SpecLibBase
@@ -67,7 +68,7 @@ def prepare_input_data():
     # setup raw folders
     raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
 
-    psm_base_df = mock_precursor_df(n_precursor=100)
+    psm_base_df = mock_precursor_df(n_precursor=100, with_decoy=True)
     fragment_base_df = mock_fragment_df(n_precursor=200, n_fragments=10)
 
     psm_dfs = []
@@ -122,12 +123,11 @@ def test_complete_output_accumulation():
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
     )
 
-    # Then: all unique precursors should be in the built library
-    number_of_unique_precursors = len(
-        np.unique(
-            np.concatenate([psm_df["precursor_idx"].values for psm_df in psm_dfs])
-        )
-    )
+    # Then: all unique none decoy precursors should be in the built library
+    union_psm_df = pd.concat(psm_dfs)
+    union_psm_df = union_psm_df[union_psm_df["decoy"] == 0]
+    number_of_unique_precursors = len(np.unique(union_psm_df["precursor_idx"]))
+
     assert (
         len(np.unique(built_lib.precursor_df["precursor_idx"]))
         == number_of_unique_precursors

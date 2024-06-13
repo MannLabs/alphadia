@@ -1102,22 +1102,7 @@ def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
     fragment_types: typing.List[str] = ["b", "y"],
     max_charge: int = 2,
-    optional_columns: typing.List[str] = [
-        "proba",
-        "score",
-        "qval",
-        "channel",
-        "rt_library",
-        "mz_library",
-        "mobility_library",
-        "genes",
-        "proteins",
-        "decoy",
-        "mods",
-        "mod_sites",
-        "sequence",
-        "charge",
-    ],
+    optional_columns: typing.Union[typing.List[str], None] = None,
 ) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
@@ -1149,6 +1134,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
+            "rt_observed", "mobility_observed", "mz_observed"
         ]
 
     Returns
@@ -1159,11 +1145,28 @@ def _build_candidate_speclib_flat(
     scored_candidates: pd.DataFrame
         Dataframe with scored candidates
     """
-    # remove decoys
-    psm_df = psm_df[psm_df["decoy"] == 0]
 
-    for col in ["rt_observed", "mobility_observed", "mz_observed"]:
-        optional_columns += [col] if col in psm_df.columns else []
+    # set default optional columns
+    if optional_columns is None:
+        optional_columns = [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+            "rt_observed",
+            "mobility_observed",
+            "mz_observed",
+        ]
 
     scored_candidates = plexscoring.candidate_features_to_candidates(
         psm_df, optional_columns=optional_columns
