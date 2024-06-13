@@ -527,7 +527,7 @@
         {
             "id": "transfer_library",
             "name": "Transfer Library",
-            "hidden": false,
+            "hidden": true,
             "parameters": [
                 {
                     "id": "enabled",
@@ -583,7 +583,7 @@
         {
             "id": "transfer_learning",
             "name": "Transfer Learning",
-            "hidden": false,
+            "hidden": true,
             "parameters": [
                 {
                     "id": "enabled",
