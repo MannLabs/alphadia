@@ -11,6 +11,7 @@ from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
 )
 from alphadia.consensus.utils import read_df, write_df
+from alphadia.transferlearning.train import FinetuneManager
 
 import pandas as pd
 import numpy as np
@@ -307,6 +308,7 @@ class SearchPlanOutput:
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
+    TRANSFER_MODEL = "peptdeep.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -374,8 +376,40 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
-        if self.config["transfer_learning"]["enabled"]:
+        if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
+
+        if self.config["transfer_learning"]["enabled"]:
+            _ = self.build_transfer_model()
+
+    def build_transfer_model(self):
+        logger.progress("Train PeptDeep Models")
+
+        transfer_lib_path = os.path.join(
+            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+        )
+        assert os.path.exists(
+            transfer_lib_path
+        ), f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
+
+        transfer_lib = SpecLibBase()
+        transfer_lib.load_hdf(
+            transfer_lib_path,
+            load_mod_seq=True,
+        )
+
+        device = utils.get_torch_device(self.config["general"]["use_gpu"])
+
+        tune_mgr = FinetuneManager(
+            device=device, settings=self.config["transfer_learning"]
+        )
+        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        stats = tune_mgr.finetune_ms2(
+            transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
+        )
+
+        tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
 
     def build_transfer_library(
         self,
@@ -408,12 +442,12 @@ class SearchPlanOutput:
         """
         logger.progress("======== Building transfer library ========")
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=self.config["transfer_learning"]["top_k_samples"],
-            norm_delta_max=self.config["transfer_learning"]["norm_delta_max"],
-            precursor_correlation_cutoff=self.config["transfer_learning"][
+            keep_top=self.config["transfer_library"]["top_k_samples"],
+            norm_delta_max=self.config["transfer_library"]["norm_delta_max"],
+            precursor_correlation_cutoff=self.config["transfer_library"][
                 "precursor_correlation_cutoff"
             ],
-            fragment_correlation_ratio=self.config["transfer_learning"][
+            fragment_correlation_ratio=self.config["transfer_library"][
                 "fragment_correlation_ratio"
             ],
         )
