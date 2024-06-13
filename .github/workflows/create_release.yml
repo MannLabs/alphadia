@@ -1,33 +1,53 @@
 on:
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
+    inputs:
+      commit_to_release:
+        description: 'Enter commit hash to release (example: ef4037cb571f99cb4919b520fde7174972aae473)'
+        required: true
+      tag_to_release:
+        description: 'Enter tag to release (example: v1.5.5)'
+        required: true
 
-name: Release bundled installer
+
+name: Create Draft Release
 
 jobs:
-  Version_Bumped:
+  Get_New_Version:
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ steps.master_version_bumped.outputs.version }}
+      new_version: ${{ steps.check_release_tag.outputs.new_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      - uses: conda-incubator/setup-miniconda@v3
         with:
-          auto-update-conda: true
-          python-version: ${{ matrix.python-version }}
-      - name: Master version bumped
-        id: master_version_bumped
-        shell: bash -l {0}
-        run: |
-          cd misc
-          . ./check_version.sh
-          echo "version=$current_version" >> $GITHUB_OUTPUT
+          ref: ${{ inputs.commit_to_release }}
 
-  Create_Draft_On_GitHub:
+      - name: Check release tag
+        id: check_release_tag
+        shell: bash -le {0}
+        run: |
+          CURRENT_VERSION=$(./misc/get_current_version.sh)
+          if [ "v${CURRENT_VERSION}" != "${{ inputs.tag_to_release }}" ]; then
+            echo Code version "v${CURRENT_VERSION}" does not match the tag to release ${{ inputs.tag_to_release }}
+            exit 1
+          fi
+          echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - uses: mukunku/tag-exists-action@v1.6.0
+        id: check-tag
+        with:
+          tag: ${{ inputs.tag_to_release }}
+
+      - name: Check if tag already exists
+        run: |
+          echo "Tag already exists!"
+          exit 1
+        if: steps.check-tag.outputs.exists == 'true'
+
+
+  Create_Draft_Release:
     runs-on: ubuntu-latest
-    needs: Version_Bumped
+    needs: Get_New_Version
     outputs:
       upload_url: ${{ steps.draft_release.outputs.upload_url }}
     steps:
@@ -39,13 +59,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: v${{ needs.Version_Bumped.outputs.version }}
-          release_name: v${{ needs.Version_Bumped.outputs.version }}
+          tag_name: ${{ inputs.tag_to_release }}
+          release_name: ${{ inputs.tag_to_release }}
           draft: true
           prerelease: false
 
   Create_MacOS_Installer:
-    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    needs: [Create_Draft_Release, Get_New_Version]
     env:
         ARCH: x64
         EAGER_IMPORT: true
@@ -102,13 +122,13 @@ jobs:
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-darwin-${{ env.ARCH }}.pkg
+          upload_url: ${{ needs.Create_Draft_Release.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Get_New_Version.outputs.new_version }}-darwin-${{ env.ARCH }}.pkg
+          asset_name: alphadia-${{ needs.Get_New_Version.outputs.new_version }}-darwin-${{ env.ARCH }}.pkg
           asset_content_type: application/zip
 
   Create_Windows_Installer:
-    needs: [Create_Draft_On_GitHub, Version_Bumped]
+    needs: [Create_Draft_Release, Get_New_Version]
     env:
         ARCH: x64
     runs-on: windows-latest
@@ -170,7 +190,7 @@ jobs:
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          upload_url: ${{ needs.Create_Draft_On_GitHub.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
-          asset_name: alphadia-${{ needs.Version_Bumped.outputs.version }}-win-${{ env.ARCH }}.exe
+          upload_url: ${{ needs.Create_Draft_Release.outputs.upload_url }}
+          asset_path: dist/alphadia-${{ needs.Get_New_Version.outputs.new_version }}-win-${{ env.ARCH }}.exe
+          asset_name: alphadia-${{ needs.Get_New_Version.outputs.new_version }}-win-${{ env.ARCH }}.exe
           asset_content_type: application/zip
