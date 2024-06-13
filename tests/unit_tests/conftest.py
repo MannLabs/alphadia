@@ -24,6 +24,9 @@ def mock_precursor_df(
     n_precursor : int
         Number of precursors to generate
 
+    with_decoy : bool
+        If True, half of the precursors will be decoys
+
     Returns
     -------
 
@@ -78,6 +81,7 @@ def mock_precursor_df(
             "sequence": sequences,
             "mods": [""] * n_precursor,
             "mod_sites": [""] * n_precursor,
+            "channel": [0] * n_precursor,
         }
     )
 
@@ -188,6 +192,14 @@ def pytest_configure(config):
 
 
 def random_tempfolder():
+    """Create a randomly named temp folder in the system temp folder
+
+    Returns
+    -------
+    path : str
+        Path to the created temp folder
+
+    """
     tempdir = tempfile.gettempdir()
     # 6 alphanumeric characters
     random_foldername = "alphadia_" + "".join(
@@ -195,4 +207,5 @@ def random_tempfolder():
     )
     path = os.path.join(tempdir, random_foldername)
     os.makedirs(path, exist_ok=True)
+    print(f"Created temp folder: {path}")
     return path

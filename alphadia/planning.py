@@ -26,6 +26,24 @@ from alphabase.spectral_library.base import SpecLibBase
 # third party imports
 import torch
 
+from alphabase.constants import modification
+
+modification.add_new_modifications(
+    {
+        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
+        "Dimethyl:d12@Any N-term": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@R": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Dimethyl:d12@K": {
+            "composition": "H(-2)2H(8)13C(2)",
+        },
+        "Label:13C(12)@K": {"composition": "C(12)"},
+    }
+)
+
 
 class Plan:
     def __init__(
@@ -104,6 +122,13 @@ class Plan:
 
         if "output" not in self.config:
             self.config["output"] = output_folder
+
+        # set log level
+        level_to_set = self.config["general"]["log_level"]
+        if (level_code := logging.getLevelNamesMapping().get(level_to_set)) is None:
+            logger.error(f"Setting logging to unknown level {level_to_set}")
+        else:
+            logger.setLevel(level_code)
 
         self.load_library()
 
@@ -298,7 +323,7 @@ class Plan:
                 psm_df, frag_df = workflow.extraction()
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
-                if self.config["multiplexing"]["multiplexed_quant"]:
+                if self.config["multiplexing"]["enabled"]:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
@@ -313,15 +338,31 @@ class Plan:
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
-            except Exception as e:
+            except peptidecentric.CalibrationError as e:
                 # get full traceback
-                import traceback
-
-                traceback.print_exc()
-
-                print(e)
-                logger.error(f"Workflow failed for {raw_name} with error {e}")
+                logger.error(
+                    f"Search for {raw_name} failed as not enough precursors were found for calibration"
+                )
+                logger.error(f"This can have the following reasons:")
+                logger.error(
+                    f"   1. The sample was empty and therefore nor precursors were found"
+                )
+                logger.error(f"   2. The sample contains only very few precursors.")
+                logger.error(
+                    f"      For small libraries, try to set recalibration_target to a lower value"
+                )
+                logger.error(
+                    f"      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance"
+                )
+                logger.error(
+                    f"   3. There was a fundamental issue with search parameters"
+                )
                 continue
+            except Exception as e:
+                logger.error(
+                    f"Search for {raw_name} failed with error {e}", exc_info=True
+                )
+                raise e
 
         try:
             base_spec_lib = SpecLibBase()
@@ -333,12 +374,7 @@ class Plan:
             output.build(workflow_folder_list, base_spec_lib)
 
         except Exception as e:
-            # get full traceback
-            import traceback
-
-            traceback.print_exc()
-            print(e)
-            logger.error(f"Output failed with error {e}")
+            logger.error(f"Output failed with error {e}", exc_info=True)
             return
 
         logger.progress("=================== Search Finished ===================")

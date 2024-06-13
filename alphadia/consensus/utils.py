@@ -26,11 +26,6 @@ def read_df(path_no_format, file_format="parquet"):
 
     """
 
-    if file_format not in supported_formats:
-        raise ValueError(
-            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
-        )
-
     file_path = f"{path_no_format}.{file_format}"
 
     if not os.path.exists(file_path):
@@ -45,7 +40,9 @@ def read_df(path_no_format, file_format="parquet"):
         return pd.read_csv(file_path, sep="\t")
 
     else:
-        raise ValueError("I don't know how you ended up here")
+        raise ValueError(
+            f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
+        )
 
 
 def write_df(df, path_no_format, file_format="parquet"):

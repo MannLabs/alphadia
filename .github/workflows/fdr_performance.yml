@@ -1,5 +1,7 @@
 on:
   pull_request:
+    types: [ labeled ]
+  push:
     branches: [ main, development ]
   workflow_dispatch:
 
@@ -11,7 +13,8 @@ concurrency:
 
 jobs:
   fdr_performance_testing:
-    name: Loose pip installation
+    if: contains(github.event.pull_request.labels.*.name, 'test:fdr') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    name: FDR performance testing
     runs-on: AlphaDIA
     env: # Or as an environment variable
       NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
@@ -32,7 +35,7 @@ jobs:
         shell: bash -l {0}
         run: |
           cd misc
-          . ./loose_pip_install.sh
+          . ./pip_install.sh stable,test
       - name: Run legacy classifier
         env: # Or as an environment variable
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}

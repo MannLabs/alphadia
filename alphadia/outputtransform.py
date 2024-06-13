@@ -617,7 +617,7 @@ class SearchPlanOutput:
             logger.info("Writing precursor output to disk")
             write_df(
                 psm_df,
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
                 file_format=self.config["search_output"]["file_format"],
             )
 
@@ -651,6 +651,17 @@ class SearchPlanOutput:
         """
         logger.progress("Building search statistics")
 
+        if self.config["search"]["channel_filter"] == "":
+            all_channels = {0}
+        else:
+            all_channels = set(self.config["search"]["channel_filter"].split(","))
+
+        if self.config["multiplexing"]["enabled"]:
+            all_channels &= set(
+                self.config["multiplexing"]["target_channels"].split(",")
+            )
+        all_channels = sorted([int(c) for c in all_channels])
+
         if psm_df is None:
             psm_df = self.load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
@@ -659,7 +670,9 @@ class SearchPlanOutput:
         for folder in folder_list:
             raw_name = os.path.basename(folder)
             stat_df_list.append(
-                build_stat_df(raw_name, psm_df[psm_df["run"] == raw_name])
+                _build_run_stat_df(
+                    raw_name, psm_df[psm_df["run"] == raw_name], all_channels
+                )
             )
 
         stat_df = pd.concat(stat_df_list)
@@ -668,7 +681,7 @@ class SearchPlanOutput:
             logger.info("Writing stat output to disk")
             write_df(
                 stat_df,
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}"),
+                os.path.join(self.output_folder, self.STAT_OUTPUT),
                 file_format="tsv",
             )
 
@@ -822,29 +835,52 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def build_stat_df(raw_name, run_df):
-    """Build stat dataframe for run"""
+def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] = [0]):
+    """Build stat dataframe for a single run.
 
-    base_dict = {
-        "run": raw_name,
-        "precursors": len(run_df),
-        "proteins": run_df["pg"].nunique(),
-    }
+    Parameters
+    ----------
 
-    if "weighted_mass_error" in run_df.columns:
-        base_dict["ms1_accuracy"] = np.mean(run_df["weighted_mass_error"])
+    raw_name: str
+        Name of the raw file
 
-    if "cycle_fwhm" in run_df.columns:
-        base_dict["fwhm_rt"] = np.mean(run_df["cycle_fwhm"])
+    run_df: pd.DataFrame
+        Dataframe containing the precursor data
 
-    if "mobility_fwhm" in run_df.columns:
-        base_dict["fwhm_mobility"] = np.mean(run_df["mobility_fwhm"])
+    channels: List[int]
+        List of channels to include in the output
 
-    return pd.DataFrame(
-        [
-            base_dict,
-        ]
-    )
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe containing the statistics
+
+    """
+
+    out_df = []
+
+    for channel in channels:
+        channel_df = run_df[run_df["channel"] == channel]
+
+        base_dict = {
+            "run": raw_name,
+            "channel": channel,
+            "precursors": len(channel_df),
+            "proteins": channel_df["pg"].nunique(),
+        }
+
+        if "weighted_mass_error" in channel_df.columns:
+            base_dict["ms1_accuracy"] = np.mean(channel_df["weighted_mass_error"])
+
+        if "cycle_fwhm" in channel_df.columns:
+            base_dict["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+
+        if "mobility_fwhm" in channel_df.columns:
+            base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+
+        out_df.append(base_dict)
+
+    return pd.DataFrame(out_df)
 
 
 def perform_protein_fdr(psm_df):

@@ -45,6 +45,7 @@ def density_scatter(
     x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
     y: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
     axis: plt.Axes = None,
+    bw_method=None,
     s: float = 1,
     **kwargs,
 ):
@@ -100,7 +101,7 @@ def density_scatter(
 
     # Calculate the point density
     xy = np.vstack([x, y])
-    z = gaussian_kde(xy)(xy)
+    z = gaussian_kde(xy, bw_method=bw_method)(xy)
 
     # Sort the points by density, so that the densest points are plotted last
     idx = z.argsort()
