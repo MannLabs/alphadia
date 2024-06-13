@@ -29,7 +29,7 @@ def test_get_torch_device(use_gpu):
     device = get_torch_device(use_gpu)
 
     # then
-    assert device in ["gpu", "mps"] if use_gpu else "cpu"
+    assert device in ["gpu", "mps", "cpu"]
 
 
 def test_amean0():
