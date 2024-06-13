@@ -224,7 +224,7 @@
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "Fusion",
+                    "value": "Lumos",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
@@ -232,7 +232,7 @@
                         "QE",
                         "timsTOF",
                         "SciexTOF",
-                        "Fusion",
+                        "Lumos",
                         "Eclipse",
                         "Velos",
                         "Elite",
@@ -521,6 +521,163 @@
                     "value": false,
                     "description": "Perform label free quantification on precursor level and report as precursor matrix.",
                     "type": "boolean"
+                }
+            ]
+        },
+        {
+            "id": "transfer_library",
+            "name": "Transfer Library",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "enabled",
+                    "name": "Enabled",
+                    "value": false,
+                    "description": "If true, transfer learnin training dataset is created.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "fragment_types",
+                    "name": "Fragment types",
+                    "value": "b;y",
+                    "description": "Semicolon separated list of fragment types to include in the library. \n possible values are 'a', 'b', 'c', 'x', 'y', 'z'",
+                    "type": "string"
+                },
+                {
+                    "id": "max_charge",
+                    "name": "Maximum charge",
+                    "value": 2,
+                    "description": "Maximum charge for fragments.",
+                    "type": "integer"
+                },
+                {
+                    "id": "top_k_samples",
+                    "name": "Top k samples",
+                    "value": 3,
+                    "description": "If a given precursor appears multiple times in an experiment, only the top_k_samples with the highest scores are included in the library.",
+                    "type": "integer"
+                },
+                {
+                    "id": "norm_delta_max",
+                    "name": "Norm delta max",
+                    "value": true,
+                    "description": "Perform advanced rt calibration. \nIf set to false retention times will be normalised by the maximum retention time observed in the experiment. \nIf set to true, a combination of maximum normalisation and deviation from the calibration curve will be used.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "precursor_correlation_cutoff",
+                    "name": "Precursor correlation cutoff",
+                    "value": 0.5,
+                    "description": "Use only precursors for ms2 training with a median XIC correlation above this threshold.",
+                    "type": "float"
+                },
+                {
+                    "id": "fragment_correlation_ratio",
+                    "name": "Fragment correlation ratio",
+                    "value": 0.75,
+                    "description": "Include only fragments with a XIC correlation at least 0.75 of the median for all fragments.",
+                    "type": "float"
+                }
+            ]
+        },
+        {
+            "id": "transfer_learning",
+            "name": "Transfer Learning",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "enabled",
+                    "name": "Enabled",
+                    "value": false,
+                    "description": "If true, a custom peptdeep model will be created using the transfer learned library.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "batch_size",
+                    "name": "Batch size",
+                    "value": 2000,
+                    "description": "Number of precursors per batch.",
+                    "type": "integer"
+                },
+                {
+                    "id": "max_lr",
+                    "name": "Maximum learning rate",
+                    "value": 0.0001,
+                    "description": "Maximum learning rate per batch. \nThe maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler.",
+                    "type": "float"
+                },
+                {
+                    "id": "train_ratio",
+                    "name": "Train ratio",
+                    "value": 0.8,
+                    "description": "TODO remove and replaced by fixed 70:20:10 split",
+                    "type": "float"
+                },
+                {
+                    "id": "test_interval",
+                    "name": "Test interval",
+                    "value": 1,
+                    "description": "Test every n intervals.",
+                    "type": "integer"
+                },
+                {
+                    "id": "lr_patience",
+                    "name": "Learning rate patience",
+                    "value": 3,
+                    "description": "Learning rate patience after which the lr will be halved.",
+                    "type": "integer"
+                },
+                {
+                    "id": "minimum_psms",
+                    "name": "Minimum precursor number",
+                    "value": 10000,
+                    "description": "Minimum precursor number to perform transfer learning.",
+                    "type": "integer"
+                },
+                {
+                    "id": "epochs",
+                    "name": "Number of epochs",
+                    "value": 51,
+                    "description": "Maximum number of epochs.",
+                    "type": "integer"
+                },
+                {
+                    "id": "warmup_epochs",
+                    "name": "Warmup epochs",
+                    "value": 5,
+                    "description": "Number of warmup epochs during which the lr is ramped up.",
+                    "type": "integer"
+                },
+                {
+                    "id": "nce",
+                    "name": "Normalized collision energy",
+                    "value": 25,
+                    "description": "Normalised collision energy encoded during training.",
+                    "type": "float"
+                },
+                {
+                    "id": "instrument",
+                    "name": "Instrument",
+                    "value": "Lumos",
+                    "description": "Instrument type encoded during training. \nThe same instrument type must be used for prediction using the trained model.",
+                    "type": "dropdown",
+                    "options": [
+                        "Astral",
+                        "QE",
+                        "timsTOF",
+                        "SciexTOF",
+                        "Lumos",
+                        "Eclipse",
+                        "Velos",
+                        "Elite",
+                        "OrbitrapTribrid",
+                        "ThermoTribrid",
+                        "QE+",
+                        "QEHF",
+                        "QEHFX",
+                        "Exploris",
+                        "Exploris480"
+                    ]
                 }
             ]
         }
