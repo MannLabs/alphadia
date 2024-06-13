@@ -3,6 +3,7 @@ import logging
 from ctypes import Structure, c_double
 import typing
 import re
+import platform
 
 # alphadia imports
 
@@ -18,6 +19,29 @@ import matplotlib.patches as patches
 
 
 ISOTOPE_DIFF = 1.0032999999999674
+
+
+def get_torch_device(use_gpu: bool = False):
+    """Get the torch device to be used.
+
+    Parameters
+    ----------
+
+    use_gpu : bool, optional
+        If True, use GPU if available, by default False
+
+    Returns
+    -------
+    str
+        Device to be used, either 'cpu', 'gpu' or 'mps'
+
+    """
+
+    device = "cpu"
+    if use_gpu:
+        device = "mps" if platform.system() == "Darwin" else "gpu"
+
+    return device
 
 
 @nb.njit

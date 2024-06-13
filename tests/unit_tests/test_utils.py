@@ -11,6 +11,7 @@ from alphadia.utils import (
     wsl_to_windows,
     windows_to_wsl,
     merge_missing_columns,
+    get_torch_device,
 )
 
 
@@ -18,6 +19,17 @@ from alphadia.utils import (
 import numpy as np
 import pandas as pd
 import pytest
+
+
+@pytest.mark.parametrize("use_gpu", [True, False])
+def test_get_torch_device(use_gpu):
+    # given
+
+    # when
+    device = get_torch_device(use_gpu)
+
+    # then
+    assert device in ["gpu", "mps"] if use_gpu else "cpu"
 
 
 def test_amean0():

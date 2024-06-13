@@ -399,9 +399,7 @@ class SearchPlanOutput:
             load_mod_seq=True,
         )
 
-        device = "cpu"
-        if self.config["general"]["use_gpu"]:
-            device = "mps" if os.uname().sysname == "Darwin" else "gpu"
+        device = utils.get_torch_device(self.config["general"]["use_gpu"])
 
         tune_mgr = FinetuneManager(
             device=device, settings=self.config["transfer_learning"]

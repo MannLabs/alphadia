@@ -298,14 +298,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         input.charged_frag_types = charged_frag_types
 
-        # Check if CPU or GPU/MPS should be used
-        device = "cpu"
-        if self.use_gpu:
-            try:
-                device = "mps" if os.uname().sysname == "Darwin" else "gpu"
-            except AttributeError:
-                # Windows does not support uname
-                device = "gpu"
+        device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
         if self.checkpoint_folder_path is not None:
