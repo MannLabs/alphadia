@@ -2,6 +2,8 @@
 
 # native imports
 import logging
+import sys
+
 import yaml
 import os
 import re
@@ -345,3 +347,4 @@ def run(*args, **kwargs):
 
         logger.info(traceback.format_exc())
         logger.error(e)
+        sys.exit(1)
