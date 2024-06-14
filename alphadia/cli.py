@@ -316,13 +316,13 @@ def run(*args, **kwargs):
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
-    logger.progress(f"Using library: {library_path}.")
+    logger.progress(f"Using library: {library_path}")
 
     logger.progress(f"Using {len(fasta_path_list)} fasta files:")
     for f in fasta_path_list:
         logger.progress(f"  {f}")
 
-    logger.progress(f"Saving output to {output_directory}.")
+    logger.progress(f"Saving output to: {output_directory}")
 
     try:
         import matplotlib
