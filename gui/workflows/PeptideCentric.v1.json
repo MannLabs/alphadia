@@ -628,13 +628,6 @@
                     "type": "integer"
                 },
                 {
-                    "id": "minimum_psms",
-                    "name": "Minimum precursor number",
-                    "value": 10000,
-                    "description": "Minimum precursor number to perform transfer learning.",
-                    "type": "integer"
-                },
-                {
                     "id": "epochs",
                     "name": "Number of epochs",
                     "value": 51,

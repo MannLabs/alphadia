@@ -208,9 +208,6 @@ transfer_learning:
   # learning rate patience after which the lr will be halved
   lr_patience: 3
 
-  # minimum precursor number to perform transfer learning
-  minimum_psms: 10000
-
   # maximum number of epochs
   epochs: 51
 
