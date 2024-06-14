@@ -25,6 +25,7 @@ from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
 from alphadia.workflow import reporting
+
 logger = logging.getLogger()
 
 settings = {
@@ -35,7 +36,6 @@ settings = {
     "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
-    "minimum_psms": 1200,
     "epochs": 51,
     "warmup_epochs": 5,
     # --------------------------
@@ -278,7 +278,6 @@ class FinetuneManager(ModelManager):
         """
         reordered = unordered_frag_df.copy()
         for i in tqdm(range(len(reordered_precursor_df))):
-      
             new_start_idx = reordered_precursor_df.iloc[i]["frag_start_idx"]
             new_end_idx = reordered_precursor_df.iloc[i]["frag_stop_idx"]
 
