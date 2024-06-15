@@ -298,14 +298,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         input.charged_frag_types = charged_frag_types
 
-        # Check if CPU or GPU/MPS should be used
-        device = "cpu"
-        if self.use_gpu:
-            try:
-                device = "mps" if os.uname().sysname == "Darwin" else "gpu"
-            except AttributeError:
-                # Windows does not support uname
-                device = "gpu"
+        device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
         if self.checkpoint_folder_path is not None:
@@ -660,7 +653,7 @@ class InitFlatColumns(ProcessingStep):
                 "rt_norm_pred",
                 "irt",
             ],
-            "mobility_library": ["mobility_library", "mobility"],
+            "mobility_library": ["mobility_library", "mobility", "mobility_pred"],
         }
 
         fragment_columns = {
@@ -680,6 +673,7 @@ class InitFlatColumns(ProcessingStep):
 
         if "mobility_library" not in input.precursor_df.columns:
             input.precursor_df["mobility_library"] = 0
+            logger.warning("Library contains no ion mobility annotations")
 
         validate.precursors_flat_schema(input.precursor_df)
         validate.fragments_flat_schema(input.fragment_df)

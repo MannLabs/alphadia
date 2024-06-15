@@ -123,6 +123,11 @@ class Plan:
         if "output" not in self.config:
             self.config["output"] = output_folder
 
+        # set log level
+        level_to_set = self.config["general"]["log_level"]
+        level_code = logging.getLevelName(level_to_set)
+        logger.setLevel(level_code)
+
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
@@ -301,8 +306,8 @@ class Plan:
                 workflow_folder_list.append(workflow.path)
 
                 # check if the raw file is already processed
-                psm_location = os.path.join(workflow.path, "psm.tsv")
-                frag_location = os.path.join(workflow.path, "frag.tsv")
+                psm_location = os.path.join(workflow.path, "psm.parquet")
+                frag_location = os.path.join(workflow.path, "frag.parquet")
 
                 if self.config["general"]["reuse_quant"]:
                     if os.path.exists(psm_location) and os.path.exists(frag_location):
@@ -320,12 +325,12 @@ class Plan:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
-                if self.config["transfer_learning"]["enabled"]:
+                if self.config["transfer_library"]["enabled"]:
                     psm_df, frag_df = workflow.requantify_fragments(psm_df)
 
                 psm_df["run"] = raw_name
-                psm_df.to_csv(psm_location, sep="\t", index=False)
-                frag_df.to_csv(frag_location, sep="\t", index=False)
+                psm_df.to_parquet(psm_location, index=False)
+                frag_df.to_parquet(frag_location, index=False)
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)

@@ -10,7 +10,8 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
     AccumulationBroadcaster,
 )
-
+from alphadia.consensus.utils import read_df, write_df
+from alphadia.transferlearning.train import FinetuneManager
 
 import pandas as pd
 import numpy as np
@@ -54,22 +55,14 @@ def get_frag_df_generator(folder_list: List[str]):
 
     for folder in folder_list:
         raw_name = os.path.basename(folder)
-        frag_path = os.path.join(folder, "frag.tsv")
+        frag_path = os.path.join(folder, "frag.parquet")
 
         if not os.path.exists(frag_path):
             logger.warning(f"no frag file found for {raw_name}")
         else:
             try:
                 logger.info(f"reading frag file for {raw_name}")
-                run_df = pd.read_csv(
-                    frag_path,
-                    sep="\t",
-                    dtype={
-                        "precursor_idx": np.uint32,
-                        "number": np.uint8,
-                        "type": np.uint8,
-                    },
-                )
+                run_df = pd.read_parquet(frag_path)
             except Exception as e:
                 logger.warning(f"Error reading frag file for {raw_name}")
                 logger.warning(e)
@@ -315,6 +308,7 @@ class SearchPlanOutput:
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
+    TRANSFER_MODEL = "peptdeep.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -382,8 +376,40 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
-        if self.config["transfer_learning"]["enabled"]:
+        if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
+
+        if self.config["transfer_learning"]["enabled"]:
+            _ = self.build_transfer_model()
+
+    def build_transfer_model(self):
+        logger.progress("Train PeptDeep Models")
+
+        transfer_lib_path = os.path.join(
+            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+        )
+        assert os.path.exists(
+            transfer_lib_path
+        ), f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
+
+        transfer_lib = SpecLibBase()
+        transfer_lib.load_hdf(
+            transfer_lib_path,
+            load_mod_seq=True,
+        )
+
+        device = utils.get_torch_device(self.config["general"]["use_gpu"])
+
+        tune_mgr = FinetuneManager(
+            device=device, settings=self.config["transfer_learning"]
+        )
+        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        stats = tune_mgr.finetune_ms2(
+            transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
+        )
+
+        tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
 
     def build_transfer_library(
         self,
@@ -416,12 +442,12 @@ class SearchPlanOutput:
         """
         logger.progress("======== Building transfer library ========")
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=self.config["transfer_learning"]["top_k_samples"],
-            norm_delta_max=self.config["transfer_learning"]["norm_delta_max"],
-            precursor_correlation_cutoff=self.config["transfer_learning"][
+            keep_top=self.config["transfer_library"]["top_k_samples"],
+            norm_delta_max=self.config["transfer_library"]["norm_delta_max"],
+            precursor_correlation_cutoff=self.config["transfer_library"][
                 "precursor_correlation_cutoff"
             ],
-            fragment_correlation_ratio=self.config["transfer_learning"][
+            fragment_correlation_ratio=self.config["transfer_library"][
                 "fragment_correlation_ratio"
             ],
         )
@@ -453,20 +479,10 @@ class SearchPlanOutput:
             Precursor table
         """
 
-        if not os.path.exists(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv")
-        ):
-            logger.error(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-            raise FileNotFoundError(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-        logger.info(f"Reading {self.PRECURSOR_OUTPUT}.tsv file")
-        psm_df = pd.read_csv(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+        return read_df(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_format=self.config["search_output"]["file_format"],
         )
-        return psm_df
 
     def build_precursor_table(
         self,
@@ -497,7 +513,7 @@ class SearchPlanOutput:
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.tsv")
+            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.parquet")
 
             logger.info(f"Building output for {raw_name}")
 
@@ -506,7 +522,7 @@ class SearchPlanOutput:
                 run_df = pd.DataFrame()
             else:
                 try:
-                    run_df = pd.read_csv(psm_path, sep="\t")
+                    run_df = pd.read_parquet(psm_path)
                 except Exception as e:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
@@ -596,11 +612,10 @@ class SearchPlanOutput:
             psm_df = psm_df[psm_df["decoy"] == 0]
         if save:
             logger.info("Writing precursor output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return psm_df
@@ -661,11 +676,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
-            stat_df.to_csv(
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                stat_df,
+                os.path.join(self.output_folder, self.STAT_OUTPUT),
+                file_format="tsv",
             )
 
         return stat_df
@@ -743,11 +757,11 @@ class SearchPlanOutput:
 
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-                lfq_df.to_csv(
-                    os.path.join(self.output_folder, f"{group_nice}.matrix.tsv"),
-                    sep="\t",
-                    index=False,
-                    float_format="%.6f",
+
+                write_df(
+                    lfq_df,
+                    os.path.join(self.output_folder, f"{group_nice}.matrix"),
+                    file_format=self.config["search_output"]["file_format"],
                 )
 
         protein_df_melted = lfq_df.melt(
@@ -758,11 +772,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing psm output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return lfq_df

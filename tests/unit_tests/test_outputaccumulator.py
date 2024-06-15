@@ -1,6 +1,7 @@
 import os
 import tempfile
 import numpy as np
+import pandas as pd
 from conftest import mock_precursor_df, mock_fragment_df
 from alphadia import outputtransform
 from alphabase.spectral_library.base import SpecLibBase
@@ -47,7 +48,7 @@ def prepare_input_data():
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
         },
-        "transfer_learning": {
+        "transfer_library": {
             "enabled": True,
             "fragment_types": "b;y",
             "max_charge": 2,
@@ -67,7 +68,7 @@ def prepare_input_data():
     # setup raw folders
     raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
 
-    psm_base_df = mock_precursor_df(n_precursor=100)
+    psm_base_df = mock_precursor_df(n_precursor=100, with_decoy=True)
     fragment_base_df = mock_fragment_df(n_precursor=200, n_fragments=10)
 
     psm_dfs = []
@@ -97,9 +98,9 @@ def prepare_input_data():
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
-        psm_dfs[i].to_csv(os.path.join(raw_folder, "psm.tsv"), sep="\t", index=False)
-        fragment_dfs[i].to_csv(
-            os.path.join(raw_folder, "frag.tsv"), sep="\t", index=False
+        psm_dfs[i].to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+        fragment_dfs[i].to_parquet(
+            os.path.join(raw_folder, "frag.parquet"), index=False
         )
 
     return config, temp_folder, raw_folders, psm_dfs, fragment_dfs
@@ -112,7 +113,7 @@ def test_complete_output_accumulation():
     """
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
-    config["transfer_learning"]["top_k_samples"] = 2
+    config["transfer_library"]["top_k_samples"] = 2
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
@@ -122,12 +123,11 @@ def test_complete_output_accumulation():
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
     )
 
-    # Then: all unique precursors should be in the built library
-    number_of_unique_precursors = len(
-        np.unique(
-            np.concatenate([psm_df["precursor_idx"].values for psm_df in psm_dfs])
-        )
-    )
+    # Then: all unique none decoy precursors should be in the built library
+    union_psm_df = pd.concat(psm_dfs)
+    union_psm_df = union_psm_df[union_psm_df["decoy"] == 0]
+    number_of_unique_precursors = len(np.unique(union_psm_df["precursor_idx"]))
+
     assert (
         len(np.unique(built_lib.precursor_df["precursor_idx"]))
         == number_of_unique_precursors
@@ -145,7 +145,7 @@ def test_selection_of_precursors():
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
     keep_top = 2
-    config["transfer_learning"]["top_k_samples"] = keep_top
+    config["transfer_library"]["top_k_samples"] = keep_top
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_transfer_library(raw_folders, save=True)
@@ -186,7 +186,7 @@ def test_keep_top_constraint():
     # Given:
     config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
     keep_top = 2
-    config["transfer_learning"]["top_k_samples"] = keep_top
+    config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
