@@ -63,8 +63,7 @@ alphadia = "alphadia.cli:run"
 [tool.ruff.lint]
 select =  [
     # pycodestyle
-#    "E",
-
+    "E",
 ]
 
 #    # Pyflakes

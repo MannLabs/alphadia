@@ -82,7 +82,7 @@ class BaseManager:
             try:
                 with open(self.path, "wb") as f:
                     pickle.dump(self, f)
-            except:
+            except Exception:
                 self.reporter.log_string(
                     f"Failed to save {self.__class__.__name__} to {self.path}",
                     verbosity="error",

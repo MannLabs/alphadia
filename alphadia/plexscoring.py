@@ -585,14 +585,14 @@ class Candidate:
         for i in range(_dense_precursors.shape[1]):
             dense_precursors[0, i, 0] = np.sum(_dense_precursors[0, i], axis=0)
             for k in range(_dense_precursors.shape[3]):
-                for l in range(_dense_precursors.shape[4]):
+                for ll in range(_dense_precursors.shape[4]):
                     sum = 0
                     count = 0
                     for j in range(_dense_precursors.shape[2]):
-                        sum += _dense_precursors[1, i, j, k, l]
-                        if _dense_precursors[1, i, j, k, l] > 0:
+                        sum += _dense_precursors[1, i, j, k, ll]
+                        if _dense_precursors[1, i, j, k, ll] > 0:
                             count += 1
-                    dense_precursors[1, i, 0, k, l] = sum / (count + 1e-6)
+                    dense_precursors[1, i, 0, k, ll] = sum / (count + 1e-6)
 
         # DEBUG only used for debugging
         # self.dense_precursors = dense_precursors

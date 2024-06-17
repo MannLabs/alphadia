@@ -308,7 +308,7 @@ def get_isotope_columns(colnames):
         if col[:2] == "i_":
             try:
                 isotopes.append(int(col[2:]))
-            except:
+            except Exception:
                 logging.warning(
                     f"Column {col} does not seem to be a valid isotope column"
                 )
@@ -656,10 +656,10 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-    if type(on) == str:
+    if isinstance(on, str):
         on = [on]
 
-    if type(right_columns) == str:
+    if isinstance(right_columns, str):
         right_columns = [right_columns]
 
     missing_from_left = list(set(right_columns) - set(left_df.columns))
