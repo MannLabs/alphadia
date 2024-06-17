@@ -1,4 +1,4 @@
-# reusable workflow to run all tests
+# reusable workflow to run tests on different installation types and OS
 name: run-tests
 
 on:
@@ -17,7 +17,7 @@ on:
         required: true
         type: string
 jobs:
-  pre-commit:
+  run-unit-tests-stable-ubuntu:
     runs-on: ${{ inputs.os }}
     steps:
     - uses: actions/checkout@v4
