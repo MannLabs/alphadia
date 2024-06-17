@@ -5,7 +5,6 @@ from peptdeep.utils import linear_regression
 from peptdeep.model.ms2 import calc_ms2_similarity
 
 
-
 class TestMetricBase:
     """
     An Base class for test metrics. Test metrics are classes that calculate a metric on the test set at a given epoch.
@@ -14,7 +13,9 @@ class TestMetricBase:
     def __init__(self, columns: List[str]):
         self.columns = columns  # a list of column names for the stats dataframe
 
-    def _to_long_format(self, stats: pd.DataFrame, epoch: int, dataset: str, property_name: str):
+    def _to_long_format(
+        self, stats: pd.DataFrame, epoch: int, dataset: str, property_name: str
+    ):
         """
         Convert the stats dataframe to a long format.
 
@@ -50,7 +51,9 @@ class TestMetricBase:
                     long.append(subject)
         return long
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -82,11 +85,11 @@ class TestMetricBase:
 
 class LinearRegressionTestMetric(TestMetricBase):
     def __init__(self):
-        super().__init__(
-            columns=["r_square", "r", "slope", "intercept"]
-        )
+        super().__init__(columns=["r_square", "r", "slope", "intercept"])
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -126,7 +129,9 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
         super().__init__(columns=[f"abs_error_{percentile}th_percentile"])
         self.percentile = percentile
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -168,7 +173,9 @@ class L1LossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["l1_loss"])
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -193,7 +200,7 @@ class L1LossTestMetric(TestMetricBase):
         list[dict]
             A list of dictionaries containing the test metric at the given epoch in the long format.
             e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
-   
+
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
@@ -206,9 +213,7 @@ class L1LossTestMetric(TestMetricBase):
 
 class Ms2SimilarityTestMetric(TestMetricBase):
     def __init__(self):
-        super().__init__(
-            columns=["pcc_mean", "cos_mean", "sa_mean", "spc_mean"]
-        )
+        super().__init__(columns=["pcc_mean", "cos_mean", "sa_mean", "spc_mean"])
         self.metrics = ["PCC", "COS", "SA", "SPC"]
 
     def calculate_test_metric(
@@ -271,7 +276,9 @@ class CELossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["ce_loss"])
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -310,7 +317,9 @@ class AccuracyTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["accuracy"])
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -353,7 +362,9 @@ class PrecisionRecallTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["precision", "recall"])
 
-    def calculate_test_metric(self, test_input: dict, epoch: int, dataset: str, property_name: str):
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, dataset: str, property_name: str
+    ):
         """
         Calculate the test metric at a given epoch.
 
@@ -418,7 +429,10 @@ class MetricManager:
     ):
         self.test_metrics = test_metrics
         self.all_stats = []
-    def calculate_test_metric(self, test_inp: dict, epoch: int, dataset: str, property_name: str) -> List[dict]:
+
+    def calculate_test_metric(
+        self, test_inp: dict, epoch: int, dataset: str, property_name: str
+    ) -> List[dict]:
         """
         Calculate the test metrics at the current epoch by calling the test method of each test metric passed to the MetricManager
         during initialization.
@@ -430,7 +444,7 @@ class MetricManager:
             - "predicted": A numpy array of predicted values.
             - "target": A numpy array of target values.
             - [Optional] "psm_df": A pandas dataframe containing the PSMs for the test set. This is currently only required for MS2 similarity metrics.
-        
+
         epoch : int
             The epoch at which the test metric is calculated.
 
@@ -448,15 +462,23 @@ class MetricManager:
         """
         current_result = []
         for test_metric in self.test_metrics:
-            new_stats = test_metric.calculate_test_metric(test_inp, epoch, dataset, property_name)
+            new_stats = test_metric.calculate_test_metric(
+                test_inp, epoch, dataset, property_name
+            )
             current_result.extend(new_stats)
 
         self.all_stats.extend(current_result)
 
-        
         return current_result
 
-    def accumulate_metrics(self, epoch: int, metric: float, metric_name: str, dataset: str, property_name: str) -> None:
+    def accumulate_metrics(
+        self,
+        epoch: int,
+        metric: float,
+        metric_name: str,
+        dataset: str,
+        property_name: str,
+    ) -> None:
         """
         Accumulate a metric at a given epoch.
 
@@ -474,14 +496,15 @@ class MetricManager:
             The name of the property. e.g. "charge", "rt"
 
         """
-        self.all_stats.append({
-            "dataset": dataset,
-            "epoch": epoch,
-            "property": property_name,
-            "metric_name": metric_name,
-            "value": metric
-        })
-
+        self.all_stats.append(
+            {
+                "dataset": dataset,
+                "epoch": epoch,
+                "property": property_name,
+                "metric_name": metric_name,
+                "value": metric,
+            }
+        )
 
     def get_stats(self) -> pd.DataFrame:
         """
