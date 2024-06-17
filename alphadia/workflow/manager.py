@@ -612,7 +612,7 @@ class FDRManager(BaseManager):
         return psm_df
 
     def save_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )
@@ -625,7 +625,7 @@ class FDRManager(BaseManager):
             )
 
     def load_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )
