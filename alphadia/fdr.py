@@ -2,8 +2,6 @@
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 
 # alpha family imports
@@ -17,6 +15,8 @@ import matplotlib as mpl
 import sklearn
 
 from typing import Union, Optional, List
+
+logger = logging.getLogger()
 
 
 def perform_fdr(

@@ -2,7 +2,6 @@
 import os
 import logging
 
-logger = logging.getLogger()
 import typing
 
 # alphadia imports
@@ -13,6 +12,8 @@ from alphadia.workflow import manager, reporting
 from alphabase.spectral_library.base import SpecLibBase
 
 # third party imports
+
+logger = logging.getLogger()
 
 TEMP_FOLDER = ".progress"
 

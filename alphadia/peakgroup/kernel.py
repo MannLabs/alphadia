@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import typing
 
 # alphadia imports
@@ -12,6 +11,9 @@ from alphadia.data import bruker, alpharaw
 # third party imports
 import numpy as np
 import numba as nb
+
+
+logger = logging.getLogger()
 
 
 @nb.njit()

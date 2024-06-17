@@ -6,7 +6,6 @@ import re
 import platform
 import torch
 
-logger = logging.getLogger()
 
 # alphadia imports
 
@@ -19,6 +18,8 @@ import pandas as pd
 import numpy as np
 import numba as nb
 import matplotlib.patches as patches
+
+logger = logging.getLogger()
 
 
 ISOTOPE_DIFF = 1.0032999999999674

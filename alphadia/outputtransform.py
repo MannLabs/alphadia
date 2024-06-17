@@ -2,7 +2,6 @@
 import logging
 import os
 
-logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr

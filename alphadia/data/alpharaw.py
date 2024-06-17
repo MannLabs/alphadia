@@ -3,15 +3,15 @@ import math
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 from alphadia import utils
 
 from alphadia.data.stats import log_stats
 
 # alpha family imports
-from alpharaw import thermo as alpharawthermo
+from alpharaw import (
+    thermo as alpharawthermo,
+)  # TODO fix: "import resolves to its containing file"
 from alpharaw import sciex as alpharawsciex
 from alpharaw import mzml as alpharawmzml
 
@@ -19,6 +19,8 @@ from alpharaw import mzml as alpharawmzml
 import numpy as np
 import numba as nb
 import pandas as pd
+
+logger = logging.getLogger()
 
 
 @nb.njit(parallel=False, fastmath=True)

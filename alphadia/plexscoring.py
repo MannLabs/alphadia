@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import typing
 
 # alphadia imports
@@ -23,6 +22,11 @@ import alphatims.utils
 import pandas as pd
 import numpy as np
 import numba as nb
+
+
+from alphadia.numba import config
+
+logger = logging.getLogger()
 
 NUM_FEATURES = 46
 
@@ -152,9 +156,6 @@ def multiplex_candidates(
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
-
-
-from alphadia.numba import config
 
 
 @nb.experimental.jitclass()
