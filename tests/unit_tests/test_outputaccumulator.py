@@ -2,7 +2,7 @@ import os
 import tempfile
 import numpy as np
 from conftest import mock_precursor_df, mock_fragment_df
-from alphadia import *
+from alphadia import outputtransform
 from alphabase.spectral_library.base import SpecLibBase
 import shutil
 
