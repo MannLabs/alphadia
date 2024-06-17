@@ -58,3 +58,15 @@ version = {attr = "alphadia.__version__"}
 
 [project.scripts]
 alphadia = "alphadia.cli:run"
+
+
+[tool.ruff.lint]
+select =  [
+    # pycodestyle
+    "E",
+
+]
+
+ignore = [
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+]
