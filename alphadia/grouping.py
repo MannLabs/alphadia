@@ -22,7 +22,7 @@ def group_and_parsimony(
     ----------
     precursor_idx : np.array[int]
         Array containing unique integer indices corresponding to each peptide precursor
-    precursor_ids : np.array[str] 
+    precursor_ids : np.array[str]
         Array of variable length semicolon separated str belonging to a given peptide precursor id
 
     Returns
@@ -91,7 +91,7 @@ def group_and_parsimony(
     # check that all return_dict keys are unique. Assume same length and unique keys constitutes match to precursor_idx
     if len(return_dict) != len(set(return_dict.keys())):
         raise ValueError(
-            """Not all precursors were found in the output of the grouping function. 
+            """Not all precursors were found in the output of the grouping function.
             Duplicate precursors were found."""
         )
 
@@ -125,7 +125,7 @@ def perform_grouping(
 
     Returns
     -------
-    pd.DataFrame : 
+    pd.DataFrame :
         Precursor table with grouped proteins
 
     """
@@ -144,7 +144,7 @@ def perform_grouping(
     # TODO: consider removing check for duplicates since duplicate masking is implemented above
     if upsm.duplicated(subset=["precursor_idx"]).any():
         raise ValueError(
-            """The same precursor was found annotated to different proteins. 
+            """The same precursor was found annotated to different proteins.
             Please make sure all precursors were searched with the same library."""
         )
 
