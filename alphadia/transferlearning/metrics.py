@@ -14,8 +14,8 @@ class TestMetricBase:
         self.columns = columns  # a list of column names for the stats dataframe
 
     def _to_long_format(
-        self, stats: pd.DataFrame, epoch: int, dataset: str, property_name: str
-    ):
+        self, stats: pd.DataFrame, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Convert the stats dataframe to a long format.
 
@@ -25,7 +25,7 @@ class TestMetricBase:
             A pandas dataframe containing the stats.
         epoch : int
             The epoch at which the stats were calculated.
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
         property_name : str
             The name of the property. e.g. "charge", "rt"
@@ -42,18 +42,18 @@ class TestMetricBase:
             for column in stats.columns:
                 if column != "epoch":
                     subject = {
-                        "dataset": dataset,
+                        "data_split": data_split,
                         "epoch": epoch,
                         "property": property_name,
                         "metric_name": column,
                         "value": row[1][column],
                     }
                     long.append(subject)
-        return long
+        return pd.DataFrame(long)
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -67,7 +67,7 @@ class TestMetricBase:
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -75,9 +75,8 @@ class TestMetricBase:
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
 
         """
         raise NotImplementedError
@@ -88,8 +87,8 @@ class LinearRegressionTestMetric(TestMetricBase):
         super().__init__(columns=["r_square", "r", "slope", "intercept"])
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -102,8 +101,8 @@ class LinearRegressionTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
-            The name of the dataset. e.g. "train", "validation", "test".
+        data_split : str
+            The name of the data_split. e.g. "train", "validation", "test".
 
         property_name : str
             The name of the property. e.g. "charge", "rt"
@@ -119,7 +118,7 @@ class LinearRegressionTestMetric(TestMetricBase):
         new_stats = linear_regression(predictions, targets)
         new_stats = pd.DataFrame(new_stats)
         new_stats.columns = self.columns
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -130,8 +129,8 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
         self.percentile = percentile
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -145,7 +144,7 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -153,9 +152,8 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
 
         """
         predictions = test_input["predicted"]
@@ -164,7 +162,7 @@ class AbsErrorPercentileTestMetric(TestMetricBase):
         new_stats = pd.DataFrame(
             [np.percentile(abs_error, self.percentile)], columns=self.columns
         )
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -174,8 +172,8 @@ class L1LossTestMetric(TestMetricBase):
         super().__init__(columns=["l1_loss"])
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -189,7 +187,7 @@ class L1LossTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -197,16 +195,15 @@ class L1LossTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
 
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
         l1_loss = np.mean(np.abs(predictions - targets))
         new_stats = pd.DataFrame([l1_loss], columns=self.columns)
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -220,9 +217,9 @@ class Ms2SimilarityTestMetric(TestMetricBase):
         self,
         test_input: dict,
         epoch: int,
-        dataset: str,
+        data_split: str,
         property_name: str,
-    ):
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -237,7 +234,7 @@ class Ms2SimilarityTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -245,9 +242,8 @@ class Ms2SimilarityTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
         """
         psm_df = test_input["psm_df"]
         predicted_fragments = test_input["predicted"]
@@ -267,7 +263,7 @@ class Ms2SimilarityTestMetric(TestMetricBase):
             }
         )
 
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -277,8 +273,8 @@ class CELossTestMetric(TestMetricBase):
         super().__init__(columns=["ce_loss"])
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -292,7 +288,7 @@ class CELossTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -300,15 +296,14 @@ class CELossTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
         ce_loss = np.mean(-np.sum(targets * np.log(predictions), axis=1))
         new_stats = pd.DataFrame([ce_loss], columns=self.columns)
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -318,8 +313,8 @@ class AccuracyTestMetric(TestMetricBase):
         super().__init__(columns=["accuracy"])
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -333,7 +328,7 @@ class AccuracyTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -341,9 +336,8 @@ class AccuracyTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
@@ -353,7 +347,7 @@ class AccuracyTestMetric(TestMetricBase):
         accuracy = np.mean(predictions == targets)
         new_stats = pd.DataFrame([accuracy], columns=self.columns)
 
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
 
@@ -363,8 +357,8 @@ class PrecisionRecallTestMetric(TestMetricBase):
         super().__init__(columns=["precision", "recall"])
 
     def calculate_test_metric(
-        self, test_input: dict, epoch: int, dataset: str, property_name: str
-    ):
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metric at a given epoch.
 
@@ -377,7 +371,7 @@ class PrecisionRecallTestMetric(TestMetricBase):
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
@@ -385,9 +379,8 @@ class PrecisionRecallTestMetric(TestMetricBase):
 
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metric at the given epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
@@ -408,7 +401,7 @@ class PrecisionRecallTestMetric(TestMetricBase):
             columns=self.columns,
         )
 
-        stats = self._to_long_format(new_stats, epoch, dataset, property_name)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
         return stats
 
 
@@ -428,11 +421,11 @@ class MetricManager:
         test_metrics: List[TestMetricBase] = None,
     ):
         self.test_metrics = test_metrics
-        self.all_stats = []
+        self.all_stats = pd.DataFrame()
 
     def calculate_test_metric(
-        self, test_inp: dict, epoch: int, dataset: str, property_name: str
-    ) -> List[dict]:
+        self, test_inp: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
         """
         Calculate the test metrics at the current epoch by calling the test method of each test metric passed to the MetricManager
         during initialization.
@@ -448,27 +441,25 @@ class MetricManager:
         epoch : int
             The epoch at which the test metric is calculated.
 
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
 
         property_name : str
             The name of the property. e.g. "charge", "rt"
         Returns
         -------
-        list[dict]
-            A list of dictionaries containing the test metrics at the current epoch in the long format.
-            e.g. [{"dataset": "train", "epoch": 1, "property": "charge", "metric_name": "accuracy", "value": 0.9}]
+        pd.DataFrame
+            A pandas dataframe containing the test metrics at the given epoch in the long format.
 
         """
-        current_result = []
+        current_result = pd.DataFrame()
         for test_metric in self.test_metrics:
             new_stats = test_metric.calculate_test_metric(
-                test_inp, epoch, dataset, property_name
+                test_inp, epoch, data_split, property_name
             )
-            current_result.extend(new_stats)
-
-        self.all_stats.extend(current_result)
-
+            current_result = pd.concat([current_result, new_stats])
+        current_result.reset_index(drop=True, inplace=True)
+        self.all_stats = pd.concat([self.all_stats, current_result])
         return current_result
 
     def accumulate_metrics(
@@ -476,7 +467,7 @@ class MetricManager:
         epoch: int,
         metric: float,
         metric_name: str,
-        dataset: str,
+        data_split: str,
         property_name: str,
     ) -> None:
         """
@@ -490,20 +481,26 @@ class MetricManager:
             The value of the metric.
         metric_name : str
             The name of the metric.
-        dataset : str
+        data_split : str
             The name of the dataset. e.g. "train", "validation", "test".
         property_name : str
             The name of the property. e.g. "charge", "rt"
 
         """
-        self.all_stats.append(
-            {
-                "dataset": dataset,
-                "epoch": epoch,
-                "property": property_name,
-                "metric_name": metric_name,
-                "value": metric,
-            }
+        self.all_stats = pd.concat(
+            [
+                self.all_stats,
+                pd.DataFrame(
+                    {
+                        "data_split": data_split,
+                        "epoch": epoch,
+                        "property": property_name,
+                        "metric_name": metric_name,
+                        "value": metric,
+                    },
+                    index=[0],
+                ),
+            ]
         )
 
     def get_stats(self) -> pd.DataFrame:
@@ -515,4 +512,4 @@ class MetricManager:
         pd.DataFrame
             A pandas dataframe containing the stats for the training loss and test metrics accumulated so far.
         """
-        return pd.DataFrame(self.all_stats)
+        return self.all_stats.reset_index(drop=True)

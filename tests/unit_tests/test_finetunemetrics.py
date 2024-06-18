@@ -40,7 +40,6 @@ def get_classification_test_input():
     return test_inp
 
 
-
 def test_LinearRegressionTestMetric():
     """
     Test the LinearRegressionTestMetric class
@@ -50,21 +49,22 @@ def test_LinearRegressionTestMetric():
     test_inp = get_regression_test_input()
     # When
     metric = LinearRegressionTestMetric()
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="rt")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="rt"
+    )
     # Then
     assert isclose(
-        df[df['metric_name'] == 'r_square']['value'].values[0],
+        results[results["metric_name"] == "r_square"]["value"].values[0],
         stats.linregress(test_inp["predicted"], test_inp["target"]).rvalue ** 2,
         abs_tol=1e-3,
     )
     assert isclose(
-        df[df['metric_name'] == 'slope']['value'].values[0],
+        results[results["metric_name"] == "slope"]["value"].values[0],
         stats.linregress(test_inp["predicted"], test_inp["target"]).slope,
         abs_tol=1e-3,
     )
     assert isclose(
-        df[df['metric_name'] == 'intercept']['value'].values[0],
+        results[results["metric_name"] == "intercept"]["value"].values[0],
         stats.linregress(test_inp["predicted"], test_inp["target"]).intercept,
         abs_tol=1e-3,
     )
@@ -81,12 +81,15 @@ def test_AbsErrorPercentileTestMetric():
     percentile = 95
     # When
     metric = AbsErrorPercentileTestMetric(percentile=percentile)
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="rt")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="rt"
+    )
 
     # Then
     assert isclose(
-        df[df['metric_name'] == f"abs_error_{percentile}th_percentile"]['value'].values[0],
+        results[results["metric_name"] == f"abs_error_{percentile}th_percentile"][
+            "value"
+        ].values[0],
         np.percentile(np.abs(test_inp["target"] - test_inp["predicted"]), percentile),
         abs_tol=1e-3,
     )
@@ -102,11 +105,12 @@ def test_L1LossTestMetric():
 
     # When
     metric = L1LossTestMetric()
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="rt")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="rt"
+    )
     # Then
     assert isclose(
-        df[df['metric_name'] == 'l1_loss']['value'].values[0],
+        results[results["metric_name"] == "l1_loss"]["value"].values[0],
         linalg.norm(test_inp["target"] - test_inp["predicted"], 1)
         / len(test_inp["target"]),
         abs_tol=1e-3,
@@ -123,11 +127,12 @@ def test_CELossTestMetric():
 
     # When
     metric = CELossTestMetric()
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="charge")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="charge"
+    )
     # Then
     assert isclose(
-        df[df['metric_name'] == 'ce_loss']['value'].values[0],
+        results[results["metric_name"] == "ce_loss"]["value"].values[0],
         log_loss(np.argmax(test_inp["target"], axis=1), test_inp["predicted"]),
         abs_tol=1e-3,
     )
@@ -143,12 +148,13 @@ def test_AccuracyTestMetric():
 
     # When
     metric = AccuracyTestMetric()
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="charge")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="charge"
+    )
 
     # Then
     assert isclose(
-        df[df['metric_name'] == 'accuracy']['value'].values[0],
+        results[results["metric_name"] == "accuracy"]["value"].values[0],
         accuracy_score(
             np.argmax(test_inp["target"], axis=1),
             np.argmax(test_inp["predicted"], axis=1),
@@ -167,11 +173,12 @@ def test_PrecisionRecallTestMetric():
 
     # When
     metric = PrecisionRecallTestMetric()
-    results = metric.calculate_test_metric(epoch=0, test_input=test_inp, dataset="test", property_name="charge")
-    df = pd.DataFrame(results)
+    results = metric.calculate_test_metric(
+        epoch=0, test_input=test_inp, data_split="test", property_name="charge"
+    )
     # Then
     assert isclose(
-        df[df['metric_name'] == 'precision']['value'].values[0],
+        results[results["metric_name"] == "precision"]["value"].values[0],
         precision_score(
             np.argmax(test_inp["target"], axis=1),
             np.argmax(test_inp["predicted"], axis=1),
@@ -180,7 +187,7 @@ def test_PrecisionRecallTestMetric():
         abs_tol=1e-3,
     )
     assert isclose(
-        df[df['metric_name'] == 'recall']['value'].values[0],
+        results[results["metric_name"] == "recall"]["value"].values[0],
         recall_score(
             np.argmax(test_inp["target"], axis=1),
             np.argmax(test_inp["predicted"], axis=1),
@@ -205,12 +212,14 @@ def test_MetricManager():
     test_inp = get_regression_test_input()
     # When
     for i in range(10):
-        metric_manager.calculate_test_metric(test_inp, epoch=i, dataset="test", property_name="rt")
+        metric_manager.calculate_test_metric(
+            test_inp, epoch=i, data_split="test", property_name="rt"
+        )
 
     # Then
-    df = metric_manager.get_stats()
+    results = metric_manager.get_stats()
 
-    assert df['metric_name'].unique().tolist() == [
+    assert results["metric_name"].unique().tolist() == [
         "r_square",
         "r",
         "slope",
@@ -218,7 +227,7 @@ def test_MetricManager():
         "l1_loss",
     ]
 
-    assert df.shape[0] == 50
+    assert results.shape[0] == 50
 
 
 def test_metricAccumulation():
@@ -237,11 +246,19 @@ def test_metricAccumulation():
 
     # When
     for i in range(10):
-        metric_manager.accumulate_metrics(epoch=i, metric = lr[i], metric_name="learning_rate", dataset="train", property_name="rt")
+        metric_manager.accumulate_metrics(
+            epoch=i,
+            metric=lr[i],
+            metric_name="learning_rate",
+            data_split="train",
+            property_name="rt",
+        )
 
     # Then
-    df = metric_manager.get_stats()
+    results = metric_manager.get_stats()
 
-    assert "learning_rate" in df["metric_name"].unique().tolist()
+    assert "learning_rate" in results["metric_name"].unique().tolist()
 
-    assert np.all(df[df["metric_name"] == "learning_rate"]["value"].values == lr)
+    assert np.all(
+        results[results["metric_name"] == "learning_rate"]["value"].values == lr
+    )
