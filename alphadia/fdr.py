@@ -344,10 +344,8 @@ def plot_fdr(
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
-    y_test_pred = np.round(y_test_proba)  # noqa: F841  # TODO check for potential bug then remove this line
 
     y_train_proba = classifier.predict_proba(X_train)[:, 1]
-    y_train_pred = np.round(y_train_proba)  # noqa: F841  # TODO check for potential bug then remove this line
 
     fpr_test, tpr_test, thresholds_test = sklearn.metrics.roc_curve(
         y_test, y_test_proba
