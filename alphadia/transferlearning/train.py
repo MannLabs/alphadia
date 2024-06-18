@@ -20,11 +20,9 @@ from alphadia.transferlearning.metrics import (
 from peptdeep.settings import global_settings
 from peptdeep.pretrained_models import ModelManager
 from peptdeep.model.model_interface import LR_SchedulerInterface, CallbackHandler
-from peptdeep.model.ms2 import normalize_fragment_intensities
 from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
-from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 

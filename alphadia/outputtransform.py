@@ -30,7 +30,6 @@ import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
 import directlfq.config as lfqconfig
 
-import logging
 
 logger = logging.getLogger()
 

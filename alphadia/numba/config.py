@@ -140,7 +140,7 @@ class JITConfig:
             if not isinstance(value, type(getattr(self, key))):
                 try:
                     value = type(getattr(self, key))(value)
-                except Exception as e:
+                except Exception:
                     self.reporter.log_string(
                         f"Parameter {key} has wrong type {type(value)}",
                         verbosity="error",
@@ -151,7 +151,7 @@ class JITConfig:
                 if value.dtype != getattr(self, key).dtype:
                     try:
                         value = value.astype(getattr(self, key).dtype)
-                    except Exception as e:
+                    except Exception:
                         self.reporter.log_string(
                             f"Parameter {key} has wrong dtype {value.dtype}",
                             verbosity="error",

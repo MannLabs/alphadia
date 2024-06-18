@@ -9,8 +9,6 @@ import numba as nb
 from numba.extending import overload_method
 import numpy as np
 
-import numba as nb
-
 
 @nb.experimental.jitclass()
 class FragmentContainer:

@@ -3,8 +3,6 @@ import numpy as np
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.base import BaseEstimator, RegressorMixin
 
-from sklearn.utils.estimator_checks import check_estimator
-
 
 class LOESSRegression(BaseEstimator, RegressorMixin):
     """scikit-learn estimator which implements a LOESS style local polynomial regression. The number of basis functions or kernels can be explicitly defined which allows for faster and cheaper training and inference.

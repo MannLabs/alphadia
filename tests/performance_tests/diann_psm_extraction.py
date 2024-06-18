@@ -11,7 +11,6 @@ import socket
 from alphadia.extraction.planning import Plan
 from alphadia.extraction.calibration import RunCalibration
 from alphadia.extraction.data import TimsTOFDIA
-from alphadia.test_data_downloader import DataShareDownloader
 from alphadia.extraction.scoring import (
     fdr_correction,
     unpack_fragment_info,

@@ -981,7 +981,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column="mz_calibrated",
             fragment_mz_column="mz_calibrated",
             rt_column="rt_calibrated",
-            mobility_column=f"mobility_calibrated"
+            mobility_column="mobility_calibrated"
             if self.dia_data.has_mobility
             else "mobility_library",
         )
@@ -1029,7 +1029,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """
 
         self.reporter.log_string(
-            f"=== Transfer learning quantification ===",
+            "=== Transfer learning quantification ===",
             verbosity="progress",
         )
 
@@ -1046,7 +1046,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Calibrating library",
+            "Calibrating library",
             verbosity="info",
         )
 
@@ -1075,8 +1075,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            precursor_mz_column=f"mz_calibrated",
-            fragment_mz_column=f"mz_calibrated",
+            precursor_mz_column="mz_calibrated",
+            fragment_mz_column="mz_calibrated",
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
