@@ -137,7 +137,7 @@ def test_merge_missing_fail_on(left_and_right_df):
 
     # when, then
     with pytest.raises(ValueError):
-        df = merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
+        merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
 
 
 def test_merge_missing_fail_right(left_and_right_df):
@@ -146,7 +146,7 @@ def test_merge_missing_fail_right(left_and_right_df):
 
     # when, then
     with pytest.raises(ValueError):
-        df = merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
+        merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
 
 
 def test_merge_missing(left_and_right_df):

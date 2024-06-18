@@ -84,7 +84,7 @@ TEST_CONFIG = [
 
 def test_calibration_manager_init():
     # initialize the calibration manager
-    temp_path = path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     calibration_manager = manager.CalibrationManager(
         TEST_CONFIG, path=temp_path, load_from_file=False
     )
@@ -139,7 +139,7 @@ def calibration_testdata():
 
 
 def test_calibration_manager_fit_predict():
-    temp_path = path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     calibration_manager = manager.CalibrationManager(
         TEST_CONFIG, path=temp_path, load_from_file=False
     )
