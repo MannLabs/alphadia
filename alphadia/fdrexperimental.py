@@ -221,7 +221,7 @@ class BinaryClassifier(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -673,7 +673,7 @@ class BinaryClassifierLegacy(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -987,7 +987,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):

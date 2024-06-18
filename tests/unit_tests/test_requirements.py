@@ -41,7 +41,7 @@ def _read_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
 
     """
     packages = {}
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         for line in file:
             line = line.strip()
             if line and not line.startswith("#"):
