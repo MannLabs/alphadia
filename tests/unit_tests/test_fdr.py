@@ -87,7 +87,7 @@ def test_keep_best():
     )
 
 
-def test_keep_best():
+def test_keep_best_2():
     test_df = pd.DataFrame(
         {
             "channel": [0, 0, 0, 4, 4, 4, 8, 8, 8],

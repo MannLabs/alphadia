@@ -64,6 +64,8 @@ alphadia = "alphadia.cli:run"
 select =  [
     # pycodestyle
     "E",
+    # Pyflakes
+    "F",
 ]
 
 #    # Pyflakes
