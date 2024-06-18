@@ -400,9 +400,9 @@ class SearchPlanOutput:
         tune_mgr = FinetuneManager(
             device=device, settings=self.config["transfer_learning"]
         )
-        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_ms2(
+        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)  # noqa: F841  # TODO check for potential bug then remove this line
+        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)  # noqa: F841  # TODO check for potential bug then remove this line
+        stats = tune_mgr.finetune_ms2(  # noqa: F841  # TODO check for potential bug then remove this line
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 

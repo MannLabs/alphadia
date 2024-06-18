@@ -423,8 +423,8 @@ def fourier_filter(dense_stack, kernel):
 
     """
 
-    k0 = kernel.shape[0]
-    k1 = kernel.shape[1]
+    k0 = kernel.shape[0]  # noqa: F841  # TODO check for potential bug then remove this line
+    k1 = kernel.shape[1]  # noqa: F841  # TODO check for potential bug then remove this line
 
     # make sure both dimensions are even
     scan_mod = dense_stack.shape[3] % 2
