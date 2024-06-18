@@ -545,7 +545,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: typing.List[typing.Type[Backend]] = [],
+        backends: list[type[Backend]] = [],
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
