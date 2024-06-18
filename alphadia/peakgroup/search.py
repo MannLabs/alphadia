@@ -778,7 +778,7 @@ def build_candidates(
         candidate_container.frame_stop[candidate_index] = frame_limits_absolute[1]
 
 
-class HybridCandidateSelection(object):
+class HybridCandidateSelection:
     def __init__(
         self,
         dia_data,

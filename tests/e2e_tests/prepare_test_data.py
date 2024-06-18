@@ -75,7 +75,7 @@ def _create_config_file(
 
 def get_test_case(test_case_name: str) -> dict:
     """Get the test case from the yaml file."""
-    with open(TEST_CASES_FILE_NAME, "r") as file:
+    with open(TEST_CASES_FILE_NAME) as file:
         test_cases = yaml.safe_load(file)
 
     return [

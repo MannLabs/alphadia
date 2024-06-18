@@ -222,8 +222,8 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         else:
             # scale max and scale mean will then be used for calculating the weighht matrix
-            self.scale_mean = np.zeros((self.n_kernels))
-            self.scale_max = np.zeros((self.n_kernels))
+            self.scale_mean = np.zeros(self.n_kernels)
+            self.scale_max = np.zeros(self.n_kernels)
 
             # scale mean and max are calculated and contain the scaling before applying the kernel
             for i, area in enumerate(kernel_indices):
