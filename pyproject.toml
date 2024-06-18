@@ -66,6 +66,8 @@ select =  [
     "E",
     # Pyflakes
     "F",
+    # pyupgrade
+    "UP",
 ]
 
 #    # Pyflakes

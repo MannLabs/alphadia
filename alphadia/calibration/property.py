@@ -23,9 +23,9 @@ class Calibration:
         self,
         name: str = "",
         function: object = None,
-        input_columns: typing.List[str] = [],
-        target_columns: typing.List[str] = [],
-        output_columns: typing.List[str] = [],
+        input_columns: list[str] = [],
+        target_columns: list[str] = [],
+        output_columns: list[str] = [],
         transform_deviation: typing.Union[None, float] = None,
         **kwargs,
     ):

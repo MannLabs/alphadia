@@ -1,6 +1,5 @@
 # native imports
 import os
-import typing
 
 # alphadia imports
 
@@ -14,7 +13,7 @@ import matplotlib.pyplot as plt
 
 def _generate_patch_collection_nomobility(
     cycle: np.ndarray, cmap_name: str, start_val: float = 0.4, stop_val: float = 1.0
-) -> typing.List[dict]:
+) -> list[dict]:
     """Generate a collection of patches for a DIA cycle for an experiment without ion mobility separation.
 
     Parameters
@@ -70,7 +69,7 @@ def _generate_patch_collection_nomobility(
 
 
 def _plot_patch_collection(
-    patch_collection: typing.List[dict], ax: plt.Axes = None, alpha: float = 0.5
+    patch_collection: list[dict], ax: plt.Axes = None, alpha: float = 0.5
 ):
     """Plot a collection of patches.
 
