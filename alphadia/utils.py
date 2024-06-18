@@ -6,7 +6,6 @@ import re
 import platform
 import torch
 
-logger = logging.getLogger()
 
 # alphadia imports
 
@@ -19,6 +18,8 @@ import pandas as pd
 import numpy as np
 import numba as nb
 import matplotlib.patches as patches
+
+logger = logging.getLogger()
 
 
 ISOTOPE_DIFF = 1.0032999999999674
@@ -307,7 +308,7 @@ def get_isotope_columns(colnames):
         if col[:2] == "i_":
             try:
                 isotopes.append(int(col[2:]))
-            except:
+            except Exception:
                 logging.warning(
                     f"Column {col} does not seem to be a valid isotope column"
                 )
@@ -655,10 +656,10 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-    if type(on) == str:
+    if isinstance(on, str):
         on = [on]
 
-    if type(right_columns) == str:
+    if isinstance(right_columns, str):
         right_columns = [right_columns]
 
     missing_from_left = list(set(right_columns) - set(left_df.columns))

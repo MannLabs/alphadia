@@ -4,8 +4,9 @@ import logging
 import numpy as np
 import pandas as pd
 
-logger = logging.getLogger(__name__)
 import numba as nb
+
+logger = logging.getLogger(__name__)
 
 
 @nb.njit

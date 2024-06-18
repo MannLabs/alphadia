@@ -1,18 +1,19 @@
 import logging
 
-logging.basicConfig(
-    format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-)
 
 import os
 
 import matplotlib
 
-matplotlib.use("Agg")
-
 from alphadia.extraction.planning import Plan
 from alphadia.test_data_downloader import DataShareDownloader
 from alphabase.spectral_library.base import SpecLibBase
+
+logging.basicConfig(
+    format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+matplotlib.use("Agg")
 
 if __name__ == "__main__":
     # set up logging

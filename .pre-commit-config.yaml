@@ -11,4 +11,4 @@ repos:
   rev: v0.4.9
   hooks:
     - id: ruff-format
-    #- id: ruff
+    - id: ruff

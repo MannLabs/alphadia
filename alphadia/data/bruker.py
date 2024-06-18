@@ -3,8 +3,6 @@ import math
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 from alphadia import utils
 from alphadia.data.stats import log_stats
@@ -19,6 +17,8 @@ import numpy as np
 import numba as nb
 from numba.core import types
 from numba.experimental import jitclass
+
+logger = logging.getLogger()
 
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):

@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
 import socket
 from pathlib import Path
 import os
@@ -27,6 +26,9 @@ from alphabase.spectral_library.base import SpecLibBase
 import torch
 
 from alphabase.constants import modification
+
+
+logger = logging.getLogger()
 
 modification.add_new_modifications(
     {
