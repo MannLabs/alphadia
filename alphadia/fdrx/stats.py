@@ -5,7 +5,7 @@ from typing import List
 from alphadia.fragcomp import FragmentCompetition
 
 
-def _get_pep(
+def get_pep(
     psm_df: pd.DataFrame,
     score_column: str = "decoy_proba",
     decoy_column: str = "decoy",
@@ -68,9 +68,9 @@ def _get_pep(
     return pep[np.digitize(score, score_bins) - 1]
 
 
-def _get_q_values(
+def add_q_values(
     _df: pd.DataFrame,
-    score_column: str = "decoy_proba",
+    decoy_proba_column: str = "decoy_proba",
     decoy_column: str = "decoy",
     qval_column: str = "qval",
     r_target_decoy: float = 1.0,
@@ -83,9 +83,9 @@ def _get_q_values(
     _df : pd.DataFrame
         The dataframe containing the PSMs.
 
-    score_column : str, default='proba'
-        The name of the column containing the score to use for the selection.
-        Ascending sorted values are expected.
+    decoy_proba_column : str, default='proba'
+        The name of the column containing the probability of being a decoy.
+        Value should be between 0 and 1 with 1 being a decoy.
 
     decoy_column : str, default='_decoy'
         The name of the column containing the decoy information.
@@ -102,16 +102,18 @@ def _get_q_values(
 
     """
     EPSILON = 1e-6
-    _df = _df.sort_values([score_column, score_column], ascending=True)
+    _df = _df.sort_values([decoy_proba_column, decoy_proba_column], ascending=True)
+
+    # translate the decoy probabilities to target probabilities
     target_values = 1 - _df[decoy_column].values
     decoy_cumsum = np.cumsum(_df[decoy_column].values)
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum / (target_cumsum + EPSILON)
-    _df[qval_column] = _fdr_to_q_values(fdr_values) * r_target_decoy
+    _df[qval_column] = fdr_to_q_values(fdr_values) * r_target_decoy
     return _df
 
 
-def _fdr_to_q_values(fdr_values: np.ndarray):
+def fdr_to_q_values(fdr_values: np.ndarray):
     """Converts FDR values to q-values.
     Takes a ascending sorted array of FDR values and converts them to q-values.
     for every element the lowest FDR where it would be accepted is used as q-value.
@@ -132,7 +134,7 @@ def _fdr_to_q_values(fdr_values: np.ndarray):
     return q_vals
 
 
-def _keep_best(
+def keep_best(
     df: pd.DataFrame,
     score_column: str = "decoy_proba",
     group_columns: List[str] = ["channel", "mod_seq_charge_hash"],
@@ -159,8 +161,8 @@ def _keep_best(
     pd.DataFrame
         The dataframe containing the best PSM for each group.
     """
-    temp_df = df.reset_index(drop=True)
-    temp_df = temp_df.sort_values(score_column, ascending=True)
-    temp_df = temp_df.groupby(group_columns).head(1)
-    temp_df = temp_df.sort_index().reset_index(drop=True)
-    return temp_df
+    df = df.reset_index(drop=True)
+    df = df.sort_values(score_column, ascending=True)
+    df = df.groupby(group_columns).head(1)
+    df = df.sort_index().reset_index(drop=True)
+    return df

@@ -1,11 +1,13 @@
-# make it an abc
-import abc
+"""This module implements a base class for semisupervised FDR estimation using targets and decoys.
+It is flexible with regards to the features, type of classifier and type of identifications (precursors, peptides, proteins).
+"""
+
 import sklearn.base
 from typing import List
 import pandas as pd
 import numpy as np
 from alphadia.fragcomp import FragmentCompetition
-from alphadia.fdrx.stats import _fdr_to_q_values, _get_pep, _get_q_values, _keep_best
+from alphadia.fdrx.stats import get_pep, get_q_values, add_q_values, keep_best
 from alphadia.fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
@@ -23,7 +25,7 @@ class TargetDecoyFDR:
         classifier: sklearn.base.BaseEstimator,
         feature_columns: list,
         decoy_column: str = "decoy",
-        competition_columns: list = [],
+        competition_columns: list | None = None,
     ):
         """Target Decoy FDR estimation using a classifier.
 
@@ -48,7 +50,7 @@ class TargetDecoyFDR:
         self._classifier = classifier
         self._feature_columns = feature_columns
         self._decoy_column = decoy_column
-        self._competition_columns = competition_columns
+        self._competition_columns = competition_columns or []
 
     def fit_classifier(self, psm_df: pd.DataFrame):
         """Fit the classifier on the PSMs.
@@ -96,42 +98,104 @@ class TargetDecoyFDR:
         is_na_row = psm_df[self._feature_columns].isna().any(axis=1)
         X = psm_df.loc[~is_na_row, self._feature_columns].values
 
+        # Prediction should have the same shape of input, even for NaN rows
+        # We are therefore assigning a decoy probability of 1 to all rows with NaN values
         y_proba_full = np.ones(len(psm_df))
         y_proba = self._classifier.predict_proba(X)[:, 1]
         y_proba_full[~is_na_row] = y_proba
         return y_proba_full
 
-    def predict_qval(self, psm_df, fragments_df=None, dia_cycle=None):
+    def predict_qval(
+        self,
+        psm_df: pd.DataFrame,
+        fragments_df: pd.DataFrame | None = None,
+        dia_cycle: np.ndarray | None = None,
+        competition_heuristic: float = 0.10,
+    ) -> pd.DataFrame:
+        """Calculate q-values for scored identifications.
+
+        Parameters
+        ----------
+
+        psm_df : pd.DataFrame
+            The dataframe containing the PSMs.
+
+        fragments_df : pd.DataFrame, default=None
+            The dataframe containing the fragments.
+
+        dia_cycle : np.ndarray, default=None
+            The DIA cycle for the fragments.
+
+        competition_heuristic : float, default=0.10
+            The q-value threshold for fragment competition.
+            Only precursors with q-values below this threshold will be considered for fragment competition.
+
+        Returns
+        -------
+
+        pd.DataFrame
+            The input dataframe with q-values and PEPs added.
+        """
+
+        psm_df = psm_df.copy()
         psm_df["decoy_proba"] = self.predict_classifier(psm_df)
         # normalize to a 1:1 target decoy proportion
-        r_target_decoy = (psm_df["decoy"] == 0).sum() / (psm_df["decoy"] == 1).sum()
+        r_target_decoy = (psm_df[self._decoy_column] == 0).sum() / (
+            psm_df[self._decoy_column] == 1
+        ).sum()
 
         # normalize q-values based on proportion before competition
         if dia_cycle is not None and fragments_df is not None:
-            psm_df = _get_q_values(
+            psm_df = get_q_values(
                 psm_df,
                 score_column="decoy_proba",
-                decoy_column="decoy",
+                decoy_column=self._decoy_column,
                 r_target_decoy=r_target_decoy,
             )
             fragment_competition = FragmentCompetition()
             psm_df = fragment_competition(
-                psm_df[psm_df["qval"] < 0.10], fragments_df, dia_cycle
+                psm_df[psm_df["qval"] < competition_heuristic], fragments_df, dia_cycle
             )
 
-        psm_df = _keep_best(psm_df, group_columns=self._competition_columns)
-        psm_df = _get_q_values(
-            psm_df, "decoy_proba", "decoy", r_target_decoy=r_target_decoy
+        psm_df = keep_best(psm_df, group_columns=self._competition_columns)
+        psm_df = add_q_values(
+            psm_df, "decoy_proba", self._decoy_column, r_target_decoy=r_target_decoy
         )
 
         # calulate PEP
-        psm_df["pep"] = _get_pep(
-            psm_df, score_column="decoy_proba", decoy_column="decoy"
+        psm_df["pep"] = get_pep(
+            psm_df, score_column="decoy_proba", decoy_column=self._decoy_column
         )
 
         _plot_fdr_curve(psm_df["qval"])
         return psm_df
 
-    def fit_predict_qval(self, psm_df, fragments_df=None, cycle=None):
+    def fit_predict_qval(
+        self,
+        psm_df: pd.DataFrame,
+        fragments_df: pd.DataFrame | None = None,
+        cycle: np.ndarray | None = None,
+    ):
+        """Fit the classifier, predict the decoy probabilities and calculate q-values.
+
+        Parameters
+        ----------
+
+        psm_df : pd.DataFrame
+            The dataframe containing the PSMs.
+
+        fragments_df : pd.DataFrame, default=None
+            The dataframe containing the fragments.
+
+        cycle : np.ndarray, default=None
+            The DIA cycle for the fragments.
+
+        Returns
+        -------
+
+        pd.DataFrame
+            The input dataframe with q-values and PEPs added.
+        """
+
         self.fit_classifier(psm_df)
         return self.predict_qval(psm_df, fragments_df, cycle)
