@@ -286,11 +286,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # determine the mode based on the config or the function parameter
         if mode is None:
-            mode = (
-                self.config["calibration"]["norm_rt_mode"]
-                if "norm_rt_mode" in self.config["calibration"]
-                else "tic"
-            )
+            mode = self.config["calibration"].get("norm_rt_mode", "tic")
         else:
             mode = mode.lower()
 
