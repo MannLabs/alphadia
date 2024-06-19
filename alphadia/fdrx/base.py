@@ -7,7 +7,7 @@ from typing import List
 import pandas as pd
 import numpy as np
 from alphadia.fragcomp import FragmentCompetition
-from alphadia.fdrx.stats import get_pep, get_q_values, add_q_values, keep_best
+from alphadia.fdrx.stats import get_pep, add_q_values, add_q_values, keep_best
 from alphadia.fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
@@ -146,7 +146,7 @@ class TargetDecoyFDR:
 
         # normalize q-values based on proportion before competition
         if dia_cycle is not None and fragments_df is not None:
-            psm_df = get_q_values(
+            psm_df = add_q_values(
                 psm_df,
                 score_column="decoy_proba",
                 decoy_column=self._decoy_column,

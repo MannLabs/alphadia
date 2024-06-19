@@ -1,4 +1,4 @@
-from alphadia.fdrx.stats import _keep_best, _get_pep, _get_q_values, _fdr_to_q_values
+from alphadia.fdrx.stats import keep_best, get_pep, add_q_values, fdr_to_q_values
 import pandas as pd
 import numpy as np
 
@@ -13,7 +13,7 @@ def test_keep_best():
     )
 
     # when
-    best_df = _keep_best(
+    best_df = keep_best(
         test_df, score_column="decoy_proba", group_columns=["mod_seq_charge_hash"]
     )
 
@@ -33,7 +33,7 @@ def test_keep_best_channel():
     )
 
     # when
-    best_df = _keep_best(
+    best_df = keep_best(
         test_df,
         score_column="decoy_proba",
         group_columns=["channel", "mod_seq_charge_hash"],
@@ -57,7 +57,7 @@ def test_pep():
     )
 
     # when
-    pep = _get_pep(df)
+    pep = get_pep(df)
 
     # then
     assert len(pep) == 1000
@@ -71,7 +71,7 @@ def test_fdr_to_q_values():
     test_fdr = np.array([0.2, 0.1, 0.05, 0.3, 0.26, 0.25, 0.5])
 
     # when
-    test_q_values = _fdr_to_q_values(test_fdr)
+    test_q_values = fdr_to_q_values(test_fdr)
 
     # then
     assert np.allclose(
@@ -89,7 +89,7 @@ def test_get_q_values():
         }
     )
     # when
-    test_df = _get_q_values(test_df, "decoy_proba", "decoy")
+    test_df = add_q_values(test_df, "decoy_proba", "decoy")
 
     # then
     assert np.allclose(
