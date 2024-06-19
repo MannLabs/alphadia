@@ -411,7 +411,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"calibration group: {group_name}, predicting {estimator.name}"
                 )
-                estimator.predict(df, inplace=True, *args, **kwargs)
+                estimator.predict(df, inplace=True, *args, **kwargs)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
 
     def fit_predict(
         self,

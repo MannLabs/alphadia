@@ -691,8 +691,8 @@ def build_candidates(
     scan_limits_list = np.zeros((peak_scan_list.shape[0], 2), dtype="int32")
     cycle_limits_list = np.zeros((peak_cycle_list.shape[0], 2), dtype="int32")
 
-    for candidate_rank, (scan_relative, cycle_relative, candidate_score) in enumerate(
-        zip(peak_scan_list, peak_cycle_list, peak_score_list)
+    for candidate_rank, (scan_relative, cycle_relative) in enumerate(
+        zip(peak_scan_list, peak_cycle_list)
     ):
         scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
             score,
