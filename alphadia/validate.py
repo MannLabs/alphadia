@@ -68,9 +68,8 @@ class Optional(Property):
             If True, log the validation results
         """
 
-        if self.name in df.columns:
-            if df[self.name].dtype != self.type:
-                df[self.name] = df[self.name].astype(self.type)
+        if self.name in df.columns and df[self.name].dtype != self.type:
+            df[self.name] = df[self.name].astype(self.type)
 
         return True
 

@@ -383,15 +383,14 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
             ]
 
         # filter for cv values if multiple cv values are present
-        if cv is not None:
-            if "cv" in self.spectrum_df.columns:
-                # use np.isclose to account for floating point errors
-                logger.info(f"Filtering for CV {cv}")
-                logger.info(f"Before: {len(self.spectrum_df)}")
-                self.spectrum_df = self.spectrum_df[
-                    np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
-                ]
-                logger.info(f"After: {len(self.spectrum_df)}")
+        if cv is not None and "cv" in self.spectrum_df.columns:
+            # use np.isclose to account for floating point errors
+            logger.info(f"Filtering for CV {cv}")
+            logger.info(f"Before: {len(self.spectrum_df)}")
+            self.spectrum_df = self.spectrum_df[
+                np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
+            ]
+            logger.info(f"After: {len(self.spectrum_df)}")
 
         self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))
 
