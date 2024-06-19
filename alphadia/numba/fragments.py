@@ -336,10 +336,7 @@ def get_ion_group_mapping(
     ):
         # score_group_idx = precursor_group[precursor]
 
-        if len(grouped_mz) == 0:
-            grouped_mz.append(mz)
-
-        elif np.abs(grouped_mz[-1] - mz) > EPSILON:
+        if len(grouped_mz) == 0 or np.abs(grouped_mz[-1] - mz) > EPSILON:
             grouped_mz.append(mz)
 
         idx = len(grouped_mz) - 1

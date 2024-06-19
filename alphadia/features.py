@@ -557,14 +557,13 @@ def build_features(
     features["mean_observation_score"] = 0
     features["var_observation_score"] = 1
 
-    if np.sum(peak_fragment_mask_1d) > 0:
-        if n_observations > 1:
-            observation_score = cosine_similarity_a1(
-                total_template_intensity,
-                observed_fragment_intensity[peak_fragment_mask_1d],
-            ).astype(np.float32)
-            features["mean_observation_score"] = np.mean(observation_score)
-            features["var_observation_score"] = np.var(observation_score)
+    if np.sum(peak_fragment_mask_1d) > 0 and n_observations > 1:
+        observation_score = cosine_similarity_a1(
+            total_template_intensity,
+            observed_fragment_intensity[peak_fragment_mask_1d],
+        ).astype(np.float32)
+        features["mean_observation_score"] = np.mean(observation_score)
+        features["var_observation_score"] = np.var(observation_score)
 
     fragment_features["mz_library"] = fragments.mz_library[fragment_mask_1d]
     fragment_features["mz_observed"] = observed_fragment_mz_mean[
@@ -1336,14 +1335,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            < candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        < candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count
@@ -1356,14 +1357,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            > candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        > candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count

@@ -286,11 +286,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # determine the mode based on the config or the function parameter
         if mode is None:
-            mode = (
-                self.config["calibration"]["norm_rt_mode"]
-                if "norm_rt_mode" in self.config["calibration"]
-                else "tic"
-            )
+            mode = self.config["calibration"].get("norm_rt_mode", "tic")
         else:
             mode = mode.lower()
 
@@ -502,17 +498,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             self.end_of_epoch()
 
-        if "final_full_calibration" in self.config["calibration"]:
-            if self.config["calibration"]["final_full_calibration"]:
-                self.reporter.log_string(
-                    "Performing final calibration with all precursors",
-                    verbosity="progress",
-                )
-                features_df, fragments_df = self.extract_batch(
-                    self.spectral_library._precursor_df
-                )
-                precursor_df = self.fdr_correction(features_df, fragments_df)
-                self.recalibration(precursor_df, fragments_df)
+        if self.config["calibration"].get("final_full_calibration", False):
+            self.reporter.log_string(
+                "Performing final calibration with all precursors",
+                verbosity="progress",
+            )
+            features_df, fragments_df = self.extract_batch(
+                self.spectral_library._precursor_df
+            )
+            precursor_df = self.fdr_correction(features_df, fragments_df)
+            self.recalibration(precursor_df, fragments_df)
 
         self.end_of_calibration()
 

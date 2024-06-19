@@ -103,7 +103,7 @@ class DynamicLoader(ProcessingStep):
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
         valid = True
-        valid &= isinstance(input, str) or isinstance(input, Path)
+        valid &= isinstance(input, str | Path)
 
         if not os.path.exists(input):
             logger.error(f"Input path {input} does not exist")
@@ -569,15 +569,14 @@ class RTNormalization(ProcessingStep):
             )
             return input
 
-        if "rt" not in input.precursor_df.columns:
-            if (
-                "rt_norm" in input.precursor_df.columns
-                or "rt_norm_pred" in input.precursor_df.columns
-            ):
-                logger.warning(
-                    "Input library already contains normalized RT information. Skipping RT normalization"
-                )
-                return input
+        if "rt" not in input.precursor_df.columns and (
+            "rt_norm" in input.precursor_df.columns
+            or "rt_norm_pred" in input.precursor_df.columns
+        ):
+            logger.warning(
+                "Input library already contains normalized RT information. Skipping RT normalization"
+            )
+            return input
 
         percentiles = np.percentile(input.precursor_df["rt"], [0.1, 99.9])
         input._precursor_df["rt"] = np.clip(

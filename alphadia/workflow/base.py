@@ -176,14 +176,7 @@ class WorkflowBase:
             shutil.copyfile(dia_data_path, tmp_dia_data_path)
             dia_data_path = tmp_dia_data_path
 
-        if file_extension.lower() == ".d":
-            self.reporter.log_metric("raw_data_type", "bruker")
-            dia_data = bruker.TimsTOFTranspose(
-                dia_data_path,
-                mmap_detector_events=self.config["general"]["mmap_detector_events"],
-            )
-
-        elif file_extension.lower() == ".hdf":
+        if file_extension.lower() == ".d" or file_extension.lower() == ".hdf":
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
@@ -194,9 +187,11 @@ class WorkflowBase:
             self.reporter.log_metric("raw_data_type", "thermo")
             # check if cv selection exists
             cv = None
-            if "raw_data_loading" in self.config:
-                if "cv" in self.config["raw_data_loading"]:
-                    cv = self.config["raw_data_loading"]["cv"]
+            if (
+                "raw_data_loading" in self.config
+                and "cv" in self.config["raw_data_loading"]
+            ):
+                cv = self.config["raw_data_loading"]["cv"]
 
             dia_data = alpharaw.Thermo(
                 dia_data_path,

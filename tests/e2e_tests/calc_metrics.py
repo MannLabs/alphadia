@@ -45,7 +45,7 @@ class OutputFiles:
         return [
             v
             for k, v in cls.__dict__.items()
-            if not k.startswith("__") and not k == "all_values"
+            if not k.startswith("__") and k != "all_values"
         ]
 
 
@@ -173,7 +173,7 @@ def _get_history_plots(test_results: dict, metrics_classes: list):
     figs = []
     for metrics_class in [cls.__name__ for cls in metrics_classes]:
         # TODO find a smarter way to get the metrics
-        for metric in [k for k in test_results.keys() if k.startswith(metrics_class)]:
+        for metric in [k for k in test_results if k.startswith(metrics_class)]:
             fig = _basic_plot(df, test_case_name, metric)
             figs.append((metric, fig))
 

@@ -394,11 +394,11 @@ def select_candidates(
         # "Empty dense precursor matrix"
         return
 
-    if not dense_fragments.shape[2] % 2 == 0:
+    if dense_fragments.shape[2] % 2 != 0:
         # "Dense fragment matrix not divisible by 2"
         return
 
-    if not dense_fragments.shape[2] % 2 == 0:
+    if dense_fragments.shape[2] % 2 != 0:
         # "Dense fragment matrix not divisible by 2"
         return
 
@@ -628,20 +628,17 @@ def build_candidates(
 ):
     cycle_length = jit_data.cycle.shape[1]
 
-    if weights is None:
-        feature_weights = np.ones(1)
-    else:
-        feature_weights = weights
+    feature_weights = np.ones(1) if weights is None else weights
 
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
     smooth_precursor = fft.convolve_fourier(dense_precursors, kernel)
     smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
-    if not smooth_precursor.shape == dense_precursors.shape:
+    if smooth_precursor.shape != dense_precursors.shape:
         print(smooth_precursor.shape, dense_precursors.shape)
         print("smooth_precursor shape does not match dense_precursors shape")
-    if not smooth_fragment.shape == dense_fragments.shape:
+    if smooth_fragment.shape != dense_fragments.shape:
         print(smooth_fragment.shape, dense_fragments.shape)
         print("smooth_fragment shape does not match dense_fragments shape")
 
