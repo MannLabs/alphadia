@@ -423,9 +423,6 @@ def fourier_filter(dense_stack, kernel):
 
     """
 
-    k0 = kernel.shape[0]  # noqa: F841  # TODO check for potential bug then remove this line
-    k1 = kernel.shape[1]  # noqa: F841  # TODO check for potential bug then remove this line
-
     # make sure both dimensions are even
     scan_mod = dense_stack.shape[3] % 2
     frame_mod = dense_stack.shape[4] % 2
@@ -453,8 +450,10 @@ def fourier_filter(dense_stack, kernel):
 
     # with nb.objmode(smooth_output='float32[:,:,:,:]'):
     #    # roll back to original position
+    #    k0 = kernel.shape[0]
+    #    k1 = kernel.shape[1]
     #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-    #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+    #    smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output
 
