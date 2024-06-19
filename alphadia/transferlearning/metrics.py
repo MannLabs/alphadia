@@ -417,7 +417,7 @@ class MetricManager:
 
     def __init__(
         self,
-        test_metrics: List[TestMetricBase] = None,
+        test_metrics: list[TestMetricBase] = None,
     ):
         self.test_metrics = test_metrics
         self.all_stats = pd.DataFrame()

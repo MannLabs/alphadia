@@ -14,7 +14,6 @@ from alphadia.transferlearning.metrics import (
 )
 from scipy import stats, linalg
 from math import isclose
-import pandas as pd
 from sklearn.metrics import log_loss, accuracy_score, precision_score, recall_score
 
 
