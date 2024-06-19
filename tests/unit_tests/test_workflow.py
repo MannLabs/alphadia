@@ -255,7 +255,7 @@ def test_workflow_base():
         pytest.skip("No test data found")
         return
 
-    for name, file_list in pytest.test_data.items():
+    for _, file_list in pytest.test_data.items():
         for file in file_list:
             config_path = os.path.join(
                 os.path.dirname(__file__), "..", "..", "misc", "config", "default.yaml"

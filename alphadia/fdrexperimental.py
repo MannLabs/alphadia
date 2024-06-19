@@ -802,8 +802,8 @@ class BinaryClassifierLegacy(Classifier):
             x_train = torch.Tensor(x_train[order])
             y_train = torch.Tensor(y_train[order])
 
-            for i, (batch_x, batch_y) in enumerate(
-                zip(x_train.split(self.batch_size), y_train.split(self.batch_size))
+            for batch_x, batch_y in zip(
+                x_train.split(self.batch_size), y_train.split(self.batch_size)
             ):
                 y_pred = self.network(batch_x)
                 loss_value = loss(y_pred, batch_y)

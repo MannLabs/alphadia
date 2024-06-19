@@ -68,6 +68,8 @@ select =  [
     "F",
     # pyupgrade
     "UP",
+    # flake8-bugbear
+    "B",
     # flake8-simplify
     "SIM",
 ]
@@ -85,4 +87,5 @@ select =  [
 ignore = [
     "E501",  # Line too long  (ruff wraps code, but not docstrings)
     "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+    "B006"
 ]
