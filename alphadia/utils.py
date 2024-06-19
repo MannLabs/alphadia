@@ -175,7 +175,7 @@ def recursive_update(full_dict: dict, update_dict: dict):
 
     """
     for key, value in update_dict.items():
-        if key in full_dict.keys():
+        if key in full_dict:
             if isinstance(value, dict):
                 recursive_update(full_dict[key], update_dict[key])
             else:
