@@ -101,7 +101,7 @@ class FileDownloader(ABC):
 
         except Exception as e:
             print(f"{e} {traceback.print_exc()}")
-            raise ValueError(f"Could not download {self._file_name}: {e}")
+            raise ValueError(f"Could not download {self._file_name}: {e}") from e
 
     def _handle_archive(self) -> None:
         """Unpack archive and remove it."""
