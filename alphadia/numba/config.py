@@ -147,25 +147,29 @@ class JITConfig:
                     )
 
             # check if dtype matches
-            if isinstance(value, np.ndarray):
-                if value.dtype != getattr(self, key).dtype:
-                    try:
-                        value = value.astype(getattr(self, key).dtype)
-                    except Exception:
-                        self.reporter.log_string(
-                            f"Parameter {key} has wrong dtype {value.dtype}",
-                            verbosity="error",
-                        )
-                        continue
-
-            # check if dimensions match
-            if isinstance(value, np.ndarray):
-                if value.shape != getattr(self, key).shape:
+            if (
+                isinstance(value, np.ndarray)
+                and value.dtype != getattr(self, key).dtype
+            ):
+                try:
+                    value = value.astype(getattr(self, key).dtype)
+                except Exception:
                     self.reporter.log_string(
-                        f"Parameter {key} has wrong shape {value.shape}",
+                        f"Parameter {key} has wrong dtype {value.dtype}",
                         verbosity="error",
                     )
                     continue
+
+            # check if dimensions match
+            if (
+                isinstance(value, np.ndarray)
+                and value.shape != getattr(self, key).shape
+            ):
+                self.reporter.log_string(
+                    f"Parameter {key} has wrong shape {value.shape}",
+                    verbosity="error",
+                )
+                continue
 
             # update attribute
             setattr(self, key, value)

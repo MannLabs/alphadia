@@ -1335,14 +1335,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            < candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        < candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count
@@ -1355,14 +1357,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            > candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        > candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count
