@@ -1096,7 +1096,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: list[str] = ["b", "y"],
+    fragment_types: list[str] | None = None,
     max_charge: int = 2,
     optional_columns: list[str] | None = None,
 ) -> tuple[SpecLibFlat, pd.DataFrame]:
@@ -1143,6 +1143,8 @@ def _build_candidate_speclib_flat(
     """
 
     # set default optional columns
+    if fragment_types is None:
+        fragment_types = ["b", "y"]
     if optional_columns is None:
         optional_columns = [
             "proba",

@@ -127,7 +127,7 @@ class BinaryClassifier(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: list[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         calculate_metrics: bool = True,
         metric_interval: int = 1,
@@ -186,6 +186,8 @@ class BinaryClassifier(Classifier):
             Whether to use GPU acceleration if available.
         """
 
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.max_batch_size = max_batch_size
         self.min_batch_number = min_batch_number
@@ -605,7 +607,7 @@ class BinaryClassifierLegacy(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: list[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
         **kwargs,
@@ -646,7 +648,8 @@ class BinaryClassifierLegacy(Classifier):
             Interval for logging metrics during training.
 
         """
-
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -919,7 +922,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: list[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
         **kwargs,
@@ -960,7 +963,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Interval for logging metrics during training.
 
         """
-
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -1236,13 +1240,15 @@ class FeedForwardNN(nn.Module):
         self,
         input_dim,
         output_dim=2,
-        layers=[20, 10, 5],
+        layers: list[int] | None = None,
         dropout=0.5,
     ):
         """
         built a simple feed forward network for FDR estimation
 
         """
+        if layers is None:
+            layers = [20, 10, 5]
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim

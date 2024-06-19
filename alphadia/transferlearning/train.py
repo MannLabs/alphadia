@@ -215,8 +215,13 @@ class FinetuneManager(ModelManager):
     """
 
     def __init__(
-        self, mask_modloss: bool = False, device: str = "gpu", settings: dict = {}
+        self,
+        mask_modloss: bool = False,
+        device: str = "gpu",
+        settings: dict | None = None,
     ):
+        if settings is None:
+            settings = {}
         super().__init__(mask_modloss, device)
         self.device = device
         self.settings = settings

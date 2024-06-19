@@ -135,7 +135,7 @@ def fdr_to_q_values(fdr_values: np.ndarray):
 def keep_best(
     df: pd.DataFrame,
     score_column: str = "decoy_proba",
-    group_columns: list[str] = ["channel", "mod_seq_charge_hash"],
+    group_columns: list[str] | None = None,
 ):
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
     This function is used to select the best candidate PSM for each precursor.
@@ -159,6 +159,8 @@ def keep_best(
     pd.DataFrame
         The dataframe containing the best PSM for each group.
     """
+    if group_columns is None:
+        group_columns = ["channel", "mod_seq_charge_hash"]
     df = df.reset_index(drop=True)
     df = df.sort_values(score_column, ascending=True)
     df = df.groupby(group_columns).head(1)

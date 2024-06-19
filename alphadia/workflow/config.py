@@ -48,7 +48,9 @@ def get_tree_structure(last_item_arr: list[bool], update=False):
     return tree_structure
 
 
-def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> None:
+def print_w_style(
+    string: str, style: str = "auto", last_item_arr: list[bool] | None = None
+) -> None:
     """
     Print string with tree structure and uses ANSI color codes to color the string base on the style:
     - update: green color
@@ -64,13 +66,12 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
     style : str
         Style of the string
 
-    level : int, optional
-        Level of the string, by default
-
-    last_item : bool, optional
-        If the string is the last item in the list or dict, by default False
+    last_item_arr : list[bool], optional
+        If the string is the last item in the list or dict, by default [False]
 
     """
+    if last_item_arr is None:
+        last_item_arr = [False]
     if style == "auto":
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
@@ -109,7 +110,7 @@ def print_recursively(
     level: int = 0,
     style: str = "auto",
     last_item: bool = False,
-    last_item_arr=[],
+    last_item_arr: list | None = None,
 ) -> None:
     """
     Recursively print any config with tree structure and uses ANSI color codes to color the string based on the style.
@@ -128,8 +129,11 @@ def print_recursively(
     last_item : bool, optional
         If the config is the last item in the list or dict, by default False.
 
+    last_item_arr : TODO
     """
 
+    if last_item_arr is None:
+        last_item_arr = []
     if isinstance(config, tuple):
         print_w_style(
             f"{config[0]} ({config[1]})", style=style, last_item_arr=last_item_arr
@@ -258,7 +262,7 @@ def update_recursive(
     level: int = 0,
     print_output: bool = True,
     is_leaf_node: bool = False,
-    last_item_arr=[],
+    last_item_arr: list | None = None,
 ) -> dict[str, Any] | list[Any]:
     """
     Recursively update the default config with the experiments config
@@ -281,7 +285,11 @@ def update_recursive(
     is_leaf_node : bool, optional
         Whether the config is a leaf node or not, by default False
         This is used to determine the style of the config only does not affect the update process
+
+    last_item_arr: TODO
     """
+    if last_item_arr is None:
+        last_item_arr = []
     parent_key = config["key"]
     default_config = config["value"]
     # If the default config is a leaf node, then we can update it

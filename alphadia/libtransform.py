@@ -85,7 +85,7 @@ class ProcessingPipeline:
 
 
 class DynamicLoader(ProcessingStep):
-    def __init__(self, modification_mapping={}) -> None:
+    def __init__(self, modification_mapping: dict | None = None) -> None:
         """Load a spectral library from a file. The file type is dynamically inferred from the file ending.
         Expects a `str` as input and will return a `SpecLibBase` object.
 
@@ -98,6 +98,8 @@ class DynamicLoader(ProcessingStep):
         The classical spectral library format as returned by MSFragger.
         It will be imported and converted to a `SpecLibBase` format. This might require additional parsing information.
         """
+        if modification_mapping is None:
+            modification_mapping = {}
         self.modification_mapping = modification_mapping
 
     def validate(self, input: str) -> bool:
@@ -137,20 +139,27 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: list[str] = ["Carbamidomethyl@C"],
-        variable_modifications: list[str] = [
-            "Oxidation@M",
-            "Acetyl@Prot N-term",
-        ],
+        fixed_modifications: list[str] | None = None,
+        variable_modifications: list[str] | None = None,
         missed_cleavages: int = 1,
-        precursor_len: list[int] = [7, 35],
-        precursor_charge: list[int] = [2, 4],
-        precursor_mz: list[int] = [400, 1200],
+        precursor_len: list[int] | None = None,
+        precursor_charge: list[int] | None = None,
+        precursor_mz: list[int] | None = None,
         max_var_mod_num: int = 1,
     ) -> None:
         """Digest a FASTA file into a spectral library.
         Expects a `List[str]` object as input and will return a `SpecLibBase` object.
         """
+        if precursor_mz is None:
+            precursor_mz = [400, 1200]
+        if precursor_charge is None:
+            precursor_charge = [2, 4]
+        if precursor_len is None:
+            precursor_len = [7, 35]
+        if variable_modifications is None:
+            variable_modifications = ["Oxidation@M", "Acetyl@Prot N-term"]
+        if fixed_modifications is None:
+            fixed_modifications = ["Carbamidomethyl@C"]
         super().__init__()
         self.enzyme = enzyme
         self.fixed_modifications = fixed_modifications
@@ -242,11 +251,11 @@ class PeptDeepPrediction(ProcessingStep):
         self,
         use_gpu: bool = True,
         mp_process_num: int = 8,
-        fragment_mz: list[int] = [100, 2000],
+        fragment_mz: list[int] | None = None,
         nce: int = 25,
         instrument: str = "Lumos",
         checkpoint_folder_path: str | None = None,
-        fragment_types: list[str] = ["b", "y"],
+        fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
@@ -278,6 +287,10 @@ class PeptDeepPrediction(ProcessingStep):
         max_fragment_charge : int, optional
             Maximum charge state to predict. Default is 2.
         """
+        if fragment_types is None:
+            fragment_types = ["b", "y"]
+        if fragment_mz is None:
+            fragment_mz = [100, 2000]
         super().__init__()
         self.use_gpu = use_gpu
         self.fragment_mz = fragment_mz

@@ -341,7 +341,14 @@ class CalibrationManager(BaseManager):
         )
         return None
 
-    def fit(self, df: pd.DataFrame, group_name: str, skip=[], *args, **kwargs):
+    def fit(
+        self,
+        df: pd.DataFrame,
+        group_name: str,
+        skip: list | None = None,
+        *args,
+        **kwargs,
+    ):
         """Fit all estimators in a calibration group.
 
         Parameters
@@ -353,8 +360,12 @@ class CalibrationManager(BaseManager):
         group_name : str
             Name of the calibration group
 
+        skip: TODO
+
         """
 
+        if skip is None:
+            skip = []
         if len(self.estimator_groups) == 0:
             raise ValueError("No estimators defined")
 

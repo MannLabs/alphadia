@@ -22,9 +22,9 @@ class Calibration:
         self,
         name: str = "",
         function: object = None,
-        input_columns: list[str] = [],
-        target_columns: list[str] = [],
-        output_columns: list[str] = [],
+        input_columns: list[str] | None = None,
+        target_columns: list[str] | None = None,
+        output_columns: list[str] | None = None,
         transform_deviation: None | float = None,
         **kwargs,
     ):
@@ -59,7 +59,12 @@ class Calibration:
             If set to None, the deviation is expressed in absolute units.
 
         """
-
+        if output_columns is None:
+            output_columns = []
+        if target_columns is None:
+            target_columns = []
+        if input_columns is None:
+            input_columns = []
         self.name = name
         self.function = function
         self.input_columns = input_columns
