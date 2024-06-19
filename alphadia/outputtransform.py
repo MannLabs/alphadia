@@ -829,7 +829,9 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: list[int] = [0]):
+def _build_run_stat_df(
+    raw_name: str, run_df: pd.DataFrame, channels: list[int] | None = None
+):
     """Build stat dataframe for a single run.
 
     Parameters
@@ -841,8 +843,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: list[int] 
     run_df: pd.DataFrame
         Dataframe containing the precursor data
 
-    channels: List[int]
-        List of channels to include in the output
+    channels: List[int], optional
+        List of channels to include in the output, default=[0]
 
     Returns
     -------
@@ -851,6 +853,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: list[int] 
 
     """
 
+    if channels is None:
+        channels = [0]
     out_df = []
 
     for channel in channels:

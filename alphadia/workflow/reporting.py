@@ -187,7 +187,7 @@ class Backend:
 class FigureBackend(Backend):
     FIGURE_PATH = "figures"
 
-    def __init__(self, path=None, default_savefig_kwargs={"dpi": 300}) -> None:
+    def __init__(self, path=None, default_savefig_kwargs=None) -> None:
         """Backend which logs figures to a folder.
 
         implements the `log_figure` method.
@@ -203,6 +203,8 @@ class FigureBackend(Backend):
             Default arguments to pass to matplotlib.figure.Figure.savefig
 
         """
+        if default_savefig_kwargs is None:
+            default_savefig_kwargs = {"dpi": 300}
         self.path = path
 
         if self.path is None:
@@ -256,7 +258,7 @@ class JSONLBackend(Backend):
         self,
         path=None,
         enable_figure=True,
-        default_savefig_kwargs={"dpi": 300},
+        default_savefig_kwargs=None,
     ) -> None:
         """Backend which logs metrics, plots and strings to a JSONL file.
         It implements `log_figure`, `log_metric` , `log_string` and `log_event` methods.
@@ -277,6 +279,8 @@ class JSONLBackend(Backend):
 
         """
 
+        if default_savefig_kwargs is None:
+            default_savefig_kwargs = {"dpi": 300}
         self.path = path
 
         if self.path is None:
@@ -545,7 +549,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: list[type[Backend]] = [],
+        backends: list[type[Backend]] = None,
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
@@ -558,6 +562,8 @@ class Pipeline:
 
         # the context will store a Context object
         # this allows backends which require a context to be used
+        if backends is None:
+            backends = []
         self.context = Context(self)
 
         # instantiate backends

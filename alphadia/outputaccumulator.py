@@ -80,27 +80,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
     def parse_output_folder(
         self,
         folder: str,
-        selected_precursor_columns: list[str] = [
-            "precursor_idx",
-            "sequence",
-            "flat_frag_start_idx",
-            "flat_frag_stop_idx",
-            "charge",
-            "rt_library",
-            "rt_observed",
-            "rt_calibrated",
-            "mobility_library",
-            "mobility_observed",
-            "mz_library",
-            "mz_observed",
-            "mz_calibrated",
-            "proteins",
-            "genes",
-            "mods",
-            "mod_sites",
-            "proba",
-            "decoy",
-        ],
+        selected_precursor_columns: list[str] | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
@@ -121,6 +101,28 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
 
         """
+        if selected_precursor_columns is None:
+            selected_precursor_columns = [
+                "precursor_idx",
+                "sequence",
+                "flat_frag_start_idx",
+                "flat_frag_stop_idx",
+                "charge",
+                "rt_library",
+                "rt_observed",
+                "rt_calibrated",
+                "mobility_library",
+                "mobility_observed",
+                "mz_library",
+                "mz_observed",
+                "mz_calibrated",
+                "proteins",
+                "genes",
+                "mods",
+                "mod_sites",
+                "proba",
+                "decoy",
+            ]
         psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
         frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
