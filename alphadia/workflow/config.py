@@ -433,7 +433,7 @@ def recursive_fill_table(
 
 def get_update_table(
     default_config: "Config", configs: List["Config"]
-) -> "pandas.DataFrame":
+) -> "pd.DataFrame":
     """
     Returns a table of the modifications happening to the config
     such that the rows are the keys and the columns are the experiments

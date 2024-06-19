@@ -101,7 +101,6 @@ def compete_for_fragments(
     rt_window = rt[precursor_start_idx:precursor_stop_idx]
     valid_window = valid[precursor_start_idx:precursor_stop_idx]
 
-    k = 0
     for i, i_rt in enumerate(rt_window):
         if not valid_window[i]:
             continue

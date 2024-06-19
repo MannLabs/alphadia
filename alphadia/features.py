@@ -466,10 +466,10 @@ def build_features(
     ).reshape(n_precursors, n_isotopes)
 
     # sum precursor
-    sum_precursor_intensity = np.sum(
+    sum_precursor_intensity = np.sum(  # noqa: F841  # TODO check for potential bug then remove this line
         np.sum(dense_precursors[0], axis=-1), axis=-1
     ).astype(np.float32)
-    sum_fragment_intensity = np.sum(
+    sum_fragment_intensity = np.sum(  # noqa: F841  # TODO check for potential bug then remove this line
         np.sum(dense_fragments[0], axis=-1), axis=-1
     ).astype(np.float32)
 
@@ -724,7 +724,7 @@ def fragment_features(
     quant_window: nb.uint32 = 3,
     quant_all: nb.boolean = False,
 ):
-    fragment_feature_dict = nb.typed.Dict.empty(
+    fragment_feature_dict = nb.typed.Dict.empty(  # noqa: F841  # TODO check for potential bug then remove this line
         key_type=nb.types.unicode_type, value_type=float_array
     )
 
@@ -780,7 +780,7 @@ def fragment_features(
 
     # (quant_window * 2 + 1)
     frame_rt_quant = frame_rt[center - quant_window : center + quant_window + 1]
-    quant_durarion = frame_rt_quant[-1] - frame_rt_quant[0]
+    quant_duration = frame_rt_quant[-1] - frame_rt_quant[0]  # noqa: F841  # TODO check for potential bug then remove this line
 
     # (quant_window * 2)
     delta_rt = frame_rt_quant[1:] - frame_rt_quant[:-1]
@@ -1020,7 +1020,7 @@ def profile_features(
 ):
     n_observations = len(observation_importance)
     # most intense observation across all observations
-    best_observation = np.argmax(observation_importance)
+    best_observation = np.argmax(observation_importance)  # noqa: F841  # TODO check for potential bug then remove this line
 
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
@@ -1203,8 +1203,8 @@ def reference_features(
         key_type=nb.types.unicode_type, value_type=nb.types.float32
     )
 
-    n_observation = reference_observation_importance.shape[0]
-    n_fragments = reference_fragments_scan_profile.shape[0]
+    n_observation = reference_observation_importance.shape[0]  # noqa: F841  # TODO check for potential bug then remove this line
+    n_fragments = reference_fragments_scan_profile.shape[0]  # noqa: F841  # TODO check for potential bug then remove this line
     fragment_idx_sorted = np.argsort(fragment_lib_intensity)[::-1]
 
     if (

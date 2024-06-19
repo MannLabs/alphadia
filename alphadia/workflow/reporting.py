@@ -322,7 +322,7 @@ class JSONLBackend(Backend):
         self.start_time = datetime.now().timestamp()
 
         # empty the file if it exists
-        with open(self.events_path, "w") as f:
+        with open(self.events_path, "w"):
             pass
 
         self.log_event("start", {})
