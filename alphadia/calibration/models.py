@@ -145,11 +145,10 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         # === start === sanity checks ===
         # Does not yet work with more than one input dimension
         # axis-wise scaling and improved distance function need to be implemented
-        if len(x.shape) > 1:
-            if x.shape[1] > 1:
-                raise ValueError(
-                    "Input arrays with more than one feature not yet supported. Please provide a matrix of shape (n_datapoints, 1) or (n_datapoints,)"
-                )
+        if len(x.shape) > 1 and x.shape[1] > 1:
+            raise ValueError(
+                "Input arrays with more than one feature not yet supported. Please provide a matrix of shape (n_datapoints, 1) or (n_datapoints,)"
+            )
 
         # at least two datapoints required
         if len(x.flat) < 2:
