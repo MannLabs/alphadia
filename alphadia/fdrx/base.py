@@ -3,11 +3,10 @@ It is flexible with regards to the features, type of classifier and type of iden
 """
 
 import sklearn.base
-from typing import List
 import pandas as pd
 import numpy as np
 from alphadia.fragcomp import FragmentCompetition
-from alphadia.fdrx.stats import get_pep, add_q_values, add_q_values, keep_best
+from alphadia.fdrx.stats import get_pep, add_q_values, keep_best
 from alphadia.fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
