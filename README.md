@@ -4,7 +4,7 @@
 ![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
 ![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
-
+![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-green)
 
 <!-- PROJECT LOGO -->
 <br />
