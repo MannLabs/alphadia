@@ -245,7 +245,7 @@ class PeptDeepPrediction(ProcessingStep):
         fragment_mz: list[int] = [100, 2000],
         nce: int = 25,
         instrument: str = "Lumos",
-        checkpoint_folder_path: typing.Optional[str] = None,
+        checkpoint_folder_path: str | None = None,
         fragment_types: list[str] = ["b", "y"],
         max_fragment_charge: int = 2,
     ) -> None:

@@ -19,7 +19,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
 
-from typing import Union
 from collections.abc import Iterator
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
@@ -621,7 +620,7 @@ class SearchPlanOutput:
     def build_stat_df(
         self,
         folder_list: list[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build stat table from a list of seach outputs
@@ -685,7 +684,7 @@ class SearchPlanOutput:
     def build_lfq_tables(
         self,
         folder_list: list[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Accumulate fragment information and perform label-free protein quantification.
@@ -781,7 +780,7 @@ class SearchPlanOutput:
     def build_library(
         self,
         base_spec_lib: base.SpecLibBase,
-        psm_df: Union[pd.DataFrame, None] = None,
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build spectral library

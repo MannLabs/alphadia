@@ -14,7 +14,6 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import sklearn
 
-from typing import Union, Optional
 
 logger = logging.getLogger()
 
@@ -26,9 +25,9 @@ def perform_fdr(
     df_decoy: pd.DataFrame,
     competetive: bool = False,
     group_channels: bool = True,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
-    df_fragments: Union[pd.DataFrame, None] = None,
+    df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
     **kwargs,
@@ -316,7 +315,7 @@ def plot_fdr(
     y_test: np.ndarray,
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
 ):
     """Plots statistics on the fdr corrected PSMs.

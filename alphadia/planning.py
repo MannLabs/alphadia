@@ -5,7 +5,6 @@ import socket
 from pathlib import Path
 import os
 from datetime import datetime
-import typing
 
 # alphadia imports
 from alphadia import libtransform, outputtransform
@@ -52,10 +51,10 @@ class Plan:
         self,
         output_folder: str,
         raw_path_list: list[str] = [],
-        library_path: typing.Union[str, None] = None,
+        library_path: str | None = None,
         fasta_path_list: list[str] = [],
-        config: typing.Union[dict, None] = {},
-        config_base_path: typing.Union[str, None] = None,
+        config: dict | None = {},
+        config_base_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.

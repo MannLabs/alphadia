@@ -219,7 +219,7 @@ class FigureBackend(Backend):
     def log_figure(
         self,
         name: str,
-        figure: typing.Union[Figure, np.ndarray],
+        figure: Figure | np.ndarray,
         extension: str = "png",
     ):
         """Log a figure to the figures folder.

@@ -23,7 +23,7 @@ In our analysis, we focus on discerning changes between the default configuratio
 """
 
 import yaml
-from typing import Any, Union
+from typing import Any
 import copy
 import json
 import pandas as pd
@@ -105,7 +105,7 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
 
 
 def print_recursively(
-    config: Union[dict[str, Any], list[Any]],
+    config: dict[str, Any] | list[Any],
     level: int = 0,
     style: str = "auto",
     last_item: bool = False,
@@ -179,8 +179,8 @@ def print_recursively(
 
 
 def translate_config(
-    default_config: Union[dict[str, Any], list[Any]], name: str
-) -> Union[dict[str, Any], list[Any]]:
+    default_config: dict[str, Any] | list[Any], name: str
+) -> dict[str, Any] | list[Any]:
     """
     Takes as input a dictionary or list of dictianry that contains config values and a name of experiment
     and changes every leaf value to a tuple (value, name)
@@ -216,7 +216,7 @@ def translate_config(
     return default_config
 
 
-def translate_config_back(config: Union[dict[str, Any], list[Any]]):
+def translate_config_back(config: dict[str, Any] | list[Any]):
     """
     Takes as input a dictionary or list of dictionary that contains config values and changes every leaf value from a tuple (value, name) to value
 
@@ -254,12 +254,12 @@ def translate_config_back(config: Union[dict[str, Any], list[Any]]):
 
 def update_recursive(
     config: dict[str, Any],
-    experiment_configs: list[Union[dict[str, Any], list[Any]]],
+    experiment_configs: list[dict[str, Any] | list[Any]],
     level: int = 0,
     print_output: bool = True,
     is_leaf_node: bool = False,
     last_item_arr=[],
-) -> Union[dict[str, Any], list[Any]]:
+) -> dict[str, Any] | list[Any]:
     """
     Recursively update the default config with the experiments config
     print the config in a tree structure using pipes and dashes and colors to indicate the changes

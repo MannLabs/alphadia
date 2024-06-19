@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-import typing
 
 # alphadia imports
 from alphadia import validate, utils, features, quadrupole
@@ -1391,7 +1390,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
+        dia_data: bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,

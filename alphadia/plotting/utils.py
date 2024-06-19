@@ -1,5 +1,4 @@
 # native imports
-import typing
 
 # alphadia imports
 
@@ -42,8 +41,8 @@ def lighten_color(color, amount=0.5):
 
 
 def density_scatter(
-    x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
-    y: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
+    x: np.ndarray | pd.Series | pd.DataFrame,
+    y: np.ndarray | pd.Series | pd.DataFrame,
     axis: plt.Axes = None,
     bw_method=None,
     s: float = 1,
