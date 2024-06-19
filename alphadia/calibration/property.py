@@ -1,6 +1,5 @@
 # native imports
 import logging
-import typing
 import pickle
 
 # alphadia imports
@@ -23,10 +22,10 @@ class Calibration:
         self,
         name: str = "",
         function: object = None,
-        input_columns: typing.List[str] = [],
-        target_columns: typing.List[str] = [],
-        output_columns: typing.List[str] = [],
-        transform_deviation: typing.Union[None, float] = None,
+        input_columns: list[str] = [],
+        target_columns: list[str] = [],
+        output_columns: list[str] = [],
+        transform_deviation: None | float = None,
         **kwargs,
     ):
         """A single estimator for a property (mz, rt, etc.).
@@ -323,7 +322,7 @@ class Calibration:
         residual_deviation = deviation[:, 2]
         return np.mean(np.abs(np.percentile(residual_deviation, ci_percentile)))
 
-    def get_transform_unit(self, transform_deviation: typing.Union[None, float]):
+    def get_transform_unit(self, transform_deviation: None | float):
         """Get the unit of the deviation based on the transform deviation.
 
         Parameters

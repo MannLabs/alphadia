@@ -26,10 +26,10 @@ logger = logging.getLogger()
 class BaseManager:
     def __init__(
         self,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
-        figure_path: typing.Union[None, str] = None,
-        reporter: typing.Union[None, reporting.Pipeline, reporting.Backend] = None,
+        figure_path: None | str = None,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """Base class for all managers which handle parts of the workflow.
 
@@ -141,8 +141,8 @@ class BaseManager:
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        config: typing.Union[None, dict] = None,
-        path: typing.Union[None, str] = None,
+        config: None | dict = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -444,7 +444,7 @@ class OptimizationManager(BaseManager):
     def __init__(
         self,
         initial_parameters: dict,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -479,7 +479,7 @@ class FDRManager(BaseManager):
         self,
         feature_columns: list,
         classifier_base,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -501,8 +501,8 @@ class FDRManager(BaseManager):
             "precursor", "precursor_channel_wise", "channel"
         ] = "precursor",
         competetive: bool = True,
-        df_fragments: typing.Union[None, pd.DataFrame] = None,
-        dia_cycle: typing.Union[None, np.ndarray] = None,
+        df_fragments: None | pd.DataFrame = None,
+        dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
     ):
         """Update the parameters dict with the values in update_dict."""

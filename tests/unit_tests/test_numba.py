@@ -58,7 +58,7 @@ def fuzz_symetric_limits_1d():
     # test both the numba and the python version
     for f in [symetric_limits_1d, symetric_limits_1d.py_func]:
         for i in range(1000):
-            x = np.random.random((int(np.random.random() * 20)))
+            x = np.random.random(int(np.random.random() * 20))
             center = int(np.random.random() * 20)
             f = np.random.random() * 2
             center_fraction = np.random.random()

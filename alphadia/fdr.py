@@ -14,21 +14,20 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import sklearn
 
-from typing import Union, Optional, List
 
 logger = logging.getLogger()
 
 
 def perform_fdr(
     classifier: sklearn.base.BaseEstimator,
-    available_columns: List[str],
+    available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     competetive: bool = False,
     group_channels: bool = True,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
-    df_fragments: Union[pd.DataFrame, None] = None,
+    df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
     **kwargs,
@@ -174,7 +173,7 @@ def perform_fdr(
 def keep_best(
     df: pd.DataFrame,
     score_column: str = "proba",
-    group_columns: List[str] = ["channel", "precursor_idx"],
+    group_columns: list[str] = ["channel", "precursor_idx"],
 ):
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
     This function is used to select the best candidate PSM for each precursor.
@@ -316,7 +315,7 @@ def plot_fdr(
     y_test: np.ndarray,
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
 ):
     """Plots statistics on the fdr corrected PSMs.

@@ -1,7 +1,6 @@
 # make it an abc
 import numpy as np
 import pandas as pd
-from typing import List
 
 
 def get_pep(
@@ -136,7 +135,7 @@ def fdr_to_q_values(fdr_values: np.ndarray):
 def keep_best(
     df: pd.DataFrame,
     score_column: str = "decoy_proba",
-    group_columns: List[str] = ["channel", "mod_seq_charge_hash"],
+    group_columns: list[str] = ["channel", "mod_seq_charge_hash"],
 ):
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
     This function is used to select the best candidate PSM for each precursor.

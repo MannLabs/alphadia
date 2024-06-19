@@ -200,7 +200,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         ("has_mobility", types.boolean),
     ]
 )
-class TimsTOFTransposeJIT(object):
+class TimsTOFTransposeJIT:
     """Numba compatible transposed TimsTOF data structure."""
 
     def __init__(

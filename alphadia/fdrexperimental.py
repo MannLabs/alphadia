@@ -2,7 +2,6 @@
 from abc import ABC, abstractmethod
 import warnings
 from copy import deepcopy
-import typing
 
 # alphadia imports
 
@@ -128,7 +127,7 @@ class BinaryClassifier(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] = [100, 50, 20, 5],
         dropout: float = 0.001,
         calculate_metrics: bool = True,
         metric_interval: int = 1,
@@ -221,7 +220,7 @@ class BinaryClassifier(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -606,7 +605,7 @@ class BinaryClassifierLegacy(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] = [100, 50, 20, 5],
         dropout: float = 0.001,
         metric_interval: int = 1000,
         **kwargs,
@@ -673,7 +672,7 @@ class BinaryClassifierLegacy(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -920,7 +919,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] = [100, 50, 20, 5],
         dropout: float = 0.001,
         metric_interval: int = 1000,
         **kwargs,
@@ -987,7 +986,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -1244,7 +1243,7 @@ class FeedForwardNN(nn.Module):
         built a simple feed forward network for FDR estimation
 
         """
-        super(FeedForwardNN, self).__init__()
+        super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
 

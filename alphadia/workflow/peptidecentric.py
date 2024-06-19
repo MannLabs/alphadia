@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-import typing
 
 # alphadia imports
 from alphadia import plexscoring, utils, fragcomp
@@ -228,8 +227,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         dia_data,
         norm_values: np.ndarray,
-        active_gradient_start: typing.Union[float, None] = None,
-        active_gradient_stop: typing.Union[float, None] = None,
+        active_gradient_start: float | None = None,
+        active_gradient_stop: float | None = None,
         mode=None,
     ):
         """Convert normalized retention time values to absolute retention time values.
@@ -1009,7 +1008,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def requantify_fragments(
         self, psm_df: pd.DataFrame
-    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
@@ -1102,10 +1101,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: typing.List[str] = ["b", "y"],
+    fragment_types: list[str] = ["b", "y"],
     max_charge: int = 2,
-    optional_columns: typing.Union[typing.List[str], None] = None,
-) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
+    optional_columns: list[str] | None = None,
+) -> tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
     Parameters

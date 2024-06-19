@@ -5,7 +5,6 @@ import socket
 from pathlib import Path
 import os
 from datetime import datetime
-import typing
 
 # alphadia imports
 from alphadia import libtransform, outputtransform
@@ -51,11 +50,11 @@ class Plan:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: typing.List[str] = [],
-        library_path: typing.Union[str, None] = None,
-        fasta_path_list: typing.List[str] = [],
-        config: typing.Union[typing.Dict, None] = {},
-        config_base_path: typing.Union[str, None] = None,
+        raw_path_list: list[str] = [],
+        library_path: str | None = None,
+        fasta_path_list: list[str] = [],
+        config: dict | None = {},
+        config_base_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -135,21 +134,21 @@ class Plan:
         torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
-    def raw_path_list(self) -> typing.List[str]:
+    def raw_path_list(self) -> list[str]:
         """List of input files locations."""
         return self._raw_path_list
 
     @raw_path_list.setter
-    def raw_path_list(self, raw_path_list: typing.List[str]):
+    def raw_path_list(self, raw_path_list: list[str]):
         self._raw_path_list = raw_path_list
 
     @property
-    def config(self) -> typing.Dict:
+    def config(self) -> dict:
         """Dict with all configuration parameters for the extraction."""
         return self._config
 
     @config.setter
-    def config(self, config: typing.Dict) -> None:
+    def config(self, config: dict) -> None:
         self._config = config
 
     @property
@@ -178,7 +177,7 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
-        def _parse_modifications(mod_str: str) -> typing.List[str]:
+        def _parse_modifications(mod_str: str) -> list[str]:
             """Parse modification string."""
             return [] if mod_str == "" else mod_str.split(";")
 

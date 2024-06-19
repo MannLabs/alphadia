@@ -1,7 +1,6 @@
 # native imports
 import logging
 
-import typing
 
 # alphadia imports
 from alphadia import validate, utils, features, quadrupole
@@ -33,7 +32,7 @@ NUM_FEATURES = 46
 
 def candidate_features_to_candidates(
     candidate_features_df: pd.DataFrame,
-    optional_columns: typing.List[str] = ["proba"],
+    optional_columns: list[str] = ["proba"],
 ):
     """create candidates_df from candidate_features_df
 
@@ -77,7 +76,7 @@ def multiplex_candidates(
     candidates_df: pd.DataFrame,
     precursors_flat_df: pd.DataFrame,
     remove_decoys: bool = True,
-    channels: typing.List[int] = [0, 4, 8, 12],
+    channels: list[int] = [0, 4, 8, 12],
 ):
     """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
     All original candidates will be retained. For missing candidates, the best scoring candidate in the elution group will be used and multiplexed across all missing channels.
@@ -1391,7 +1390,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
+        dia_data: bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,

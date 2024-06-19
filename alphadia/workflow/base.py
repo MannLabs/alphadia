@@ -2,7 +2,6 @@
 import os
 import logging
 
-import typing
 
 # alphadia imports
 from alphadia.data import bruker, alpharaw
@@ -145,13 +144,13 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT]:
+    ) -> bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
 
     def _get_dia_data_object(
         self, dia_data_path: str
-    ) -> typing.Union[bruker.TimsTOFTranspose, alpharaw.AlphaRaw]:
+    ) -> bruker.TimsTOFTranspose | alpharaw.AlphaRaw:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters

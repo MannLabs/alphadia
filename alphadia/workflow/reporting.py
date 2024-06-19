@@ -219,7 +219,7 @@ class FigureBackend(Backend):
     def log_figure(
         self,
         name: str,
-        figure: typing.Union[Figure, np.ndarray],
+        figure: Figure | np.ndarray,
         extension: str = "png",
     ):
         """Log a figure to the figures folder.
@@ -545,7 +545,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: typing.List[typing.Type[Backend]] = [],
+        backends: list[type[Backend]] = [],
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 

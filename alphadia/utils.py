@@ -1,7 +1,6 @@
 # native imports
 import logging
 from ctypes import Structure, c_double
-import typing
 import re
 import platform
 import torch
@@ -84,8 +83,8 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
 
 
 def wsl_to_windows(
-    path: typing.Union[str, list, tuple],
-) -> typing.Union[str, list, tuple]:
+    path: str | list | tuple,
+) -> str | list | tuple:
     """Converts a WSL path to a Windows path.
 
     Parameters
@@ -115,15 +114,15 @@ def wsl_to_windows(
 
         return re.sub(r"^/mnt/[a-z]", f"{disk_letter}:", path).replace("/", "\\")
 
-    elif isinstance(path, (list, tuple)):
+    elif isinstance(path, list | tuple):
         return [wsl_to_windows(p) for p in path]
     else:
         raise ValueError(f"Unsupported type {type(path)}")
 
 
 def windows_to_wsl(
-    path: typing.Union[str, list, tuple],
-) -> typing.Union[str, list, tuple]:
+    path: str | list | tuple,
+) -> str | list | tuple:
     """Converts a Windows path to a WSL path.
 
     Parameters
@@ -152,7 +151,7 @@ def windows_to_wsl(
 
         return re.sub(r"^[A-Z]:", f"/mnt/{disk_letter}", path.replace("\\", "/"))
 
-    elif isinstance(path, (list, tuple)):
+    elif isinstance(path, list | tuple):
         return [windows_to_wsl(p) for p in path]
     else:
         raise ValueError(f"Unsupported type {type(path)}")
