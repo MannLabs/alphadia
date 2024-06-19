@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 from typing import List
-from alphadia.fragcomp import FragmentCompetition
 
 
 def get_pep(
