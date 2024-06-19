@@ -258,9 +258,6 @@ def slice_manual(inst, slices):
     return f
 
 
-import numba as nb
-
-
 @nb.njit
 def get_ion_group_mapping(
     ion_precursor,

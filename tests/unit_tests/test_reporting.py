@@ -1,6 +1,5 @@
 from matplotlib import pyplot as plt
 import numpy as np
-import tempfile
 import os
 import logging
 import time

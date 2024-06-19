@@ -2,8 +2,6 @@
 import os
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 
 # alpha family imports
@@ -17,6 +15,8 @@ import matplotlib as mpl
 import sklearn
 
 from typing import Union, Optional, List
+
+logger = logging.getLogger()
 
 
 def perform_fdr(
@@ -344,10 +344,8 @@ def plot_fdr(
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
-    y_test_pred = np.round(y_test_proba)
 
     y_train_proba = classifier.predict_proba(X_train)[:, 1]
-    y_train_pred = np.round(y_train_proba)
 
     fpr_test, tpr_test, thresholds_test = sklearn.metrics.roc_curve(
         y_test, y_test_proba

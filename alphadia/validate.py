@@ -1,8 +1,6 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-
 # alphadia imports
 
 # alpha family imports
@@ -10,6 +8,8 @@ logger = logging.getLogger()
 # third party imports
 import pandas as pd
 import numpy as np
+
+logger = logging.getLogger()
 
 
 class Property:

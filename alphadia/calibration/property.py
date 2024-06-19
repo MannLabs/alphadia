@@ -1,5 +1,4 @@
 # native imports
-import os
 import logging
 import typing
 import pickle
@@ -171,7 +170,7 @@ class Calibration:
             logging.error(f"Could not fit estimator {self.name}: {e}")
             return
 
-        if plot == True:
+        if plot is True:
             self.plot(dataframe, **kwargs)
 
     def predict(self, dataframe, inplace=True):
@@ -192,7 +191,7 @@ class Calibration:
 
         """
 
-        if self.is_fitted == False:
+        if self.is_fitted is False:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
             )

@@ -74,7 +74,7 @@ class FileDownloader(ABC):
         """Get filename from url."""
         try:
             remotefile = urlopen(self._encoded_url)
-        except:
+        except Exception:
             print(f"Could not open {self._url} for reading filename")
             raise ValueError(
                 f"Could not open {self._url} for reading filename"

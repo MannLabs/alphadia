@@ -87,7 +87,7 @@ def test_keep_best():
     )
 
 
-def test_keep_best():
+def test_keep_best_2():
     test_df = pd.DataFrame(
         {
             "channel": [0, 0, 0, 4, 4, 4, 8, 8, 8],
@@ -258,10 +258,10 @@ def test_feed_forward():
     # assert classifier.metrics["test_accuracy"][-1] > 0.99
     # assert classifier.metrics["train_accuracy"][-1] > 0.99
 
-    y_pred = classifier.predict(x)
+    y_pred = classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)
 
-    y_proba = classifier.predict_proba(x)[:, 1]
+    y_proba = classifier.predict_proba(x)[:, 1]  # noqa: F841  # TODO fix this test
     # assert np.all(np.round(y_proba) == y)
 
 
@@ -285,5 +285,5 @@ def test_feed_forward_save():
         torch.load(os.path.join(tempfolder, "test_feed_forward_save.pth"))
     )
 
-    y_pred = new_classifier.predict(x)
+    y_pred = new_classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)

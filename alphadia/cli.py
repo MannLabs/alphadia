@@ -9,8 +9,6 @@ import os
 import re
 import json
 
-logger = logging.getLogger()
-
 # alphadia imports
 import alphadia
 from alphadia.workflow import reporting
@@ -21,6 +19,10 @@ from alphadia import utils
 
 # third party imports
 import argparse
+
+
+logger = logging.getLogger()
+
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
 parser.add_argument(

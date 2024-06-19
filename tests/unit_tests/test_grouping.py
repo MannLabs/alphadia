@@ -1,4 +1,3 @@
-import time
 import pytest
 import numpy as np
 import pandas as pd
@@ -194,8 +193,5 @@ def test_grouping_fuzz(expected_time: int = 10):
         {"precursor_idx": precursor_idx, "proteins": proteins, "decoy": decoys}
     )
 
-    grouping_start_time = time.time()
     _ = grouping.perform_grouping(simulated_psm_data, genes_or_proteins="proteins")
-    grouping_end_time = time.time()
-    elapsed_time = grouping_end_time - grouping_start_time
-    assert True
+    assert True  # TODO fix this test

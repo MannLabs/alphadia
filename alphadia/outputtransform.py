@@ -2,7 +2,6 @@
 import logging
 import os
 
-logger = logging.getLogger()
 
 from alphadia import grouping, libtransform, utils
 from alphadia import fdr
@@ -31,7 +30,6 @@ import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
 import directlfq.config as lfqconfig
 
-import logging
 
 logger = logging.getLogger()
 
@@ -133,7 +131,6 @@ class QuantBuilder:
         quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
         quality_df.rename(columns={"correlation": raw_name}, inplace=True)
 
-        df_list = []
         for raw_name, df in df_iterable:
             df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -403,9 +400,9 @@ class SearchPlanOutput:
         tune_mgr = FinetuneManager(
             device=device, settings=self.config["transfer_learning"]
         )
-        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_ms2(
+        tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 

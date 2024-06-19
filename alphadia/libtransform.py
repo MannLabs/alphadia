@@ -2,7 +2,6 @@
 from pathlib import Path
 import logging
 
-logger = logging.getLogger()
 import os
 import typing
 
@@ -25,6 +24,8 @@ from peptdeep.pretrained_models import ModelManager
 # third party imports
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger()
 
 
 class ProcessingStep:
