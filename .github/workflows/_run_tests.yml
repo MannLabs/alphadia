@@ -30,7 +30,7 @@ jobs:
       uses: actions/cache@v4
       with:
         path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
     - name: Conda info
       shell: bash -l {0}
       run: conda info
@@ -38,9 +38,9 @@ jobs:
       shell: bash -l {0}
       run: |
         cd misc
-        . ./${{ inputs.install-script }}
+        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }}
     - name: Run tests
       shell: bash -l {0}
       run: |
         cd tests
-        . ./${{ inputs.test-script }}
+        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }}
