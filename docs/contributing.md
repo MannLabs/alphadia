@@ -1,4 +1,5 @@
 # Contributing
+This document gathers information on how to contribute to the alphaDIA project.
 
 ## Release a new version
 Note: Releases need to be done from the `main` branch.
@@ -13,3 +14,18 @@ You need to specify the commit to release, and the release tag (e.g. `vX.Y.Z`).
 specifying the release tag (e.g. `vX.Y.Z`).
 6. Run the [Publish Docker Image](https://github.com/MannLabs/alphadia/actions/workflows/publish_docker_image.yml) workflow,
 specifying the release tag (e.g. `vX.Y.Z`).
+
+
+## Notes for developers
+### pre-commit hooks
+It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to
+pass in order to merge a branch.
+
+The hooks need to be installed once by
+```bash
+pre-commit install
+```
+You can run the checks yourself using:
+```bash
+pre-commit run --all-files
+```

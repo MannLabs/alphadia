@@ -63,7 +63,9 @@ Finally, run `alphadia -v` to check if the installation was successful;
 ## Developer installation
 AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
 
-Make sure you have an conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
+Make sure you have a conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
+
+See also the [developer guide](contributing.md) for more information on how to contribute to alphaDIA.
 
 ### 1. Setting up the repository
 
