@@ -8,12 +8,12 @@ import numpy as np
 
 # third party imports
 import pandas as pd
-from pjit import pjit
 
 # alphadia imports
 from alphadia import features, quadrupole, utils, validate
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import config, fragments
+from alphadia.pjit import pjit
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
