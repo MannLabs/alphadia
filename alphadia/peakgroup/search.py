@@ -14,6 +14,7 @@ from alphadia import utils, validate
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import assemble_isotope_mz
+from alphadia.pjit import pjit
 
 logger = logging.getLogger()
 
@@ -282,9 +283,6 @@ class CandidateDF:
             self.frame_start,
             self.frame_stop,
         )
-
-
-from alphadia.pjit import pjit
 
 
 @pjit
