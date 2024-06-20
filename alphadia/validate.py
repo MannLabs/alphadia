@@ -1,13 +1,12 @@
 # native imports
 import logging
 
+import numpy as np
+
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 import pandas as pd
-import numpy as np
 
 logger = logging.getLogger()
 

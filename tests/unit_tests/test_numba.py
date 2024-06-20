@@ -2,16 +2,14 @@ import numpy as np
 
 # local
 from alphadia import utils
-from alphadia.numba.fragments import get_ion_group_mapping
-
 from alphadia.numba.fft import convolve_fourier
-
+from alphadia.numba.fragments import get_ion_group_mapping
 from alphadia.numba.numeric import (
-    symetric_limits_1d,
-    symetric_limits_2d,
-    save_corrcoeff,
     fragment_correlation,
     fragment_correlation_different,
+    save_corrcoeff,
+    symetric_limits_1d,
+    symetric_limits_2d,
 )
 
 

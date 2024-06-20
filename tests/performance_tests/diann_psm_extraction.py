@@ -1,23 +1,20 @@
 import logging
-
-from alphadia.test_data_downloader import DataShareDownloader
-
 import os
-import neptune.new as neptune
 import pathlib
 import socket
 
+import neptune.new as neptune
 
-from alphadia.extraction.planning import Plan
 from alphadia.extraction.calibration import RunCalibration
+from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 from alphadia.extraction.data import TimsTOFDIA
+from alphadia.extraction.planning import Plan
 from alphadia.extraction.scoring import (
+    MS2ExtractionWorkflow,
     fdr_correction,
     unpack_fragment_info,
-    MS2ExtractionWorkflow,
 )
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
-
+from alphadia.test_data_downloader import DataShareDownloader
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"

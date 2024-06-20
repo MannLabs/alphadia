@@ -1,12 +1,11 @@
 # native imports
 
 # alphadia imports
-from alphadia.workflow import reporting
-
 # alpha family imports
-
 # third party imports
 import numpy as np
+
+from alphadia.workflow import reporting
 
 
 class JITConfig:

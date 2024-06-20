@@ -1,6 +1,7 @@
-from alphadia import fragcomp
 import numpy as np
 import pandas as pd
+
+from alphadia import fragcomp
 
 
 def test_fragment_overlap():

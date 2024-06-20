@@ -2,18 +2,19 @@
 It is flexible with regards to the features, type of classifier and type of identifications (precursors, peptides, proteins).
 """
 
-import sklearn.base
-import pandas as pd
+import logging
+
 import numpy as np
-from alphadia.fragcomp import FragmentCompetition
-from alphadia.fdrx.stats import get_pep, add_q_values, keep_best
+import pandas as pd
+import sklearn.base
+
 from alphadia.fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
     _plot_score_distribution,
 )
-
-import logging
+from alphadia.fdrx.stats import add_q_values, get_pep, keep_best
+from alphadia.fragcomp import FragmentCompetition
 
 logger = logging.getLogger()
 

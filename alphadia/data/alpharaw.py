@@ -1,24 +1,26 @@
 # native imports
+import logging
 import math
 import os
-import logging
 
-# alphadia imports
-from alphadia import utils
+import numba as nb
 
-from alphadia.data.stats import log_stats
+# third party imports
+import numpy as np
+import pandas as pd
+from alpharaw import mzml as alpharawmzml
+
+# TODO fix: "import resolves to its containing file"
+from alpharaw import sciex as alpharawsciex
 
 # alpha family imports
 from alpharaw import (
     thermo as alpharawthermo,
-)  # TODO fix: "import resolves to its containing file"
-from alpharaw import sciex as alpharawsciex
-from alpharaw import mzml as alpharawmzml
+)
 
-# third party imports
-import numpy as np
-import numba as nb
-import pandas as pd
+# alphadia imports
+from alphadia import utils
+from alphadia.data.stats import log_stats
 
 logger = logging.getLogger()
 

@@ -1,8 +1,10 @@
+from unittest.mock import patch
+
 import numpy as np
 import pandas as pd
-from unittest.mock import patch
-from alphadia.fdrx.base import TargetDecoyFDR
 from sklearn.linear_model import LogisticRegression
+
+from alphadia.fdrx.base import TargetDecoyFDR
 
 
 @patch("matplotlib.pyplot.show")

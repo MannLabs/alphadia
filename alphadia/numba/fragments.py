@@ -6,8 +6,8 @@
 
 # third party imports
 import numba as nb
-from numba.extending import overload_method
 import numpy as np
+from numba.extending import overload_method
 
 
 @nb.experimental.jitclass()

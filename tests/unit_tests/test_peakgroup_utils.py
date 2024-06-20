@@ -1,7 +1,8 @@
-from alphadia.peakgroup.utils import assemble_isotope_mz
 import numba as nb
 import numpy as np
 import pytest
+
+from alphadia.peakgroup.utils import assemble_isotope_mz
 
 
 @nb.njit

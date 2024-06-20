@@ -1,16 +1,14 @@
 # native imports
 import logging
 
-
-# alphadia imports
-from alphadia.data import bruker, alpharaw
-
-# alpha family imports
-
-# third party imports
-import numpy as np
 import numba as nb
 
+# alpha family imports
+# third party imports
+import numpy as np
+
+# alphadia imports
+from alphadia.data import alpharaw, bruker
 
 logger = logging.getLogger()
 
