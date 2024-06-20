@@ -104,6 +104,8 @@ Install all frontend packages using npm
 cd gui
 npm install
 ```
+Note that this gui install only works if the conda environment is called "`alphadia`",
+unless the "envName" variables in `profile.js` are adjusted.
 
 The GUI can then be started by typing
 ```bash

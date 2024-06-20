@@ -9,16 +9,16 @@ const Profile = class {
     config = {
         "version": "1.7.0",
         "conda": {
-            "envName": "alpha",
+            "envName": "alphadia",
             "path": ""
         },
         "clippy": false,
         "WSLExecutionEngine": {
-            "envName": "alpha",
+            "envName": "alphadia",
 
         },
         "CMDExecutionEngine": {
-            "envName": "alpha",
+            "envName": "alphadia",
             "condaPath": ""
         },
         "BundledExecutionEngine": {
