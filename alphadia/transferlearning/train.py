@@ -32,7 +32,8 @@ settings = {
     # --------- USer settings ------------
     "batch_size": 1000,
     "max_lr": 0.0005,
-    "train_ratio": 0.8,
+    "train_ratio": 0.7,
+    "validation_ratio": 0.2,
     "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
@@ -226,7 +227,7 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
-
+        assert self.settings["train_ratio"] + self.settings["validation_ratio"] <= 1, "train_ratio + validation_ratio should be less than or equal to 1"
     def _reset_frag_idx(self, df):
         """
         Reset the frag_start_idx and frag_stop_idx of the dataframe so both columns will be monotonically increasing.
@@ -347,7 +348,7 @@ class FinetuneManager(ModelManager):
             val_metrics = metric_accumulator.calculate_test_metric(
                 test_input, epoch, data_split=data_split, property_name="ms2"
             )
-            if epoch != -1:  # A training epoch
+            if epoch != -1 and data_split == "validation":  # A training epoch
                 metric_accumulator.accumulate_metrics(
                     epoch,
                     metric=epoch_loss,
@@ -432,7 +433,9 @@ class FinetuneManager(ModelManager):
 
         # Shuffle the psm_df and split it into train and test
         train_psm_df = psm_df.sample(frac=self.settings["train_ratio"]).copy()
-        test_psm_df = psm_df.drop(train_psm_df.index).copy()
+        rest_psm_df = psm_df.drop(train_psm_df.index).copy()
+        val_psm_df = rest_psm_df.sample(frac=self.settings["validation_ratio"]).copy()
+        test_psm_df = rest_psm_df.drop(val_psm_df.index).copy()
 
         train_intensity_df = pd.DataFrame()
         for frag_type in self.ms2_model.charged_frag_types:
@@ -441,15 +444,23 @@ class FinetuneManager(ModelManager):
             else:
                 train_intensity_df[frag_type] = 0.0
 
+        val_intensity_df = train_intensity_df.copy()
         test_intensity_df = train_intensity_df.copy()
 
         self.set_default_nce_instrument(train_psm_df)
+        self.set_default_nce_instrument(val_psm_df)
         self.set_default_nce_instrument(test_psm_df)
 
         train_psm_df, train_intensity_df = remove_unused_fragments(
             train_psm_df, [train_intensity_df]
         )
         train_intensity_df = train_intensity_df[0]
+
+        val_psm_df, val_intensity_df = remove_unused_fragments(
+            val_psm_df, [val_intensity_df]
+        )
+        val_intensity_df = val_intensity_df[0]
+
         test_psm_df, test_intensity_df = remove_unused_fragments(
             test_psm_df, [test_intensity_df]
         )
@@ -457,6 +468,12 @@ class FinetuneManager(ModelManager):
 
         # Prepare order for peptdeep prediction
 
+        reordered_val_psm_df = self._reset_frag_idx(val_psm_df)
+        reordered_val_intensity_df = self._order_intensities(
+            reordered_precursor_df=reordered_val_psm_df,
+            unordered_precursor_df=val_psm_df,
+            unordered_frag_df=val_intensity_df,
+        )
         reordered_test_psm_df = self._reset_frag_idx(test_psm_df)
         reordered_test_intensity_df = self._order_intensities(
             reordered_precursor_df=reordered_test_psm_df,
@@ -472,8 +489,8 @@ class FinetuneManager(ModelManager):
         # create a callback handler
         callback_handler = CustomCallbackHandler(
             self._test_ms2,
-            precursor_df=reordered_test_psm_df,
-            target_fragment_intensity_df=reordered_test_intensity_df,
+            precursor_df=reordered_val_psm_df,
+            target_fragment_intensity_df=reordered_val_intensity_df,
             metric_accumulator=test_metric_manager,
             data_split="validation",
         )
@@ -491,8 +508,8 @@ class FinetuneManager(ModelManager):
         self._test_ms2(
             -1,
             0,
-            reordered_test_psm_df,
-            reordered_test_intensity_df,
+            reordered_val_psm_df,
+            reordered_val_intensity_df,
             test_metric_manager,
             data_split="validation",
         )
@@ -506,6 +523,15 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
             lr=settings["max_lr"],
+        )
+
+        self._test_ms2(
+            self.settings["epochs"],
+            0,
+            reordered_test_psm_df,
+            reordered_test_intensity_df,
+            test_metric_manager,
+            data_split="test",
         )
 
         metrics = test_metric_manager.get_stats()
@@ -552,7 +578,7 @@ class FinetuneManager(ModelManager):
             val_metrics = metric_accumulator.calculate_test_metric(
                 test_input, epoch, data_split=data_split, property_name="rt"
             )
-            if epoch != -1:  # A training epoch
+            if epoch != -1 and data_split == "validation":  # A training epoch
                 metric_accumulator.accumulate_metrics(
                     epoch,
                     metric=epoch_loss,
@@ -605,7 +631,10 @@ class FinetuneManager(ModelManager):
 
         # Shuffle the psm_df and split it into train and test
         train_df = psm_df.sample(frac=self.settings["train_ratio"])
-        test_df = psm_df.drop(train_df.index)
+        rest_df = psm_df.drop(train_df.index)
+        val_df = rest_df.sample(frac=self.settings["validation_ratio"])
+        test_df = rest_df.drop(val_df.index)
+        
         # Create a test metric manager
         test_metric_manager = MetricManager(
             test_metrics=[
@@ -618,7 +647,7 @@ class FinetuneManager(ModelManager):
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
             self._test_rt,
-            test_df=test_df,
+            test_df=val_df,
             metric_accumulator=test_metric_manager,
             data_split="validation",
         )
@@ -642,6 +671,10 @@ class FinetuneManager(ModelManager):
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
             lr=settings["max_lr"],
+        )
+
+        self._test_rt(
+            self.settings["epochs"], 0, test_df, test_metric_manager, data_split="test"
         )
 
         metrics = test_metric_manager.get_stats()
@@ -689,7 +722,7 @@ class FinetuneManager(ModelManager):
             val_metrics = metric_accumulator.calculate_test_metric(
                 test_input, epoch, data_split=data_split, property_name="charge"
             )
-            if epoch != -1:  # A training epoch
+            if epoch != -1 and data_split == "validation":  # A training epoch
                 metric_accumulator.accumulate_metrics(
                     epoch,
                     metric=epoch_loss,
@@ -767,7 +800,9 @@ class FinetuneManager(ModelManager):
 
         # Shuffle the psm_df and split it into train and test
         train_df = psm_df.sample(frac=self.settings["train_ratio"])
-        test_df = psm_df.drop(train_df.index)
+        rest_df = psm_df.drop(train_df.index)
+        val_df = rest_df.sample(frac=self.settings["validation_ratio"])
+        test_df = rest_df.drop(val_df.index)
 
         # Create a test metric manager
         test_metric_manager = MetricManager(
@@ -781,7 +816,7 @@ class FinetuneManager(ModelManager):
         # Create a callback handler
         callback_handler = CustomCallbackHandler(
             self._test_charge,
-            test_df=test_df,
+            test_df=val_df,
             metric_accumulator=test_metric_manager,
             data_split="validation",
         )
@@ -809,6 +844,9 @@ class FinetuneManager(ModelManager):
             lr=settings["max_lr"],
         )
 
+        self._test_charge(
+            self.settings["epochs"], 0, test_df, test_metric_manager, data_split="test"
+        )
         metrics = test_metric_manager.get_stats()
 
         return metrics
