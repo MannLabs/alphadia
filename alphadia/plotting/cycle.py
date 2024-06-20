@@ -1,14 +1,13 @@
 # native imports
 import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 from matplotlib import patches
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 def _generate_patch_collection_nomobility(

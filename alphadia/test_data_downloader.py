@@ -1,13 +1,13 @@
 """Download files from sharing links."""
 
-import os
 import base64
-import traceback
-from abc import ABC, abstractmethod
-from urllib.request import urlopen
-from urllib.request import urlretrieve
 import cgi
+import os
+import traceback
 import zipfile
+from abc import ABC, abstractmethod
+from urllib.request import urlopen, urlretrieve
+
 import progressbar
 
 

@@ -22,13 +22,14 @@ In our analysis, we focus on discerning changes between the default configuratio
 - But we still define the source of the update to be the first experiment that triggered the change.
 """
 
-import yaml
-from typing import Any
 import copy
 import json
-import pandas as pd
-import numpy as np
 import logging
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import yaml
 
 logger = logging.getLogger()
 

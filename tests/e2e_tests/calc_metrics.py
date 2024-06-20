@@ -6,15 +6,14 @@ To extend the metrics, create a new class that inherits from Metrics and impleme
 import os
 import sys
 from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any
 
-import pandas as pd
-import neptune
-
 import matplotlib.pyplot as plt
-from datetime import datetime
+import neptune
+import pandas as pd
 
-from tests.e2e_tests.prepare_test_data import get_test_case, OUTPUT_DIR_NAME
+from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 

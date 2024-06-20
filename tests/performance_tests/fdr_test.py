@@ -1,14 +1,15 @@
 # setup basic argpasrse comand line script to run the fdr test
 # with the options --threads and --size between 0 and 100%
 
-import matplotlib
 import argparse
 import tempfile
+import time
+
+import matplotlib
+import neptune
+import numpy as np
 import pandas as pd
 import torch
-import numpy as np
-import time
-import neptune
 
 import alphadia
 from alphadia import fdr, fdrexperimental

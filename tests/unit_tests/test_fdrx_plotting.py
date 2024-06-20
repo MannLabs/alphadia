@@ -1,10 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 from unittest.mock import patch
+
+import matplotlib.pyplot as plt
+import numpy as np
+
 from alphadia.fdrx.plotting import (
-    _plot_score_distribution,
-    _plot_roc_curve,
     _plot_fdr_curve,
+    _plot_roc_curve,
+    _plot_score_distribution,
 )
 
 

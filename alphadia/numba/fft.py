@@ -1,16 +1,15 @@
-import numpy as np
 import numba as nb
-from rocket_fft.overloads import (
-    ndshape_and_axes,
-    zeropad_or_crop,
-    increase_shape,
-    get_fct,
-    decrease_shape,
-    resize,
-)
-from rocket_fft import pocketfft
-
+import numpy as np
 from numba.extending import overload
+from rocket_fft import pocketfft
+from rocket_fft.overloads import (
+    decrease_shape,
+    get_fct,
+    increase_shape,
+    ndshape_and_axes,
+    resize,
+    zeropad_or_crop,
+)
 
 
 class NumbaContextOnly(Exception):

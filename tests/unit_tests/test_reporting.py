@@ -1,12 +1,12 @@
-from matplotlib import pyplot as plt
-import numpy as np
-import os
 import logging
-import time
+import os
 import sys
-import pytest
+import time
 
+import numpy as np
+import pytest
 from conftest import random_tempfolder
+from matplotlib import pyplot as plt
 
 from alphadia.workflow import reporting
 

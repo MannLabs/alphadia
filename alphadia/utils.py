@@ -1,22 +1,20 @@
 # native imports
 import logging
-from ctypes import Structure, c_double
-import re
 import platform
-import torch
-
+import re
+from ctypes import Structure, c_double
 
 # alphadia imports
-
 # alpha family imports
 import alphatims.bruker
 import alphatims.utils
+import matplotlib.patches as patches
+import numba as nb
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-import numba as nb
-import matplotlib.patches as patches
+import torch
 
 logger = logging.getLogger()
 

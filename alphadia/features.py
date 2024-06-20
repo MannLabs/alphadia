@@ -1,14 +1,14 @@
 # native imports
 
 # alphadia imports
-from alphadia import utils
-from alphadia.numba import numeric
+import numba as nb
 
 # alpha family imports
-
 # third party imports
 import numpy as np
-import numba as nb
+
+from alphadia import utils
+from alphadia.numba import numeric
 
 
 @nb.njit

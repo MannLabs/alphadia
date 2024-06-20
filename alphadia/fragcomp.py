@@ -1,10 +1,11 @@
-from alphadia import utils
-from alphatims import utils as timsutils
 import logging
-import numpy as np
-import pandas as pd
 
 import numba as nb
+import numpy as np
+import pandas as pd
+from alphatims import utils as timsutils
+
+from alphadia import utils
 
 logger = logging.getLogger(__name__)
 
