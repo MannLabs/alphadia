@@ -6,7 +6,6 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
-
 from alphadia.pjit import pjit
 
 logger = logging.getLogger(__name__)
