@@ -1,7 +1,13 @@
 # Contributing
 This document gathers information on how to contribute to the alphaDIA project.
 
-## Release a new version
+## Release process
+### Tagging of changes
+In order to have release notes automatically generated, changes need to be tagged with labels.
+The following labels are used (should be safe-explanatory):
+`breaking-change`, `bug`, `enhancement`.
+
+### Release a new version
 Note: Releases need to be done from the `main` branch.
 
 1. Bump the version locally to (e.g. to `X.Y.Z`) and merge the change to `main`.
