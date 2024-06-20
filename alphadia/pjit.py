@@ -1,3 +1,4 @@
+# ruff: noqa
 #!python
 """This module provides generic utilities.
 These utilities primarily focus on:
