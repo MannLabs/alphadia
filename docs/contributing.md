@@ -35,3 +35,4 @@ You can run the checks yourself using:
 ```bash
 pre-commit run --all-files
 ```
+Make sure you use the same version of pre-commit as defined in `requirements_development.txt`.
