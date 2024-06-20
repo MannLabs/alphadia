@@ -35,7 +35,7 @@ def group_and_parsimony(
 
     # reshape precursor indices and ids into a dictionary of ids linked to sets of precursors
     id_dict = {}
-    for precursor, ids in zip(precursor_idx, precursor_ids):
+    for precursor, ids in zip(precursor_idx, precursor_ids, strict=True):
         for id in ids.split(";"):
             if id not in id_dict:
                 id_dict[id] = set()
@@ -99,7 +99,7 @@ def group_and_parsimony(
     # order by precursor index and return as lists
     # TODO look above, order by precursor_idx directly?
     return_dict_ordered = {key: return_dict[key] for key in precursor_idx}
-    ids, groups = zip(*return_dict_ordered.values())
+    ids, groups = zip(*return_dict_ordered.values(), strict=True)
 
     return ids, groups
 

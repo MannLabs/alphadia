@@ -438,7 +438,7 @@ class BinaryClassifier(Classifier):
                 )
 
                 for batch_start, batch_stop in zip(
-                    test_batch_start_list, test_batch_stop_list
+                    test_batch_start_list, test_batch_stop_list, strict=True
                 ):
                     batch_x_test = x_test[batch_start:batch_stop]
                     batch_y_test = y_test[batch_start:batch_stop]
@@ -804,7 +804,9 @@ class BinaryClassifierLegacy(Classifier):
             y_train = torch.Tensor(y_train[order])
 
             for batch_x, batch_y in zip(
-                x_train.split(self.batch_size), y_train.split(self.batch_size)
+                x_train.split(self.batch_size),
+                y_train.split(self.batch_size),
+                strict=True,
             ):
                 y_pred = self.network(batch_x)
                 loss_value = loss(y_pred, batch_y)
@@ -1126,7 +1128,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             batch_start_list = batch_start_list[order]
             batch_stop_list = batch_stop_list[order]
 
-            for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
+            for batch_start, batch_stop in zip(
+                batch_start_list, batch_stop_list, strict=True
+            ):
                 x_train_batch = x_train[batch_start:batch_stop]
                 y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)

@@ -1823,7 +1823,12 @@ class CandidateScoring:
             "charge",
         ]
         df = pd.DataFrame(
-            {key: value for value, key in zip(psm_proto_df.to_fragment_df(), colnames)}
+            {
+                key: value
+                for value, key in zip(
+                    psm_proto_df.to_fragment_df(), colnames, strict=True
+                )
+            }
         )
 
         # join precursor columns

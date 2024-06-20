@@ -689,7 +689,7 @@ def build_candidates(
     cycle_limits_list = np.zeros((peak_cycle_list.shape[0], 2), dtype="int32")
 
     for candidate_rank, (scan_relative, cycle_relative) in enumerate(
-        zip(peak_scan_list, peak_cycle_list)
+        zip(peak_scan_list, peak_cycle_list, strict=True)
     ):
         scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
             score,
@@ -739,6 +739,7 @@ def build_candidates(
         peak_score_list,
         scan_limits_list,
         cycle_limits_list,
+        strict=True,
     ):
         # does not work anymore
 
@@ -907,6 +908,7 @@ class HybridCandidateSelection:
                         "frame_stop",
                     ],
                     candidate_container.to_candidate_df(),
+                    strict=True,
                 )
             }
         )

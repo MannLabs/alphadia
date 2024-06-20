@@ -401,7 +401,7 @@ class FinetuneManager(ModelManager):
             The normalized fragment intensity dataframe.
         """
         for start, stop in zip(
-            precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"]
+            precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"], strict=True
         ):
             iloc_slice = fragment_intensity_df.iloc[start:stop, :]
             max_intensity = np.max(iloc_slice.values.flatten())
