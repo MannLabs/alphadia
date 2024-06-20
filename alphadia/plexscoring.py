@@ -1,6 +1,6 @@
 # native imports
 import logging
-from pjit import pjit
+
 # alpha family imports
 import alphatims.utils
 import numba as nb
@@ -8,6 +8,7 @@ import numpy as np
 
 # third party imports
 import pandas as pd
+from pjit import pjit
 
 # alphadia imports
 from alphadia import features, quadrupole, utils, validate
