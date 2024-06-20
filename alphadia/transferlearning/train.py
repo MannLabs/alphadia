@@ -227,7 +227,10 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
-        assert self.settings["train_ratio"] + self.settings["validation_ratio"] <= 1, "train_ratio + validation_ratio should be less than or equal to 1"
+        assert (
+            self.settings["train_ratio"] + self.settings["validation_ratio"] <= 1
+        ), "train_ratio + validation_ratio should be less than or equal to 1"
+
     def _reset_frag_idx(self, df):
         """
         Reset the frag_start_idx and frag_stop_idx of the dataframe so both columns will be monotonically increasing.
@@ -634,7 +637,7 @@ class FinetuneManager(ModelManager):
         rest_df = psm_df.drop(train_df.index)
         val_df = rest_df.sample(frac=self.settings["validation_ratio"])
         test_df = rest_df.drop(val_df.index)
-        
+
         # Create a test metric manager
         test_metric_manager = MetricManager(
             test_metrics=[
