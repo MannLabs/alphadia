@@ -8,7 +8,6 @@ import numpy as np
 
 # third party imports
 import pandas as pd
-from pjit import pjit
 
 # alphadia imports
 from alphadia import features, quadrupole, utils, validate
