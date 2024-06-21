@@ -199,8 +199,14 @@ transfer_learning:
   # The maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler
   max_lr: 0.0001
 
-  # TODO remove and replaced by fixed 70:20:10 split
-  train_ratio: 0.8
+ # Fraction of dataset used for training
+  train_fraction: 0.7
+
+  # Fraction of dataset used for validation
+  validation_fraction: 0.2
+
+  # Fraction of dataset used for testing
+  test_fraction: 0.1
 
   # test every n intervals
   test_interval: 1
