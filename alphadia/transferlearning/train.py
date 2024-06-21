@@ -32,8 +32,9 @@ settings = {
     # --------- USer settings ------------
     "batch_size": 1000,
     "max_lr": 0.0005,
-    "train_ratio": 0.7,
-    "validation_ratio": 0.2,
+    "train_fraction": 0.7,
+    "validation_fraction": 0.2,
+    "test_fraction": 0.1,
     "test_interval": 1,
     "lr_patience": 3,
     # --------- Our settings ------------
@@ -227,9 +228,13 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(
             patience=(settings["lr_patience"] // settings["test_interval"]) * 4
         )
+
         assert (
-            self.settings["train_ratio"] + self.settings["validation_ratio"] <= 1
-        ), "train_ratio + validation_ratio should be less than or equal to 1"
+            settings["train_fraction"]
+            + settings["validation_fraction"]
+            + settings["test_fraction"]
+            <= 1.0
+        ), "The sum of the train, validation and test fractions should be less than or equal to 1.0"
 
     def _reset_frag_idx(self, df):
         """
@@ -435,10 +440,16 @@ class FinetuneManager(ModelManager):
         self._normalize_intensity(psm_df, matched_intensity_df)
 
         # Shuffle the psm_df and split it into train and test
-        train_psm_df = psm_df.sample(frac=self.settings["train_ratio"]).copy()
-        rest_psm_df = psm_df.drop(train_psm_df.index).copy()
-        val_psm_df = rest_psm_df.sample(frac=self.settings["validation_ratio"]).copy()
-        test_psm_df = rest_psm_df.drop(val_psm_df.index).copy()
+        train_psm_df = psm_df.sample(frac=self.settings["train_fraction"]).copy()
+        val_psm_df = (
+            psm_df.drop(train_psm_df.index)
+            .sample(
+                frac=self.settings["validation_fraction"]
+                / (1 - self.settings["train_fraction"])
+            )
+            .copy()
+        )
+        test_psm_df = psm_df.drop(train_psm_df.index).drop(val_psm_df.index).copy()
 
         train_intensity_df = pd.DataFrame()
         for frag_type in self.ms2_model.charged_frag_types:
@@ -517,7 +528,16 @@ class FinetuneManager(ModelManager):
             data_split="validation",
         )
         # Train the model
-        logger.progress(" Fine-tuning MS2 model")
+        logger.progress(" Fine-tuning MS2 model with the following settings:")
+        logger.info(
+            f" Train fraction:      {self.settings['train_fraction']:3.2f}     Train size:      {len(train_psm_df):<10}"
+        )
+        logger.info(
+            f" Validation fraction: {self.settings['validation_fraction']:3.2f}     Validation size: {len(val_psm_df):<10}"
+        )
+        logger.info(
+            f" Test fraction:       {self.settings['test_fraction']:3.2f}     Test size:       {len(test_psm_df):<10}"
+        )
         self.ms2_model.model.train()
         self.ms2_model.train(
             precursor_df=train_psm_df,
@@ -633,10 +653,12 @@ class FinetuneManager(ModelManager):
         """
 
         # Shuffle the psm_df and split it into train and test
-        train_df = psm_df.sample(frac=self.settings["train_ratio"])
-        rest_df = psm_df.drop(train_df.index)
-        val_df = rest_df.sample(frac=self.settings["validation_ratio"])
-        test_df = rest_df.drop(val_df.index)
+        train_df = psm_df.sample(frac=self.settings["train_fraction"])
+        val_df = psm_df.drop(train_df.index).sample(
+            frac=self.settings["validation_fraction"]
+            / (1 - self.settings["train_fraction"])
+        )
+        test_df = psm_df.drop(train_df.index).drop(val_df.index)
 
         # Create a test metric manager
         test_metric_manager = MetricManager(
@@ -666,7 +688,16 @@ class FinetuneManager(ModelManager):
         # Test the model before training
         self._test_rt(-1, 0, psm_df, test_metric_manager, data_split="all")
         # Train the model
-        logger.progress(" Fine-tuning RT model")
+        logger.progress(" Fine-tuning RT model with the following settings:")
+        logger.info(
+            f" Train fraction:      {self.settings['train_fraction']:3.2f}     Train size:      {len(train_df):<10}"
+        )
+        logger.info(
+            f" Validation fraction: {self.settings['validation_fraction']:3.2f}     Validation size: {len(val_df):<10}"
+        )
+        logger.info(
+            f" Test fraction:       {self.settings['test_fraction']:3.2f}     Test size:       {len(test_df):<10}"
+        )
         self.rt_model.model.train()
         self.rt_model.train(
             train_df,
@@ -802,10 +833,12 @@ class FinetuneManager(ModelManager):
         )
 
         # Shuffle the psm_df and split it into train and test
-        train_df = psm_df.sample(frac=self.settings["train_ratio"])
-        rest_df = psm_df.drop(train_df.index)
-        val_df = rest_df.sample(frac=self.settings["validation_ratio"])
-        test_df = rest_df.drop(val_df.index)
+        train_df = psm_df.sample(frac=self.settings["train_fraction"])
+        val_df = psm_df.drop(train_df.index).sample(
+            frac=self.settings["validation_fraction"]
+            / (1 - self.settings["train_fraction"])
+        )
+        test_df = psm_df.drop(train_df.index).drop(val_df.index)
 
         # Create a test metric manager
         test_metric_manager = MetricManager(
@@ -837,10 +870,19 @@ class FinetuneManager(ModelManager):
         self._test_charge(-1, 0, psm_df, test_metric_manager, data_split="all")
 
         # Train the model
-        logger.progress(" Fine-tuning Charge model")
+        logger.progress(" Fine-tuning Charge model with following settings:")
+        logger.info(
+            f" Train fraction:      {self.settings['train_fraction']:3.2f}     Train size:      {len(train_df):<10}"
+        )
+        logger.info(
+            f" Validation fraction: {self.settings['validation_fraction']:3.2f}     Validation size: {len(val_df):<10}"
+        )
+        logger.info(
+            f" Test fraction:       {self.settings['test_fraction']:3.2f}     Test size:       {len(test_df):<10}"
+        )
         self.charge_model.model.train()
         self.charge_model.train(
-            psm_df,
+            train_df,
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
