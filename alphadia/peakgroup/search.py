@@ -689,7 +689,7 @@ def build_candidates(
     cycle_limits_list = np.zeros((peak_cycle_list.shape[0], 2), dtype="int32")
 
     for candidate_rank, (scan_relative, cycle_relative) in enumerate(
-        zip(peak_scan_list, peak_cycle_list, strict=True)
+        zip(peak_scan_list, peak_cycle_list)  # noqa: B905 ('strict' not supported by numba yet)
     ):
         scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
             score,
