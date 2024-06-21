@@ -1,23 +1,25 @@
 # native imports
+import logging
 import math
 import os
-import logging
 
-logger = logging.getLogger()
-
-# alphadia imports
-from alphadia import utils
-
-# alpha family imports
-import alphatims.utils
 import alphatims.bruker
 import alphatims.tempmmap as tm
 
+# alpha family imports
+import alphatims.utils
+import numba as nb
+
 # third party imports
 import numpy as np
-import numba as nb
 from numba.core import types
 from numba.experimental import jitclass
+
+# alphadia imports
+from alphadia import utils
+from alphadia.data.stats import log_stats
+
+logger = logging.getLogger()
 
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
@@ -94,6 +96,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         # Precompile
         logger.info(f"Successfully imported data from {bruker_d_folder_name}")
+        log_stats(self.rt_values, self.cycle)
 
     def transpose(self):
         # abort if transposed data is already present
@@ -198,7 +201,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         ("has_mobility", types.boolean),
     ]
 )
-class TimsTOFTransposeJIT(object):
+class TimsTOFTransposeJIT:
     """Numba compatible transposed TimsTOF data structure."""
 
     def __init__(
@@ -655,9 +658,7 @@ class TimsTOFTransposeJIT(object):
                                 relative_precursor_index[i],
                                 relative_scan,
                                 relative_precursor,
-                            ] = (
-                                accumulated_intensity + new_intensity
-                            )
+                            ] = accumulated_intensity + new_intensity
                             dense_output[
                                 1,
                                 j,
@@ -693,9 +694,6 @@ class TimsTOFTransposeJIT(object):
             len(unique_precursor_index)
         )
 
-        relative_precursor_index = precursor_index_reverse[precursor_index]
-
-        n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
         # scan valuesa

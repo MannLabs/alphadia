@@ -1,22 +1,28 @@
 # native imports
+import logging
 import math
 import os
-import logging
 
-logger = logging.getLogger()
-
-# alphadia imports
-from alphadia import utils
-
-# alpha family imports
-from alpharaw import thermo as alpharawthermo
-from alpharaw import sciex as alpharawsciex
-from alpharaw import mzml as alpharawmzml
+import numba as nb
 
 # third party imports
 import numpy as np
-import numba as nb
 import pandas as pd
+from alpharaw import mzml as alpharawmzml
+
+# TODO fix: "import resolves to its containing file"
+from alpharaw import sciex as alpharawsciex
+
+# alpha family imports
+from alpharaw import (
+    thermo as alpharawthermo,
+)
+
+# alphadia imports
+from alphadia import utils
+from alphadia.data.stats import log_stats
+
+logger = logging.getLogger()
 
 
 @nb.njit(parallel=False, fastmath=True)
@@ -339,6 +345,7 @@ class MzML(AlphaRaw, alpharawmzml.MzMLReader):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
 
 class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
@@ -346,6 +353,7 @@ class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
 
 class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
@@ -353,6 +361,7 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
     def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
         """
@@ -376,15 +385,14 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
             ]
 
         # filter for cv values if multiple cv values are present
-        if cv is not None:
-            if "cv" in self.spectrum_df.columns:
-                # use np.isclose to account for floating point errors
-                logger.info(f"Filtering for CV {cv}")
-                logger.info(f"Before: {len(self.spectrum_df)}")
-                self.spectrum_df = self.spectrum_df[
-                    np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
-                ]
-                logger.info(f"After: {len(self.spectrum_df)}")
+        if cv is not None and "cv" in self.spectrum_df.columns:
+            # use np.isclose to account for floating point errors
+            logger.info(f"Filtering for CV {cv}")
+            logger.info(f"Before: {len(self.spectrum_df)}")
+            self.spectrum_df = self.spectrum_df[
+                np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
+            ]
+            logger.info(f"After: {len(self.spectrum_df)}")
 
         self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))
 
@@ -409,7 +417,7 @@ class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
         ("frame_max_index", nb.core.types.int64),
     ]
 )
-class AlphaRawJIT(object):
+class AlphaRawJIT:
     """Numba compatible AlphaRaw data structure."""
 
     def __init__(
@@ -748,7 +756,7 @@ class AlphaRawJIT(object):
         for i, cycle_idx in enumerate(
             range(precursor_cycle_start, precursor_cycle_stop)
         ):
-            for j, precursor_idx in enumerate(precursor_idx_list):
+            for precursor_idx in precursor_idx_list:
                 scan_idx = precursor_idx + cycle_idx * cycle_length
 
                 peak_start_idx = self.peak_start_idx_list[scan_idx]

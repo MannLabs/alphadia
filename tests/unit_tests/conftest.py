@@ -1,9 +1,11 @@
-import pytest
 import os
 import re
-import pandas as pd
-import numpy as np
+import tempfile
+
 import matplotlib
+import numpy as np
+import pandas as pd
+import pytest
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
@@ -13,6 +15,7 @@ plt.ioff()
 
 def mock_precursor_df(
     n_precursor: int = 100,
+    with_decoy=True,
 ) -> pd.DataFrame:
     """Create a mock precursor dataframe as it's found as the individual search outputs
 
@@ -22,6 +25,9 @@ def mock_precursor_df(
     n_precursor : int
         Number of precursors to generate
 
+    with_decoy : bool
+        If True, half of the precursors will be decoys
+
     Returns
     -------
 
@@ -30,7 +36,6 @@ def mock_precursor_df(
     """
 
     precursor_idx = np.arange(n_precursor)
-    decoy = np.zeros(n_precursor)
     precursor_mz = np.random.rand(n_precursor) * 2000 + 500
     precursor_charge = np.random.choice([2, 3], size=n_precursor)
 
@@ -40,7 +45,10 @@ def mock_precursor_df(
     proteins = np.random.choice(protein_names, size=n_precursor)
     genes = proteins
 
-    decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
+    if with_decoy:
+        decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
+    else:
+        decoy = np.zeros(n_precursor)
     proba = np.zeros(n_precursor) + decoy * np.random.rand(n_precursor)
     qval = np.random.rand(n_precursor) * 10e-3
 
@@ -48,9 +56,9 @@ def mock_precursor_df(
     random_mobility = np.random.rand(n_precursor)
     # Generate random 6 amino acid
     sequences = []
-    for i in range(n_precursor):
+    for _ in range(n_precursor):
         sequence = ""
-        for j in range(6):
+        for __ in range(6):
             sequence += chr(np.random.randint(65, 91))
         sequences.append(sequence)
     return pd.DataFrame(
@@ -68,7 +76,6 @@ def mock_precursor_df(
             "charge": precursor_charge,
             "proteins": proteins,
             "genes": genes,
-            "decoy": decoy,
             "proba": proba,
             "qval": qval,
             "sequence": sequences,
@@ -182,3 +189,23 @@ def pytest_configure(config):
         pytest.test_data[raw_folder] = raw_files
 
     # important to supress matplotlib output
+
+
+def random_tempfolder():
+    """Create a randomly named temp folder in the system temp folder
+
+    Returns
+    -------
+    path : str
+        Path to the created temp folder
+
+    """
+    tempdir = tempfile.gettempdir()
+    # 6 alphanumeric characters
+    random_foldername = "alphadia_" + "".join(
+        np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), 6)
+    )
+    path = os.path.join(tempdir, random_foldername)
+    os.makedirs(path, exist_ok=True)
+    print(f"Created temp folder: {path}")
+    return path

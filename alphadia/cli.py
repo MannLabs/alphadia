@@ -1,24 +1,24 @@
 #!python
 
 # native imports
+# alpha family imports
+# third party imports
+import argparse
+import json
 import logging
-import yaml
 import os
 import re
-import json
+import sys
 
-logger = logging.getLogger()
+import yaml
 
 # alphadia imports
 import alphadia
-from alphadia.workflow import reporting
 from alphadia import utils
+from alphadia.workflow import reporting
 
+logger = logging.getLogger()
 
-# alpha family imports
-
-# third party imports
-import argparse
 
 parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
 parser.add_argument(
@@ -118,7 +118,7 @@ def parse_config(args: argparse.Namespace) -> dict:
 
     config = {}
     if args.config is not None:
-        with open(args.config, "r") as f:
+        with open(args.config) as f:
             config = yaml.safe_load(f)
 
     try:
@@ -186,13 +186,13 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     raw_path_list : list
         List of raw files.
     """
-    config_raw_path_list = config["raw_path_list"] if "raw_path_list" in config else []
+    config_raw_path_list = config.get("raw_path_list", [])
     raw_path_list = (
         utils.windows_to_wsl(config_raw_path_list) if args.wsl else config_raw_path_list
     )
     raw_path_list += utils.windows_to_wsl(args.file) if args.wsl else args.file
 
-    config_directory = config["directory"] if "directory" in config else None
+    config_directory = config.get("directory")
     directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
     if directory is not None:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
@@ -270,7 +270,7 @@ def parse_fasta(args: argparse.Namespace, config: dict) -> list:
         List of fasta files.
     """
 
-    config_fasta_path_list = config["fasta_list"] if "fasta_list" in config else []
+    config_fasta_path_list = config.get("fasta_list", [])
     fasta_path_list = (
         utils.windows_to_wsl(config_fasta_path_list)
         if args.wsl
@@ -314,13 +314,13 @@ def run(*args, **kwargs):
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
-    logger.progress(f"Using library: {library_path}.")
+    logger.progress(f"Using library: {library_path}")
 
     logger.progress(f"Using {len(fasta_path_list)} fasta files:")
     for f in fasta_path_list:
         logger.progress(f"  {f}")
 
-    logger.progress(f"Saving output to {output_directory}.")
+    logger.progress(f"Saving output to: {output_directory}")
 
     try:
         import matplotlib
@@ -345,3 +345,4 @@ def run(*args, **kwargs):
 
         logger.info(traceback.format_exc())
         logger.error(e)
+        sys.exit(1)

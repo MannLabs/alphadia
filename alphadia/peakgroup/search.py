@@ -1,15 +1,6 @@
 # native imports
 import logging
-
-logger = logging.getLogger()
 import os
-
-# alphadia imports
-from alphadia import utils
-from alphadia.numba import fragments, numeric, config, fft
-from alphadia import validate
-from alphadia.peakgroup.kernel import GaussianKernel
-from alphadia.peakgroup.utils import assemble_isotope_mz
 
 # alpha family imports
 import alphatims
@@ -18,6 +9,14 @@ import alphatims
 import numba as nb
 import numpy as np
 import pandas as pd
+
+# alphadia imports
+from alphadia import utils, validate
+from alphadia.numba import config, fft, fragments, numeric
+from alphadia.peakgroup.kernel import GaussianKernel
+from alphadia.peakgroup.utils import assemble_isotope_mz
+
+logger = logging.getLogger()
 
 
 @nb.experimental.jitclass()
@@ -392,11 +391,11 @@ def select_candidates(
         # "Empty dense precursor matrix"
         return
 
-    if not dense_fragments.shape[2] % 2 == 0:
+    if dense_fragments.shape[2] % 2 != 0:
         # "Dense fragment matrix not divisible by 2"
         return
 
-    if not dense_fragments.shape[2] % 2 == 0:
+    if dense_fragments.shape[2] % 2 != 0:
         # "Dense fragment matrix not divisible by 2"
         return
 
@@ -626,20 +625,17 @@ def build_candidates(
 ):
     cycle_length = jit_data.cycle.shape[1]
 
-    if weights is None:
-        feature_weights = np.ones(1)
-    else:
-        feature_weights = weights
+    feature_weights = np.ones(1) if weights is None else weights
 
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
     smooth_precursor = fft.convolve_fourier(dense_precursors, kernel)
     smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
-    if not smooth_precursor.shape == dense_precursors.shape:
+    if smooth_precursor.shape != dense_precursors.shape:
         print(smooth_precursor.shape, dense_precursors.shape)
         print("smooth_precursor shape does not match dense_precursors shape")
-    if not smooth_fragment.shape == dense_fragments.shape:
+    if smooth_fragment.shape != dense_fragments.shape:
         print(smooth_fragment.shape, dense_fragments.shape)
         print("smooth_fragment shape does not match dense_fragments shape")
 
@@ -692,8 +688,8 @@ def build_candidates(
     scan_limits_list = np.zeros((peak_scan_list.shape[0], 2), dtype="int32")
     cycle_limits_list = np.zeros((peak_cycle_list.shape[0], 2), dtype="int32")
 
-    for candidate_rank, (scan_relative, cycle_relative, candidate_score) in enumerate(
-        zip(peak_scan_list, peak_cycle_list, peak_score_list)
+    for candidate_rank, (scan_relative, cycle_relative) in enumerate(
+        zip(peak_scan_list, peak_cycle_list)
     ):
         scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
             score,
@@ -776,7 +772,7 @@ def build_candidates(
         candidate_container.frame_stop[candidate_index] = frame_limits_absolute[1]
 
 
-class HybridCandidateSelection(object):
+class HybridCandidateSelection:
     def __init__(
         self,
         dia_data,
@@ -1041,7 +1037,7 @@ class HybridCandidateSelection(object):
                     precursor_flat_lookup
                 ]
 
-        # save features for training if desired.
+        # DEBUG: save features for training if desired.
         if self.feature_path is not None:
             feature_matrix = np.zeros(
                 (len(candidates), len(candidates[0].features)), dtype=np.float32

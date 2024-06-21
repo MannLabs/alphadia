@@ -30,10 +30,20 @@ you can install alphaDIA via `pip`.
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono.
+A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation), a short version is given
+[below](#2-installing-mono).
 
 ### 2. Setting up the environment
 
+It is highly recommended to use a conda environment for the installation of alphaDIA.
+This ensures that all dependencies are installed correctly and do not interfere with other packages.
+```bash
+conda create -n alphadia python=3.11
+conda activate alphadia
+```
+
+### 3. Installing alphaDIA
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
 pip install "alphadia[stable]"
@@ -53,7 +63,9 @@ Finally, run `alphadia -v` to check if the installation was successful;
 ## Developer installation
 AlphaDIA can be installed in editable (i.e. developer) mode. This allows to fully customize the software and even modify the source code to your specific needs. When an editable Python package is installed, its source code is stored in a location of your choice.
 
-Make sure you have an conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
+Make sure you have a conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
+
+See also the [developer guide](contributing.md) for more information on how to contribute to alphaDIA.
 
 ### 1. Setting up the repository
 
@@ -72,6 +84,7 @@ git pull
 ```
 
 ### 2. Installation: backend
+Set up a conda environment and activate it as described [here](#2-setting-up-the-environment).
 
 Use pip to install alphaDIA, using the `development` tag to install additional packages required for development only
 ```bash
@@ -91,6 +104,8 @@ Install all frontend packages using npm
 cd gui
 npm install
 ```
+Note that this gui install only works if the conda environment is called "`alphadia`",
+unless the "envName" variables in `profile.js` are adjusted.
 
 The GUI can then be started by typing
 ```bash
@@ -149,9 +164,13 @@ docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 ## Slurm cluster Installation
 
 ### 1. Set up environment
+Check if conda is available on your cluster. If not, install it, or, if provided, load the corresponding module, e.g.
+`module load anaconda/3/2023.03`.
+
 Create and activate a new conda environment
 ```bash
-conda create -n alpha
+conda create -n alphadia python=3.11
+conda activate alphadia
 ```
 ### 2. Installing mono
 Install mono to support reading proprietary vendor formats like Thermo `.raw` files.

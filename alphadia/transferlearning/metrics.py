@@ -1,8 +1,7 @@
 import numpy as np
 import pandas as pd
-from typing import List
-from peptdeep.utils import linear_regression
 from peptdeep.model.ms2 import calc_ms2_similarity
+from peptdeep.utils import linear_regression
 
 
 class TestMetricBase:
@@ -10,7 +9,7 @@ class TestMetricBase:
     An Base class for test metrics. Test metrics are classes that calculate a metric on the test set at a given epoch.
     """
 
-    def __init__(self, columns: List[str]):
+    def __init__(self, columns: list[str]):
         self.columns = columns  # a list of column names for the stats dataframe
 
     def _to_long_format(
@@ -418,7 +417,7 @@ class MetricManager:
 
     def __init__(
         self,
-        test_metrics: List[TestMetricBase] = None,
+        test_metrics: list[TestMetricBase] = None,
     ):
         self.test_metrics = test_metrics
         self.all_stats = pd.DataFrame()

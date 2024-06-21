@@ -1,30 +1,26 @@
-import torch
-import pandas as pd
-import numpy as np
-from tqdm import tqdm
-from torch.optim.lr_scheduler import LambdaLR
-from alphabase.peptide.fragment import remove_unused_fragments
-from alphabase.spectral_library.flat import *
-
-from alphadia.transferlearning.metrics import (
-    MetricManager,
-    L1LossTestMetric,
-    LinearRegressionTestMetric,
-    AbsErrorPercentileTestMetric,
-    CELossTestMetric,
-    AccuracyTestMetric,
-    PrecisionRecallTestMetric,
-    Ms2SimilarityTestMetric,
-)
-
-from peptdeep.settings import global_settings
-from peptdeep.pretrained_models import ModelManager
-from peptdeep.model.model_interface import LR_SchedulerInterface, CallbackHandler
-from peptdeep.model.ms2 import normalize_fragment_intensities
-from peptdeep.model.charge import ChargeModelForModAASeq
 import logging
 
-from alphadia.workflow import reporting
+import numpy as np
+import pandas as pd
+import torch
+from alphabase.peptide.fragment import remove_unused_fragments
+from peptdeep.model.charge import ChargeModelForModAASeq
+from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
+from peptdeep.pretrained_models import ModelManager
+from peptdeep.settings import global_settings
+from torch.optim.lr_scheduler import LambdaLR
+from tqdm import tqdm
+
+from alphadia.transferlearning.metrics import (
+    AbsErrorPercentileTestMetric,
+    AccuracyTestMetric,
+    CELossTestMetric,
+    L1LossTestMetric,
+    LinearRegressionTestMetric,
+    MetricManager,
+    Ms2SimilarityTestMetric,
+    PrecisionRecallTestMetric,
+)
 
 logger = logging.getLogger()
 
@@ -220,8 +216,13 @@ class FinetuneManager(ModelManager):
     """
 
     def __init__(
-        self, mask_modloss: bool = False, device: str = "gpu", settings: dict = {}
+        self,
+        mask_modloss: bool = False,
+        device: str = "gpu",
+        settings: dict | None = None,
     ):
+        if settings is None:
+            settings = {}
         super().__init__(mask_modloss, device)
         self.device = device
         self.settings = settings

@@ -22,20 +22,17 @@ TransferLearningAccumulator
 
 """
 
-from typing import List, Tuple
-import numba as nb
-import pandas as pd
-import numpy as np
-import os
+import logging
 import multiprocessing
+import os
 import threading
-from tqdm import tqdm
 
+import numba as nb
+import numpy as np
+import pandas as pd
 from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
-
-
-import logging
+from tqdm import tqdm
 
 logger = logging.getLogger()
 
@@ -81,27 +78,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
     def parse_output_folder(
         self,
         folder: str,
-        selected_precursor_columns: List[str] = [
-            "precursor_idx",
-            "sequence",
-            "flat_frag_start_idx",
-            "flat_frag_stop_idx",
-            "charge",
-            "rt_library",
-            "rt_observed",
-            "rt_calibrated",
-            "mobility_library",
-            "mobility_observed",
-            "mz_library",
-            "mz_observed",
-            "mz_calibrated",
-            "proteins",
-            "genes",
-            "mods",
-            "mod_sites",
-            "proba",
-        ],
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        selected_precursor_columns: list[str] | None = None,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
 
@@ -121,8 +99,30 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
 
         """
-        psm_df = pd.read_csv(os.path.join(folder, "psm.tsv"), sep="\t")
-        frag_df = pd.read_csv(os.path.join(folder, "frag.tsv"), sep="\t")
+        if selected_precursor_columns is None:
+            selected_precursor_columns = [
+                "precursor_idx",
+                "sequence",
+                "flat_frag_start_idx",
+                "flat_frag_stop_idx",
+                "charge",
+                "rt_library",
+                "rt_observed",
+                "rt_calibrated",
+                "mobility_library",
+                "mobility_observed",
+                "mz_library",
+                "mz_observed",
+                "mz_calibrated",
+                "proteins",
+                "genes",
+                "mods",
+                "mod_sites",
+                "proba",
+                "decoy",
+            ]
+        psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
+        frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
         assert set(
             selected_precursor_columns
@@ -132,9 +132,15 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = psm_df[selected_precursor_columns]
         # validate.precursors_flat_from_output(psm_df)
 
+        # remove decoy precursors
+        psm_df = psm_df[psm_df["decoy"] == 0]
+
         self._precursor_df = pd.DataFrame()
         for col in psm_df.columns:
             self._precursor_df[col] = psm_df[col]
+
+        self._precursor_df["decoy"] = self._precursor_df["decoy"].astype(int)
+        self._precursor_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
 
         # self._precursor_df.set_index('precursor_idx', inplace=True)
         # Change the data type of the mods column to string
@@ -160,7 +166,10 @@ class SpecLibFlatFromOutput(SpecLibFlat):
             self._precursor_df[col] = values
 
         # ----------------- Fragment -----------------
-
+        # Filer fragments that are not used in the precursors
+        frag_df = frag_df[
+            frag_df["precursor_idx"].isin(self._precursor_df["precursor_idx"])
+        ]
         self._fragment_df = frag_df[
             ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
         ].copy()
@@ -232,7 +241,7 @@ def process_folder(folder):
 
 
 def error_callback(e):
-    logger.error(e)
+    logger.error(e, exc_info=True)
 
 
 class AccumulationBroadcaster:

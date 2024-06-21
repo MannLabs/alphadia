@@ -1,30 +1,29 @@
 # native imports
-from pathlib import Path
 import logging
-
-logger = logging.getLogger()
 import os
 import typing
-
-# alphadia imports
-from alphadia import utils, validate
-
-# alpha family imports
-from alphabase.peptide import fragment
-from alphabase.protein import fasta
-from alphabase.spectral_library.flat import SpecLibFlat
-from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.reader import LibraryReaderBase
-from alphabase.spectral_library.decoy import decoy_lib_provider
-from alphabase.peptide.fragment import get_charged_frag_types
-from alphabase.protein.fasta import protease_dict
-
-from peptdeep.protein.fasta import PredictSpecLibFasta
-from peptdeep.pretrained_models import ModelManager
+from pathlib import Path
 
 # third party imports
 import numpy as np
 import pandas as pd
+
+# alpha family imports
+from alphabase.peptide import fragment
+from alphabase.peptide.fragment import get_charged_frag_types
+from alphabase.protein import fasta
+from alphabase.protein.fasta import protease_dict
+from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.decoy import decoy_lib_provider
+from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.spectral_library.reader import LibraryReaderBase
+from peptdeep.pretrained_models import ModelManager
+from peptdeep.protein.fasta import PredictSpecLibFasta
+
+# alphadia imports
+from alphadia import utils, validate
+
+logger = logging.getLogger()
 
 
 class ProcessingStep:
@@ -56,7 +55,7 @@ class ProcessingStep:
 
 
 class ProcessingPipeline:
-    def __init__(self, steps: typing.List[ProcessingStep]) -> None:
+    def __init__(self, steps: list[ProcessingStep]) -> None:
         """Processing pipeline for loading and transforming spectral libraries.
         The pipeline is a list of ProcessingStep objects. Each step is called in order and the output of the previous step is passed to the next step.
 
@@ -84,7 +83,7 @@ class ProcessingPipeline:
 
 
 class DynamicLoader(ProcessingStep):
-    def __init__(self, modification_mapping={}) -> None:
+    def __init__(self, modification_mapping: dict | None = None) -> None:
         """Load a spectral library from a file. The file type is dynamically inferred from the file ending.
         Expects a `str` as input and will return a `SpecLibBase` object.
 
@@ -97,12 +96,14 @@ class DynamicLoader(ProcessingStep):
         The classical spectral library format as returned by MSFragger.
         It will be imported and converted to a `SpecLibBase` format. This might require additional parsing information.
         """
+        if modification_mapping is None:
+            modification_mapping = {}
         self.modification_mapping = modification_mapping
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
         valid = True
-        valid &= isinstance(input, str) or isinstance(input, Path)
+        valid &= isinstance(input, str | Path)
 
         if not os.path.exists(input):
             logger.error(f"Input path {input} does not exist")
@@ -136,20 +137,27 @@ class FastaDigest(ProcessingStep):
     def __init__(
         self,
         enzyme: str = "trypsin",
-        fixed_modifications: typing.List[str] = ["Carbamidomethyl@C"],
-        variable_modifications: typing.List[str] = [
-            "Oxidation@M",
-            "Acetyl@Prot N-term",
-        ],
+        fixed_modifications: list[str] | None = None,
+        variable_modifications: list[str] | None = None,
         missed_cleavages: int = 1,
-        precursor_len: typing.List[int] = [7, 35],
-        precursor_charge: typing.List[int] = [2, 4],
-        precursor_mz: typing.List[int] = [400, 1200],
+        precursor_len: list[int] | None = None,
+        precursor_charge: list[int] | None = None,
+        precursor_mz: list[int] | None = None,
         max_var_mod_num: int = 1,
     ) -> None:
         """Digest a FASTA file into a spectral library.
         Expects a `List[str]` object as input and will return a `SpecLibBase` object.
         """
+        if precursor_mz is None:
+            precursor_mz = [400, 1200]
+        if precursor_charge is None:
+            precursor_charge = [2, 4]
+        if precursor_len is None:
+            precursor_len = [7, 35]
+        if variable_modifications is None:
+            variable_modifications = ["Oxidation@M", "Acetyl@Prot N-term"]
+        if fixed_modifications is None:
+            fixed_modifications = ["Carbamidomethyl@C"]
         super().__init__()
         self.enzyme = enzyme
         self.fixed_modifications = fixed_modifications
@@ -160,7 +168,7 @@ class FastaDigest(ProcessingStep):
         self.precursor_mz = precursor_mz
         self.max_var_mod_num = max_var_mod_num
 
-    def validate(self, input: typing.List[str]) -> bool:
+    def validate(self, input: list[str]) -> bool:
         if not isinstance(input, list):
             logger.error("Input fasta list is not a list")
             return False
@@ -170,7 +178,7 @@ class FastaDigest(ProcessingStep):
 
         return True
 
-    def forward(self, input: typing.List[str]) -> SpecLibBase:
+    def forward(self, input: list[str]) -> SpecLibBase:
         frag_types = get_charged_frag_types(["b", "y"], 2)
 
         model_mgr = ModelManager()
@@ -241,11 +249,11 @@ class PeptDeepPrediction(ProcessingStep):
         self,
         use_gpu: bool = True,
         mp_process_num: int = 8,
-        fragment_mz: typing.List[int] = [100, 2000],
+        fragment_mz: list[int] | None = None,
         nce: int = 25,
         instrument: str = "Lumos",
-        checkpoint_folder_path: typing.Optional[str] = None,
-        fragment_types: typing.List[str] = ["b", "y"],
+        checkpoint_folder_path: str | None = None,
+        fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
@@ -277,6 +285,10 @@ class PeptDeepPrediction(ProcessingStep):
         max_fragment_charge : int, optional
             Maximum charge state to predict. Default is 2.
         """
+        if fragment_types is None:
+            fragment_types = ["b", "y"]
+        if fragment_mz is None:
+            fragment_mz = [100, 2000]
         super().__init__()
         self.use_gpu = use_gpu
         self.fragment_mz = fragment_mz
@@ -288,7 +300,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
 
-    def validate(self, input: typing.List[str]) -> bool:
+    def validate(self, input: list[str]) -> bool:
         return True
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
@@ -298,14 +310,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         input.charged_frag_types = charged_frag_types
 
-        # Check if CPU or GPU/MPS should be used
-        device = "cpu"
-        if self.use_gpu:
-            try:
-                device = "mps" if os.uname().sysname == "Darwin" else "gpu"
-            except AttributeError:
-                # Windows does not support uname
-                device = "gpu"
+        device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
         if self.checkpoint_folder_path is not None:
@@ -392,7 +397,7 @@ class PrecursorInitializer(ProcessingStep):
 class AnnotateFasta(ProcessingStep):
     def __init__(
         self,
-        fasta_path_list: typing.List[str],
+        fasta_path_list: list[str],
         drop_unannotated: bool = True,
         drop_decoy: bool = True,
     ) -> None:
@@ -575,15 +580,14 @@ class RTNormalization(ProcessingStep):
             )
             return input
 
-        if "rt" not in input.precursor_df.columns:
-            if (
-                "rt_norm" in input.precursor_df.columns
-                or "rt_norm_pred" in input.precursor_df.columns
-            ):
-                logger.warning(
-                    "Input library already contains normalized RT information. Skipping RT normalization"
-                )
-                return input
+        if "rt" not in input.precursor_df.columns and (
+            "rt_norm" in input.precursor_df.columns
+            or "rt_norm_pred" in input.precursor_df.columns
+        ):
+            logger.warning(
+                "Input library already contains normalized RT information. Skipping RT normalization"
+            )
+            return input
 
         percentiles = np.percentile(input.precursor_df["rt"], [0.1, 99.9])
         input._precursor_df["rt"] = np.clip(

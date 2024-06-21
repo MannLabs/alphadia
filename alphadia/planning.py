@@ -1,32 +1,32 @@
 # native imports
 import logging
-
-logger = logging.getLogger()
-import socket
-from pathlib import Path
 import os
+import socket
 from datetime import datetime
-import typing
+from pathlib import Path
+
+import alphabase
+import alpharaw
+import alphatims
+import directlfq
+import peptdeep
+
+# third party imports
+import torch
+from alphabase.constants import modification
+from alphabase.spectral_library.base import SpecLibBase
+
+# alpha family imports
+from alphabase.spectral_library.flat import SpecLibFlat
+
+import alphadia
 
 # alphadia imports
 from alphadia import libtransform, outputtransform
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.config import Config
-import alphadia
-import alpharaw
-import alphabase
-import peptdeep
-import alphatims
-import directlfq
 
-# alpha family imports
-from alphabase.spectral_library.flat import SpecLibFlat
-from alphabase.spectral_library.base import SpecLibBase
-
-# third party imports
-import torch
-
-from alphabase.constants import modification
+logger = logging.getLogger()
 
 modification.add_new_modifications(
     {
@@ -49,11 +49,11 @@ class Plan:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: typing.List[str] = [],
-        library_path: typing.Union[str, None] = None,
-        fasta_path_list: typing.List[str] = [],
-        config: typing.Union[typing.Dict, None] = {},
-        config_base_path: typing.Union[str, None] = None,
+        raw_path_list: list[str] | None = None,
+        library_path: str | None = None,
+        fasta_path_list: list[str] | None = None,
+        config: dict | None = None,
+        config_base_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -74,6 +74,12 @@ class Plan:
             dict to update the default config. Can be used for debugging purposes etc.
 
         """
+        if config is None:
+            config = {}
+        if fasta_path_list is None:
+            fasta_path_list = []
+        if raw_path_list is None:
+            raw_path_list = []
         self.output_folder = output_folder
         reporting.init_logging(self.output_folder)
 
@@ -123,26 +129,31 @@ class Plan:
         if "output" not in self.config:
             self.config["output"] = output_folder
 
+        # set log level
+        level_to_set = self.config["general"]["log_level"]
+        level_code = logging.getLevelName(level_to_set)
+        logger.setLevel(level_code)
+
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
-    def raw_path_list(self) -> typing.List[str]:
+    def raw_path_list(self) -> list[str]:
         """List of input files locations."""
         return self._raw_path_list
 
     @raw_path_list.setter
-    def raw_path_list(self, raw_path_list: typing.List[str]):
+    def raw_path_list(self, raw_path_list: list[str]):
         self._raw_path_list = raw_path_list
 
     @property
-    def config(self) -> typing.Dict:
+    def config(self) -> dict:
         """Dict with all configuration parameters for the extraction."""
         return self._config
 
     @config.setter
-    def config(self, config: typing.Dict) -> None:
+    def config(self, config: dict) -> None:
         self._config = config
 
     @property
@@ -171,7 +182,7 @@ class Plan:
         Step 4 is always performed to prepare the library for search.
         """
 
-        def _parse_modifications(mod_str: str) -> typing.List[str]:
+        def _parse_modifications(mod_str: str) -> list[str]:
             """Parse modification string."""
             return [] if mod_str == "" else mod_str.split(";")
 
@@ -282,10 +293,12 @@ class Plan:
         self,
         figure_path=None,
         neptune_token=None,
-        neptune_tags=[],
+        neptune_tags=None,
         keep_decoys=False,
         fdr=0.01,
     ):
+        if neptune_tags is None:
+            neptune_tags = []
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
@@ -301,8 +314,8 @@ class Plan:
                 workflow_folder_list.append(workflow.path)
 
                 # check if the raw file is already processed
-                psm_location = os.path.join(workflow.path, "psm.tsv")
-                frag_location = os.path.join(workflow.path, "frag.tsv")
+                psm_location = os.path.join(workflow.path, "psm.parquet")
+                frag_location = os.path.join(workflow.path, "frag.parquet")
 
                 if self.config["general"]["reuse_quant"]:
                     if os.path.exists(psm_location) and os.path.exists(frag_location):
@@ -320,35 +333,35 @@ class Plan:
                     psm_df = workflow.requantify(psm_df)
                     psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
-                if self.config["transfer_learning"]["enabled"]:
+                if self.config["transfer_library"]["enabled"]:
                     psm_df, frag_df = workflow.requantify_fragments(psm_df)
 
                 psm_df["run"] = raw_name
-                psm_df.to_csv(psm_location, sep="\t", index=False)
-                frag_df.to_csv(frag_location, sep="\t", index=False)
+                psm_df.to_parquet(psm_location, index=False)
+                frag_df.to_parquet(frag_location, index=False)
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
-            except peptidecentric.CalibrationError as e:
+            except peptidecentric.CalibrationError:
                 # get full traceback
                 logger.error(
                     f"Search for {raw_name} failed as not enough precursors were found for calibration"
                 )
-                logger.error(f"This can have the following reasons:")
+                logger.error("This can have the following reasons:")
                 logger.error(
-                    f"   1. The sample was empty and therefore nor precursors were found"
+                    "   1. The sample was empty and therefore nor precursors were found"
                 )
-                logger.error(f"   2. The sample contains only very few precursors.")
+                logger.error("   2. The sample contains only very few precursors.")
                 logger.error(
-                    f"      For small libraries, try to set recalibration_target to a lower value"
-                )
-                logger.error(
-                    f"      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance"
+                    "      For small libraries, try to set recalibration_target to a lower value"
                 )
                 logger.error(
-                    f"   3. There was a fundamental issue with search parameters"
+                    "      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance"
+                )
+                logger.error(
+                    "   3. There was a fundamental issue with search parameters"
                 )
                 continue
             except Exception as e:

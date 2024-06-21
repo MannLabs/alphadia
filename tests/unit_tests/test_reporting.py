@@ -1,29 +1,19 @@
-from matplotlib import pyplot as plt
-import numpy as np
-import tempfile
-import os
 import logging
-import time
+import os
 import sys
+import time
+
+import numpy as np
 import pytest
+from conftest import random_tempfolder
+from matplotlib import pyplot as plt
 
 from alphadia.workflow import reporting
 
 
-def _random_tempfolder():
-    tempdir = tempfile.gettempdir()
-    # 6 alphanumeric characters
-    random_foldername = "".join(
-        np.random.choice(list("abcdefghijklmnopqrstuvwxyz0123456789"), 6)
-    )
-    path = os.path.join(tempdir, random_foldername)
-    os.mkdir(path)
-    return path
-
-
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_logging():
-    tempfolder = _random_tempfolder()
+    tempfolder = random_tempfolder()
 
     if os.path.exists(os.path.join(tempfolder, "log.txt")):
         os.remove(os.path.join(tempfolder, "log.txt"))
@@ -37,7 +27,7 @@ def test_logging():
     python_logger.critical("test")
 
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
-    with open(os.path.join(tempfolder, "log.txt"), "r") as f:
+    with open(os.path.join(tempfolder, "log.txt")) as f:
         assert len(f.readlines()) == 5
     time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
@@ -58,7 +48,7 @@ test_backend()
 
 
 def test_figure_backend():
-    tempfolder = _random_tempfolder()
+    tempfolder = random_tempfolder()
 
     figure_backend = reporting.FigureBackend(path=tempfolder)
 
@@ -79,7 +69,7 @@ test_figure_backend()
 
 
 def test_jsonl_backend():
-    tempfolder = _random_tempfolder()
+    tempfolder = random_tempfolder()
 
     with reporting.JSONLBackend(path=tempfolder) as jsonl_backend:
         jsonl_backend.log_event("start_extraction", None)
@@ -87,7 +77,7 @@ def test_jsonl_backend():
         jsonl_backend.log_string("test")
 
     assert os.path.exists(os.path.join(tempfolder, "events.jsonl"))
-    with open(os.path.join(tempfolder, "events.jsonl"), "r") as f:
+    with open(os.path.join(tempfolder, "events.jsonl")) as f:
         assert len(f.readlines()) == 5
     time.sleep(1)
     os.remove(os.path.join(tempfolder, "events.jsonl"))
@@ -96,7 +86,7 @@ def test_jsonl_backend():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_log_backend():
-    tempfolder = _random_tempfolder()
+    tempfolder = random_tempfolder()
 
     if os.path.exists(os.path.join(tempfolder, "log.txt")):
         os.remove(os.path.join(tempfolder, "log.txt"))
@@ -109,7 +99,7 @@ def test_log_backend():
     stdout_backend.log_string("test", verbosity="critical")
 
     assert os.path.exists(os.path.join(tempfolder, "log.txt"))
-    with open(os.path.join(tempfolder, "log.txt"), "r") as f:
+    with open(os.path.join(tempfolder, "log.txt")) as f:
         assert len(f.readlines()) == 5
     # time.sleep(1)
     os.remove(os.path.join(tempfolder, "log.txt"))
@@ -117,7 +107,7 @@ def test_log_backend():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_pipeline():
-    tempfolder = _random_tempfolder()
+    tempfolder = random_tempfolder()
 
     pipeline = reporting.Pipeline(
         backends=[

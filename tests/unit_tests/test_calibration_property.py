@@ -1,14 +1,13 @@
-from alphadia.calibration.property import Calibration
-from sklearn.linear_model import LinearRegression
-from alphadia.calibration.models import LOESSRegression
+import os
+import tempfile
 
 import numpy as np
 import pandas as pd
-
 import pytest
+from sklearn.linear_model import LinearRegression
 
-import tempfile
-import os
+from alphadia.calibration.models import LOESSRegression
+from alphadia.calibration.property import Calibration
 
 
 def test_uninitialized_calibration():

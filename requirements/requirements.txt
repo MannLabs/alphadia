@@ -5,7 +5,7 @@ numba==0.59.1
 argparse==1.4.0
 alpharaw==0.4.5
 alphatims==1.0.8
-alphabase==1.2.4
+alphabase==1.2.5
 peptdeep==1.2.1
 progressbar==2.5
 neptune==1.10.4

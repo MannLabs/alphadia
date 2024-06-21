@@ -1,23 +1,53 @@
 # native imports
 import logging
-from ctypes import Structure, c_double
-import typing
+import platform
 import re
+from ctypes import Structure, c_double
 
 # alphadia imports
-
 # alpha family imports
 import alphatims.bruker
 import alphatims.utils
+import matplotlib.patches as patches
+import numba as nb
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-import numba as nb
-import matplotlib.patches as patches
+import torch
+
+logger = logging.getLogger()
 
 
 ISOTOPE_DIFF = 1.0032999999999674
+
+
+def get_torch_device(use_gpu: bool = False):
+    """Get the torch device to be used.
+
+    Parameters
+    ----------
+
+    use_gpu : bool, optional
+        If True, use GPU if available, by default False
+
+    Returns
+    -------
+    str
+        Device to be used, either 'cpu', 'gpu' or 'mps'
+
+    """
+
+    device = "cpu"
+    if use_gpu:
+        if platform.system() == "Darwin":
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+        else:
+            device = "gpu" if torch.cuda.is_available() else "cpu"
+
+    logger.info(f"Device set to {device}")
+
+    return device
 
 
 @nb.njit
@@ -51,8 +81,8 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
 
 
 def wsl_to_windows(
-    path: typing.Union[str, list, tuple],
-) -> typing.Union[str, list, tuple]:
+    path: str | list | tuple,
+) -> str | list | tuple:
     """Converts a WSL path to a Windows path.
 
     Parameters
@@ -82,15 +112,15 @@ def wsl_to_windows(
 
         return re.sub(r"^/mnt/[a-z]", f"{disk_letter}:", path).replace("/", "\\")
 
-    elif isinstance(path, (list, tuple)):
+    elif isinstance(path, list | tuple):
         return [wsl_to_windows(p) for p in path]
     else:
         raise ValueError(f"Unsupported type {type(path)}")
 
 
 def windows_to_wsl(
-    path: typing.Union[str, list, tuple],
-) -> typing.Union[str, list, tuple]:
+    path: str | list | tuple,
+) -> str | list | tuple:
     """Converts a Windows path to a WSL path.
 
     Parameters
@@ -119,7 +149,7 @@ def windows_to_wsl(
 
         return re.sub(r"^[A-Z]:", f"/mnt/{disk_letter}", path.replace("\\", "/"))
 
-    elif isinstance(path, (list, tuple)):
+    elif isinstance(path, list | tuple):
         return [windows_to_wsl(p) for p in path]
     else:
         raise ValueError(f"Unsupported type {type(path)}")
@@ -142,7 +172,7 @@ def recursive_update(full_dict: dict, update_dict: dict):
 
     """
     for key, value in update_dict.items():
-        if key in full_dict.keys():
+        if key in full_dict:
             if isinstance(value, dict):
                 recursive_update(full_dict[key], update_dict[key])
             else:
@@ -275,7 +305,7 @@ def get_isotope_columns(colnames):
         if col[:2] == "i_":
             try:
                 isotopes.append(int(col[2:]))
-            except:
+            except Exception:
                 logging.warning(
                     f"Column {col} does not seem to be a valid isotope column"
                 )
@@ -390,9 +420,6 @@ def fourier_filter(dense_stack, kernel):
 
     """
 
-    k0 = kernel.shape[0]
-    k1 = kernel.shape[1]
-
     # make sure both dimensions are even
     scan_mod = dense_stack.shape[3] % 2
     frame_mod = dense_stack.shape[4] % 2
@@ -420,8 +447,10 @@ def fourier_filter(dense_stack, kernel):
 
     # with nb.objmode(smooth_output='float32[:,:,:,:]'):
     #    # roll back to original position
+    #    k0 = kernel.shape[0]
+    #    k1 = kernel.shape[1]
     #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-    #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+    #    smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output
 
@@ -623,10 +652,10 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-    if type(on) == str:
+    if isinstance(on, str):
         on = [on]
 
-    if type(right_columns) == str:
+    if isinstance(right_columns, str):
         right_columns = [right_columns]
 
     missing_from_left = list(set(right_columns) - set(left_df.columns))

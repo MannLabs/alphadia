@@ -1,24 +1,25 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-import typing
-
-# alphadia imports
-from alphadia import plexscoring, utils, fragcomp
-from alphadia import fdrexperimental as fdrx
-from alphadia.peakgroup import search
-from alphadia.workflow import manager, base
-
-# alpha family imports
-from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.flat import SpecLibFlat
-from alphabase.peptide.fragment import get_charged_frag_types
-
 # third party imports
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from alphabase.peptide.fragment import get_charged_frag_types
+
+# alpha family imports
+from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
+
+from alphadia import fdrexperimental as fdrx
+
+# alphadia imports
+from alphadia import fragcomp, plexscoring, utils
+from alphadia.peakgroup import search
+from alphadia.workflow import base, manager
+
+logger = logging.getLogger()
+
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -226,8 +227,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         dia_data,
         norm_values: np.ndarray,
-        active_gradient_start: typing.Union[float, None] = None,
-        active_gradient_stop: typing.Union[float, None] = None,
+        active_gradient_start: float | None = None,
+        active_gradient_stop: float | None = None,
         mode=None,
     ):
         """Convert normalized retention time values to absolute retention time values.
@@ -285,11 +286,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # determine the mode based on the config or the function parameter
         if mode is None:
-            mode = (
-                self.config["calibration"]["norm_rt_mode"]
-                if "norm_rt_mode" in self.config["calibration"]
-                else "tic"
-            )
+            mode = self.config["calibration"].get("norm_rt_mode", "tic")
         else:
             mode = mode.lower()
 
@@ -501,17 +498,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             self.end_of_epoch()
 
-        if "final_full_calibration" in self.config["calibration"]:
-            if self.config["calibration"]["final_full_calibration"]:
-                self.reporter.log_string(
-                    "Performing final calibration with all precursors",
-                    verbosity="progress",
-                )
-                features_df, fragments_df = self.extract_batch(
-                    self.spectral_library._precursor_df
-                )
-                precursor_df = self.fdr_correction(features_df, fragments_df)
-                self.recalibration(precursor_df, fragments_df)
+        if self.config["calibration"].get("final_full_calibration", False):
+            self.reporter.log_string(
+                "Performing final calibration with all precursors",
+                verbosity="progress",
+            )
+            features_df, fragments_df = self.extract_batch(
+                self.spectral_library._precursor_df
+            )
+            precursor_df = self.fdr_correction(features_df, fragments_df)
+            self.recalibration(precursor_df, fragments_df)
 
         self.end_of_calibration()
 
@@ -979,7 +975,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column="mz_calibrated",
             fragment_mz_column="mz_calibrated",
             rt_column="rt_calibrated",
-            mobility_column=f"mobility_calibrated"
+            mobility_column="mobility_calibrated"
             if self.dia_data.has_mobility
             else "mobility_library",
         )
@@ -1007,7 +1003,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def requantify_fragments(
         self, psm_df: pd.DataFrame
-    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
@@ -1027,12 +1023,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """
 
         self.reporter.log_string(
-            f"=== Transfer learning quantification ===",
+            "=== Transfer learning quantification ===",
             verbosity="progress",
         )
 
-        fragment_types = self.config["transfer_learning"]["fragment_types"].split(";")
-        max_charge = self.config["transfer_learning"]["max_charge"]
+        fragment_types = self.config["transfer_library"]["fragment_types"].split(";")
+        max_charge = self.config["transfer_library"]["max_charge"]
 
         self.reporter.log_string(
             f"creating library for charged fragment types: {fragment_types}",
@@ -1044,7 +1040,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Calibrating library",
+            "Calibrating library",
             verbosity="info",
         )
 
@@ -1073,8 +1069,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            precursor_mz_column=f"mz_calibrated",
-            fragment_mz_column=f"mz_calibrated",
+            precursor_mz_column="mz_calibrated",
+            fragment_mz_column="mz_calibrated",
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
@@ -1100,25 +1096,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: typing.List[str] = ["b", "y"],
+    fragment_types: list[str] | None = None,
     max_charge: int = 2,
-    optional_columns: typing.List[str] = [
-        "proba",
-        "score",
-        "qval",
-        "channel",
-        "rt_library",
-        "mz_library",
-        "mobility_library",
-        "genes",
-        "proteins",
-        "decoy",
-        "mods",
-        "mod_sites",
-        "sequence",
-        "charge",
-    ],
-) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
+    optional_columns: list[str] | None = None,
+) -> tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
     Parameters
@@ -1149,6 +1130,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
+            "rt_observed", "mobility_observed", "mz_observed"
         ]
 
     Returns
@@ -1159,11 +1141,30 @@ def _build_candidate_speclib_flat(
     scored_candidates: pd.DataFrame
         Dataframe with scored candidates
     """
-    # remove decoys
-    psm_df = psm_df[psm_df["decoy"] == 0]
 
-    for col in ["rt_observed", "mobility_observed", "mz_observed"]:
-        optional_columns += [col] if col in psm_df.columns else []
+    # set default optional columns
+    if fragment_types is None:
+        fragment_types = ["b", "y"]
+    if optional_columns is None:
+        optional_columns = [
+            "proba",
+            "score",
+            "qval",
+            "channel",
+            "rt_library",
+            "mz_library",
+            "mobility_library",
+            "genes",
+            "proteins",
+            "decoy",
+            "mods",
+            "mod_sites",
+            "sequence",
+            "charge",
+            "rt_observed",
+            "mobility_observed",
+            "mz_observed",
+        ]
 
     scored_candidates = plexscoring.candidate_features_to_candidates(
         psm_df, optional_columns=optional_columns

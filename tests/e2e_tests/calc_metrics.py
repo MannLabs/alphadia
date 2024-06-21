@@ -5,13 +5,15 @@ To extend the metrics, create a new class that inherits from Metrics and impleme
 
 import os
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any
 
-import pandas as pd
+import matplotlib.pyplot as plt
 import neptune
+import pandas as pd
 
-from tests.e2e_tests.prepare_test_data import get_test_case, OUTPUT_DIR_NAME
+from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 
@@ -42,7 +44,7 @@ class OutputFiles:
         return [
             v
             for k, v in cls.__dict__.items()
-            if not k.startswith("__") and not k == "all_values"
+            if not k.startswith("__") and k != "all_values"
         ]
 
 
@@ -101,6 +103,7 @@ class Metrics(ABC):
             self._calc()
         return self._metrics
 
+    @abstractmethod
     def _calc(self) -> None:
         """Calculate the metrics."""
         raise NotImplementedError
@@ -116,6 +119,65 @@ class BasicStats(Metrics):
         for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
             self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
             self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+
+
+def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str = None):
+    """Draw a basic line plot of `metric` for `test_case` over time."""
+
+    df = (
+        df[df["test_case"] == test_case]
+        .sort_index(ascending=False)
+        .reset_index(drop=True)
+    )
+
+    fig, ax = plt.subplots()
+    ax.scatter(x=df.index, y=df[metric])
+    if metric_std:
+        ax.errorbar(x=df.index, y=df[metric], yerr=df[metric_std])
+
+    ax.set_title(f"test_case: {test_case}, metric: {metric}")
+    ax.set_ylabel(metric)
+    ax.set_xlabel("test runs")
+
+    labels = []
+    for x, y, z in zip(
+        df["sys/creation_time"],
+        df["branch_name"],
+        df["short_sha"],
+    ):
+        fmt = "%Y-%m-%d %H:%M:%S.%f"
+        dt = datetime.strptime(str(x), fmt)
+        x = dt.strftime("%Y%m%d_%H:%M:%S")
+
+        labels.append(f"{x}:\n{y} [{z}]")
+
+    ax.set_xticks(df.index, labels, rotation=66)
+
+    return fig
+
+
+def _get_history_plots(test_results: dict, metrics_classes: list):
+    """Get all past runs from neptune, add the current one and create plots."""
+
+    test_results = test_results.copy()
+    test_results["sys/creation_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+    test_results_df = pd.DataFrame(test_results, index=[0])
+
+    project = neptune.init_project(project=NEPTUNE_PROJECT_NAME, mode="read-only")
+    runs_table_df = project.fetch_runs_table().to_pandas()
+
+    df = pd.concat([runs_table_df, test_results_df])
+
+    test_case_name = test_results["test_case"]
+
+    figs = []
+    for metrics_class in [cls.__name__ for cls in metrics_classes]:
+        # TODO find a smarter way to get the metrics
+        for metric in [k for k in test_results if k.startswith(metrics_class)]:
+            fig = _basic_plot(df, test_case_name, metric)
+            figs.append((metric, fig))
+
+    return figs
 
 
 if __name__ == "__main__":
@@ -166,5 +228,13 @@ if __name__ == "__main__":
             file_path = os.path.join(output_path, file_name)
             if os.path.exists(file_path):
                 neptune_run["output/" + file_name].track_files(file_path)
+
+        try:
+            history_plots = _get_history_plots(test_results, metrics_classes)
+
+            for name, plot in history_plots:
+                neptune_run[f"plots/{name}"].upload(plot)
+        except Exception as e:
+            print(f"no plots today: {e}")
 
         neptune_run.stop()

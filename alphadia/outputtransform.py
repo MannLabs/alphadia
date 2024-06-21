@@ -1,41 +1,33 @@
 # native imports
 import logging
 import os
+from collections.abc import Iterator
 
-logger = logging.getLogger()
-
-from alphadia import grouping, libtransform, utils
-from alphadia import fdr
-from alphadia.outputaccumulator import (
-    TransferLearningAccumulator,
-    AccumulationBroadcaster,
-)
-
-
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
-
-
-from typing import List, Tuple, Iterator, Union
-from alphabase.spectral_library import base
-from alphabase.spectral_library.base import SpecLibBase
-from alphabase.peptide import precursor
-
-
-import directlfq.utils as lfqutils
+import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
-import directlfq.config as lfqconfig
+import directlfq.utils as lfqutils
+import numpy as np
+import pandas as pd
+from alphabase.peptide import precursor
+from alphabase.spectral_library import base
+from alphabase.spectral_library.base import SpecLibBase
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
 
-import logging
+from alphadia import fdr, grouping, libtransform, utils
+from alphadia.consensus.utils import read_df, write_df
+from alphadia.outputaccumulator import (
+    AccumulationBroadcaster,
+    TransferLearningAccumulator,
+)
+from alphadia.transferlearning.train import FinetuneManager
 
 logger = logging.getLogger()
 
 
-def get_frag_df_generator(folder_list: List[str]):
+def get_frag_df_generator(folder_list: list[str]):
     """Return a generator that yields a tuple of (raw_name, frag_df)
 
     Parameters
@@ -54,22 +46,14 @@ def get_frag_df_generator(folder_list: List[str]):
 
     for folder in folder_list:
         raw_name = os.path.basename(folder)
-        frag_path = os.path.join(folder, "frag.tsv")
+        frag_path = os.path.join(folder, "frag.parquet")
 
         if not os.path.exists(frag_path):
             logger.warning(f"no frag file found for {raw_name}")
         else:
             try:
                 logger.info(f"reading frag file for {raw_name}")
-                run_df = pd.read_csv(
-                    frag_path,
-                    sep="\t",
-                    dtype={
-                        "precursor_idx": np.uint32,
-                        "number": np.uint8,
-                        "type": np.uint8,
-                    },
-                )
+                run_df = pd.read_parquet(frag_path)
             except Exception as e:
                 logger.warning(f"Error reading frag file for {raw_name}")
                 logger.warning(e)
@@ -83,8 +67,8 @@ class QuantBuilder:
         self.column = column
 
     def accumulate_frag_df_from_folders(
-        self, folder_list: List[str]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, folder_list: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Accumulate the fragment data from a list of folders
 
         Parameters
@@ -106,8 +90,8 @@ class QuantBuilder:
         return self.accumulate_frag_df(df_iterable)
 
     def accumulate_frag_df(
-        self, df_iterable: Iterator[Tuple[str, pd.DataFrame]]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
 
         Parameters
@@ -140,7 +124,6 @@ class QuantBuilder:
         quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
         quality_df.rename(columns={"correlation": raw_name}, inplace=True)
 
-        df_list = []
         for raw_name, df in df_iterable:
             df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -182,7 +165,7 @@ class QuantBuilder:
         min_correlation: float = 0.5,
         top_n: int = 3,
         group_column: str = "pg",
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Filter the fragment data by quality
 
         Parameters
@@ -315,6 +298,7 @@ class SearchPlanOutput:
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
+    TRANSFER_MODEL = "peptdeep.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -354,7 +338,7 @@ class SearchPlanOutput:
 
     def build(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         base_spec_lib: base.SpecLibBase,
     ):
         """Build output from a list of seach outputs
@@ -382,12 +366,44 @@ class SearchPlanOutput:
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
 
-        if self.config["transfer_learning"]["enabled"]:
+        if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
+
+        if self.config["transfer_learning"]["enabled"]:
+            _ = self.build_transfer_model()
+
+    def build_transfer_model(self):
+        logger.progress("Train PeptDeep Models")
+
+        transfer_lib_path = os.path.join(
+            self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+        )
+        assert os.path.exists(
+            transfer_lib_path
+        ), f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
+
+        transfer_lib = SpecLibBase()
+        transfer_lib.load_hdf(
+            transfer_lib_path,
+            load_mod_seq=True,
+        )
+
+        device = utils.get_torch_device(self.config["general"]["use_gpu"])
+
+        tune_mgr = FinetuneManager(
+            device=device, settings=self.config["transfer_learning"]
+        )
+        tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        tune_mgr.finetune_ms2(
+            transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
+        )
+
+        tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
 
     def build_transfer_library(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         keep_top: int = 3,
         number_of_processes: int = 4,
         save: bool = True,
@@ -416,12 +432,12 @@ class SearchPlanOutput:
         """
         logger.progress("======== Building transfer library ========")
         transferAccumulator = TransferLearningAccumulator(
-            keep_top=self.config["transfer_learning"]["top_k_samples"],
-            norm_delta_max=self.config["transfer_learning"]["norm_delta_max"],
-            precursor_correlation_cutoff=self.config["transfer_learning"][
+            keep_top=self.config["transfer_library"]["top_k_samples"],
+            norm_delta_max=self.config["transfer_library"]["norm_delta_max"],
+            precursor_correlation_cutoff=self.config["transfer_library"][
                 "precursor_correlation_cutoff"
             ],
-            fragment_correlation_ratio=self.config["transfer_learning"][
+            fragment_correlation_ratio=self.config["transfer_library"][
                 "fragment_correlation_ratio"
             ],
         )
@@ -453,24 +469,14 @@ class SearchPlanOutput:
             Precursor table
         """
 
-        if not os.path.exists(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv")
-        ):
-            logger.error(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-            raise FileNotFoundError(
-                f"Can't continue as no {self.PRECURSOR_OUTPUT}.tsv file was found in the output folder: {self.output_folder}"
-            )
-        logger.info(f"Reading {self.PRECURSOR_OUTPUT}.tsv file")
-        psm_df = pd.read_csv(
-            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+        return read_df(
+            os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+            file_format=self.config["search_output"]["file_format"],
         )
-        return psm_df
 
     def build_precursor_table(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         save: bool = True,
         base_spec_lib: base.SpecLibBase = None,
     ):
@@ -497,7 +503,7 @@ class SearchPlanOutput:
 
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.tsv")
+            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.parquet")
 
             logger.info(f"Building output for {raw_name}")
 
@@ -506,7 +512,7 @@ class SearchPlanOutput:
                 run_df = pd.DataFrame()
             else:
                 try:
-                    run_df = pd.read_csv(psm_path, sep="\t")
+                    run_df = pd.read_parquet(psm_path)
                 except Exception as e:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
@@ -596,19 +602,18 @@ class SearchPlanOutput:
             psm_df = psm_df[psm_df["decoy"] == 0]
         if save:
             logger.info("Writing precursor output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, self.PRECURSOR_OUTPUT),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return psm_df
 
     def build_stat_df(
         self,
-        folder_list: List[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        folder_list: list[str],
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build stat table from a list of seach outputs
@@ -661,19 +666,18 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
-            stat_df.to_csv(
-                os.path.join(self.output_folder, f"{self.STAT_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                stat_df,
+                os.path.join(self.output_folder, self.STAT_OUTPUT),
+                file_format="tsv",
             )
 
         return stat_df
 
     def build_lfq_tables(
         self,
-        folder_list: List[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        folder_list: list[str],
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Accumulate fragment information and perform label-free protein quantification.
@@ -743,11 +747,11 @@ class SearchPlanOutput:
 
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-                lfq_df.to_csv(
-                    os.path.join(self.output_folder, f"{group_nice}.matrix.tsv"),
-                    sep="\t",
-                    index=False,
-                    float_format="%.6f",
+
+                write_df(
+                    lfq_df,
+                    os.path.join(self.output_folder, f"{group_nice}.matrix"),
+                    file_format=self.config["search_output"]["file_format"],
                 )
 
         protein_df_melted = lfq_df.melt(
@@ -758,11 +762,10 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing psm output to disk")
-            psm_df.to_csv(
-                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}.tsv"),
-                sep="\t",
-                index=False,
-                float_format="%.6f",
+            write_df(
+                psm_df,
+                os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
+                file_format=self.config["search_output"]["file_format"],
             )
 
         return lfq_df
@@ -770,7 +773,7 @@ class SearchPlanOutput:
     def build_library(
         self,
         base_spec_lib: base.SpecLibBase,
-        psm_df: Union[pd.DataFrame, None] = None,
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build spectral library
@@ -819,7 +822,9 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] = [0]):
+def _build_run_stat_df(
+    raw_name: str, run_df: pd.DataFrame, channels: list[int] | None = None
+):
     """Build stat dataframe for a single run.
 
     Parameters
@@ -831,8 +836,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] 
     run_df: pd.DataFrame
         Dataframe containing the precursor data
 
-    channels: List[int]
-        List of channels to include in the output
+    channels: List[int], optional
+        List of channels to include in the output, default=[0]
 
     Returns
     -------
@@ -841,6 +846,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] 
 
     """
 
+    if channels is None:
+        channels = [0]
     out_df = []
 
     for channel in channels:
@@ -1048,7 +1055,7 @@ def log_stat_df(stat_df: pd.DataFrame):
         + "Unique MS2".rjust(space)
     )
 
-    for i, row in stat_df.iterrows():
+    for _, row in stat_df.iterrows():
         if row["modification"] == "Total":
             continue
         logger.info(

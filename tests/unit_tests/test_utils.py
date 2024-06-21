@@ -4,20 +4,31 @@
 # builtin
 
 # local
-from alphadia.utils import (
-    amean0,
-    amean1,
-    calculate_score_groups,
-    wsl_to_windows,
-    windows_to_wsl,
-    merge_missing_columns,
-)
-
-
 # global
 import numpy as np
 import pandas as pd
 import pytest
+
+from alphadia.utils import (
+    amean0,
+    amean1,
+    calculate_score_groups,
+    get_torch_device,
+    merge_missing_columns,
+    windows_to_wsl,
+    wsl_to_windows,
+)
+
+
+@pytest.mark.parametrize("use_gpu", [True, False])
+def test_get_torch_device(use_gpu):
+    # given
+
+    # when
+    device = get_torch_device(use_gpu)
+
+    # then
+    assert device in ["gpu", "mps", "cpu"]
 
 
 def test_amean0():
@@ -125,7 +136,7 @@ def test_merge_missing_fail_on(left_and_right_df):
 
     # when, then
     with pytest.raises(ValueError):
-        df = merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
+        merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
 
 
 def test_merge_missing_fail_right(left_and_right_df):
@@ -134,7 +145,7 @@ def test_merge_missing_fail_right(left_and_right_df):
 
     # when, then
     with pytest.raises(ValueError):
-        df = merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
+        merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
 
 
 def test_merge_missing(left_and_right_df):

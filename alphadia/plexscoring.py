@@ -1,35 +1,34 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-import typing
-
-# alphadia imports
-from alphadia import validate, utils, features, quadrupole
-from alphadia.numba import fragments
-from alphadia.data import bruker, alpharaw
-from alphadia.plotting.cycle import plot_cycle
-from alphadia.plotting.debug import (
-    plot_fragment_profile,
-    plot_precursor,
-    plot_fragments,
-    plot_template,
-)
-
 # alpha family imports
 import alphatims.utils
+import numba as nb
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-import numba as nb
+
+# alphadia imports
+from alphadia import features, quadrupole, utils, validate
+from alphadia.data import alpharaw, bruker
+from alphadia.numba import config, fragments
+from alphadia.plotting.cycle import plot_cycle
+from alphadia.plotting.debug import (
+    plot_fragment_profile,
+    plot_fragments,
+    plot_precursor,
+    plot_template,
+)
+
+logger = logging.getLogger()
 
 NUM_FEATURES = 46
 
 
 def candidate_features_to_candidates(
     candidate_features_df: pd.DataFrame,
-    optional_columns: typing.List[str] = ["proba"],
+    optional_columns: list[str] | None = None,
 ):
     """create candidates_df from candidate_features_df
 
@@ -47,6 +46,8 @@ def candidate_features_to_candidates(
     """
 
     # validate candidate_features_df input
+    if optional_columns is None:
+        optional_columns = ["proba"]
     validate.candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
@@ -73,7 +74,7 @@ def multiplex_candidates(
     candidates_df: pd.DataFrame,
     precursors_flat_df: pd.DataFrame,
     remove_decoys: bool = True,
-    channels: typing.List[int] = [0, 4, 8, 12],
+    channels: list[int] | None = None,
 ):
     """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
     All original candidates will be retained. For missing candidates, the best scoring candidate in the elution group will be used and multiplexed across all missing channels.
@@ -100,7 +101,8 @@ def multiplex_candidates(
         Multiplexed candidates dataframe
 
     """
-
+    if channels is None:
+        channels = [0, 4, 8, 12]
     precursors_flat_view = precursors_flat_df.copy()
     best_candidate_view = candidates_df.copy()
 
@@ -152,9 +154,6 @@ def multiplex_candidates(
     validate.candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
-
-
-from alphadia.numba import config
 
 
 @nb.experimental.jitclass()
@@ -584,14 +583,14 @@ class Candidate:
         for i in range(_dense_precursors.shape[1]):
             dense_precursors[0, i, 0] = np.sum(_dense_precursors[0, i], axis=0)
             for k in range(_dense_precursors.shape[3]):
-                for l in range(_dense_precursors.shape[4]):
+                for ll in range(_dense_precursors.shape[4]):
                     sum = 0
                     count = 0
                     for j in range(_dense_precursors.shape[2]):
-                        sum += _dense_precursors[1, i, j, k, l]
-                        if _dense_precursors[1, i, j, k, l] > 0:
+                        sum += _dense_precursors[1, i, j, k, ll]
+                        if _dense_precursors[1, i, j, k, ll] > 0:
                             count += 1
-                    dense_precursors[1, i, 0, k, l] = sum / (count + 1e-6)
+                    dense_precursors[1, i, 0, k, ll] = sum / (count + 1e-6)
 
         # DEBUG only used for debugging
         # self.dense_precursors = dense_precursors
@@ -917,7 +916,7 @@ class ScoreGroup:
 
         # process reference channel features
         if config.reference_channel >= 0:
-            for idx, candidate in enumerate(self.candidates):
+            for idx, _ in enumerate(self.candidates):
                 if idx == reference_channel_idx:
                     continue
                 # candidate.process_reference_channel(
@@ -1110,7 +1109,7 @@ class ScoreGroupContainer:
                 if len(candidate.features) not in known_feature_lengths:
                     known_feature_lengths += [len(candidate.features)]
                     # add all new features to the list of known columns
-                    for key in candidate.features.keys():
+                    for key in candidate.features.keys():  # noqa: SIM118
                         if key not in known_columns:
                             known_columns += [key]
         return known_columns
@@ -1390,7 +1389,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
+        dia_data: bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,
@@ -1907,12 +1906,10 @@ class CandidateScoring:
         logger.info("Collecting candidate features")
         candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
         validate.candidate_features_df(candidate_features_df)
-        candidate_features_df
 
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
         validate.fragment_features_df(fragment_features_df)
-        fragment_features_df
 
         logger.info("Finished candidate scoring")
 

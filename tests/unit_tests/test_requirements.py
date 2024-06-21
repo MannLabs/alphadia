@@ -17,7 +17,7 @@ def _split_at_first_hash(input_string: str) -> tuple[str, ...]:
 
     # (?<!\\) is a negative lookbehind assertion that ensures the # is not preceded by a backslash
     # (escaping the # would prevent the split at that point).
-    parts = re.split(r"(?<!\\)#", input_string, 1)
+    parts = re.split(r"(?<!\\)#", input_string, maxsplit=1)
     if len(parts) == 1:
         parts.append("")
     return tuple([p.strip() for p in parts])
@@ -41,7 +41,7 @@ def _read_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
 
     """
     packages = {}
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         for line in file:
             line = line.strip()
             if line and not line.startswith("#"):
