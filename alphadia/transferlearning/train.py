@@ -69,7 +69,6 @@ class CustomScheduler(LR_SchedulerInterface):
             mode="min",
             patience=settings["lr_patience"],
             factor=0.5,
-            verbose=True,
         )
         self.warmup_lr = LambdaLR(optimizer, self._warmup)
 
@@ -102,7 +101,7 @@ class CustomScheduler(LR_SchedulerInterface):
 
         """
         if epoch < self.num_warmup_steps:
-            self.warmup_lr.step(epoch)
+            self.warmup_lr.step()
         else:
             self.reduce_lr_on_plateau.step(loss)
 
@@ -140,16 +139,17 @@ class EarlyStopping:
         continue_training : bool
             Whether to continue training or not based on the early stopping criteria.
         """
-        if (
-            val_loss > self.best_loss * (1 + self.margin)
-            or abs(val_loss - self.last_loss) / self.last_loss < self.margin
-        ):
-            self.counter += 1
-            if self.counter >= self.patience:
-                return False
-        else:
-            self.best_loss = val_loss
-            self.counter = 0
+        if self.last_loss != np.inf:
+            if (
+                val_loss > self.best_loss * (1 + self.margin)
+                or abs(val_loss - self.last_loss) / self.last_loss < self.margin
+            ):
+                self.counter += 1
+                if self.counter >= self.patience:
+                    return False
+            else:
+                self.best_loss = val_loss
+                self.counter = 0
         self.last_loss = val_loss
         return True
 
