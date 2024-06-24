@@ -720,7 +720,7 @@ class SearchPlanOutput:
         group_nice_list.append("pg")
 
         # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(group_list, group_nice_list):
+        for group, group_nice in zip(group_list, group_nice_list, strict=True):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )

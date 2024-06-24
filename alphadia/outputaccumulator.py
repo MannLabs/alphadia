@@ -543,7 +543,13 @@ def ms2_quality_control(
     fragment_correlation_df = spec_lib_base._fragment_correlation_df
 
     for i, (start_idx, stop_idx) in tqdm(
-        enumerate(zip(precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"]))
+        enumerate(
+            zip(
+                precursor_df["frag_start_idx"],
+                precursor_df["frag_stop_idx"],
+                strict=True,
+            )
+        )
     ):
         # get XIC correlations and intensities for the precursor
         fragment_correlation_view = fragment_correlation_df.iloc[start_idx:stop_idx]

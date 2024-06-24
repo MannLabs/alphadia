@@ -22,7 +22,7 @@ def center_of_mass(
     scans, frames = np.nonzero(single_dense_representation > 0)
     if len(scans) == 0:
         return 0, 0
-    for scan, frame in zip(scans, frames):
+    for scan, frame in zip(scans, frames, strict=True):
         intensity = single_dense_representation[scan, frame]
         intensity_accumulation += intensity
         frame_accumulation += frame * intensity
@@ -73,7 +73,7 @@ def weighted_center_of_mass(
     if len(scans) == 0:
         return 0, 0, 0, 0
 
-    for scan, frame in zip(scans, frames):
+    for scan, frame in zip(scans, frames, strict=True):
         intensity.append(single_dense_representation[scan, frame])
 
     intensity_arr = np.array(intensity)[1:]
@@ -146,7 +146,7 @@ def weighted_center_mean(single_dense_representation, scan_center, frame_center)
     if len(scans) == 0:
         return 0
 
-    for scan, frame in zip(scans, frames):
+    for scan, frame in zip(scans, frames, strict=True):
         value = single_dense_representation[scan, frame]
         distance = np.sqrt((scan - scan_center) ** 2 + (frame - frame_center) ** 2)
         weight = np.exp(-0.1 * distance)
@@ -458,7 +458,7 @@ def build_features(
     # create weight matrix to exclude empty isotopes
     i, j = np.nonzero(observed_precursor_mz == 0)
     precursor_weights = isotope_intensity.copy()
-    for i_, j_ in zip(i, j):
+    for i_, j_ in zip(i, j, strict=True):
         precursor_weights[i_, j_] = 0
 
     observed_precursor_intensity = weighted_center_mean_2d(

@@ -420,7 +420,7 @@ class Calibration:
                 s=1,
             )
 
-            for ax, dim in zip(axs[input_property, :], [0, 2]):
+            for ax, dim in zip(axs[input_property, :], [0, 2], strict=True):
                 ax.set_xlabel(self.input_columns[input_property])
                 ax.set_ylabel(f"observed deviation {transform_unit}")
 

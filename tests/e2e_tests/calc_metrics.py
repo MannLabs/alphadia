@@ -144,6 +144,7 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
         df["sys/creation_time"],
         df["branch_name"],
         df["short_sha"],
+        strict=True,
     ):
         fmt = "%Y-%m-%d %H:%M:%S.%f"
         dt = datetime.strptime(str(x), fmt)
