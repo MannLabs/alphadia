@@ -134,6 +134,10 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = psm_df[selected_precursor_columns]
         # validate.precursors_flat_from_output(psm_df)
 
+        # get foldername of the output folder
+        foldername = os.path.basename(folder)
+        psm_df["raw_name"] = foldername
+
         # remove decoy precursors
         psm_df = psm_df[psm_df["decoy"] == 0]
 
