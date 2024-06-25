@@ -381,7 +381,7 @@ class Plan:
 
         except Exception as e:
             logger.error(f"Output failed with error {e}", exc_info=True)
-            return
+            raise e
 
         logger.progress("=================== Search Finished ===================")
 
