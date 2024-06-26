@@ -739,8 +739,7 @@ def build_candidates(
         peak_score_list,
         scan_limits_list,
         cycle_limits_list,
-        strict=True,
-    ):
+    ):  # noqa: B905 ('strict' not supported by numba yet)
         # does not work anymore
 
         scan_limits_absolute = numeric.wrap1(
