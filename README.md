@@ -55,7 +55,6 @@ alphaDIA is part of the alphaX ecosystem:
 - [alphaRaw](https://github.com/MannLabs/alpharaw)
 - [alphaBase](https://github.com/MannLabs/alphabase)
 - [directLFQ](https://github.com/MannLabs/directlfq)
-- [alphaTims](https://github.com/MannLabs/alphatims)
 
 ## Installation
 
