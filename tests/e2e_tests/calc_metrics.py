@@ -5,16 +5,15 @@ To extend the metrics, create a new class that inherits from Metrics and impleme
 
 import os
 import sys
-from abc import ABC
+from abc import ABC, abstractmethod
+from datetime import datetime
 from typing import Any
 
-import pandas as pd
-import neptune
-
 import matplotlib.pyplot as plt
-from datetime import datetime
+import neptune
+import pandas as pd
 
-from tests.e2e_tests.prepare_test_data import get_test_case, OUTPUT_DIR_NAME
+from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 
@@ -45,7 +44,7 @@ class OutputFiles:
         return [
             v
             for k, v in cls.__dict__.items()
-            if not k.startswith("__") and not k == "all_values"
+            if not k.startswith("__") and k != "all_values"
         ]
 
 
@@ -104,6 +103,7 @@ class Metrics(ABC):
             self._calc()
         return self._metrics
 
+    @abstractmethod
     def _calc(self) -> None:
         """Calculate the metrics."""
         raise NotImplementedError
@@ -144,6 +144,7 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
         df["sys/creation_time"],
         df["branch_name"],
         df["short_sha"],
+        strict=True,
     ):
         fmt = "%Y-%m-%d %H:%M:%S.%f"
         dt = datetime.strptime(str(x), fmt)
@@ -173,7 +174,7 @@ def _get_history_plots(test_results: dict, metrics_classes: list):
     figs = []
     for metrics_class in [cls.__name__ for cls in metrics_classes]:
         # TODO find a smarter way to get the metrics
-        for metric in [k for k in test_results.keys() if k.startswith(metrics_class)]:
+        for metric in [k for k in test_results if k.startswith(metrics_class)]:
             fig = _basic_plot(df, test_case_name, metric)
             figs.append((metric, fig))
 

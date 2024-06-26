@@ -1,5 +1,6 @@
-import numpy as np
 import logging
+
+import numpy as np
 
 logger = logging.getLogger()
 
@@ -17,7 +18,7 @@ def log_stats(rt_values: np.array, cycle: np.array):
             DIA cycle object describing the msms pattern
     """
 
-    logger.info(f"============ Raw file stats ============")
+    logger.info("============ Raw file stats ============")
 
     rt_limits = rt_values.min() / 60, rt_values.max() / 60
     rt_duration_sec = rt_values.max() - rt_values.min()
@@ -41,4 +42,4 @@ def log_stats(rt_values: np.array, cycle: np.array):
 
     logger.info(f"{'MS2 range (m/z)':<20}: {msms_range[0]:.1f} - {msms_range[1]:.1f}")
 
-    logger.info(f"========================================")
+    logger.info("========================================")

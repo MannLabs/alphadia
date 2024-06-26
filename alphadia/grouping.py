@@ -5,9 +5,10 @@
 # alpha family imports
 
 # third party imports
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Any
 from numpy.typing import NDArray
 
 
@@ -22,7 +23,7 @@ def group_and_parsimony(
     ----------
     precursor_idx : np.array[int]
         Array containing unique integer indices corresponding to each peptide precursor
-    precursor_ids : np.array[str] 
+    precursor_ids : np.array[str]
         Array of variable length semicolon separated str belonging to a given peptide precursor id
 
     Returns
@@ -34,7 +35,7 @@ def group_and_parsimony(
 
     # reshape precursor indices and ids into a dictionary of ids linked to sets of precursors
     id_dict = {}
-    for precursor, ids in zip(precursor_idx, precursor_ids):
+    for precursor, ids in zip(precursor_idx, precursor_ids, strict=True):
         for id in ids.split(";"):
             if id not in id_dict:
                 id_dict[id] = set()
@@ -91,14 +92,14 @@ def group_and_parsimony(
     # check that all return_dict keys are unique. Assume same length and unique keys constitutes match to precursor_idx
     if len(return_dict) != len(set(return_dict.keys())):
         raise ValueError(
-            """Not all precursors were found in the output of the grouping function. 
+            """Not all precursors were found in the output of the grouping function.
             Duplicate precursors were found."""
         )
 
     # order by precursor index and return as lists
     # TODO look above, order by precursor_idx directly?
     return_dict_ordered = {key: return_dict[key] for key in precursor_idx}
-    ids, groups = zip(*return_dict_ordered.values())
+    ids, groups = zip(*return_dict_ordered.values(), strict=True)
 
     return ids, groups
 
@@ -125,7 +126,7 @@ def perform_grouping(
 
     Returns
     -------
-    pd.DataFrame : 
+    pd.DataFrame :
         Precursor table with grouped proteins
 
     """
@@ -144,7 +145,7 @@ def perform_grouping(
     # TODO: consider removing check for duplicates since duplicate masking is implemented above
     if upsm.duplicated(subset=["precursor_idx"]).any():
         raise ValueError(
-            """The same precursor was found annotated to different proteins. 
+            """The same precursor was found annotated to different proteins.
             Please make sure all precursors were searched with the same library."""
         )
 

@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from alphadia.peakgroup.kernel import GaussianKernel, multivariate_normal
 
 

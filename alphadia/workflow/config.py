@@ -22,18 +22,19 @@ In our analysis, we focus on discerning changes between the default configuratio
 - But we still define the source of the update to be the first experiment that triggered the change.
 """
 
-import yaml
-from typing import List, Dict, Any, Union
 import copy
 import json
-import pandas as pd
-import numpy as np
 import logging
+from typing import Any
+
+import numpy as np
+import pandas as pd
+import yaml
 
 logger = logging.getLogger()
 
 
-def get_tree_structure(last_item_arr: List[bool], update=False):
+def get_tree_structure(last_item_arr: list[bool], update=False):
     tree_structure = ""
     for i in last_item_arr[:-1]:
         if i:
@@ -48,7 +49,9 @@ def get_tree_structure(last_item_arr: List[bool], update=False):
     return tree_structure
 
 
-def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> None:
+def print_w_style(
+    string: str, style: str = "auto", last_item_arr: list[bool] | None = None
+) -> None:
     """
     Print string with tree structure and uses ANSI color codes to color the string base on the style:
     - update: green color
@@ -64,13 +67,12 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
     style : str
         Style of the string
 
-    level : int, optional
-        Level of the string, by default
-
-    last_item : bool, optional
-        If the string is the last item in the list or dict, by default False
+    last_item_arr : list[bool], optional
+        If the string is the last item in the list or dict, by default [False]
 
     """
+    if last_item_arr is None:
+        last_item_arr = [False]
     if style == "auto":
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
@@ -105,11 +107,11 @@ def print_w_style(string: str, style: str = "auto", last_item_arr=[False]) -> No
 
 
 def print_recursively(
-    config: Union[Dict[str, Any], List[Any]],
+    config: dict[str, Any] | list[Any],
     level: int = 0,
     style: str = "auto",
     last_item: bool = False,
-    last_item_arr=[],
+    last_item_arr: list | None = None,
 ) -> None:
     """
     Recursively print any config with tree structure and uses ANSI color codes to color the string based on the style.
@@ -128,8 +130,11 @@ def print_recursively(
     last_item : bool, optional
         If the config is the last item in the list or dict, by default False.
 
+    last_item_arr : TODO
     """
 
+    if last_item_arr is None:
+        last_item_arr = []
     if isinstance(config, tuple):
         print_w_style(
             f"{config[0]} ({config[1]})", style=style, last_item_arr=last_item_arr
@@ -156,7 +161,7 @@ def print_recursively(
                 )
                 continue
 
-            elif isinstance(value, list) or isinstance(value, dict):
+            elif isinstance(value, list | dict):
                 print_w_style(
                     f"{key}",
                     style=style,
@@ -179,8 +184,8 @@ def print_recursively(
 
 
 def translate_config(
-    default_config: Union[Dict[str, Any], List[Any]], name: str
-) -> Union[Dict[str, Any], List[Any]]:
+    default_config: dict[str, Any] | list[Any], name: str
+) -> dict[str, Any] | list[Any]:
     """
     Takes as input a dictionary or list of dictianry that contains config values and a name of experiment
     and changes every leaf value to a tuple (value, name)
@@ -216,7 +221,7 @@ def translate_config(
     return default_config
 
 
-def translate_config_back(config: Union[Dict[str, Any], List[Any]]):
+def translate_config_back(config: dict[str, Any] | list[Any]):
     """
     Takes as input a dictionary or list of dictionary that contains config values and changes every leaf value from a tuple (value, name) to value
 
@@ -253,13 +258,13 @@ def translate_config_back(config: Union[Dict[str, Any], List[Any]]):
 
 
 def update_recursive(
-    config: Dict[str, Any],
-    experiment_configs: List[Union[Dict[str, Any], List[Any]]],
+    config: dict[str, Any],
+    experiment_configs: list[dict[str, Any] | list[Any]],
     level: int = 0,
     print_output: bool = True,
     is_leaf_node: bool = False,
-    last_item_arr=[],
-) -> Union[Dict[str, Any], List[Any]]:
+    last_item_arr: list | None = None,
+) -> dict[str, Any] | list[Any]:
     """
     Recursively update the default config with the experiments config
     print the config in a tree structure using pipes and dashes and colors to indicate the changes
@@ -281,7 +286,11 @@ def update_recursive(
     is_leaf_node : bool, optional
         Whether the config is a leaf node or not, by default False
         This is used to determine the style of the config only does not affect the update process
+
+    last_item_arr: TODO
     """
+    if last_item_arr is None:
+        last_item_arr = []
     parent_key = config["key"]
     default_config = config["value"]
     # If the default config is a leaf node, then we can update it
@@ -406,12 +415,12 @@ def recursive_fill_table(
         Value of the key
     """
     if isinstance(value, dict):
-        for key, value in value.items():
-            recursive_fill_table(df, experiment_name, parent_key + "." + key, value)
+        for key, value_ in value.items():
+            recursive_fill_table(df, experiment_name, parent_key + "." + key, value_)
     elif isinstance(value, list):
-        for i, value in enumerate(value):
+        for i, value_ in enumerate(value):
             recursive_fill_table(
-                df, experiment_name, parent_key + "[" + str(i) + "]", value
+                df, experiment_name, parent_key + "[" + str(i) + "]", value_
             )
     else:
         # Check if t he value is different from the last recorded value
@@ -432,8 +441,8 @@ def recursive_fill_table(
 
 
 def get_update_table(
-    default_config: "Config", configs: List["Config"]
-) -> "pandas.DataFrame":
+    default_config: "Config", configs: list["Config"]
+) -> "pd.DataFrame":
     """
     Returns a table of the modifications happening to the config
     such that the rows are the keys and the columns are the experiments
@@ -491,11 +500,11 @@ class Config:
         self.translated_config = {}
 
     def from_yaml(self, path: str) -> None:
-        with open(path, "r") as f:
+        with open(path) as f:
             self.config = yaml.safe_load(f)
 
     def from_json(self, path: str) -> None:
-        with open(path, "r") as f:
+        with open(path) as f:
             self.config = json.load(f)
 
     def to_yaml(self, path: str) -> None:
@@ -506,10 +515,10 @@ class Config:
         with open(path, "w") as f:
             json.dump(self.config, f)
 
-    def from_dict(self, config: Dict[str, Any]) -> None:
+    def from_dict(self, config: dict[str, Any]) -> None:
         self.config = config
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return self.config
 
     def __getitem__(self, key: str) -> Any:
@@ -547,7 +556,7 @@ class Config:
         temp = copy.deepcopy(self.translated_config)
         self.config = translate_config_back(temp)
 
-    def update(self, experiments: List["Config"], print_modifications: bool = True):
+    def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
         Updates the config with the experiment configs,
         and allow for multiple experiment configs to be added.

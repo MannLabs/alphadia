@@ -1,23 +1,24 @@
-import tempfile
 import os
 import shutil
-import numpy as np
-import pandas as pd
-import yaml
-import pytest
+import tempfile
 from pathlib import Path
 
-from alphadia.calibration.property import Calibration
+import numpy as np
+import pandas as pd
+import pytest
+import yaml
 from sklearn.linear_model import LinearRegression
+
 from alphadia.calibration.models import LOESSRegression
-from alphadia.workflow import manager, base
+from alphadia.calibration.property import Calibration
+from alphadia.workflow import base, manager
 
 
 def test_base_manager():
     my_base_manager = manager.BaseManager()
-    assert my_base_manager.path == None
-    assert my_base_manager.is_loaded_from_file == False
-    assert my_base_manager.is_fitted == False
+    assert my_base_manager.path is None
+    assert my_base_manager.is_loaded_from_file is False
+    assert my_base_manager.is_fitted is False
 
 
 def test_base_manager_save():
@@ -37,8 +38,8 @@ def test_base_manager_load():
 
     my_base_manager_loaded = manager.BaseManager(path=tmp_path, load_from_file=True)
     assert my_base_manager_loaded.path == my_base_manager.path
-    assert my_base_manager_loaded.is_loaded_from_file == True
-    assert my_base_manager_loaded.is_fitted == False
+    assert my_base_manager_loaded.is_loaded_from_file is True
+    assert my_base_manager_loaded.is_fitted is False
 
     os.remove(my_base_manager.path)
 
@@ -84,14 +85,14 @@ TEST_CONFIG = [
 
 def test_calibration_manager_init():
     # initialize the calibration manager
-    temp_path = path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     calibration_manager = manager.CalibrationManager(
         TEST_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert calibration_manager.path == temp_path
-    assert calibration_manager.is_loaded_from_file == False
-    assert calibration_manager.is_fitted == False
+    assert calibration_manager.is_loaded_from_file is False
+    assert calibration_manager.is_fitted is False
 
     assert len(calibration_manager.estimator_groups) == 2
     assert len(calibration_manager.get_estimator_names("precursor")) == 2
@@ -139,7 +140,7 @@ def calibration_testdata():
 
 
 def test_calibration_manager_fit_predict():
-    temp_path = path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     calibration_manager = manager.CalibrationManager(
         TEST_CONFIG, path=temp_path, load_from_file=False
     )
@@ -153,13 +154,13 @@ def test_calibration_manager_fit_predict():
     assert "rt_calibrated" in test_df.columns
     # will be false as the the fragment mz calibration is not fitted
 
-    assert calibration_manager.is_fitted == False
-    assert calibration_manager.is_loaded_from_file == False
+    assert calibration_manager.is_fitted is False
+    assert calibration_manager.is_loaded_from_file is False
 
     # fit the fragment mz calibration
     calibration_manager.fit(test_df, "fragment", plot=False)
 
-    assert calibration_manager.is_fitted == True
+    assert calibration_manager.is_fitted is True
 
 
 def test_calibration_manager_save_load():
@@ -172,16 +173,16 @@ def test_calibration_manager_save_load():
     calibration_manager.fit(test_df, "precursor", plot=False)
     calibration_manager.fit(test_df, "fragment", plot=False)
 
-    assert calibration_manager.is_fitted == True
-    assert calibration_manager.is_loaded_from_file == False
+    assert calibration_manager.is_fitted is True
+    assert calibration_manager.is_loaded_from_file is False
 
     calibration_manager.save()
 
     calibration_manager_loaded = manager.CalibrationManager(
         TEST_CONFIG, path=temp_path, load_from_file=True
     )
-    assert calibration_manager_loaded.is_fitted == True
-    assert calibration_manager_loaded.is_loaded_from_file == True
+    assert calibration_manager_loaded.is_fitted is True
+    assert calibration_manager_loaded.is_loaded_from_file is True
 
     calibration_manager_loaded.predict(test_df, "precursor")
 
@@ -203,8 +204,8 @@ def test_optimization_manager():
     assert optimization_manager.fwhm_cycles == 5
     assert optimization_manager.fwhm_mobility == 0.01
 
-    assert optimization_manager.is_loaded_from_file == False
-    assert optimization_manager.is_fitted == False
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is False
 
 
 def test_optimization_manager_save_load():
@@ -214,8 +215,8 @@ def test_optimization_manager_save_load():
         OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
     )
 
-    assert optimization_manager.is_loaded_from_file == False
-    assert optimization_manager.is_fitted == False
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is False
 
     optimization_manager.save()
 
@@ -223,8 +224,8 @@ def test_optimization_manager_save_load():
         OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=True
     )
 
-    assert optimization_manager_loaded.is_loaded_from_file == True
-    assert optimization_manager_loaded.is_fitted == False
+    assert optimization_manager_loaded.is_loaded_from_file is True
+    assert optimization_manager_loaded.is_fitted is False
 
     os.remove(temp_path)
 
@@ -235,13 +236,13 @@ def test_optimization_manager_fit():
         OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
     )
 
-    assert optimization_manager.is_loaded_from_file == False
-    assert optimization_manager.is_fitted == False
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is False
 
     optimization_manager.fit({"fwhm_cycles": 10, "fwhm_mobility": 0.02})
 
-    assert optimization_manager.is_loaded_from_file == False
-    assert optimization_manager.is_fitted == True
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is True
 
     assert optimization_manager.fwhm_cycles == 10
     assert optimization_manager.fwhm_mobility == 0.02
@@ -255,12 +256,12 @@ def test_workflow_base():
         pytest.skip("No test data found")
         return
 
-    for name, file_list in pytest.test_data.items():
+    for _, file_list in pytest.test_data.items():
         for file in file_list:
             config_path = os.path.join(
                 os.path.dirname(__file__), "..", "..", "misc", "config", "default.yaml"
             )
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = yaml.safe_load(f)
 
             config["output"] = tempfile.gettempdir()

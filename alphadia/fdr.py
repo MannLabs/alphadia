@@ -1,34 +1,32 @@
 # native imports
-import os
 import logging
+import os
 
-logger = logging.getLogger()
-
-# alphadia imports
-
-# alpha family imports
-from alphadia import fragcomp
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import sklearn
 
-from typing import Union, Optional, List
+# alphadia imports
+# alpha family imports
+from alphadia import fragcomp
+
+logger = logging.getLogger()
 
 
 def perform_fdr(
     classifier: sklearn.base.BaseEstimator,
-    available_columns: List[str],
+    available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     competetive: bool = False,
     group_channels: bool = True,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
-    df_fragments: Union[pd.DataFrame, None] = None,
+    df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
     **kwargs,
@@ -135,24 +133,23 @@ def perform_fdr(
 
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if dia_cycle is not None:
-        if dia_cycle.shape[2] <= 2:
-            # use a FDR of 10% as starting point
-            # if there are no PSMs with a FDR < 10% use all PSMs
-            start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-            if start_idx == 0:
-                start_idx = len(psm_df)
+    if dia_cycle is not None and dia_cycle.shape[2] <= 2:
+        # use a FDR of 10% as starting point
+        # if there are no PSMs with a FDR < 10% use all PSMs
+        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
+        if start_idx == 0:
+            start_idx = len(psm_df)
 
-            # make sure fragments are not reused
-            if df_fragments is not None:
-                if dia_cycle is None:
-                    raise ValueError(
-                        "dia_cycle must be provided if reuse_fragments is False"
-                    )
-                fragment_competition = fragcomp.FragmentCompetition()
-                psm_df = fragment_competition(
-                    psm_df.iloc[:start_idx], df_fragments, dia_cycle
+        # make sure fragments are not reused
+        if df_fragments is not None:
+            if dia_cycle is None:
+                raise ValueError(
+                    "dia_cycle must be provided if reuse_fragments is False"
                 )
+            fragment_competition = fragcomp.FragmentCompetition()
+            psm_df = fragment_competition(
+                psm_df.iloc[:start_idx], df_fragments, dia_cycle
+            )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
@@ -174,7 +171,7 @@ def perform_fdr(
 def keep_best(
     df: pd.DataFrame,
     score_column: str = "proba",
-    group_columns: List[str] = ["channel", "precursor_idx"],
+    group_columns: list[str] | None = None,
 ):
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
     This function is used to select the best candidate PSM for each precursor.
@@ -198,6 +195,8 @@ def keep_best(
     pd.DataFrame
         The dataframe containing the best PSM for each group.
     """
+    if group_columns is None:
+        group_columns = ["channel", "precursor_idx"]
     temp_df = df.reset_index(drop=True)
     temp_df = temp_df.sort_values(score_column, ascending=True)
     temp_df = temp_df.groupby(group_columns).head(1)
@@ -316,7 +315,7 @@ def plot_fdr(
     y_test: np.ndarray,
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
-    figure_path: Optional[str] = None,
+    figure_path: str | None = None,
     neptune_run=None,
 ):
     """Plots statistics on the fdr corrected PSMs.
@@ -344,10 +343,8 @@ def plot_fdr(
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
-    y_test_pred = np.round(y_test_proba)
 
     y_train_proba = classifier.predict_proba(X_train)[:, 1]
-    y_train_pred = np.round(y_train_proba)
 
     fpr_test, tpr_test, thresholds_test = sklearn.metrics.roc_curve(
         y_test, y_test_proba

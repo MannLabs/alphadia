@@ -1,9 +1,6 @@
 import numpy as np
-
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.base import BaseEstimator, RegressorMixin
-
-from sklearn.utils.estimator_checks import check_estimator
+from sklearn.preprocessing import PolynomialFeatures
 
 
 class LOESSRegression(BaseEstimator, RegressorMixin):
@@ -147,11 +144,10 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         # === start === sanity checks ===
         # Does not yet work with more than one input dimension
         # axis-wise scaling and improved distance function need to be implemented
-        if len(x.shape) > 1:
-            if x.shape[1] > 1:
-                raise ValueError(
-                    "Input arrays with more than one feature not yet supported. Please provide a matrix of shape (n_datapoints, 1) or (n_datapoints,)"
-                )
+        if len(x.shape) > 1 and x.shape[1] > 1:
+            raise ValueError(
+                "Input arrays with more than one feature not yet supported. Please provide a matrix of shape (n_datapoints, 1) or (n_datapoints,)"
+            )
 
         # at least two datapoints required
         if len(x.flat) < 2:
@@ -224,8 +220,8 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         else:
             # scale max and scale mean will then be used for calculating the weighht matrix
-            self.scale_mean = np.zeros((self.n_kernels))
-            self.scale_max = np.zeros((self.n_kernels))
+            self.scale_mean = np.zeros(self.n_kernels)
+            self.scale_max = np.zeros(self.n_kernels)
 
             # scale mean and max are calculated and contain the scaling before applying the kernel
             for i, area in enumerate(kernel_indices):

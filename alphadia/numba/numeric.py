@@ -5,8 +5,8 @@
 # alpha family imports
 
 # third party imports
-import numpy as np
 import numba as nb
+import numpy as np
 
 
 @nb.njit(parallel=False, fastmath=True)
@@ -87,10 +87,7 @@ def get_mean_sparse0(dense, scan, cycle, threshold):
     mask = mz_window < threshold
     fraction_nonzero = np.mean(mask.astype("int8"))
 
-    if fraction_nonzero > 0:
-        values = np.mean(mz_window[mask])
-    else:
-        values = threshold
+    values = np.mean(mz_window[mask]) if fraction_nonzero > 0 else threshold
 
     return values
 

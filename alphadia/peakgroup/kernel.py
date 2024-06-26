@@ -1,17 +1,16 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-import typing
-
-# alphadia imports
-from alphadia.data import bruker, alpharaw
+import numba as nb
 
 # alpha family imports
-
 # third party imports
 import numpy as np
-import numba as nb
+
+# alphadia imports
+from alphadia.data import alpharaw, bruker
+
+logger = logging.getLogger()
 
 
 @nb.njit()
@@ -53,9 +52,9 @@ def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
 class GaussianKernel:
     def __init__(
         self,
-        dia_data: typing.Union[
-            bruker.TimsTOFTransposeJIT, bruker.TimsTOFTranspose, alpharaw.AlphaRaw
-        ],
+        dia_data: bruker.TimsTOFTransposeJIT
+        | bruker.TimsTOFTranspose
+        | alpharaw.AlphaRaw,
         fwhm_rt: float = 10.0,
         sigma_scale_rt: float = 1.0,
         fwhm_mobility: float = 0.03,

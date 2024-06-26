@@ -1,10 +1,12 @@
-import tempfile
-from alphadia import outputtransform
-import pandas as pd
-import numpy as np
 import os
 import shutil
-from conftest import mock_precursor_df, mock_fragment_df
+import tempfile
+
+import numpy as np
+import pandas as pd
+from conftest import mock_fragment_df, mock_precursor_df
+
+from alphadia import outputtransform
 
 
 def test_output_transform():

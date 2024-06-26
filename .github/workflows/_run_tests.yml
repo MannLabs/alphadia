@@ -1,0 +1,46 @@
+# reusable workflow to run tests on different installation types and OS
+name: run-tests
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      python-version:
+        required: true
+        type: string
+      install-script:
+        required: true
+        type: string
+      test-script:
+        required: true
+        type: string
+jobs:
+  run-unit-tests-stable-ubuntu:
+    runs-on: ${{ inputs.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        python-version: ${{ inputs.python-version }}
+    - name: Setup pip cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+    - name: Conda info
+      shell: bash -l {0}
+      run: conda info
+    - name: Perform pip installation with all stable dependencies
+      shell: bash -l {0}
+      run: |
+        cd misc
+        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }}
+    - name: Run tests
+      shell: bash -l {0}
+      run: |
+        cd tests
+        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }}

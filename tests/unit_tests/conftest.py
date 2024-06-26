@@ -1,10 +1,11 @@
-import pytest
 import os
 import re
-import pandas as pd
-import numpy as np
-import matplotlib
 import tempfile
+
+import matplotlib
+import numpy as np
+import pandas as pd
+import pytest
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
@@ -55,9 +56,9 @@ def mock_precursor_df(
     random_mobility = np.random.rand(n_precursor)
     # Generate random 6 amino acid
     sequences = []
-    for i in range(n_precursor):
+    for _ in range(n_precursor):
         sequence = ""
-        for j in range(6):
+        for __ in range(6):
             sequence += chr(np.random.randint(65, 91))
         sequences.append(sequence)
     return pd.DataFrame(
@@ -75,7 +76,6 @@ def mock_precursor_df(
             "charge": precursor_charge,
             "proteins": proteins,
             "genes": genes,
-            "decoy": decoy,
             "proba": proba,
             "qval": qval,
             "sequence": sequences,

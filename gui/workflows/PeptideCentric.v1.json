@@ -607,12 +607,27 @@
                     "type": "float"
                 },
                 {
-                    "id": "train_ratio",
-                    "name": "Train ratio",
-                    "value": 0.8,
-                    "description": "TODO remove and replaced by fixed 70:20:10 split",
+                    "id": "train_fraction",
+                    "name": "Train fraction",
+                    "value": 0.7,
+                    "description": "Fraction of the dataset used for training.",
                     "type": "float"
                 },
+                {
+                    "id": "validation_fraction",
+                    "name": "Validation fraction",
+                    "value": 0.2,
+                    "description": "Fraction of the dataset used for validation.",
+                    "type": "float"
+                },
+                {
+                    "id": "test_fraction",
+                    "name": "Test fraction",
+                    "value": 0.1,
+                    "description": "Fraction of the dataset used for testing.",
+                    "type": "float"
+                },
+
                 {
                     "id": "test_interval",
                     "name": "Test interval",

@@ -1,42 +1,33 @@
 # native imports
 import logging
 import os
+from collections.abc import Iterator
 
-logger = logging.getLogger()
-
-from alphadia import grouping, libtransform, utils
-from alphadia import fdr
-from alphadia.outputaccumulator import (
-    TransferLearningAccumulator,
-    AccumulationBroadcaster,
-)
-from alphadia.consensus.utils import read_df, write_df
-from alphadia.transferlearning.train import FinetuneManager
-
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import train_test_split
-from sklearn.neural_network import MLPClassifier
-
-
-from typing import List, Tuple, Iterator, Union
-from alphabase.spectral_library import base
-from alphabase.spectral_library.base import SpecLibBase
-from alphabase.peptide import precursor
-
-
-import directlfq.utils as lfqutils
+import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
-import directlfq.config as lfqconfig
+import directlfq.utils as lfqutils
+import numpy as np
+import pandas as pd
+from alphabase.peptide import precursor
+from alphabase.spectral_library import base
+from alphabase.spectral_library.base import SpecLibBase
+from sklearn.model_selection import train_test_split
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler
 
-import logging
+from alphadia import fdr, grouping, libtransform, utils
+from alphadia.consensus.utils import read_df, write_df
+from alphadia.outputaccumulator import (
+    AccumulationBroadcaster,
+    TransferLearningAccumulator,
+)
+from alphadia.transferlearning.train import FinetuneManager
 
 logger = logging.getLogger()
 
 
-def get_frag_df_generator(folder_list: List[str]):
+def get_frag_df_generator(folder_list: list[str]):
     """Return a generator that yields a tuple of (raw_name, frag_df)
 
     Parameters
@@ -76,8 +67,8 @@ class QuantBuilder:
         self.column = column
 
     def accumulate_frag_df_from_folders(
-        self, folder_list: List[str]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, folder_list: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Accumulate the fragment data from a list of folders
 
         Parameters
@@ -99,8 +90,8 @@ class QuantBuilder:
         return self.accumulate_frag_df(df_iterable)
 
     def accumulate_frag_df(
-        self, df_iterable: Iterator[Tuple[str, pd.DataFrame]]
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
 
         Parameters
@@ -133,7 +124,6 @@ class QuantBuilder:
         quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
         quality_df.rename(columns={"correlation": raw_name}, inplace=True)
 
-        df_list = []
         for raw_name, df in df_iterable:
             df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -175,7 +165,7 @@ class QuantBuilder:
         min_correlation: float = 0.5,
         top_n: int = 3,
         group_column: str = "pg",
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Filter the fragment data by quality
 
         Parameters
@@ -348,7 +338,7 @@ class SearchPlanOutput:
 
     def build(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         base_spec_lib: base.SpecLibBase,
     ):
         """Build output from a list of seach outputs
@@ -403,9 +393,9 @@ class SearchPlanOutput:
         tune_mgr = FinetuneManager(
             device=device, settings=self.config["transfer_learning"]
         )
-        stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        stats = tune_mgr.finetune_ms2(
+        tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
@@ -413,7 +403,7 @@ class SearchPlanOutput:
 
     def build_transfer_library(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         keep_top: int = 3,
         number_of_processes: int = 4,
         save: bool = True,
@@ -486,7 +476,7 @@ class SearchPlanOutput:
 
     def build_precursor_table(
         self,
-        folder_list: List[str],
+        folder_list: list[str],
         save: bool = True,
         base_spec_lib: base.SpecLibBase = None,
     ):
@@ -622,8 +612,8 @@ class SearchPlanOutput:
 
     def build_stat_df(
         self,
-        folder_list: List[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        folder_list: list[str],
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build stat table from a list of seach outputs
@@ -686,8 +676,8 @@ class SearchPlanOutput:
 
     def build_lfq_tables(
         self,
-        folder_list: List[str],
-        psm_df: Union[pd.DataFrame, None] = None,
+        folder_list: list[str],
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Accumulate fragment information and perform label-free protein quantification.
@@ -730,7 +720,7 @@ class SearchPlanOutput:
         group_nice_list.append("pg")
 
         # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(group_list, group_nice_list):
+        for group, group_nice in zip(group_list, group_nice_list, strict=True):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )
@@ -783,7 +773,7 @@ class SearchPlanOutput:
     def build_library(
         self,
         base_spec_lib: base.SpecLibBase,
-        psm_df: Union[pd.DataFrame, None] = None,
+        psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
         """Build spectral library
@@ -832,7 +822,9 @@ class SearchPlanOutput:
         return mbr_spec_lib
 
 
-def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] = [0]):
+def _build_run_stat_df(
+    raw_name: str, run_df: pd.DataFrame, channels: list[int] | None = None
+):
     """Build stat dataframe for a single run.
 
     Parameters
@@ -844,8 +836,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] 
     run_df: pd.DataFrame
         Dataframe containing the precursor data
 
-    channels: List[int]
-        List of channels to include in the output
+    channels: List[int], optional
+        List of channels to include in the output, default=[0]
 
     Returns
     -------
@@ -854,6 +846,8 @@ def _build_run_stat_df(raw_name: str, run_df: pd.DataFrame, channels: List[int] 
 
     """
 
+    if channels is None:
+        channels = [0]
     out_df = []
 
     for channel in channels:
@@ -1061,7 +1055,7 @@ def log_stat_df(stat_df: pd.DataFrame):
         + "Unique MS2".rjust(space)
     )
 
-    for i, row in stat_df.iterrows():
+    for _, row in stat_df.iterrows():
         if row["modification"] == "Total":
             continue
         logger.info(

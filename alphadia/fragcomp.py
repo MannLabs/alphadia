@@ -1,11 +1,13 @@
-from alphadia import utils
-from alphatims import utils as timsutils
 import logging
+
+import numba as nb
 import numpy as np
 import pandas as pd
+from alphatims import utils as timsutils
+
+from alphadia import utils
 
 logger = logging.getLogger(__name__)
-import numba as nb
 
 
 @nb.njit
@@ -100,7 +102,6 @@ def compete_for_fragments(
     rt_window = rt[precursor_start_idx:precursor_stop_idx]
     valid_window = valid[precursor_start_idx:precursor_stop_idx]
 
-    k = 0
     for i, i_rt in enumerate(rt_window):
         if not valid_window[i]:
             continue
@@ -131,7 +132,7 @@ def compete_for_fragments(
     valid[precursor_start_idx:precursor_stop_idx] = valid_window
 
 
-class FragmentCompetition(object):
+class FragmentCompetition:
     def __init__(
         self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8
     ):

@@ -1,12 +1,12 @@
+# global
+import numpy as np
+import pytest
+
 from alphadia.quadrupole import (
     SimpleQuadrupole,
     logistic_rectangle,
     quadrupole_transfer_function_single,
 )
-
-# global
-import numpy as np
-import pytest
 
 
 @pytest.fixture()

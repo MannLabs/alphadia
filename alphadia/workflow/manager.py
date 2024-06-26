@@ -1,35 +1,34 @@
 # native imports
-import os
-import typing
-import pickle
-from copy import deepcopy
 import logging
+import os
+import pickle
+import typing
+from copy import deepcopy
 
-logger = logging.getLogger()
+import numpy as np
+
+# alpha family imports
+# third party imports
+import pandas as pd
+import torch
+import xxhash
 
 # alphadia imports
 import alphadia
-from alphadia.calibration.property import calibration_model_provider, Calibration
 from alphadia import fdr
+from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.workflow import reporting
 
-# alpha family imports
-
-# third party imports
-import pandas as pd
-import numpy as np
-import xxhash
-
-import torch
+logger = logging.getLogger()
 
 
 class BaseManager:
     def __init__(
         self,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
-        figure_path: typing.Union[None, str] = None,
-        reporter: typing.Union[None, reporting.Pipeline, reporting.Backend] = None,
+        figure_path: None | str = None,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """Base class for all managers which handle parts of the workflow.
 
@@ -82,7 +81,7 @@ class BaseManager:
             try:
                 with open(self.path, "wb") as f:
                     pickle.dump(self, f)
-            except:
+            except Exception:
                 self.reporter.log_string(
                     f"Failed to save {self.__class__.__name__} to {self.path}",
                     verbosity="error",
@@ -141,8 +140,8 @@ class BaseManager:
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        config: typing.Union[None, dict] = None,
-        path: typing.Union[None, str] = None,
+        config: None | dict = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -241,9 +240,7 @@ class CalibrationManager(BaseManager):
             for estimator in group["estimators"]:
                 try:
                     template = calibration_model_provider.get_model(estimator["model"])
-                    model_args = (
-                        estimator["model_args"] if "model_args" in estimator else {}
-                    )
+                    model_args = estimator.get("model_args", {})
                     estimator["function"] = template(**model_args)
                 except Exception as e:
                     self.reporter.log_string(
@@ -343,7 +340,14 @@ class CalibrationManager(BaseManager):
         )
         return None
 
-    def fit(self, df: pd.DataFrame, group_name: str, skip=[], *args, **kwargs):
+    def fit(
+        self,
+        df: pd.DataFrame,
+        group_name: str,
+        skip: list | None = None,
+        *args,
+        **kwargs,
+    ):
         """Fit all estimators in a calibration group.
 
         Parameters
@@ -355,8 +359,12 @@ class CalibrationManager(BaseManager):
         group_name : str
             Name of the calibration group
 
+        skip: TODO
+
         """
 
+        if skip is None:
+            skip = []
         if len(self.estimator_groups) == 0:
             raise ValueError("No estimators defined")
 
@@ -413,7 +421,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"calibration group: {group_name}, predicting {estimator.name}"
                 )
-                estimator.predict(df, inplace=True, *args, **kwargs)
+                estimator.predict(df, inplace=True, *args, **kwargs)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
 
     def fit_predict(
         self,
@@ -444,7 +452,7 @@ class OptimizationManager(BaseManager):
     def __init__(
         self,
         initial_parameters: dict,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -479,7 +487,7 @@ class FDRManager(BaseManager):
         self,
         feature_columns: list,
         classifier_base,
-        path: typing.Union[None, str] = None,
+        path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
@@ -501,8 +509,8 @@ class FDRManager(BaseManager):
             "precursor", "precursor_channel_wise", "channel"
         ] = "precursor",
         competetive: bool = True,
-        df_fragments: typing.Union[None, pd.DataFrame] = None,
-        dia_cycle: typing.Union[None, np.ndarray] = None,
+        df_fragments: None | pd.DataFrame = None,
+        dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
     ):
         """Update the parameters dict with the values in update_dict."""
@@ -514,13 +522,17 @@ class FDRManager(BaseManager):
         if len(available_columns) == 0:
             raise ValueError("No feature columns found in features_df")
 
-        if decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise":
-            if "decoy" not in features_df.columns:
-                raise ValueError("decoy column not found in features_df")
+        strategy_requires_decoy_column = (
+            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        )
+        if strategy_requires_decoy_column and "decoy" not in features_df.columns:
+            raise ValueError("decoy column not found in features_df")
 
-        if decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel":
-            if "channel" not in features_df.columns:
-                raise ValueError("channel column not found in features_df")
+        strategy_requires_channel_column = (
+            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
+        )
+        if strategy_requires_channel_column and "channel" not in features_df.columns:
+            raise ValueError("channel column not found in features_df")
 
         if decoy_strategy == "channel" and decoy_channel == -1:
             raise ValueError("decoy_channel must be set if decoy_type is channel")
@@ -534,11 +546,12 @@ class FDRManager(BaseManager):
             )
             decoy_channel = -1
 
-        if decoy_strategy == "channel" and decoy_channel > -1:
-            if decoy_channel not in features_df["channel"].unique():
-                raise ValueError(
-                    f"decoy_channel {decoy_channel} not found in features_df"
-                )
+        if (
+            decoy_strategy == "channel"
+            and decoy_channel > -1
+            and decoy_channel not in features_df["channel"].unique()
+        ):
+            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
         self.reporter.log_string(
             f"performing {decoy_strategy} FDR with {len(available_columns)} features"
@@ -612,7 +625,7 @@ class FDRManager(BaseManager):
         return psm_df
 
     def save_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )
@@ -625,7 +638,7 @@ class FDRManager(BaseManager):
             )
 
     def load_classifier_store(self, path=None):
-        if path == None:
+        if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )

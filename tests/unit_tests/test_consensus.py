@@ -1,7 +1,9 @@
-import pytest
-import pandas as pd
 import os
+
+import pandas as pd
+import pytest
 from conftest import random_tempfolder
+
 from alphadia.consensus.utils import read_df, write_df
 
 

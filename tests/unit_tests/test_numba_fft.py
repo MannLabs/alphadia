@@ -1,8 +1,8 @@
-import pytest
-import numpy as np
 import numba as nb
+import numpy as np
+import pytest
 
-from alphadia.numba.fft import rfft2, irfft2, convolve_fourier
+from alphadia.numba.fft import convolve_fourier, irfft2, rfft2
 
 
 @pytest.mark.parametrize("shape", [(100, 2), (2, 100), (100, 100)])

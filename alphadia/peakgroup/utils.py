@@ -1,7 +1,8 @@
-import numpy as np
 import numba as nb
-from alphadia.numba.fft import NumbaContextOnly
+import numpy as np
 from numba.extending import overload
+
+from alphadia.numba.fft import NumbaContextOnly
 
 
 def assemble_isotope_mz(mono_mz, charge, isotope_intensity):

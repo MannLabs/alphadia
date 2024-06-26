@@ -1,13 +1,13 @@
 """Download files from sharing links."""
 
-import os
 import base64
-import traceback
-from abc import ABC, abstractmethod
-from urllib.request import urlopen
-from urllib.request import urlretrieve
 import cgi
+import os
+import traceback
 import zipfile
+from abc import ABC, abstractmethod
+from urllib.request import urlopen, urlretrieve
+
 import progressbar
 
 
@@ -74,7 +74,7 @@ class FileDownloader(ABC):
         """Get filename from url."""
         try:
             remotefile = urlopen(self._encoded_url)
-        except:
+        except Exception:
             print(f"Could not open {self._url} for reading filename")
             raise ValueError(
                 f"Could not open {self._url} for reading filename"
@@ -101,7 +101,7 @@ class FileDownloader(ABC):
 
         except Exception as e:
             print(f"{e} {traceback.print_exc()}")
-            raise ValueError(f"Could not download {self._file_name}: {e}")
+            raise ValueError(f"Could not download {self._file_name}: {e}") from e
 
     def _handle_archive(self) -> None:
         """Unpack archive and remove it."""

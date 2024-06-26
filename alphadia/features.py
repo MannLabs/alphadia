@@ -1,14 +1,14 @@
 # native imports
 
 # alphadia imports
-from alphadia import utils
-from alphadia.numba import numeric
+import numba as nb
 
 # alpha family imports
-
 # third party imports
 import numpy as np
-import numba as nb
+
+from alphadia import utils
+from alphadia.numba import numeric
 
 
 @nb.njit
@@ -458,20 +458,12 @@ def build_features(
     # create weight matrix to exclude empty isotopes
     i, j = np.nonzero(observed_precursor_mz == 0)
     precursor_weights = isotope_intensity.copy()
-    for i, j in zip(i, j):
-        precursor_weights[i, j] = 0
+    for i_, j_ in zip(i, j):
+        precursor_weights[i_, j_] = 0
 
     observed_precursor_intensity = weighted_center_mean_2d(
         dense_precursors[0], p_expected_scan_center, p_expected_frame_center
     ).reshape(n_precursors, n_isotopes)
-
-    # sum precursor
-    sum_precursor_intensity = np.sum(
-        np.sum(dense_precursors[0], axis=-1), axis=-1
-    ).astype(np.float32)
-    sum_fragment_intensity = np.sum(
-        np.sum(dense_fragments[0], axis=-1), axis=-1
-    ).astype(np.float32)
 
     # (n_precursor, n_isotopes)
     mass_error_array = (observed_precursor_mz - isotope_mz) / isotope_mz * 1e6
@@ -565,14 +557,13 @@ def build_features(
     features["mean_observation_score"] = 0
     features["var_observation_score"] = 1
 
-    if np.sum(peak_fragment_mask_1d) > 0:
-        if n_observations > 1:
-            observation_score = cosine_similarity_a1(
-                total_template_intensity,
-                observed_fragment_intensity[peak_fragment_mask_1d],
-            ).astype(np.float32)
-            features["mean_observation_score"] = np.mean(observation_score)
-            features["var_observation_score"] = np.var(observation_score)
+    if np.sum(peak_fragment_mask_1d) > 0 and n_observations > 1:
+        observation_score = cosine_similarity_a1(
+            total_template_intensity,
+            observed_fragment_intensity[peak_fragment_mask_1d],
+        ).astype(np.float32)
+        features["mean_observation_score"] = np.mean(observation_score)
+        features["var_observation_score"] = np.var(observation_score)
 
     fragment_features["mz_library"] = fragments.mz_library[fragment_mask_1d]
     fragment_features["mz_observed"] = observed_fragment_mz_mean[
@@ -724,10 +715,6 @@ def fragment_features(
     quant_window: nb.uint32 = 3,
     quant_all: nb.boolean = False,
 ):
-    fragment_feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=float_array
-    )
-
     n_observations = observation_importance.shape[0]
     n_fragments = dense_fragments.shape[1]
     feature_array[17] = float(n_observations)
@@ -780,7 +767,6 @@ def fragment_features(
 
     # (quant_window * 2 + 1)
     frame_rt_quant = frame_rt[center - quant_window : center + quant_window + 1]
-    quant_durarion = frame_rt_quant[-1] - frame_rt_quant[0]
 
     # (quant_window * 2)
     delta_rt = frame_rt_quant[1:] - frame_rt_quant[:-1]
@@ -1019,8 +1005,6 @@ def profile_features(
     feature_array,
 ):
     n_observations = len(observation_importance)
-    # most intense observation across all observations
-    best_observation = np.argmax(observation_importance)
 
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
@@ -1203,8 +1187,6 @@ def reference_features(
         key_type=nb.types.unicode_type, value_type=nb.types.float32
     )
 
-    n_observation = reference_observation_importance.shape[0]
-    n_fragments = reference_fragments_scan_profile.shape[0]
     fragment_idx_sorted = np.argsort(fragment_lib_intensity)[::-1]
 
     if (
@@ -1353,14 +1335,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            < candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        < candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count
@@ -1373,14 +1357,16 @@ def rank_features(current_candidate_idx, candidate_list):
             count = 0
 
             for i_candidate in range(len(candidate_list)):
-                if i_candidate != current_candidate_idx:
-                    if feature in candidate_list[i_candidate].features:
-                        if (
-                            candidate_list[i_candidate].features[feature]
-                            > candidate_list[current_candidate_idx].features[feature]
-                        ):
-                            rank += 1
-                        count += 1
+                if (
+                    i_candidate != current_candidate_idx
+                    and feature in candidate_list[i_candidate].features
+                ):
+                    if (
+                        candidate_list[i_candidate].features[feature]
+                        > candidate_list[current_candidate_idx].features[feature]
+                    ):
+                        rank += 1
+                    count += 1
 
         if count > 0:
             feature_dict[feature + "_rank"] = rank / count
