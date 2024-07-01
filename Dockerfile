@@ -37,6 +37,7 @@ COPY docs docs
 COPY gui gui
 COPY requirements requirements
 COPY alphadia alphadia
+COPY MANIFEST.in MANIFEST.in
 
 RUN pip install  --no-cache-dir ".[stable]"
 
