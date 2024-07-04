@@ -12,6 +12,9 @@ else
   INSTALL_STRING="[${INSTALL_TYPE}]"
 fi
 
+# print pip environment for reproducibility
+conda run -n $ENV_NAME --no-capture-output pip freeze
+
 # conda 'run' vs. 'activate', cf. https://stackoverflow.com/a/72395091
 conda run -n $ENV_NAME --no-capture-output pip install -e "../.$INSTALL_STRING"
 conda run -n $ENV_NAME --no-capture-output alphadia -v
