@@ -26,7 +26,8 @@ jobs:
       - name: Conda info
         shell: bash -el {0}
         run: conda info
-      - name: Pip installation with loose dependencies
+      - name: Pip installation with stable dependencies
+        id: pip_installation
         shell: bash -el {0}
         run: |
           cd misc
@@ -41,3 +42,8 @@ jobs:
         shell: bash -el {0}
         run: |
           conda remove -n $RUN_NAME --all
+      - name: Delete Caches on Error
+        if: steps.pip_installation.outcome == 'failure'
+        run: |
+          rm -rf ~/.cache/pip
+          rm -rf ~/.cache/conda
