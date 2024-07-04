@@ -73,6 +73,8 @@ jobs:
     steps:
     - name : Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.commit_to_release }}
 
     # Build backend
     - name: Install conda
@@ -135,6 +137,8 @@ jobs:
     steps:
     - name : Checkout code
       uses: actions/checkout@v4
+      with:
+        ref: ${{ inputs.commit_to_release }}
 
     # Build backend
     - name: Install conda
