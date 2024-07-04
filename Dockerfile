@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # https://github.com/michaelosthege/pythonnet-docker
-FROM --platform=linux/amd64 mosthege/pythonnet:python3.9.16-mono6.12-pythonnet3.0.1
+FROM --platform=linux/amd64 mosthege/pythonnet:python3.10.10-mono6.12-pythonnet3.0.1
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
