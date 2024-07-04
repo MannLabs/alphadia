@@ -30,7 +30,17 @@ datas, binaries, hidden_imports = PyInstaller.utils.hooks.collect_all(
 	include_py_files=True
 )
 
-hidden_imports = list(set(hidden_imports) & {'clr', 'alphabase', 'alpharaw','alphatims','rocket_fft'})
+alpha_x = ['alphabase', 'alpharaw','alphatims','peptdeep']
+for alpha_package in alpha_x:
+	_datas, _binaries, _hidden_imports = PyInstaller.utils.hooks.collect_all(
+		alpha_package,
+		include_py_files=True
+	)
+	datas+=_datas
+	binaries+=_binaries
+	hidden_imports+=_hidden_imports
+
+hidden_imports = list(set(hidden_imports) & {'clr','rocket_fft','tokenizers'})
 hidden_imports = [h for h in hidden_imports if "__pycache__" not in h]
 datas = [d for d in datas if ("__pycache__" not in d[0]) and (d[1] not in [".", "Resources", "scripts"])]
 
