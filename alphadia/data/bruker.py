@@ -1,24 +1,25 @@
 # native imports
+import logging
 import math
 import os
-import logging
 
-logger = logging.getLogger()
+import alphatims.bruker
+import alphatims.tempmmap as tm
+
+# alpha family imports
+import alphatims.utils
+import numba as nb
+
+# third party imports
+import numpy as np
+from numba.core import types
+from numba.experimental import jitclass
 
 # alphadia imports
 from alphadia import utils
 from alphadia.data.stats import log_stats
 
-# alpha family imports
-import alphatims.utils
-import alphatims.bruker
-import alphatims.tempmmap as tm
-
-# third party imports
-import numpy as np
-import numba as nb
-from numba.core import types
-from numba.experimental import jitclass
+logger = logging.getLogger()
 
 
 class TimsTOFTranspose(alphatims.bruker.TimsTOF):
@@ -200,7 +201,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         ("has_mobility", types.boolean),
     ]
 )
-class TimsTOFTransposeJIT(object):
+class TimsTOFTransposeJIT:
     """Numba compatible transposed TimsTOF data structure."""
 
     def __init__(
@@ -693,9 +694,6 @@ class TimsTOFTransposeJIT(object):
             len(unique_precursor_index)
         )
 
-        relative_precursor_index = precursor_index_reverse[precursor_index]
-
-        n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
         # scan valuesa

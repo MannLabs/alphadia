@@ -1,24 +1,25 @@
-
 const fs = require("fs")
 const path = require("path")
 const { app, shell} = require("electron")
 const { dialog } = require('electron')
 
+const VERSION = "1.7.1"
+
 const Profile = class {
 
     config = {
-        "version": "1.7.0",
+        "version": VERSION,
         "conda": {
-            "envName": "alpha",
+            "envName": "alphadia",
             "path": ""
         },
         "clippy": false,
         "WSLExecutionEngine": {
-            "envName": "alpha",
+            "envName": "alphadia",
 
         },
         "CMDExecutionEngine": {
-            "envName": "alpha",
+            "envName": "alphadia",
             "condaPath": ""
         },
         "BundledExecutionEngine": {
@@ -34,8 +35,6 @@ const Profile = class {
         } else {
             this.loadProfile()
         }
-
-        console.log(this.getProfilePath())
     }
 
     saveProfile() {
@@ -44,7 +43,7 @@ const Profile = class {
 
     loadProfile() {
         try {
-            this.config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+            config = JSON.parse(fs.readFileSync(this.getProfilePath()))
         } catch (err) {
             dialog.showMessageBox({
                 type: 'error',
@@ -53,6 +52,20 @@ const Profile = class {
             }).catch((err) => {
                 console.log(err)
             })
+            return
+        }
+
+        if (config.version !== VERSION) {
+            dialog.showMessageBox({
+                type: 'info',
+                title: 'Found old alphaDIA profile',
+                message: `Found old alphaDIA profile. Updating to version ${VERSION}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+            this.saveProfile()
+        } else {
+            this.config = config
         }
     }
 

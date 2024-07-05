@@ -1,18 +1,17 @@
 # native imports
-import os
 import logging
-
-logger = logging.getLogger()
-import typing
-
-# alphadia imports
-from alphadia.data import bruker, alpharaw
-from alphadia.workflow import manager, reporting
+import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
 
+# alphadia imports
+from alphadia.data import alpharaw, bruker
+from alphadia.workflow import manager, reporting
+
 # third party imports
+
+logger = logging.getLogger()
 
 TEMP_FOLDER = ".progress"
 
@@ -144,13 +143,13 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT]:
+    ) -> bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
 
     def _get_dia_data_object(
         self, dia_data_path: str
-    ) -> typing.Union[bruker.TimsTOFTranspose, alpharaw.AlphaRaw]:
+    ) -> bruker.TimsTOFTranspose | alpharaw.AlphaRaw:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -176,14 +175,7 @@ class WorkflowBase:
             shutil.copyfile(dia_data_path, tmp_dia_data_path)
             dia_data_path = tmp_dia_data_path
 
-        if file_extension.lower() == ".d":
-            self.reporter.log_metric("raw_data_type", "bruker")
-            dia_data = bruker.TimsTOFTranspose(
-                dia_data_path,
-                mmap_detector_events=self.config["general"]["mmap_detector_events"],
-            )
-
-        elif file_extension.lower() == ".hdf":
+        if file_extension.lower() == ".d" or file_extension.lower() == ".hdf":
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
@@ -194,9 +186,11 @@ class WorkflowBase:
             self.reporter.log_metric("raw_data_type", "thermo")
             # check if cv selection exists
             cv = None
-            if "raw_data_loading" in self.config:
-                if "cv" in self.config["raw_data_loading"]:
-                    cv = self.config["raw_data_loading"]["cv"]
+            if (
+                "raw_data_loading" in self.config
+                and "cv" in self.config["raw_data_loading"]
+            ):
+                cv = self.config["raw_data_loading"]["cv"]
 
             dia_data = alpharaw.Thermo(
                 dia_data_path,

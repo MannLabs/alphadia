@@ -22,20 +22,17 @@ TransferLearningAccumulator
 
 """
 
-from typing import List, Tuple
-import numba as nb
-import pandas as pd
-import numpy as np
-import os
+import logging
 import multiprocessing
+import os
 import threading
-from tqdm import tqdm
 
+import numba as nb
+import numpy as np
+import pandas as pd
 from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
-
-
-import logging
+from tqdm import tqdm
 
 logger = logging.getLogger()
 
@@ -81,28 +78,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
     def parse_output_folder(
         self,
         folder: str,
-        selected_precursor_columns: List[str] = [
-            "precursor_idx",
-            "sequence",
-            "flat_frag_start_idx",
-            "flat_frag_stop_idx",
-            "charge",
-            "rt_library",
-            "rt_observed",
-            "rt_calibrated",
-            "mobility_library",
-            "mobility_observed",
-            "mz_library",
-            "mz_observed",
-            "mz_calibrated",
-            "proteins",
-            "genes",
-            "mods",
-            "mod_sites",
-            "proba",
-            "decoy",
-        ],
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        selected_precursor_columns: list[str] | None = None,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
 
@@ -122,6 +99,28 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
 
         """
+        if selected_precursor_columns is None:
+            selected_precursor_columns = [
+                "precursor_idx",
+                "sequence",
+                "flat_frag_start_idx",
+                "flat_frag_stop_idx",
+                "charge",
+                "rt_library",
+                "rt_observed",
+                "rt_calibrated",
+                "mobility_library",
+                "mobility_observed",
+                "mz_library",
+                "mz_observed",
+                "mz_calibrated",
+                "proteins",
+                "genes",
+                "mods",
+                "mod_sites",
+                "proba",
+                "decoy",
+            ]
         psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
         frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
@@ -132,6 +131,10 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         ), f"selected_precursor_columns must be a subset of psm_df.columns didnt find {set(selected_precursor_columns) - set(psm_df.columns)}"
         psm_df = psm_df[selected_precursor_columns]
         # validate.precursors_flat_from_output(psm_df)
+
+        # get foldername of the output folder
+        foldername = os.path.basename(folder)
+        psm_df["raw_name"] = foldername
 
         # remove decoy precursors
         psm_df = psm_df[psm_df["decoy"] == 0]
@@ -168,7 +171,9 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
         # ----------------- Fragment -----------------
         # Filer fragments that are not used in the precursors
-        frag_df = frag_df[frag_df["precursor_idx"].isin(self._precursor_df["precursor_idx"])]
+        frag_df = frag_df[
+            frag_df["precursor_idx"].isin(self._precursor_df["precursor_idx"])
+        ]
         self._fragment_df = frag_df[
             ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
         ].copy()
@@ -542,7 +547,13 @@ def ms2_quality_control(
     fragment_correlation_df = spec_lib_base._fragment_correlation_df
 
     for i, (start_idx, stop_idx) in tqdm(
-        enumerate(zip(precursor_df["frag_start_idx"], precursor_df["frag_stop_idx"]))
+        enumerate(
+            zip(
+                precursor_df["frag_start_idx"],
+                precursor_df["frag_stop_idx"],
+                strict=True,
+            )
+        )
     ):
         # get XIC correlations and intensities for the precursor
         fragment_correlation_view = fragment_correlation_df.iloc[start_idx:stop_idx]

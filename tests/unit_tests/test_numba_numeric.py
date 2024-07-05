@@ -1,4 +1,5 @@
 import numpy as np
+
 from alphadia.numba.numeric import search_sorted_left
 
 

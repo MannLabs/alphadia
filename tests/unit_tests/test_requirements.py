@@ -1,11 +1,14 @@
 """Test that the strict and loose requirements files are aligned."""
 
+import logging
 import os
 import re
 
 from packaging.requirements import Requirement
 
-# special comment to tolerate version in loose requirements file
+# special comment to tolerate
+# - non-strict version in strict requirements file
+# - defined version in loose requirements file
 TOLERATE_VERSION_COMMENT = "test: tolerate_version"
 
 
@@ -17,7 +20,7 @@ def _split_at_first_hash(input_string: str) -> tuple[str, ...]:
 
     # (?<!\\) is a negative lookbehind assertion that ensures the # is not preceded by a backslash
     # (escaping the # would prevent the split at that point).
-    parts = re.split(r"(?<!\\)#", input_string, 1)
+    parts = re.split(r"(?<!\\)#", input_string, maxsplit=1)
     if len(parts) == 1:
         parts.append("")
     return tuple([p.strip() for p in parts])
@@ -41,7 +44,7 @@ def _read_requirements(file_path: str) -> dict[str, tuple[Requirement, str]]:
 
     """
     packages = {}
-    with open(file_path, "r") as file:
+    with open(file_path) as file:
         for line in file:
             line = line.strip()
             if line and not line.startswith("#"):
@@ -94,22 +97,28 @@ def test_requirements():
         set_strict == set_loose
     ), f"Requirements in do not match. only in strict: {set_strict-set_loose}; only in loose: {set_loose-set_strict}"
 
-    for req, _ in reqs_strict.values():
+    for _, (req, comment) in reqs_strict.items():
         assert (
             len(req.specifier) == 1
         ), f"Requirement '{req}' does not have one defined version in '{file_name_strict}'"
-        assert str(
-            list(req.specifier)[0]
-        ).startswith(
-            "=="
-        ), f"Requirement '{req}' does not have a fixed version ('==') in '{file_name_strict}'"
+
+        if TOLERATE_VERSION_COMMENT not in comment:
+            assert str(
+                list(req.specifier)[0]
+            ).startswith(
+                "=="
+            ), f"Requirement '{req}' does not have a fixed version ('==') in '{file_name_strict}'"
 
     for req_name, (req, comment) in reqs_loose.items():
-        if comment != TOLERATE_VERSION_COMMENT:
+        if TOLERATE_VERSION_COMMENT not in comment:
             assert (
                 len(req.specifier) == 0
             ), f"Requirement '{req}' must not have a defined version in '{file_name_loose}'"
         else:
+            if reqs_strict[req_name][0] == req:
+                logging.info(f"Tolerating {req} as it's the same in both files")
+                continue
+
             # here we rely on the test for 'fixed version' above to access the specifier
             specifier_strict = reqs_strict[req_name][0].specifier
             version_strict = str(list(specifier_strict)[0]).replace("==", "")

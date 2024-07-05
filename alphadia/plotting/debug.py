@@ -1,14 +1,13 @@
 # native imports
 
 # alphadia imports
-from alphadia.plotting import utils
-from alphadia import quadrupole
-
 # alpha family imports
-
 # third party imports
 import matplotlib.pyplot as plt
 import numpy as np
+
+from alphadia import quadrupole
+from alphadia.plotting import utils
 
 
 def plot_fragment_profile(

@@ -1,22 +1,21 @@
 # native imports
-import os
 import logging
-import typing
 import pickle
 
-# alphadia imports
-from alphadia.plotting.utils import density_scatter
-from alphadia.calibration.models import LOESSRegression
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-from matplotlib import pyplot as plt
-
 import sklearn.base
+from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import PolynomialFeatures
+
+from alphadia.calibration.models import LOESSRegression
+
+# alphadia imports
+from alphadia.plotting.utils import density_scatter
 
 
 class Calibration:
@@ -24,10 +23,10 @@ class Calibration:
         self,
         name: str = "",
         function: object = None,
-        input_columns: typing.List[str] = [],
-        target_columns: typing.List[str] = [],
-        output_columns: typing.List[str] = [],
-        transform_deviation: typing.Union[None, float] = None,
+        input_columns: list[str] | None = None,
+        target_columns: list[str] | None = None,
+        output_columns: list[str] | None = None,
+        transform_deviation: None | float = None,
         **kwargs,
     ):
         """A single estimator for a property (mz, rt, etc.).
@@ -61,7 +60,12 @@ class Calibration:
             If set to None, the deviation is expressed in absolute units.
 
         """
-
+        if output_columns is None:
+            output_columns = []
+        if target_columns is None:
+            target_columns = []
+        if input_columns is None:
+            input_columns = []
         self.name = name
         self.function = function
         self.input_columns = input_columns
@@ -171,7 +175,7 @@ class Calibration:
             logging.error(f"Could not fit estimator {self.name}: {e}")
             return
 
-        if plot == True:
+        if plot is True:
             self.plot(dataframe, **kwargs)
 
     def predict(self, dataframe, inplace=True):
@@ -192,7 +196,7 @@ class Calibration:
 
         """
 
-        if self.is_fitted == False:
+        if self.is_fitted is False:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
             )
@@ -324,7 +328,7 @@ class Calibration:
         residual_deviation = deviation[:, 2]
         return np.mean(np.abs(np.percentile(residual_deviation, ci_percentile)))
 
-    def get_transform_unit(self, transform_deviation: typing.Union[None, float]):
+    def get_transform_unit(self, transform_deviation: None | float):
         """Get the unit of the deviation based on the transform deviation.
 
         Parameters
@@ -416,7 +420,7 @@ class Calibration:
                 s=1,
             )
 
-            for ax, dim in zip(axs[input_property, :], [0, 2]):
+            for ax, dim in zip(axs[input_property, :], [0, 2], strict=True):
                 ax.set_xlabel(self.input_columns[input_property])
                 ax.set_ylabel(f"observed deviation {transform_unit}")
 
