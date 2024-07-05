@@ -103,7 +103,7 @@ plt.show()
 
 
     
-![png](finetuning_files/finetuning_7_1.png)
+![png](finetuning_imgs/finetuning_7_1.png)
     
 
 
@@ -182,7 +182,7 @@ plt.show()
 
 
     
-![png](finetuning_files/finetuning_11_0.png)
+![png](finetuning_imgs/finetuning_11_0.png)
     
 
 
@@ -221,7 +221,7 @@ plt.xlabel('RT observed')
 plt.ylabel('RT predicted')
 ```
     
-![png](finetuning_files/finetuning_17_3.png)
+![png](finetuning_imgs/finetuning_17_3.png)
     
 
 
@@ -262,7 +262,7 @@ plt.ylabel('RT predicted')
     2024-07-05 11:18:01>  intercept                     : 0.0147
     2024-07-05 11:18:01>  abs_error_95th_percentile     : 0.0846
 
-![png](finetuning_files/finetuning_19_3.png)
+![png](finetuning_imgs/finetuning_19_3.png)
     
 
 
@@ -276,7 +276,7 @@ g.legend.set_title('Data split')
 
 
     
-![png](finetuning_files/finetuning_20_0.png)
+![png](finetuning_imgs/finetuning_20_0.png)
     
 
 
@@ -318,7 +318,7 @@ g.legend.set_title('Data split')
 
 
     
-![png](finetuning_files/finetuning_23_0.png)
+![png](finetuning_imgs/finetuning_23_0.png)
     
 
 
@@ -342,7 +342,7 @@ plt.title('Similarity between observed and predicted MS2 spectra before fine-tun
 ```
 
     
-![png](finetuning_files/finetuning_27_4.png)
+![png](finetuning_imgs/finetuning_27_4.png)
     
 
 
@@ -398,7 +398,7 @@ plt.ylabel("Similarity")
 plt.title("Similarity between observed and predicted MS2 spectra after fine-tuning")
 ```
     0.9401921591393136 
-![png](finetuning_files/finetuning_29_4.png)
+![png](finetuning_imgs/finetuning_29_4.png)
     
 
 
@@ -412,6 +412,6 @@ g.legend.set_title('Data split')
 
 
     
-![png](finetuning_files/finetuning_30_0.png)
+![png](finetuning_imgs/finetuning_30_0.png)
     
 
