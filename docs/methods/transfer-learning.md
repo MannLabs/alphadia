@@ -29,9 +29,7 @@ For alphaDIA, we use a custom learning rate scheduler with two phases:
 ### 1) Warmup Phase
 In this phase, the learning rate starts small and gradually increases over a certain number of "warmup epochs". Our default is **5**. This technique significantly helps in training transformers when using optimizers like Adam or SGD ([https://arxiv.org/abs/2002.04745](https://arxiv.org/abs/2002.04745)). Since we are not training from scratch, we set the default number of warmup epochs to 5. The user only needs to define the maximum learning rate and the number of epochs for warm-up. During this phase, the learning rate lr(t) is calculated as:
 
-$$
-\text{lr}(t) = \text{max\_lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)
-$$
+$$\text{lr}(t) = \text{max lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)$$
 
 ### 2) Reduce on Plateau LR Schedule
 After the warmup phase, the learning rate reaches the maximum value set by the user and remains there until the training loss reaches a plateau. A plateau is defined as the training loss not significantly improving for a certain number of epochs, referred to as "patience". For this phase, we use the PyTorch implementation `torch.optim.lr_scheduler.ReduceLROnPlateau` with a default patience value of 3 epochs. 
@@ -108,7 +106,9 @@ plt.show()
 
 
 Notice how in the first 5 epochs the learning rate started from 
-$\frac{\text{max\_lr}}{\text{number of epochs}} = \frac{0.01}{5} = 0.002$ 
+$$
+\text{lr}(t) = \text{max\_lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)
+$$
 and increased till it reached $0.01$ in the 5th epoch.
 
 When the loss plateaus for more than 3 epochs (the value set for patience), the learning rate is halved. We will see how much this learning rate halving actually helps retention time (RT) and MS2 fine-tuning to consistently achieve much better performance without requiring extensive experimentation with hyperparameter changes.
