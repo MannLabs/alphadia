@@ -32,7 +32,7 @@ In this phase, the learning rate starts small and gradually increases over a cer
 $$\text{lr}(t) = \text{max lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)$$
 
 ### 2) Reduce on Plateau LR Schedule
-After the warmup phase, the learning rate reaches the maximum value set by the user and remains there until the training loss reaches a plateau. A plateau is defined as the training loss not significantly improving for a certain number of epochs, referred to as "patience". For this phase, we use the PyTorch implementation `torch.optim.lr_scheduler.ReduceLROnPlateau` with a default patience value of 3 epochs. 
+After the warmup phase, the learning rate reaches the maximum value set by the user and remains there until the training loss reaches a plateau. A plateau is defined as the training loss not significantly improving for a certain number of epochs, referred to as "patience". For this phase, we use the PyTorch implementation `torch.optim.lr_scheduler.ReduceLROnPlateau` with a default patience value of 3 epochs.
 
 This approach makes the fine-tuning process less sensitive to the user-defined learning rate. If the model is not learning for 3 epochs, it is likely that the learning rate is too high, and the scheduler will then reduce the learning rate to encourage further learning.
 
@@ -53,10 +53,10 @@ class DummyModel(torch.nn.Module):
     def __init__(self):
         super(DummyModel, self).__init__()
         self.fc = torch.nn.Linear(1, 1)
-    
+
     def forward(self, x):
         return self.fc(x)
-    
+
 model = DummyModel()
 optimizer = torch.optim.Adam(model.parameters(), lr=MAX_LR)
 
@@ -69,7 +69,7 @@ Now since our lr scheduler uses reduce_lr_on_plateau, we need to pass the traini
 """
 
 # Dummy training loss
-losses = [0.12,0.1, 0.09, 0.08, 0.07, 0.06, 0.06,0.06,0.06,0.06,0.06, 0.06] 
+losses = [0.12,0.1, 0.09, 0.08, 0.07, 0.06, 0.06,0.06,0.06,0.06,0.06, 0.06]
 scheduler = CustomScheduler(optimizer, max_lr=MAX_LR, num_warmup_steps=NUM_WARMUP_STEPS)
 
 learning_rates = []
@@ -85,27 +85,27 @@ ax1.set_ylabel('Learning Rate', color=color)
 ax1.plot(learning_rates, color=color)
 ax1.tick_params(axis='y', labelcolor=color)
 
-ax2 = ax1.twinx()  
+ax2 = ax1.twinx()
 
 color = 'tab:blue'
-ax2.set_ylabel('Loss', color=color)  
+ax2.set_ylabel('Loss', color=color)
 ax2.plot(losses, color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 
-fig.tight_layout() 
+fig.tight_layout()
 plt.show()
 ```
 
-  
-    
 
 
-    
+
+
+
 ![png](finetuning_imgs/finetuning_7_1.png)
-    
 
 
-Notice how in the first 5 epochs the learning rate started from 
+
+Notice how in the first 5 epochs the learning rate started from
 $$
 \text{lr}(t) = \text{max\_lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)
 $$
@@ -181,9 +181,9 @@ plt.show()
 ```
 
 
-    
+
 ![png](finetuning_imgs/finetuning_11_0.png)
-    
+
 
 
 ## Transfer Learning in alphaDIA
@@ -220,9 +220,9 @@ plt.scatter(transfer_lib.precursor_df['rt_norm'], transfer_lib.precursor_df['rt_
 plt.xlabel('RT observed')
 plt.ylabel('RT predicted')
 ```
-    
+
 ![png](finetuning_imgs/finetuning_17_3.png)
-    
+
 
 
 
@@ -246,9 +246,9 @@ plt.ylabel('RT predicted')
     2024-07-05 11:11:20>  intercept                     : 0.1113
     2024-07-05 11:11:20>  abs_error_95th_percentile     : 0.4317
     2024-07-05 11:11:20>  Fine-tuning RT model with the following settings:
-    2024-07-05 11:11:20>  Train fraction:      0.70     Train size:      20226     
-    2024-07-05 11:11:20>  Validation fraction: 0.20     Validation size: 5779      
-    2024-07-05 11:11:20>  Test fraction:       0.10     Test size:       2889      
+    2024-07-05 11:11:20>  Train fraction:      0.70     Train size:      20226
+    2024-07-05 11:11:20>  Validation fraction: 0.20     Validation size: 5779
+    2024-07-05 11:11:20>  Test fraction:       0.10     Test size:       2889
     2024-07-05 11:11:30>  Epoch 0   Lr: 0.00020   Training loss: 0.1619   validation loss: 0.1270
     2024-07-05 11:11:38>  Epoch 1   Lr: 0.00030   Training loss: 0.0657   validation loss: 0.0482
     ...
@@ -263,7 +263,7 @@ plt.ylabel('RT predicted')
     2024-07-05 11:18:01>  abs_error_95th_percentile     : 0.0846
 
 ![png](finetuning_imgs/finetuning_19_3.png)
-    
+
 
 
 
@@ -275,9 +275,9 @@ g.legend.set_title('Data split')
 ```
 
 
-    
+
 ![png](finetuning_imgs/finetuning_20_0.png)
-    
+
 
 
 ## Charge Fine-tuning
@@ -288,25 +288,25 @@ g.legend.set_title('Data split')
 charge_stats = tune_mgr.finetune_charge(psm_df=transfer_lib.precursor_df)
 ```
 
-    2024-07-05 11:18:13>  Charge model tested on all dataset with the following metrics: 
+    2024-07-05 11:18:13>  Charge model tested on all dataset with the following metrics:
     2024-07-05 11:18:13>  ce_loss                       : 0.5444
     2024-07-05 11:18:13>  accuracy                      : 0.6414
     2024-07-05 11:18:13>  precision                     : 0.3108
     2024-07-05 11:18:13>  recall                        : 0.2975
     2024-07-05 11:18:13>  Fine-tuning Charge model with following settings:
-    2024-07-05 11:18:13>  Train fraction:      0.70     Train size:      20226     
-    2024-07-05 11:18:13>  Validation fraction: 0.20     Validation size: 5779      
-    2024-07-05 11:18:13>  Test fraction:       0.10     Test size:       2889      
+    2024-07-05 11:18:13>  Train fraction:      0.70     Train size:      20226
+    2024-07-05 11:18:13>  Validation fraction: 0.20     Validation size: 5779
+    2024-07-05 11:18:13>  Test fraction:       0.10     Test size:       2889
     2024-07-05 11:18:24>  Epoch 0   Lr: 0.00020   Training loss: 0.6341   validation loss: 0.6309
-    2024-07-05 11:18:35>  Epoch 1   Lr: 0.00030   Training loss: 0.4453   
+    2024-07-05 11:18:35>  Epoch 1   Lr: 0.00030   Training loss: 0.4453
     ...
     2024-07-05 11:27:54>  Epoch 50  Lr: 0.00015   Training loss: 0.0618   validation loss: 0.1364
-    2024-07-05 11:27:55>  Charge model tested on test dataset with the following metrics: 
+    2024-07-05 11:27:55>  Charge model tested on test dataset with the following metrics:
     2024-07-05 11:27:55>  ce_loss                       : 0.1476
     2024-07-05 11:27:55>  accuracy                      : 0.9515
     2024-07-05 11:27:55>  precision                     : 0.9107
     2024-07-05 11:27:55>  recall                        : 0.8994
-    
+
 
 
 ```python
@@ -317,9 +317,9 @@ g.legend.set_title('Data split')
 ```
 
 
-    
+
 ![png](finetuning_imgs/finetuning_23_0.png)
-    
+
 
 
 ## MS2 Fine-tuning
@@ -341,9 +341,9 @@ plt.ylabel('Similarity')
 plt.title('Similarity between observed and predicted MS2 spectra before fine-tuning')
 ```
 
-    
+
 ![png](finetuning_imgs/finetuning_27_4.png)
-    
+
 
 
 
@@ -355,7 +355,7 @@ ms2_stats = tune_mgr.finetune_ms2(psm_df=transfer_lib.precursor_df.copy(), match
 
     100%|██████████| 5779/5779 [00:01<00:00, 3818.99it/s]
     100%|██████████| 2889/2889 [00:00<00:00, 4138.71it/s]
-    
+
 
     2024-07-05 11:38:06>  Ms2 model tested on validation dataset with the following metrics:
     2024-07-05 11:38:06>  l1_loss                       : 0.0323
@@ -364,9 +364,9 @@ ms2_stats = tune_mgr.finetune_ms2(psm_df=transfer_lib.precursor_df.copy(), match
     2024-07-05 11:38:06>  SA-mean                       : 0.5544
     2024-07-05 11:38:06>  SPC-mean                      : 0.6447
     2024-07-05 11:38:06>  Fine-tuning MS2 model with the following settings:
-    2024-07-05 11:38:06>  Train fraction:      0.70     Train size:      20226     
-    2024-07-05 11:38:06>  Validation fraction: 0.20     Validation size: 5779      
-    2024-07-05 11:38:06>  Test fraction:       0.10     Test size:       2889      
+    2024-07-05 11:38:06>  Train fraction:      0.70     Train size:      20226
+    2024-07-05 11:38:06>  Validation fraction: 0.20     Validation size: 5779
+    2024-07-05 11:38:06>  Test fraction:       0.10     Test size:       2889
     2024-07-05 11:38:39>  Epoch 0   Lr: 0.00020   Training loss: 0.0212   validation loss: 0.0249
     ...
     2024-07-05 12:05:54>  Epoch 50  Lr: 0.00030   Training loss: 0.0110   validation loss: 0.0176
@@ -376,7 +376,7 @@ ms2_stats = tune_mgr.finetune_ms2(psm_df=transfer_lib.precursor_df.copy(), match
     2024-07-05 12:05:56>  COS-mean                      : 0.9348
     2024-07-05 12:05:56>  SA-mean                       : 0.7688
     2024-07-05 12:05:56>  SPC-mean                      : 0.7802
-    
+
 
 
 ```python
@@ -397,9 +397,9 @@ plt.xlabel("Index")
 plt.ylabel("Similarity")
 plt.title("Similarity between observed and predicted MS2 spectra after fine-tuning")
 ```
-    0.9401921591393136 
+    0.9401921591393136
 ![png](finetuning_imgs/finetuning_29_4.png)
-    
+
 
 
 
@@ -411,7 +411,5 @@ g.legend.set_title('Data split')
 ```
 
 
-    
-![png](finetuning_imgs/finetuning_30_0.png)
-    
 
+![png](finetuning_imgs/finetuning_30_0.png)
