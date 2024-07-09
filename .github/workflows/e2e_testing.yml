@@ -41,9 +41,9 @@ jobs:
         if: always()
         shell: bash -el {0}
         run: |
-          conda remove -n $RUN_NAME --all
+          conda remove -n $RUN_NAME --all -y
       - name: Delete Caches on Error
-        if: steps.pip_installation.outcome == 'failure'
+        if: ${{ failure() && steps.pip_installation.conclusion == 'failure' }}
         run: |
           rm -rf ~/.cache/pip
           rm -rf ~/.cache/conda
