@@ -65,13 +65,20 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     mmap_detector_events,
                 )
 
-                if self._cycle.shape[0] != 1:
+                try:
+                    cycle_shape = self._cycle.shape[0]
+                except AttributeError as e:
                     logger.error(
-                        "Unexpected cycle shape. Will only retain first frame group"
+                        "Could not find cycle shape. Please check if this is a valid DIA data set."
                     )
-                    raise ValueError(
-                        "Unexpected cycle shape. Will only retain first frame group"
-                    )
+                    raise e
+                else:
+                    if cycle_shape != 1:
+                        msg = (
+                            "Unexpected cycle shape. Will only retain first frame group"
+                        )
+                        logger.error(msg)
+                        raise ValueError(msg)
 
                 self.transpose()
         elif bruker_d_folder_name.endswith(".hdf"):
