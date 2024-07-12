@@ -81,7 +81,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             )
             self.bruker_hdf_file_name = bruker_d_folder_name
         else:
-            raise NotImplementedError("WARNING: file extension not understood")
+            raise NotImplementedError("ERROR: file extension not understood")
 
         if not hasattr(self, "version"):
             self._version = "N.A."
