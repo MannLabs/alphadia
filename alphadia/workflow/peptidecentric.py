@@ -799,10 +799,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def log_precursor_df(self, precursor_df):
         total_precursors = len(precursor_df)
 
+        total_precursors_denom = max(
+            float(total_precursors), 1e-6
+        )  # avoid division by zero
+
         target_precursors = len(precursor_df[precursor_df["decoy"] == 0])
-        target_precursors_percentages = target_precursors / total_precursors * 100
+        target_precursors_percentages = target_precursors / total_precursors_denom * 100
         decoy_precursors = len(precursor_df[precursor_df["decoy"] == 1])
-        decoy_precursors_percentages = decoy_precursors / total_precursors * 100
+        decoy_precursors_percentages = decoy_precursors / total_precursors_denom * 100
 
         self.reporter.log_string(
             "============================= Precursor FDR =============================",
