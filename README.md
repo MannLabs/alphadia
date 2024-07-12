@@ -1,10 +1,10 @@
-![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)
+![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphadia?logoColor=green&color=brightgreen)
+![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
 ![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
 ![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
 ![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
-![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-green)
 
 <!-- PROJECT LOGO -->
 <br />
