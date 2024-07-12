@@ -1,21 +1,15 @@
-# native imports
 import logging
 import math
 import os
 
 import alphatims.bruker
 import alphatims.tempmmap as tm
-
-# alpha family imports
 import alphatims.utils
 import numba as nb
-
-# third party imports
 import numpy as np
 from numba.core import types
 from numba.experimental import jitclass
 
-# alphadia imports
 from alphadia import utils
 from alphadia.data.stats import log_stats
 
@@ -74,13 +68,12 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     raise e
                 else:
                     if cycle_shape != 1:
-                        msg = (
-                            "Unexpected cycle shape. Will only retain first frame group"
-                        )
+                        msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "
                         logger.error(msg)
                         raise ValueError(msg)
 
                 self.transpose()
+
         elif bruker_d_folder_name.endswith(".hdf"):
             self._import_data_from_hdf_file(
                 bruker_d_folder_name,
@@ -89,6 +82,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             self.bruker_hdf_file_name = bruker_d_folder_name
         else:
             raise NotImplementedError("WARNING: file extension not understood")
+
         if not hasattr(self, "version"):
             self._version = "N.A."
         if self.version != alphatims.__version__:
