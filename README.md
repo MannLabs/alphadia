@@ -1,14 +1,11 @@
 ![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphadia?logoColor=green&color=brightgreen)
 ![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
-
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/e2e_testing.yml?branch=main&label=E2E%20Tests)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/pip_installation.yml?branch=main&label=Unit%20Tests)
-
 ![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/publish_docker_image.yml?branch=main&label=Deploy%20Docker)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/publish_on_pypi.yml?branch=main&label=Deploy%20PyPi)
-
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
 
 <!-- PROJECT LOGO -->
