@@ -1,11 +1,44 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
 
-import { Box, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
+import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     padding: 0.5
 }))
+
+const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
+
+    const handleSelect = () => {
+        window.electronAPI.getSingleFolder().then((folder) => {
+            onChange(folder);
+        }).catch((err) => {
+            console.log(err);
+        })
+    }
+
+    const folderName = parameter.replace(/^.*[\\\/]/, '')
+
+    return (
+        <>
+            {folderName == ''? '':
+                <Chip
+                label={folderName}
+                onDelete={() => {onChange("")}}
+                size="small"
+                />
+            }
+            <Button
+                variant="outlined"
+                size="small"
+                sx={{width: "150px"}}
+                onClick={handleSelect}>
+                Select Folder
+            </Button>
+        </>
+
+    )
+}
 
 const ParameterInput = ({
         parameter,
@@ -131,6 +164,13 @@ const ParameterInput = ({
                         inputProps={{step: "0.01", lang:"en-US"}}
                     />
                     </Box>)
+                break;
+            case "singleFolderSelection":
+                input = (
+                    <SingleFolderSelection
+                        parameter={parameter.value}
+                        onChange={onChange}
+                    />)
                 break;
 
             default:
