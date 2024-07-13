@@ -38,31 +38,6 @@ def center_of_mass(
 
 
 @nb.njit
-def center_of_mass_1d(
-    dense_representation,
-):
-    scan = np.zeros(dense_representation.shape[0])
-    frame = np.zeros(dense_representation.shape[0])
-    for i in range(dense_representation.shape[0]):
-        s, f = center_of_mass(dense_representation[i])
-        scan[i], frame[i] = s, f
-    return scan, frame
-
-
-@nb.njit
-def center_of_mass_2d(
-    dense_representation,
-):
-    scan = np.zeros((dense_representation.shape[0], dense_representation.shape[1]))
-    frame = np.zeros((dense_representation.shape[0], dense_representation.shape[1]))
-    for i in range(dense_representation.shape[0]):
-        for j in range(dense_representation.shape[1]):
-            s, f = center_of_mass(dense_representation[i, j])
-            scan[i, j], frame[i, j] = s, f
-    return scan, frame
-
-
-@nb.njit
 def weighted_center_of_mass(
     single_dense_representation,
 ):
@@ -157,17 +132,6 @@ def weighted_center_mean(single_dense_representation, scan_center, frame_center)
 
 
 @nb.njit
-def weighted_center_mean_1d(dense_representation, scan_center, frame_center):
-    values = np.zeros(dense_representation.shape[0])
-
-    for i in range(dense_representation.shape[0]):
-        values[i] = weighted_center_mean(
-            dense_representation[i], scan_center[i], frame_center[i]
-        )
-    return values
-
-
-@nb.njit
 def weighted_center_mean_2d(dense_representation, scan_center, frame_center):
     values = np.zeros((dense_representation.shape[0], dense_representation.shape[1]))
     for i in range(dense_representation.shape[0]):
@@ -203,21 +167,6 @@ def center_sum(single_dense_representation, scan_center, frame_center, window_ra
 
 
 @nb.njit
-def center_sum_1d(dense_representation, scan_center, frame_center, window_radius=2):
-    intensity = np.zeros(dense_representation.shape[0])
-    fraction_nonzero = np.zeros(dense_representation.shape[0])
-    for i in range(dense_representation.shape[0]):
-        s, f = center_sum(
-            dense_representation[i],
-            scan_center[0],
-            frame_center[0],
-            window_radius=window_radius,
-        )
-        intensity[i], fraction_nonzero[i] = s, f
-    return intensity, fraction_nonzero
-
-
-@nb.njit
 def center_sum_2d(dense_representation, scan_center, frame_center, window_radius=2):
     intensity = np.zeros((dense_representation.shape[0], dense_representation.shape[1]))
     fraction_nonzero = np.zeros(
@@ -233,22 +182,6 @@ def center_sum_2d(dense_representation, scan_center, frame_center, window_radius
             )
             intensity[i, j], fraction_nonzero[i, j] = s, f
     return intensity, fraction_nonzero
-
-
-@nb.njit
-def masked_mean_a0(array, mask):
-    """
-    takes an array of shape (a, b) and a mask of shape (a, b)
-    and returns an array of shape (b) where each element is the mean of the corresponding masked column in the array
-    """
-    mean = np.zeros(mask.shape[1])
-    for i in range(array.shape[1]):
-        masked_array = array[mask[:, i], i]
-        if len(masked_array) > 0:
-            mean[i] = np.mean(masked_array)
-        else:
-            mean[i] = 0
-    return mean
 
 
 @nb.njit
@@ -321,35 +254,6 @@ def or_envelope_2d(x):
                 ):
                     res[a0, a1, i] = (x[a0, a1, i - 1] + x[a0, a1, i + 1]) / 2
     return res
-
-
-@nb.njit
-def center_envelope(x):
-    center_index = x.shape[2] // 2
-
-    for a0 in range(x.shape[0]):
-        for a1 in range(x.shape[1]):
-            left_intensity = (
-                x[a0, a1, center_index - 1] + x[a0, a1, center_index]
-            ) * 0.5
-            right_intensity = (
-                x[a0, a1, center_index + 1] + x[a0, a1, center_index]
-            ) * 0.5
-
-            for i in range(1, center_index + 1):
-                x[a0, a1, center_index - i] = min(
-                    left_intensity, x[a0, a1, center_index - i]
-                )
-                left_intensity = (
-                    x[a0, a1, center_index - i] + x[a0, a1, center_index - i - 1]
-                ) * 0.5
-
-                x[a0, a1, center_index + i] = min(
-                    right_intensity, x[a0, a1, center_index + i]
-                )
-                right_intensity = (
-                    x[a0, a1, center_index + i] + x[a0, a1, center_index + i + 1]
-                ) * 0.5
 
 
 @nb.njit(inline="always")
@@ -1370,80 +1274,3 @@ def reference_features(
     feature_dict["mean_reference_template_frame_cosine"] = np.mean(frame_similarity)
 
     return feature_dict
-
-
-@nb.njit
-def rank_features(current_candidate_idx, candidate_list):
-    feature_dict = nb.typed.Dict.empty(
-        key_type=nb.types.unicode_type, value_type=nb.types.float32
-    )
-
-    max_features = [
-        "mean_reference_template_frame_cosine",
-        "mean_reference_template_scan_cosine",
-        "top3_reference_frame_cosine",
-        "mean_reference_frame_cosine",
-        "top3_reference_scan_cosine",
-        "mean_reference_scan_cosine",
-        "reference_intensity_correlation",
-        "top3_b_ion_correlation",
-        "top3_y_ion_correlation",
-        "top3_frame_correlation",
-        "fragment_frame_correlation",
-        "weighted_ms1_intensity",
-        "isotope_intensity_correlation",
-        "isotope_pattern_correlation",
-        "mono_ms1_intensity",
-    ]
-
-    min_features = [
-        "weighted_mass_error",
-    ]
-
-    for feature in max_features:
-        if feature in candidate_list[current_candidate_idx].features:
-            rank = 0
-            count = 0
-
-            for i_candidate in range(len(candidate_list)):
-                if (
-                    i_candidate != current_candidate_idx
-                    and feature in candidate_list[i_candidate].features
-                ):
-                    if (
-                        candidate_list[i_candidate].features[feature]
-                        < candidate_list[current_candidate_idx].features[feature]
-                    ):
-                        rank += 1
-                    count += 1
-
-        if count > 0:
-            feature_dict[feature + "_rank"] = rank / count
-        else:
-            feature_dict[feature + "_rank"] = 1
-
-    for feature in min_features:
-        if feature in candidate_list[current_candidate_idx].features:
-            rank = 0
-            count = 0
-
-            for i_candidate in range(len(candidate_list)):
-                if (
-                    i_candidate != current_candidate_idx
-                    and feature in candidate_list[i_candidate].features
-                ):
-                    if (
-                        candidate_list[i_candidate].features[feature]
-                        > candidate_list[current_candidate_idx].features[feature]
-                    ):
-                        rank += 1
-                    count += 1
-
-        if count > 0:
-            feature_dict[feature + "_rank"] = rank / count
-        else:
-            feature_dict[feature + "_rank"] = 1
-
-    return feature_dict
-
-    pass
