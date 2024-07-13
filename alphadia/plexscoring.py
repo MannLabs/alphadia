@@ -1895,6 +1895,9 @@ class CandidateScoring:
         )
         thread_count = 1 if debug else thread_count
 
+        if debug:
+            logger.info("Debug mode enabled. Processing only 10 elution groups")
+
         alphatims.utils.set_threads(thread_count)
         _executor(
             range(iterator_len),

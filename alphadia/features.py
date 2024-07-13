@@ -352,8 +352,19 @@ def center_envelope(x):
                 ) * 0.5
 
 
-@nb.njit
-def center_envelope_1d(x):
+@nb.njit(inline="always")
+def _odd_center_envelope(x: np.ndarray):
+    """
+    Applies an interference correction envelope to a collection of odd-length 1D arrays.
+    Numba function which operates in place.
+
+    Parameters
+    ----------
+    x: np.ndarray
+        Array of shape (a, b) where a is the number of arrays and b is the length of each array.
+        It is mandatory that dimension b is odd.
+
+    """
     center_index = x.shape[1] // 2
 
     for a0 in range(x.shape[0]):
@@ -362,14 +373,74 @@ def center_envelope_1d(x):
 
         for i in range(1, center_index + 1):
             x[a0, center_index - i] = min(left_intensity, x[a0, center_index - i])
+
             left_intensity = (
-                x[a0, center_index - i] + x[a0, center_index - i - 1]
+                x[a0, center_index - i] + x[a0, center_index - i + 1]
             ) * 0.5
 
             x[a0, center_index + i] = min(right_intensity, x[a0, center_index + i])
             right_intensity = (
-                x[a0, center_index + i] + x[a0, center_index + i + 1]
+                x[a0, center_index + i] + x[a0, center_index + i - 1]
             ) * 0.5
+
+
+@nb.njit(inline="always")
+def _even_center_envelope(x: np.ndarray):
+    """
+    Applies an interference correction envelope to a collection of even-length 1D arrays.
+    Numba function which operates in place.
+
+    Parameters
+    ----------
+    x: np.ndarray
+        Array of shape (a, b) where a is the number of arrays and b is the length of each array.
+        It is mandatory that dimension b is even.
+
+    """
+    center_index_right = x.shape[1] // 2
+    center_index_left = center_index_right - 1
+
+    for a0 in range(x.shape[0]):
+        left_intensity = x[a0, center_index_left]
+        right_intensity = x[a0, center_index_right]
+
+        for i in range(1, center_index_left + 1):
+            x[a0, center_index_left - i] = min(
+                left_intensity, x[a0, center_index_left - i]
+            )
+
+            left_intensity = (
+                x[a0, center_index_left - i] + x[a0, center_index_left - i + 1]
+            ) * 0.5
+
+            x[a0, center_index_right + i] = min(
+                right_intensity, x[a0, center_index_right + i]
+            )
+            right_intensity = (
+                x[a0, center_index_right + i] + x[a0, center_index_right + i - 1]
+            ) * 0.5
+
+
+@nb.njit
+def center_envelope_1d(x: np.ndarray):
+    """
+    Applies an interference correction envelope to a collection of 1D arrays.
+    Numba function which operates in place.
+
+    Parameters
+    ----------
+    x: np.ndarray
+        Array of shape (a, b) where a is the number of arrays and b is the length of each array.
+        It is mandatory that dimension b is odd.
+
+    """
+
+    is_even = x.shape[1] % 2 == 0
+
+    if is_even:
+        _even_center_envelope(x)
+    else:
+        _odd_center_envelope(x)
 
 
 @nb.njit
