@@ -1,10 +1,12 @@
-![Release](https://img.shields.io/badge/release-v1.6.0-brightgreen)
+![GitHub Release](https://img.shields.io/github/v/release/mannlabs/alphadia?logoColor=green&color=brightgreen)
+![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-brightgreen)
 ![License](https://img.shields.io/badge/License-Apache-brightgreen)
-![Tests](https://github.com/MannLabs/alphadia/workflows/Default%20installation%20and%20tests/badge.svg)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/e2e_testing.yml?branch=main&label=E2E%20Tests)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/pip_installation.yml?branch=main&label=Unit%20Tests)
 ![Docs](https://readthedocs.org/projects/alphadia/badge/?version=latest)
-![Deployment](https://github.com/MannLabs/alphadia/workflows/Publish%20on%20PyPi%20and%20release%20on%20GitHub/badge.svg)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/publish_docker_image.yml?branch=main&label=Deploy%20Docker)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/mannlabs/alphadia/publish_on_pypi.yml?branch=main&label=Deploy%20PyPi)
 ![Coverage](https://github.com/MannLabs/alphadia/blob/main/coverage.svg)
-![Versions](https://img.shields.io/badge/python-3.10_%7C_3.11_%7C_3.12-green)
 
 <!-- PROJECT LOGO -->
 <br />
