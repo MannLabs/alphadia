@@ -60,39 +60,6 @@ def wrap1(
 
 
 @nb.njit
-def get_mean0(dense, scan, cycle):
-    """create a fixed window around the peak and extract the mean value"""
-    # window size around peak
-    w = 4
-
-    # extract mz
-    mz_window = dense[
-        max(scan - w, 0) : scan + w, max(cycle - w, 0) : cycle + w
-    ].flatten()
-
-    return np.mean(mz_window)
-
-
-@nb.njit
-def get_mean_sparse0(dense, scan, cycle, threshold):
-    """create a fixed window around the peak and extract the mean value"""
-    # window size around peak
-    w = 4
-
-    # extract mz
-    mz_window = dense[
-        max(scan - w, 0) : scan + w, max(cycle - w, 0) : cycle + w
-    ].flatten()
-
-    mask = mz_window < threshold
-    fraction_nonzero = np.mean(mask.astype("int8"))
-
-    values = np.mean(mz_window[mask]) if fraction_nonzero > 0 else threshold
-
-    return values
-
-
-@nb.njit
 def symetric_limits_1d(
     array_1d,
     center,
@@ -376,8 +343,3 @@ def fragment_correlation_different(x: np.ndarray, y: np.ndarray):
         output[i_observations] = correlation_matrix
 
     return output
-
-
-@nb.njit(inline="always")
-def amean(array, axis):
-    return np.sum(array, axis=axis) / array.shape[axis]
