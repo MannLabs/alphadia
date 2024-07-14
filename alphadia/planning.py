@@ -370,18 +370,13 @@ class Plan:
                 )
                 raise e
 
-        try:
-            base_spec_lib = SpecLibBase()
-            base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
-            )
+        base_spec_lib = SpecLibBase()
+        base_spec_lib.load_hdf(
+            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+        )
 
-            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-            output.build(workflow_folder_list, base_spec_lib)
-
-        except Exception as e:
-            logger.error(f"Output failed with error {e}", exc_info=True)
-            raise e
+        output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+        output.build(workflow_folder_list, base_spec_lib)
 
         logger.progress("=================== Search Finished ===================")
 
