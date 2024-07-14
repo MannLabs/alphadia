@@ -3,7 +3,7 @@ const path = require("path")
 const { app, shell} = require("electron")
 const { dialog } = require('electron')
 
-const VERSION = "1.7.1"
+const VERSION = "1.7.2"
 
 const Profile = class {
 
