@@ -2,7 +2,7 @@ const { exec, execFile, spawn } = require('child_process');
 const StringDecoder = require('string_decoder').StringDecoder;
 const Transform = require('stream').Transform;
 
-const { app, dialog } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const writeYamlFile = require('write-yaml-file')
 
 const { workflowToConfig } = require('./workflows');
@@ -287,7 +287,9 @@ class CMDExecutionEngine extends BaseExecutionEngine {
             return run
         }).catch((err) => {
             console.log(err)
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                 type: 'error',
                 title: 'Error while starting workflow',
                 message: `Could not start workflow. ${err}`,
@@ -358,7 +360,9 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             }).catch((err) => {
                 this.available = false
                 this.error = err
-                dialog.showMessageBox({
+                dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                     type: 'error',
                     title: 'Error while checking availability of bundled alphaDIA',
                     message: `Could not start bundled alphaDIA. ${err}`,
@@ -449,7 +453,9 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             return run
         }).catch((err) => {
             console.log(err)
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+            BrowserWindow.getFocusedWindow(),
+            {
                 type: 'error',
                 title: 'Error while starting workflow',
                 message: `Could not start workflow. ${err}`,
@@ -615,7 +621,9 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             return run
         }).catch((err) => {
             console.log(err)
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+            BrowserWindow.getFocusedWindow(),
+                {
                 type: 'error',
                 title: 'Error while starting workflow',
                 message: `Could not start workflow. ${err}`,
