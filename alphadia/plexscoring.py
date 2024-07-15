@@ -1892,7 +1892,7 @@ class CandidateScoring:
         iterator_len = len(score_group_container)
 
         if debug:
-            logger.info("Debug mode enabled. Processing only 10 elution groups")
+            logger.info("Debug mode enabled. Processing only the first 10 score groups")
             thread_count = 1
             iterator_len = min(10, iterator_len)
 
