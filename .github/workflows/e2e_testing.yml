@@ -21,6 +21,9 @@ jobs:
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
       NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+      NUMBA_BOUNDSCHECK: 1
+      NUMBA_DEVELOPER_MODE: 1
+      NUMBA_FULL_TRACEBACKS: 1
     steps:
       - uses: actions/checkout@v4
       - name: Conda info

@@ -188,7 +188,10 @@ def pytest_configure(config):
         ]
         pytest.test_data[raw_folder] = raw_files
 
-    # important to supress matplotlib output
+    # set numba environment variables
+    os.environ["NUMBA_BOUNDSCHECK"] = "1"
+    os.environ["NUMBA_DEVELOPER_MODE"] = "1"
+    os.environ["NUMBA_FULL_TRACEBACKS"] = "1"
 
 
 def random_tempfolder():
