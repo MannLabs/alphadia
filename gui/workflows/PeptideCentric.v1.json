@@ -57,13 +57,6 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "astral_ms1",
-                    "name": "Use Astral MS1",
-                    "value": false,
-                    "description": "AlphaDIA will use the Astral detector for MS1 information, if available.",
-                    "type": "boolean"
-                },
-                {
                     "id": "log_level",
                     "name": "Log Level",
                     "value": "INFO",
@@ -244,7 +237,15 @@
                         "Exploris",
                         "Exploris480"
                     ]
+                },
+                {
+                    "id": "checkpoint_folder_path",
+                    "name": "PeptDeep Model",
+                    "value": "",
+                    "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on.",
+                    "type": "singleFolderSelection"
                 }
+
             ]
         },
         {

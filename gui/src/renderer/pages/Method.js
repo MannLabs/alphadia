@@ -9,7 +9,7 @@ const Method = () => {
     const method  = useMethod();
 
     return (
-    <Masonry columns={{ xs: 1, sm: 2, md: 3, lg: 4, xl: 5 }} spacing={1}>
+    <Masonry columns={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3 }} spacing={1}>
         {method.config.map((parameterGroup, index) => (
                 <ParameterGroup
                     parameterGroup={parameterGroup}
