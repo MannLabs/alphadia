@@ -27,6 +27,12 @@ from alphadia.transferlearning.train import FinetuneManager
 logger = logging.getLogger()
 
 
+class OutputGenerationError(Exception):
+    """Raised when an error occurs during output generation"""
+
+    pass
+
+
 def get_frag_df_generator(folder_list: list[str]):
     """Return a generator that yields a tuple of (raw_name, frag_df)
 
@@ -509,20 +515,17 @@ class SearchPlanOutput:
 
             if not os.path.exists(psm_path):
                 logger.warning(f"no psm file found for {raw_name}, skipping")
-                run_df = pd.DataFrame()
             else:
                 try:
                     run_df = pd.read_parquet(psm_path)
+                    psm_df_list.append(run_df)
                 except Exception as e:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
-                    run_df = pd.DataFrame()
-
-            psm_df_list.append(run_df)
 
         if len(psm_df_list) == 0:
-            logger.error("No psm files found, can't continue")
-            raise FileNotFoundError("No psm files found, can't continue")
+            logger.error("No psm files accumulated, can't continue")
+            raise OutputGenerationError("No psm files accumulated, can't continue")
 
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
