@@ -108,7 +108,7 @@ const Home = () => (
                         Documentation
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://alphadia.readthedocs.io/en/latest/")}>
                         Link
                     </StyledLink>
                 </Box>
@@ -122,7 +122,7 @@ const Home = () => (
                         GitHub
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://github.com/MannLabs/alphadia")}>
                         Link
                     </StyledLink>
                 </Box>
@@ -141,7 +141,7 @@ const Home = () => (
                         Universe
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")} sx={{color: "white !important"}}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://github.com/MannLabs")} sx={{color: "white !important"}}>
                         Link
                     </StyledLink>
                 </Box>
