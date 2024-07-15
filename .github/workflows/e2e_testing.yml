@@ -21,6 +21,9 @@ jobs:
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
       NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
       NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+      NUMBA_BOUNDSCHECK: 1
+      NUMBA_DEVELOPER_MODE: 1
+      NUMBA_FULL_TRACEBACKS: 1
     steps:
       - uses: actions/checkout@v4
       - name: Conda info
@@ -41,9 +44,9 @@ jobs:
         if: always()
         shell: bash -el {0}
         run: |
-          conda remove -n $RUN_NAME --all
+          conda remove -n $RUN_NAME --all -y
       - name: Delete Caches on Error
-        if: steps.pip_installation.outcome == 'failure'
+        if: ${{ failure() && steps.pip_installation.conclusion == 'failure' }}
         run: |
           rm -rf ~/.cache/pip
           rm -rf ~/.cache/conda

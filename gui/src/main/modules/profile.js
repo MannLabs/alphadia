@@ -1,9 +1,9 @@
 const fs = require("fs")
 const path = require("path")
-const { app, shell} = require("electron")
+const { app, shell, BrowserWindow} = require("electron")
 const { dialog } = require('electron')
 
-const VERSION = "1.7.1"
+const VERSION = "1.7.2"
 
 const Profile = class {
 
@@ -42,10 +42,15 @@ const Profile = class {
     }
 
     loadProfile() {
+        let loaded_config = {}
+
         try {
-            config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+            loaded_config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+            console.log(loaded_config)
         } catch (err) {
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                 type: 'error',
                 title: 'Error while loading profile',
                 message: `Could not load profile. ${err}`,
@@ -55,8 +60,10 @@ const Profile = class {
             return
         }
 
-        if (config.version !== VERSION) {
-            dialog.showMessageBox({
+        if (loaded_config.version !== VERSION) {
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                 type: 'info',
                 title: 'Found old alphaDIA profile',
                 message: `Found old alphaDIA profile. Updating to version ${VERSION}`,
@@ -65,7 +72,7 @@ const Profile = class {
             })
             this.saveProfile()
         } else {
-            this.config = config
+            this.config = loaded_config
         }
     }
 

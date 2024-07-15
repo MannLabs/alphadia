@@ -1889,11 +1889,12 @@ class CandidateScoring:
         n_candidates = score_group_container.get_candidate_count()
         psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
 
-        # if debug mode, only iterate over 10 elution groups
-        iterator_len = (
-            min(10, len(score_group_container)) if debug else len(score_group_container)
-        )
-        thread_count = 1 if debug else thread_count
+        iterator_len = len(score_group_container)
+
+        if debug:
+            logger.info("Debug mode enabled. Processing only the first 10 score groups")
+            thread_count = 1
+            iterator_len = min(10, iterator_len)
 
         alphatims.utils.set_threads(thread_count)
         _executor(
