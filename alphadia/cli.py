@@ -15,6 +15,7 @@ import yaml
 # alphadia imports
 import alphadia
 from alphadia import utils
+from alphadia.exceptions import CustomError
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
@@ -325,7 +326,7 @@ def run(*args, **kwargs):
     try:
         import matplotlib
 
-        # important to supress matplotlib output
+        # important to suppress matplotlib output
         matplotlib.use("Agg")
 
         from alphadia.planning import Plan
@@ -341,8 +342,15 @@ def run(*args, **kwargs):
         plan.run()
 
     except Exception as e:
-        import traceback
+        if isinstance(e, CustomError):
+            message = f"An error occurred: {e.error_code}: {e.msg} {e.detail_msg}"
+            exit_code = 1
+        else:
+            import traceback
 
-        logger.info(traceback.format_exc())
-        logger.error(e)
-        sys.exit(1)
+            logger.info(traceback.format_exc())
+            message = f"An unknown error occurred: {e}"
+            exit_code = 127
+
+        logger.error(message)
+        sys.exit(exit_code)

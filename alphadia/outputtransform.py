@@ -18,6 +18,7 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
+from alphadia.exceptions import NoPsmFoundError
 from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
     TransferLearningAccumulator,
@@ -25,12 +26,6 @@ from alphadia.outputaccumulator import (
 from alphadia.transferlearning.train import FinetuneManager
 
 logger = logging.getLogger()
-
-
-class OutputGenerationError(Exception):
-    """Raised when an error occurs during output generation"""
-
-    pass
 
 
 def get_frag_df_generator(folder_list: list[str]):
@@ -524,8 +519,7 @@ class SearchPlanOutput:
                     logger.warning(e)
 
         if len(psm_df_list) == 0:
-            logger.error("No psm files accumulated, can't continue")
-            raise OutputGenerationError("No psm files accumulated, can't continue")
+            raise NoPsmFoundError()
 
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)

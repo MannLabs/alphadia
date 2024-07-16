@@ -23,7 +23,9 @@ import alphadia
 
 # alphadia imports
 from alphadia import libtransform, outputtransform
+from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
+from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
@@ -324,6 +326,7 @@ class Plan:
                     logger.info(f"No existing quantification found for {raw_name}")
 
                 workflow.load(dia_path, speclib)
+                raise ValueError("123")
                 workflow.calibration()
 
                 psm_df, frag_df = workflow.extraction()
@@ -340,35 +343,20 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
+            except CustomError as e:
+                log_exception_event(e, raw_name, workflow)
+
+                continue
+
+            except Exception as e:
+                log_exception_event(e, raw_name, workflow)
+
+                raise e
+
+            finally:
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
-
-            except peptidecentric.CalibrationError:
-                # get full traceback
-                logger.error(
-                    f"Search for {raw_name} failed as not enough precursors were found for calibration"
-                )
-                logger.error("This can have the following reasons:")
-                logger.error(
-                    "   1. The sample was empty and therefore nor precursors were found"
-                )
-                logger.error("   2. The sample contains only very few precursors.")
-                logger.error(
-                    "      For small libraries, try to set recalibration_target to a lower value"
-                )
-                logger.error(
-                    "      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance"
-                )
-                logger.error(
-                    "   3. There was a fundamental issue with search parameters"
-                )
-                continue
-            except Exception as e:
-                logger.error(
-                    f"Search for {raw_name} failed with error {e}", exc_info=True
-                )
-                raise e
 
         base_spec_lib = SpecLibBase()
         base_spec_lib.load_hdf(
@@ -383,3 +371,22 @@ class Plan:
     def clean(self):
         if not self.config["library_loading"]["save_hdf"]:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+
+
+def log_exception_event(e: Exception, raw_name: str, workflow: WorkflowBase) -> None:
+    """Log exception and emit event to reporter if available."""
+
+    if isinstance(e, CustomError):
+        logger.error(f"Search for {raw_name} failed with error: {e.error_code} {e.msg}")
+        logger.error(e.detail_msg)
+    else:
+        logger.error(
+            f"Search for {raw_name} failed with unknown error {e}", exc_info=True
+        )
+
+    if workflow.reporter:
+        workflow.reporter.log_string(
+            value=str(e),
+            verbosity="error",
+        )
+        workflow.reporter.log_event(name="exception", value=str(e), exception=e)

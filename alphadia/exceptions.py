@@ -1,0 +1,53 @@
+"""Module containing custom exceptions."""
+
+
+class CustomError(Exception):
+    """Custom alphaDIA error class."""
+
+    _error_code = None
+    _msg = None
+    _detail_msg = ""
+
+    @property
+    def error_code(self):
+        return self._error_code
+
+    @property
+    def msg(self):
+        return self._msg
+
+    @property
+    def detail_msg(self):
+        return self._detail_msg
+
+
+class BusinessError(CustomError):
+    """Custom error class for 'business' errors.
+
+    A 'business' error is an error that is caused by the input (data, configuration, ...) and not by a
+    malfunction in alphaDIA.
+    """
+
+
+class NoPsmFoundError(BusinessError):
+    """Raise when no PSMs are found in the search results."""
+
+    _error_code = "NO_PSM_FOUND"
+
+    _msg = "No psm files accumulated, can't continue"
+
+
+class NoRecalibrationTargetError(BusinessError):
+    """Raise when no recalibration target is found."""
+
+    _error_code = "NO_RECALIBRATION_TARGET"
+
+    _msg = "Searched all data without finding recalibration target"
+
+    _detail_msg = """Search for raw file failed as not enough precursors were found for calibration.
+                 This can have the following reasons:
+                   1. The sample was empty and therefore no precursors were found.
+                   2. The sample contains only very few precursors.
+                      For small libraries, try to set recalibration_target to a lower value.
+                      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance.
+                   3. There was a fundamental issue with search parameters."""

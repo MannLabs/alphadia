@@ -21,6 +21,8 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
+from alphadia.exceptions import CustomError
+
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
 PROGRESS_LEVELV_NUM = 21
@@ -361,7 +363,14 @@ class JSONLBackend(Backend):
         self.entered_context = False
         self.start_time = 0
 
-    def log_event(self, name: str, value: typing.Any):
+    def log_event(
+        self,
+        name: str,
+        value: typing.Any,
+        exception: Exception | None = None,
+        *args,
+        **kwargs,
+    ):
         """Log an event to the `events.jsonl` file.
 
         Important: This method will only log events if the backend is in a context.
@@ -379,16 +388,18 @@ class JSONLBackend(Backend):
 
         if not self.entered_context:
             return
+        message = {
+            "absolute_time": self.absolute_time(),
+            "relative_time": self.relative_time(),
+            "type": "event",
+            "name": name,
+            "value": value,
+            "verbosity": 0,
+        }
+        if exception is not None and isinstance(exception, CustomError):
+            message["error_code"] = exception.error_code
 
         with open(self.events_path, "a") as f:
-            message = {
-                "absolute_time": self.absolute_time(),
-                "relative_time": self.relative_time(),
-                "type": "event",
-                "name": name,
-                "value": value,
-                "verbosity": 0,
-            }
             f.write(json.dumps(message) + "\n")
 
     def log_metric(self, name: str, value: float):
