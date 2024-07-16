@@ -51,3 +51,11 @@ class NoRecalibrationTargetError(BusinessError):
                       For small libraries, try to set recalibration_target to a lower value.
                       For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance.
                    3. There was a fundamental issue with search parameters."""
+
+
+class NotDiaDataError(BusinessError):
+    """Raise when data is not from DIA."""
+
+    _error_code = "NOT_DIA_DATA"
+
+    _msg = "Could not find cycle shape. Please check if this is a valid DIA data set."
