@@ -214,3 +214,10 @@ pip install "alphadia[stable]"
 ```
 Afterwards, verify the alphaDIA installation by running:
 `alphadia --version` which should output the current version.
+
+### Notes on running alphaDIA as part of automated workflows
+AlphaDIA is designed to be run in a headless mode. In case of an error, a nonzero exit code is returned.
+A exit code of 127 indicates that there was an unknown error. All other nonzero exit codes pertain to
+'business errors', i.e. those caused most likely by user input (data and/or configuration).
+
+Further details on such errors can be found in the `events.jsonl` file in the `.progress` folder(s) of the output directory.
