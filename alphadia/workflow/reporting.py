@@ -223,6 +223,8 @@ class FigureBackend(Backend):
         name: str,
         figure: Figure | np.ndarray,
         extension: str = "png",
+        *args,
+        **kwargs,
     ):
         """Log a figure to the figures folder.
 
@@ -402,7 +404,7 @@ class JSONLBackend(Backend):
         with open(self.events_path, "a") as f:
             f.write(json.dumps(message) + "\n")
 
-    def log_metric(self, name: str, value: float):
+    def log_metric(self, name: str, value: float, *args, **kwargs):
         """Log a metric to the `events.jsonl` file.
 
         Important: This method will only log metrics if the backend is in a context.
@@ -432,7 +434,7 @@ class JSONLBackend(Backend):
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_string(self, value: str, verbosity: int = "info"):
+    def log_string(self, value: str, verbosity: int = "info", *args, **kwargs):
         """Log a string to the `events.jsonl` file.
 
         Important: This method will only log strings if the backend is in a context.
@@ -460,9 +462,10 @@ class JSONLBackend(Backend):
                 "value": value,
                 "verbosity": verbosity,
             }
+
             f.write(json.dumps(message) + "\n")
 
-    def log_figure(self, name: str, figure: typing.Any):
+    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
         """Log a base64 image of a figure to the `events.jsonl` file.
 
         Important: This method will only log figures if the backend is in a context.
@@ -517,7 +520,7 @@ class LogBackend(Backend):
         self.logger = logging.getLogger()
         super().__init__()
 
-    def log_string(self, value: str, verbosity: str = "info"):
+    def log_string(self, value: str, verbosity: str = "info", *args, **kwargs):
         if verbosity == "progress":
             self.logger.progress(value)
         elif verbosity == "info":
@@ -558,7 +561,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: list[type[Backend]] = None,
+        backends: list[Backend] = None,
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
@@ -576,7 +579,7 @@ class Pipeline:
         self.context = Context(self)
 
         # instantiate backends
-        self.backends = backends
+        self.backends: list[Backend] = backends
 
     def __enter__(self):
         for backend in self.backends:
