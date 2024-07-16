@@ -326,7 +326,6 @@ class Plan:
                     logger.info(f"No existing quantification found for {raw_name}")
 
                 workflow.load(dia_path, speclib)
-                raise ValueError("123")
                 workflow.calibration()
 
                 psm_df, frag_df = workflow.extraction()
