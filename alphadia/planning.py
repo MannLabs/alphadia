@@ -344,13 +344,11 @@ class Plan:
                 frag_df.to_parquet(frag_location, index=False)
 
             except CustomError as e:
-                log_exception_event(e, raw_name, workflow)
-
+                _log_exception_event(e, raw_name, workflow)
                 continue
 
             except Exception as e:
-                log_exception_event(e, raw_name, workflow)
-
+                _log_exception_event(e, raw_name, workflow)
                 raise e
 
             finally:
@@ -373,7 +371,7 @@ class Plan:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))
 
 
-def log_exception_event(e: Exception, raw_name: str, workflow: WorkflowBase) -> None:
+def _log_exception_event(e: Exception, raw_name: str, workflow: WorkflowBase) -> None:
     """Log exception and emit event to reporter if available."""
 
     if isinstance(e, CustomError):
