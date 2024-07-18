@@ -1,25 +1,24 @@
 # native imports
 import logging
 
-# third party imports
-import numpy as np
-import pandas as pd
-import seaborn as sns
-from alphabase.peptide.fragment import get_charged_frag_types
+logger = logging.getLogger()
+import typing
+
+# alphadia imports
+from alphadia import plexscoring, utils, fragcomp
+from alphadia import fdrexperimental as fdrx
+from alphadia.peakgroup import search
+from alphadia.workflow import manager, base
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphabase.peptide.fragment import get_charged_frag_types
 
-from alphadia import fdrexperimental as fdrx
-
-# alphadia imports
-from alphadia import fragcomp, plexscoring, utils
-from alphadia.peakgroup import search
-from alphadia.workflow import base, manager
-
-logger = logging.getLogger()
-
+# third party imports
+import numpy as np
+import pandas as pd
+import seaborn as sns
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -114,6 +113,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             instance_name,
             config,
         )
+        print("Testing!")
 
     def load(
         self,
@@ -125,6 +125,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             spectral_library,
         )
 
+        self.initalize_managers()
+
+
+    def initialize_managers(
+            self,
+    ) -> None :
         self.reporter.log_string(
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
@@ -132,7 +138,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.init_calibration_optimization_manager()
         self.init_fdr_manager()
         self.init_spectral_library()
-
     @property
     def calibration_optimization_manager(self):
         """Is used during the iterative optimization of the calibration parameters.
@@ -166,6 +171,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "accumulated_precursors": 0,
                 "accumulated_precursors_01FDR": 0,
                 "accumulated_precursors_001FDR": 0,
+                "fitted_params" : [],
+                "ms1_list": [self.config["search_initial"]["initial_ms1_tolerance"]],
+                "ms2_list": [self.config["search_initial"]["initial_ms2_tolerance"]],
+                "rt_list": [self.config["search_initial"]["initial_rt_tolerance"]],
+                "precursor_number" : [],
+                "calibrations" : {},
+                "param_colname_dict" : {
+                    "ms2" : "mz",
+                    "ms1" : "mz",
+                    "rt" : "rt",
+                    "mobility" : "mobility"
+                },
+                "param_calibration_order" : self.config["calibration"]["param_calibration_order"],
             }
         )
 
@@ -227,8 +245,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         dia_data,
         norm_values: np.ndarray,
-        active_gradient_start: float | None = None,
-        active_gradient_stop: float | None = None,
+        active_gradient_start: typing.Union[float, None] = None,
+        active_gradient_stop: typing.Union[float, None] = None,
         mode=None,
     ):
         """Convert normalized retention time values to absolute retention time values.
@@ -286,7 +304,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # determine the mode based on the config or the function parameter
         if mode is None:
-            mode = self.config["calibration"].get("norm_rt_mode", "tic")
+            mode = (
+                self.config["calibration"]["norm_rt_mode"]
+                if "norm_rt_mode" in self.config["calibration"]
+                else "tic"
+            )
         else:
             mode = mode.lower()
 
@@ -327,28 +349,39 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def start_of_calibration(self):
         self.batch_plan = self.get_batch_plan()
 
+        self.params_to_omit = []
+        if not self.dia_data.has_mobility :
+            self.params_to_omit.append("mobility")
+        if not self.dia_data.has_ms1:
+            self.params_to_omit.append("ms1")
+        self.com.optimal_epoch_for_last_param = 0
+
     def start_of_epoch(self, current_epoch):
         self.com.current_epoch = current_epoch
 
         # if self.neptune is not None:
         #    self.neptune["eval/epoch"].log(current_epoch)
 
-        self.elution_group_order = self.spectral_library.precursor_df[
-            "elution_group_idx"
-        ].unique()
-        np.random.shuffle(self.elution_group_order)
+        if self.param_index == 0 and self.com.current_epoch == 0:
+            self.elution_group_order = self.spectral_library.precursor_df[
+                "elution_group_idx"
+            ].unique()
+            np.random.shuffle(self.elution_group_order)
+            self.com.classifier_id_input = "_".join(np.asarray([-1, 0], dtype=str))
+            self.com.classifier_id_output = "_".join(np.asarray([-1, 0], dtype=str))
+        else:
+            self.com.classifier_id_input = "_".join(np.asarray([self.param_index - 1, self.com.optimal_epoch_for_last_param], dtype=str))
+            self.com.classifier_id_output = "_".join(np.asarray([self.param_index, self.com.current_epoch], dtype=str))
+            self.epochs_since_freeze += 1
+            if self.epochs_since_freeze == 1:
+                self.reporter.log_string("Calibration dataframe has been frozen.", verbosity="progress")
 
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        # make updates to the progress dict depending on the epoch
-        if self.com.current_epoch > 0:
-            self.com.recalibration_target = self.config["calibration"][
-                "recalibration_target"
-            ] * (1 + current_epoch)
-
+    
     def start_of_step(self, current_step, start_index, stop_index):
         self.com.current_step = current_step
         # if self.neptune is not None:
@@ -362,83 +395,81 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-    def check_epoch_conditions(self):
+    def check_epoch_conditions(self, params_to_fit=["ms1", "ms2", "rt", "mobility"]):
         continue_calibration = False
 
         self.reporter.log_string(
             "=== checking if epoch conditions were reached ===", verbosity="info"
         )
-        if self.dia_data.has_ms1:
-            if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
-                self.reporter.log_string(
-                    f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
-                    verbosity="info",
-                )
-                continue_calibration = True
-            else:
-                self.reporter.log_string(
-                    f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
-                    verbosity="info",
-                )
-
-        if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
+        if self.dia_data.has_ms1 and "ms1" in params_to_fit:
             self.reporter.log_string(
-                f"❌ {'ms2_error':<15}: {self.com.ms2_error:.4f} > {self.config['search']['target_ms2_tolerance']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'ms2_error':<15}: {self.com.ms2_error:.4f} <= {self.config['search']['target_ms2_tolerance']}",
+                f" {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
                 verbosity="info",
             )
 
-        if self.com.rt_error > self.config["search"]["target_rt_tolerance"]:
+        if "ms2" in params_to_fit:
             self.reporter.log_string(
-                f"❌ {'rt_error':<15}: {self.com.rt_error:.4f} > {self.config['search']['target_rt_tolerance']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'rt_error':<15}: {self.com.rt_error:.4f} <= {self.config['search']['target_rt_tolerance']}",
+                f" {'ms2_error':<15}: {self.com.ms2_error:.4f} > {self.config['search']['target_ms2_tolerance']}",
                 verbosity="info",
             )
 
-        if self.dia_data.has_mobility:
-            if (
-                self.com.mobility_error
-                > self.config["search"]["target_mobility_tolerance"]
-            ):
-                self.reporter.log_string(
-                    f"❌ {'mobility_error':<15}: {self.com.mobility_error:.4f} > {self.config['search']['target_mobility_tolerance']}",
-                    verbosity="info",
-                )
-                continue_calibration = True
-            else:
-                self.reporter.log_string(
-                    f"✅ {'mobility_error':<15}: {self.com.mobility_error:.4f} <= {self.config['search']['target_mobility_tolerance']}",
-                    verbosity="info",
-                )
+        if "rt" in params_to_fit:
+            self.reporter.log_string(
+                f" {'rt_error':<15}: {self.com.rt_error:.4f} > {self.config['search']['target_rt_tolerance']}",
+                verbosity="info",
+            )
+
+
+        if self.dia_data.has_mobility and "mobility" in params_to_fit:
+            self.reporter.log_string(
+                f" {'mobility_error':<15}: {self.com.mobility_error:.4f} > {self.config['search']['target_mobility_tolerance']}",
+                verbosity="info",
+            )
 
         if self.com.current_epoch < self.config["calibration"]["min_epochs"] - 1:
             self.reporter.log_string(
-                f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs']}",
+                f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs'] - 1}",
                 verbosity="info",
             )
             continue_calibration = True
         else:
             self.reporter.log_string(
-                f"✅ {'current_epoch':<15}: {self.com.current_epoch} >= {self.config['calibration']['min_epochs']}",
+                f"✅ {'current_epoch':<15}: {self.com.current_epoch} >= {self.config['calibration']['min_epochs'] - 1}",
                 verbosity="info",
             )
+            
 
         self.reporter.log_string(
             "==============================================", verbosity="info"
         )
+        
+        if self.com.current_epoch < 2 or self.epochs_since_freeze < 2:
+            continue_calibration = True
+        else:
+            
+            if self.com.precursor_number[-1] > 1.1 * self.com.precursor_number[-2] or self.com.precursor_number[-1] > 1.1 * self.com.precursor_number[-3]:
+                continue_calibration = True
+                
+            else:
+                
+                for param in np.unique(self.com.fitted_params):
+                    optimal_epoch_offset = - np.argmax([self.com.precursor_number[-2], self.com.precursor_number[-3]]) - 1
+                    if param == "ms2":
+                        self.spectral_library.fragment_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
+                        
+                    else:
+                        self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
+                    
+                    self.com.optimal_epoch_for_last_param = self.com.current_epoch + optimal_epoch_offset
+                    self.com.current_epoch = 0 
+                    self.reporter.log_string(f"Optimal values for {params_to_fit} is/are {self.com.calibrations[self.param_index][self.com.optimal_epoch_for_last_param]}.", verbosity="progress")
+        
         return continue_calibration
 
-    def calibration(self):
+    def flatten_list(self, nested_list):
+        return [x for y in nested_list for x in y]
+        
+    def calibration(self, param_calibration_order=["ms1", "ms2", "rt", "mobility"]):
         if (
             self.calibration_manager.is_fitted
             and self.calibration_manager.is_loaded_from_file
@@ -448,70 +479,70 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
             return
-
+        self.param_calibration_order = param_calibration_order
+        ############ oemd edit #################
+        self.feature_columns = feature_columns
+        ########################################
         self.start_of_calibration()
-        for current_epoch in range(self.config["calibration"]["max_epochs"]):
-            if self.check_epoch_conditions():
-                pass
-            else:
-                break
-
-            self.start_of_epoch(current_epoch)
-
-            features = []
-            fragments = []
-            for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
-                self.start_of_step(current_step, start_index, stop_index)
-
-                eg_idxes = self.elution_group_order[start_index:stop_index]
-                batch_df = self.spectral_library._precursor_df[
-                    self.spectral_library._precursor_df["elution_group_idx"].isin(
-                        eg_idxes
-                    )
-                ]
-
-                feature_df, fragment_df = self.extract_batch(batch_df)
-                features += [feature_df]
-                fragments += [fragment_df]
-                features_df = pd.concat(features)
-                fragments_df = pd.concat(fragments)
-
-                self.reporter.log_string(
-                    f"=== Epoch {self.com.current_epoch}, step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
-                    verbosity="progress",
-                )
-                precursor_df = self.fdr_correction(features_df, fragments_df)
-
-                if self.check_recalibration(precursor_df):
-                    self.recalibration(precursor_df, fragments_df)
-                    break
+        self.epochs_since_freeze = 0
+        for param_index, params_to_fit in enumerate(self.param_calibration_order):
+            self.reporter.log_string(f"Fitting {params_to_fit}.", verbosity="info")
+            self.param_index = param_index
+            self.com.calibrations[self.param_index] = {}
+            for current_epoch in range(self.config["calibration"]["max_epochs"]):
+                if self.check_epoch_conditions(params_to_fit):
+                    pass
                 else:
-                    # check if last step has been reached
-                    if current_step == len(self.batch_plan) - 1:
-                        self.reporter.log_string(
-                            "Searched all data without finding recalibration target",
-                            verbosity="error",
+                    break
+                self.param_index = param_index
+                self.start_of_epoch(current_epoch)
+                
+    
+                features = []
+                fragments = []
+                for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
+                    self.start_of_step(current_step, start_index, stop_index)
+    
+                    eg_idxes = self.elution_group_order[start_index:stop_index]
+                    batch_df = self.spectral_library._precursor_df[
+                        self.spectral_library._precursor_df["elution_group_idx"].isin(
+                            eg_idxes
                         )
-                        raise CalibrationError(
-                            "Searched all data without finding recalibration target"
-                        )
+                    ]
+    
+                    feature_df, fragment_df = self.extract_batch(batch_df)  # oemd2: Important
+                    features += [feature_df]
+                    fragments += [fragment_df]
+                    features_df = pd.concat(features)
+                    fragments_df = pd.concat(fragments)
+                    
+                    self.reporter.log_string(
+                        f"=== Epoch {self.com.current_epoch}, step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
+                        verbosity="progress",
+                    )
+                    precursor_df = self.fdr_correction(features_df, fragments_df, classifier_id_input=self.com.classifier_id_input, classifier_id_output=self.com.classifier_id_output)
+    
+                    if self.check_recalibration(precursor_df):
+                        self.recalibration(precursor_df, fragments_df, params_to_fit)
+                        
+                        break
+                    else:
+                        # check if last step has been reached
+                        if current_step == len(self.batch_plan) - 1:
+                            self.reporter.log_string(
+                                "Searched all data without finding recalibration target",
+                                verbosity="error",
+                            )
+                            raise CalibrationError(
+                                "Searched all data without finding recalibration target"
+                            )
+                self.com.fitted_params.extend(params_to_fit)
+                self.end_of_epoch(current_step=current_step)
 
-            self.end_of_epoch()
+            self.end_of_calibration()
 
-        if self.config["calibration"].get("final_full_calibration", False):
-            self.reporter.log_string(
-                "Performing final calibration with all precursors",
-                verbosity="progress",
-            )
-            features_df, fragments_df = self.extract_batch(
-                self.spectral_library._precursor_df
-            )
-            precursor_df = self.fdr_correction(features_df, fragments_df)
-            self.recalibration(precursor_df, fragments_df)
-
-        self.end_of_calibration()
-
-    def end_of_epoch(self):
+    def end_of_epoch(self, current_step=0):
+        self.batch_plan = [(self.batch_plan[0][0], self.batch_plan[current_step][1])]
         pass
 
     def end_of_calibration(self):
@@ -520,87 +551,100 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.save()
         pass
 
-    def recalibration(self, precursor_df, fragments_df):
+    def recalibration(self, precursor_df, fragments_df, params_to_fit=["ms1", "ms2", "rt", "mobility"]):
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
 
+        precursor_params_to_skip = ["mz" if "ms1" not in params_to_fit else "", "rt" if "rt" not in params_to_fit else "", "mobility" if "mobility" not in params_to_fit else ""] 
+        
         self.calibration_manager.fit(
             precursor_df_filtered,
             "precursor",
             plot=True,
-            skip=["mz"] if not self.dia_data.has_ms1 else [],
+            skip=precursor_params_to_skip,
             # neptune_run = self.neptune
         )
 
-        rt_99 = self.calibration_manager.get_estimator("precursor", "rt").ci(
-            precursor_df_filtered, 0.95
-        )
-
-        fragments_df_filtered = fragments_df[
-            fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
-        ]
-
-        min_fragments = 500
-        max_fragments = 5000
-        min_correlation = 0.7
-        fragments_df_filtered = fragments_df_filtered.sort_values(
-            by=["correlation"], ascending=False
-        )
-        stop_rank = min(
-            max(
-                np.searchsorted(
-                    fragments_df_filtered["correlation"].values, min_correlation
+        if 'ms2' in params_to_fit:
+            fragments_df_filtered = fragments_df[
+                fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
+            ]
+    
+            min_fragments = 500
+            max_fragments = 5000
+            min_correlation = 0.7
+            fragments_df_filtered = fragments_df_filtered.sort_values(
+                by=["correlation"], ascending=False
+            )
+            stop_rank = min(
+                max(
+                    np.searchsorted(
+                        fragments_df_filtered["correlation"].values, min_correlation
+                    ),
+                    min_fragments,
                 ),
-                min_fragments,
-            ),
-            max_fragments,
-        )
-        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
-
-        print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
-
-        self.calibration_manager.fit(
-            fragments_df_filtered,
-            "fragment",
-            plot=True,
-            # neptune_run = self.neptune
-        )
-
-        m2_99 = self.calibration_manager.get_estimator("fragment", "mz").ci(
-            fragments_df_filtered, 0.95
-        )
-
+                max_fragments,
+            )
+            fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
+    
+            print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+    
+            self.calibration_manager.fit(
+                fragments_df_filtered,
+                "fragment",
+                plot=True,
+                # neptune_run = self.neptune
+            )
+            
         self.com.fit(
-            {
-                "ms2_error": max(m2_99, self.config["search"]["target_ms2_tolerance"]),
-                "rt_error": max(rt_99, self.config["search"]["target_rt_tolerance"]),
-                "column_type": "calibrated",
-                "num_candidates": self.config["search"]["target_num_candidates"],
-            }
+                {
+                    "column_type": "calibrated",
+                    "num_candidates": self.config["search"]["target_num_candidates"],
+                }
         )
+        
+        if "rt" in params_to_fit:
+            rt_99 = self.calibration_manager.get_estimator("precursor", "rt").ci(
+                precursor_df_filtered, 0.99
+            )
+            self.com.fit(
+                {
+                    "rt_error": max(rt_99 * 1.1, self.config["search"]["target_rt_tolerance"]),
+                }
+            )
+            
+        if "ms2" in params_to_fit:
+            m2_99 = self.calibration_manager.get_estimator("fragment", "mz").ci(
+                fragments_df_filtered, 0.99
+            )
+            self.com.fit(
+                {
+                    "ms2_error": max(m2_99 * 1.1, self.config["search"]["target_ms2_tolerance"]),
+                }
+            )
 
-        if self.dia_data.has_ms1:
+        if self.dia_data.has_ms1 and "ms1" in params_to_fit:
             m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-                precursor_df_filtered, 0.95
+                precursor_df_filtered, 0.99
             )
             self.com.fit(
                 {
                     "ms1_error": max(
-                        m1_99, self.config["search"]["target_ms1_tolerance"]
+                        m1_99 * 1.1, self.config["search"]["target_ms1_tolerance"]
                     ),
                 }
             )
 
-        if self.dia_data.has_mobility:
+        if self.dia_data.has_mobility and "mobility" in params_to_fit:
             mobility_99 = self.calibration_manager.get_estimator(
                 "precursor", "mobility"
-            ).ci(precursor_df_filtered, 0.95)
+            ).ci(precursor_df_filtered, 0.99)
             self.com.fit(
                 {
                     "mobility_error": max(
-                        mobility_99, self.config["search"]["target_mobility_tolerance"]
+                        mobility_99 * 1.1, self.config["search"]["target_mobility_tolerance"]
                     ),
                 }
             )
@@ -619,12 +663,36 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
+        self.com.calibrations[self.param_index][self.com.current_epoch] = {}
+        for param in self.flatten_list(self.param_calibration_order):
+            if param == "ms2":
+                if param in np.unique(self.com.fitted_params) and param not in self.params_to_omit:
+                    self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.fragment_df[f"{self.com.param_colname_dict[param]}_calibrated"]
+                else:
+                    self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.fragment_df[f"{self.com.param_colname_dict[param]}_library"]
+            else:
+                if param in np.unique(self.com.fitted_params) and param not in self.params_to_omit:
+                    self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_calibrated"]
+                else:
+                    self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_library"]
+
+
+        self.precursor_df_at_fdr = precursor_df_filtered
+        self.com.ms1_list.append(self.com.ms1_error)
+        self.com.ms2_list.append(self.com.ms2_error)
+        self.com.rt_list.append(self.com.rt_error)
+        self.com.precursor_number.append(len(self.precursor_df_at_fdr))
+
+        
         # if self.neptune is not None:
         # precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
         # self.neptune["eval/precursors"].log(len(precursor_df_fdr))
         # self.neptune['eval/99_ms1_error'].log(m1_99)
         # self.neptune['eval/99_ms2_error'].log(m2_99)
         # self.neptune['eval/99_rt_error'].log(rt_99)
+
+
+    
 
     def check_recalibration(self, precursor_df):
         self.com.accumulated_precursors = len(precursor_df)
@@ -646,7 +714,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return perform_recalibration
 
-    def fdr_correction(self, features_df, df_fragments):
+    def fdr_correction(self, features_df, df_fragments, classifier_id_input=None, classifier_id_output=None):
         return self.fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor_channel_wise"
@@ -657,10 +725,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self.config["search"]["compete_for_fragments"]
             else None,
             dia_cycle=self.dia_data.cycle,
+            classifier_id_input=classifier_id_input,
+            classifier_id_output=classifier_id_output,
             # neptune_run=self.neptune
         )
 
-    def extract_batch(self, batch_df, apply_cutoff=False):
+    def extract_batch(self, batch_df, apply_cutoff=False, params_to_fit=["ms1", "ms2", "rt", "mobility"]):
         self.reporter.log_string(
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
@@ -685,14 +755,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             batch_df,
             self.spectral_library.fragment_df,
             config.jitclass(),
-            rt_column=f"rt_{self.com.column_type}",
+            rt_column=f"rt_{self.com.column_type}" 
+            if "rt" in self.com.fitted_params 
+            else "rt_library",
             mobility_column=f"mobility_{self.com.column_type}"
-            if self.dia_data.has_mobility
+            if self.dia_data.has_mobility and "mobility" in self.com.fitted_params
             else "mobility_library",
             precursor_mz_column=f"mz_{self.com.column_type}"
-            if self.dia_data.has_ms1
+            if self.dia_data.has_ms1 and "ms1" in self.com.fitted_params
             else "mz_library",
-            fragment_mz_column=f"mz_{self.com.column_type}",
+            fragment_mz_column=f"mz_{self.com.column_type}"
+            if "ms2" in self.com.fitted_params
+            else "mz_library",
             fwhm_rt=self.optimization_manager.fwhm_rt,
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
@@ -734,14 +808,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library._precursor_df,
             self.spectral_library._fragment_df,
             config=config,
-            rt_column=f"rt_{self.com.column_type}",
+            rt_column=f"rt_{self.com.column_type}" 
+            if "rt" in self.com.fitted_params 
+            else "rt_library",
             mobility_column=f"mobility_{self.com.column_type}"
-            if self.dia_data.has_mobility
+            if self.dia_data.has_mobility and "mobility" in self.com.fitted_params
             else "mobility_library",
             precursor_mz_column=f"mz_{self.com.column_type}"
-            if self.dia_data.has_ms1
+            if self.dia_data.has_ms1 and "ms1" in self.com.fitted_params
             else "mz_library",
-            fragment_mz_column=f"mz_{self.com.column_type}",
+            fragment_mz_column=f"mz_{self.com.column_type}"
+            if "ms2" in self.com.fitted_params
+            else "mz_library",
         )
 
         features_df, fragments_df = candidate_scoring(
@@ -799,14 +877,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def log_precursor_df(self, precursor_df):
         total_precursors = len(precursor_df)
 
-        total_precursors_denom = max(
-            float(total_precursors), 1e-6
-        )  # avoid division by zero
-
         target_precursors = len(precursor_df[precursor_df["decoy"] == 0])
-        target_precursors_percentages = target_precursors / total_precursors_denom * 100
+        target_precursors_percentages = target_precursors / total_precursors * 100
         decoy_precursors = len(precursor_df[precursor_df["decoy"] == 1])
-        decoy_precursors_percentages = decoy_precursors / total_precursors_denom * 100
+        decoy_precursors_percentages = decoy_precursors / total_precursors * 100
 
         self.reporter.log_string(
             "============================= Precursor FDR =============================",
@@ -979,7 +1053,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_mz_column="mz_calibrated",
             fragment_mz_column="mz_calibrated",
             rt_column="rt_calibrated",
-            mobility_column="mobility_calibrated"
+            mobility_column=f"mobility_calibrated"
             if self.dia_data.has_mobility
             else "mobility_library",
         )
@@ -1007,7 +1081,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def requantify_fragments(
         self, psm_df: pd.DataFrame
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> typing.Tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
@@ -1027,7 +1101,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """
 
         self.reporter.log_string(
-            "=== Transfer learning quantification ===",
+            f"=== Transfer learning quantification ===",
             verbosity="progress",
         )
 
@@ -1044,7 +1118,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            "Calibrating library",
+            f"Calibrating library",
             verbosity="info",
         )
 
@@ -1073,8 +1147,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            precursor_mz_column="mz_calibrated",
-            fragment_mz_column="mz_calibrated",
+            precursor_mz_column=f"mz_calibrated",
+            fragment_mz_column=f"mz_calibrated",
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
@@ -1100,10 +1174,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
 def _build_candidate_speclib_flat(
     psm_df: pd.DataFrame,
-    fragment_types: list[str] | None = None,
+    fragment_types: typing.List[str] = ["b", "y"],
     max_charge: int = 2,
-    optional_columns: list[str] | None = None,
-) -> tuple[SpecLibFlat, pd.DataFrame]:
+    optional_columns: typing.Union[typing.List[str], None] = None,
+) -> typing.Tuple[SpecLibFlat, pd.DataFrame]:
     """Build a candidate spectral library for transfer learning.
 
     Parameters
@@ -1147,8 +1221,6 @@ def _build_candidate_speclib_flat(
     """
 
     # set default optional columns
-    if fragment_types is None:
-        fragment_types = ["b", "y"]
     if optional_columns is None:
         optional_columns = [
             "proba",

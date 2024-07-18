@@ -466,6 +466,8 @@ class OptimizationManager(BaseManager):
             for key, value in initial_parameters.items():
                 self.reporter.log_string(f"initial parameter: {key} = {value}")
 
+    
+    
     def fit(self, update_dict):
         """Update the parameters dict with the values in update_dict."""
         self.__dict__.update(update_dict)
@@ -500,7 +502,7 @@ class FDRManager(BaseManager):
             self.classifier_store = {}
             self.classifier_base = classifier_base
 
-        self.load_classifier_store()
+ #       self.load_classifier_store()
 
     def fit_predict(
         self,
@@ -512,12 +514,15 @@ class FDRManager(BaseManager):
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
+        classifier_id_input: None | str = None,
+        classifier_id_output: None | str = None,
     ):
         """Update the parameters dict with the values in update_dict."""
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
         )
 
+        self.available_columns = available_columns
         # perform sanity checks
         if len(available_columns) == 0:
             raise ValueError("No feature columns found in features_df")
@@ -559,7 +564,10 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"Competetive: {competetive}")
 
-        classifier = self.get_classifier(available_columns)
+        if classifier_id_input is None:
+            classifier = self.get_classifier(available_columns)
+        else:
+            classifier =  self.get_classifier(np.append(available_columns, classifier_id_input))
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
@@ -619,7 +627,13 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
-        self.classifier_store[column_hash(available_columns)] = classifier
+
+        if classifier_id_output is None:
+            print("Storing classifier:", column_hash(available_columns))
+            self.classifier_store[column_hash(available_columns)] = classifier
+        else:
+            print("Storing classifier:", column_hash(np.append(available_columns, classifier_id_output)))
+            self.classifier_store[column_hash(np.append(available_columns, classifier_id_output))] = classifier
         self.save()
 
         return psm_df
@@ -657,11 +671,17 @@ class FDRManager(BaseManager):
                         torch.load(os.path.join(path, file))
                     )
 
-    def get_classifier(self, available_columns):
-        classifier_hash = column_hash(available_columns)
-        if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash]
+    def get_classifier(self, available_columns, classifier_id=None):
+        if classifier_id is None:
+            classifier_hash = column_hash(available_columns)
         else:
+            classifier_hash = column_hash(np.append(available_columns, classifier_id))
+            
+        if classifier_hash in self.classifier_store:
+            print("Using classifier:", classifier_hash)
+            classifier = deepcopy(self.classifier_store[classifier_hash])
+        else:
+            print("Using base classifier")
             classifier = deepcopy(self.classifier_base)
         return classifier
 

@@ -103,7 +103,7 @@ def print_w_style(
 
     tree_structure = get_tree_structure(last_item_arr, update=style == "update")
 
-    logger.info(f"{tree_structure}{style}{string}{reset}")
+ #   logger.info(f"{tree_structure}{style}{string}{reset}")
 
 
 def print_recursively(

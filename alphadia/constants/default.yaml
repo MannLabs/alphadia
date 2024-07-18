@@ -80,6 +80,13 @@ calibration:
   # TODO: remove this parameter
   norm_rt_mode: 'linear'
 
+  param_calibration_order : 
+    - 
+      - 'ms1'
+      - 'ms2'
+      - 'rt'
+      - 'mobility'
+
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy comeptition
   initial_num_candidates: 1
