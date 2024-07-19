@@ -125,7 +125,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             spectral_library,
         )
 
-        self.initalize_managers()
+        self.initialize_managers()
 
 
     def initialize_managers(
@@ -451,13 +451,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 continue_calibration = True
                 
             else:
-                
+                print(self.com.current_epoch)
                 for param in np.unique(self.com.fitted_params):
-                    optimal_epoch_offset = - np.argmax([self.com.precursor_number[-2], self.com.precursor_number[-3]]) - 1
+                    optimal_epoch_offset = - np.argmax([self.com.precursor_number[-2], self.com.precursor_number[-3]])
                     if param == "ms2":
                         self.spectral_library.fragment_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
-                        
+                        print(self.com.current_epoch)
+                        print(optimal_epoch_offset)
                     else:
+                        print(self.com.current_epoch)
+                        print(optimal_epoch_offset)
                         self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
                     
                     self.com.optimal_epoch_for_last_param = self.com.current_epoch + optimal_epoch_offset
