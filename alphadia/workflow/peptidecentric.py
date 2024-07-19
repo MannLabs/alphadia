@@ -113,7 +113,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             instance_name,
             config,
         )
-        print("Testing!")
+        print("Testing again!")
 
     def load(
         self,
@@ -134,7 +134,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
-
+        print("Testing 2")
         self.init_calibration_optimization_manager()
         self.init_fdr_manager()
         self.init_spectral_library()
@@ -172,10 +172,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "accumulated_precursors_01FDR": 0,
                 "accumulated_precursors_001FDR": 0,
                 "fitted_params" : [],
-                "ms1_list": [self.config["search_initial"]["initial_ms1_tolerance"]],
-                "ms2_list": [self.config["search_initial"]["initial_ms2_tolerance"]],
-                "rt_list": [self.config["search_initial"]["initial_rt_tolerance"]],
-                "precursor_number" : [],
+                "param_calibration_df" : pd.DataFrame({
+                    'ms1' : [],
+                    'ms2' : [],
+                    'rt' : [],
+                    'mobility' : [],
+                    'params_being_fitted' : [],
+                    'num_precursors' : [],
+                }),
                 "calibrations" : {},
                 "param_colname_dict" : {
                     "ms2" : "mz",
@@ -372,9 +376,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         else:
             self.com.classifier_id_input = "_".join(np.asarray([self.param_index - 1, self.com.optimal_epoch_for_last_param], dtype=str))
             self.com.classifier_id_output = "_".join(np.asarray([self.param_index, self.com.current_epoch], dtype=str))
-            self.epochs_since_freeze += 1
-            if self.epochs_since_freeze == 1:
-                self.reporter.log_string("Calibration dataframe has been frozen.", verbosity="progress")
 
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
@@ -437,35 +438,37 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 f"✅ {'current_epoch':<15}: {self.com.current_epoch} >= {self.config['calibration']['min_epochs'] - 1}",
                 verbosity="info",
             )
-            
+       
 
         self.reporter.log_string(
             "==============================================", verbosity="info"
         )
         
-        if self.com.current_epoch < 2 or self.epochs_since_freeze < 2:
+        if self.com.current_epoch < 2:
             continue_calibration = True
         else:
             
-            if self.com.precursor_number[-1] > 1.1 * self.com.precursor_number[-2] or self.com.precursor_number[-1] > 1.1 * self.com.precursor_number[-3]:
+            if self.com.param_calibration_df['num_precursors'].tolist()[-1] > 1.1 * self.com.param_calibration_df['num_precursors'].tolist()[-2] or self.com.param_calibration_df['num_precursors'].tolist()[-1] > 1.1 * self.com.param_calibration_df['num_precursors'].to_list()[-3]:
                 continue_calibration = True
                 
             else:
-                print(self.com.current_epoch)
-                for param in np.unique(self.com.fitted_params):
-                    optimal_epoch_offset = - np.argmax([self.com.precursor_number[-2], self.com.precursor_number[-3]])
+                optimal_index = self.com.param_calibration_df[self.com.param_calibration_df['params_being_fitted'] == "".join(params_to_fit)]['num_precursors'].idxmax()
+                optimal_epoch_offset = optimal_index - self.com.param_calibration_df.index.tolist()[-1] 
+                self.com.optimal_epoch_for_last_param = self.com.current_epoch + optimal_epoch_offset
+                for param in params_to_fit:
                     if param == "ms2":
                         self.spectral_library.fragment_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
-                        print(self.com.current_epoch)
-                        print(optimal_epoch_offset)
                     else:
-                        print(self.com.current_epoch)
-                        print(optimal_epoch_offset)
                         self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_calibrated"] = self.com.calibrations[self.param_index][self.com.current_epoch + optimal_epoch_offset][param]
+                    self.com.ms1_error = self.com.param_calibration_df.loc[optimal_index, 'ms1']
+                    self.com.ms2_error = self.com.param_calibration_df.loc[optimal_index, 'ms2']
+                    self.com.rt_error = self.com.param_calibration_df.loc[optimal_index, 'rt']
+                    self.com.mobility_error = self.com.param_calibration_df.loc[optimal_index, 'mobility']
                     
-                    self.com.optimal_epoch_for_last_param = self.com.current_epoch + optimal_epoch_offset
-                    self.com.current_epoch = 0 
-                    self.reporter.log_string(f"Optimal values for {params_to_fit} is/are {self.com.calibrations[self.param_index][self.com.optimal_epoch_for_last_param]}.", verbosity="progress")
+                
+                self.com.current_epoch = 0 
+                for param in params_to_fit:
+                    self.reporter.log_string(f"Optimal value for {param} is {self.com.param_calibration_df.loc[optimal_index, param]:.2f}.", verbosity="progress")
         
         return continue_calibration
 
@@ -487,7 +490,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.feature_columns = feature_columns
         ########################################
         self.start_of_calibration()
-        self.epochs_since_freeze = 0
+
         for param_index, params_to_fit in enumerate(self.param_calibration_order):
             self.reporter.log_string(f"Fitting {params_to_fit}.", verbosity="info")
             self.param_index = param_index
@@ -526,8 +529,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     precursor_df = self.fdr_correction(features_df, fragments_df, classifier_id_input=self.com.classifier_id_input, classifier_id_output=self.com.classifier_id_output)
     
                     if self.check_recalibration(precursor_df):
-                        self.recalibration(precursor_df, fragments_df, params_to_fit)
-                        
+                        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(precursor_df, fragments_df)
+                        self.com.param_calibration_df.loc[len(self.com.param_calibration_df)] = [self.com.ms1_error, 
+                                                                                                self.com.ms2_error, 
+                                                                                                self.com.rt_error, 
+                                                                                                self.com.mobility_error, 
+                                                                                                "".join(params_to_fit),
+                                                                                                len(precursor_df_filtered),
+                                                                                                ]
+                        self.recalibration(precursor_df_filtered, fragments_df_filtered, params_to_fit)
+                        self.com.fitted_params.extend(params_to_fit)
                         break
                     else:
                         # check if last step has been reached
@@ -539,7 +550,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                             raise CalibrationError(
                                 "Searched all data without finding recalibration target"
                             )
-                self.com.fitted_params.extend(params_to_fit)
                 self.end_of_epoch(current_step=current_step)
 
             self.end_of_calibration()
@@ -553,12 +563,41 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         # self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
         self.calibration_manager.save()
         pass
-
-    def recalibration(self, precursor_df, fragments_df, params_to_fit=["ms1", "ms2", "rt", "mobility"]):
+    
+    def filter_dfs(self, precursor_df, fragments_df):
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
+
+        fragments_df_filtered = fragments_df[
+            fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
+        ]
+
+        min_fragments = 500
+        max_fragments = 5000
+        min_correlation = 0.7
+        fragments_df_filtered = fragments_df_filtered.sort_values(
+            by=["correlation"], ascending=False
+        )
+        stop_rank = min(
+            max(
+                np.searchsorted(
+                    fragments_df_filtered["correlation"].values, min_correlation
+                ),
+                min_fragments,
+            ),
+            max_fragments,
+        )
+        if len(fragments_df_filtered) < stop_rank:
+            raise CalibrationError(f"Insufficient fragments: {len(fragments_df_filtered)} found but min_fragments is {min_fragments}")
+        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
+
+        print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+
+        return precursor_df_filtered, fragments_df_filtered
+
+    def recalibration(self, precursor_df_filtered, fragments_df_filtered, params_to_fit=["ms1", "ms2", "rt", "mobility"]):
 
         precursor_params_to_skip = ["mz" if "ms1" not in params_to_fit else "", "rt" if "rt" not in params_to_fit else "", "mobility" if "mobility" not in params_to_fit else ""] 
         
@@ -571,28 +610,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         if 'ms2' in params_to_fit:
-            fragments_df_filtered = fragments_df[
-                fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
-            ]
-    
-            min_fragments = 500
-            max_fragments = 5000
-            min_correlation = 0.7
-            fragments_df_filtered = fragments_df_filtered.sort_values(
-                by=["correlation"], ascending=False
-            )
-            stop_rank = min(
-                max(
-                    np.searchsorted(
-                        fragments_df_filtered["correlation"].values, min_correlation
-                    ),
-                    min_fragments,
-                ),
-                max_fragments,
-            )
-            fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
-    
-            print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+
     
             self.calibration_manager.fit(
                 fragments_df_filtered,
@@ -678,13 +696,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_calibrated"]
                 else:
                     self.com.calibrations[self.param_index][self.com.current_epoch][param] = self.spectral_library.precursor_df[f"{self.com.param_colname_dict[param]}_library"]
-
-
-        self.precursor_df_at_fdr = precursor_df_filtered
-        self.com.ms1_list.append(self.com.ms1_error)
-        self.com.ms2_list.append(self.com.ms2_error)
-        self.com.rt_list.append(self.com.rt_error)
-        self.com.precursor_number.append(len(self.precursor_df_at_fdr))
 
         
         # if self.neptune is not None:
