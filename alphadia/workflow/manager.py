@@ -512,6 +512,10 @@ class FDRManager(BaseManager):
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
+        param_info_input: None | np.ndarray = None,
+        epoch_input: None | int = None,
+        param_info_ouptut: None | np.ndarray = None,
+        epoch_output: None | int = None,
     ):
         """Update the parameters dict with the values in update_dict."""
         available_columns = list(
@@ -559,7 +563,9 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"Competetive: {competetive}")
 
-        classifier = self.get_classifier(available_columns)
+        classifier = self.get_classifier_version(
+            available_columns, param_info_input, epoch_input
+        )
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
@@ -619,7 +625,9 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
-        self.classifier_store[column_hash(available_columns)] = classifier
+        self.set_classifier_version(
+            classifier, available_columns, param_info_ouptut, epoch_output
+        )
         self.save()
 
         return psm_df
@@ -657,13 +665,30 @@ class FDRManager(BaseManager):
                         torch.load(os.path.join(path, file))
                     )
 
-    def get_classifier(self, available_columns):
-        classifier_hash = column_hash(available_columns)
+    def get_classifier_version(self, available_columns, param_info, epoch):
+        if param_info is not None and epoch is not None:
+            version_info = np.concatentate([available_columns, param_info])
+            version_info = np.append(version_info, str(epoch))
+            classifier_hash = column_hash(version_info)
+        else:
+            classifier_hash = column_hash(available_columns)
+
         if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash]
+            classifier = deepcopy(self.classifier_store[classifier_hash])
         else:
             classifier = deepcopy(self.classifier_base)
+
         return classifier
+
+    def set_classifier_version(self, classifier, available_columns, param_info, epoch):
+        if param_info is not None and epoch is not None:
+            version_info = np.concatentate([available_columns, param_info])
+            version_info = np.append(version_info, str(epoch))
+            classifier_hash = column_hash(version_info)
+        else:
+            classifier_hash = column_hash(available_columns)
+
+        self.classifier_store[classifier_hash] = classifier
 
     def predict(self):
         """Return the parameters dict."""
