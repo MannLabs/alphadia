@@ -314,6 +314,11 @@ class PeptDeepPrediction(ProcessingStep):
 
         model_mgr = ModelManager(device=device)
         if self.checkpoint_folder_path is not None:
+            if not os.path.exists(self.checkpoint_folder_path):
+                raise ValueError(
+                    f"PeptDeep model checkpoint folder {self.checkpoint_folder_path} does not exist"
+                )
+
             logging.info(f"Loading PeptDeep models from {self.checkpoint_folder_path}")
             model_mgr.load_external_models(
                 ms2_model_file=os.path.join(self.checkpoint_folder_path, "ms2.pth"),
