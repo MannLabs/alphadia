@@ -499,7 +499,7 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = {}
             self.classifier_base = classifier_base
-
+        self.current_version = -1
         self.load_classifier_store()
 
     def fit_predict(
@@ -512,6 +512,7 @@ class FDRManager(BaseManager):
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
+        version: None | int = -1,
     ):
         """Update the parameters dict with the values in update_dict."""
         available_columns = list(
@@ -559,7 +560,7 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"Competetive: {competetive}")
 
-        classifier = self.get_classifier(available_columns)
+        classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
@@ -619,7 +620,13 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
-        self.classifier_store[column_hash(available_columns)] = classifier
+
+        self.current_version += 1
+        classifier_hash = column_hash(
+            np.append(available_columns, str(self.current_version))
+        )
+        self.classifier_store[classifier_hash] = classifier
+
         self.save()
 
         return psm_df
@@ -657,13 +664,16 @@ class FDRManager(BaseManager):
                         torch.load(os.path.join(path, file))
                     )
 
-    def get_classifier(self, available_columns):
-        classifier_hash = column_hash(available_columns)
+    def get_classifier(self, available_columns, version):
+        classifier_hash = column_hash(np.append(available_columns, str(version)))
         if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash]
+            classifier = deepcopy(self.classifier_store[classifier_hash])
         else:
             classifier = deepcopy(self.classifier_base)
         return classifier
+
+    def get_current_version(self):
+        return self.current_version
 
     def predict(self):
         """Return the parameters dict."""

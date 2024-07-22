@@ -11,6 +11,7 @@ from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
+from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
 from alphadia.workflow import base, manager
 
 
@@ -296,3 +297,54 @@ def test_workflow_base():
             # os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
             # os.rmdir(os.path.join(my_workflow.path))
             shutil.rmtree(os.path.join(my_workflow.parent_path))
+
+
+FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
+    test_size=0.001, batch_size=50, learning_rate=0.001, epochs=1
+)
+FDR_TEST_FEATURES = ["feature_a", "feature_b"]
+
+
+def fdr_testdata(features):
+    test_dict = {}
+
+    for feature in features:
+        test_dict[feature] = np.random.normal(50, 2, 100)
+    test_dict["decoy"] = np.random.randint(0, 2, 100)
+    test_dict["precursor_idx"] = np.random.randint(1000, 10000, 100)
+
+    return pd.DataFrame(test_dict)
+
+
+def test_fdr_manager():
+    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+
+    assert fdr_manager.is_loaded_from_file is False
+    assert fdr_manager.is_fitted is False
+
+    assert fdr_manager.feature_columns == FDR_TEST_FEATURES
+    assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
+
+
+@pytest.mark.slow
+def test_fdr_manager_fit_predict():
+    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    test_features_df = fdr_testdata(FDR_TEST_FEATURES)
+
+    assert len(fdr_manager.classifier_store) == 1
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competetive=False,
+        df_fragments=None,
+        dia_cycle=None,
+        # neptune_run=self.neptune
+    )
+
+    assert len(fdr_manager.classifier_store) == 2
+    assert fdr_manager.get_current_version() == 0
+    assert (
+        manager.column_hash(np.append(FDR_TEST_FEATURES, str(0)))
+        in fdr_manager.classifier_store
+    )
