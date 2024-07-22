@@ -667,7 +667,7 @@ class FDRManager(BaseManager):
 
     def get_classifier_version(self, available_columns, param_info, epoch):
         if param_info is not None and epoch is not None:
-            version_info = np.concatentate([available_columns, param_info])
+            version_info = np.concatenate([available_columns, param_info])
             version_info = np.append(version_info, str(epoch))
             classifier_hash = column_hash(version_info)
         else:
@@ -682,7 +682,7 @@ class FDRManager(BaseManager):
 
     def set_classifier_version(self, classifier, available_columns, param_info, epoch):
         if param_info is not None and epoch is not None:
-            version_info = np.concatentate([available_columns, param_info])
+            version_info = np.concatenate([available_columns, param_info])
             version_info = np.append(version_info, str(epoch))
             classifier_hash = column_hash(version_info)
         else:

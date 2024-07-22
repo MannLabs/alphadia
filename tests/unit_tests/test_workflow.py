@@ -310,14 +310,14 @@ def fdr_testdata(features):
 
     for feature in features:
         test_dict[feature] = np.random.normal(50, 2, 100)
+    test_dict["decoy"] = np.random.randint(0, 2, 100)
+    test_dict["precursor_idx"] = np.random.randint(1000, 10000, 100)
 
     return pd.DataFrame(test_dict)
 
 
 def test_fdr_manager():
-    fdr_manager = manager.FDRManager(
-        fdr_testdata(FDR_TEST_FEATURES), FDR_TEST_BASE_CLASSIFIER
-    )
+    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
 
     assert fdr_manager.is_loaded_from_file is False
     assert fdr_manager.is_fitted is False
@@ -326,5 +326,56 @@ def test_fdr_manager():
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
 
 
-def test_fdr_manager_fit():
-    pass
+@pytest.mark.slow
+def test_fdr_manager_fit_predict():
+    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    test_features_df = fdr_testdata(FDR_TEST_FEATURES)
+
+    assert len(fdr_manager.classifier_store) == 1
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competetive=False,
+        df_fragments=None,
+        dia_cycle=None,
+        # neptune_run=self.neptune
+    )
+
+    desired_version_info = FDR_TEST_FEATURES
+
+    assert manager.column_hash(desired_version_info) in fdr_manager.classifier_store
+    assert len(fdr_manager.classifier_store) == 2
+
+    test_epoch = 0
+    test_param_info = ["ms1", "mobility"]
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competetive=False,
+        df_fragments=None,
+        dia_cycle=None,
+        epoch_input=test_epoch,
+        param_info_ouptut=test_param_info,
+    )
+
+    # Neither input nor output were fully specified so the function should default to using just the feature columns and hence save to the same classifier as before.
+    assert len(fdr_manager.classifier_store) == 2
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competetive=False,
+        df_fragments=None,
+        dia_cycle=None,
+        epoch_output=test_epoch,
+        param_info_ouptut=test_param_info,
+    )
+
+    desired_version_info = np.append(
+        np.concatenate([FDR_TEST_FEATURES, test_param_info]), [str(test_epoch)]
+    )
+
+    assert len(fdr_manager.classifier_store) == 3
+    assert manager.column_hash(desired_version_info) in fdr_manager.classifier_store
