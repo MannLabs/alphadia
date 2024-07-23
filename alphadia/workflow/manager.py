@@ -483,6 +483,16 @@ class OptimizationManager(BaseManager):
 
 
 class FDRManager(BaseManager):
+    """
+    Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation. 
+    --------------------------------
+    Parameters:
+    feature_columns: list
+        List of feature columns to use for the classifier
+    classifier_base: object
+        Base classifier object to use for the FDR estimation
+
+    """
     def __init__(
         self,
         feature_columns: list,
@@ -499,7 +509,7 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = {}
             self.classifier_base = classifier_base
-        self.current_version = -1
+        self._current_version = -1
         self.load_classifier_store()
 
     def fit_predict(
@@ -621,11 +631,13 @@ class FDRManager(BaseManager):
 
         self.is_fitted = True
 
-        self.current_version += 1
-        classifier_hash = column_hash(
-            np.append(available_columns, str(self.current_version))
-        )
-        self.classifier_store[classifier_hash] = classifier
+        classifier_hash = column_hash(available_columns)
+        if classifier_hash not in self.classifier_store.keys():
+            self.classifier_store[classifier_hash] = []  
+
+        self._current_version += 1  
+        # The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index of the classifier_store
+        self.classifier_store[column_hash(available_columns)].append(classifier) 
 
         self.save()
 
@@ -665,15 +677,25 @@ class FDRManager(BaseManager):
                     )
 
     def get_classifier(self, available_columns, version):
-        classifier_hash = column_hash(np.append(available_columns, str(version)))
+        """
+        Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
+        --------------------------------
+        Parameters:
+        available_columns: list
+            List of feature columns
+        version: int
+            Version of the classifier to get
+        """
+        classifier_hash = column_hash(available_columns)
         if classifier_hash in self.classifier_store:
-            classifier = deepcopy(self.classifier_store[classifier_hash])
+            classifier = deepcopy(self.classifier_store[classifier_hash][version])
         else:
             classifier = deepcopy(self.classifier_base)
         return classifier
-
-    def get_current_version(self):
-        return self.current_version
+        
+    @property
+    def current_version(self):
+        return self._current_version
 
     def predict(self):
         """Return the parameters dict."""
