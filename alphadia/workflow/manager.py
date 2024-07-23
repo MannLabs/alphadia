@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import typing
+from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
@@ -259,6 +260,7 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of calibration group names
+
         """
 
         return [x["name"] for x in self.estimator_groups]
@@ -300,6 +302,7 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of estimator names
+
         """
 
         group = self.get_group(group_name)
@@ -491,15 +494,25 @@ class FDRManager(BaseManager):
         load_from_file: bool = True,
         **kwargs,
     ):
+        """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
+
+        Parameters
+        ----------
+        feature_columns: list
+            List of feature columns to use for the classifier
+        classifier_base: object
+            Base classifier object to use for the FDR estimation
+
+        """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
             self.feature_columns = feature_columns
-            self.classifier_store = {}
+            self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
-
+        self._current_version = -1
         self.load_classifier_store()
 
     def fit_predict(
@@ -512,8 +525,14 @@ class FDRManager(BaseManager):
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
+        version: int = -1,
     ):
-        """Update the parameters dict with the values in update_dict."""
+        """Fit the classifier and perform FDR estimation.
+
+        Notes
+        -----
+            The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
+        """
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
         )
@@ -559,7 +578,7 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"Competetive: {competetive}")
 
-        classifier = self.get_classifier(available_columns)
+        classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
@@ -619,12 +638,25 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
-        self.classifier_store[column_hash(available_columns)] = classifier
+
+        self._current_version += 1
+        self.classifier_store[column_hash(available_columns)].append(classifier)
+
         self.save()
 
         return psm_df
 
-    def save_classifier_store(self, path=None):
+    def save_classifier_store(self, path: None | str = None, version: int = -1):
+        """Saves the classifier store to disk.
+
+        Parameters
+        ----------
+        path: None | str
+            Where to save the classifier. Saves to alphadia/constants/classifier if None.
+        version: int
+            Version of the classifier to save. Takes the last classifier if -1 (default)
+
+        """
         if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
@@ -632,12 +664,21 @@ class FDRManager(BaseManager):
 
         logger.info(f"Saving classifier store to {path}")
 
-        for classifier_hash, classifier in self.classifier_store.items():
+        for classifier_hash, classifier_list in self.classifier_store.items():
             torch.save(
-                classifier.to_state_dict(), os.path.join(path, f"{classifier_hash}.pth")
+                classifier_list[version].to_state_dict(),
+                os.path.join(path, f"{classifier_hash}.pth"),
             )
 
-    def load_classifier_store(self, path=None):
+    def load_classifier_store(self, path: None | str = None):
+        """Loads the classifier store from disk.
+
+        Parameters
+        ----------
+        path: None | str
+            Location of the classifier to load. Loads from alphadia/constants/classifier if None.
+
+        """
         if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
@@ -650,20 +691,36 @@ class FDRManager(BaseManager):
                 classifier_hash = file.split(".")[0]
 
                 if classifier_hash not in self.classifier_store:
-                    self.classifier_store[classifier_hash] = deepcopy(
-                        self.classifier_base
-                    )
-                    self.classifier_store[classifier_hash].from_state_dict(
-                        torch.load(os.path.join(path, file))
-                    )
+                    classifier = deepcopy(self.classifier_base)
+                    classifier.from_state_dict(torch.load(os.path.join(path, file)))
+                    self.classifier_store[classifier_hash].append(classifier)
 
-    def get_classifier(self, available_columns):
+    def get_classifier(self, available_columns: list, version: int = -1):
+        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
+
+        Parameters
+        ----------
+        available_columns: list
+            List of feature columns
+        version: int
+            Version of the classifier to get
+
+        Returns
+        ----------
+        object
+            Classifier object
+
+        """
         classifier_hash = column_hash(available_columns)
         if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash]
+            classifier = self.classifier_store[classifier_hash][version]
         else:
-            classifier = deepcopy(self.classifier_base)
-        return classifier
+            classifier = self.classifier_base
+        return deepcopy(classifier)
+
+    @property
+    def current_version(self):
+        return self._current_version
 
     def predict(self):
         """Return the parameters dict."""
