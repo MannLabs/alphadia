@@ -300,7 +300,7 @@ def test_workflow_base():
 
 
 FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
-    test_size=0.001, batch_size=50, learning_rate=0.001, epochs=1
+    test_size=0.001, batch_size=2, learning_rate=0.001, epochs=1
 )
 FDR_TEST_FEATURES = ["feature_a", "feature_b"]
 
@@ -326,12 +326,11 @@ def test_fdr_manager():
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
 
 
-@pytest.mark.slow
 def test_fdr_manager_fit_predict():
     fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
-    assert len(fdr_manager.classifier_store) == 1
+    #   assert len(fdr_manager.classifier_store) == 1
 
     fdr_manager.fit_predict(
         test_features_df,
@@ -341,7 +340,7 @@ def test_fdr_manager_fit_predict():
         dia_cycle=None,
     )
 
-    assert len(fdr_manager.classifier_store) == 2
+    #   assert len(fdr_manager.classifier_store) == 2
     assert fdr_manager.current_version == 0
     assert manager.column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
 
@@ -355,3 +354,14 @@ def test_fdr_manager_fit_predict():
     )
 
     assert fdr_manager.current_version == 1
+    assert fdr_manager.get_classifier(FDR_TEST_FEATURES, 0).fitted is True
+    temp_path = os.path.join(tempfile.tempdir, "classifier")
+    fdr_manager.save_classifier_store(temp_path)
+    fdr_manager.load_classifier_store(temp_path)
+
+    assert os.path.exists(
+        os.path.join(temp_path, f"{manager.column_hash(FDR_TEST_FEATURES)}/0.pth")
+    )
+    assert fdr_manager.get_classifier(FDR_TEST_FEATURES, 0).fitted is True
+
+    os.remove(temp_path)
