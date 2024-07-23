@@ -484,7 +484,7 @@ class OptimizationManager(BaseManager):
 
 class FDRManager(BaseManager):
     """
-    Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation. 
+    Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
     --------------------------------
     Parameters:
     feature_columns: list
@@ -493,6 +493,7 @@ class FDRManager(BaseManager):
         Base classifier object to use for the FDR estimation
 
     """
+
     def __init__(
         self,
         feature_columns: list,
@@ -632,12 +633,12 @@ class FDRManager(BaseManager):
         self.is_fitted = True
 
         classifier_hash = column_hash(available_columns)
-        if classifier_hash not in self.classifier_store.keys():
-            self.classifier_store[classifier_hash] = []  
+        if classifier_hash not in self.classifier_store:
+            self.classifier_store[classifier_hash] = []
 
-        self._current_version += 1  
+        self._current_version += 1
         # The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index of the classifier_store
-        self.classifier_store[column_hash(available_columns)].append(classifier) 
+        self.classifier_store[column_hash(available_columns)].append(classifier)
 
         self.save()
 
@@ -692,7 +693,7 @@ class FDRManager(BaseManager):
         else:
             classifier = deepcopy(self.classifier_base)
         return classifier
-        
+
     @property
     def current_version(self):
         return self._current_version

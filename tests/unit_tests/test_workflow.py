@@ -344,7 +344,4 @@ def test_fdr_manager_fit_predict():
 
     assert len(fdr_manager.classifier_store) == 2
     assert fdr_manager.current_version == 0
-    assert (
-        manager.column_hash(FDR_TEST_FEATURES)
-        in fdr_manager.classifier_store
-    )
+    assert manager.column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
