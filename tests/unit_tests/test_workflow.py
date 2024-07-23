@@ -339,9 +339,19 @@ def test_fdr_manager_fit_predict():
         competetive=False,
         df_fragments=None,
         dia_cycle=None,
-        # neptune_run=self.neptune
     )
 
     assert len(fdr_manager.classifier_store) == 2
     assert fdr_manager.current_version == 0
     assert manager.column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
+
+    fdr_manager.fit_predict(
+        test_features_df,
+        decoy_strategy="precursor",
+        competetive=False,
+        df_fragments=None,
+        dia_cycle=None,
+        version=0,
+    )
+
+    assert fdr_manager.current_version == 1

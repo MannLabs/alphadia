@@ -259,6 +259,7 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of calibration group names
+
         """
 
         return [x["name"] for x in self.estimator_groups]
@@ -300,6 +301,7 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of estimator names
+
         """
 
         group = self.get_group(group_name)
@@ -483,10 +485,10 @@ class OptimizationManager(BaseManager):
 
 
 class FDRManager(BaseManager):
-    """
-    Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
-    --------------------------------
-    Parameters:
+    """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
+
+    Parameters
+    ----------
     feature_columns: list
         List of feature columns to use for the classifier
     classifier_base: object
@@ -525,7 +527,12 @@ class FDRManager(BaseManager):
         decoy_channel: int = -1,
         version: None | int = -1,
     ):
-        """Update the parameters dict with the values in update_dict."""
+        """Fit the classifier and perform FDR estimation.
+
+        Notes
+        -----
+            The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index in self.classifier_store.
+        """
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
         )
@@ -637,7 +644,6 @@ class FDRManager(BaseManager):
             self.classifier_store[classifier_hash] = []
 
         self._current_version += 1
-        # The classifier_hash must be identical for every call of fit_predict for self._current_version to give the right index of the classifier_store
         self.classifier_store[column_hash(available_columns)].append(classifier)
 
         self.save()
@@ -678,14 +684,20 @@ class FDRManager(BaseManager):
                     )
 
     def get_classifier(self, available_columns, version):
-        """
-        Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
-        --------------------------------
-        Parameters:
+        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
+
+        Parameters
+        ----------
         available_columns: list
             List of feature columns
         version: int
             Version of the classifier to get
+
+        Returns
+        ----------
+        object
+            Classifier object
+
         """
         classifier_hash = column_hash(available_columns)
         if classifier_hash in self.classifier_store:
