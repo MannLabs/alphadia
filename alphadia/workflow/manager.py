@@ -675,8 +675,8 @@ class FDRManager(BaseManager):
 
         Parameters
         ----------
-        path: str
-            Whence to load the classifier. Loads from alphadia/constants/classifier if None.
+        path: None | str
+            From where to load the classifier. Loads from alphadia/constants/classifier if None.
 
         """
         if path is None:
