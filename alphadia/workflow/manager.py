@@ -670,13 +670,13 @@ class FDRManager(BaseManager):
                 os.path.join(path, f"{classifier_hash}.pth"),
             )
 
-    def load_classifier_store(self, path=None):
+    def load_classifier_store(self, path: None | str = None):
         """Loads the classifier store from disk.
 
         Parameters
         ----------
         path: None | str
-            From where to load the classifier. Loads from alphadia/constants/classifier if None.
+            Location of the classifier to load. Loads from alphadia/constants/classifier if None.
 
         """
         if path is None:
