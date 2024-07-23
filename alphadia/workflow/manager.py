@@ -3,6 +3,7 @@ import logging
 import os
 import pickle
 import typing
+from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
@@ -485,17 +486,6 @@ class OptimizationManager(BaseManager):
 
 
 class FDRManager(BaseManager):
-    """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
-
-    Parameters
-    ----------
-    feature_columns: list
-        List of feature columns to use for the classifier
-    classifier_base: object
-        Base classifier object to use for the FDR estimation
-
-    """
-
     def __init__(
         self,
         feature_columns: list,
@@ -504,13 +494,23 @@ class FDRManager(BaseManager):
         load_from_file: bool = True,
         **kwargs,
     ):
+        """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
+
+        Parameters
+        ----------
+        feature_columns: list
+            List of feature columns to use for the classifier
+        classifier_base: object
+            Base classifier object to use for the FDR estimation
+
+        """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
             self.feature_columns = feature_columns
-            self.classifier_store = {}
+            self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
         self._current_version = -1
         self.load_classifier_store()
@@ -525,7 +525,7 @@ class FDRManager(BaseManager):
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
-        version: None | int = -1,
+        version: int = -1,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -639,10 +639,6 @@ class FDRManager(BaseManager):
 
         self.is_fitted = True
 
-        classifier_hash = column_hash(available_columns)
-        if classifier_hash not in self.classifier_store:
-            self.classifier_store[classifier_hash] = []
-
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
 
@@ -683,7 +679,7 @@ class FDRManager(BaseManager):
                         torch.load(os.path.join(path, file))
                     )
 
-    def get_classifier(self, available_columns, version):
+    def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
 
         Parameters
@@ -701,10 +697,10 @@ class FDRManager(BaseManager):
         """
         classifier_hash = column_hash(available_columns)
         if classifier_hash in self.classifier_store:
-            classifier = deepcopy(self.classifier_store[classifier_hash][version])
+            classifier = self.classifier_store[classifier_hash][version]
         else:
-            classifier = deepcopy(self.classifier_base)
-        return classifier
+            classifier = self.classifier_base
+        return deepcopy(classifier)
 
     @property
     def current_version(self):
