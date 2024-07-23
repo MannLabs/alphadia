@@ -646,7 +646,17 @@ class FDRManager(BaseManager):
 
         return psm_df
 
-    def save_classifier_store(self, path=None):
+    def save_classifier_store(self, path: None | str = None, version: int = -1):
+        """Saves the classifier store to disk.
+
+        Parameters
+        ----------
+        path: None | str
+            Where to save the classifier. Saves to alphadia/constants/classifier if None.
+        version: int
+            Version of the classifier to save. Takes the last classifier if -1 (default)
+
+        """
         if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
@@ -655,14 +665,20 @@ class FDRManager(BaseManager):
         logger.info(f"Saving classifier store to {path}")
 
         for classifier_hash, classifier_list in self.classifier_store.items():
-            for version, classifier in enumerate(classifier_list):
-                os.makedirs(os.path.join(path, classifier_hash), exist_ok=True)
-                torch.save(
-                    classifier.to_state_dict(),
-                    os.path.join(path, f"{classifier_hash}/{version}.pth"),
-                )
+            torch.save(
+                classifier_list[version].to_state_dict(),
+                os.path.join(path, f"{classifier_hash}.pth"),
+            )
 
     def load_classifier_store(self, path=None):
+        """Loads the classifier store from disk.
+
+        Parameters
+        ----------
+        path: str
+            Whence to load the classifier. Loads from alphadia/constants/classifier if None.
+
+        """
         if path is None:
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
@@ -670,25 +686,14 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        for subpath in os.listdir(path):
-            if subpath.endswith(".pth"):
-                continue
-            else:
-                classifier_hash = subpath
-                num_classifiers = len(os.listdir(os.path.join(path, classifier_hash)))
+        for file in os.listdir(path):
+            if file.endswith(".pth"):
+                classifier_hash = file.split(".")[0]
 
                 if classifier_hash not in self.classifier_store:
-                    self.classifier_store[classifier_hash] = [None] * num_classifiers
-
-                for file in os.listdir(os.path.join(path, classifier_hash)):
-                    if file.endswith(".pth"):
-                        version = int(file.split(".")[0])
-
-                        classifier = deepcopy(self.classifier_base)
-                        classifier.from_state_dict(
-                            torch.load(os.path.join(path, classifier_hash, file))
-                        )
-                        self.classifier_store[classifier_hash][version] = classifier
+                    classifier = deepcopy(self.classifier_base)
+                    classifier.from_state_dict(torch.load(os.path.join(path, file)))
+                    self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
