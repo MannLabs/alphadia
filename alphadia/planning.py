@@ -355,13 +355,17 @@ class Plan:
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
-        base_spec_lib = SpecLibBase()
-        base_spec_lib.load_hdf(
-            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
-        )
+        try:
+            base_spec_lib = SpecLibBase()
+            base_spec_lib.load_hdf(
+                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+            )
 
-        output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build(workflow_folder_list, base_spec_lib)
+            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output.build(workflow_folder_list, base_spec_lib)
+        except Exception as e:
+            _log_exception_event(e)
+            raise e
 
         logger.progress("=================== Search Finished ===================")
 
@@ -370,18 +374,22 @@ class Plan:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))
 
 
-def _log_exception_event(e: Exception, raw_name: str, workflow: WorkflowBase) -> None:
+def _log_exception_event(
+    e: Exception, raw_name: str | None = None, workflow: WorkflowBase | None = None
+) -> None:
     """Log exception and emit event to reporter if available."""
 
+    prefix = (
+        "Error:" if raw_name is None else f"Search for {raw_name} failed with error:"
+    )
+
     if isinstance(e, CustomError):
-        logger.error(f"Search for {raw_name} failed with error: {e.error_code} {e.msg}")
+        logger.error(f"{prefix} {e.error_code} {e.msg}")
         logger.error(e.detail_msg)
     else:
-        logger.error(
-            f"Search for {raw_name} failed with unknown error {e}", exc_info=True
-        )
+        logger.error(f"{prefix} {e}", exc_info=True)
 
-    if workflow.reporter:
+    if workflow is not None and workflow.reporter:
         workflow.reporter.log_string(
             value=str(e),
             verbosity="error",

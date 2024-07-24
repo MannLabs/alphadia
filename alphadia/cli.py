@@ -1,8 +1,9 @@
 #!python
+"""CLI for alphaDIA.
 
-# native imports
-# alpha family imports
-# third party imports
+Ideally the CLI module should have as little logic as possible so that the search behaves the same from the CLI or a jupyter notebook.
+"""
+
 import argparse
 import json
 import logging
@@ -12,7 +13,6 @@ import sys
 
 import yaml
 
-# alphadia imports
 import alphadia
 from alphadia import utils
 from alphadia.exceptions import CustomError
@@ -343,14 +343,12 @@ def run(*args, **kwargs):
 
     except Exception as e:
         if isinstance(e, CustomError):
-            message = f"An error occurred: {e.error_code}: {e.msg} {e.detail_msg}"
             exit_code = 1
         else:
             import traceback
 
             logger.info(traceback.format_exc())
-            message = f"An unknown error occurred: {e}"
             exit_code = 127
 
-        logger.error(message)
+        logger.error(e)
         sys.exit(exit_code)
