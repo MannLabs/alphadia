@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager
+from alphadia.workflow import base, manager, optimizer
 
 
 def test_base_manager():
@@ -369,3 +370,31 @@ def test_fdr_manager_fit_predict():
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
 
     os.remove(temp_path)
+
+
+def ms2_optimizer_test():
+    test_dict = defaultdict(list)
+    test_dict["var"] = list(range(100))
+
+    ms2_optimizer = optimizer.MS2Optimizer(100)
+
+    assert ms2_optimizer.optimal_tolerance is None
+    assert ms2_optimizer.round == -1
+    assert ms2_optimizer.check() is False
+
+    ms2_optimizer.initiate()
+    test_dict["var"].append(1)
+    ms2_optimizer.update(pd.DataFrame(test_dict), 20)
+
+    assert ms2_optimizer.round == 0
+
+    ms2_optimizer.initiate()
+    test_dict["var"].append(1)
+    ms2_optimizer.update(pd.DataFrame(test_dict), 10)
+
+    ms2_optimizer.initiate()
+    test_dict["var"].append(1)
+    ms2_optimizer.update(pd.DataFrame(test_dict), 2)
+
+    assert ms2_optimizer.check() is True
+    assert ms2_optimizer.optimal_tolerance == 10
