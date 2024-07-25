@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager, optimizer
+from alphadia.workflow import base, manager, searchoptimization
 
 
 def test_base_manager():
@@ -376,29 +376,19 @@ def ms2_optimizer_test():
     test_dict = defaultdict(list)
     test_dict["var"] = list(range(100))
 
-    ms2_optimizer = optimizer.MS2Optimizer(100)
+    ms2_optimizer = searchoptimization.MS2Optimizer(100)
 
     assert ms2_optimizer.optimal_tolerance is None
-    assert ms2_optimizer.round == -1
-    assert ms2_optimizer.check_stopping_conditions() is False
 
-    ms2_optimizer.initiate()
+    ms2_optimizer.step(pd.DataFrame(test_dict), 20)
+
     test_dict["var"].append(1)
-    ms2_optimizer.update(pd.DataFrame(test_dict), 20)
+    ms2_optimizer.step(pd.DataFrame(test_dict), 10)
 
-    assert ms2_optimizer.round == 0
-
-    ms2_optimizer.initiate()
     test_dict["var"].append(1)
-    ms2_optimizer.update(pd.DataFrame(test_dict), 10)
+    ms2_optimizer.step(pd.DataFrame(test_dict), 2)
 
-    ms2_optimizer.initiate()
-    test_dict["var"].append(1)
-    ms2_optimizer.update(pd.DataFrame(test_dict), 2)
-
-    assert ms2_optimizer.round == 2
-    assert ms2_optimizer.check_stopping_conditions() is True
-    assert ms2_optimizer.initiate() is True
-    assert ms2_optimizer.update(pd.DataFrame(test_dict), 2) is True
-    assert ms2_optimizer.round == 2
     assert ms2_optimizer.optimal_tolerance == 10
+
+
+ms2_optimizer_test()
