@@ -380,7 +380,7 @@ def ms2_optimizer_test():
 
     assert ms2_optimizer.optimal_tolerance is None
     assert ms2_optimizer.round == -1
-    assert ms2_optimizer.check() is False
+    assert ms2_optimizer.check_stopping_conditions() is False
 
     ms2_optimizer.initiate()
     test_dict["var"].append(1)
@@ -396,5 +396,9 @@ def ms2_optimizer_test():
     test_dict["var"].append(1)
     ms2_optimizer.update(pd.DataFrame(test_dict), 2)
 
-    assert ms2_optimizer.check() is True
+    assert ms2_optimizer.round == 2
+    assert ms2_optimizer.check_stopping_conditions() is True
+    assert ms2_optimizer.initiate() is True
+    assert ms2_optimizer.update(pd.DataFrame(test_dict), 2) is True
+    assert ms2_optimizer.round == 2
     assert ms2_optimizer.optimal_tolerance == 10

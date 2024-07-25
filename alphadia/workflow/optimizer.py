@@ -1,5 +1,5 @@
 # native imports
-from abc import ABC, abstractmethod
+from functools import wraps
 
 import numpy as np
 
@@ -11,20 +11,53 @@ import pandas as pd
 from alphadia.workflow import reporting
 
 
-class BaseOptimizer(ABC):
+def check_if_optimum_found(method):
+    """If an optimum has been found, the optimizer should cease to execute its methods to check, initiate and update.
+    This function can be used as a decorator and placed before the methods in an optimizer to prevent execution of the methods if an optimum has been found.
+    If the optimum has been found, the decorator will print the end of optimization message and, for consistency with stop_or_continue methods, return True.
+    """
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        if self.optimal_tolerance is not None:
+            self.end_of_optimization_message()
+            return True
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+class BaseOptimizer:
     def __init__(
         self,
+        initial_tolerance: float,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
+        """This class serves as a base class for organizing the search parameter optimization process, which defines the tolerances used for search.
+
+        Parameters
+        ----------
+        initial_tolerance: float
+            The initial tolerance to start the optimization
+        """
+        self.proposed_new_tolerance = initial_tolerance
+        self.tolerances = []
+        self.round = -1
+        self.optimal_tolerance = None
         self.reporter = reporting.LogBackend() if reporter is None else reporter
 
-    @abstractmethod
-    def check(self):
-        pass
+    def check_stopping_conditions(self):
+        raise NotImplementedError(
+            f"check_stopping_conditions() not implemented for {self.__class__.__name__}"
+        )
 
-    @abstractmethod
     def update(self):
-        pass
+        raise NotImplementedError(
+            f"update() not implemented for {self.__class__.__name__}"
+        )
+
+    def initiate(self):
+        raise NotImplementedError(f"initiate() not implemented for {self.__class__}")
 
 
 class RTOptimizer(BaseOptimizer):
@@ -33,23 +66,13 @@ class RTOptimizer(BaseOptimizer):
 
 class MS2Optimizer(BaseOptimizer):
     def __init__(self, initial_tolerance: float):
-        """This class automatically finds an appropriate MS2 tolerance for the search.
-
-        Parameters
-        ----------
-        initial_tolerance: float
-            The initial tolerance to start the optimization
-        """
-        super().__init__()
+        super().__init__(initial_tolerance)
         self.estimator = "mz"
         self.df = "fragment"
-        self.proposed_new_tolerance = initial_tolerance
-        self.tolerances = []
         self.ids = []
-        self.round = -1
-        self.optimal_tolerance = None
 
-    def check(self):
+    @check_if_optimum_found
+    def check_stopping_conditions(self):
         """Optimization should stop if continued narrowing of the MS2 tolerance is not improving the number of precursor identifications.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the number of identifications.
         If so, it continues optimization and appends the proposed new tolerance to the list of tolerances. If not, it stops optimization and sets the optimal tolerance attribute.
@@ -67,11 +90,7 @@ class MS2Optimizer(BaseOptimizer):
 
         """
 
-        if self.optimal_tolerance is not None:
-            self.end_of_optimization_message()
-            stop_optimizaton = True
-
-        elif (
+        if (
             self.round < 2
             or self.ids[-1] > 1.1 * self.ids[-2]
             or self.ids[-1] > 1.1 * self.ids[-3]
@@ -89,12 +108,13 @@ class MS2Optimizer(BaseOptimizer):
 
         return stop_optimizaton
 
+    @check_if_optimum_found
     def initiate(self):
         """If the optimization continues (which will use the proposed new tolerance), the round variable should be incremented and the proposed new tolerance should be added to the list of tolerances."""
-        if self.optimal_tolerance is None:
-            self.tolerances.append(self.proposed_new_tolerance)
-            self.round += 1
+        self.tolerances.append(self.proposed_new_tolerance)
+        self.round += 1
 
+    @check_if_optimum_found
     def update(self, precursors_df: pd.DataFrame, proposed_new_tolerance: float):
         """This function appends the number of precursors identified to the list of identifications.
         It also saves the proposed new tolerance, which will be added to the list of tolerances if the optimization continues after check is called.
@@ -109,9 +129,8 @@ class MS2Optimizer(BaseOptimizer):
             The tolerance which will be used for the next round of optimization (if optimization continues).
 
         """
-        if self.optimal_tolerance is None:
-            self.ids.append(len(precursors_df))
-            self.proposed_new_tolerance = proposed_new_tolerance
+        self.ids.append(len(precursors_df))
+        self.proposed_new_tolerance = proposed_new_tolerance
 
     def end_of_optimization_message(self):
         self.reporter.log_string(
