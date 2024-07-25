@@ -373,22 +373,39 @@ def test_fdr_manager_fit_predict():
 
 
 def ms2_optimizer_test():
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    calibration_manager = manager.CalibrationManager(
+        TEST_CONFIG, path=temp_path, load_from_file=False
+    )
+
+    temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
+
+    optimization_manager = manager.OptimizationManager(
+        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+    )
+
+    test_fragment_df = calibration_testdata()
+    calibration_manager.fit(test_fragment_df, "fragment", plot=False)
+
     test_dict = defaultdict(list)
     test_dict["var"] = list(range(100))
 
-    ms2_optimizer = searchoptimization.MS2Optimizer(100)
+    ms2_optimizer = searchoptimization.MS2Optimizer(
+        100, calibration_manager, optimization_manager
+    )
 
-    assert ms2_optimizer.optimal_tolerance is None
+    assert ms2_optimizer.optimal_parameter is None
 
-    ms2_optimizer.step(pd.DataFrame(test_dict), 20)
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+
+    assert len(ms2_optimizer.parameters) == 2
 
     test_dict["var"].append(1)
-    ms2_optimizer.step(pd.DataFrame(test_dict), 10)
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
 
     test_dict["var"].append(1)
-    ms2_optimizer.step(pd.DataFrame(test_dict), 2)
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
 
-    assert ms2_optimizer.optimal_tolerance == 10
-
-
-ms2_optimizer_test()
+    assert ms2_optimizer.optimal_parameter is not None
+    assert ms2_optimizer.precursor_ids == [100, 101, 102]
+    assert optimization_manager.ms2_error == ms2_optimizer.optimal_parameter
