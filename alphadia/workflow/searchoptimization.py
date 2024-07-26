@@ -1,6 +1,7 @@
 # native imports
 from abc import ABC, abstractmethod
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 # alpha family imports
@@ -174,6 +175,26 @@ class AutomaticRTOptimizer(BaseOptimizer):
             self.parameters.append(proposed_parameter)
             self.optimization_manager.fit({"rt_error": proposed_parameter})
 
+    def plot(self):
+        """Plot the optimization of the RT error parameter."""
+        fig, ax = plt.subplots()
+        ax.vlines(
+            self.optimal_parameter,
+            0,
+            max(self.feature),
+            color="red",
+            zorder=0,
+            label="Optimal RT error",
+        )
+        ax.plot(self.parameters, self.feature)
+        ax.scatter(self.parameters, self.feature)
+        ax.set_ylabel("Number of precursor identifications")
+        ax.set_xlabel("RT error")
+        ax.xaxis.set_inverted(True)
+        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
+        ax.legend(loc="upper left")
+        plt.show()
+
 
 class AutomaticMS2Optimizer(BaseOptimizer):
     def __init__(
@@ -264,6 +285,26 @@ class AutomaticMS2Optimizer(BaseOptimizer):
 
             self.parameters.append(proposed_parameter)
             self.optimization_manager.fit({"ms2_error": proposed_parameter})
+
+    def plot(self):
+        """Plot the optimization of the MS2 error parameter."""
+        fig, ax = plt.subplots()
+        ax.vlines(
+            self.optimal_parameter,
+            0,
+            max(self.precursor_ids),
+            color="red",
+            zorder=0,
+            label="Optimal MS2 error",
+        )
+        ax.plot(self.parameters, self.precursor_ids)
+        ax.scatter(self.parameters, self.precursor_ids)
+        ax.set_ylabel("Number of precursor identifications")
+        ax.set_xlabel("MS2 error")
+        ax.xaxis.set_inverted(True)
+        ax.set_ylim(bottom=0, top=max(self.precursor_ids) * 1.1)
+        ax.legend(loc="upper left")
+        plt.show()
 
 
 class AutomaticMS1Optimizer(BaseOptimizer):
@@ -358,6 +399,26 @@ class AutomaticMS1Optimizer(BaseOptimizer):
             self.parameters.append(proposed_parameter)
             self.optimization_manager.fit({"ms1_error": proposed_parameter})
 
+    def plot(self):
+        """Plot the optimization of the MS1 error parameter."""
+        fig, ax = plt.subplots()
+        ax.vlines(
+            self.optimal_parameter,
+            0,
+            max(self.feature),
+            color="red",
+            zorder=0,
+            label="Optimal MS1 error",
+        )
+        ax.plot(self.parameters, self.feature)
+        ax.scatter(self.parameters, self.feature)
+        ax.set_ylabel("Number of precursor identifications")
+        ax.set_xlabel("MS1 error")
+        ax.xaxis.set_inverted(True)
+        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
+        ax.legend(loc="upper left")
+        plt.show()
+
 
 class AutomaticMobilityOptimizer(BaseOptimizer):
     def __init__(
@@ -448,6 +509,26 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
 
             self.parameters.append(proposed_parameter)
             self.optimization_manager.fit({"mobility_error": proposed_parameter})
+
+    def plot(self):
+        """Plot the optimization of the mobility error parameter."""
+        fig, ax = plt.subplots()
+        ax.vlines(
+            self.optimal_parameter,
+            0,
+            max(self.feature),
+            color="red",
+            zorder=0,
+            label="Optimal mobility error",
+        )
+        ax.plot(self.parameters, self.feature)
+        ax.scatter(self.parameters, self.feature)
+        ax.set_ylabel("Number of precursor identifications")
+        ax.set_xlabel("Mobility error")
+        ax.xaxis.set_inverted(True)
+        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
+        ax.legend(loc="upper left")
+        plt.show()
 
 
 class TargetedRTOptimizer(BaseOptimizer):
