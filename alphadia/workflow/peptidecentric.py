@@ -1,5 +1,6 @@
 # native imports
 import logging
+from numbers import Number
 
 # third party imports
 import numpy as np
@@ -16,7 +17,7 @@ from alphadia import fdrexperimental as fdrx
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
 from alphadia.peakgroup import search
-from alphadia.workflow import base, manager
+from alphadia.workflow import base, manager, searchoptimization
 
 logger = logging.getLogger()
 
@@ -324,119 +325,67 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return plan
 
-    def start_of_calibration(self):
-        self.batch_plan = self.get_batch_plan()
+    def extract_optimization_data(self, target):
+        """Search parameter optimization (i.e. refinement of tolerances for RT, MS2, etc.) is performed on a subset of the elution groups in the spectral library.
+        The number of elution groups which must be searched to get a sufficiently large number for robust calibration varies depending the library used and the data.
+        This function searches an increasing number of elution groups until a sufficient number (determined by target) of precursors are identified at 1% FDR.
+        It then returns the elution group indexes which will be used to find the data in the spectral library for search parameter optimization.
 
-    def start_of_epoch(self, current_epoch):
-        self.com.current_epoch = current_epoch
+        Parameters
+        ----------
 
-        # if self.neptune is not None:
-        #    self.neptune["eval/epoch"].log(current_epoch)
+        target : int
+            The number of precursors which must be identified at 1% FDR to stop the extraction.
+
+        """
 
         self.elution_group_order = self.spectral_library.precursor_df[
             "elution_group_idx"
         ].unique()
         np.random.shuffle(self.elution_group_order)
 
-        self.calibration_manager.predict(
-            self.spectral_library._precursor_df, "precursor"
-        )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        batch_plan = self.get_batch_plan()
 
-        # make updates to the progress dict depending on the epoch
-        if self.com.current_epoch > 0:
-            self.com.recalibration_target = self.config["calibration"][
-                "recalibration_target"
-            ] * (1 + current_epoch)
-
-    def start_of_step(self, current_step, start_index, stop_index):
-        self.com.current_step = current_step
-        # if self.neptune is not None:
-        #    self.neptune["eval/step"].log(current_step)
-
-        #    for key, value in self.com.__dict__.items():
-        #        self.neptune[f"eval/{key}"].log(value)
-
-        self.reporter.log_string(
-            f"=== Epoch {self.com.current_epoch}, step {current_step}, extracting elution groups {start_index} to {stop_index} ===",
-            verbosity="progress",
-        )
-
-    def check_epoch_conditions(self):
-        continue_calibration = False
-
-        self.reporter.log_string(
-            "=== checking if epoch conditions were reached ===", verbosity="info"
-        )
-        if self.dia_data.has_ms1:
-            if self.com.ms1_error > self.config["search"]["target_ms1_tolerance"]:
-                self.reporter.log_string(
-                    f"❌ {'ms1_error':<15}: {self.com.ms1_error:.4f} > {self.config['search']['target_ms1_tolerance']}",
-                    verbosity="info",
-                )
-                continue_calibration = True
-            else:
-                self.reporter.log_string(
-                    f"✅ {'ms1_error':<15}: {self.com.ms1_error:.4f} <= {self.config['search']['target_ms1_tolerance']}",
-                    verbosity="info",
-                )
-
-        if self.com.ms2_error > self.config["search"]["target_ms2_tolerance"]:
+        features = []
+        fragments = []
+        for current_step, (start_index, stop_index) in enumerate(batch_plan):
             self.reporter.log_string(
-                f"❌ {'ms2_error':<15}: {self.com.ms2_error:.4f} > {self.config['search']['target_ms2_tolerance']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'ms2_error':<15}: {self.com.ms2_error:.4f} <= {self.config['search']['target_ms2_tolerance']}",
-                verbosity="info",
+                f"=== Step {current_step}, extracting elution groups {start_index} to {stop_index} ===",
+                verbosity="progress",
             )
 
-        if self.com.rt_error > self.config["search"]["target_rt_tolerance"]:
+            eg_idxes = self.elution_group_order[start_index:stop_index]
+            batch_df = self.spectral_library._precursor_df[
+                self.spectral_library._precursor_df["elution_group_idx"].isin(eg_idxes)
+            ]
+
+            feature_df, fragment_df = self.extract_batch(batch_df)
+            features += [feature_df]
+            fragments += [fragment_df]
+            features_df = pd.concat(features)
+            fragments_df = pd.concat(fragments)
+
             self.reporter.log_string(
-                f"❌ {'rt_error':<15}: {self.com.rt_error:.4f} > {self.config['search']['target_rt_tolerance']}",
-                verbosity="info",
+                f"=== Step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
+                verbosity="progress",
             )
-            continue_calibration = True
-        else:
+            precursor_df = self.fdr_correction(features_df, fragments_df)
+
+            precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
+
             self.reporter.log_string(
-                f"✅ {'rt_error':<15}: {self.com.rt_error:.4f} <= {self.config['search']['target_rt_tolerance']}",
-                verbosity="info",
+                f"=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===",
+                verbosity="progress",
             )
 
-        if self.dia_data.has_mobility:
-            if (
-                self.com.mobility_error
-                > self.config["search"]["target_mobility_tolerance"]
-            ):
-                self.reporter.log_string(
-                    f"❌ {'mobility_error':<15}: {self.com.mobility_error:.4f} > {self.config['search']['target_mobility_tolerance']}",
-                    verbosity="info",
-                )
-                continue_calibration = True
-            else:
-                self.reporter.log_string(
-                    f"✅ {'mobility_error':<15}: {self.com.mobility_error:.4f} <= {self.config['search']['target_mobility_tolerance']}",
-                    verbosity="info",
-                )
+            self.log_precursor_df(precursor_df)
 
-        if self.com.current_epoch < self.config["calibration"]["min_epochs"] - 1:
-            self.reporter.log_string(
-                f"❌ {'current_epoch':<15}: {self.com.current_epoch} < {self.config['calibration']['min_epochs']}",
-                verbosity="info",
-            )
-            continue_calibration = True
-        else:
-            self.reporter.log_string(
-                f"✅ {'current_epoch':<15}: {self.com.current_epoch} >= {self.config['calibration']['min_epochs']}",
-                verbosity="info",
-            )
+            if precursors_01FDR > target:
+                final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
+                break
 
-        self.reporter.log_string(
-            "==============================================", verbosity="info"
-        )
-        return continue_calibration
+        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
+        self.com.fit({"classifier_version": self.fdr_manager.current_version})
 
     def calibration(self):
         if (
@@ -449,94 +398,103 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             return
 
-        self.start_of_calibration()
-        for current_epoch in range(self.config["calibration"]["max_epochs"]):
-            if self.check_epoch_conditions():
-                pass
-            else:
-                break
+        if (
+            isinstance(self.config["search"]["target_ms2_tolerance"], Number)
+            and isinstance(self.config["search"]["target_rt_tolerance"], Number)
+            and isinstance(self.config["search"]["target_ms1_tolerance"], Number)
+            and isinstance(self.config["search"]["target_mobility_tolerance"], Number)
+        ):
+            self.reporter.log_string(
+                "A complete list of target tolerances has been specified. Will perform targeted search parameter optimization.",
+                verbosity="info",
+            )
+            self.ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
+                self.config["search"]["initial_ms2_tolerance"],
+                self.config["search"]["target_ms2_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
+            self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
+                self.config["search"]["initial_rt_tolerance"],
+                self.config["search"]["target_rt_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
+            self.ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
+                self.config["search"]["target_ms1_tolerance"],
+                self.config["search"]["target_ms1_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
+            self.mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
+                self.config["search"]["target_mobility_tolerance"],
+                self.config["search"]["target_mobility_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
 
-            self.start_of_epoch(current_epoch)
+            order_of_optimization = [
+                [
+                    self.ms2_optimizer,
+                    self.rt_optimizer,
+                    self.ms1_optimizer,
+                    self.mobility_optimizer,
+                ]
+            ]
 
-            features = []
-            fragments = []
-            for current_step, (start_index, stop_index) in enumerate(self.batch_plan):
-                self.start_of_step(current_step, start_index, stop_index)
+        else:
+            raise NotImplementedError(
+                "Automatic search parameter optimization is not yet implemented"
+            )
 
-                eg_idxes = self.elution_group_order[start_index:stop_index]
+        for optimizers in order_of_optimization:
+            for current_step in range(self.config["calibration"]["max_epochs"]):
+                if np.all([optimizer.has_converged() for optimizer in optimizers]):
+                    break
                 batch_df = self.spectral_library._precursor_df[
                     self.spectral_library._precursor_df["elution_group_idx"].isin(
-                        eg_idxes
+                        self.eg_idxes_for_calibration
                     )
                 ]
 
-                feature_df, fragment_df = self.extract_batch(batch_df)
-                features += [feature_df]
-                fragments += [fragment_df]
-                features_df = pd.concat(features)
-                fragments_df = pd.concat(fragments)
+                features_df, fragments_df = self.extract_batch(batch_df)
 
                 self.reporter.log_string(
-                    f"=== Epoch {self.com.current_epoch}, step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
+                    f"=== Step {current_step}, extracted {len(features_df)} precursors and {len(fragments_df)} fragments ===",
                     verbosity="progress",
                 )
-                precursor_df = self.fdr_correction(features_df, fragments_df)
 
-                if self.check_recalibration(precursor_df):
-                    self.recalibration(precursor_df, fragments_df)
-                    break
-                else:
-                    # check if last step has been reached
-                    if current_step == len(self.batch_plan) - 1:
-                        self.reporter.log_string(
-                            "Searched all data without finding recalibration target",
-                            verbosity="error",
-                        )
-                        raise CalibrationError(
-                            "Searched all data without finding recalibration target"
-                        )
+                precursors_df = self.fdr_correction(
+                    features_df, fragments_df, self.com.classifier_version
+                )
 
-            self.end_of_epoch()
+                precursors_df_filtered, fragments_df_filtered = self.filter_dfs(
+                    precursors_df, fragments_df
+                )
 
-        if self.config["calibration"].get("final_full_calibration", False):
-            self.reporter.log_string(
-                "Performing final calibration with all precursors",
-                verbosity="progress",
-            )
-            features_df, fragments_df = self.extract_batch(
-                self.spectral_library._precursor_df
-            )
-            precursor_df = self.fdr_correction(features_df, fragments_df)
-            self.recalibration(precursor_df, fragments_df)
+                self.recalibration(precursors_df_filtered, fragments_df_filtered)
 
-        self.end_of_calibration()
+                self.reporter.log_string(
+                    "=== checking if optimization conditions were reached ===",
+                    verbosity="info",
+                )
 
-    def end_of_epoch(self):
-        pass
+                for optimizer in optimizers:
+                    optimizer.step(precursors_df_filtered, fragments_df_filtered)
 
-    def end_of_calibration(self):
-        # self.calibration_manager.predict(self.spectral_library._precursor_df, 'precursor')
-        # self.calibration_manager.predict(self.spectral_library._fragment_df, 'fragment')
-        self.calibration_manager.save()
-        pass
+                self.reporter.log_string(
+                    "==============================================", verbosity="info"
+                )
 
-    def recalibration(self, precursor_df, fragments_df):
+    def filter_dfs(self, precursor_df, fragments_df):
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
         ]
-
-        self.calibration_manager.fit(
-            precursor_df_filtered,
-            "precursor",
-            plot=True,
-            skip=["mz"] if not self.dia_data.has_ms1 else [],
-            # neptune_run = self.neptune
-        )
-
-        rt_99 = self.calibration_manager.get_estimator("precursor", "rt").ci(
-            precursor_df_filtered, 0.95
-        )
 
         fragments_df_filtered = fragments_df[
             fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
@@ -557,9 +515,24 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
             max_fragments,
         )
-        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
+        fragments_df_filtered = fragments_df_filtered.iloc[
+            :stop_rank
+        ]  # QUESTION: Should this raise an exception if the length of fragments_df_full is less than min_fragments?
 
-        print(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+        self.reporter.log_string(
+            f"fragments_df_filtered: {len(fragments_df_filtered)}", verbosity="info"
+        )
+
+        return precursor_df_filtered, fragments_df_filtered
+
+    def recalibration(self, precursor_df_filtered, fragments_df_filtered):
+        self.calibration_manager.fit(
+            precursor_df_filtered,
+            "precursor",
+            plot=True,
+            skip=["mz"] if not self.dia_data.has_ms1 else [],
+            # neptune_run = self.neptune
+        )
 
         self.calibration_manager.fit(
             fragments_df_filtered,
@@ -568,49 +541,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run = self.neptune
         )
 
-        m2_99 = self.calibration_manager.get_estimator("fragment", "mz").ci(
-            fragments_df_filtered, 0.95
+        self.calibration_manager.predict(
+            self.spectral_library._precursor_df,
+            "precursor",
         )
+
+        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
         self.com.fit(
             {
-                "ms2_error": max(m2_99, self.config["search"]["target_ms2_tolerance"]),
-                "rt_error": max(rt_99, self.config["search"]["target_rt_tolerance"]),
                 "column_type": "calibrated",
                 "num_candidates": self.config["search"]["target_num_candidates"],
             }
         )
 
-        if self.dia_data.has_ms1:
-            m1_99 = self.calibration_manager.get_estimator("precursor", "mz").ci(
-                precursor_df_filtered, 0.95
-            )
-            self.com.fit(
-                {
-                    "ms1_error": max(
-                        m1_99, self.config["search"]["target_ms1_tolerance"]
-                    ),
-                }
-            )
-
-        if self.dia_data.has_mobility:
-            mobility_99 = self.calibration_manager.get_estimator(
-                "precursor", "mobility"
-            ).ci(precursor_df_filtered, 0.95)
-            self.com.fit(
-                {
-                    "mobility_error": max(
-                        mobility_99, self.config["search"]["target_mobility_tolerance"]
-                    ),
-                }
-            )
-
-            # if self.neptune is not None:
-            #    self.neptune['eval/99_mobility_error'].log(mobility_99)
-
         percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
-        print("score cutoff", percentile_001)
-
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
@@ -619,34 +564,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        # if self.neptune is not None:
-        # precursor_df_fdr = precursor_df_filtered[precursor_df_filtered['qval'] < 0.01]
-        # self.neptune["eval/precursors"].log(len(precursor_df_fdr))
-        # self.neptune['eval/99_ms1_error'].log(m1_99)
-        # self.neptune['eval/99_ms2_error'].log(m2_99)
-        # self.neptune['eval/99_rt_error'].log(rt_99)
-
-    def check_recalibration(self, precursor_df):
-        self.com.accumulated_precursors = len(precursor_df)
-        self.com.accumulated_precursors_01FDR = len(
-            precursor_df[precursor_df["qval"] < 0.01]
-        )
-
-        self.reporter.log_string(
-            f"=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===",
-            verbosity="progress",
-        )
-
-        self.log_precursor_df(precursor_df)
-
-        perform_recalibration = False
-
-        if self.com.accumulated_precursors_01FDR > self.com.recalibration_target:
-            perform_recalibration = True
-
-        return perform_recalibration
-
-    def fdr_correction(self, features_df, df_fragments):
+    def fdr_correction(self, features_df, df_fragments, version=-1):
         return self.fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor_channel_wise"
@@ -657,6 +575,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self.config["search"]["compete_for_fragments"]
             else None,
             dia_cycle=self.dia_data.cycle,
+            version=version,
             # neptune_run=self.neptune
         )
 
