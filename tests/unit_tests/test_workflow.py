@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager
+from alphadia.workflow import base, manager, searchoptimization
 
 
 def test_base_manager():
@@ -369,3 +370,42 @@ def test_fdr_manager_fit_predict():
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
 
     os.remove(temp_path)
+
+
+def ms2_optimizer_test():
+    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
+    calibration_manager = manager.CalibrationManager(
+        TEST_CONFIG, path=temp_path, load_from_file=False
+    )
+
+    temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
+
+    optimization_manager = manager.OptimizationManager(
+        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+    )
+
+    test_fragment_df = calibration_testdata()
+    calibration_manager.fit(test_fragment_df, "fragment", plot=False)
+
+    test_dict = defaultdict(list)
+    test_dict["var"] = list(range(100))
+
+    ms2_optimizer = searchoptimization.MS2Optimizer(
+        100, calibration_manager, optimization_manager
+    )
+
+    assert ms2_optimizer.optimal_parameter is None
+
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+
+    assert len(ms2_optimizer.parameters) == 2
+
+    test_dict["var"].append(1)
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+
+    test_dict["var"].append(1)
+    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+
+    assert ms2_optimizer.optimal_parameter is not None
+    assert ms2_optimizer.precursor_ids == [100, 101, 102]
+    assert optimization_manager.ms2_error == ms2_optimizer.optimal_parameter
