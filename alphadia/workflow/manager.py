@@ -641,6 +641,9 @@ class FDRManager(BaseManager):
 
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
+        self._num_classifiers = len(
+            self.classifier_store[column_hash(available_columns)]
+        )
 
         self.save()
 
@@ -721,6 +724,11 @@ class FDRManager(BaseManager):
     @property
     def current_version(self):
         return self._current_version
+
+    @property
+    def num_classifiers(self):
+        """This is the number of classifiers in the last classifier_hash that was saved to."""
+        return self._num_classifiers
 
     def predict(self):
         """Return the parameters dict."""
