@@ -149,8 +149,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def init_calibration_optimization_manager(self):
         self._calibration_optimization_manager = manager.OptimizationManager(
             {
-                "current_epoch": 0,
-                "current_step": 0,
                 "ms1_error": self.config["search_initial"]["initial_ms1_tolerance"],
                 "ms2_error": self.config["search_initial"]["initial_ms2_tolerance"],
                 "rt_error": self.config["search_initial"]["initial_rt_tolerance"],
@@ -164,9 +162,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "recalibration_target": self.config["calibration"][
                     "recalibration_target"
                 ],
-                "accumulated_precursors": 0,
-                "accumulated_precursors_01FDR": 0,
-                "accumulated_precursors_001FDR": 0,
+                "classifier_version": -1,
             }
         )
 
@@ -405,44 +401,58 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             and isinstance(self.config["search"]["target_mobility_tolerance"], Number)
         ):
             self.reporter.log_string(
-                "A complete list of target tolerances has been specified. Will perform targeted search parameter optimization.",
+                "A complete list of target tolerances has been specified. Targeted search parameter optimization will be performed.",
                 verbosity="info",
             )
+
             self.ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
-                self.config["search"]["initial_ms2_tolerance"],
+                self.config["search_initial"]["initial_ms2_tolerance"],
                 self.config["search"]["target_ms2_tolerance"],
                 self.calibration_manager,
                 self.com,
                 self.fdr_manager,
             )
+
             self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
-                self.config["search"]["initial_rt_tolerance"],
+                self.config["search_initial"]["initial_rt_tolerance"],
                 self.config["search"]["target_rt_tolerance"],
                 self.calibration_manager,
                 self.com,
                 self.fdr_manager,
             )
-            self.ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
-                self.config["search"]["target_ms1_tolerance"],
-                self.config["search"]["target_ms1_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
-            )
-            self.mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
-                self.config["search"]["target_mobility_tolerance"],
-                self.config["search"]["target_mobility_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
-            )
+
+            if self.dia_data.has_ms1:
+                self.ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
+                    self.config["search_initial"]["initial_ms1_tolerance"],
+                    self.config["search"]["target_ms1_tolerance"],
+                    self.calibration_manager,
+                    self.com,
+                    self.fdr_manager,
+                )
+            else:
+                self.ms1_optimizer = None
+
+            if self.dia_data.has_mobility:
+                self.mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
+                    self.config["search_initial"]["initial_mobility_tolerance"],
+                    self.config["search"]["target_mobility_tolerance"],
+                    self.calibration_manager,
+                    self.com,
+                    self.fdr_manager,
+                )
+            else:
+                self.mobility_optimizer = None
 
             order_of_optimization = [
                 [
-                    self.ms2_optimizer,
-                    self.rt_optimizer,
-                    self.ms1_optimizer,
-                    self.mobility_optimizer,
+                    optimizer
+                    for optimizer in [
+                        self.ms2_optimizer,
+                        self.rt_optimizer,
+                        self.ms1_optimizer,
+                        self.mobility_optimizer,
+                    ]
+                    if optimizer is not None
                 ]
             ]
 
@@ -450,6 +460,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             raise NotImplementedError(
                 "Automatic search parameter optimization is not yet implemented"
             )
+
+        self.extract_optimization_data(
+            self.config["calibration"]["recalibration_target"]
+        )
 
         for optimizers in order_of_optimization:
             for current_step in range(self.config["calibration"]["max_epochs"]):
