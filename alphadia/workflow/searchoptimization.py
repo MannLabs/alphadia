@@ -125,9 +125,16 @@ class RTOptimizer(BaseOptimizer):
             and self.feature[-1] < 1.1 * self.feature[-2]
             and self.feature[-1] < 1.1 * self.feature[-3]
         ):
-            self.optimal_parameter = self.parameters[np.argmax(self.feature)]
+            backtrack_by = (
+                len(self.feature) - np.argmax(self.feature)
+            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
+            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
 
+            self.optimal_parameter = self.parameters[-backtrack_by]
             self.optimization_manager.fit({"rt_error": self.optimal_parameter})
+            self.optimization_manager.fit(
+                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+            )
 
     def _update_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
@@ -145,7 +152,7 @@ class RTOptimizer(BaseOptimizer):
         return proposed_parameter
 
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if not self.has_converged():
             self.feature.append(len(precursors_df))
             self._check_convergence()
@@ -302,9 +309,16 @@ class MS1Optimizer(BaseOptimizer):
             and self.feature[-1] < 1.1 * self.feature[-2]
             and self.feature[-1] < 1.1 * self.feature[-3]
         ):
-            self.optimal_parameter = self.parameters[np.argmax(self.feature)]
+            backtrack_by = (
+                len(self.feature) - np.argmax(self.feature)
+            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
+            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
 
+            self.optimal_parameter = self.parameters[-backtrack_by]
             self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
+            self.optimization_manager.fit(
+                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+            )
 
     def _update_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
@@ -322,7 +336,7 @@ class MS1Optimizer(BaseOptimizer):
         return proposed_parameter
 
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if not self.has_converged():
             self.feature.append(len(precursors_df))
             self._check_convergence()
@@ -346,6 +360,91 @@ class MS1Optimizer(BaseOptimizer):
 
 
 class MobilityOptimizer(BaseOptimizer):
-    """TODO: Implement this class. It will be used to optimize the mobility parameter for the search."""
+    def __init__(
+        self,
+        initial_parameter: float,
+        calibration_manager: manager.CalibrationManager,
+        optimization_manager: manager.OptimizationManager,
+        fdr_manager: manager.FDRManager,
+        **kwargs,
+    ):
+        """See base class.
 
-    pass
+        Parameters
+        ----------
+
+        initial_parameter: float
+            The parameter used for search in the first round of optimization.
+
+        """
+        super().__init__(
+            calibration_manager, optimization_manager, fdr_manager, **kwargs
+        )
+        self.parameters = [initial_parameter]
+        self.feature = []
+
+    def _check_convergence(self):
+        """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
+        This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
+        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+
+        Notes
+        -----
+            Because the check for an increase in TODO feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
+
+
+        """
+
+        if (
+            len(self.feature) > 2
+            and self.feature[-1] < 1.1 * self.feature[-2]
+            and self.feature[-1] < 1.1 * self.feature[-3]
+        ):
+            backtrack_by = (
+                len(self.feature) - np.argmax(self.feature)
+            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
+            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
+
+            self.optimal_parameter = self.parameters[-backtrack_by]
+            self.optimization_manager.fit({"mobility_error": self.optimal_parameter})
+            self.optimization_manager.fit(
+                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+            )
+
+    def _update_parameter(self, df: pd.DataFrame):
+        """See base class. The update rule is
+            1) calculate the deviation of the predicted mz values from the observed mz values,
+            2) take the mean of the endpoints of the central 99% of these deviations, and
+            3) multiply this value by 1.1.
+        This is implemented by the ci method for the estimator.
+
+
+        """
+        proposed_parameter = 1.1 * self.calibration_manager.get_estimator(
+            "precursor", "mz"
+        ).ci(df, 0.99)
+
+        return proposed_parameter
+
+    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        if not self.has_converged():
+            self.feature.append(len(precursors_df))
+            self._check_convergence()
+
+        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
+            self.reporter.log_string(
+                f"✅ Mobility: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                verbosity="progress",
+            )
+
+        else:
+            proposed_parameter = self._update_parameter(precursors_df)
+
+            self.reporter.log_string(
+                f"❌ Mobility: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                verbosity="progress",
+            )
+
+            self.parameters.append(proposed_parameter)
+            self.optimization_manager.fit({"mobility_error": proposed_parameter})
