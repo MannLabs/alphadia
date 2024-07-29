@@ -2,7 +2,6 @@
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
-import numpy as np
 
 # alpha family imports
 # third party imports
@@ -106,8 +105,10 @@ class AutomaticRTOptimizer(BaseOptimizer):
         super().__init__(
             calibration_manager, optimization_manager, fdr_manager, **kwargs
         )
-        self.parameters = [initial_parameter]
-        self.feature = []
+        self.history_df = pd.DataFrame(
+            columns=["parameter", "feature", "classifier_version"]
+        )
+        self.proposed_parameter = initial_parameter
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -122,19 +123,22 @@ class AutomaticRTOptimizer(BaseOptimizer):
         """
 
         if (
-            len(self.feature) > 2
-            and self.feature[-1] < 1.1 * self.feature[-2]
-            and self.feature[-1] < 1.1 * self.feature[-3]
+            len(self.history_df) > 2
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-2]
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-3]
         ):
-            backtrack_by = (
-                len(self.feature) - np.argmax(self.feature)
-            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
-            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
-
-            self.optimal_parameter = self.parameters[-backtrack_by]
+            self.optimal_parameter = self.history_df.loc[
+                self.history_df["feature"].idxmax(), "parameter"
+            ]
             self.optimization_manager.fit({"rt_error": self.optimal_parameter})
             self.optimization_manager.fit(
-                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+                {
+                    "classifier_version": self.history_df.loc[
+                        self.history_df["feature"].idxmax(), "classifier_version"
+                    ]
+                }
             )
 
     def _update_parameter(self, df: pd.DataFrame):
@@ -155,25 +159,37 @@ class AutomaticRTOptimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if not self.has_converged():
-            self.feature.append(len(precursors_df))
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": float(
+                            self.proposed_parameter
+                        ),  # Ensure float dtype
+                        "feature": int(len(precursors_df)),  # Ensure int dtype
+                        "classifier_version": int(
+                            self.fdr_manager.current_version
+                        ),  # Ensure int dtype
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
             self.reporter.log_string(
-                f"✅ {'rt_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                f"✅ {'rt_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
         else:
-            proposed_parameter = self._update_parameter(precursors_df)
+            self.proposed_parameter = self._update_parameter(precursors_df)
 
             self.reporter.log_string(
-                f"❌ {'rt_error':<15}: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                f"❌ {'rt_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
                 verbosity="progress",
             )
 
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"rt_error": proposed_parameter})
+            self.optimization_manager.fit({"rt_error": self.proposed_parameter})
 
     def plot(self):
         """Plot the optimization of the RT error parameter."""
@@ -217,8 +233,10 @@ class AutomaticMS2Optimizer(BaseOptimizer):
         super().__init__(
             calibration_manager, optimization_manager, fdr_manager, **kwargs
         )
-        self.parameters = [initial_parameter]
-        self.precursor_ids = []
+        self.history_df = pd.DataFrame(
+            columns=["parameter", "precursor_ids", "classifier_version"]
+        )
+        self.proposed_parameter = initial_parameter
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the MS2 parameter is not improving the number of precursor identifications.
@@ -233,19 +251,22 @@ class AutomaticMS2Optimizer(BaseOptimizer):
         """
 
         if (
-            len(self.precursor_ids) > 2
-            and self.precursor_ids[-1] < 1.1 * self.precursor_ids[-2]
-            and self.precursor_ids[-1] < 1.1 * self.precursor_ids[-3]
+            len(self.history_df) > 2
+            and self.history_df["precursor_ids"].iloc[-1]
+            < 1.1 * self.history_df["precursor_ids"].iloc[-2]
+            and self.history_df["precursor_ids"].iloc[-1]
+            < 1.1 * self.history_df["precursor_ids"].iloc[-3]
         ):
-            backtrack_by = (
-                len(self.precursor_ids) - np.argmax(self.precursor_ids)
-            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
-            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
-
-            self.optimal_parameter = self.parameters[-backtrack_by]
+            self.optimal_parameter = self.history_df.loc[
+                self.history_df["precursor_ids"].idxmax(), "parameter"
+            ]
             self.optimization_manager.fit({"ms2_error": self.optimal_parameter})
             self.optimization_manager.fit(
-                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+                {
+                    "classifier_version": self.history_df.loc[
+                        self.history_df["precursor_ids"].idxmax(), "classifier_version"
+                    ]
+                }
             )
 
     def _update_parameter(self, df: pd.DataFrame):
@@ -266,25 +287,37 @@ class AutomaticMS2Optimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .precursor_ids) and determine whether it has converged."""
         if not self.has_converged():
-            self.precursor_ids.append(len(precursors_df))
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": float(
+                            self.proposed_parameter
+                        ),  # Ensure float dtype
+                        "precursor_ids": int(len(precursors_df)),  # Ensure int dtype
+                        "classifier_version": int(
+                            self.fdr_manager.current_version
+                        ),  # Ensure int dtype
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
             self.reporter.log_string(
-                f"✅ {'ms2_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                f"✅ {'ms2_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
         else:
-            proposed_parameter = self._update_parameter(fragments_df)
+            self.proposed_parameter = self._update_parameter(fragments_df)
 
             self.reporter.log_string(
-                f"❌ {'ms2_error':<15}: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                f"❌ {'ms2_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
                 verbosity="progress",
             )
 
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"ms2_error": proposed_parameter})
+            self.optimization_manager.fit({"ms2_error": self.proposed_parameter})
 
     def plot(self):
         """Plot the optimization of the MS2 error parameter."""
@@ -330,8 +363,10 @@ class AutomaticMS1Optimizer(BaseOptimizer):
         super().__init__(
             calibration_manager, optimization_manager, fdr_manager, **kwargs
         )
-        self.parameters = [initial_parameter]
-        self.feature = []
+        self.history_df = pd.DataFrame(
+            columns=["parameter", "precursor_ids", "classifier_version"]
+        )
+        self.proposed_parameter = initial_parameter
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -346,19 +381,22 @@ class AutomaticMS1Optimizer(BaseOptimizer):
         """
 
         if (
-            len(self.feature) > 2
-            and self.feature[-1] < 1.1 * self.feature[-2]
-            and self.feature[-1] < 1.1 * self.feature[-3]
+            len(self.history_df) > 2
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-2]
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-3]
         ):
-            backtrack_by = (
-                len(self.feature) - np.argmax(self.feature)
-            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
-            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
-
-            self.optimal_parameter = self.parameters[-backtrack_by]
+            self.optimal_parameter = self.history_df.loc[
+                self.history_df["feature"].idxmax(), "parameter"
+            ]
             self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
             self.optimization_manager.fit(
-                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+                {
+                    "classifier_version": self.history_df.loc[
+                        self.history_df["feature"].idxmax(), "classifier_version"
+                    ]
+                }
             )
 
     def _update_parameter(self, df: pd.DataFrame):
@@ -379,25 +417,37 @@ class AutomaticMS1Optimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if not self.has_converged():
-            self.feature.append(len(precursors_df))
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": float(
+                            self.proposed_parameter
+                        ),  # Ensure float dtype
+                        "feature": int(len(precursors_df)),  # Ensure int dtype
+                        "classifier_version": int(
+                            self.fdr_manager.current_version
+                        ),  # Ensure int dtype
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
             self.reporter.log_string(
-                f"✅ {'ms1_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                f"✅ {'ms1_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
         else:
-            proposed_parameter = self._update_parameter(precursors_df)
+            self.proposed_parameter = self._update_parameter(precursors_df)
 
             self.reporter.log_string(
-                f"❌ {'ms1_error':<15}: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                f"❌ {'ms1_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
                 verbosity="progress",
             )
 
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"ms1_error": proposed_parameter})
+            self.optimization_manager.fit({"ms1_error": self.proposed_parameter})
 
     def plot(self):
         """Plot the optimization of the MS1 error parameter."""
@@ -441,8 +491,10 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
         super().__init__(
             calibration_manager, optimization_manager, fdr_manager, **kwargs
         )
-        self.parameters = [initial_parameter]
-        self.feature = []
+        self.history_df = pd.DataFrame(
+            columns=["parameter", "precursor_ids", "classifier_version"]
+        )
+        self.proposed_parameter = initial_parameter
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -457,19 +509,22 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
         """
 
         if (
-            len(self.feature) > 2
-            and self.feature[-1] < 1.1 * self.feature[-2]
-            and self.feature[-1] < 1.1 * self.feature[-3]
+            len(self.history_df) > 2
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-2]
+            and self.history_df["feature"].iloc[-1]
+            < 1.1 * self.history_df["feature"].iloc[-3]
         ):
-            backtrack_by = (
-                len(self.feature) - np.argmax(self.feature)
-            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
-            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
-
-            self.optimal_parameter = self.parameters[-backtrack_by]
-            self.optimization_manager.fit({"mobility_error": self.optimal_parameter})
+            self.optimal_parameter = self.history_df.loc[
+                self.history_df["feature"].idxmax(), "parameter"
+            ]
+            self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
             self.optimization_manager.fit(
-                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+                {
+                    "classifier_version": self.history_df.loc[
+                        self.history_df["feature"].idxmax(), "classifier_version"
+                    ]
+                }
             )
 
     def _update_parameter(self, df: pd.DataFrame):
@@ -490,25 +545,38 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if not self.has_converged():
-            self.feature.append(len(precursors_df))
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": float(
+                            self.proposed_parameter
+                        ),  # Ensure float dtype
+                        "feature": int(len(precursors_df)),  # Ensure int dtype
+                        "classifier_version": int(
+                            self.fdr_manager.current_version
+                        ),  # Ensure int dtype
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
             self.reporter.log_string(
-                f"✅ {'mobility_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                f"✅ {'mobility_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
         else:
-            proposed_parameter = self._update_parameter(precursors_df)
+            self.proposed_parameter = self._update_parameter(precursors_df)
 
             self.reporter.log_string(
-                f"❌ {'mobility_error':<15}: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                f"❌ {'mobility_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
                 verbosity="progress",
             )
 
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"mobility_error": proposed_parameter})
+            self.parameters.append(self.proposed_parameter)
+            self.optimization_manager.fit({"mobility_error": self.proposed_parameter})
 
     def plot(self):
         """Plot the optimization of the mobility error parameter."""
