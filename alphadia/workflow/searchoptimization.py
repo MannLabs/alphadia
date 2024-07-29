@@ -189,8 +189,10 @@ class MS2Optimizer(BaseOptimizer):
         super().__init__(
             calibration_manager, optimization_manager, fdr_manager, **kwargs
         )
-        self.parameters = [initial_parameter]
-        self.precursor_ids = []
+        self.history_df = pd.DataFrame(
+            columns=["parameter", "precursor_ids", "classifier_version"]
+        )
+        self.proposed_parameter = initial_parameter
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the MS2 parameter is not improving the number of precursor identifications.
@@ -205,19 +207,22 @@ class MS2Optimizer(BaseOptimizer):
         """
 
         if (
-            len(self.precursor_ids) > 2
-            and self.precursor_ids[-1] < 1.1 * self.precursor_ids[-2]
-            and self.precursor_ids[-1] < 1.1 * self.precursor_ids[-3]
+            len(self.history_df) > 2
+            and self.history_df["precursor_ids"].iloc[-1]
+            < 1.1 * self.history_df["precursor_ids"].iloc[-2]
+            and self.history_df["precursor_ids"].iloc[-1]
+            < 1.1 * self.history_df["precursor_ids"].iloc[-3]
         ):
-            backtrack_by = (
-                len(self.precursor_ids) - np.argmax(self.precursor_ids)
-            )  # Corresponds to the 1 + the number of searches since the last increase in identifications, with 1 indicating an increase in the most recent search.
-            # This is done instead of directly indexing the parameter of interest because the self.fdr_manager.classifier_store and self.parameters will be of different lengths, but the relevant entries will be the same index from the end.
-
-            self.optimal_parameter = self.parameters[-backtrack_by]
+            self.optimal_parameter = self.history_df.loc[
+                self.history_df["precursor_ids"].idxmax(), "parameter"
+            ]
             self.optimization_manager.fit({"ms2_error": self.optimal_parameter})
             self.optimization_manager.fit(
-                {"classifier_version": self.fdr_manager.num_classifiers - backtrack_by}
+                {
+                    "classifier_version": self.history_df.loc[
+                        self.history_df["precursor_ids"].idxmax(), "classifier_version"
+                    ]
+                }
             )
 
     def _update_parameter(self, df: pd.DataFrame):
@@ -238,25 +243,28 @@ class MS2Optimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .precursor_ids) and determine whether it has converged."""
         if not self.has_converged():
-            self.precursor_ids.append(len(precursors_df))
+            self.history_df.loc[len(self.history_df)] = [
+                self.proposed_parameter,
+                len(precursors_df),
+                self.fdr_manager.current_version,
+            ]
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
             self.reporter.log_string(
-                f"✅ MS2: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.parameters)} searches.",
+                f"✅ MS2: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df['parameter'])} searches.",
                 verbosity="progress",
             )
 
         else:
-            proposed_parameter = self._update_parameter(fragments_df)
+            self.proposed_parameter = self._update_parameter(fragments_df)
 
             self.reporter.log_string(
-                f"❌ MS2: optimization incomplete after {len(self.parameters)} search(es). Will search with parameter {proposed_parameter}.",
+                f"❌ MS2: optimization incomplete after {len(self.history_df['parameter'])} search(es). Will search with parameter {self.proposed_parameter}.",
                 verbosity="progress",
             )
 
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"ms2_error": proposed_parameter})
+            self.optimization_manager.fit({"ms2_error": self.proposed_parameter})
 
 
 class MS1Optimizer(BaseOptimizer):
