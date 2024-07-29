@@ -41,7 +41,7 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  checkpoint_folder_path: None
+  checkpoint_folder_path: null
 
 search:
   channel_filter: '0'
