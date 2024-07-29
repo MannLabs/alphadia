@@ -1,6 +1,5 @@
 # native imports
 import logging
-from numbers import Number
 
 # third party imports
 import numpy as np
@@ -395,10 +394,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         if (
-            isinstance(self.config["search"]["target_ms2_tolerance"], Number)
-            and isinstance(self.config["search"]["target_rt_tolerance"], Number)
-            and isinstance(self.config["search"]["target_ms1_tolerance"], Number)
-            and isinstance(self.config["search"]["target_mobility_tolerance"], Number)
+            self.config["search"]["target_ms2_tolerance"] > 0
+            and self.config["search"]["target_rt_tolerance"] > 0
+            and self.config["search"]["target_ms1_tolerance"] > 0
+            and self.config["search"]["target_mobility_tolerance"] > 0
         ):
             self.reporter.log_string(
                 "A complete list of target tolerances has been specified. Targeted search parameter optimization will be performed.",
