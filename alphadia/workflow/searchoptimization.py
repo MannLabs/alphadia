@@ -243,11 +243,20 @@ class MS2Optimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .precursor_ids) and determine whether it has converged."""
         if not self.has_converged():
-            self.history_df.loc[len(self.history_df)] = [
-                self.proposed_parameter,
-                len(precursors_df),
-                self.fdr_manager.current_version,
-            ]
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": float(
+                            self.proposed_parameter
+                        ),  # Ensure float dtype
+                        "precursor_ids": int(len(precursors_df)),  # Ensure int dtype
+                        "classifier_version": int(
+                            self.fdr_manager.current_version
+                        ),  # Ensure int dtype
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
             self._check_convergence()
 
         if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
