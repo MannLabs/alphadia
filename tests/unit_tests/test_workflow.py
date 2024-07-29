@@ -387,11 +387,14 @@ def ms2_optimizer_test():
     test_fragment_df = calibration_testdata()
     calibration_manager.fit(test_fragment_df, "fragment", plot=False)
 
+    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager._num_classifiers = 1
+
     test_dict = defaultdict(list)
     test_dict["var"] = list(range(100))
 
     ms2_optimizer = searchoptimization.MS2Optimizer(
-        100, calibration_manager, optimization_manager
+        100, calibration_manager, optimization_manager, fdr_manager
     )
 
     assert ms2_optimizer.optimal_parameter is None
@@ -408,4 +411,9 @@ def ms2_optimizer_test():
 
     assert ms2_optimizer.optimal_parameter is not None
     assert ms2_optimizer.precursor_ids == [100, 101, 102]
+    assert (
+        ms2_optimizer.optimal_parameter
+        == ms2_optimizer.parameters[np.argmax(ms2_optimizer.precursor_ids)]
+    )
     assert optimization_manager.ms2_error == ms2_optimizer.optimal_parameter
+    assert optimization_manager.classifier_version == 0
