@@ -28,22 +28,6 @@ from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
-modification.add_new_modifications(
-    {
-        "Dimethyl:d12@Protein N-term": {"composition": "H(-2)2H(8)13C(2)"},
-        "Dimethyl:d12@Any N-term": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-        "Dimethyl:d12@R": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-        "Dimethyl:d12@K": {
-            "composition": "H(-2)2H(8)13C(2)",
-        },
-        "Label:13C(12)@K": {"composition": "C(12)"},
-    }
-)
-
 
 class Plan:
     def __init__(
@@ -134,6 +118,7 @@ class Plan:
         level_code = logging.getLevelName(level_to_set)
         logger.setLevel(level_code)
 
+        self.init_alphabase()
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
@@ -173,6 +158,16 @@ class Plan:
         logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
         logger.progress("===================================================")
+
+    def init_alphabase(self):
+        """Init alphabase by registering custom modifications."""
+
+        # register custom modifications
+        if "custom_modififcations" in self.config:
+            n_modifications = len(self.config["custom_modififcations"])
+            logging.info(f"Registering {n_modifications} custom modifications")
+
+            modification.add_new_modifications(self.config["custom_modififcations"])
 
     def load_library(self):
         """

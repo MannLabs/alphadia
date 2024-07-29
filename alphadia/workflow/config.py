@@ -77,15 +77,7 @@ def print_w_style(
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
-        if string.find("(") != -1:
-            config_name = string[string.find("(") + 1 : string.find(")")]
-            if config_name == "default":
-                string = string[: string.find("(")] + string[string.find(")") + 1 :]
-                style = "default"
-            else:
-                style = "new"
-        else:
-            style = "default"
+        style = "new" if "user defined" in string else "default"
 
     if style == "update":
         # Green color
@@ -362,32 +354,47 @@ def update_recursive(
             )
         return default_config
 
-    for default_key, default_value in default_config.items():
-        is_last_item = default_key == list(default_config.keys())[-1]
+    all_keys = list(default_config.keys())
+    for experiment_config in experiment_configs:
+        all_keys += [key for key in experiment_config if key not in all_keys]
+
+    for key in all_keys:
+        style = "auto"
+        if key not in default_config:
+            style = "new"
+            for experiment_config in experiment_configs:
+                if key in experiment_config:
+                    default_config[key] = experiment_config[key]
+                    break
+
+        default_value = default_config[key]
+
+        is_last_item = key == all_keys[-1]
 
         if not isinstance(
             default_value, tuple
         ):  # If the default value is not a leaf node, print it's key on separate line
             print_w_style(
-                f"{default_key}",
-                style="auto",
+                f"{key}",
+                style=style,
                 last_item_arr=last_item_arr + [is_last_item],
             )
 
         # Collect potential updates for this item
         potential_config_updates = []
         for experiment_config in experiment_configs:
-            if default_key in experiment_config:
-                potential_config_updates.append(experiment_config[default_key])
+            if key in experiment_config:
+                potential_config_updates.append(experiment_config[key])
 
-        default_config[default_key] = update_recursive(
-            {"key": default_key, "value": default_value},
+        default_config[key] = update_recursive(
+            {"key": key, "value": default_value},
             potential_config_updates,
             level + 1,
             print_output,
             is_last_item,
             last_item_arr=last_item_arr + [is_last_item],
         )
+
     return default_config
 
 
@@ -537,25 +544,6 @@ class Config:
             print_recursively(self.config, 0, "auto")
         return ""
 
-    def translate(self):
-        """
-        Translate the config dict so that every leaf node is a tuple (value, experiment_name), instead of just value
-
-        and sets the translate_config attribute, uses the general translate_config function
-        """
-        temp = copy.deepcopy(self.config)
-        self.translated_config = translate_config(temp, self.experiment_name)
-        # Let's make sure that the main config was not translated
-        return self.translated_config
-
-    def align_config_w_translation(self) -> None:
-        """
-        Translate the config dict back so that every leaf node is a value, instead of a tuple (value, experiment_name)
-        uses the general translate_config_back function
-        """
-        temp = copy.deepcopy(self.translated_config)
-        self.config = translate_config_back(temp)
-
     def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
         Updates the config with the experiment configs,
@@ -572,17 +560,26 @@ class Config:
             contains updated and unmodifed values.
         """
 
-        # Translate the config dict first.
-        self.translate()
+        # The translated config contains the source of the modifications on leaf nodes
+        translated_config = translate_config(
+            copy.deepcopy(self.config), self.experiment_name
+        )
 
         if len(experiments) > 0:
             translated_experiments = []
             for config in experiments:
-                translated_experiments.append(config.translate())
-            self.translated_config = update_recursive(
-                {"key": "", "value": self.translated_config},
+                translated_experiments.append(
+                    translate_config(
+                        copy.deepcopy(config.config), config.experiment_name
+                    )
+                )
+
+            # Update the config with the experiments iteratively
+            translated_config = update_recursive(
+                {"key": "", "value": translated_config},
                 translated_experiments,
                 print_output=print_modifications,
             )
-        # Translate the config dict back
-        self.align_config_w_translation()
+
+        # Remove the source of modifications
+        self.config = translate_config_back(translated_config)
