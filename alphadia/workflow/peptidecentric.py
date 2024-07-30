@@ -15,6 +15,7 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.exceptions import NoRecalibrationTargetError
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, searchoptimization
 
@@ -96,12 +97,6 @@ feature_columns = [
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001, batch_size=5000, learning_rate=0.001, epochs=10
 )
-
-
-class CalibrationError(Exception):
-    """Raised when calibration fails"""
-
-    pass
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):

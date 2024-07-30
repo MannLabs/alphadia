@@ -41,7 +41,40 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  checkpoint_folder_path: None
+
+  # set path for custom peptdeep model. If set to null, the default model will be used
+  peptdeep_model_path: null
+
+# define custom alphabase modifications not part of unimod or alphabase
+# also used for decoy channels
+custom_modififcations:
+  # Dimethyl @K channel decoy
+  Dimethyl:d12@K:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Any_N-term channel decoy
+  Dimethyl:d12@Any_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Protein_N-term channel decoy
+  Dimethyl:d12@Protein_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # mTRAQ @K channel decoy
+  mTRAQ:d12@K:
+    composition: H(12)C(1)13C(10)15N(2)O(1)
+
+  # mTRAQ @Any_N-term channel decoy
+  mTRAQ:d12@Any_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # mTRAQ @Protein_N-term channel decoy
+  mTRAQ:d12@Protein_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # SILAC heavy @K channel decoy
+  Label:13C(12)@K:
+    composition: C(12)
 
 search:
   channel_filter: '0'

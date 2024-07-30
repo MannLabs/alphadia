@@ -252,7 +252,7 @@ class PeptDeepPrediction(ProcessingStep):
         fragment_mz: list[int] | None = None,
         nce: int = 25,
         instrument: str = "Lumos",
-        checkpoint_folder_path: str | None = None,
+        peptdeep_model_path: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
     ) -> None:
@@ -276,7 +276,7 @@ class PeptDeepPrediction(ProcessingStep):
         instrument : str, optional
             Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
 
-        checkpoint_folder_path : str, optional
+        peptdeep_model_path : str, optional
             Path to a folder containing PeptDeep models. If not provided, the default models will be used.
 
         fragment_types : List[str], optional
@@ -295,7 +295,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.nce = nce
         self.instrument = instrument
         self.mp_process_num = mp_process_num
-        self.checkpoint_folder_path = checkpoint_folder_path
+        self.peptdeep_model_path = peptdeep_model_path
 
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
@@ -313,12 +313,17 @@ class PeptDeepPrediction(ProcessingStep):
         device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
-        if self.checkpoint_folder_path is not None:
-            logging.info(f"Loading PeptDeep models from {self.checkpoint_folder_path}")
+        if self.peptdeep_model_path is not None:
+            if not os.path.exists(self.peptdeep_model_path):
+                raise ValueError(
+                    f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"
+                )
+
+            logging.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
             model_mgr.load_external_models(
-                ms2_model_file=os.path.join(self.checkpoint_folder_path, "ms2.pth"),
-                rt_model_file=os.path.join(self.checkpoint_folder_path, "rt.pth"),
-                ccs_model_file=os.path.join(self.checkpoint_folder_path, "ccs.pth"),
+                ms2_model_file=os.path.join(self.peptdeep_model_path, "ms2.pth"),
+                rt_model_file=os.path.join(self.peptdeep_model_path, "rt.pth"),
+                ccs_model_file=os.path.join(self.peptdeep_model_path, "ccs.pth"),
             )
 
         model_mgr.nce = self.nce
