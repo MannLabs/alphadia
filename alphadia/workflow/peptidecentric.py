@@ -358,7 +358,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 f"=== Step {current_step}, extracted {len(feature_df)} precursors and {len(fragment_df)} fragments ===",
                 verbosity="progress",
             )
-            precursor_df = self.fdr_correction(features_df, fragments_df)
+
+            precursor_df = self.fdr_correction(
+                features_df, fragments_df, self.com.classifier_version
+            )
+
+            self.reporter.log_string(
+                f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
+                verbosity="info",
+            )
 
             precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
 
@@ -460,7 +468,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if isinstance(optimizer, searchoptimization.AutomaticOptimizer)
         ]
 
-        order_of_optimization = targeted_optimizers + automatic_optimizers
+        order_of_optimization = (
+            targeted_optimizers + automatic_optimizers
+            if any(targeted_optimizers)
+            else automatic_optimizers
+        )
 
         self.reporter.log_string(
             "Starting initial classifier training and precursor identification.",
@@ -478,10 +490,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         for optimizers in order_of_optimization:
             for current_step in range(self.config["calibration"]["max_steps"]):
-                if (
-                    np.all([optimizer.has_converged for optimizer in optimizers])
-                    and len(optimizers) > 0
-                ):
+                if np.all([optimizer.has_converged for optimizer in optimizers]):
                     self.reporter.log_string(
                         f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
                         verbosity="progress",
@@ -511,7 +520,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                 self.reporter.log_string(
                     f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
-                    verbosity="progress",
+                    verbosity="info",
                 )
 
                 self.log_precursor_df(precursor_df)
