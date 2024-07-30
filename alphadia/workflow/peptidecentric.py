@@ -469,7 +469,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         order_of_optimization = targeted_optimizers + automatic_optimizers
 
         self.reporter.log_string(
-            "Starting initial classifier training and precursor identification",
+            "Starting initial classifier training and precursor identification.",
             verbosity="progress",
         )
 
