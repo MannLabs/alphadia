@@ -23,7 +23,9 @@ import alphadia
 
 # alphadia imports
 from alphadia import libtransform, outputtransform
+from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
+from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
@@ -221,8 +223,8 @@ class Plan:
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
                 mp_process_num=self.config["general"]["thread_count"],
-                checkpoint_folder_path=self.config["library_prediction"][
-                    "checkpoint_folder_path"
+                peptdeep_model_path=self.config["library_prediction"][
+                    "peptdeep_model_path"
                 ],
                 fragment_types=self.config["library_prediction"][
                     "fragment_types"
@@ -335,46 +337,56 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
+            except CustomError as e:
+                _log_exception_event(e, raw_name, workflow)
+                continue
+
+            except Exception as e:
+                _log_exception_event(e, raw_name, workflow)
+                raise e
+
+            finally:
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
-            except peptidecentric.CalibrationError:
-                # get full traceback
-                logger.error(
-                    f"Search for {raw_name} failed as not enough precursors were found for calibration"
-                )
-                logger.error("This can have the following reasons:")
-                logger.error(
-                    "   1. The sample was empty and therefore nor precursors were found"
-                )
-                logger.error("   2. The sample contains only very few precursors.")
-                logger.error(
-                    "      For small libraries, try to set recalibration_target to a lower value"
-                )
-                logger.error(
-                    "      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance"
-                )
-                logger.error(
-                    "   3. There was a fundamental issue with search parameters"
-                )
-                continue
-            except Exception as e:
-                logger.error(
-                    f"Search for {raw_name} failed with error {e}", exc_info=True
-                )
-                raise e
+        try:
+            base_spec_lib = SpecLibBase()
+            base_spec_lib.load_hdf(
+                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+            )
 
-        base_spec_lib = SpecLibBase()
-        base_spec_lib.load_hdf(
-            os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
-        )
-
-        output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
-        output.build(workflow_folder_list, base_spec_lib)
+            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output.build(workflow_folder_list, base_spec_lib)
+        except Exception as e:
+            _log_exception_event(e)
+            raise e
 
         logger.progress("=================== Search Finished ===================")
 
     def clean(self):
         if not self.config["library_loading"]["save_hdf"]:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+
+
+def _log_exception_event(
+    e: Exception, raw_name: str | None = None, workflow: WorkflowBase | None = None
+) -> None:
+    """Log exception and emit event to reporter if available."""
+
+    prefix = (
+        "Error:" if raw_name is None else f"Search for {raw_name} failed with error:"
+    )
+
+    if isinstance(e, CustomError):
+        logger.error(f"{prefix} {e.error_code} {e.msg}")
+        logger.error(e.detail_msg)
+    else:
+        logger.error(f"{prefix} {e}", exc_info=True)
+
+    if workflow is not None and workflow.reporter:
+        workflow.reporter.log_string(
+            value=str(e),
+            verbosity="error",
+        )
+        workflow.reporter.log_event(name="exception", value=str(e), exception=e)

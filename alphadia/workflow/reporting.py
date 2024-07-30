@@ -21,6 +21,8 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
+from alphadia.exceptions import CustomError
+
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
 PROGRESS_LEVELV_NUM = 21
@@ -221,6 +223,8 @@ class FigureBackend(Backend):
         name: str,
         figure: Figure | np.ndarray,
         extension: str = "png",
+        *args,
+        **kwargs,
     ):
         """Log a figure to the figures folder.
 
@@ -361,7 +365,14 @@ class JSONLBackend(Backend):
         self.entered_context = False
         self.start_time = 0
 
-    def log_event(self, name: str, value: typing.Any):
+    def log_event(
+        self,
+        name: str,
+        value: typing.Any,
+        exception: Exception | None = None,
+        *args,
+        **kwargs,
+    ):
         """Log an event to the `events.jsonl` file.
 
         Important: This method will only log events if the backend is in a context.
@@ -379,19 +390,21 @@ class JSONLBackend(Backend):
 
         if not self.entered_context:
             return
+        message = {
+            "absolute_time": self.absolute_time(),
+            "relative_time": self.relative_time(),
+            "type": "event",
+            "name": name,
+            "value": value,
+            "verbosity": 0,
+        }
+        if exception is not None and isinstance(exception, CustomError):
+            message["error_code"] = exception.error_code
 
         with open(self.events_path, "a") as f:
-            message = {
-                "absolute_time": self.absolute_time(),
-                "relative_time": self.relative_time(),
-                "type": "event",
-                "name": name,
-                "value": value,
-                "verbosity": 0,
-            }
             f.write(json.dumps(message) + "\n")
 
-    def log_metric(self, name: str, value: float):
+    def log_metric(self, name: str, value: float, *args, **kwargs):
         """Log a metric to the `events.jsonl` file.
 
         Important: This method will only log metrics if the backend is in a context.
@@ -421,7 +434,7 @@ class JSONLBackend(Backend):
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_string(self, value: str, verbosity: int = "info"):
+    def log_string(self, value: str, verbosity: int = "info", *args, **kwargs):
         """Log a string to the `events.jsonl` file.
 
         Important: This method will only log strings if the backend is in a context.
@@ -449,9 +462,10 @@ class JSONLBackend(Backend):
                 "value": value,
                 "verbosity": verbosity,
             }
+
             f.write(json.dumps(message) + "\n")
 
-    def log_figure(self, name: str, figure: typing.Any):
+    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
         """Log a base64 image of a figure to the `events.jsonl` file.
 
         Important: This method will only log figures if the backend is in a context.
@@ -506,7 +520,7 @@ class LogBackend(Backend):
         self.logger = logging.getLogger()
         super().__init__()
 
-    def log_string(self, value: str, verbosity: str = "info"):
+    def log_string(self, value: str, verbosity: str = "info", *args, **kwargs):
         if verbosity == "progress":
             self.logger.progress(value)
         elif verbosity == "info":
@@ -547,7 +561,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: list[type[Backend]] = None,
+        backends: list[Backend] = None,
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
@@ -565,7 +579,7 @@ class Pipeline:
         self.context = Context(self)
 
         # instantiate backends
-        self.backends = backends
+        self.backends: list[Backend] = backends
 
     def __enter__(self):
         for backend in self.backends:
