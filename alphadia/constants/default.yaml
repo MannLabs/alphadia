@@ -41,7 +41,9 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  checkpoint_folder_path: null
+
+  # set path for custom peptdeep model. If set to null, the default model will be used
+  peptdeep_model_path: null
 
 search:
   channel_filter: '0'
