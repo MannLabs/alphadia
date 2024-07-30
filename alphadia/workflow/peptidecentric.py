@@ -15,6 +15,7 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.exceptions import NoRecalibrationTargetError
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager
 
@@ -96,12 +97,6 @@ feature_columns = [
 classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.001, batch_size=5000, learning_rate=0.001, epochs=10
 )
-
-
-class CalibrationError(Exception):
-    """Raised when calibration fails"""
-
-    pass
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
@@ -488,13 +483,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 else:
                     # check if last step has been reached
                     if current_step == len(self.batch_plan) - 1:
-                        self.reporter.log_string(
-                            "Searched all data without finding recalibration target",
-                            verbosity="error",
-                        )
-                        raise CalibrationError(
-                            "Searched all data without finding recalibration target"
-                        )
+                        raise NoRecalibrationTargetError()
 
             self.end_of_epoch()
 
