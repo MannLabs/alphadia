@@ -228,8 +228,8 @@ class Plan:
                 nce=self.config["library_prediction"]["nce"],
                 instrument=self.config["library_prediction"]["instrument"],
                 mp_process_num=self.config["general"]["thread_count"],
-                checkpoint_folder_path=self.config["library_prediction"][
-                    "checkpoint_folder_path"
+                peptdeep_model_path=self.config["library_prediction"][
+                    "peptdeep_model_path"
                 ],
                 fragment_types=self.config["library_prediction"][
                     "fragment_types"
