@@ -15,7 +15,6 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
-from alphadia.exceptions import NoRecalibrationTargetError
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, searchoptimization
 
