@@ -2,11 +2,13 @@
 import logging
 import os
 import typing
+from functools import reduce
 from pathlib import Path
 
 # third party imports
 import numpy as np
 import pandas as pd
+from alphabase.constants.modification import MOD_DF
 
 # alpha family imports
 from alphabase.peptide import fragment
@@ -600,6 +602,58 @@ class RTNormalization(ProcessingStep):
         )
 
         return input
+
+
+class MultiplexLibrary(ProcessingStep):
+    def __init__(self, multiplex_mapping: dict) -> None:
+        """Initialize the MultiplexLibrary step."""
+
+        self._multiplex_mapping = multiplex_mapping
+
+    def validate(self, input: str) -> bool:
+        """Validate the input object. It is expected that the input is a path to a file which exists."""
+        valid = True
+        valid &= isinstance(input, SpecLibBase)
+
+        # check if all modifications are valid
+        for _, channel_multiplex_mapping in self._multiplex_mapping.items():
+            for key, value in channel_multiplex_mapping.items():
+                for mod in [key, value]:
+                    print(mod)
+                    if mod not in MOD_DF.index:
+                        logger.error(f"Modification {mod} not found in input library")
+                        valid = False
+
+        return valid
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        """Apply the MultiplexLibrary step to the input object."""
+
+        if "channel" in input.precursor_df.columns:
+            channel_unique = input.precursor_df["channel"].unique()
+            logger.info(f"Library already multiplexed for channel {channel_unique}")
+            input.precursor_df = input.precursor_df[input.precursor_df["channel"] == 0]
+
+        channel_lib_list = []
+        for channel, channel_mod_translations in self._multiplex_mapping.items():
+            logger.info(f"Multiplexing library for channel {channel}")
+            channel_lib = input.copy()
+            for original_mod, channel_mod in channel_mod_translations.items():
+                channel_lib._precursor_df["mods"] = channel_lib._precursor_df[
+                    "mods"
+                ].str.replace(original_mod, channel_mod)
+                channel_lib._precursor_df["channel"] = channel
+
+            channel_lib.calc_fragment_mz_df()
+            channel_lib_list.append(channel_lib)
+
+        def apply_func(x, y):
+            x.append(y)
+            return x
+
+        speclib = reduce(lambda x, y: apply_func(x, y), channel_lib_list)
+        speclib.remove_unused_fragments()
+        return speclib
 
 
 class FlattenLibrary(ProcessingStep):
