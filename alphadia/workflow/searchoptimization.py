@@ -72,7 +72,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self.has_converged = False
 
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
@@ -88,7 +88,7 @@ class AutomaticOptimizer(BaseOptimizer):
                     ),  # Ensure float dtype
                     self.feature_name: self._get_feature_value(
                         precursors_df, fragments_df
-                    ),  # Ensure int dtype
+                    ),
                     "classifier_version": int(
                         self.workflow.fdr_manager.current_version
                     ),  # Ensure int dtype
@@ -283,8 +283,6 @@ class TargetedOptimizer(BaseOptimizer):
 
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
-    """TODO Finish this optimizer"""
-
     def __init__(
         self,
         initial_parameter: float,
@@ -307,7 +305,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
-        """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
+        """Optimization should stop if continued optimization of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
 
@@ -407,8 +405,6 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
-    """TODO Finish this optimizer"""
-
     def __init__(
         self,
         initial_parameter: float,
@@ -431,7 +427,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
-        """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
+        """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
 
@@ -492,7 +488,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
-        """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
+        """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
 
