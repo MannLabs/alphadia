@@ -68,11 +68,11 @@ calibration:
   # Number of precursors searched and scored per batch
   batch_size: 8000
 
-  # recalibration target for the first epoch. For subsequent epochs, the target will increase by this amount.
-  recalibration_target: 200
+  # minimum number of precursors to be found before search parameter optimization begins
+  min_precursors_for_optimization: 200
 
-  # TODO: remove as not relevant anymore
-  max_epochs: 20
+  # the maximum number of steps that a given optimizer is permitted to take
+  max_steps: 20
 
   # TODO: remove this parameter
   final_full_calibration: False

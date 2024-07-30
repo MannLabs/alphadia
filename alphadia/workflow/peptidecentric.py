@@ -158,9 +158,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "num_candidates": self.config["search_initial"][
                     "initial_num_candidates"
                 ],
-                "recalibration_target": self.config["calibration"][
-                    "recalibration_target"
-                ],
                 "classifier_version": -1,
                 "fwhm_rt": self.config["optimization_manager"]["fwhm_rt"],
                 "fwhm_mobility": self.config["optimization_manager"]["fwhm_mobility"],
@@ -372,7 +369,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
 
             self.reporter.log_string(
-                f"=== checking if recalibration conditions were reached, target {self.com.recalibration_target} precursors ===",
+                f"=== checking if minimum number of precursors for optimization found yet; minimum number is {target} ===",
                 verbosity="progress",
             )
 
@@ -397,82 +394,64 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         if self.config["search"]["target_ms2_tolerance"] > 0:
-            self.ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
+            ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
                 self.config["search"]["target_ms2_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
+                self,
             )
         else:
-            self.ms2_optimizer = searchoptimization.AutomaticMS2Optimizer(
+            ms2_optimizer = searchoptimization.AutomaticMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
+                self,
             )
 
         if self.config["search"]["target_rt_tolerance"] > 0:
-            self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
+            rt_optimizer = searchoptimization.TargetedRTOptimizer(
                 self.config["search_initial"]["initial_rt_tolerance"],
                 self.config["search"]["target_rt_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
+                self,
             )
         else:
-            self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
+            rt_optimizer = searchoptimization.AutomaticRTOptimizer(
                 self.config["search_initial"]["initial_rt_tolerance"],
-                self.calibration_manager,
-                self.com,
-                self.fdr_manager,
+                self,
             )
         if self.dia_data.has_ms1:
             if self.config["search"]["target_ms1_tolerance"] > 0:
-                self.ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
+                ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
                     self.config["search_initial"]["initial_ms1_tolerance"],
                     self.config["search"]["target_ms1_tolerance"],
-                    self.calibration_manager,
-                    self.com,
-                    self.fdr_manager,
+                    self,
                 )
             else:
-                self.ms1_optimizer = searchoptimization.AutomaticMS1Optimizer(
+                ms1_optimizer = searchoptimization.AutomaticMS1Optimizer(
                     self.config["search_initial"]["initial_ms1_tolerance"],
-                    self.calibration_manager,
-                    self.com,
-                    self.fdr_manager,
+                    self,
                 )
         else:
-            self.ms1_optimizer = None
+            ms1_optimizer = None
         if self.dia_data.has_mobility:
             if self.config["search"]["target_mobility_tolerance"] > 0:
-                self.mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
+                mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.config["search"]["target_mobility_tolerance"],
-                    self.calibration_manager,
-                    self.com,
-                    self.fdr_manager,
+                    self,
                 )
             else:
-                self.mobility_optimizer = searchoptimization.AutomaticMobilityOptimizer(
+                mobility_optimizer = searchoptimization.AutomaticMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.calibration_manager,
                     self.com,
                     self.fdr_manager,
                 )
         else:
-            self.mobility_optimizer = None
+            mobility_optimizer = None
 
-        self.reporter.log_string(
-            "A complete list of target tolerances has been specified. Targeted search parameter optimization will be performed.",
-            verbosity="info",
-        )
         optimizers = [
-            self.ms2_optimizer,
-            self.rt_optimizer,
-            self.ms1_optimizer,
-            self.mobility_optimizer,
+            ms2_optimizer,
+            rt_optimizer,
+            ms1_optimizer,
+            mobility_optimizer,
         ]
         targeted_optimizers = [
             [
@@ -489,13 +468,32 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         order_of_optimization = targeted_optimizers + automatic_optimizers
 
+        self.reporter.log_string(
+            "Starting initial classifier training and precursor identification",
+            verbosity="progress",
+        )
+
         self.extract_optimization_data(
-            self.config["calibration"]["recalibration_target"]
+            self.config["calibration"]["min_precursors_for_optimization"]
+        )
+
+        self.reporter.log_string(
+            "Target number of precursors found. Starting search parameter optimization.",
+            verbosity="progress",
         )
 
         for optimizers in order_of_optimization:
-            for current_step in range(self.config["calibration"]["max_epochs"]):
-                if np.all([optimizer.has_converged() for optimizer in optimizers]):
+            for current_step in range(self.config["calibration"]["max_steps"]):
+                if np.all([optimizer.has_converged for optimizer in optimizers]):
+                    self.reporter.log_string(
+                        f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
+                        verbosity="progress",
+                    )
+
+                    for optimizer in optimizers:
+                        if isinstance(optimizer, searchoptimization.AutomaticOptimizer):
+                            optimizer.plot()
+
                     break
                 batch_df = self.spectral_library._precursor_df[
                     self.spectral_library._precursor_df["elution_group_idx"].isin(
@@ -531,6 +529,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.reporter.log_string(
                     "==============================================", verbosity="info"
                 )
+        self.reporter.log_string(
+            "Search parameter optimization finished. Values taken forward for search are:",
+            verbosity="progress",
+        )
+        self.reporter.log_string(
+            "==============================================", verbosity="progress"
+        )
+        for optimizers in order_of_optimization:
+            for optimizer in optimizers:
+                self.reporter.log_string(
+                    f"{optimizer.parameter_name:<15}: {self.com.__dict__[optimizer.parameter_name]:.4f}",
+                    verbosity="progress",
+                )
+        self.reporter.log_string(
+            "==============================================", verbosity="progress"
+        )
 
     def filter_dfs(self, precursor_df, fragments_df):
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]

@@ -9,13 +9,13 @@ import pandas as pd
 import seaborn as sns
 
 # alphadia imports
-from alphadia.workflow import peptidecentric, reporting
+from alphadia.workflow import reporting
 
 
 class BaseOptimizer(ABC):
     def __init__(
         self,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class serves as a base class for organizing the search parameter optimization process, which defines the parameters used for search.
@@ -54,7 +54,7 @@ class AutomaticOptimizer(BaseOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """This class automatically optimizes the search parameter and stores the progres of optimization in a dataframe, history_df.
@@ -74,6 +74,10 @@ class AutomaticOptimizer(BaseOptimizer):
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                verbosity="progress",
+            )
             return
 
         new_row = pd.DataFrame(
@@ -204,7 +208,7 @@ class TargetedOptimizer(BaseOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """This class optimizes the search parameter until it reaches a user-specified target value.
@@ -284,7 +288,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class.
@@ -345,7 +349,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number.
@@ -408,7 +412,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class.
@@ -469,7 +473,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class.
@@ -533,7 +537,7 @@ class TargetedRTOptimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class."""
@@ -550,7 +554,7 @@ class TargetedMS2Optimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class."""
@@ -567,7 +571,7 @@ class TargetedMS1Optimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class."""
@@ -584,7 +588,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow: peptidecentric.PeptideCentricWorkflow,
+        workflow,
         **kwargs,
     ):
         """See base class."""
