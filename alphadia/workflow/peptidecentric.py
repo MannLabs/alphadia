@@ -478,7 +478,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         for optimizers in order_of_optimization:
             for current_step in range(self.config["calibration"]["max_steps"]):
-                if np.all([optimizer.has_converged for optimizer in optimizers]):
+                if (
+                    np.all([optimizer.has_converged for optimizer in optimizers])
+                    and len(optimizers) > 0
+                ):
                     self.reporter.log_string(
                         f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
                         verbosity="progress",
@@ -504,6 +507,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                 precursor_df = self.fdr_correction(
                     features_df, fragments_df, self.com.classifier_version
+                )
+
+                self.reporter.log_string(
+                    f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
+                    verbosity="progress",
                 )
 
                 self.log_precursor_df(precursor_df)

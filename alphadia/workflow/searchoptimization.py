@@ -117,7 +117,7 @@ class AutomaticOptimizer(BaseOptimizer):
             self.workflow.com.fit({"score_cutoff": score_cutoff_at_optimum})
 
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -131,7 +131,7 @@ class AutomaticOptimizer(BaseOptimizer):
             self.workflow.com.fit({self.parameter_name: new_parameter})
 
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.com.__dict__[self.parameter_name]}.",
+                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.com.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
 
