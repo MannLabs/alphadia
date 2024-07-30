@@ -6,17 +6,16 @@ import matplotlib.pyplot as plt
 # alpha family imports
 # third party imports
 import pandas as pd
+import seaborn as sns
 
 # alphadia imports
-from alphadia.workflow import manager, reporting
+from alphadia.workflow import peptidecentric, reporting
 
 
 class BaseOptimizer(ABC):
     def __init__(
         self,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class serves as a base class for organizing the search parameter optimization process, which defines the parameters used for search.
@@ -24,20 +23,12 @@ class BaseOptimizer(ABC):
         Parameters
         ----------
 
-        calibration_manager: manager.CalibrationManager
-            The calibration manager for the workflow, which is needed to update the search parameter between rounds of optimization
-
-        optimization_manager: manager.OptimizationManager
-            The optimization manager for the workflow, which is needed so the optimal parameter and classifier version can be saved to the manager
-
-        fdr_manager: manager.FDRManager
-            The FDR manager for the workflow, which is needed to update the optimal classifier version in the optimization manager
+        workflow: peptidecentric.PeptideCentricWorkflow
+            The workflow object that the optimization is being performed on.
 
         """
         self.optimal_parameter = None
-        self.calibration_manager = calibration_manager
-        self.optimization_manager = optimization_manager
-        self.fdr_manager = fdr_manager
+        self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
 
     @abstractmethod
@@ -58,8 +49,119 @@ class BaseOptimizer(ABC):
         """
         pass
 
+
+class AutomaticOptimizer(BaseOptimizer):
+    def __init__(
+        self,
+        initial_parameter: float,
+        workflow: peptidecentric.PeptideCentricWorkflow,
+        **kwargs,
+    ):
+        """This class automatically optimizes the search parameter and stores the progres of optimization in a dataframe, history_df.
+
+        Parameters
+        ----------
+        initial_parameter: float
+            The parameter used for search in the first round of optimization.
+
+
+        """
+        super().__init__(workflow, **kwargs)
+        self.history_df = pd.DataFrame()
+        self.workflow.com.fit({self.parameter_name: initial_parameter})
+        self.has_converged = False
+
+    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        if self.has_converged:
+            return
+
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": float(
+                        self.workflow.com.__dict__[self.parameter_name]
+                    ),  # Ensure float dtype
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),  # Ensure int dtype
+                    "classifier_version": int(
+                        self.workflow.fdr_manager.current_version
+                    ),  # Ensure int dtype
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+        just_converged = self._check_convergence()
+
+        if just_converged:
+            self.has_converged = True
+
+            index_of_optimum = self.history_df[self.feature_name].idxmax()
+
+            optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
+            classifier_version_at_optimum = self.history_df["classifier_version"].loc[
+                index_of_optimum
+            ]
+
+            self.workflow.com.fit({self.parameter_name: optimal_parameter})
+            self.workflow.com.fit({"classifier_version": classifier_version_at_optimum})
+
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                verbosity="progress",
+            )
+
+        else:
+            new_parameter = self._propose_new_parameter(
+                precursors_df
+                if self.estimator_group_name == "precursor"
+                else fragments_df
+            )
+
+            self.workflow.com.fit({self.parameter_name: new_parameter})
+
+            self.reporter.log_string(
+                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.com.__dict__[self.parameter_name]}.",
+                verbosity="progress",
+            )
+
+    def plot(self):
+        """Plot the optimization of the RT error parameter."""
+        fig, ax = plt.subplots()
+
+        # Plot the vertical line
+        ax.axvline(
+            x=self.workflow.com.__dict__[self.parameter_name],
+            ymin=0,
+            ymax=self.history_df[self.feature_name].max(),
+            color="red",
+            zorder=0,
+            label=f"Optimal {self.parameter_name}",
+        )
+
+        # Plot the line and scatter plot using Seaborn
+        sns.lineplot(
+            x=self.history_df["parameter"],
+            y=self.history_df[self.feature_name],
+            ax=ax,
+        )
+        sns.scatterplot(
+            x=self.history_df["parameter"],
+            y=self.history_df[self.feature_name],
+            ax=ax,
+        )
+
+        # Set labels and other properties
+        ax.set_xlabel(self.parameter_name)
+        ax.xaxis.set_inverted(True)
+        ax.set_ylim(bottom=0, top=self.history_df[self.feature_name].max() * 1.1)
+        ax.legend(loc="upper left")
+
+        plt.show()
+
     @abstractmethod
-    def _update_parameter(self, df):
+    def _propose_new_parameter(self, df):
         """This method specifies the rule according to which the search parameter is updated between rounds of optimization. The rule is specific to the parameter being optimized.
 
         Parameters
@@ -77,20 +179,112 @@ class BaseOptimizer(ABC):
         """This method checks if the optimization has converged according to parameter-specific conditions and, if it has, sets the optimal parameter attribute and updates the optimization manager."""
         pass
 
-    def has_converged(self):
-        """If the optimal parameter has been set, the optimization must have converged and the method returns True. Otherwise, it returns False."""
-        return self.optimal_parameter is not None
+    @abstractmethod
+    def _get_feature_value(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        """Each parameter is optimized according to a particular feature. This method gets the value of that feature for a given round of optimization.
+
+        Parameters
+        ----------
+
+        precursors_df: pd.DataFrame
+            The precursor dataframe for the search
+
+        fragments_df: pd.DataFrame
+            The fragment dataframe for the search
 
 
-class AutomaticRTOptimizer(BaseOptimizer):
+        """
+        pass
+
+
+class TargetedOptimizer(BaseOptimizer):
+    def __init__(
+        self,
+        initial_parameter: float,
+        target_parameter: float,
+        workflow: peptidecentric.PeptideCentricWorkflow,
+        **kwargs,
+    ):
+        """This class optimizes the search parameter until it reaches a user-specified target value.
+
+        Parameters
+        ----------
+
+        initial_parameter: float
+            The parameter used for search in the first round of optimization.
+
+        target_parameter: float
+            Optimization will stop when this parameter is reached.
+
+        """
+        super().__init__(workflow, **kwargs)
+        self.workflow.com.fit({self.parameter_name: initial_parameter})
+        self.target_parameter = target_parameter
+        self.has_converged = False
+
+    def _check_convergence(self, proposed_parameter):
+        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
+
+        Parameters
+        ----------
+        proposed_parameter: float
+            The proposed parameter for the next round of optimization.
+        """
+
+        return proposed_parameter <= self.target_parameter
+
+    def _propose_new_parameter(self, df: pd.DataFrame):
+        """See base class. The update rule is
+            1) calculate the deviation of the predicted mz values from the observed mz values,
+            2) take the mean of the endpoints of the central 95% of these deviations, and
+            3) take the maximum of this value and the target parameter.
+        This is implemented by the ci method for the estimator.
+        """
+        return max(
+            self.workflow.calibration_manager.get_estimator(
+                self.estimator_group_name, self.estimator_name
+            ).ci(df, 0.95),
+            self.target_parameter,
+        )
+
+    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        """See base class."""
+        if self.has_converged:
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                verbosity="progress",
+            )
+            return
+
+        new_parameter = self._propose_new_parameter(
+            precursors_df if self.estimator_group_name == "precursor" else fragments_df
+        )
+        just_converged = self._check_convergence(new_parameter)
+        self.workflow.com.fit({self.parameter_name: new_parameter})
+
+        if just_converged:
+            self.has_converged = True
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                verbosity="progress",
+            )
+
+        else:
+            self.reporter.log_string(
+                f"❌ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f}",
+                verbosity="progress",
+            )
+
+
+class AutomaticRTOptimizer(AutomaticOptimizer):
     """TODO Finish this optimizer"""
 
     def __init__(
         self,
         initial_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
         """See base class.
@@ -102,13 +296,11 @@ class AutomaticRTOptimizer(BaseOptimizer):
             The parameter used for search in the first round of optimization.
 
         """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.history_df = pd.DataFrame(
-            columns=["parameter", "feature", "classifier_version"]
-        )
-        self.proposed_parameter = initial_parameter
+        self.parameter_name = "rt_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "rt"
+        self.feature_name = "precursor_count"
+        super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -122,26 +314,15 @@ class AutomaticRTOptimizer(BaseOptimizer):
 
         """
 
-        if (
+        return (
             len(self.history_df) > 2
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-2]
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-3]
-        ):
-            self.optimal_parameter = self.history_df.loc[
-                self.history_df["feature"].idxmax(), "parameter"
-            ]
-            self.optimization_manager.fit({"rt_error": self.optimal_parameter})
-            self.optimization_manager.fit(
-                {
-                    "classifier_version": self.history_df.loc[
-                        self.history_df["feature"].idxmax(), "classifier_version"
-                    ]
-                }
-            )
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-2]
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-3]
+        )
 
-    def _update_parameter(self, df: pd.DataFrame):
+    def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
             2) take the mean of the endpoints of the central 99% of these deviations, and
@@ -150,75 +331,21 @@ class AutomaticRTOptimizer(BaseOptimizer):
 
 
         """
-        proposed_parameter = 1.1 * self.calibration_manager.get_estimator(
-            "precursor", "rt"
+        return 1.1 * self.workflow.calibration_manager.get_estimator(
+            self.estimator_group_name, self.estimator_name
         ).ci(df, 0.99)
 
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
-        if not self.has_converged():
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "parameter": float(
-                            self.proposed_parameter
-                        ),  # Ensure float dtype
-                        "feature": int(len(precursors_df)),  # Ensure int dtype
-                        "classifier_version": int(
-                            self.fdr_manager.current_version
-                        ),  # Ensure int dtype
-                    }
-                ]
-            )
-            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-            self._check_convergence()
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'rt_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
-                verbosity="progress",
-            )
-
-        else:
-            self.proposed_parameter = self._update_parameter(precursors_df)
-
-            self.reporter.log_string(
-                f"❌ {'rt_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
-                verbosity="progress",
-            )
-
-            self.optimization_manager.fit({"rt_error": self.proposed_parameter})
-
-    def plot(self):
-        """Plot the optimization of the RT error parameter."""
-        fig, ax = plt.subplots()
-        ax.vlines(
-            self.optimal_parameter,
-            0,
-            max(self.feature),
-            color="red",
-            zorder=0,
-            label="Optimal RT error",
-        )
-        ax.plot(self.parameters, self.feature)
-        ax.scatter(self.parameters, self.feature)
-        ax.set_ylabel("Number of precursor identifications")
-        ax.set_xlabel("RT error")
-        ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
-        ax.legend(loc="upper left")
-        plt.show()
+    def _get_feature_value(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        return len(precursors_df)
 
 
-class AutomaticMS2Optimizer(BaseOptimizer):
+class AutomaticMS2Optimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
         """This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number.
@@ -230,13 +357,11 @@ class AutomaticMS2Optimizer(BaseOptimizer):
 
 
         """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.history_df = pd.DataFrame(
-            columns=["parameter", "precursor_ids", "classifier_version"]
-        )
-        self.proposed_parameter = initial_parameter
+        self.parameter_name = "ms2_error"
+        self.estimator_group_name = "fragment"
+        self.estimator_name = "mz"
+        self.feature_name = "precursor_count"
+        super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the MS2 parameter is not improving the number of precursor identifications.
@@ -250,26 +375,15 @@ class AutomaticMS2Optimizer(BaseOptimizer):
 
         """
 
-        if (
+        return (
             len(self.history_df) > 2
-            and self.history_df["precursor_ids"].iloc[-1]
-            < 1.1 * self.history_df["precursor_ids"].iloc[-2]
-            and self.history_df["precursor_ids"].iloc[-1]
-            < 1.1 * self.history_df["precursor_ids"].iloc[-3]
-        ):
-            self.optimal_parameter = self.history_df.loc[
-                self.history_df["precursor_ids"].idxmax(), "parameter"
-            ]
-            self.optimization_manager.fit({"ms2_error": self.optimal_parameter})
-            self.optimization_manager.fit(
-                {
-                    "classifier_version": self.history_df.loc[
-                        self.history_df["precursor_ids"].idxmax(), "classifier_version"
-                    ]
-                }
-            )
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-2]
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-3]
+        )
 
-    def _update_parameter(self, df: pd.DataFrame):
+    def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
             2) take the mean of the endpoints of the central 99% of these deviations, and
@@ -278,77 +392,23 @@ class AutomaticMS2Optimizer(BaseOptimizer):
 
 
         """
-        proposed_parameter = 1.1 * self.calibration_manager.get_estimator(
-            "fragment", "mz"
+        return 1.1 * self.workflow.calibration_manager.get_estimator(
+            self.estimator_group_name, self.estimator_name
         ).ci(df, 0.99)
 
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The number of precursor identifications is used to track the progres of the optimization (stored in .precursor_ids) and determine whether it has converged."""
-        if not self.has_converged():
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "parameter": float(
-                            self.proposed_parameter
-                        ),  # Ensure float dtype
-                        "precursor_ids": int(len(precursors_df)),  # Ensure int dtype
-                        "classifier_version": int(
-                            self.fdr_manager.current_version
-                        ),  # Ensure int dtype
-                    }
-                ]
-            )
-            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-            self._check_convergence()
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'ms2_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
-                verbosity="progress",
-            )
-
-        else:
-            self.proposed_parameter = self._update_parameter(fragments_df)
-
-            self.reporter.log_string(
-                f"❌ {'ms2_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
-                verbosity="progress",
-            )
-
-            self.optimization_manager.fit({"ms2_error": self.proposed_parameter})
-
-    def plot(self):
-        """Plot the optimization of the MS2 error parameter."""
-        fig, ax = plt.subplots()
-        ax.vlines(
-            self.optimal_parameter,
-            0,
-            max(self.precursor_ids),
-            color="red",
-            zorder=0,
-            label="Optimal MS2 error",
-        )
-        ax.plot(self.parameters, self.precursor_ids)
-        ax.scatter(self.parameters, self.precursor_ids)
-        ax.set_ylabel("Number of precursor identifications")
-        ax.set_xlabel("MS2 error")
-        ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=max(self.precursor_ids) * 1.1)
-        ax.legend(loc="upper left")
-        plt.show()
+    def _get_feature_value(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        return len(precursors_df)
 
 
-class AutomaticMS1Optimizer(BaseOptimizer):
+class AutomaticMS1Optimizer(AutomaticOptimizer):
     """TODO Finish this optimizer"""
 
     def __init__(
         self,
         initial_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
         """See base class.
@@ -360,13 +420,11 @@ class AutomaticMS1Optimizer(BaseOptimizer):
             The parameter used for search in the first round of optimization.
 
         """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.history_df = pd.DataFrame(
-            columns=["parameter", "precursor_ids", "classifier_version"]
-        )
-        self.proposed_parameter = initial_parameter
+        self.parameter_name = "ms1_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "mz"
+        self.feature_name = "precursor_count"
+        super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -380,26 +438,15 @@ class AutomaticMS1Optimizer(BaseOptimizer):
 
         """
 
-        if (
+        return (
             len(self.history_df) > 2
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-2]
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-3]
-        ):
-            self.optimal_parameter = self.history_df.loc[
-                self.history_df["feature"].idxmax(), "parameter"
-            ]
-            self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
-            self.optimization_manager.fit(
-                {
-                    "classifier_version": self.history_df.loc[
-                        self.history_df["feature"].idxmax(), "classifier_version"
-                    ]
-                }
-            )
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-2]
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-3]
+        )
 
-    def _update_parameter(self, df: pd.DataFrame):
+    def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
             2) take the mean of the endpoints of the central 99% of these deviations, and
@@ -408,75 +455,21 @@ class AutomaticMS1Optimizer(BaseOptimizer):
 
 
         """
-        proposed_parameter = 1.1 * self.calibration_manager.get_estimator(
-            "precursor", "mz"
+        return 1.1 * self.workflow.calibration_manager.get_estimator(
+            self.estimator_group_name, self.estimator_name
         ).ci(df, 0.99)
 
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
-        if not self.has_converged():
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "parameter": float(
-                            self.proposed_parameter
-                        ),  # Ensure float dtype
-                        "feature": int(len(precursors_df)),  # Ensure int dtype
-                        "classifier_version": int(
-                            self.fdr_manager.current_version
-                        ),  # Ensure int dtype
-                    }
-                ]
-            )
-            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-            self._check_convergence()
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'ms1_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
-                verbosity="progress",
-            )
-
-        else:
-            self.proposed_parameter = self._update_parameter(precursors_df)
-
-            self.reporter.log_string(
-                f"❌ {'ms1_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
-                verbosity="progress",
-            )
-
-            self.optimization_manager.fit({"ms1_error": self.proposed_parameter})
-
-    def plot(self):
-        """Plot the optimization of the MS1 error parameter."""
-        fig, ax = plt.subplots()
-        ax.vlines(
-            self.optimal_parameter,
-            0,
-            max(self.feature),
-            color="red",
-            zorder=0,
-            label="Optimal MS1 error",
-        )
-        ax.plot(self.parameters, self.feature)
-        ax.scatter(self.parameters, self.feature)
-        ax.set_ylabel("Number of precursor identifications")
-        ax.set_xlabel("MS1 error")
-        ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
-        ax.legend(loc="upper left")
-        plt.show()
+    def _get_feature_value(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        return len(precursors_df)
 
 
-class AutomaticMobilityOptimizer(BaseOptimizer):
+class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
         """See base class.
@@ -488,13 +481,11 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
             The parameter used for search in the first round of optimization.
 
         """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.history_df = pd.DataFrame(
-            columns=["parameter", "precursor_ids", "classifier_version"]
-        )
-        self.proposed_parameter = initial_parameter
+        self.parameter_name = "mobility_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "mobility"
+        self.feature_name = "precursor_count"
+        super().__init__(initial_parameter, workflow, **kwargs)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the TODO parameter is not improving the TODO feature value.
@@ -508,26 +499,15 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
 
         """
 
-        if (
+        return (
             len(self.history_df) > 2
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-2]
-            and self.history_df["feature"].iloc[-1]
-            < 1.1 * self.history_df["feature"].iloc[-3]
-        ):
-            self.optimal_parameter = self.history_df.loc[
-                self.history_df["feature"].idxmax(), "parameter"
-            ]
-            self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
-            self.optimization_manager.fit(
-                {
-                    "classifier_version": self.history_df.loc[
-                        self.history_df["feature"].idxmax(), "classifier_version"
-                    ]
-                }
-            )
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-2]
+            and self.history_df[self.feature_name].iloc[-1]
+            < 1.1 * self.history_df[self.feature_name].iloc[-3]
+        )
 
-    def _update_parameter(self, df: pd.DataFrame):
+    def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
             2) take the mean of the endpoints of the central 99% of these deviations, and
@@ -536,380 +516,79 @@ class AutomaticMobilityOptimizer(BaseOptimizer):
 
 
         """
-        proposed_parameter = 1.1 * self.calibration_manager.get_estimator(
-            "precursor", "mz"
+        return 1.1 * self.workflow.calibration_manager.get_estimator(
+            self.estimator_group_name, self.estimator_name
         ).ci(df, 0.99)
 
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """See base class. The TODO is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
-        if not self.has_converged():
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "parameter": float(
-                            self.proposed_parameter
-                        ),  # Ensure float dtype
-                        "feature": int(len(precursors_df)),  # Ensure int dtype
-                        "classifier_version": int(
-                            self.fdr_manager.current_version
-                        ),  # Ensure int dtype
-                    }
-                ]
-            )
-            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-            self._check_convergence()
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'mobility_error':<15}: optimization complete. Optimal parameter {self.optimal_parameter} found after {len(self.history_df)} searches.",
-                verbosity="progress",
-            )
-
-        else:
-            self.proposed_parameter = self._update_parameter(precursors_df)
-
-            self.reporter.log_string(
-                f"❌ {'mobility_error':<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.proposed_parameter}.",
-                verbosity="progress",
-            )
-
-            self.parameters.append(self.proposed_parameter)
-            self.optimization_manager.fit({"mobility_error": self.proposed_parameter})
-
-    def plot(self):
-        """Plot the optimization of the mobility error parameter."""
-        fig, ax = plt.subplots()
-        ax.vlines(
-            self.optimal_parameter,
-            0,
-            max(self.feature),
-            color="red",
-            zorder=0,
-            label="Optimal mobility error",
-        )
-        ax.plot(self.parameters, self.feature)
-        ax.scatter(self.parameters, self.feature)
-        ax.set_ylabel("Number of precursor identifications")
-        ax.set_xlabel("Mobility error")
-        ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=max(self.feature) * 1.1)
-        ax.legend(loc="upper left")
-        plt.show()
+    def _get_feature_value(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        return len(precursors_df)
 
 
-class TargetedRTOptimizer(BaseOptimizer):
+class TargetedRTOptimizer(TargetedOptimizer):
     """This class optimizes the RT search parameter until it reaches a user-specified target value."""
 
     def __init__(
         self,
         initial_parameter: float,
         target_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        target_parameter: float
-            Optimization will stop when this parameter is reached.
-
-        """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.target_parameter = target_parameter
-        self.parameters = [initial_parameter]
-
-    def _check_convergence(self, proposed_parameter):
-        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
-
-        Parameters
-        ----------
-        proposed_parameter: float
-            The proposed parameter for the next round of optimization.
-        """
-
-        if proposed_parameter <= self.target_parameter:
-            self.optimal_parameter = self.target_parameter
-            self.optimization_manager.fit({"rt_error": self.optimal_parameter})
-
-    def _update_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values, and
-            2) take the mean of the endpoints of the central 95% of these deviations
-        This is implemented by the ci method for the estimator.
-
-
-        """
-        proposed_parameter = self.calibration_manager.get_estimator(
-            "precursor", "rt"
-        ).ci(df, 0.95)
-
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class."""
-        if not self.has_converged():
-            proposed_parameter = self._update_parameter(precursors_df)
-            self._check_convergence(proposed_parameter)
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'rt_error':<15}: {self.target_parameter:.4f} <= {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-        else:
-            self.reporter.log_string(
-                f"❌ {'rt_error':<15}: {proposed_parameter:.4f} > {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"rt_error": proposed_parameter})
+        self.parameter_name = "rt_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "rt"
+        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
 
 
-class TargetedMS2Optimizer(BaseOptimizer):
+class TargetedMS2Optimizer(TargetedOptimizer):
     """This class optimizes the MS2 search parameter until it reaches a user-specified target value."""
 
     def __init__(
         self,
         initial_parameter: float,
         target_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        target_parameter: float
-            Optimization will stop when this parameter is reached.
-
-        """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.target_parameter = target_parameter
-        self.parameters = [initial_parameter]
-
-    def _check_convergence(self, proposed_parameter):
-        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
-
-        Parameters
-        ----------
-        proposed_parameter: float
-            The proposed parameter for the next round of optimization.
-        """
-
-        if proposed_parameter <= self.target_parameter:
-            self.optimal_parameter = self.target_parameter
-            self.optimization_manager.fit({"ms2_error": self.optimal_parameter})
-
-    def _update_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values, and
-            2) take the mean of the endpoints of the central 95% of these deviations
-        This is implemented by the ci method for the estimator.
-
-
-        """
-        proposed_parameter = self.calibration_manager.get_estimator(
-            "fragment", "mz"
-        ).ci(df, 0.95)
-
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class."""
-        if not self.has_converged():
-            proposed_parameter = self._update_parameter(fragments_df)
-            self._check_convergence(proposed_parameter)
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'ms2_error':<15}: {self.target_parameter:.4f} <= {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-        else:
-            self.reporter.log_string(
-                f"❌ {'ms2_error':<15}: {proposed_parameter:.4f} > {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"ms2_error": proposed_parameter})
+        self.parameter_name = "ms2_error"
+        self.estimator_group_name = "fragment"
+        self.estimator_name = "mz"
+        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
 
 
-class TargetedMS1Optimizer(BaseOptimizer):
+class TargetedMS1Optimizer(TargetedOptimizer):
     """This class optimizes the MS1 search parameter until it reaches a user-specified target value."""
 
     def __init__(
         self,
         initial_parameter: float,
         target_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        target_parameter: float
-            Optimization will stop when this parameter is reached.
-
-        """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.target_parameter = target_parameter
-        self.parameters = [initial_parameter]
-
-    def _check_convergence(self, proposed_parameter):
-        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
-
-        Parameters
-        ----------
-        proposed_parameter: float
-            The proposed parameter for the next round of optimization.
-        """
-
-        if proposed_parameter <= self.target_parameter:
-            self.optimal_parameter = self.target_parameter
-            self.optimization_manager.fit({"ms1_error": self.optimal_parameter})
-
-    def _update_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values, and
-            2) take the mean of the endpoints of the central 95% of these deviations
-        This is implemented by the ci method for the estimator.
-
-
-        """
-        proposed_parameter = self.calibration_manager.get_estimator(
-            "precursor", "mz"
-        ).ci(df, 0.95)
-
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class."""
-        if not self.has_converged():
-            proposed_parameter = self._update_parameter(precursors_df)
-            self._check_convergence(proposed_parameter)
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'ms1_error':<15}: {self.target_parameter:.4f} <= {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-        else:
-            self.reporter.log_string(
-                f"❌ {'ms1_error':<15}: {proposed_parameter:.4f} > {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"ms1_error": proposed_parameter})
+        self.parameter_name = "ms1_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "mz"
+        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
 
 
-class TargetedMobilityOptimizer(BaseOptimizer):
+class TargetedMobilityOptimizer(TargetedOptimizer):
     """This class optimizes the mobility search parameter until it reaches a user-specified target value."""
 
     def __init__(
         self,
         initial_parameter: float,
         target_parameter: float,
-        calibration_manager: manager.CalibrationManager,
-        optimization_manager: manager.OptimizationManager,
-        fdr_manager: manager.FDRManager,
+        workflow: peptidecentric.PeptideCentricWorkflow,
         **kwargs,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        target_parameter: float
-            Optimization will stop when this parameter is reached.
-
-        """
-        super().__init__(
-            calibration_manager, optimization_manager, fdr_manager, **kwargs
-        )
-        self.target_parameter = target_parameter
-        self.parameters = [initial_parameter]
-
-    def _check_convergence(self, proposed_parameter):
-        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
-
-        Parameters
-        ----------
-        proposed_parameter: float
-            The proposed parameter for the next round of optimization.
-        """
-
-        if proposed_parameter <= self.target_parameter:
-            self.optimal_parameter = self.target_parameter
-            self.optimization_manager.fit({"mobility_error": self.optimal_parameter})
-
-    def _update_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values, and
-            2) take the mean of the endpoints of the central 95% of these deviations
-        This is implemented by the ci method for the estimator.
-
-
-        """
-        proposed_parameter = self.calibration_manager.get_estimator(
-            "precursor", "mobility"
-        ).ci(df, 0.95)
-
-        return proposed_parameter
-
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """See base class."""
-        if not self.has_converged():
-            proposed_parameter = self._update_parameter(precursors_df)
-            self._check_convergence(proposed_parameter)
-
-        if self.has_converged():  # Note this may change from the above statement since .optimal_parameter may be set in ._check_convergence
-            self.reporter.log_string(
-                f"✅ {'mobility_error':<15}: {self.target_parameter:.4f} <= {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-        else:
-            self.reporter.log_string(
-                f"❌ {'mobility_error':<15}: {proposed_parameter:.4f} > {self.target_parameter:.4f}",
-                verbosity="progress",
-            )
-
-            self.parameters.append(proposed_parameter)
-            self.optimization_manager.fit({"mobility_error": proposed_parameter})
+        self.parameter_name = "mobility_error"
+        self.estimator_group_name = "precursor"
+        self.estimator_name = "mobility"
+        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)

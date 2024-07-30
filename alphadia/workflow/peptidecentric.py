@@ -162,6 +162,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     "recalibration_target"
                 ],
                 "classifier_version": -1,
+                "fwhm_rt": self.config["optimization_manager"]["fwhm_rt"],
+                "fwhm_mobility": self.config["optimization_manager"]["fwhm_mobility"],
+                "score_cutoff": self.config["optimization_manager"]["score_cutoff"],
             }
         )
 
@@ -393,17 +396,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             return
 
-        if (
-            self.config["search"]["target_ms2_tolerance"] > 0
-            and self.config["search"]["target_rt_tolerance"] > 0
-            and self.config["search"]["target_ms1_tolerance"] > 0
-            and self.config["search"]["target_mobility_tolerance"] > 0
-        ):
-            self.reporter.log_string(
-                "A complete list of target tolerances has been specified. Targeted search parameter optimization will be performed.",
-                verbosity="info",
-            )
-
+        if self.config["search"]["target_ms2_tolerance"] > 0:
             self.ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
                 self.config["search"]["target_ms2_tolerance"],
@@ -411,7 +404,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.com,
                 self.fdr_manager,
             )
+        else:
+            self.ms2_optimizer = searchoptimization.AutomaticMS2Optimizer(
+                self.config["search_initial"]["initial_ms2_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
 
+        if self.config["search"]["target_rt_tolerance"] > 0:
             self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
                 self.config["search_initial"]["initial_rt_tolerance"],
                 self.config["search"]["target_rt_tolerance"],
@@ -419,8 +420,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.com,
                 self.fdr_manager,
             )
-
-            if self.dia_data.has_ms1:
+        else:
+            self.rt_optimizer = searchoptimization.TargetedRTOptimizer(
+                self.config["search_initial"]["initial_rt_tolerance"],
+                self.calibration_manager,
+                self.com,
+                self.fdr_manager,
+            )
+        if self.dia_data.has_ms1:
+            if self.config["search"]["target_ms1_tolerance"] > 0:
                 self.ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
                     self.config["search_initial"]["initial_ms1_tolerance"],
                     self.config["search"]["target_ms1_tolerance"],
@@ -429,9 +437,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.fdr_manager,
                 )
             else:
-                self.ms1_optimizer = None
-
-            if self.dia_data.has_mobility:
+                self.ms1_optimizer = searchoptimization.AutomaticMS1Optimizer(
+                    self.config["search_initial"]["initial_ms1_tolerance"],
+                    self.calibration_manager,
+                    self.com,
+                    self.fdr_manager,
+                )
+        else:
+            self.ms1_optimizer = None
+        if self.dia_data.has_mobility:
+            if self.config["search"]["target_mobility_tolerance"] > 0:
                 self.mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.config["search"]["target_mobility_tolerance"],
@@ -440,25 +455,39 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     self.fdr_manager,
                 )
             else:
-                self.mobility_optimizer = None
-
-            order_of_optimization = [
-                [
-                    optimizer
-                    for optimizer in [
-                        self.ms2_optimizer,
-                        self.rt_optimizer,
-                        self.ms1_optimizer,
-                        self.mobility_optimizer,
-                    ]
-                    if optimizer is not None
-                ]
-            ]
-
+                self.mobility_optimizer = searchoptimization.AutomaticMobilityOptimizer(
+                    self.config["search_initial"]["initial_mobility_tolerance"],
+                    self.calibration_manager,
+                    self.com,
+                    self.fdr_manager,
+                )
         else:
-            raise NotImplementedError(
-                "Automatic search parameter optimization is not yet implemented"
-            )
+            self.mobility_optimizer = None
+
+        self.reporter.log_string(
+            "A complete list of target tolerances has been specified. Targeted search parameter optimization will be performed.",
+            verbosity="info",
+        )
+        optimizers = [
+            self.ms2_optimizer,
+            self.rt_optimizer,
+            self.ms1_optimizer,
+            self.mobility_optimizer,
+        ]
+        targeted_optimizers = [
+            [
+                optimizer
+                for optimizer in optimizers
+                if isinstance(optimizer, searchoptimization.TargetedOptimizer)
+            ]
+        ]
+        automatic_optimizers = [
+            [optimizer]
+            for optimizer in optimizers
+            if isinstance(optimizer, searchoptimization.AutomaticOptimizer)
+        ]
+
+        order_of_optimization = targeted_optimizers + automatic_optimizers
 
         self.extract_optimization_data(
             self.config["calibration"]["recalibration_target"]
@@ -569,7 +598,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
-        self.optimization_manager.fit(
+        self.com.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
@@ -625,8 +654,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self.dia_data.has_ms1
             else "mz_library",
             fragment_mz_column=f"mz_{self.com.column_type}",
-            fwhm_rt=self.optimization_manager.fwhm_rt,
-            fwhm_mobility=self.optimization_manager.fwhm_mobility,
+            fwhm_rt=self.com.fwhm_rt,
+            fwhm_mobility=self.com.fwhm_mobility,
         )
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
@@ -635,11 +664,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if apply_cutoff:
             num_before = len(candidates_df)
             self.reporter.log_string(
-                f"Applying score cutoff of {self.optimization_manager.score_cutoff}",
+                f"Applying score cutoff of {self.com.score_cutoff}",
                 verbosity="info",
             )
             candidates_df = candidates_df[
-                candidates_df["score"] > self.optimization_manager.score_cutoff
+                candidates_df["score"] > self.com.score_cutoff
             ]
             num_after = len(candidates_df)
             num_removed = num_before - num_after

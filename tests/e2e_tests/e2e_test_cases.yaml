@@ -99,6 +99,41 @@ test_cases:
       - BasicStats
 
 
+  - name: astral_automatic_calibration
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 10
+        initial_ms2_tolerance: 15
+        initial_rt_tolerance: 300
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=2024_01_12_human.fasta
+    raw_data:
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+    metrics:
+      - BasicStats
+
 #  - name: astral_mixed_species
 #    config:
 #      library_prediction:
