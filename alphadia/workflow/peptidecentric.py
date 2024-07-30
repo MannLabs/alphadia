@@ -508,17 +508,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="progress",
                 )
 
-                precursors_df = self.fdr_correction(
+                precursor_df = self.fdr_correction(
                     features_df, fragments_df, self.com.classifier_version
                 )
 
-                self.log_precursor_df(precursors_df)
+                self.log_precursor_df(precursor_df)
 
-                precursors_df_filtered, fragments_df_filtered = self.filter_dfs(
-                    precursors_df, fragments_df
+                precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                    precursor_df, fragments_df
                 )
 
-                self.recalibration(precursors_df_filtered, fragments_df_filtered)
+                self.recalibration(precursor_df_filtered, fragments_df_filtered)
 
                 self.reporter.log_string(
                     "=== checking if optimization conditions were reached ===",
@@ -526,7 +526,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
 
                 for optimizer in optimizers:
-                    optimizer.step(precursors_df_filtered, fragments_df_filtered)
+                    optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
                 self.reporter.log_string(
                     "==============================================", verbosity="info"
