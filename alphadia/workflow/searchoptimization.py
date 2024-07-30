@@ -92,6 +92,7 @@ class AutomaticOptimizer(BaseOptimizer):
                     "classifier_version": int(
                         self.workflow.fdr_manager.current_version
                     ),  # Ensure int dtype
+                    "score_cutoff": float(self.workflow.com.score_cutoff),
                 }
             ]
         )
@@ -107,9 +108,13 @@ class AutomaticOptimizer(BaseOptimizer):
             classifier_version_at_optimum = self.history_df["classifier_version"].loc[
                 index_of_optimum
             ]
+            score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[
+                index_of_optimum
+            ]
 
             self.workflow.com.fit({self.parameter_name: optimal_parameter})
             self.workflow.com.fit({"classifier_version": classifier_version_at_optimum})
+            self.workflow.com.fit({"score_cutoff": score_cutoff_at_optimum})
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
@@ -134,7 +139,6 @@ class AutomaticOptimizer(BaseOptimizer):
         """Plot the optimization of the RT error parameter."""
         fig, ax = plt.subplots()
 
-        # Plot the vertical line
         ax.axvline(
             x=self.workflow.com.__dict__[self.parameter_name],
             ymin=0,
@@ -144,19 +148,19 @@ class AutomaticOptimizer(BaseOptimizer):
             label=f"Optimal {self.parameter_name}",
         )
 
-        # Plot the line and scatter plot using Seaborn
         sns.lineplot(
-            x=self.history_df["parameter"],
-            y=self.history_df[self.feature_name],
+            data=self.history_df,
+            x="parameter",
+            y=self.feature_name,
             ax=ax,
         )
         sns.scatterplot(
-            x=self.history_df["parameter"],
-            y=self.history_df[self.feature_name],
+            data=self.history_df,
+            x="parameter",
+            y=self.feature_name,
             ax=ax,
         )
 
-        # Set labels and other properties
         ax.set_xlabel(self.parameter_name)
         ax.xaxis.set_inverted(True)
         ax.set_ylim(bottom=0, top=self.history_df[self.feature_name].max() * 1.1)
@@ -267,6 +271,9 @@ class TargetedOptimizer(BaseOptimizer):
         )
         just_converged = self._check_convergence(new_parameter)
         self.workflow.com.fit({self.parameter_name: new_parameter})
+        self.workflow.com.fit(
+            {"classifier_version": self.workflow.fdr_manager.current_version}
+        )
 
         if just_converged:
             self.has_converged = True

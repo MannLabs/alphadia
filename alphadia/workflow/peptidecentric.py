@@ -512,6 +512,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     features_df, fragments_df, self.com.classifier_version
                 )
 
+                self.log_precursor_df(precursors_df)
+
                 precursors_df_filtered, fragments_df_filtered = self.filter_dfs(
                     precursors_df, fragments_df
                 )
@@ -731,10 +733,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.com.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],
-                "ms1_error": self.config["search"]["target_ms1_tolerance"],
-                "ms2_error": self.config["search"]["target_ms2_tolerance"],
-                "rt_error": self.config["search"]["target_rt_tolerance"],
-                "mobility_error": self.config["search"]["target_mobility_tolerance"],
                 "column_type": "calibrated",
             }
         )
