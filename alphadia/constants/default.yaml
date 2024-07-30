@@ -158,6 +158,29 @@ scoring_config:
   precursor_mz_tolerance: 10
   fragment_mz_tolerance: 15
 
+# perform non-isobaric multiplexing of any input library
+library_multiplexing:
+  # if true, the library is multiplexed
+  enabled: False
+
+  # define channels by their name and how modifications should be translated from the input library to the multiplexed library
+  multiplex_mapping:
+    0:
+      mTRAQ@K: mTRAQ@K
+      mTRAQ@Any_N-term: mTRAQ@Any_N-term
+
+    4:
+      mTRAQ@K: mTRAQ:13C(3)15N(1)@K
+      mTRAQ@Any_N-term: mTRAQ:13C(3)15N(1)@Any_N-term
+
+    8:
+      mTRAQ@K: mTRAQ:13C(6)15N(2)@K
+      mTRAQ@Any_N-term: mTRAQ:13C(6)15N(2)@Any_N-term
+
+    12:
+      mTRAQ@K: mTRAQ:d12@K
+      mTRAQ@Any_N-term: mTRAQ:d12@Any_N-term
+
 multiplexing:
   enabled: False
   target_channels: '4,8'
