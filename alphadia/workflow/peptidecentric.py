@@ -484,7 +484,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            "Target number of precursors found. Starting search parameter optimization.",
+            "Required number of precursors found. Starting search parameter optimization.",
             verbosity="progress",
         )
 

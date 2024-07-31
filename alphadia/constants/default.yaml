@@ -95,8 +95,8 @@ search_advanced:
 
 calibration:
 
-  # minimum number of times (epochs) the updated calibration target has to been passed
-  min_epochs: 3
+  # minimum number of times the classifier is trained.
+  min_training_iterations: 3
 
   # Number of precursors searched and scored per batch
   batch_size: 8000

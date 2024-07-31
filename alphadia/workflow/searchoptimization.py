@@ -93,6 +93,8 @@ class AutomaticOptimizer(BaseOptimizer):
                         self.workflow.fdr_manager.current_version
                     ),  # Ensure int dtype
                     "score_cutoff": float(self.workflow.com.score_cutoff),
+                    "fwhm_rt": float(self.workflow.com.fwhm_rt),
+                    "fwhm_mobility": float(self.workflow.com.fwhm_mobility),
                 }
             ]
         )
@@ -111,10 +113,16 @@ class AutomaticOptimizer(BaseOptimizer):
             score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[
                 index_of_optimum
             ]
+            fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
+            fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
+                index_of_optimum
+            ]
 
             self.workflow.com.fit({self.parameter_name: optimal_parameter})
             self.workflow.com.fit({"classifier_version": classifier_version_at_optimum})
             self.workflow.com.fit({"score_cutoff": score_cutoff_at_optimum})
+            self.workflow.com.fit({"fwhm_rt": fwhm_rt_at_optimum})
+            self.workflow.com.fit({"fwhm_mobility": fwhm_mobility_at_optimum})
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
@@ -241,7 +249,11 @@ class TargetedOptimizer(BaseOptimizer):
             The proposed parameter for the next round of optimization.
         """
 
-        return proposed_parameter <= self.target_parameter
+        return (
+            proposed_parameter <= self.target_parameter
+            and self.workflow.current_version
+            > self.workflow.config["min_training_iterations"]
+        )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
