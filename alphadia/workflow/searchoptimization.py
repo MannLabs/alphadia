@@ -249,11 +249,7 @@ class TargetedOptimizer(BaseOptimizer):
             The proposed parameter for the next round of optimization.
         """
 
-        return (
-            proposed_parameter <= self.target_parameter
-            and self.workflow.current_version
-            > self.workflow.config["min_training_iterations"]
-        )
+        return proposed_parameter <= self.target_parameter
 
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is

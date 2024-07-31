@@ -314,7 +314,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return plan
 
-    def extract_optimization_data(self, target):
+    def extract_optimization_data(self, target, min_iterations):
         """Search parameter optimization (i.e. refinement of tolerances for RT, MS2, etc.) is performed on a subset of the elution groups in the spectral library.
         The number of elution groups which must be searched to get a sufficiently large number for robust calibration varies depending the library used and the data.
         This function searches an increasing number of elution groups until a sufficient number (determined by target) of precursors are identified at 1% FDR.
@@ -371,13 +371,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
 
             self.reporter.log_string(
-                f"=== checking if minimum number of precursors for optimization found yet; minimum number is {target} ===",
+                f"=== Checking if minimum number of precursors for optimization found yet; minimum number is {target} ===",
                 verbosity="progress",
             )
 
             self.log_precursor_df(precursor_df)
 
-            if precursors_01FDR > target:
+            self.reporter.log_string(
+                f"=== Classifier has been trained for {self.fdr_manager.current_version + 1} iteration(s); minimum number is {min_iterations} ===",
+                verbosity="progress",
+            )
+
+            if (
+                precursors_01FDR > target
+                and self.fdr_manager.current_version >= min_iterations - 1
+            ):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
                 break
 
@@ -480,11 +488,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.extract_optimization_data(
-            self.config["calibration"]["min_precursors_for_optimization"]
+            self.config["calibration"]["min_precursors_for_optimization"],
+            self.config["calibration"]["min_training_iterations"],
         )
 
         self.reporter.log_string(
-            "Required number of precursors found. Starting search parameter optimization.",
+            "Required number of precursors found and required number of training iterations performed. Starting search parameter optimization.",
             verbosity="progress",
         )
 
