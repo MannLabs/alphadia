@@ -510,7 +510,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            "Perform initial optimization on extracted data.",
+            "=== Performing initial optimization on extracted data. ===",
             verbosity="info",
         )
         # Perform an initial optimization step based on the extracted data to update the initial search parameters.

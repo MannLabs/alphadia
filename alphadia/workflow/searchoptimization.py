@@ -71,7 +71,12 @@ class AutomaticOptimizer(BaseOptimizer):
         self.workflow.com.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
 
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+    def step(
+        self,
+        precursors_df: pd.DataFrame,
+        fragments_df: pd.DataFrame,
+        current_step: int = -1,
+    ):
         """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
             self.reporter.log_string(
@@ -99,7 +104,7 @@ class AutomaticOptimizer(BaseOptimizer):
             ]
         )
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-        just_converged = self._check_convergence()
+        just_converged = self._check_convergence(current_step)
 
         if just_converged:
             self.has_converged = True
@@ -332,7 +337,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.feature_name = "precursor_count"
         super().__init__(initial_parameter, workflow, **kwargs)
 
-    def _check_convergence(self):
+    def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued optimization of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
@@ -341,6 +346,10 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         -----
             Because the check for an increase in TODO feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
 
+        Parameters
+        ----------
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         """
 
@@ -350,6 +359,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
+            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -393,7 +403,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.feature_name = "precursor_count"
         super().__init__(initial_parameter, workflow, **kwargs)
 
-    def _check_convergence(self):
+    def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the MS2 parameter is not improving the number of precursor identifications.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the number of identifications.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
@@ -402,6 +412,10 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         -----
             Because the check for an increase in identifications requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
 
+        Parameters
+        ----------
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         """
 
@@ -411,6 +425,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
+            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -454,7 +469,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.feature_name = "precursor_count"
         super().__init__(initial_parameter, workflow, **kwargs)
 
-    def _check_convergence(self):
+    def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
@@ -463,6 +478,10 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         -----
             Because the check for an increase in TODO feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
 
+        Parameters
+        ----------
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         """
 
@@ -472,6 +491,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
+            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -515,7 +535,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.feature_name = "precursor_count"
         super().__init__(initial_parameter, workflow, **kwargs)
 
-    def _check_convergence(self):
+    def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
@@ -524,6 +544,10 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         -----
             Because the check for an increase in TODO feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
 
+        Parameters
+        ----------
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         """
 
@@ -533,6 +557,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
+            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
