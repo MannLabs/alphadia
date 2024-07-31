@@ -389,8 +389,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
                 break
 
-        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
-        self.com.fit({"classifier_version": self.fdr_manager.current_version})
+        return self.elution_group_order[:final_stop_index], precursor_df, fragments_df
+
+    #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
+    #        self.com.fit({"classifier_version": self.fdr_manager.current_version})
 
     def calibration(self):
         if (
@@ -487,19 +489,38 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        self.extract_optimization_data(
-            self.config["calibration"]["min_precursors_for_optimization"],
-            self.config["calibration"]["min_training_iterations"],
+        self.eg_idxes_for_calibration, precursor_df, fragments_df = (
+            self.extract_optimization_data(
+                self.config["calibration"]["min_precursors_for_optimization"],
+                self.config["calibration"]["min_training_iterations"],
+            )
         )
+
+        self.com.fit({"classifier_version": self.fdr_manager.current_version})
+
+        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+            precursor_df, fragments_df
+        )
+
+        self.recalibration(precursor_df_filtered, fragments_df_filtered)
 
         self.reporter.log_string(
             "Required number of precursors found and required number of training iterations performed. Starting search parameter optimization.",
             verbosity="progress",
         )
 
+        # Perform an initial optimization step based on the extracted data to update the initial search parameters.
+        # This ensures that the classifier is trained at least once prior to the end of optimization, even if the min_steps parameter is 0.
+        for optimizers in order_of_optimization:
+            for optimizer in optimizers:
+                optimizer.step(precursor_df_filtered, fragments_df_filtered)
+
         for optimizers in order_of_optimization:
             for current_step in range(self.config["calibration"]["max_steps"]):
-                if np.all([optimizer.has_converged for optimizer in optimizers]):
+                if (
+                    np.all([optimizer.has_converged for optimizer in optimizers])
+                    and current_step > self.config["calibration"]["min_steps"] - 1
+                ):
                     self.reporter.log_string(
                         f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
                         verbosity="progress",
@@ -551,6 +572,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.reporter.log_string(
                     "==============================================", verbosity="info"
                 )
+
+                self.reporter.log_string(
+                    f"=== Optimization has been performed for {current_step + 1} step(s); minimum number is {self.config["calibration"]["min_steps"]} ===",
+                    verbosity="progress",
+                )
+
         self.reporter.log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",

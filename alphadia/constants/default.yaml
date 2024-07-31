@@ -107,6 +107,9 @@ calibration:
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20
 
+  # the maximum number of steps that a given optimizer is permitted to take
+  min_steps: 3
+
   # TODO: remove this parameter
   final_full_calibration: False
 
