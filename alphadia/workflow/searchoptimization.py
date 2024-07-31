@@ -240,16 +240,24 @@ class TargetedOptimizer(BaseOptimizer):
         self.target_parameter = target_parameter
         self.has_converged = False
 
-    def _check_convergence(self, proposed_parameter):
+    def _check_convergence(self, proposed_parameter: float, current_step: int = -1):
         """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
 
         Parameters
         ----------
         proposed_parameter: float
             The proposed parameter for the next round of optimization.
+
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
+
+
         """
 
-        return proposed_parameter <= self.target_parameter
+        return (
+            proposed_parameter <= self.target_parameter
+            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+        )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
@@ -265,7 +273,12 @@ class TargetedOptimizer(BaseOptimizer):
             self.target_parameter,
         )
 
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+    def step(
+        self,
+        precursors_df: pd.DataFrame,
+        fragments_df: pd.DataFrame,
+        current_step: int = -1,
+    ):
         """See base class."""
         if self.has_converged:
             self.reporter.log_string(
@@ -277,7 +290,7 @@ class TargetedOptimizer(BaseOptimizer):
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
-        just_converged = self._check_convergence(new_parameter)
+        just_converged = self._check_convergence(new_parameter, current_step)
         self.workflow.com.fit({self.parameter_name: new_parameter})
         self.workflow.com.fit(
             {"classifier_version": self.workflow.fdr_manager.current_version}
@@ -292,7 +305,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         else:
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f}",
+                f"❌ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
                 verbosity="progress",
             )
 
