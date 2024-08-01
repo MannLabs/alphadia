@@ -24,7 +24,10 @@ class BaseOptimizer(ABC):
         ----------
 
         workflow: peptidecentric.PeptideCentricWorkflow
-            The workflow object that the optimization is being performed on.
+            The workflow object, which includes the calibration, calibration_optimization and FDR managers which are used as part of optimization.
+
+        reporter: None | reporting.Pipeline | reporting.Backend
+            The reporter object used to log information about the optimization process. If None, a new LogBackend object is created.
 
         """
         self.optimal_parameter = None
@@ -56,7 +59,7 @@ class BaseOptimizer(ABC):
 
         Notes
         -----
-            This can be left blank if there is nothing of interest to plot.
+            This can be overwritten with pass if there is nothing of interest to plot.
 
         """
         pass
@@ -76,6 +79,7 @@ class AutomaticOptimizer(BaseOptimizer):
         initial_parameter: float
             The parameter used for search in the first round of optimization.
 
+        See base class for other parameters.
 
         """
         super().__init__(workflow, reporter)
@@ -157,7 +161,7 @@ class AutomaticOptimizer(BaseOptimizer):
             )
 
     def plot(self):
-        """Plot the optimization of the RT error parameter."""
+        """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
         fig, ax = plt.subplots()
 
         ax.axvline(
@@ -199,13 +203,24 @@ class AutomaticOptimizer(BaseOptimizer):
         df: pd.DataFrame
             The dataframe used to update the parameter. This could be the precursor or fragment dataframe, depending on the search parameter being optimized.
 
+        Returns
+        -------
+        float
+            The proposed new value for the search parameter.
+
 
         """
         pass
 
     @abstractmethod
     def _check_convergence(self):
-        """This method checks if the optimization has converged according to parameter-specific conditions and, if it has, sets the optimal parameter attribute and updates the optimization manager."""
+        """This method checks if the optimization has converged according to parameter-specific conditions.
+
+        Returns
+        -------
+        bool
+
+        """
         pass
 
     @abstractmethod
@@ -247,6 +262,8 @@ class TargetedOptimizer(BaseOptimizer):
         target_parameter: float
             Optimization will stop when this parameter is reached.
 
+        See base class for other parameters.
+
         """
         super().__init__(workflow, reporter)
         self.workflow.com.fit({self.parameter_name: initial_parameter})
@@ -254,7 +271,7 @@ class TargetedOptimizer(BaseOptimizer):
         self.has_converged = False
 
     def _check_convergence(self, proposed_parameter: float, current_step: int = -1):
-        """The optimization has converged if the proposed parameter is equal to or less than the target parameter. At this point, the target parameter is saved as the optimal parameter.
+        """The optimization has converged if the proposed parameter is equal to or less than the target parameter and the a sufficient number of steps has been taken.
 
         Parameters
         ----------
@@ -263,6 +280,11 @@ class TargetedOptimizer(BaseOptimizer):
 
         current_step: int
             The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
+
+        Returns
+        -------
+        bool
+            True if proposed parameter less than target and the current step is greater than the minimum required, False otherwise.
 
 
         """
@@ -334,15 +356,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        """
+        """See base class. Optimizes retention time error."""
         self.parameter_name = "rt_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
@@ -352,7 +366,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued optimization of the parameter is not improving the TODO feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the TODO feature value.
-        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+        It also checks if the current step is greater than the minimum number of steps required for optimization.
 
         Notes
         -----
@@ -362,6 +376,11 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         ----------
         current_step: int
             The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
+
+        Returns
+        -------
+        bool
+            True if the convergence conditions are met, False otherwise.
 
         """
 
@@ -381,6 +400,10 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             3) multiply this value by 1.1.
         This is implemented by the ci method for the estimator.
 
+        Returns
+        -------
+        float
+            The proposed new value for the search parameter.
 
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
@@ -400,15 +423,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
-        """This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number.
-
-        Parameters
-        ----------
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-
-        """
+        """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
@@ -429,6 +444,11 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         current_step: int
             The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
+        Returns
+        -------
+        bool
+            True if the convergence conditions are met, False otherwise.
+
         """
 
         return (
@@ -447,6 +467,10 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             3) multiply this value by 1.1.
         This is implemented by the ci method for the estimator.
 
+        Returns
+        -------
+        float
+            The proposed new value for the search parameter.
 
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
@@ -466,15 +490,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        """
+        """See base class. Optimizes MS1 error."""
         self.parameter_name = "ms1_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
@@ -514,6 +530,11 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         This is implemented by the ci method for the estimator.
 
 
+        Returns
+        -------
+        float
+            The proposed new value for the search parameter.
+
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
@@ -532,15 +553,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
-        """See base class.
-
-        Parameters
-        ----------
-
-        initial_parameter: float
-            The parameter used for search in the first round of optimization.
-
-        """
+        """See base class. Optimizes mobility error."""
         self.parameter_name = "mobility_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
@@ -561,6 +574,11 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         current_step: int
             The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
+        Returns
+        -------
+        bool
+            True if the convergence conditions are met, False otherwise.
+
         """
 
         return (
@@ -579,8 +597,13 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
             3) multiply this value by 1.1.
         This is implemented by the ci method for the estimator.
 
+        Returns
+        -------
+        float
+            The proposed new value for the search parameter.
 
         """
+
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
         ).ci(df, 0.99)
@@ -592,8 +615,6 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
 
 class TargetedRTOptimizer(TargetedOptimizer):
-    """This class optimizes the RT search parameter until it reaches a user-specified target value."""
-
     def __init__(
         self,
         initial_parameter: float,
@@ -609,8 +630,6 @@ class TargetedRTOptimizer(TargetedOptimizer):
 
 
 class TargetedMS2Optimizer(TargetedOptimizer):
-    """This class optimizes the MS2 search parameter until it reaches a user-specified target value."""
-
     def __init__(
         self,
         initial_parameter: float,
@@ -626,8 +645,6 @@ class TargetedMS2Optimizer(TargetedOptimizer):
 
 
 class TargetedMS1Optimizer(TargetedOptimizer):
-    """This class optimizes the MS1 search parameter until it reaches a user-specified target value."""
-
     def __init__(
         self,
         initial_parameter: float,
@@ -643,8 +660,6 @@ class TargetedMS1Optimizer(TargetedOptimizer):
 
 
 class TargetedMobilityOptimizer(TargetedOptimizer):
-    """This class optimizes the mobility search parameter until it reaches a user-specified target value."""
-
     def __init__(
         self,
         initial_parameter: float,

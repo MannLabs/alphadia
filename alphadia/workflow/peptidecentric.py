@@ -297,6 +297,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return int(2**step)
 
     def get_batch_plan(self):
+        """Gets an exponential batch plan based on the batch_size value in the config."""
         n_eg = self.spectral_library._precursor_df["elution_group_idx"].nunique()
 
         plan = []
@@ -316,11 +317,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def get_optimization_lock(self):
         """Search parameter optimization (i.e. refinement of tolerances for RT, MS2, etc.) is performed on a subset of the elution groups in the spectral library.
+        This subset is termed the optimization lock.
         The number of elution groups which must be searched to get a sufficiently large number for robust calibration varies depending the library used and the data.
         This function searches an increasing number of elution groups until a sufficient number of precursors are identified at 1% FDR and a sufficient number of steps have been taken.
         The values deemed sufficient are specified in by "optimization_lock_target" and "optmization_lock_min_steps" in the config.
-        It then returns the elution group indexes which will be used to find the data in the spectral library for search parameter optimization.
 
+        Returns
+        -------
+        eg_idxes_for_calibration : np.ndarray
+            The indices (in .spectral_library._precursor_df) of the precursors which will be used for calibration.
+
+        precursor_df : pd.DataFrame
+            Dataframe of all precursors accumulated during the optimization lock, including q-values from FDR correction.
+
+        fragments_df : pd.DataFrame
+            Dataframe of all fragments accumulated during the optimization lock, including q-values from FDR correction.
 
         """
 
@@ -387,12 +398,25 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
                 break
 
-        return self.elution_group_order[:final_stop_index], precursor_df, fragments_df
+        eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
+        return eg_idxes_for_calibration, precursor_df, fragments_df
 
     #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
     #        self.com.fit({"classifier_version": self.fdr_manager.current_version})
 
     def get_optimizers(self):
+        """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
+        if a value less than or equal to 0 is supplied, automatic optimization is used.
+        Targeted optimizers are run simultaneously; automatic optimizers are run separately in the order MS2, RT, MS1, mobility.
+        This order is built into the structure of the returned list of lists, order_of_optimization.
+        For MS1 and mobility, the relevant optimizer will be excluded from the returned list of lists if it is not present in the data.
+
+        Returns
+        -------
+        order_of_optimization : list
+            List of lists of optimizers
+
+        """
         if self.config["search"]["target_ms2_tolerance"] > 0:
             ms2_optimizer = optimization.TargetedMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
@@ -475,6 +499,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return order_of_optimization
 
     def calibration(self):
+        """Performs optimization of the search parameters. This occurs in two stages:
+        1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
+        2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.
+            In each iteration, the data are searched with the locked library from stage 1, and the properties -- m/z for both precursors and fragments (i.e. MS1 and MS2), RT and mobility -- are recalibrated.
+            The optimization loop is repeated for each list of optimizers in order_of_optimization.
+
+        """
+        # First check to see if the calibration has already been performed. Return if so.
         if (
             self.calibration_manager.is_fitted
             and self.calibration_manager.is_loaded_from_file
@@ -485,6 +517,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             return
 
+        # Get the order of optimization
         order_of_optimization = self.get_optimizers()
 
         self.reporter.log_string(
@@ -492,6 +525,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
+        # Get the optimization lock
         eg_idxes_for_calibration, precursor_df, fragments_df = (
             self.get_optimization_lock()
         )
@@ -600,6 +634,25 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
     def filter_dfs(self, precursor_df, fragments_df):
+        """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
+
+        Parameters
+        ----------
+        precursor_df : pd.DataFrame
+            Precursor dataframe after FDR correction.
+
+        fragments_df : pd.DataFrame
+            Fragment dataframe.
+
+        Returns
+        -------
+        precursor_df_filtered : pd.DataFrame
+            Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
+
+        fragments_df_filtered : pd.DataFrame
+            Filtered fragment dataframe. Retained fragments must have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation.
+
+        """
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
         precursor_df_filtered = precursor_df_filtered[
             precursor_df_filtered["decoy"] == 0
@@ -633,6 +686,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return precursor_df_filtered, fragments_df_filtered
 
     def recalibration(self, precursor_df_filtered, fragments_df_filtered):
+        """Performs recalibration of the the MS1, MS2, RT and mobility properties. Also fits the convolution kernel and the score cutoff.
+        The calibration manager is used to fit the data and predict the calibrated values.
+
+        Parameters
+        ----------
+        precursor_df_filtered : pd.DataFrame
+            Filtered precursor dataframe (see filter_dfs)
+
+        fragments_df_filtered : pd.DataFrame
+            Filtered fragment dataframe (see filter_dfs)
+
+        """
         self.calibration_manager.fit(
             precursor_df_filtered,
             "precursor",
