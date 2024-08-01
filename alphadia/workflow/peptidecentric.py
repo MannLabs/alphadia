@@ -123,41 +123,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
 
-        self.init_calibration_optimization_manager()
         self.init_fdr_manager()
         self.init_spectral_library()
-
-    @property
-    def calibration_optimization_manager(self):
-        """Is used during the iterative optimization of the calibration parameters.
-        Should not be stored on disk.
-        """
-        return self._calibration_optimization_manager
-
-    @property
-    def com(self):
-        """alias for calibration_optimization_manager"""
-        return self.calibration_optimization_manager
-
-    def init_calibration_optimization_manager(self):
-        self._calibration_optimization_manager = manager.OptimizationManager(
-            {
-                "ms1_error": self.config["search_initial"]["initial_ms1_tolerance"],
-                "ms2_error": self.config["search_initial"]["initial_ms2_tolerance"],
-                "rt_error": self.config["search_initial"]["initial_rt_tolerance"],
-                "mobility_error": self.config["search_initial"][
-                    "initial_mobility_tolerance"
-                ],
-                "column_type": "library",
-                "num_candidates": self.config["search_initial"][
-                    "initial_num_candidates"
-                ],
-                "classifier_version": -1,
-                "fwhm_rt": self.config["optimization_manager"]["fwhm_rt"],
-                "fwhm_mobility": self.config["optimization_manager"]["fwhm_mobility"],
-                "score_cutoff": self.config["optimization_manager"]["score_cutoff"],
-            }
-        )
 
     def init_fdr_manager(self):
         self.fdr_manager = manager.FDRManager(
@@ -367,11 +334,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
             precursor_df = self.fdr_correction(
-                features_df, fragments_df, self.com.classifier_version
+                features_df, fragments_df, self.optimization_manager.classifier_version
             )
 
             self.reporter.log_string(
-                f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
+                f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
                 verbosity="info",
             )
 
@@ -402,7 +369,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return eg_idxes_for_calibration, precursor_df, fragments_df
 
     #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
-    #        self.com.fit({"classifier_version": self.fdr_manager.current_version})
+    #        self.optimization_manager.fit({"classifier_version": self.fdr_manager.current_version})
 
     def get_optimizers(self):
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
@@ -465,7 +432,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 mobility_optimizer = optimization.AutomaticMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.calibration_manager,
-                    self.com,
+                    self.optimization_manager,
                     self.fdr_manager,
                 )
         else:
@@ -530,7 +497,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.get_optimization_lock()
         )
 
-        self.com.fit({"classifier_version": self.fdr_manager.current_version})
+        self.optimization_manager.fit(
+            {"classifier_version": self.fdr_manager.current_version}
+        )
 
         # Perform a first recalibration on the optimization lock.
         precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
@@ -581,11 +550,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
 
                 precursor_df = self.fdr_correction(
-                    features_df, fragments_df, self.com.classifier_version
+                    features_df,
+                    fragments_df,
+                    self.optimization_manager.classifier_version,
                 )
 
                 self.reporter.log_string(
-                    f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
+                    f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
                     verbosity="info",
                 )
 
@@ -626,7 +597,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         for optimizers in order_of_optimization:
             for optimizer in optimizers:
                 self.reporter.log_string(
-                    f"{optimizer.parameter_name:<15}: {self.com.__dict__[optimizer.parameter_name]:.4f}",
+                    f"{optimizer.parameter_name:<15}: {self.optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
                     verbosity="progress",
                 )
         self.reporter.log_string(
@@ -720,7 +691,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        self.com.fit(
+        self.optimization_manager.fit(
             {
                 "column_type": "calibrated",
                 "num_candidates": self.config["search"]["target_num_candidates"],
@@ -728,7 +699,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
-        self.com.fit(
+        self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
@@ -761,11 +732,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(
             {
                 "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
-                "rt_tolerance": self.com.rt_error,
-                "mobility_tolerance": self.com.mobility_error,
-                "candidate_count": self.com.num_candidates,
-                "precursor_mz_tolerance": self.com.ms1_error,
-                "fragment_mz_tolerance": self.com.ms2_error,
+                "rt_tolerance": self.optimization_manager.rt_error,
+                "mobility_tolerance": self.optimization_manager.mobility_error,
+                "candidate_count": self.optimization_manager.num_candidates,
+                "precursor_mz_tolerance": self.optimization_manager.ms1_error,
+                "fragment_mz_tolerance": self.optimization_manager.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "min_size_rt": self.config["search"]["quant_window"],
             }
@@ -776,16 +747,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             batch_df,
             self.spectral_library.fragment_df,
             config.jitclass(),
-            rt_column=f"rt_{self.com.column_type}",
-            mobility_column=f"mobility_{self.com.column_type}"
+            rt_column=f"rt_{self.optimization_manager.column_type}",
+            mobility_column=f"mobility_{self.optimization_manager.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}"
+            precursor_mz_column=f"mz_{self.optimization_manager.column_type}"
             if self.dia_data.has_ms1
             else "mz_library",
-            fragment_mz_column=f"mz_{self.com.column_type}",
-            fwhm_rt=self.com.fwhm_rt,
-            fwhm_mobility=self.com.fwhm_mobility,
+            fragment_mz_column=f"mz_{self.optimization_manager.column_type}",
+            fwhm_rt=self.optimization_manager.fwhm_rt,
+            fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
         candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
 
@@ -794,11 +765,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if apply_cutoff:
             num_before = len(candidates_df)
             self.reporter.log_string(
-                f"Applying score cutoff of {self.com.score_cutoff}",
+                f"Applying score cutoff of {self.optimization_manager.score_cutoff}",
                 verbosity="info",
             )
             candidates_df = candidates_df[
-                candidates_df["score"] > self.com.score_cutoff
+                candidates_df["score"] > self.optimization_manager.score_cutoff
             ]
             num_after = len(candidates_df)
             num_removed = num_before - num_after
@@ -812,8 +783,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(
             {
                 "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
-                "precursor_mz_tolerance": self.com.ms1_error,
-                "fragment_mz_tolerance": self.com.ms2_error,
+                "precursor_mz_tolerance": self.optimization_manager.ms1_error,
+                "fragment_mz_tolerance": self.optimization_manager.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "quant_window": self.config["search"]["quant_window"],
                 "quant_all": self.config["search"]["quant_all"],
@@ -825,14 +796,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library._precursor_df,
             self.spectral_library._fragment_df,
             config=config,
-            rt_column=f"rt_{self.com.column_type}",
-            mobility_column=f"mobility_{self.com.column_type}"
+            rt_column=f"rt_{self.optimization_manager.column_type}",
+            mobility_column=f"mobility_{self.optimization_manager.column_type}"
             if self.dia_data.has_mobility
             else "mobility_library",
-            precursor_mz_column=f"mz_{self.com.column_type}"
+            precursor_mz_column=f"mz_{self.optimization_manager.column_type}"
             if self.dia_data.has_ms1
             else "mz_library",
-            fragment_mz_column=f"mz_{self.com.column_type}",
+            fragment_mz_column=f"mz_{self.optimization_manager.column_type}",
         )
 
         features_df, fragments_df = candidate_scoring(
@@ -844,7 +815,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return features_df, fragments_df
 
     def extraction(self):
-        self.com.fit(
+        self.optimization_manager.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],
                 "column_type": "calibrated",
@@ -862,12 +833,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"=== FDR correction performed with classifier version {self.com.classifier_version} ===",
+            f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
             verbosity="info",
         )
 
         precursor_df = self.fdr_correction(
-            features_df, fragments_df, self.com.classifier_version
+            features_df, fragments_df, self.optimization_manager.classifier_version
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]

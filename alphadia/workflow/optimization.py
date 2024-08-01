@@ -84,7 +84,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         super().__init__(workflow, reporter)
         self.history_df = pd.DataFrame()
-        self.workflow.com.fit({self.parameter_name: initial_parameter})
+        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
 
     def step(
@@ -96,7 +96,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
             return
@@ -104,14 +104,16 @@ class AutomaticOptimizer(BaseOptimizer):
         new_row = pd.DataFrame(
             [
                 {
-                    "parameter": self.workflow.com.__dict__[self.parameter_name],
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
                     self.feature_name: self._get_feature_value(
                         precursors_df, fragments_df
                     ),
                     "classifier_version": self.workflow.fdr_manager.current_version,
-                    "score_cutoff": self.workflow.com.score_cutoff,
-                    "fwhm_rt": self.workflow.com.fwhm_rt,
-                    "fwhm_mobility": self.workflow.com.fwhm_mobility,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
                 }
             ]
         )
@@ -135,14 +137,22 @@ class AutomaticOptimizer(BaseOptimizer):
                 index_of_optimum
             ]
 
-            self.workflow.com.fit({self.parameter_name: optimal_parameter})
-            self.workflow.com.fit({"classifier_version": classifier_version_at_optimum})
-            self.workflow.com.fit({"score_cutoff": score_cutoff_at_optimum})
-            self.workflow.com.fit({"fwhm_rt": fwhm_rt_at_optimum})
-            self.workflow.com.fit({"fwhm_mobility": fwhm_mobility_at_optimum})
+            self.workflow.optimization_manager.fit(
+                {self.parameter_name: optimal_parameter}
+            )
+            self.workflow.optimization_manager.fit(
+                {"classifier_version": classifier_version_at_optimum}
+            )
+            self.workflow.optimization_manager.fit(
+                {"score_cutoff": score_cutoff_at_optimum}
+            )
+            self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+            self.workflow.optimization_manager.fit(
+                {"fwhm_mobility": fwhm_mobility_at_optimum}
+            )
 
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.com.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -153,10 +163,10 @@ class AutomaticOptimizer(BaseOptimizer):
                 else fragments_df
             )
 
-            self.workflow.com.fit({self.parameter_name: new_parameter})
+            self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
 
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.com.__dict__[self.parameter_name]:.4f}.",
+                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
 
@@ -165,7 +175,7 @@ class AutomaticOptimizer(BaseOptimizer):
         fig, ax = plt.subplots()
 
         ax.axvline(
-            x=self.workflow.com.__dict__[self.parameter_name],
+            x=self.workflow.optimization_manager.__dict__[self.parameter_name],
             ymin=0,
             ymax=self.history_df[self.feature_name].max(),
             color="red",
@@ -266,7 +276,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         super().__init__(workflow, reporter)
-        self.workflow.com.fit({self.parameter_name: initial_parameter})
+        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.has_converged = False
 
@@ -317,7 +327,7 @@ class TargetedOptimizer(BaseOptimizer):
         """See base class."""
         if self.has_converged:
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                f"✅ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
             return
@@ -326,21 +336,21 @@ class TargetedOptimizer(BaseOptimizer):
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter, current_step)
-        self.workflow.com.fit({self.parameter_name: new_parameter})
-        self.workflow.com.fit(
+        self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
+        self.workflow.optimization_manager.fit(
             {"classifier_version": self.workflow.fdr_manager.current_version}
         )
 
         if just_converged:
             self.has_converged = True
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                f"✅ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
 
         else:
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: {self.workflow.com.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
+                f"❌ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
                 verbosity="progress",
             )
 
