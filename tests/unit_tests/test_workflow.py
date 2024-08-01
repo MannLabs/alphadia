@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager, searchoptimization
+from alphadia.workflow import base, manager, optimization
 
 
 def test_base_manager():
@@ -393,7 +393,7 @@ def ms2_optimizer_test():
     test_dict = defaultdict(list)
     test_dict["var"] = list(range(100))
 
-    ms2_optimizer = searchoptimization.MS2Optimizer(
+    ms2_optimizer = optimization.MS2Optimizer(
         100, calibration_manager, optimization_manager, fdr_manager
     )
 

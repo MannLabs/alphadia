@@ -95,14 +95,14 @@ search_advanced:
 
 calibration:
 
-  # minimum number of times the classifier is trained.
-  min_training_iterations: 3
+  # minimum number of steps taken during the optimization lock (during which the elution groups used for optimization are extracted)
+  optimization_lock_min_steps: 3
 
   # Number of precursors searched and scored per batch
   batch_size: 8000
 
   # minimum number of precursors to be found before search parameter optimization begins
-  min_precursors_for_optimization: 200
+  optimization_lock_target: 200
 
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20

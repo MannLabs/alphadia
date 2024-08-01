@@ -49,13 +49,25 @@ class BaseOptimizer(ABC):
         """
         pass
 
+    @abstractmethod
+    def plot(self):
+        """
+        This method plots relevant information about optimization of the search parameter.
+
+        Notes
+        -----
+            This can be left blank if there is nothing of interest to plot.
+
+        """
+        pass
+
 
 class AutomaticOptimizer(BaseOptimizer):
     def __init__(
         self,
         initial_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class automatically optimizes the search parameter and stores the progres of optimization in a dataframe, history_df.
 
@@ -66,7 +78,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
 
         """
-        super().__init__(workflow, **kwargs)
+        super().__init__(workflow, reporter)
         self.history_df = pd.DataFrame()
         self.workflow.com.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
@@ -88,18 +100,14 @@ class AutomaticOptimizer(BaseOptimizer):
         new_row = pd.DataFrame(
             [
                 {
-                    "parameter": float(
-                        self.workflow.com.__dict__[self.parameter_name]
-                    ),  # Ensure float dtype
+                    "parameter": self.workflow.com.__dict__[self.parameter_name],
                     self.feature_name: self._get_feature_value(
                         precursors_df, fragments_df
                     ),
-                    "classifier_version": int(
-                        self.workflow.fdr_manager.current_version
-                    ),  # Ensure int dtype
-                    "score_cutoff": float(self.workflow.com.score_cutoff),
-                    "fwhm_rt": float(self.workflow.com.fwhm_rt),
-                    "fwhm_mobility": float(self.workflow.com.fwhm_mobility),
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.com.score_cutoff,
+                    "fwhm_rt": self.workflow.com.fwhm_rt,
+                    "fwhm_mobility": self.workflow.com.fwhm_mobility,
                 }
             ]
         )
@@ -226,7 +234,7 @@ class TargetedOptimizer(BaseOptimizer):
         initial_parameter: float,
         target_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class optimizes the search parameter until it reaches a user-specified target value.
 
@@ -240,7 +248,7 @@ class TargetedOptimizer(BaseOptimizer):
             Optimization will stop when this parameter is reached.
 
         """
-        super().__init__(workflow, **kwargs)
+        super().__init__(workflow, reporter)
         self.workflow.com.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.has_converged = False
@@ -314,13 +322,17 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
 
+    def plot(self):
+        """Empty method for consistency with AutomaticOptimizer."""
+        pass
+
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class.
 
@@ -335,7 +347,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_count"
-        super().__init__(initial_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, workflow, reporter)
 
     def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued optimization of the parameter is not improving the TODO feature value.
@@ -386,7 +398,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self,
         initial_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number.
 
@@ -401,7 +413,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
         self.feature_name = "precursor_count"
-        super().__init__(initial_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, workflow, reporter)
 
     def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the MS2 parameter is not improving the number of precursor identifications.
@@ -452,7 +464,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self,
         initial_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class.
 
@@ -467,7 +479,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
         self.feature_name = "precursor_count"
-        super().__init__(initial_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, workflow, reporter)
 
     def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
@@ -518,7 +530,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self,
         initial_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class.
 
@@ -533,7 +545,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
         self.feature_name = "precursor_count"
-        super().__init__(initial_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, workflow, reporter)
 
     def _check_convergence(self, current_step: int = -1):
         """Optimization should stop if continued narrowing of the parameter is not improving the TODO feature value.
@@ -587,13 +599,13 @@ class TargetedRTOptimizer(TargetedOptimizer):
         initial_parameter: float,
         target_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "rt_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
-        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, target_parameter, workflow, reporter)
 
 
 class TargetedMS2Optimizer(TargetedOptimizer):
@@ -604,13 +616,13 @@ class TargetedMS2Optimizer(TargetedOptimizer):
         initial_parameter: float,
         target_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, target_parameter, workflow, reporter)
 
 
 class TargetedMS1Optimizer(TargetedOptimizer):
@@ -621,13 +633,13 @@ class TargetedMS1Optimizer(TargetedOptimizer):
         initial_parameter: float,
         target_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "ms1_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
-        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, target_parameter, workflow, reporter)
 
 
 class TargetedMobilityOptimizer(TargetedOptimizer):
@@ -638,10 +650,10 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
         initial_parameter: float,
         target_parameter: float,
         workflow,
-        **kwargs,
+        reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "mobility_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
-        super().__init__(initial_parameter, target_parameter, workflow, **kwargs)
+        super().__init__(initial_parameter, target_parameter, workflow, reporter)

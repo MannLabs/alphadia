@@ -16,7 +16,7 @@ from alphadia import fdrexperimental as fdrx
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
 from alphadia.peakgroup import search
-from alphadia.workflow import base, manager, searchoptimization
+from alphadia.workflow import base, manager, optimization
 
 logger = logging.getLogger()
 
@@ -314,17 +314,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return plan
 
-    def extract_optimization_data(self, target, min_iterations):
+    def get_optimization_lock(self):
         """Search parameter optimization (i.e. refinement of tolerances for RT, MS2, etc.) is performed on a subset of the elution groups in the spectral library.
         The number of elution groups which must be searched to get a sufficiently large number for robust calibration varies depending the library used and the data.
-        This function searches an increasing number of elution groups until a sufficient number (determined by target) of precursors are identified at 1% FDR.
+        This function searches an increasing number of elution groups until a sufficient number of precursors are identified at 1% FDR and a sufficient number of steps have been taken.
+        The values deemed sufficient are specified in by "optimization_lock_target" and "optmization_lock_min_steps" in the config.
         It then returns the elution group indexes which will be used to find the data in the spectral library for search parameter optimization.
 
-        Parameters
-        ----------
-
-        target : int
-            The number of precursors which must be identified at 1% FDR to stop the extraction.
 
         """
 
@@ -371,20 +367,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
 
             self.reporter.log_string(
-                f"=== Checking if minimum number of precursors for optimization found yet; minimum number is {target} ===",
+                f"=== Checking if minimum number of precursors for optimization found yet; minimum number is {self.config['calibration']['optimization_lock_target']} ===",
                 verbosity="progress",
             )
 
             self.log_precursor_df(precursor_df)
 
             self.reporter.log_string(
-                f"=== Classifier has been trained for {self.fdr_manager.current_version + 1} iteration(s); minimum number is {min_iterations} ===",
+                f"=== Classifier has been trained for {self.fdr_manager.current_version + 1} iteration(s); minimum number is {self.config['calibration']['optimization_lock_min_steps']} ===",
                 verbosity="progress",
             )
 
             if (
-                precursors_01FDR > target
-                and self.fdr_manager.current_version >= min_iterations - 1
+                precursors_01FDR
+                > self.config["calibration"]["optimization_lock_target"]
+                and self.fdr_manager.current_version
+                >= self.config["calibration"]["optimization_lock_min_steps"] - 1
             ):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
                 break
@@ -394,49 +392,39 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
     #        self.com.fit({"classifier_version": self.fdr_manager.current_version})
 
-    def calibration(self):
-        if (
-            self.calibration_manager.is_fitted
-            and self.calibration_manager.is_loaded_from_file
-        ):
-            self.reporter.log_string(
-                "Skipping calibration as existing calibration was found",
-                verbosity="progress",
-            )
-            return
-
+    def get_optimizers(self):
         if self.config["search"]["target_ms2_tolerance"] > 0:
-            ms2_optimizer = searchoptimization.TargetedMS2Optimizer(
+            ms2_optimizer = optimization.TargetedMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
                 self.config["search"]["target_ms2_tolerance"],
                 self,
             )
         else:
-            ms2_optimizer = searchoptimization.AutomaticMS2Optimizer(
+            ms2_optimizer = optimization.AutomaticMS2Optimizer(
                 self.config["search_initial"]["initial_ms2_tolerance"],
                 self,
             )
 
         if self.config["search"]["target_rt_tolerance"] > 0:
-            rt_optimizer = searchoptimization.TargetedRTOptimizer(
+            rt_optimizer = optimization.TargetedRTOptimizer(
                 self.config["search_initial"]["initial_rt_tolerance"],
                 self.config["search"]["target_rt_tolerance"],
                 self,
             )
         else:
-            rt_optimizer = searchoptimization.AutomaticRTOptimizer(
+            rt_optimizer = optimization.AutomaticRTOptimizer(
                 self.config["search_initial"]["initial_rt_tolerance"],
                 self,
             )
         if self.dia_data.has_ms1:
             if self.config["search"]["target_ms1_tolerance"] > 0:
-                ms1_optimizer = searchoptimization.TargetedMS1Optimizer(
+                ms1_optimizer = optimization.TargetedMS1Optimizer(
                     self.config["search_initial"]["initial_ms1_tolerance"],
                     self.config["search"]["target_ms1_tolerance"],
                     self,
                 )
             else:
-                ms1_optimizer = searchoptimization.AutomaticMS1Optimizer(
+                ms1_optimizer = optimization.AutomaticMS1Optimizer(
                     self.config["search_initial"]["initial_ms1_tolerance"],
                     self,
                 )
@@ -444,13 +432,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ms1_optimizer = None
         if self.dia_data.has_mobility:
             if self.config["search"]["target_mobility_tolerance"] > 0:
-                mobility_optimizer = searchoptimization.TargetedMobilityOptimizer(
+                mobility_optimizer = optimization.TargetedMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.config["search"]["target_mobility_tolerance"],
                     self,
                 )
             else:
-                mobility_optimizer = searchoptimization.AutomaticMobilityOptimizer(
+                mobility_optimizer = optimization.AutomaticMobilityOptimizer(
                     self.config["search_initial"]["initial_mobility_tolerance"],
                     self.calibration_manager,
                     self.com,
@@ -469,13 +457,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             [
                 optimizer
                 for optimizer in optimizers
-                if isinstance(optimizer, searchoptimization.TargetedOptimizer)
+                if isinstance(optimizer, optimization.TargetedOptimizer)
             ]
         ]
         automatic_optimizers = [
             [optimizer]
             for optimizer in optimizers
-            if isinstance(optimizer, searchoptimization.AutomaticOptimizer)
+            if isinstance(optimizer, optimization.AutomaticOptimizer)
         ]
 
         order_of_optimization = (
@@ -484,20 +472,33 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             else automatic_optimizers
         )
 
+        return order_of_optimization
+
+    def calibration(self):
+        if (
+            self.calibration_manager.is_fitted
+            and self.calibration_manager.is_loaded_from_file
+        ):
+            self.reporter.log_string(
+                "Skipping calibration as existing calibration was found",
+                verbosity="progress",
+            )
+            return
+
+        order_of_optimization = self.get_optimizers()
+
         self.reporter.log_string(
             "Starting initial classifier training and precursor identification.",
             verbosity="progress",
         )
 
-        self.eg_idxes_for_calibration, precursor_df, fragments_df = (
-            self.extract_optimization_data(
-                self.config["calibration"]["min_precursors_for_optimization"],
-                self.config["calibration"]["min_training_iterations"],
-            )
+        eg_idxes_for_calibration, precursor_df, fragments_df = (
+            self.get_optimization_lock()
         )
 
         self.com.fit({"classifier_version": self.fdr_manager.current_version})
 
+        # Perform a first recalibration on the optimization lock.
         precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
             precursor_df, fragments_df
         )
@@ -513,12 +514,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             "=== Performing initial optimization on extracted data. ===",
             verbosity="info",
         )
-        # Perform an initial optimization step based on the extracted data to update the initial search parameters.
-        # This ensures that the classifier is trained at least once prior to the end of optimization, even if the min_steps parameter is 0.
+
         for optimizers in order_of_optimization:
             for optimizer in optimizers:
                 optimizer.step(precursor_df_filtered, fragments_df_filtered)
+        # End of first recalibration
 
+        # Start of optimization/recalibration loop
         for optimizers in order_of_optimization:
             for current_step in range(self.config["calibration"]["max_steps"]):
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
@@ -528,13 +530,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     for optimizer in optimizers:
-                        if isinstance(optimizer, searchoptimization.AutomaticOptimizer):
-                            optimizer.plot()
+                        optimizer.plot()
 
                     break
                 batch_df = self.spectral_library._precursor_df[
                     self.spectral_library._precursor_df["elution_group_idx"].isin(
-                        self.eg_idxes_for_calibration
+                        eg_idxes_for_calibration
                     )
                 ]
 
@@ -623,9 +624,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
             max_fragments,
         )
-        fragments_df_filtered = fragments_df_filtered.iloc[
-            :stop_rank
-        ]  # QUESTION: Should this raise an exception if the length of fragments_df_full is less than min_fragments?
+        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
 
         self.reporter.log_string(
             f"fragments_df_filtered: {len(fragments_df_filtered)}", verbosity="info"
