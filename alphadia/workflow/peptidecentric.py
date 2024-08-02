@@ -342,7 +342,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="info",
             )
 
-            precursors_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
+            num_precursors_at_01FDR = len(precursor_df[precursor_df["qval"] < 0.01])
 
             self.reporter.log_string(
                 f"=== Checking if minimum number of precursors for optimization found yet; minimum number is {self.config['calibration']['optimization_lock_target']} ===",
@@ -357,9 +357,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
             if (
-                precursors_01FDR
+                num_precursors_at_01FDR
                 > self.config["calibration"]["optimization_lock_target"]
-                and self.fdr_manager.current_version
+                and current_step
                 >= self.config["calibration"]["optimization_lock_min_steps"] - 1
             ):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
@@ -371,66 +371,69 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
     #        self.optimization_manager.fit({"classifier_version": self.fdr_manager.current_version})
 
-    def get_optimizers(self):
+    def get_ordered_optimizers(self):
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
         if a value less than or equal to 0 is supplied, automatic optimization is used.
         Targeted optimizers are run simultaneously; automatic optimizers are run separately in the order MS2, RT, MS1, mobility.
-        This order is built into the structure of the returned list of lists, order_of_optimization.
+        This order is built into the structure of the returned list of lists, ordered_optimizers.
         For MS1 and mobility, the relevant optimizer will be excluded from the returned list of lists if it is not present in the data.
 
         Returns
         -------
-        order_of_optimization : list
+        ordered_optimizers : list
             List of lists of optimizers
 
         """
-        if self.config["search"]["target_ms2_tolerance"] > 0:
+        config_search_initial = self.config["search_initial"]
+        config_search = self.config["search"]
+
+        if config_search["target_ms2_tolerance"] > 0:
             ms2_optimizer = optimization.TargetedMS2Optimizer(
-                self.config["search_initial"]["initial_ms2_tolerance"],
-                self.config["search"]["target_ms2_tolerance"],
+                config_search_initial["initial_ms2_tolerance"],
+                config_search["target_ms2_tolerance"],
                 self,
             )
         else:
             ms2_optimizer = optimization.AutomaticMS2Optimizer(
-                self.config["search_initial"]["initial_ms2_tolerance"],
+                config_search_initial["initial_ms2_tolerance"],
                 self,
             )
 
-        if self.config["search"]["target_rt_tolerance"] > 0:
+        if config_search["target_rt_tolerance"] > 0:
             rt_optimizer = optimization.TargetedRTOptimizer(
-                self.config["search_initial"]["initial_rt_tolerance"],
-                self.config["search"]["target_rt_tolerance"],
+                config_search_initial["initial_rt_tolerance"],
+                config_search["target_rt_tolerance"],
                 self,
             )
         else:
             rt_optimizer = optimization.AutomaticRTOptimizer(
-                self.config["search_initial"]["initial_rt_tolerance"],
+                config_search_initial["initial_rt_tolerance"],
                 self,
             )
         if self.dia_data.has_ms1:
-            if self.config["search"]["target_ms1_tolerance"] > 0:
+            if config_search["target_ms1_tolerance"] > 0:
                 ms1_optimizer = optimization.TargetedMS1Optimizer(
-                    self.config["search_initial"]["initial_ms1_tolerance"],
-                    self.config["search"]["target_ms1_tolerance"],
+                    config_search_initial["initial_ms1_tolerance"],
+                    config_search["target_ms1_tolerance"],
                     self,
                 )
             else:
                 ms1_optimizer = optimization.AutomaticMS1Optimizer(
-                    self.config["search_initial"]["initial_ms1_tolerance"],
+                    config_search_initial["initial_ms1_tolerance"],
                     self,
                 )
         else:
             ms1_optimizer = None
         if self.dia_data.has_mobility:
-            if self.config["search"]["target_mobility_tolerance"] > 0:
+            if config_search["target_mobility_tolerance"] > 0:
                 mobility_optimizer = optimization.TargetedMobilityOptimizer(
-                    self.config["search_initial"]["initial_mobility_tolerance"],
-                    self.config["search"]["target_mobility_tolerance"],
+                    config_search_initial["initial_mobility_tolerance"],
+                    config_search["target_mobility_tolerance"],
                     self,
                 )
             else:
                 mobility_optimizer = optimization.AutomaticMobilityOptimizer(
-                    self.config["search_initial"]["initial_mobility_tolerance"],
+                    config_search_initial["initial_mobility_tolerance"],
                     self.calibration_manager,
                     self.optimization_manager,
                     self.fdr_manager,
@@ -457,20 +460,56 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if isinstance(optimizer, optimization.AutomaticOptimizer)
         ]
 
-        order_of_optimization = (
+        ordered_optimizers = (
             targeted_optimizers + automatic_optimizers
-            if any(targeted_optimizers)
+            if any(
+                targeted_optimizers
+            )  # This line is required so no empty list is added to the ordered_optimizers list
             else automatic_optimizers
         )
 
-        return order_of_optimization
+        return ordered_optimizers
+
+    def first_recalibration_and_optimization(
+        self,
+        precursor_df: pd.DataFrame,
+        fragments_df: pd.DataFrame,
+        ordered_optimizers: list,
+    ):
+        """Performs the first recalibration and optimization step.
+
+        Parameters
+        ----------
+        precursor_df : pd.DataFrame
+            Precursor dataframe from optimization lock
+
+        fragments_df : pd.DataFrame
+            Fragment dataframe from optimization lock
+
+        ordered_optimizers : list
+            List of lists of optimizers in correct order
+        """
+        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+            precursor_df, fragments_df
+        )
+
+        self.recalibration(precursor_df_filtered, fragments_df_filtered)
+
+        self.reporter.log_string(
+            "=== Performing initial optimization on extracted data. ===",
+            verbosity="info",
+        )
+
+        for optimizers in ordered_optimizers:
+            for optimizer in optimizers:
+                optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
     def calibration(self):
         """Performs optimization of the search parameters. This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
         2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.
             In each iteration, the data are searched with the locked library from stage 1, and the properties -- m/z for both precursors and fragments (i.e. MS1 and MS2), RT and mobility -- are recalibrated.
-            The optimization loop is repeated for each list of optimizers in order_of_optimization.
+            The optimization loop is repeated for each list of optimizers in ordered_optimizers.
 
         """
         # First check to see if the calibration has already been performed. Return if so.
@@ -485,7 +524,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         # Get the order of optimization
-        order_of_optimization = self.get_optimizers()
+        ordered_optimizers = self.get_ordered_optimizers()
 
         self.reporter.log_string(
             "Starting initial classifier training and precursor identification.",
@@ -501,30 +540,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             {"classifier_version": self.fdr_manager.current_version}
         )
 
-        # Perform a first recalibration on the optimization lock.
-        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-            precursor_df, fragments_df
-        )
-
-        self.recalibration(precursor_df_filtered, fragments_df_filtered)
-
         self.reporter.log_string(
             "Required number of precursors found and required number of training iterations performed. Starting search parameter optimization.",
             verbosity="progress",
         )
 
-        self.reporter.log_string(
-            "=== Performing initial optimization on extracted data. ===",
-            verbosity="info",
+        # Perform a first recalibration on the optimization lock.
+        self.first_recalibration_and_optimization(
+            precursor_df, fragments_df, ordered_optimizers
         )
 
-        for optimizers in order_of_optimization:
-            for optimizer in optimizers:
-                optimizer.step(precursor_df_filtered, fragments_df_filtered)
-        # End of first recalibration
-
         # Start of optimization/recalibration loop
-        for optimizers in order_of_optimization:
+        for optimizers in ordered_optimizers:
             for current_step in range(self.config["calibration"]["max_steps"]):
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
                     self.reporter.log_string(
@@ -587,6 +614,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="progress",
                 )
 
+            else:
+                self.reporter.log_string(
+                    "Optimization did not converge within the maximum number of steps, which is {self.config['calibration']['max_steps']}.",
+                    verbosity="warning",
+                )
+
         self.reporter.log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
@@ -594,7 +627,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             "==============================================", verbosity="progress"
         )
-        for optimizers in order_of_optimization:
+        for optimizers in ordered_optimizers:
             for optimizer in optimizers:
                 self.reporter.log_string(
                     f"{optimizer.parameter_name:<15}: {self.optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
@@ -621,7 +654,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
 
         fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe. Retained fragments must have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation.
+            Filtered fragment dataframe. Retained fragments must either:
+                1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
+                2) belong to the top 500 fragments sorted by correlation otherwise.
 
         """
         precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]

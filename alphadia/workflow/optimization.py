@@ -50,18 +50,13 @@ class BaseOptimizer(ABC):
 
 
         """
+
         pass
 
     @abstractmethod
     def plot(self):
-        """
-        This method plots relevant information about optimization of the search parameter.
+        """This method plots relevant information about optimization of the search parameter. This can be overwritten with an empty function if there is nothing to plot."""
 
-        Notes
-        -----
-            This can be overwritten with pass if there is nothing of interest to plot.
-
-        """
         pass
 
 
@@ -355,7 +350,7 @@ class TargetedOptimizer(BaseOptimizer):
             )
 
     def plot(self):
-        """Empty method for consistency with AutomaticOptimizer."""
+        """See base class. There is nothing of interest to plot here."""
         pass
 
 
@@ -394,13 +389,16 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
 
         """
 
+        min_steps_reached = (
+            current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+        )
         return (
-            len(self.history_df) > 2
+            min_steps_reached
+            and len(self.history_df) > 2
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
-            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -460,14 +458,16 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             True if the convergence conditions are met, False otherwise.
 
         """
-
+        min_steps_reached = (
+            current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+        )
         return (
-            len(self.history_df) > 2
+            min_steps_reached
+            and len(self.history_df) > 2
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
-            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -523,13 +523,16 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
 
         """
 
+        min_steps_reached = (
+            current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+        )
         return (
-            len(self.history_df) > 2
+            min_steps_reached
+            and len(self.history_df) > 2
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
-            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -591,13 +594,16 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         """
 
+        min_steps_reached = (
+            current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+        )
         return (
-            len(self.history_df) > 2
+            min_steps_reached
+            and len(self.history_df) > 2
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
-            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):

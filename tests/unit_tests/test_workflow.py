@@ -413,7 +413,7 @@ def create_workflow_instance():
     return workflow
 
 
-def automatic_ms2_optimizer_test():
+def test_automatic_ms2_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -467,7 +467,7 @@ def automatic_ms2_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def automatic_rt_optimizer_test():
+def test_automatic_rt_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -521,7 +521,7 @@ def automatic_rt_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def automatic_ms1_optimizer_test():
+def test_automatic_ms1_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -575,7 +575,7 @@ def automatic_ms1_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def automatic_mobility_optimizer_test():
+def test_automatic_mobility_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -628,7 +628,7 @@ def automatic_mobility_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def targeted_ms2_optimizer_test():
+def test_targeted_ms2_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -667,7 +667,7 @@ def targeted_ms2_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def targeted_rt_optimizer_test():
+def test_targeted_rt_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -706,7 +706,7 @@ def targeted_rt_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def targeted_ms1_optimizer_test():
+def test_targeted_ms1_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
@@ -745,7 +745,7 @@ def targeted_ms1_optimizer_test():
     assert workflow.com.classifier_version == 2
 
 
-def targeted_mobility_optimizer_test():
+def test_targeted_mobility_optimizer():
     workflow = create_workflow_instance()
 
     calibration_test_df1 = calibration_testdata()
