@@ -138,6 +138,8 @@ def calibration_testdata():
         + np.sin(mobility_library * 0.05)
     )
 
+    isotope_intensity_correlation = np.linspace(0, 100, 1000)
+
     return pd.DataFrame(
         {
             "mz_library": mz_library,
@@ -146,6 +148,7 @@ def calibration_testdata():
             "rt_observed": rt_observed,
             "mobility_library": mobility_library,
             "mobility_observed": mobility_observed,
+            "isotope_intensity_correlation": isotope_intensity_correlation,
         }
     ).copy()
 
@@ -586,15 +589,12 @@ def test_automatic_ms1_optimizer():
 
     assert ms1_optimizer.has_converged is True
     assert (
-        ms1_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
-    ).all()
-    assert (
         workflow.optimization_manager.ms1_error
         == ms1_optimizer.history_df.parameter[
-            ms1_optimizer.history_df.precursor_count.idxmax()
+            ms1_optimizer.history_df.mean_isotope_intensity_correlation.idxmax()
         ]
     )
-    assert workflow.optimization_manager.classifier_version == 2
+    assert workflow.optimization_manager.classifier_version == 0
 
 
 def test_automatic_mobility_optimizer():
