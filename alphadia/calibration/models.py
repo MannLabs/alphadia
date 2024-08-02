@@ -1,4 +1,5 @@
 import numpy as np
+from calib_rt import Calib_RT
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import PolynomialFeatures
 
@@ -348,3 +349,21 @@ def _right_open_tricubic(x):
     y = _tricubic(x)
     y[x > 0] = 1
     return y
+
+
+class CalibRT:
+    def __init__(self):
+        self.calib_rt = Calib_RT()
+
+    def fit(self, x, y):
+        if x.ndim > 1:
+            x = x.flatten()
+        if y.ndim > 1:
+            y = y.flatten()
+
+        self.calib_rt.fit(x, y)
+
+    def predict(self, x):
+        if x.ndim > 1:
+            x = x.flatten()
+        return self.calib_rt.predict(x)
