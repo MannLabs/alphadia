@@ -131,10 +131,6 @@ class Plan:
         if "output" not in self.config:
             self.config["output"] = output_folder
 
-        # no need to add custom quant dir to config
-        # if "custom_quant_dir" not in self.config:
-        #     self.config["custom_quant_dir"] = custom_quant_dir
-
         # set log level
         level_to_set = self.config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
@@ -346,12 +342,14 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
-                # save psm and frag df to custom quant dir
                 if self.custom_quant_dir is not None:
-                    psm_location_secondary = os.path.join(self.custom_quant_dir, raw_name, "psm.parquet")
-                    frag_location_secondary = os.path.join(self.custom_quant_dir, raw_name, "frag.parquet")
-                    psm_df.to_parquet(psm_location_secondary, index=False)
-                    frag_df.to_parquet(frag_location_secondary, index=False)
+                    os.mkdir(os.path.join(self.custom_quant_dir, raw_name))
+                    psm_location_custom = os.path.join(self.custom_quant_dir, raw_name, "psm.parquet")
+                    frag_location_custom = os.path.join(self.custom_quant_dir, raw_name, "frag.parquet")
+
+                    psm_df.to_parquet(psm_location_custom, index=False)
+                    frag_df.to_parquet(frag_location_custom, index=False)
+
                     logger.info(f"Saved psm and frag df to custom_quant_dir: {self.custom_quant_dir}")
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
