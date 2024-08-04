@@ -54,6 +54,7 @@ class Plan:
         fasta_path_list: list[str] | None = None,
         config: dict | None = None,
         config_base_path: str | None = None,
+        custom_quant_dir: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -94,6 +95,7 @@ class Plan:
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
+        self.custom_quant_dir = custom_quant_dir
 
         logger.progress(f"version: {alphadia.__version__}")
 
@@ -128,6 +130,10 @@ class Plan:
 
         if "output" not in self.config:
             self.config["output"] = output_folder
+
+        # no need to add custom quant dir to config
+        # if "custom_quant_dir" not in self.config:
+        #     self.config["custom_quant_dir"] = custom_quant_dir
 
         # set log level
         level_to_set = self.config["general"]["log_level"]
@@ -339,6 +345,14 @@ class Plan:
                 psm_df["run"] = raw_name
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
+
+                # save psm and frag df to custom quant dir
+                if self.custom_quant_dir is not None:
+                    psm_location_secondary = os.path.join(self.custom_quant_dir, raw_name, "psm.parquet")
+                    frag_location_secondary = os.path.join(self.custom_quant_dir, raw_name, "frag.parquet")
+                    psm_df.to_parquet(psm_location_secondary, index=False)
+                    frag_df.to_parquet(frag_location_secondary, index=False)
+                    logger.info(f"Saved psm and frag df to custom_quant_dir: {self.custom_quant_dir}")
 
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)

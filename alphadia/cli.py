@@ -96,6 +96,13 @@ parser.add_argument(
     nargs="?",
     default="{}",
 )
+parser.add_argument(
+    "--custom-quant-dir",
+    type=str,
+    help="Custom directory for distributed search: quant",
+    nargs="?",
+    default=None,
+)
 
 
 def parse_config(args: argparse.Namespace) -> dict:
