@@ -116,7 +116,7 @@ test_cases:
         target_num_candidates: 3
         target_ms1_tolerance: -1
         target_ms2_tolerance: -1
-        target_rt_tolerance: 200
+        target_rt_tolerance: -1
       search_initial:
         initial_num_candidates: 1
         initial_ms1_tolerance: 10
