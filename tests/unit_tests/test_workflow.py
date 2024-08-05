@@ -664,29 +664,20 @@ def test_targeted_ms2_optimizer():
         workflow,
     )
 
-    assert optimizer.has_converged is False
     assert optimizer.parameter_name == "ms2_error"
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
 
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 0
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
-
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 1
-
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+        assert workflow.optimization_manager.classifier_version == current_step
 
     assert optimizer.has_converged is True
-    assert workflow.optimization_manager.classifier_version == 2
-
     assert workflow.optimization_manager.ms2_error == optimizer.target_parameter
-    assert workflow.optimization_manager.classifier_version == 2
 
 
 def test_targeted_rt_optimizer():
@@ -703,29 +694,20 @@ def test_targeted_rt_optimizer():
         workflow,
     )
 
-    assert optimizer.has_converged is False
     assert optimizer.parameter_name == "rt_error"
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
 
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 0
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
-
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 1
-
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+        assert workflow.optimization_manager.classifier_version == current_step
 
     assert optimizer.has_converged is True
-    assert workflow.optimization_manager.classifier_version == 2
-
     assert workflow.optimization_manager.rt_error == optimizer.target_parameter
-    assert workflow.optimization_manager.classifier_version == 2
 
 
 def test_targeted_ms1_optimizer():
@@ -742,29 +724,20 @@ def test_targeted_ms1_optimizer():
         workflow,
     )
 
-    assert optimizer.has_converged is False
     assert optimizer.parameter_name == "ms1_error"
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
 
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 0
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
-
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 1
-
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+        assert workflow.optimization_manager.classifier_version == current_step
 
     assert optimizer.has_converged is True
-    assert workflow.optimization_manager.classifier_version == 2
-
     assert workflow.optimization_manager.ms1_error == optimizer.target_parameter
-    assert workflow.optimization_manager.classifier_version == 2
 
 
 def test_targeted_mobility_optimizer():
@@ -781,26 +754,18 @@ def test_targeted_mobility_optimizer():
         workflow,
     )
 
-    assert optimizer.has_converged is False
     assert optimizer.parameter_name == "mobility_error"
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
 
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 0
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
 
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
-
-    assert optimizer.has_converged is False
-    assert workflow.optimization_manager.classifier_version == 1
-
-    workflow.fdr_manager._current_version += 1
-    optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+        assert workflow.optimization_manager.classifier_version == current_step
 
     assert optimizer.has_converged is True
-    assert workflow.optimization_manager.classifier_version == 2
 
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
-    assert workflow.optimization_manager.classifier_version == 2
