@@ -96,7 +96,7 @@ search_advanced:
 calibration:
 
   # minimum number of steps taken during the optimization lock (during which the elution groups used for optimization are extracted)
-  optimization_lock_min_steps: 3
+  optimization_lock_min_steps: 0
 
   # Number of precursors searched and scored per batch
   batch_size: 8000
@@ -108,7 +108,7 @@ calibration:
   max_steps: 20
 
   # the maximum number of steps that a given optimizer is permitted to take
-  min_steps: 3
+  min_steps: 2
 
   # TODO: remove this parameter
   final_full_calibration: False
