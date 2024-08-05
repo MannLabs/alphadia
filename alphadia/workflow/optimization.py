@@ -18,7 +18,7 @@ class BaseOptimizer(ABC):
         workflow,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
-        """This class serves as a base class for organizing the search parameter optimization process, which defines the parameters used for search.
+        """This class serves as a base class for the search parameter optimization process, which defines the parameters used for search.
 
         Parameters
         ----------
