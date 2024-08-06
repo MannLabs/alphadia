@@ -504,6 +504,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             for optimizer in optimizers:
                 optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
+    def adjust_batch_frag_idx(self, batch_df):
+        num_frags = batch_df["flat_frag_stop_idx"] - batch_df["flat_frag_start_idx"]
+        batch_df["flat_frag_stop_idx"] = num_frags.cumsum()
+        batch_df["flat_frag_start_idx"] = batch_df["flat_frag_stop_idx"].shift(
+            fill_value=0
+        )
+
     def calibration(self):
         """Performs optimization of the search parameters. This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
@@ -536,6 +543,23 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.get_optimization_lock()
         )
 
+        self.batch_df = self.spectral_library._precursor_df[
+            self.spectral_library._precursor_df["elution_group_idx"].isin(
+                eg_idxes_for_calibration
+            )
+        ]
+
+        batch_fragment_idx = np.concatenate(
+            [
+                np.arange(row["flat_frag_start_idx"], row["flat_frag_stop_idx"])
+                for i, row in self.batch_df.iterrows()
+            ]
+        )
+        self.batch_fragment_df = self.spectral_library._fragment_df.iloc[
+            batch_fragment_idx
+        ].reset_index(drop=True)
+        self.adjust_batch_frag_idx(self.batch_df)
+
         self.optimization_manager.fit(
             {"classifier_version": self.fdr_manager.current_version}
         )
@@ -563,13 +587,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         optimizer.plot()
 
                     break
-                batch_df = self.spectral_library._precursor_df[
-                    self.spectral_library._precursor_df["elution_group_idx"].isin(
-                        eg_idxes_for_calibration
-                    )
-                ]
 
-                features_df, fragments_df = self.extract_batch(batch_df)
+                features_df, fragments_df = self.extract_batch(
+                    self.batch_df, self.batch_fragment_df
+                )
 
                 self.reporter.log_string(
                     f"=== Step {current_step}, extracted {len(features_df)} precursors and {len(fragments_df)} fragments ===",
@@ -720,11 +741,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.calibration_manager.predict(
-            self.spectral_library._precursor_df,
+            self.batch_df,
             "precursor",
         )
 
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        self.calibration_manager.predict(self.batch_fragment_df, "fragment")
 
         self.optimization_manager.fit(
             {
@@ -757,7 +778,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run=self.neptune
         )
 
-    def extract_batch(self, batch_df, apply_cutoff=False):
+    def extract_batch(self, batch_df, batch_fragment_df=None, apply_cutoff=False):
+        if batch_fragment_df is None:
+            batch_fragment_df = self.spectral_library._fragment_df
         self.reporter.log_string(
             f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
         )
@@ -780,7 +803,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         extraction = search.HybridCandidateSelection(
             self.dia_data.jitclass(),
             batch_df,
-            self.spectral_library.fragment_df,
+            batch_fragment_df,
             config.jitclass(),
             rt_column=f"rt_{self.optimization_manager.column_type}",
             mobility_column=f"mobility_{self.optimization_manager.column_type}"
@@ -828,8 +851,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
-            self.spectral_library._precursor_df,
-            self.spectral_library._fragment_df,
+            batch_df,
+            batch_fragment_df,
             config=config,
             rt_column=f"rt_{self.optimization_manager.column_type}",
             mobility_column=f"mobility_{self.optimization_manager.column_type}"
