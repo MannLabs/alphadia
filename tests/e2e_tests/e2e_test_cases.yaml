@@ -119,9 +119,9 @@ test_cases:
         target_rt_tolerance: -1
       search_initial:
         initial_num_candidates: 1
-        initial_ms1_tolerance: 10
-        initial_ms2_tolerance: 15
-        initial_rt_tolerance: 300
+        initial_ms1_tolerance: 100
+        initial_ms2_tolerance: 100
+        initial_rt_tolerance: 600
       search_output:
         peptide_level_lfq: true
         precursor_level_lfq: true

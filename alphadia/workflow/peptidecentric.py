@@ -291,7 +291,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         Returns
         -------
-        eg_idxes_for_calibration : np.ndarray
+        optimization_lock_eg_idxes : np.ndarray
             The indices (in .spectral_library._precursor_df) of the precursors which will be used for calibration.
 
         precursor_df : pd.DataFrame
@@ -365,11 +365,31 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 final_stop_index = stop_index  # final_stop_index is the number of elution groups that will be included in the calibration data
                 break
 
-        eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
-        return eg_idxes_for_calibration, precursor_df, fragments_df
+        optimization_lock_eg_idxes = self.elution_group_order[:final_stop_index]
 
-    #        self.eg_idxes_for_calibration = self.elution_group_order[:final_stop_index]
-    #        self.optimization_manager.fit({"classifier_version": self.fdr_manager.current_version})
+        optimization_lock_library_precursor_df = self.spectral_library._precursor_df[
+            self.spectral_library._precursor_df["elution_group_idx"].isin(
+                optimization_lock_eg_idxes
+            )
+        ]
+
+        optimization_lock_fragment_idxes = np.concatenate(
+            [
+                np.arange(row["flat_frag_start_idx"], row["flat_frag_stop_idx"])
+                for i, row in optimization_lock_library_precursor_df.iterrows()
+            ]
+        )
+        optimization_lock_library_fragment_df = self.spectral_library._fragment_df.iloc[
+            optimization_lock_fragment_idxes
+        ].reset_index(drop=True)
+        self.adjust_batch_frag_idx(optimization_lock_library_precursor_df)
+
+        return (
+            optimization_lock_library_precursor_df,
+            optimization_lock_library_fragment_df,
+            precursor_df,
+            fragments_df,
+        )
 
     def get_ordered_optimizers(self):
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
@@ -539,26 +559,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         # Get the optimization lock
-        eg_idxes_for_calibration, precursor_df, fragments_df = (
-            self.get_optimization_lock()
-        )
-
-        self.batch_df = self.spectral_library._precursor_df[
-            self.spectral_library._precursor_df["elution_group_idx"].isin(
-                eg_idxes_for_calibration
-            )
-        ]
-
-        batch_fragment_idx = np.concatenate(
-            [
-                np.arange(row["flat_frag_start_idx"], row["flat_frag_stop_idx"])
-                for i, row in self.batch_df.iterrows()
-            ]
-        )
-        self.batch_fragment_df = self.spectral_library._fragment_df.iloc[
-            batch_fragment_idx
-        ].reset_index(drop=True)
-        self.adjust_batch_frag_idx(self.batch_df)
+        (
+            self.optimization_lock_library_precursor_df,
+            self.optimization_lock_library_fragment_df,
+            precursor_df,
+            fragments_df,
+        ) = self.get_optimization_lock()
 
         self.optimization_manager.fit(
             {"classifier_version": self.fdr_manager.current_version}
@@ -589,7 +595,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     break
 
                 features_df, fragments_df = self.extract_batch(
-                    self.batch_df, self.batch_fragment_df
+                    self.optimization_lock_library_precursor_df,
+                    self.optimization_lock_library_fragment_df,
                 )
 
                 self.reporter.log_string(
@@ -741,11 +748,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.calibration_manager.predict(
-            self.batch_df,
+            self.optimization_lock_library_precursor_df,
             "precursor",
         )
 
-        self.calibration_manager.predict(self.batch_fragment_df, "fragment")
+        self.calibration_manager.predict(
+            self.optimization_lock_library_fragment_df, "fragment"
+        )
 
         self.optimization_manager.fit(
             {
