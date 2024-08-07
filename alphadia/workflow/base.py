@@ -51,7 +51,7 @@ class WorkflowBase:
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
-            os.mkdir(self.parent_path)
+            os.makedirs(self.parent_path)
 
         if not os.path.exists(self.path):
             logger.info(
