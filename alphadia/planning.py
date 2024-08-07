@@ -346,8 +346,9 @@ class Plan:
                 raise e
 
             finally:
-                workflow.reporter.log_string(f"Finished workflow for {raw_name}")
-                workflow.reporter.context.__exit__(None, None, None)
+                if workflow.reporter:
+                    workflow.reporter.log_string(f"Finished workflow for {raw_name}")
+                    workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
         try:
