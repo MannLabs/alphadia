@@ -95,17 +95,20 @@ search_advanced:
 
 calibration:
 
-  # minimum number of times (epochs) the updated calibration target has to been passed
-  min_epochs: 3
+  # minimum number of steps taken during the optimization lock (during which the elution groups used for optimization are extracted)
+  optimization_lock_min_steps: 0
 
   # Number of precursors searched and scored per batch
   batch_size: 8000
 
-  # recalibration target for the first epoch. For subsequent epochs, the target will increase by this amount.
-  recalibration_target: 200
+  # minimum number of precursors to be found before search parameter optimization begins
+  optimization_lock_target: 200
 
-  # TODO: remove as not relevant anymore
-  max_epochs: 20
+  # the maximum number of steps that a given optimizer is permitted to take
+  max_steps: 20
+
+  # the maximum number of steps that a given optimizer is permitted to take
+  min_steps: 2
 
   # TODO: remove this parameter
   final_full_calibration: False
