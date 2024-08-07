@@ -24,6 +24,7 @@ jobs:
       NUMBA_BOUNDSCHECK: 1
       NUMBA_DEVELOPER_MODE: 1
       NUMBA_FULL_TRACEBACKS: 1
+      TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
     steps:
       - uses: actions/checkout@v4
       - name: Conda info

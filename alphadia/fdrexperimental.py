@@ -368,7 +368,7 @@ class BinaryClassifier(Classifier):
         y_test = torch.from_numpy(y_test).float().to(self.device)
 
         batch_count = 0
-        for epoch in tqdm(range(self.epochs), mininterval=5):
+        for epoch in tqdm(range(self.epochs)):
             train_loss_sum = 0.0
             test_loss_sum = 0.0
 
@@ -1122,7 +1122,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         batch_count = 0
 
-        for epoch in tqdm(range(self.epochs), mininterval=5):
+        for epoch in tqdm(range(self.epochs)):
             # shuffle batches
             order = np.random.permutation(num_batches)
             batch_start_list = batch_start_list[order]
