@@ -287,7 +287,7 @@ class FinetuneManager(ModelManager):
             The reordered fragment intensity dataframe.
         """
         reordered = unordered_frag_df.copy()
-        for i in tqdm(range(len(reordered_precursor_df))):
+        for i in tqdm(range(len(reordered_precursor_df)), mininterval=5):
             new_start_idx = reordered_precursor_df.iloc[i]["frag_start_idx"]
             new_end_idx = reordered_precursor_df.iloc[i]["frag_stop_idx"]
 

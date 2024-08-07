@@ -553,7 +553,8 @@ def ms2_quality_control(
                 precursor_df["frag_stop_idx"],
                 strict=True,
             )
-        )
+        ),
+        mininterval=5,
     ):
         # get XIC correlations and intensities for the precursor
         fragment_correlation_view = fragment_correlation_df.iloc[start_idx:stop_idx]
