@@ -45,9 +45,14 @@ class WorkflowBase:
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self._instance_name = instance_name
-        self._parent_path = os.path.join(config["output"], TEMP_FOLDER)
-        self._config = config
+        self._instance_name: str = instance_name
+        self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
+        self._config: dict = config
+        self.reporter: reporting.Pipeline | None = None
+        self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
+        self._spectral_library: SpecLibBase | None = None
+        self._calibration_manager: manager.CalibrationManager | None = None
+        self._optimization_manager: manager.OptimizationManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
