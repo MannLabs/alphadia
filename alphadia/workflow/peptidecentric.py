@@ -373,12 +373,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
         ]
 
+        start_indices = optimization_lock_library_precursor_df[
+            "flat_frag_start_idx"
+        ].values
+        stop_indices = optimization_lock_library_precursor_df[
+            "flat_frag_stop_idx"
+        ].values
+
+        # Create ranges for each row and concatenate them
         optimization_lock_fragment_idxes = np.concatenate(
-            [
-                np.arange(row["flat_frag_start_idx"], row["flat_frag_stop_idx"])
-                for i, row in optimization_lock_library_precursor_df.iterrows()
-            ]
+            [np.arange(start, stop) for start, stop in zip(start_indices, stop_indices)]
         )
+
         optimization_lock_library_fragment_df = self.spectral_library._fragment_df.iloc[
             optimization_lock_fragment_idxes
         ].reset_index(drop=True)
@@ -497,6 +503,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ordered_optimizers: list,
     ):
         """Performs the first recalibration and optimization step.
+        This step is not recorded in the history of the optimizers.
 
         Parameters
         ----------
@@ -522,13 +529,42 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
-                optimizer.step(precursor_df_filtered, fragments_df_filtered)
+                optimizer.step(
+                    precursor_df_filtered, fragments_df_filtered, record_step=False
+                )
+
+        return precursor_df_filtered, fragments_df_filtered
 
     def adjust_batch_frag_idx(self, batch_df):
         num_frags = batch_df["flat_frag_stop_idx"] - batch_df["flat_frag_start_idx"]
         batch_df["flat_frag_stop_idx"] = num_frags.cumsum()
         batch_df["flat_frag_start_idx"] = batch_df["flat_frag_stop_idx"].shift(
             fill_value=0
+        )
+
+    def update_optimization_lock(self, precursor_df_filtered):
+        target = self.config["calibration"]["optimization_lock_target"]
+        precursor_cutoff_idx = (
+            precursor_df_filtered.sort_values(by="precursor_idx")
+            .iloc[target]
+            .precursor_idx
+        )
+
+        self.optimization_lock_library_precursor_df = (
+            self.optimization_lock_library_precursor_df[
+                self.optimization_lock_library_precursor_df["precursor_idx"]
+                < precursor_cutoff_idx
+            ]
+        )
+
+        fragment_cutoff_idx = self.optimization_lock_library_precursor_df[
+            "flat_frag_stop_idx"
+        ].iloc[-1]
+
+        self.optimization_lock_library_fragment_df = (
+            self.optimization_lock_library_fragment_df[
+                self.optimization_lock_library_fragment_df.index < fragment_cutoff_idx
+            ]
         )
 
     def calibration(self):
@@ -576,12 +612,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         # Perform a first recalibration on the optimization lock.
-        self.first_recalibration_and_optimization(
-            precursor_df, fragments_df, ordered_optimizers
+        precursor_df_filtered, fragments_df_filtered = (
+            self.first_recalibration_and_optimization(
+                precursor_df, fragments_df, ordered_optimizers
+            )
         )
 
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
+            self.update_optimization_lock(precursor_df_filtered)
             for current_step in range(self.config["calibration"]["max_steps"]):
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
                     self.reporter.log_string(

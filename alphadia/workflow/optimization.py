@@ -87,6 +87,7 @@ class AutomaticOptimizer(BaseOptimizer):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
         current_step: int = -1,
+        record_step: bool = True,
     ):
         """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
@@ -95,24 +96,25 @@ class AutomaticOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
+        if record_step:
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "parameter": self.workflow.optimization_manager.__dict__[
+                            self.parameter_name
+                        ],
+                        self.feature_name: self._get_feature_value(
+                            precursors_df, fragments_df
+                        ),
+                        "classifier_version": self.workflow.fdr_manager.current_version,
+                        "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                        "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                        "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                    }
+                ]
+            )
+            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
-        new_row = pd.DataFrame(
-            [
-                {
-                    "parameter": self.workflow.optimization_manager.__dict__[
-                        self.parameter_name
-                    ],
-                    self.feature_name: self._get_feature_value(
-                        precursors_df, fragments_df
-                    ),
-                    "classifier_version": self.workflow.fdr_manager.current_version,
-                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
-                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
-                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
-                }
-            ]
-        )
-        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
         just_converged = self._check_convergence(current_step)
 
         if just_converged:
