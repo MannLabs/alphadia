@@ -39,7 +39,7 @@ A detailed guide to installing alphaRaw with mono can be found [here](https://gi
 It is highly recommended to use a conda environment for the installation of alphaDIA.
 This ensures that all dependencies are installed correctly and do not interfere with other packages.
 ```bash
-conda create -n alphadia python=3.11
+conda create -n alphadia python=3.11 -y
 conda activate alphadia
 ```
 
@@ -169,7 +169,7 @@ Check if conda is available on your cluster. If not, install it, or, if provided
 
 Create and activate a new conda environment
 ```bash
-conda create -n alphadia python=3.11
+conda create -n alphadia python=3.11 -y
 conda activate alphadia
 ```
 ### 2. Installing mono
