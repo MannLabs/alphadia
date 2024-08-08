@@ -11,6 +11,9 @@ general:
   wsl: false
   mmap_detector_events: false
   use_gpu: true
+  # whether to save the (MBR) library to the output directory
+  save_library: True
+  save_mbr_library: True
 
 library_loading:
   rt_heuristic: 180

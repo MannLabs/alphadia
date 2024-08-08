@@ -184,8 +184,9 @@ def _get_history_plots(test_results: dict, metrics_classes: list):
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
     run_time_minutes = int(sys.argv[2]) / 60
-    short_sha = sys.argv[3]
-    branch_name = sys.argv[4]
+    neptune_upload = sys.argv[3] == "True"
+    short_sha = sys.argv[4]
+    branch_name = sys.argv[5]
 
     test_case = get_test_case(test_case_name)
     selected_metrics = test_case["metrics"]  # ['BasicStats', ]
@@ -213,6 +214,12 @@ if __name__ == "__main__":
     except Exception as e:
         print(e)
     finally:
+        print(test_results)
+
+        if not neptune_upload:
+            print("skipping neptune upload")
+            exit(0)
+
         neptune_run = neptune.init_run(
             project=NEPTUNE_PROJECT_NAME,
             tags=[test_case_name, short_sha, branch_name],

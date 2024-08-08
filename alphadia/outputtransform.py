@@ -365,7 +365,11 @@ class SearchPlanOutput:
         )
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
+        _ = self.build_library(
+            base_spec_lib,
+            psm_df=psm_df,
+            save=self.config["general"]["save_mbr_library"],
+        )
 
         if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
@@ -804,13 +808,9 @@ class SearchPlanOutput:
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
 
-        # use comma to separate thousands
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
-
-        logger.info("Writing MBR spectral library to disk")
-        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
 
         if save:
             logger.info("Writing MBR spectral library to disk")

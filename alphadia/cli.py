@@ -352,3 +352,13 @@ def run(*args, **kwargs):
 
         logger.error(e)
         sys.exit(exit_code)
+
+
+# To debug e2e tests with PyCharm:
+# create a configuration with
+# - module: alphadia.cli
+# - script parameters: "--config /abs/path/to/tests/e2e_tests/basic/config.yaml"
+# - working directory: "/abs/path/to/tests/e2e_tests"
+# - uncomment the following:
+# if __name__ == "__main__":
+#     run()
