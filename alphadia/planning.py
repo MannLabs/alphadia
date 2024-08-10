@@ -342,6 +342,7 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
+                # TODO: omit if, set default quant dir
                 if self.custom_quant_dir is not None:
                     os.mkdir(os.path.join(self.custom_quant_dir, raw_name))
                     psm_location_custom = os.path.join(self.custom_quant_dir, raw_name, "psm.parquet")
