@@ -307,6 +307,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ].unique()
         np.random.shuffle(self.elution_group_order)
 
+        self.spectral_library._precursor_df["precursor_idx"] = np.random.permutation(
+            self.spectral_library._precursor_df["precursor_idx"].values
+        )
+
         batch_plan = self.get_batch_plan()
 
         features = []
