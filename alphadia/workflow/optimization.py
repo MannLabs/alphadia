@@ -97,6 +97,19 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
         if record_step:
+            try:
+                # Takes the target number of precursors if at least the target is found,
+                precursor_cutoff_idx = (
+                    precursors_df.sort_values(by="precursor_idx")
+                    .iloc[
+                        self.workflow.config["calibration"]["optimization_lock_target"]
+                    ]
+                    .precursor_idx
+                )
+            except IndexError:
+                # Otherwise takes the number of precursors used at the start of the optimizer's usage
+                precursor_cutoff_idx = self.workflow.precursor_cutoff_idx
+
             new_row = pd.DataFrame(
                 [
                     {
@@ -106,6 +119,7 @@ class AutomaticOptimizer(BaseOptimizer):
                         self.feature_name: self._get_feature_value(
                             precursors_df, fragments_df
                         ),
+                        "precursor_cutoff_idx": precursor_cutoff_idx,
                         "classifier_version": self.workflow.fdr_manager.current_version,
                         "score_cutoff": self.workflow.optimization_manager.score_cutoff,
                         "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
@@ -133,6 +147,9 @@ class AutomaticOptimizer(BaseOptimizer):
             fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
                 index_of_optimum
             ]
+            precursor_cutoff_idx_at_optimum = self.history_df[
+                "precursor_cutoff_idx"
+            ].loc[index_of_optimum]
 
             self.workflow.optimization_manager.fit(
                 {self.parameter_name: optimal_parameter}
@@ -147,6 +164,7 @@ class AutomaticOptimizer(BaseOptimizer):
             self.workflow.optimization_manager.fit(
                 {"fwhm_mobility": fwhm_mobility_at_optimum}
             )
+            self.workflow.precursor_cutoff_idx = precursor_cutoff_idx_at_optimum
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
