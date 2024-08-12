@@ -379,10 +379,25 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 for i, row in optimization_lock_library_precursor_df.iterrows()
             ]
         )
+
+        # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
         optimization_lock_library_fragment_df = self.spectral_library._fragment_df.iloc[
             optimization_lock_fragment_idxes
         ].reset_index(drop=True)
-        self.adjust_batch_frag_idx(optimization_lock_library_precursor_df)
+
+        # Change the fragment indices in the precursor_df to match the fragment indices in the optimization lock fragment_df instead of the full spectral library.
+        num_frags = (
+            optimization_lock_library_precursor_df["flat_frag_stop_idx"]
+            - optimization_lock_library_precursor_df["flat_frag_start_idx"]
+        )
+        optimization_lock_library_precursor_df["flat_frag_stop_idx"] = (
+            num_frags.cumsum()
+        )
+        optimization_lock_library_precursor_df["flat_frag_start_idx"] = (
+            optimization_lock_library_precursor_df[
+                "flat_frag_stop_idx"
+            ].shift(fill_value=0)
+        )
 
         return (
             optimization_lock_library_precursor_df,
@@ -523,13 +538,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
                 optimizer.step(precursor_df_filtered, fragments_df_filtered)
-
-    def adjust_batch_frag_idx(self, batch_df):
-        num_frags = batch_df["flat_frag_stop_idx"] - batch_df["flat_frag_start_idx"]
-        batch_df["flat_frag_stop_idx"] = num_frags.cumsum()
-        batch_df["flat_frag_start_idx"] = batch_df["flat_frag_stop_idx"].shift(
-            fill_value=0
-        )
 
     def calibration(self):
         """Performs optimization of the search parameters. This occurs in two stages:
