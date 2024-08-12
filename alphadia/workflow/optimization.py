@@ -355,6 +355,7 @@ class TargetedOptimizer(BaseOptimizer):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
         current_step: int = -1,
+        record_step: bool = False,
     ):
         """See base class."""
         if self.has_converged:

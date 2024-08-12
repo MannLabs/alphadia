@@ -578,7 +578,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Updated optimization lock contains {self.reduced_optimization_lock_library_precursor_df.decoy.mean() * 100:.2f}% target precursors.",
+            f"Reduced optimization lock contains {self.reduced_optimization_lock_library_precursor_df.decoy.mean() * 100:.2f}% target precursors.",
             verbosity="info",
         )
 
