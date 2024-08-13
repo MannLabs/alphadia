@@ -206,14 +206,24 @@ def test_calibration_manager_save_load():
     os.remove(temp_path)
 
 
-OPTIMIZATION_TEST_DATA = {
-    "fwhm_cycles": 5,
-    "fwhm_mobility": 0.01,
+OPTIMIZATION_CONFIG = {
+    "search_initial": {
+        "initial_ms1_tolerance": 4,
+        "initial_ms2_tolerance": 7,
+        "initial_rt_tolerance": 200,
+        "initial_mobility_tolerance": 0.04,
+        "initial_num_candidates": 1,
+    },
+    "optimization_manager": {
+        "fwhm_rt": 2.75,
+        "fwhm_mobility": 2,
+        "score_cutoff": 50,
+    },
 }
 
 
 def test_optimization_manager():
-    optimization_manager = manager.OptimizationManager(OPTIMIZATION_TEST_DATA)
+    optimization_manager = manager.OptimizationManager(OPTIMIZATION_CONFIG)
 
     assert optimization_manager.fwhm_cycles == 5
     assert optimization_manager.fwhm_mobility == 0.01
@@ -226,7 +236,7 @@ def test_optimization_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
 
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -235,7 +245,7 @@ def test_optimization_manager_save_load():
     optimization_manager.save()
 
     optimization_manager_loaded = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=True
+        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=True
     )
 
     assert optimization_manager_loaded.is_loaded_from_file is True
@@ -247,7 +257,7 @@ def test_optimization_manager_save_load():
 def test_optimization_manager_fit():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -410,23 +420,8 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
-    optimization_manager_config = {
-        "ms1_error": workflow.config["search_initial"]["initial_ms1_tolerance"],
-        "ms2_error": workflow.config["search_initial"]["initial_ms2_tolerance"],
-        "rt_error": workflow.config["search_initial"]["initial_rt_tolerance"],
-        "mobility_error": workflow.config["search_initial"][
-            "initial_mobility_tolerance"
-        ],
-        "column_type": "library",
-        "num_candidates": workflow.config["search_initial"]["initial_num_candidates"],
-        "classifier_version": -1,
-        "fwhm_rt": workflow.config["optimization_manager"]["fwhm_rt"],
-        "fwhm_mobility": workflow.config["optimization_manager"]["fwhm_mobility"],
-        "score_cutoff": workflow.config["optimization_manager"]["score_cutoff"],
-    }
-
     workflow._optimization_manager = manager.OptimizationManager(
-        optimization_manager_config,
+        OPTIMIZATION_CONFIG,
         path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PATH),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         figure_path=os.path.join(workflow.path, workflow.FIGURE_PATH),
