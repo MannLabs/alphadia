@@ -560,12 +560,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_df_filtered["precursor_idx"] = precursor_df_filtered[
             "precursor_idx"
         ].map(self.randomized_idx_mapping)
-
-        self.precursor_cutoff_idx = (
-            precursor_df_filtered.sort_values(by="precursor_idx")
-            .iloc[2 * self.config["calibration"]["optimization_lock_target"]]
-            .precursor_idx
-        )
+        try:
+            # Takes the target number of precursors if at least the target is found
+            self.precursor_cutoff_idx = (
+                precursor_df_filtered.sort_values(by="precursor_idx")
+                .iloc[self.config["calibration"]["optimization_lock_target"]]
+                .precursor_idx
+            )
+        except IndexError:
+            # Otherwise takes all of them
+            self.precursor_cutoff_idx = (
+                precursor_df_filtered.sort_values(by="precursor_idx")
+                .iloc[-1]
+                .precursor_idx
+                + 1
+            )
 
         return precursor_df_filtered, fragments_df_filtered
 
