@@ -95,22 +95,9 @@ class WorkflowBase:
             self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
-        optimization_manager_config = {
-            "ms1_error": self.config["search_initial"]["initial_ms1_tolerance"],
-            "ms2_error": self.config["search_initial"]["initial_ms2_tolerance"],
-            "rt_error": self.config["search_initial"]["initial_rt_tolerance"],
-            "mobility_error": self.config["search_initial"][
-                "initial_mobility_tolerance"
-            ],
-            "column_type": "library",
-            "num_candidates": self.config["search_initial"]["initial_num_candidates"],
-            "classifier_version": -1,
-            "fwhm_rt": self.config["optimization_manager"]["fwhm_rt"],
-            "fwhm_mobility": self.config["optimization_manager"]["fwhm_mobility"],
-            "score_cutoff": self.config["optimization_manager"]["score_cutoff"],
-        }
+
         self._optimization_manager = manager.OptimizationManager(
-            optimization_manager_config,
+            self.config,
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file=self.config["general"]["reuse_calibration"],
             figure_path=os.path.join(self.path, self.FIGURE_PATH),

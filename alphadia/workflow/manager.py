@@ -454,7 +454,7 @@ class CalibrationManager(BaseManager):
 class OptimizationManager(BaseManager):
     def __init__(
         self,
-        initial_parameters: dict,
+        config: dict,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
@@ -463,6 +463,18 @@ class OptimizationManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
+        initial_parameters = {
+            "ms1_error": config["search_initial"]["initial_ms1_tolerance"],
+            "ms2_error": config["search_initial"]["initial_ms2_tolerance"],
+            "rt_error": config["search_initial"]["initial_rt_tolerance"],
+            "mobility_error": config["search_initial"]["initial_mobility_tolerance"],
+            "column_type": "library",
+            "num_candidates": config["search_initial"]["initial_num_candidates"],
+            "classifier_version": -1,
+            "fwhm_rt": config["optimization_manager"]["fwhm_rt"],
+            "fwhm_mobility": config["optimization_manager"]["fwhm_mobility"],
+            "score_cutoff": config["optimization_manager"]["score_cutoff"],
+        }
         if not self.is_loaded_from_file:
             self.__dict__.update(initial_parameters)
 
