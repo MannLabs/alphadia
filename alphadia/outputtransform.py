@@ -1,6 +1,7 @@
 # native imports
 import logging
 import os
+import pickle
 from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
@@ -653,9 +654,13 @@ class SearchPlanOutput:
         stat_df_list = []
         for folder in folder_list:
             raw_name = os.path.basename(folder)
+            optimization_manager_path = os.path.join(folder, "optimization_manager.pkl")
             stat_df_list.append(
                 _build_run_stat_df(
-                    raw_name, psm_df[psm_df["run"] == raw_name], all_channels
+                    raw_name,
+                    psm_df[psm_df["run"] == raw_name],
+                    optimization_manager_path,
+                    all_channels,
                 )
             )
 
@@ -820,7 +825,10 @@ class SearchPlanOutput:
 
 
 def _build_run_stat_df(
-    raw_name: str, run_df: pd.DataFrame, channels: list[int] | None = None
+    raw_name: str,
+    run_df: pd.DataFrame,
+    optimization_manager_path: str,
+    channels: list[int] | None = None,
 ):
     """Build stat dataframe for a single run.
 
@@ -865,6 +873,14 @@ def _build_run_stat_df(
 
         if "mobility_fwhm" in channel_df.columns:
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+
+        with open(optimization_manager_path, "rb") as f:
+            optimization_manager = pickle.load(f)
+
+        base_dict["ms2_error"] = optimization_manager.ms2_error
+        base_dict["ms1_error"] = optimization_manager.ms1_error
+        base_dict["rt_error"] = optimization_manager.rt_error
+        base_dict["mobility_error"] = optimization_manager.mobility_error
 
         out_df.append(base_dict)
 
