@@ -307,10 +307,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ].unique()
         np.random.shuffle(self.elution_group_order)
 
-        self.spectral_library._precursor_df["precursor_idx"] = np.random.permutation(
-            self.spectral_library._precursor_df["precursor_idx"].values
-        )
-
         batch_plan = self.get_batch_plan()
 
         features = []
@@ -375,6 +371,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 optimization_lock_eg_idxes
             )
         ]
+
+        randomized_idx = np.random.permutation(
+            optimization_lock_library_precursor_df["precursor_idx"].values
+        )
+        self.randomized_idx_mapping = dict(
+            zip(
+                optimization_lock_library_precursor_df["precursor_idx"].values,
+                randomized_idx,
+            )
+        )
+        optimization_lock_library_precursor_df["precursor_idx"] = randomized_idx
 
         start_indices = optimization_lock_library_precursor_df[
             "flat_frag_start_idx"
@@ -550,9 +557,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     precursor_df_filtered, fragments_df_filtered, record_step=False
                 )
 
+        precursor_df_filtered["precursor_idx"] = precursor_df_filtered[
+            "precursor_idx"
+        ].map(self.randomized_idx_mapping)
+
         self.precursor_cutoff_idx = (
             precursor_df_filtered.sort_values(by="precursor_idx")
-            .iloc[self.config["calibration"]["optimization_lock_target"]]
+            .iloc[2 * self.config["calibration"]["optimization_lock_target"]]
             .precursor_idx
         )
 

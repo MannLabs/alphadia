@@ -102,7 +102,10 @@ class AutomaticOptimizer(BaseOptimizer):
                 precursor_cutoff_idx = (
                     precursors_df.sort_values(by="precursor_idx")
                     .iloc[
-                        self.workflow.config["calibration"]["optimization_lock_target"]
+                        2
+                        * self.workflow.config["calibration"][
+                            "optimization_lock_target"
+                        ]
                     ]
                     .precursor_idx
                 )

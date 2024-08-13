@@ -102,7 +102,7 @@ calibration:
   batch_size: 8000
 
   # minimum number of precursors to be found before search parameter optimization begins
-  optimization_lock_target: 400
+  optimization_lock_target: 200
 
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20
