@@ -215,8 +215,8 @@ OPTIMIZATION_CONFIG = {
         "initial_num_candidates": 1,
     },
     "optimization_manager": {
-        "fwhm_rt": 2.75,
-        "fwhm_mobility": 2,
+        "fwhm_rt": 5,
+        "fwhm_mobility": 0.01,
         "score_cutoff": 50,
     },
 }
@@ -225,7 +225,7 @@ OPTIMIZATION_CONFIG = {
 def test_optimization_manager():
     optimization_manager = manager.OptimizationManager(OPTIMIZATION_CONFIG)
 
-    assert optimization_manager.fwhm_cycles == 5
+    assert optimization_manager.fwhm_rt == 5
     assert optimization_manager.fwhm_mobility == 0.01
 
     assert optimization_manager.is_loaded_from_file is False
