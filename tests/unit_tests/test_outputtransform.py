@@ -78,7 +78,7 @@ def test_output_transform():
         optimization_manager = manager.OptimizationManager(
             config, os.path.join(raw_folder, "optimization_manager.pkl")
         )
-        optimization_manager.fit({"ms2_error": 7})
+        optimization_manager.fit({"ms2_error": 6})
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
@@ -113,6 +113,8 @@ def test_output_transform():
         os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
+    assert stat_df["ms2_error"][0] == 6
+    assert stat_df["rt_error"][0] == 200
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
