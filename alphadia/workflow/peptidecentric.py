@@ -386,7 +386,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         # Create ranges for each row and concatenate them
         optimization_lock_fragment_idxes = np.concatenate(
             [np.arange(start, stop) for start, stop in zip(start_indices, stop_indices)]
-
         )
 
         # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
