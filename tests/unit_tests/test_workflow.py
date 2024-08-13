@@ -139,6 +139,7 @@ def calibration_testdata():
     )
 
     isotope_intensity_correlation = np.linspace(0, 100, 1000)
+    precursor_idx = np.arange(0, 1000)
 
     return pd.DataFrame(
         {
@@ -149,6 +150,7 @@ def calibration_testdata():
             "mobility_library": mobility_library,
             "mobility_observed": mobility_observed,
             "isotope_intensity_correlation": isotope_intensity_correlation,
+            "precursor_idx": precursor_idx,
         }
     ).copy()
 
