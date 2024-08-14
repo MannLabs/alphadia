@@ -713,8 +713,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
-            self.set_reduced_optimization_lock()
             for current_step in range(self.config["calibration"]["max_steps"]):
+                self.set_reduced_optimization_lock()
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
                     self.reporter.log_string(
                         f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
