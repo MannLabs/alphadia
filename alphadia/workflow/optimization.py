@@ -35,7 +35,13 @@ class BaseOptimizer(ABC):
         self.reporter = reporting.LogBackend() if reporter is None else reporter
 
     @abstractmethod
-    def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+    def step(
+        self,
+        precursors_df: pd.DataFrame,
+        fragments_df: pd.DataFrame,
+        current_step: int,
+        record_step: bool = True,
+    ):
         """This method evaluates the progress of the optimization, and either concludes the optimization if it has converged or continues the optimization if it has not.
         This method includes the update rule for the optimization.
 
@@ -48,7 +54,11 @@ class BaseOptimizer(ABC):
         fragments_df: pd.DataFrame
             The fragment dataframe for the search
 
+        current_step: int
+            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
+        record_step: bool
+            Whether to record the current step in the optimization process. If False, the step will not be recorded in the history dataframe. If the implementation of the optimizer does not record the history of the optimization, this parameter can be ignored.
         """
 
         pass
@@ -97,20 +107,19 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
         if record_step:
-            try:
-                # Takes the target number of precursors if at least the target is found,
+            target = (
+                2 * self.config["calibration"]["optimization_lock_target"]
+            )  # The target number of precursors for optimization is taken to be more than the number needed to start optimization. This allows a margin of safety.
+            # At the moment it is hard-coded to twice the number of precursors needed for the optimization lock but this may be made configurable in the future.
+            if (
+                len(precursors_df) > target
+            ):  # Takes the target number of precursors if at least that many are found
                 precursor_cutoff_idx = (
                     precursors_df.sort_values(by="precursor_idx")
-                    .iloc[
-                        2
-                        * self.workflow.config["calibration"][
-                            "optimization_lock_target"
-                        ]
-                    ]
+                    .iloc[target]
                     .precursor_idx
                 )
-            except IndexError:
-                # Otherwise takes the number of precursors used at the start of the optimizer's usage
+            else:  # Otherwise takes the number of precursors used at the start of the optimizer's usage
                 precursor_cutoff_idx = self.workflow.precursor_cutoff_idx
 
             new_row = pd.DataFrame(

@@ -766,3 +766,80 @@ def test_targeted_mobility_optimizer():
     assert optimizer.has_converged is True
 
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
+
+
+def create_test_randomized_optlock():
+    workflow = create_workflow_instance()
+    flat_frag_start_idx = np.arange(0, 1000) ** 2
+    flat_frag_stop_idx = np.arange(1, 1001) ** 2
+    test_optlock_library_precursor_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(0, 1000),
+            "original_precursor_idx": np.arange(0, 1000),
+            "flat_frag_start_idx": flat_frag_start_idx,
+            "flat_frag_stop_idx": flat_frag_stop_idx,
+        }
+    )
+
+    test_optlock_library_precursor_df = (
+        workflow.randomize_optimization_lock_precursor_idx(
+            test_optlock_library_precursor_df
+        )
+    )
+
+    library_fragment_df = pd.DataFrame(
+        {
+            "original_idx": np.arange(0, flat_frag_stop_idx[-1]),
+        }
+    )
+
+    # This section mimicks the behaviour of the get_optimization_lock_library_fragment method in the PeptideCentricWorkflow class (which fails without a spectral library in the workflow instance)
+    start_indices = test_optlock_library_precursor_df["flat_frag_start_idx"].values
+    stop_indices = test_optlock_library_precursor_df["flat_frag_stop_idx"].values
+
+    optimization_lock_fragment_idxes = np.concatenate(
+        [np.arange(start, stop) for start, stop in zip(start_indices, stop_indices)]
+    )
+
+    test_optlock_library_fragment_df = library_fragment_df.iloc[
+        optimization_lock_fragment_idxes
+    ]
+
+    return workflow, test_optlock_library_precursor_df, test_optlock_library_fragment_df
+
+
+def test_reindex_optimization_lock():
+    workflow, test_optlock_library_precursor_df, test_optlock_library_fragment_df = (
+        create_test_randomized_optlock()
+    )
+
+    test_optlock_library_precursor_df, test_optlock_library_fragment_df = (
+        workflow.reindex_optimization_lock(
+            test_optlock_library_precursor_df, test_optlock_library_fragment_df
+        )
+    )
+
+    assert np.all(
+        test_optlock_library_precursor_df["precursor_idx"].index.values
+        == np.arange(0, 1000)
+    )
+    assert (
+        (
+            test_optlock_library_precursor_df["flat_frag_stop_idx"].iloc[100]
+            - test_optlock_library_precursor_df["flat_frag_start_idx"].iloc[100]
+        )
+        == (
+            (test_optlock_library_precursor_df["original_precursor_idx"].iloc[100] + 1)
+            ** 2
+            - test_optlock_library_precursor_df["original_precursor_idx"].iloc[100] ** 2
+        )
+    )  # Since each precursor was set (based on its original ID) to have a number of fragments equal to its original ID squared, the difference between the start and stop index should be equal to the original ID squared (even if the start and stop index have been changed to different values)
+    assert (
+        test_optlock_library_fragment_df.iloc[
+            test_optlock_library_precursor_df.iloc[500]["flat_frag_start_idx"]
+        ]["original_idx"]
+        == test_optlock_library_precursor_df.iloc[500]["original_precursor_idx"] ** 2
+    )  # The original start index of any precursor should be equal to the square of the its original ID
+
+
+test_reindex_optimization_lock()

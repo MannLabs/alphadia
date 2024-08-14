@@ -366,12 +366,43 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 break
 
         optimization_lock_eg_idxes = self.elution_group_order[:final_stop_index]
+
         optimization_lock_library_precursor_df = self.spectral_library._precursor_df[
             self.spectral_library._precursor_df["elution_group_idx"].isin(
                 optimization_lock_eg_idxes
             )
         ]
 
+        optimization_lock_library_precursor_df = (
+            self.randomize_optimization_lock_precursor_idx(
+                optimization_lock_library_precursor_df
+            )
+        )
+
+        optimization_lock_library_fragment_df = (
+            self.get_optimization_lock_library_fragment(
+                optimization_lock_library_precursor_df
+            )
+        )
+
+        (
+            optimization_lock_library_precursor_df,
+            optimization_lock_library_fragment_df,
+        ) = self.reindex_optimization_lock(
+            optimization_lock_library_precursor_df,
+            optimization_lock_library_fragment_df,
+        )
+
+        return (
+            optimization_lock_library_precursor_df,
+            optimization_lock_library_fragment_df,
+            precursor_df,
+            fragments_df,
+        )
+
+    def randomize_optimization_lock_precursor_idx(
+        self, optimization_lock_library_precursor_df
+    ):
         randomized_idx = np.random.permutation(
             optimization_lock_library_precursor_df["precursor_idx"].values
         )
@@ -379,10 +410,20 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             zip(
                 optimization_lock_library_precursor_df["precursor_idx"].values,
                 randomized_idx,
+                strict=True,
             )
         )
         optimization_lock_library_precursor_df["precursor_idx"] = randomized_idx
+        optimization_lock_library_precursor_df.sort_values(
+            by="precursor_idx", inplace=True
+        )
+        optimization_lock_library_precursor_df.reset_index(drop=True, inplace=True)
 
+        return optimization_lock_library_precursor_df
+
+    def get_optimization_lock_library_fragment(
+        self, optimization_lock_library_precursor_df
+    ):
         start_indices = optimization_lock_library_precursor_df[
             "flat_frag_start_idx"
         ].values
@@ -392,14 +433,27 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # Create ranges for each row and concatenate them
         optimization_lock_fragment_idxes = np.concatenate(
-            [np.arange(start, stop) for start, stop in zip(start_indices, stop_indices)]
+            [
+                np.arange(start, stop)
+                for start, stop in zip(start_indices, stop_indices, strict=True)
+            ]
         )
 
         # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
         optimization_lock_library_fragment_df = self.spectral_library._fragment_df.iloc[
             optimization_lock_fragment_idxes
-        ].reset_index(drop=True)
+        ]
 
+        return optimization_lock_library_fragment_df
+
+    def reindex_optimization_lock(
+        self,
+        optimization_lock_library_precursor_df,
+        optimization_lock_library_fragment_df,
+    ):
+        optimization_lock_library_fragment_df = (
+            optimization_lock_library_fragment_df.reset_index(drop=True)
+        )
         # Change the fragment indices in the precursor_df to match the fragment indices in the optimization lock fragment_df instead of the full spectral library.
         num_frags = (
             optimization_lock_library_precursor_df["flat_frag_stop_idx"]
@@ -417,8 +471,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return (
             optimization_lock_library_precursor_df,
             optimization_lock_library_fragment_df,
-            precursor_df,
-            fragments_df,
         )
 
     def get_ordered_optimizers(self):
@@ -560,15 +612,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_df_filtered["precursor_idx"] = precursor_df_filtered[
             "precursor_idx"
         ].map(self.randomized_idx_mapping)
-        try:
-            # Takes the target number of precursors if at least the target is found
+        target = (
+            2 * self.config["calibration"]["optimization_lock_target"]
+        )  # The target number of precursors for optimization is taken to be more than the number needed to start optimization. This allows a margin of safety.
+        # At the moment it is hard-coded to twice the number of precursors needed for the optimization lock but this may be made configurable in the future.
+        if (
+            len(precursor_df_filtered) > target
+        ):  # Takes the target number of precursors if at least that many are found
             self.precursor_cutoff_idx = (
                 precursor_df_filtered.sort_values(by="precursor_idx")
-                .iloc[self.config["calibration"]["optimization_lock_target"]]
+                .iloc[target]
                 .precursor_idx
             )
-        except IndexError:
-            # Otherwise takes all of them
+        else:  # Otherwise takes the number of precursors used at the start of the optimizer's usage
             self.precursor_cutoff_idx = (
                 precursor_df_filtered.sort_values(by="precursor_idx")
                 .iloc[-1]
@@ -588,12 +644,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         fragment_cutoff_idx = self.reduced_optimization_lock_library_precursor_df[
             "flat_frag_stop_idx"
-        ].iloc[-1]
+        ].iloc[
+            -1
+        ]  # The last fragment index of the last precursor in the reduced optimization lock.
+        # Note that this requires the precursor indices to be sorted prior to the reassignment of fragment indices when creating the optimization lock
+        # (as otherwise there is nothing special about this fragment index to guarantee that all fragments for previous precursors will be included).
 
         self.reduced_optimization_lock_library_fragment_df = (
             self.optimization_lock_library_fragment_df[
                 self.optimization_lock_library_fragment_df.index < fragment_cutoff_idx
             ]
+        )
+
+        self.reporter.log_string(
+            f"Optimization lock library size reduced from {len(self.optimization_lock_library_precursor_df)} to {len(self.reduced_optimization_lock_library_precursor_df)} precursors and {len(self.optimization_lock_library_fragment_df)} to {len(self.reduced_optimization_lock_library_fragment_df)} fragments.",
+            verbosity="info",
         )
 
         self.reporter.log_string(
