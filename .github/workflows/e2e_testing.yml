@@ -24,6 +24,7 @@ jobs:
       NUMBA_BOUNDSCHECK: 1
       NUMBA_DEVELOPER_MODE: 1
       NUMBA_FULL_TRACEBACKS: 1
+      TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
     steps:
       - uses: actions/checkout@v4
       - name: Conda info
@@ -39,7 +40,7 @@ jobs:
         shell: bash -el {0}
         run: |
           cd tests
-           . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME ${GITHUB_SHA::7} $BRANCH_NAME
+           . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
       - name: Cleanup
         if: always()
         shell: bash -el {0}

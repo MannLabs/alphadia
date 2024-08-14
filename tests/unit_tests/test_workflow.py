@@ -208,7 +208,7 @@ def test_calibration_manager_save_load():
     os.remove(temp_path)
 
 
-OPTIMIZATION_CONFIG = {
+TEST_OPTIMIZATION_CONFIG = {
     "search_initial": {
         "initial_ms1_tolerance": 4,
         "initial_ms2_tolerance": 7,
@@ -225,7 +225,7 @@ OPTIMIZATION_CONFIG = {
 
 
 def test_optimization_manager():
-    optimization_manager = manager.OptimizationManager(OPTIMIZATION_CONFIG)
+    optimization_manager = manager.OptimizationManager(TEST_OPTIMIZATION_CONFIG)
 
     assert optimization_manager.fwhm_rt == 5
     assert optimization_manager.fwhm_mobility == 0.01
@@ -238,7 +238,7 @@ def test_optimization_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
 
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -247,7 +247,7 @@ def test_optimization_manager_save_load():
     optimization_manager.save()
 
     optimization_manager_loaded = manager.OptimizationManager(
-        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=True
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=True
     )
 
     assert optimization_manager_loaded.is_loaded_from_file is True
@@ -259,7 +259,7 @@ def test_optimization_manager_save_load():
 def test_optimization_manager_fit():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -423,7 +423,7 @@ def create_workflow_instance():
     )
 
     workflow._optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_CONFIG,
+        TEST_OPTIMIZATION_CONFIG,
         path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PATH),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         figure_path=os.path.join(workflow.path, workflow.FIGURE_PATH),

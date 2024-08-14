@@ -11,6 +11,9 @@ general:
   wsl: false
   mmap_detector_events: false
   use_gpu: true
+  # whether to save the libraries to the output directory
+  save_library: True       # input library
+  save_mbr_library: True   # output library
 
 library_loading:
   rt_heuristic: 180

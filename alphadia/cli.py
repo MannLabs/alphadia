@@ -352,3 +352,8 @@ def run(*args, **kwargs):
 
         logger.error(e)
         sys.exit(exit_code)
+
+
+# uncomment for debugging:
+# if __name__ == "__main__":
+#     run()
