@@ -213,36 +213,36 @@ if __name__ == "__main__":
             test_results |= metrics
     except Exception as e:
         print(e)
-    finally:
-        print(test_results)
 
-        if not neptune_upload:
-            print("skipping neptune upload")
-            exit(0)
+    print(test_results)
 
-        neptune_run = neptune.init_run(
-            project=NEPTUNE_PROJECT_NAME,
-            tags=[test_case_name, short_sha, branch_name],
-        )
+    if not neptune_upload:
+        print("skipping neptune upload")
+        exit(0)
 
-        # metrics
-        for k, v in test_results.items():
-            print(f"adding {k}={v}")
-            neptune_run[k] = v
+    neptune_run = neptune.init_run(
+        project=NEPTUNE_PROJECT_NAME,
+        tags=[test_case_name, short_sha, branch_name],
+    )
 
-        # files
-        for file_name in OutputFiles.all_values():
-            print("adding", file_name)
-            file_path = os.path.join(output_path, file_name)
-            if os.path.exists(file_path):
-                neptune_run["output/" + file_name].track_files(file_path)
+    # metrics
+    for k, v in test_results.items():
+        print(f"adding {k}={v}")
+        neptune_run[k] = v
 
-        try:
-            history_plots = _get_history_plots(test_results, metrics_classes)
+    # files
+    for file_name in OutputFiles.all_values():
+        print("adding", file_name)
+        file_path = os.path.join(output_path, file_name)
+        if os.path.exists(file_path):
+            neptune_run["output/" + file_name].track_files(file_path)
 
-            for name, plot in history_plots:
-                neptune_run[f"plots/{name}"].upload(plot)
-        except Exception as e:
-            print(f"no plots today: {e}")
+    try:
+        history_plots = _get_history_plots(test_results, metrics_classes)
 
-        neptune_run.stop()
+        for name, plot in history_plots:
+            neptune_run[f"plots/{name}"].upload(plot)
+    except Exception as e:
+        print(f"no plots today: {e}")
+
+    neptune_run.stop()
