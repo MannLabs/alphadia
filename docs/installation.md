@@ -65,7 +65,7 @@ AlphaDIA can be installed in editable (i.e. developer) mode. This allows to full
 
 Make sure you have a conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
 
-See also the [developer guide](contributing.md) for more information on how to contribute to alphaDIA.
+See also the [developer guide](developer_guide.md) for more information on how to contribute to alphaDIA.
 
 ### 1. Setting up the repository
 
