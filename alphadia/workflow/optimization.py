@@ -116,24 +116,24 @@ class AutomaticOptimizer(BaseOptimizer):
         else:  # Otherwise takes the number of precursors used at the start of the optimizer's usage
             precursor_cutoff_idx = self.workflow.precursor_cutoff_idx
 
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "parameter": self.workflow.optimization_manager.__dict__[
-                            self.parameter_name
-                        ],
-                        self.feature_name: self._get_feature_value(
-                            precursors_df, fragments_df
-                        ),
-                        "precursor_cutoff_idx": precursor_cutoff_idx,
-                        "classifier_version": self.workflow.fdr_manager.current_version,
-                        "score_cutoff": self.workflow.optimization_manager.score_cutoff,
-                        "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
-                        "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
-                    }
-                ]
-            )
-            self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),
+                    "precursor_cutoff_idx": precursor_cutoff_idx,
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
         just_converged = self._check_convergence(current_step)
 
