@@ -1,7 +1,6 @@
 import os
 import shutil
 import tempfile
-from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +12,8 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager, searchoptimization
+from alphadia.workflow import base, manager, optimization, peptidecentric, reporting
+from alphadia.workflow.config import Config
 
 
 def test_base_manager():
@@ -131,12 +131,24 @@ def calibration_testdata():
         rt_library + np.random.normal(0, 0.5, 1000) + np.sin(rt_library * 0.05)
     )
 
+    mobility_library = np.linspace(0, 100, 1000)
+    mobility_observed = (
+        mobility_library
+        + np.random.normal(0, 0.5, 1000)
+        + np.sin(mobility_library * 0.05)
+    )
+
+    isotope_intensity_correlation = np.linspace(0, 100, 1000)
+
     return pd.DataFrame(
         {
             "mz_library": mz_library,
             "mz_observed": mz_observed,
             "rt_library": rt_library,
             "rt_observed": rt_observed,
+            "mobility_library": mobility_library,
+            "mobility_observed": mobility_observed,
+            "isotope_intensity_correlation": isotope_intensity_correlation,
         }
     ).copy()
 
@@ -194,16 +206,26 @@ def test_calibration_manager_save_load():
     os.remove(temp_path)
 
 
-OPTIMIZATION_TEST_DATA = {
-    "fwhm_cycles": 5,
-    "fwhm_mobility": 0.01,
+TEST_OPTIMIZATION_CONFIG = {
+    "search_initial": {
+        "initial_ms1_tolerance": 4,
+        "initial_ms2_tolerance": 7,
+        "initial_rt_tolerance": 200,
+        "initial_mobility_tolerance": 0.04,
+        "initial_num_candidates": 1,
+    },
+    "optimization_manager": {
+        "fwhm_rt": 5,
+        "fwhm_mobility": 0.01,
+        "score_cutoff": 50,
+    },
 }
 
 
 def test_optimization_manager():
-    optimization_manager = manager.OptimizationManager(OPTIMIZATION_TEST_DATA)
+    optimization_manager = manager.OptimizationManager(TEST_OPTIMIZATION_CONFIG)
 
-    assert optimization_manager.fwhm_cycles == 5
+    assert optimization_manager.fwhm_rt == 5
     assert optimization_manager.fwhm_mobility == 0.01
 
     assert optimization_manager.is_loaded_from_file is False
@@ -214,7 +236,7 @@ def test_optimization_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
 
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -223,7 +245,7 @@ def test_optimization_manager_save_load():
     optimization_manager.save()
 
     optimization_manager_loaded = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=True
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=True
     )
 
     assert optimization_manager_loaded.is_loaded_from_file is True
@@ -235,7 +257,7 @@ def test_optimization_manager_save_load():
 def test_optimization_manager_fit():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
     optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+        TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
     assert optimization_manager.is_loaded_from_file is False
@@ -372,48 +394,373 @@ def test_fdr_manager_fit_predict():
     os.remove(temp_path)
 
 
-def ms2_optimizer_test():
-    temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
+def create_workflow_instance():
+    config_base_path = os.path.join(
+        Path(__file__).parents[2], "alphadia", "constants", "default.yaml"
     )
 
-    temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
-
-    optimization_manager = manager.OptimizationManager(
-        OPTIMIZATION_TEST_DATA, path=temp_path, load_from_file=False
+    config = Config()
+    config.from_yaml(config_base_path)
+    config["output"] = tempfile.mkdtemp()
+    workflow = peptidecentric.PeptideCentricWorkflow(
+        "test",
+        config,
+    )
+    workflow.reporter = reporting.Pipeline(
+        backends=[
+            reporting.LogBackend(),
+            reporting.JSONLBackend(path=workflow.path),
+            reporting.FigureBackend(path=workflow.path),
+        ]
+    )
+    workflow._calibration_manager = manager.CalibrationManager(
+        workflow.config["calibration_manager"],
+        path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PATH),
+        load_from_file=workflow.config["general"]["reuse_calibration"],
+        reporter=workflow.reporter,
     )
 
-    test_fragment_df = calibration_testdata()
-    calibration_manager.fit(test_fragment_df, "fragment", plot=False)
-
-    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
-    fdr_manager._num_classifiers = 1
-
-    test_dict = defaultdict(list)
-    test_dict["var"] = list(range(100))
-
-    ms2_optimizer = searchoptimization.MS2Optimizer(
-        100, calibration_manager, optimization_manager, fdr_manager
+    workflow._optimization_manager = manager.OptimizationManager(
+        TEST_OPTIMIZATION_CONFIG,
+        path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PATH),
+        load_from_file=workflow.config["general"]["reuse_calibration"],
+        figure_path=os.path.join(workflow.path, workflow.FIGURE_PATH),
+        reporter=workflow.reporter,
     )
 
-    assert ms2_optimizer.optimal_parameter is None
+    workflow.init_fdr_manager()
 
-    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+    return workflow
 
-    assert len(ms2_optimizer.parameters) == 2
 
-    test_dict["var"].append(1)
-    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+def test_automatic_ms2_optimizer():
+    workflow = create_workflow_instance()
 
-    test_dict["var"].append(1)
-    ms2_optimizer.step(pd.DataFrame(test_dict), test_fragment_df)
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
 
-    assert ms2_optimizer.optimal_parameter is not None
-    assert ms2_optimizer.precursor_ids == [100, 101, 102]
+    workflow.calibration_manager.fit(calibration_test_df2, "fragment", plot=False)
+
+    ms2_optimizer = optimization.AutomaticMS2Optimizer(
+        100,
+        workflow,
+    )
+
+    assert ms2_optimizer.has_converged is False
+    assert ms2_optimizer.parameter_name == "ms2_error"
+
+    workflow.fdr_manager._current_version += 1
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+
+    assert len(ms2_optimizer.history_df) == 1
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+
+    assert ms2_optimizer.has_converged is True
     assert (
-        ms2_optimizer.optimal_parameter
-        == ms2_optimizer.parameters[np.argmax(ms2_optimizer.precursor_ids)]
+        ms2_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+    ).all()
+    assert (
+        workflow.optimization_manager.ms2_error
+        == ms2_optimizer.history_df.parameter[
+            ms2_optimizer.history_df.precursor_count.idxmax()
+        ]
     )
-    assert optimization_manager.ms2_error == ms2_optimizer.optimal_parameter
-    assert optimization_manager.classifier_version == 0
+    assert workflow.optimization_manager.classifier_version == 2
+
+
+def test_automatic_rt_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    rt_optimizer = optimization.AutomaticRTOptimizer(
+        100,
+        workflow,
+    )
+
+    assert rt_optimizer.has_converged is False
+    assert rt_optimizer.parameter_name == "rt_error"
+
+    workflow.fdr_manager._current_version += 1
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+
+    assert len(rt_optimizer.history_df) == 1
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+
+    assert rt_optimizer.has_converged is True
+    assert (
+        rt_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+    ).all()
+    assert (
+        workflow.optimization_manager.rt_error
+        == rt_optimizer.history_df.parameter[
+            rt_optimizer.history_df.precursor_count.idxmax()
+        ]
+    )
+    assert workflow.optimization_manager.classifier_version == 2
+
+
+def test_automatic_ms1_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    ms1_optimizer = optimization.AutomaticMS1Optimizer(
+        100,
+        workflow,
+    )
+
+    assert ms1_optimizer.has_converged is False
+    assert ms1_optimizer.parameter_name == "ms1_error"
+
+    workflow.fdr_manager._current_version += 1
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+
+    assert len(ms1_optimizer.history_df) == 1
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+
+    assert ms1_optimizer.has_converged is True
+    assert (
+        workflow.optimization_manager.ms1_error
+        == ms1_optimizer.history_df.parameter[
+            ms1_optimizer.history_df.mean_isotope_intensity_correlation.idxmax()
+        ]
+    )
+    assert workflow.optimization_manager.classifier_version == 0
+
+
+def test_automatic_mobility_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    mobility_optimizer = optimization.AutomaticMobilityOptimizer(
+        100,
+        workflow,
+    )
+
+    assert mobility_optimizer.has_converged is False
+    assert mobility_optimizer.parameter_name == "mobility_error"
+
+    workflow.fdr_manager._current_version += 1
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+
+    assert len(mobility_optimizer.history_df) == 1
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+
+    calibration_test_df1 = pd.concat(
+        [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
+        ignore_index=True,
+    )
+    workflow.fdr_manager._current_version += 1
+
+    assert workflow.optimization_manager.classifier_version == -1
+
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+
+    assert mobility_optimizer.has_converged is True
+    assert (
+        mobility_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+    ).all()
+    assert (
+        workflow.optimization_manager.mobility_error
+        == mobility_optimizer.history_df.parameter[
+            mobility_optimizer.history_df.precursor_count.idxmax()
+        ]
+    )
+    assert workflow.optimization_manager.classifier_version == 2
+
+
+def test_targeted_ms2_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    optimizer = optimization.TargetedMS2Optimizer(
+        100,
+        7,
+        workflow,
+    )
+
+    assert optimizer.parameter_name == "ms2_error"
+
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
+
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
+
+        assert workflow.optimization_manager.classifier_version == current_step
+
+    assert optimizer.has_converged is True
+    assert workflow.optimization_manager.ms2_error == optimizer.target_parameter
+
+
+def test_targeted_rt_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    optimizer = optimization.TargetedRTOptimizer(
+        100,
+        7,
+        workflow,
+    )
+
+    assert optimizer.parameter_name == "rt_error"
+
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
+
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
+
+        assert workflow.optimization_manager.classifier_version == current_step
+
+    assert optimizer.has_converged is True
+    assert workflow.optimization_manager.rt_error == optimizer.target_parameter
+
+
+def test_targeted_ms1_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    optimizer = optimization.TargetedMS1Optimizer(
+        100,
+        7,
+        workflow,
+    )
+
+    assert optimizer.parameter_name == "ms1_error"
+
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
+
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
+
+        assert workflow.optimization_manager.classifier_version == current_step
+
+    assert optimizer.has_converged is True
+    assert workflow.optimization_manager.ms1_error == optimizer.target_parameter
+
+
+def test_targeted_mobility_optimizer():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    optimizer = optimization.TargetedMobilityOptimizer(
+        100,
+        7,
+        workflow,
+    )
+
+    assert optimizer.parameter_name == "mobility_error"
+
+    for current_step in range(workflow.config["calibration"]["min_steps"]):
+        assert optimizer.has_converged is False
+
+        workflow.fdr_manager._current_version += 1
+        optimizer.step(
+            calibration_test_df1, calibration_test_df2, current_step=current_step
+        )
+
+        assert workflow.optimization_manager.classifier_version == current_step
+
+    assert optimizer.has_converged is True
+
+    assert workflow.optimization_manager.mobility_error == optimizer.target_parameter

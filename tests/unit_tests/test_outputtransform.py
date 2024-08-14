@@ -7,6 +7,7 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
+from alphadia.workflow import manager
 
 
 def test_output_transform():
@@ -36,6 +37,18 @@ def test_output_transform():
         "multiplexing": {
             "enabled": False,
         },
+        "search_initial": {
+            "initial_ms1_tolerance": 4,
+            "initial_ms2_tolerance": 7,
+            "initial_rt_tolerance": 200,
+            "initial_mobility_tolerance": 0.04,
+            "initial_num_candidates": 1,
+        },
+        "optimization_manager": {
+            "fwhm_rt": 2.75,
+            "fwhm_mobility": 2,
+            "score_cutoff": 50,
+        },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
@@ -61,6 +74,11 @@ def test_output_transform():
 
         frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+
+        optimization_manager = manager.OptimizationManager(
+            config, os.path.join(raw_folder, "optimization_manager.pkl")
+        )
+        optimization_manager.fit({"ms2_error": 6})
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
@@ -95,6 +113,8 @@ def test_output_transform():
         os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
+    assert stat_df["ms2_error"][0] == 6
+    assert stat_df["rt_error"][0] == 200
     assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
     # validate protein_df output
