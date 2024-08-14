@@ -147,6 +147,3 @@ def test_output_transform():
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
 
     shutil.rmtree(temp_folder)
-
-
-test_output_transform()
