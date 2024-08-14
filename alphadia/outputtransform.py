@@ -873,18 +873,33 @@ def _build_run_stat_df(
         if "mobility_fwhm" in channel_df.columns:
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
-        optimization_manager = manager.OptimizationManager(
-            path=optimization_manager_path
-        )
-        timing_manager = manager.TimingManager(path=timing_manager_path)
+        if os.path.exists(optimization_manager_path):
+            optimization_manager = manager.OptimizationManager(
+                path=optimization_manager_path
+            )
 
-        base_dict["ms2_error"] = optimization_manager.ms2_error
-        base_dict["ms1_error"] = optimization_manager.ms1_error
-        base_dict["rt_error"] = optimization_manager.rt_error
-        base_dict["mobility_error"] = optimization_manager.mobility_error
+            base_dict["ms2_error"] = optimization_manager.ms2_error
+            base_dict["ms1_error"] = optimization_manager.ms1_error
+            base_dict["rt_error"] = optimization_manager.rt_error
+            base_dict["mobility_error"] = optimization_manager.mobility_error
 
-        base_dict["optimization_duration"] = timing_manager.optimization["duration"]
-        base_dict["extraction_duration"] = timing_manager.extraction["duration"]
+        else:
+            logger.warning(f"Error reading optimization manager for {raw_name}")
+            base_dict["ms2_error"] = np.nan
+            base_dict["ms1_error"] = np.nan
+            base_dict["rt_error"] = np.nan
+            base_dict["mobility_error"] = np.nan
+
+        if os.path.exists(timing_manager_path):
+            timing_manager = manager.TimingManager(path=timing_manager_path)
+
+            base_dict["optimization_duration"] = timing_manager.optimization["duration"]
+            base_dict["extraction_duration"] = timing_manager.extraction["duration"]
+
+        else:
+            logger.warning(f"Error reading timing manager for {raw_name}")
+            base_dict["optimization_duration"] = np.nan
+            base_dict["extraction_duration"] = np.nan
 
         out_df.append(base_dict)
 
