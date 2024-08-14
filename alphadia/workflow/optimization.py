@@ -108,7 +108,7 @@ class AutomaticOptimizer(BaseOptimizer):
             return
         if record_step:
             target = (
-                2 * self.config["calibration"]["optimization_lock_target"]
+                2 * self.workflow.config["calibration"]["optimization_lock_target"]
             )  # The target number of precursors for optimization is taken to be more than the number needed to start optimization. This allows a margin of safety.
             # At the moment it is hard-coded to twice the number of precursors needed for the optimization lock but this may be made configurable in the future.
             if (
