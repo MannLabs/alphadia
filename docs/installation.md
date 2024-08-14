@@ -165,33 +165,34 @@ docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 
 ### 1. Set up environment
 Check if conda is available on your cluster. If not, install it, or, if provided, load the corresponding module, e.g.
-`module load anaconda/3/2023.03`.
+`module load anaconda/3/2023.03`. You might be asked to run `conda init bash` to initialize conda.
 
 Create and activate a new conda environment
 ```bash
-conda create -n alphadia python=3.11 -y
+conda create -n alphadia -y
 conda activate alphadia
 ```
 ### 2. Installing mono
 Install mono to support reading proprietary vendor formats like Thermo `.raw` files.
 
-Please make sure you include the conda-forge channel
+
+Install python into your new environment
 ```bash
-conda install python=3.11 -c conda-forge
+conda install python=3.11 -y
 ```
 Then install mono by
 ```bash
-conda install mono -c conda-forge
+conda install mono=6.12.0.182 -c anaconda -y
 ```
 
-Make sure mono is installed by running
+Test that mono is correctly installed by running
 ```bash
 mono --version
 ```
 
-Make sure the output looks something like this:
+The output should look something like this:
 ```
-Mono JIT compiler version 6.12.0.90 (tarball Fri Mar  5 04:37:13 UTC 2021)
+Mono JIT compiler version 6.12.0.182 (tarball Mon Jun 26 17:39:19 UTC 2023)
 Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-project.com
 	TLS:           __thread
 	SIGSEGV:       altstack
@@ -212,7 +213,7 @@ Install alphaDIA using pip:
 ```bash
 pip install "alphadia[stable]"
 ```
-Afterwards, verify the alphaDIA installation by running:
+Afterward, verify the alphaDIA installation by running:
 `alphadia --version` which should output the current version.
 
 ### Notes on running alphaDIA as part of automated workflows
