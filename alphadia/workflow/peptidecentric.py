@@ -522,7 +522,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
             return
-
+        self.timing_manager.start("optimization")
         # Get the order of optimization
         ordered_optimizers = self.get_ordered_optimizers()
 
@@ -636,6 +636,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             "==============================================", verbosity="progress"
         )
+
+        self.timing_manager.end("optimization")
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
@@ -850,6 +852,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return features_df, fragments_df
 
     def extraction(self):
+        self.timing_manager.start("extraction")
         self.optimization_manager.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],
@@ -893,6 +896,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ]
 
         self.log_precursor_df(precursor_df)
+
+        self.timing_manager.end("extraction")
 
         return precursor_df, fragments_df
 

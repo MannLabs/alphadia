@@ -80,6 +80,13 @@ def test_output_transform():
         )
         optimization_manager.fit({"ms2_error": 6})
 
+        timing_manager = manager.TimingManager(
+            os.path.join(raw_folder, "timing_manager.pkl")
+        )
+
+        timing_manager.start("extraction")
+        timing_manager.end("extraction")
+
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
     _ = output.build_stat_df(raw_folders, save=True)
@@ -115,7 +122,19 @@ def test_output_transform():
     assert len(stat_df) == 3
     assert stat_df["ms2_error"][0] == 6
     assert stat_df["rt_error"][0] == 200
-    assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
+    assert isinstance(stat_df["extraction_duration"][0], float)
+    assert all(
+        [
+            col in stat_df.columns
+            for col in [
+                "run",
+                "precursors",
+                "proteins",
+                "optimization_duration",
+                "extraction_duration",
+            ]
+        ]
+    )
 
     # validate protein_df output
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
@@ -128,3 +147,6 @@ def test_output_transform():
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
 
     shutil.rmtree(temp_folder)
+
+
+test_output_transform()

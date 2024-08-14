@@ -23,6 +23,7 @@ class WorkflowBase:
 
     CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
     OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
+    TIMING_MANAGER_PATH = "timing_manager.pkl"
     FDR_MANAGER_PATH = "fdr_manager.pkl"
     FIGURE_PATH = "figures"
 
@@ -53,6 +54,7 @@ class WorkflowBase:
         self._spectral_library: SpecLibBase | None = None
         self._calibration_manager: manager.CalibrationManager | None = None
         self._optimization_manager: manager.OptimizationManager | None = None
+        self._timing_manager: manager.TimingManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
@@ -109,6 +111,11 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
+        self._timing_manager = manager.TimingManager(
+            path=os.path.join(self.path, self.TIMING_MANAGER_PATH),
+            load_from_file=self.config["general"]["reuse_calibration"],
+        )
+
         self.reporter.log_event("section_stop", {})
 
     @property
@@ -140,6 +147,11 @@ class WorkflowBase:
     def optimization_manager(self) -> str:
         """Optimization manager for the workflow. Owns the optimization data"""
         return self._optimization_manager
+
+    @property
+    def timing_manager(self) -> str:
+        """Optimization manager for the workflow. Owns the timing data"""
+        return self._timing_manager
 
     @property
     def spectral_library(self) -> SpecLibBase:
