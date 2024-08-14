@@ -346,8 +346,9 @@ class Plan:
                 raise e
 
             finally:
-                workflow.reporter.log_string(f"Finished workflow for {raw_name}")
-                workflow.reporter.context.__exit__(None, None, None)
+                if workflow.reporter:
+                    workflow.reporter.log_string(f"Finished workflow for {raw_name}")
+                    workflow.reporter.context.__exit__(None, None, None)
                 del workflow
 
         try:
@@ -361,11 +362,13 @@ class Plan:
         except Exception as e:
             _log_exception_event(e)
             raise e
+        finally:
+            self.clean()
 
         logger.progress("=================== Search Finished ===================")
 
     def clean(self):
-        if not self.config["library_loading"]["save_hdf"]:
+        if not self.config["general"]["save_library"]:
             os.remove(os.path.join(self.output_folder, "speclib.hdf"))
 
 

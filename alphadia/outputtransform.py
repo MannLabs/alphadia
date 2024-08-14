@@ -1,7 +1,6 @@
 # native imports
 import logging
 import os
-import pickle
 from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
@@ -25,6 +24,7 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.transferlearning.train import FinetuneManager
+from alphadia.workflow import manager
 
 logger = logging.getLogger()
 
@@ -366,7 +366,10 @@ class SearchPlanOutput:
         )
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
+        _ = self.build_library(
+            base_spec_lib,
+            psm_df=psm_df,
+        )
 
         if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
@@ -654,12 +657,11 @@ class SearchPlanOutput:
         stat_df_list = []
         for folder in folder_list:
             raw_name = os.path.basename(folder)
-            optimization_manager_path = os.path.join(folder, "optimization_manager.pkl")
             stat_df_list.append(
                 _build_run_stat_df(
+                    folder,
                     raw_name,
                     psm_df[psm_df["run"] == raw_name],
-                    optimization_manager_path,
                     all_channels,
                 )
             )
@@ -776,7 +778,6 @@ class SearchPlanOutput:
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame | None = None,
-        save: bool = True,
     ):
         """Build spectral library
 
@@ -788,9 +789,6 @@ class SearchPlanOutput:
 
         psm_df: Union[pd.DataFrame, None]
             Combined precursor table. If None, the precursor table is loaded from disk.
-
-        save: bool
-            Save the generated spectral library to disk
 
         """
         logger.progress("Building spectral library")
@@ -809,15 +807,11 @@ class SearchPlanOutput:
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
 
-        # use comma to separate thousands
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
 
-        logger.info("Writing MBR spectral library to disk")
-        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
-
-        if save:
+        if self.config["general"]["save_mbr_library"]:
             logger.info("Writing MBR spectral library to disk")
             mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
 
@@ -825,15 +819,18 @@ class SearchPlanOutput:
 
 
 def _build_run_stat_df(
+    folder: str,
     raw_name: str,
     run_df: pd.DataFrame,
-    optimization_manager_path: str,
     channels: list[int] | None = None,
 ):
     """Build stat dataframe for a single run.
 
     Parameters
     ----------
+
+    folder: str
+        Directory containing the raw file and the managers
 
     raw_name: str
         Name of the raw file
@@ -850,6 +847,8 @@ def _build_run_stat_df(
         Dataframe containing the statistics
 
     """
+    optimization_manager_path = os.path.join(folder, "optimization_manager.pkl")
+    timing_manager_path = os.path.join(folder, "timing_manager.pkl")
 
     if channels is None:
         channels = [0]
@@ -874,13 +873,33 @@ def _build_run_stat_df(
         if "mobility_fwhm" in channel_df.columns:
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
-        with open(optimization_manager_path, "rb") as f:
-            optimization_manager = pickle.load(f)
+        if os.path.exists(optimization_manager_path):
+            optimization_manager = manager.OptimizationManager(
+                path=optimization_manager_path
+            )
 
-        base_dict["ms2_error"] = optimization_manager.ms2_error
-        base_dict["ms1_error"] = optimization_manager.ms1_error
-        base_dict["rt_error"] = optimization_manager.rt_error
-        base_dict["mobility_error"] = optimization_manager.mobility_error
+            base_dict["ms2_error"] = optimization_manager.ms2_error
+            base_dict["ms1_error"] = optimization_manager.ms1_error
+            base_dict["rt_error"] = optimization_manager.rt_error
+            base_dict["mobility_error"] = optimization_manager.mobility_error
+
+        else:
+            logger.warning(f"Error reading optimization manager for {raw_name}")
+            base_dict["ms2_error"] = np.nan
+            base_dict["ms1_error"] = np.nan
+            base_dict["rt_error"] = np.nan
+            base_dict["mobility_error"] = np.nan
+
+        if os.path.exists(timing_manager_path):
+            timing_manager = manager.TimingManager(path=timing_manager_path)
+
+            base_dict["optimization_duration"] = timing_manager.optimization["duration"]
+            base_dict["extraction_duration"] = timing_manager.extraction["duration"]
+
+        else:
+            logger.warning(f"Error reading timing manager for {raw_name}")
+            base_dict["optimization_duration"] = np.nan
+            base_dict["extraction_duration"] = np.nan
 
         out_df.append(base_dict)
 

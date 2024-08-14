@@ -1,5 +1,5 @@
-# Contributing
-This document gathers information on how to contribute to the alphaDIA project.
+# Developer Guide
+This document gathers information on how to develop and contribute to the alphaDIA project.
 
 ## Release process
 ### Tagging of changes
@@ -23,6 +23,16 @@ specifying the release tag (e.g. `vX.Y.Z`).
 
 
 ## Notes for developers
+### Debugging
+To debug e2e tests with PyCharm:
+1. Create a "Run/Debug configuration" with
+ - "module": `alphadia.cli`
+ - "script parameters": `--config /abs/path/to/tests/e2e_tests/basic/config.yaml`
+ - "working directory": `/abs/path/to/tests/e2e_tests`
+2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
+3. Run the configuration.
+
+
 ### pre-commit hooks
 It is highly recommended to use the provided pre-commit hooks, as the CI pipeline enforces all checks therein to
 pass in order to merge a branch.
