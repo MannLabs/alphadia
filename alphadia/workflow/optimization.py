@@ -134,6 +134,7 @@ class AutomaticOptimizer(BaseOptimizer):
             ]
         )
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+        self.workflow.precursor_cutoff_idx = precursor_cutoff_idx
 
         just_converged = self._check_convergence(current_step)
 
