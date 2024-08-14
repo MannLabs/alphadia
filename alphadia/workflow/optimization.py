@@ -40,7 +40,6 @@ class BaseOptimizer(ABC):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
         current_step: int,
-        record_step: bool = True,
     ):
         """This method evaluates the progress of the optimization, and either concludes the optimization if it has converged or continues the optimization if it has not.
         This method includes the update rule for the optimization.
@@ -57,8 +56,6 @@ class BaseOptimizer(ABC):
         current_step: int
             The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
-        record_step: bool
-            Whether to record the current step in the optimization process. If False, the step will not be recorded in the history dataframe. If the implementation of the optimizer does not record the history of the optimization, this parameter can be ignored.
         """
 
         pass
@@ -97,7 +94,6 @@ class AutomaticOptimizer(BaseOptimizer):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
         current_step: int = -1,
-        record_step: bool = True,
     ):
         """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
@@ -106,21 +102,19 @@ class AutomaticOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-        if record_step:
-            target = (
-                2 * self.workflow.config["calibration"]["optimization_lock_target"]
-            )  # The target number of precursors for optimization is taken to be more than the number needed to start optimization. This allows a margin of safety.
-            # At the moment it is hard-coded to twice the number of precursors needed for the optimization lock but this may be made configurable in the future.
-            if (
-                len(precursors_df) > target
-            ):  # Takes the target number of precursors if at least that many are found
-                precursor_cutoff_idx = (
-                    precursors_df.sort_values(by="precursor_idx")
-                    .iloc[target]
-                    .precursor_idx
-                )
-            else:  # Otherwise takes the number of precursors used at the start of the optimizer's usage
-                precursor_cutoff_idx = self.workflow.precursor_cutoff_idx
+
+        target = (
+            2 * self.workflow.config["calibration"]["optimization_lock_target"]
+        )  # The target number of precursors for optimization is taken to be more than the number needed to start optimization. This allows a margin of safety.
+        # At the moment it is hard-coded to twice the number of precursors needed for the optimization lock but this may be made configurable in the future.
+        if (
+            len(precursors_df) > target
+        ):  # Takes the target number of precursors if at least that many are found
+            precursor_cutoff_idx = (
+                precursors_df.sort_values(by="precursor_idx").iloc[target].precursor_idx
+            )
+        else:  # Otherwise takes the number of precursors used at the start of the optimizer's usage
+            precursor_cutoff_idx = self.workflow.precursor_cutoff_idx
 
             new_row = pd.DataFrame(
                 [
@@ -367,7 +361,6 @@ class TargetedOptimizer(BaseOptimizer):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
         current_step: int = -1,
-        record_step: bool = False,
     ):
         """See base class."""
         if self.has_converged:

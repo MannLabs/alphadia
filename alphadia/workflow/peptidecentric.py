@@ -603,12 +603,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="info",
         )
 
-        for optimizers in ordered_optimizers:
-            for optimizer in optimizers:
-                optimizer.step(
-                    precursor_df_filtered, fragments_df_filtered, record_step=False
-                )
-
         precursor_df_filtered["precursor_idx"] = precursor_df_filtered[
             "precursor_idx"
         ].map(self.randomized_idx_mapping)
