@@ -840,6 +840,3 @@ def test_reindex_optimization_lock():
         ]["original_idx"]
         == test_optlock_library_precursor_df.iloc[500]["original_precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
-
-
-test_reindex_optimization_lock()
