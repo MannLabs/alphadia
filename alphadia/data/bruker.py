@@ -12,6 +12,7 @@ from numba.experimental import jitclass
 
 from alphadia import utils
 from alphadia.data.stats import log_stats
+from alphadia.exceptions import NotDiaDataError
 
 logger = logging.getLogger()
 
@@ -62,10 +63,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                 try:
                     cycle_shape = self._cycle.shape[0]
                 except AttributeError as e:
-                    logger.error(
-                        "Could not find cycle shape. Please check if this is a valid DIA data set."
-                    )
-                    raise e
+                    raise NotDiaDataError() from e
                 else:
                     if cycle_shape != 1:
                         msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "

@@ -1,6 +1,7 @@
 # native imports
 import logging
 import os
+import pickle
 from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
@@ -18,6 +19,7 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
+from alphadia.exceptions import NoPsmFoundError
 from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
     TransferLearningAccumulator,
@@ -25,12 +27,6 @@ from alphadia.outputaccumulator import (
 from alphadia.transferlearning.train import FinetuneManager
 
 logger = logging.getLogger()
-
-
-class OutputGenerationError(Exception):
-    """Raised when an error occurs during output generation"""
-
-    pass
 
 
 def get_frag_df_generator(folder_list: list[str]):
@@ -370,7 +366,10 @@ class SearchPlanOutput:
         )
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_library(base_spec_lib, psm_df=psm_df, save=True)
+        _ = self.build_library(
+            base_spec_lib,
+            psm_df=psm_df,
+        )
 
         if self.config["transfer_library"]["enabled"]:
             _ = self.build_transfer_library(folder_list, save=True)
@@ -524,8 +523,7 @@ class SearchPlanOutput:
                     logger.warning(e)
 
         if len(psm_df_list) == 0:
-            logger.error("No psm files accumulated, can't continue")
-            raise OutputGenerationError("No psm files accumulated, can't continue")
+            raise NoPsmFoundError()
 
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
@@ -659,9 +657,13 @@ class SearchPlanOutput:
         stat_df_list = []
         for folder in folder_list:
             raw_name = os.path.basename(folder)
+            optimization_manager_path = os.path.join(folder, "optimization_manager.pkl")
             stat_df_list.append(
                 _build_run_stat_df(
-                    raw_name, psm_df[psm_df["run"] == raw_name], all_channels
+                    raw_name,
+                    psm_df[psm_df["run"] == raw_name],
+                    optimization_manager_path,
+                    all_channels,
                 )
             )
 
@@ -777,7 +779,6 @@ class SearchPlanOutput:
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame | None = None,
-        save: bool = True,
     ):
         """Build spectral library
 
@@ -789,9 +790,6 @@ class SearchPlanOutput:
 
         psm_df: Union[pd.DataFrame, None]
             Combined precursor table. If None, the precursor table is loaded from disk.
-
-        save: bool
-            Save the generated spectral library to disk
 
         """
         logger.progress("Building spectral library")
@@ -810,15 +808,11 @@ class SearchPlanOutput:
         precursor_number = len(mbr_spec_lib.precursor_df)
         protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
 
-        # use comma to separate thousands
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
 
-        logger.info("Writing MBR spectral library to disk")
-        mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
-
-        if save:
+        if self.config["general"]["save_mbr_library"]:
             logger.info("Writing MBR spectral library to disk")
             mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
 
@@ -826,7 +820,10 @@ class SearchPlanOutput:
 
 
 def _build_run_stat_df(
-    raw_name: str, run_df: pd.DataFrame, channels: list[int] | None = None
+    raw_name: str,
+    run_df: pd.DataFrame,
+    optimization_manager_path: str,
+    channels: list[int] | None = None,
 ):
     """Build stat dataframe for a single run.
 
@@ -871,6 +868,14 @@ def _build_run_stat_df(
 
         if "mobility_fwhm" in channel_df.columns:
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+
+        with open(optimization_manager_path, "rb") as f:
+            optimization_manager = pickle.load(f)
+
+        base_dict["ms2_error"] = optimization_manager.ms2_error
+        base_dict["ms1_error"] = optimization_manager.ms1_error
+        base_dict["rt_error"] = optimization_manager.rt_error
+        base_dict["mobility_error"] = optimization_manager.mobility_error
 
         out_df.append(base_dict)
 

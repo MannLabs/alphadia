@@ -11,6 +11,9 @@ general:
   wsl: false
   mmap_detector_events: false
   use_gpu: true
+  # whether to save the libraries to the output directory
+  save_library: True       # input library
+  save_mbr_library: True   # output library
 
 library_loading:
   rt_heuristic: 180
@@ -41,7 +44,40 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  checkpoint_folder_path: None
+
+  # set path for custom peptdeep model. If set to null, the default model will be used
+  peptdeep_model_path: null
+
+# define custom alphabase modifications not part of unimod or alphabase
+# also used for decoy channels
+custom_modififcations:
+  # Dimethyl @K channel decoy
+  Dimethyl:d12@K:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Any_N-term channel decoy
+  Dimethyl:d12@Any_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Protein_N-term channel decoy
+  Dimethyl:d12@Protein_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # mTRAQ @K channel decoy
+  mTRAQ:d12@K:
+    composition: H(12)C(1)13C(10)15N(2)O(1)
+
+  # mTRAQ @Any_N-term channel decoy
+  mTRAQ:d12@Any_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # mTRAQ @Protein_N-term channel decoy
+  mTRAQ:d12@Protein_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # SILAC heavy @K channel decoy
+  Label:13C(12)@K:
+    composition: C(12)
 
 search:
   channel_filter: '0'
@@ -62,17 +98,20 @@ search_advanced:
 
 calibration:
 
-  # minimum number of times (epochs) the updated calibration target has to been passed
-  min_epochs: 3
+  # minimum number of steps taken during the optimization lock (during which the elution groups used for optimization are extracted)
+  optimization_lock_min_steps: 0
 
   # Number of precursors searched and scored per batch
   batch_size: 8000
 
-  # recalibration target for the first epoch. For subsequent epochs, the target will increase by this amount.
-  recalibration_target: 200
+  # minimum number of precursors to be found before search parameter optimization begins
+  optimization_lock_target: 200
 
-  # TODO: remove as not relevant anymore
-  max_epochs: 20
+  # the maximum number of steps that a given optimizer is permitted to take
+  max_steps: 20
+
+  # the maximum number of steps that a given optimizer is permitted to take
+  min_steps: 2
 
   # TODO: remove this parameter
   final_full_calibration: False

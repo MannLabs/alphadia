@@ -45,13 +45,18 @@ class WorkflowBase:
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self._instance_name = instance_name
-        self._parent_path = os.path.join(config["output"], TEMP_FOLDER)
-        self._config = config
+        self._instance_name: str = instance_name
+        self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
+        self._config: dict = config
+        self.reporter: reporting.Pipeline | None = None
+        self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
+        self._spectral_library: SpecLibBase | None = None
+        self._calibration_manager: manager.CalibrationManager | None = None
+        self._optimization_manager: manager.OptimizationManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
-            os.mkdir(self.parent_path)
+            os.makedirs(self.parent_path)
 
         if not os.path.exists(self.path):
             logger.info(
@@ -95,8 +100,9 @@ class WorkflowBase:
             self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
+
         self._optimization_manager = manager.OptimizationManager(
-            self.config["optimization_manager"],
+            self.config,
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file=self.config["general"]["reuse_calibration"],
             figure_path=os.path.join(self.path, self.FIGURE_PATH),
