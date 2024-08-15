@@ -318,11 +318,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
             eg_idxes = self.elution_group_order[start_index:stop_index]
-            batch_df = self.spectral_library._precursor_df[
+            batch_precursor_df = self.spectral_library._precursor_df[
                 self.spectral_library._precursor_df["elution_group_idx"].isin(eg_idxes)
             ]
 
-            feature_df, fragment_df = self.extract_batch(batch_df)
+            feature_df, fragment_df = self.extract_batch(batch_precursor_df)
             features += [feature_df]
             fragments += [fragment_df]
             features_df = pd.concat(features)
@@ -797,11 +797,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run=self.neptune
         )
 
-    def extract_batch(self, batch_df, batch_fragment_df=None, apply_cutoff=False):
+    def extract_batch(
+        self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
+    ):
         if batch_fragment_df is None:
             batch_fragment_df = self.spectral_library._fragment_df
         self.reporter.log_string(
-            f"Extracting batch of {len(batch_df)} precursors", verbosity="progress"
+            f"Extracting batch of {len(batch_precursor_df)} precursors",
+            verbosity="progress",
         )
 
         config = search.HybridCandidateConfig()
@@ -841,7 +844,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         extraction = search.HybridCandidateSelection(
             self.dia_data.jitclass(),
-            batch_df,
+            batch_precursor_df,
             batch_fragment_df,
             config.jitclass(),
             rt_column=f"rt_{self.optimization_manager.column_type}",
@@ -890,7 +893,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
-            batch_df,
+            batch_precursor_df,
             batch_fragment_df,
             config=config,
             rt_column=f"rt_{self.optimization_manager.column_type}",
