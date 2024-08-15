@@ -7,7 +7,7 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
-from alphadia.workflow import manager
+from alphadia.workflow import manager, peptidecentric
 
 
 def test_output_transform():
@@ -76,12 +76,18 @@ def test_output_transform():
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
 
         optimization_manager = manager.OptimizationManager(
-            config, os.path.join(raw_folder, "optimization_manager.pkl")
+            config,
+            os.path.join(
+                raw_folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
+            ),
         )
         optimization_manager.fit({"ms2_error": 6})
 
         timing_manager = manager.TimingManager(
-            os.path.join(raw_folder, "timing_manager.pkl")
+            os.path.join(
+                raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+            )
         )
 
         timing_manager.start("extraction")

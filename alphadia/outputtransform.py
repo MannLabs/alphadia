@@ -24,7 +24,7 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.transferlearning.train import FinetuneManager
-from alphadia.workflow import manager
+from alphadia.workflow import manager, peptidecentric
 
 logger = logging.getLogger()
 
@@ -847,8 +847,12 @@ def _build_run_stat_df(
         Dataframe containing the statistics
 
     """
-    optimization_manager_path = os.path.join(folder, "optimization_manager.pkl")
-    timing_manager_path = os.path.join(folder, "timing_manager.pkl")
+    optimization_manager_path = os.path.join(
+        folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH
+    )
+    timing_manager_path = os.path.join(
+        folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+    )
 
     if channels is None:
         channels = [0]

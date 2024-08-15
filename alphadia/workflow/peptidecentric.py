@@ -292,7 +292,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         Returns
         -------
         optimization_lock_eg_idxes : np.ndarray
-            The indices (in .spectral_library._precursor_df) of the precursors which will be used for calibration.
+            The elution group (eg) indices (in .spectral_library._precursor_df) of the precursors which will be used for calibration.
 
         precursor_df : pd.DataFrame
             Dataframe of all precursors accumulated during the optimization lock, including q-values from FDR correction.
@@ -376,7 +376,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         optimization_lock_fragment_idxes = np.concatenate(
             [
                 np.arange(row["flat_frag_start_idx"], row["flat_frag_stop_idx"])
-                for i, row in optimization_lock_library_precursor_df.iterrows()
+                for _, row in optimization_lock_library_precursor_df.iterrows()
             ]
         )
 
@@ -817,6 +817,26 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "min_size_rt": self.config["search"]["quant_window"],
             }
+        )
+
+        self.reporter.log_string("=== Search parameters used === ", verbosity="debug")
+        self.reporter.log_string(
+            f"{'rt_tolerance':<15}: {config.rt_tolerance}", verbosity="debug"
+        )
+        self.reporter.log_string(
+            f"{'mobility_tolerance':<15}: {config.mobility_tolerance}",
+            verbosity="debug",
+        )
+        self.reporter.log_string(
+            f"{'precursor_mz_tolerance':<15}: {config.precursor_mz_tolerance}",
+            verbosity="debug",
+        )
+        self.reporter.log_string(
+            f"{'fragment_mz_tolerance':<15}: {config.fragment_mz_tolerance}",
+            verbosity="debug",
+        )
+        self.reporter.log_string(
+            "==============================================", verbosity="debug"
         )
 
         extraction = search.HybridCandidateSelection(
