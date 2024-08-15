@@ -7,7 +7,7 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
-from alphadia.workflow import manager
+from alphadia.workflow import manager, peptidecentric
 
 
 def test_output_transform():
@@ -76,9 +76,22 @@ def test_output_transform():
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
 
         optimization_manager = manager.OptimizationManager(
-            config, os.path.join(raw_folder, "optimization_manager.pkl")
+            config,
+            os.path.join(
+                raw_folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
+            ),
         )
         optimization_manager.fit({"ms2_error": 6})
+
+        timing_manager = manager.TimingManager(
+            os.path.join(
+                raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+            )
+        )
+
+        timing_manager.start("extraction")
+        timing_manager.end("extraction")
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
@@ -115,7 +128,19 @@ def test_output_transform():
     assert len(stat_df) == 3
     assert stat_df["ms2_error"][0] == 6
     assert stat_df["rt_error"][0] == 200
-    assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
+    assert isinstance(stat_df["extraction_duration"][0], float)
+    assert all(
+        [
+            col in stat_df.columns
+            for col in [
+                "run",
+                "precursors",
+                "proteins",
+                "optimization_duration",
+                "extraction_duration",
+            ]
+        ]
+    )
 
     # validate protein_df output
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
