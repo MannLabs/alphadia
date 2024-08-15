@@ -373,7 +373,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
         ]
 
-
         optimization_lock_library_precursor_df = (
             self.randomize_optimization_lock_precursor_idx(
                 optimization_lock_library_precursor_df
@@ -437,14 +436,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             [
                 np.arange(start, stop)
                 for start, stop in zip(start_indices, stop_indices, strict=True)
-
             ]
         )
 
         # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
         optimization_lock_library_fragment_df = self.spectral_library._fragment_df.iloc[
             optimization_lock_fragment_idxes
-
         ]
 
         return optimization_lock_library_fragment_df
@@ -475,8 +472,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         return (
             optimization_lock_library_precursor_df,
             optimization_lock_library_fragment_df,
-            precursor_df,
-            fragments_df,
         )
 
     def get_ordered_optimizers(self):
