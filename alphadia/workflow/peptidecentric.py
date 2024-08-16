@@ -412,7 +412,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
-            for current_step in range(self.config["calibration"]["max_steps"]):
+            for current_step in range(
+                self.config["calibration"]["max_steps"]
+            ):  # Note current_step here refers to a different step than the attribute of the same name in the optimizer -- this should be rectified
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
                     self.reporter.log_string(
                         f"Optimization finished for {', '.join([optimizer.parameter_name for optimizer in optimizers])}.",
@@ -468,9 +470,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     for optimizer in optimizers:
-                        optimizer.step(
-                            precursor_df_filtered, fragments_df_filtered, current_step
-                        )
+                        optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
                     self.reporter.log_string(
                         "==============================================",
@@ -478,7 +478,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     self.reporter.log_string(
-                        f"=== Optimization has been performed for {current_step + 1} step(s); minimum number is {self.config['calibration']['min_steps']} ===",
+                        f"=== Optimization has been performed for {optimizer.current_step + 1} step(s); minimum number is {self.config['calibration']['min_steps']} ===",
                         verbosity="progress",
                     )
 

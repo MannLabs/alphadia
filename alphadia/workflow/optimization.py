@@ -82,12 +82,12 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
+        self.current_step = -1
 
     def step(
         self,
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
-        current_step: int = -1,
     ):
         """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
         if self.has_converged:
@@ -97,6 +97,7 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
+        self.current_step += 1
         new_row = pd.DataFrame(
             [
                 {
@@ -114,7 +115,7 @@ class AutomaticOptimizer(BaseOptimizer):
             ]
         )
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-        just_converged = self._check_convergence(current_step)
+        just_converged = self._check_convergence()
 
         if just_converged:
             self.has_converged = True
@@ -218,7 +219,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         pass
 
-    def _check_convergence(self, current_step: int = -1):
+    def _check_convergence(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
         This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
         If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
@@ -227,15 +228,11 @@ class AutomaticOptimizer(BaseOptimizer):
         -----
             Because the check for an increase in feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
 
-        Parameters
-        ----------
-        current_step: int
-            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         """
 
         min_steps_reached = (
-            current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+            self.current_step >= self.workflow.config["calibration"]["min_steps"] - 1
         )
         return (
             min_steps_reached
@@ -292,17 +289,15 @@ class TargetedOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.has_converged = False
+        self.current_step = -1
 
-    def _check_convergence(self, proposed_parameter: float, current_step: int = -1):
+    def _check_convergence(self, proposed_parameter: float):
         """The optimization has converged if the proposed parameter is equal to or less than the target parameter and the a sufficient number of steps has been taken.
 
         Parameters
         ----------
         proposed_parameter: float
             The proposed parameter for the next round of optimization.
-
-        current_step: int
-            The current step in the optimization process. By default it is set to -1, which prevents the optimizer from converging unless min_steps has been set to 0.
 
         Returns
         -------
@@ -314,7 +309,8 @@ class TargetedOptimizer(BaseOptimizer):
 
         return (
             proposed_parameter <= self.target_parameter
-            and current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+            and self.current_step
+            >= self.workflow.config["calibration"]["min_steps"] - 1
         )
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -335,7 +331,6 @@ class TargetedOptimizer(BaseOptimizer):
         self,
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
-        current_step: int = -1,
     ):
         """See base class."""
         if self.has_converged:
@@ -344,11 +339,11 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-
+        self.current_step += 1
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
-        just_converged = self._check_convergence(new_parameter, current_step)
+        just_converged = self._check_convergence(new_parameter)
         self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
         self.workflow.optimization_manager.fit(
             {"classifier_version": self.workflow.fdr_manager.current_version}
@@ -406,7 +401,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
+        return len(precursors_df) / self.workflow.optlock.total_precursors
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
@@ -443,7 +438,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
+        return len(precursors_df) / self.workflow.optlock.total_precursors
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
@@ -519,7 +514,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
+        return len(precursors_df) / self.workflow.optlock.total_precursors
 
 
 class TargetedRTOptimizer(TargetedOptimizer):
@@ -610,11 +605,13 @@ class OptimizationLock:
         self.set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
-        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
             self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
                 eg_idxes
             )
         ]
+
+        self.total_precursors = len(self.batch_precursor_df)
 
         self.features = []
         self.fragments = []
@@ -650,7 +647,7 @@ class OptimizationLock:
     def extract(self):
         """Extract features and fragments from the current batch of the optimization lock."""
 
-        feature_df, fragment_df = self.workflow.extract_batch(self.library_precursor_df)
+        feature_df, fragment_df = self.workflow.extract_batch(self.batch_precursor_df)
         self.features += [feature_df]
         self.fragments += [fragment_df]
 
@@ -675,13 +672,15 @@ class OptimizationLock:
 
         eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
 
-        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
             self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
                 eg_idxes
             )
         ]
 
-    def adjust_downwards(self):
+        self.total_precursors += len(self.batch_precursor_df)
+
+    def reset_downwards(self):
         """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly. If not, the same library is used as before."""
         self.batch_idx += max(
             int(np.ceil(np.log2(self.target_count / self.count))), -self.batch_idx
@@ -689,11 +688,13 @@ class OptimizationLock:
 
         eg_idxes = self.elution_group_order[: self.stop_index]
 
-        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
             self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
                 eg_idxes
             )
         ]
+
+        self.total_precursors = len(self.batch_precursor_df)
 
     def update(self):
         """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached."""
@@ -701,7 +702,7 @@ class OptimizationLock:
             self.adjust_upwards()
 
         else:
-            self.adjust_downwards()
+            self.reset_downwards()
             self.features = []
             self.fragments = []
 
