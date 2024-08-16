@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 # alpha family imports
 # third party imports
@@ -579,3 +580,144 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
         super().__init__(initial_parameter, target_parameter, workflow, reporter)
+
+
+class OptimizationLock:
+    def __init__(self, workflow):
+        """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
+
+        Parameters
+        ----------
+        workflow: peptidecentric.PeptideCentricWorkflow
+            The workflow object, which includes the spectral library and the calibration and optimization managers.
+
+        """
+        self.workflow = workflow
+
+        self.reached_target_before = False
+        self.reached_target = False
+
+        self.elution_group_order = self.workflow.spectral_library.precursor_df[
+            "elution_group_idx"
+        ].unique()
+        np.random.shuffle(self.elution_group_order)
+
+        self.target_count = self.workflow.config["calibration"][
+            "optimization_lock_target"
+        ]
+
+        self.batch_idx = 0
+        self.set_batch_plan()
+
+        eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
+        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
+                eg_idxes
+            )
+        ]
+
+        self.features = []
+        self.fragments = []
+
+    def _get_exponential_batches(self, step):
+        """Get the number of batches for a given step
+        This plan has the shape:
+        1, 2, 4, 8, 16, 32, 64, ...
+        """
+        return int(2**step)
+
+    def set_batch_plan(self):
+        """Gets an exponential batch plan based on the batch_size value in the config."""
+        n_eg = self.workflow.spectral_library._precursor_df[
+            "elution_group_idx"
+        ].nunique()
+
+        plan = []
+
+        batch_size = self.workflow.config["calibration"]["batch_size"]
+        step = 0
+        start_index = 0
+
+        while start_index < n_eg:
+            n_batches = self._get_exponential_batches(step)
+            stop_index = min(start_index + n_batches * batch_size, n_eg)
+            plan.append((start_index, stop_index))
+            step += 1
+            start_index = stop_index
+
+        self.batch_plan = plan
+
+    def extract(self):
+        """Extract features and fragments from the current batch of the optimization lock."""
+
+        feature_df, fragment_df = self.workflow.extract_batch(self.library_precursor_df)
+        self.features += [feature_df]
+        self.fragments += [fragment_df]
+
+    def fdr(self):
+        """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization."""
+        self.precursor_df = self.workflow.fdr_correction(
+            self.features_df,
+            self.fragments_df,
+            self.workflow.optimization_manager.classifier_version,
+        )
+
+        self.count = len(self.precursor_df[self.precursor_df["qval"] < 0.01])
+
+        if self.count < self.target_count:
+            self.reached_target = False
+        else:
+            self.reached_target = True
+
+    def adjust_upwards(self):
+        """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute."""
+        self.batch_idx += 1
+
+        eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
+
+        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
+                eg_idxes
+            )
+        ]
+
+    def adjust_downwards(self):
+        """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly. If not, the same library is used as before."""
+        self.batch_idx += int(np.ceil(np.log2(self.target_count / self.count)))
+
+        eg_idxes = self.elution_group_order[: self.stop_index]
+
+        self.library_precursor_df = self.workflow.spectral_library._precursor_df[
+            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
+                eg_idxes
+            )
+        ]
+
+    def update(self):
+        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached."""
+        if not self.reached_target:
+            self.adjust_upwards()
+
+        else:
+            self.adjust_downwards()
+            self.features = []
+            self.fragments = []
+
+    @property
+    def features_df(self):
+        return pd.concat(self.features)
+
+    @property
+    def fragments_df(self):
+        return pd.concat(self.fragments)
+
+    @property
+    def start_index(self):
+        if self.reached_target:
+            return 0
+        else:
+            return self.batch_plan[self.batch_idx][0]
+
+    @property
+    def stop_index(self):
+        return self.batch_plan[self.batch_idx][1]
