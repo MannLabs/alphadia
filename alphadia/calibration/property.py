@@ -12,7 +12,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
-from alphadia.calibration.models import LOESSRegression
+from alphadia.calibration.models import CalibRT, LOESSRegression
 
 # alphadia imports
 from alphadia.plotting.utils import density_scatter
@@ -513,3 +513,4 @@ calibration_model_provider = CalibrationModelProvider()
 calibration_model_provider.register_model("LinearRegression", LinearRegression)
 calibration_model_provider.register_model("LOESSRegression", LOESSRegression)
 calibration_model_provider.register_model("PolynomialRegression", PolynomialRegression)
+calibration_model_provider.register_model("CalibRT", CalibRT)
