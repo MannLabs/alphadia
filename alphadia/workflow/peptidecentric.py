@@ -404,7 +404,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ordered_optimizers = self.get_ordered_optimizers()
 
         self.reporter.log_string(
-            "Starting initial classifier training and precursor identification.",
+            "Starting initial search for precursors.",
             verbosity="progress",
         )
 
@@ -450,6 +450,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         )
                         self.optlock.reached_target_before = True
                         self.optlock.update()
+                        self.reporter.log_string(
+                            "Required number of precursors found. Starting search parameter optimization.",
+                            verbosity="progress",
+                        )
                         continue
 
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(

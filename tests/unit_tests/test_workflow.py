@@ -481,7 +481,7 @@ def test_automatic_ms2_optimizer():
     assert ms2_optimizer.has_converged is True
     assert (
         ms2_optimizer.history_df.precursor_proportion_detected
-        == pd.Series([1000 / 2000, 1001 / 2000, 1002])
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.ms2_error
