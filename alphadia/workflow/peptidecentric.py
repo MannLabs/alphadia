@@ -408,7 +408,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        optlock = optimization.OptimizationLock(self)
+        self.optlock = optimization.OptimizationLock(self)
 
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
@@ -424,36 +424,36 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                     break
                 self.reporter.log_string(
-                    f"=== Step {current_step}, extracting elution groups {optlock.start_index} to {optlock.stop_index} ===",
+                    f"=== Step {current_step}, extracting elution groups {self.optlock.start_index} to {self.optlock.stop_index} ===",
                     verbosity="progress",
                 )
-                optlock.extract()
+                self.optlock.extract()
 
                 self.reporter.log_string(
-                    f"=== Step {current_step}, extracted {len(optlock.features_df)} precursors and {len(optlock.fragments_df)} fragments ===",
+                    f"=== Step {current_step}, extracted {len(self.optlock.features_df)} precursors and {len(self.optlock.fragments_df)} fragments ===",
                     verbosity="progress",
                 )
 
-                optlock.fdr()
+                self.optlock.fdr()
 
                 self.reporter.log_string(
                     f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
                     verbosity="info",
                 )
 
-                self.log_precursor_df(optlock.precursor_df)
+                self.log_precursor_df(self.optlock.precursor_df)
 
-                if optlock.reached_target:
-                    if not optlock.reached_target_before:
+                if self.optlock.reached_target:
+                    if not self.optlock.reached_target_before:
                         self.first_recalibration(
-                            optlock.precursor_df, optlock.fragments_df
+                            self.optlock.precursor_df, self.optlock.fragments_df
                         )
-                        optlock.reached_target_before = True
-                        optlock.update()
+                        self.optlock.reached_target_before = True
+                        self.optlock.update()
                         continue
 
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                        optlock.precursor_df, optlock.fragments_df
+                        self.optlock.precursor_df, self.optlock.fragments_df
                     )
 
                     self.recalibration(precursor_df_filtered, fragments_df_filtered)
@@ -478,7 +478,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         verbosity="progress",
                     )
 
-                optlock.update()
+                self.optlock.update()
 
             else:
                 self.reporter.log_string(

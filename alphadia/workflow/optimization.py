@@ -383,7 +383,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.parameter_name = "rt_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
-        self.feature_name = "precursor_count"
+        self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -401,12 +401,12 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, 0.975)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df)
+        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
@@ -420,7 +420,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        self.feature_name = "precursor_count"
+        self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -438,12 +438,12 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, 0.975)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df)
+        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
@@ -476,7 +476,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, 0.975)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -495,7 +495,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.parameter_name = "mobility_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
-        self.feature_name = "precursor_count"
+        self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -514,12 +514,12 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, 0.975)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df)
+        return len(precursors_df) / len(self.workflow.optlock.library_precursor_df)
 
 
 class TargetedRTOptimizer(TargetedOptimizer):
@@ -683,7 +683,9 @@ class OptimizationLock:
 
     def adjust_downwards(self):
         """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly. If not, the same library is used as before."""
-        self.batch_idx += int(np.ceil(np.log2(self.target_count / self.count)))
+        self.batch_idx += max(
+            int(np.ceil(np.log2(self.target_count / self.count))), -self.batch_idx
+        )
 
         eg_idxes = self.elution_group_order[: self.stop_index]
 
