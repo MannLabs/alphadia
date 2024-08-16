@@ -430,6 +430,10 @@ def create_workflow_instance():
 
     workflow.init_fdr_manager()
 
+    workflow.optlock = pd.DataFrame(
+        {"library_precursor_df": np.zeros(2000)}
+    )  # Note this allows the test to run but it is not of the correct type for the genuine optlock attribute
+
     return workflow
 
 
@@ -476,12 +480,13 @@ def test_automatic_ms2_optimizer():
 
     assert ms2_optimizer.has_converged is True
     assert (
-        ms2_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        ms2_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002])
     ).all()
     assert (
         workflow.optimization_manager.ms2_error
         == ms2_optimizer.history_df.parameter[
-            ms2_optimizer.history_df.precursor_count.idxmax()
+            ms2_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -530,12 +535,13 @@ def test_automatic_rt_optimizer():
 
     assert rt_optimizer.has_converged is True
     assert (
-        rt_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        rt_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.rt_error
         == rt_optimizer.history_df.parameter[
-            rt_optimizer.history_df.precursor_count.idxmax()
+            rt_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -634,12 +640,13 @@ def test_automatic_mobility_optimizer():
 
     assert mobility_optimizer.has_converged is True
     assert (
-        mobility_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        mobility_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.mobility_error
         == mobility_optimizer.history_df.parameter[
-            mobility_optimizer.history_df.precursor_count.idxmax()
+            mobility_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
