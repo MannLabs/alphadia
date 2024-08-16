@@ -294,9 +294,8 @@ calibration_manager:
             - mz_calibrated
           transform_deviation: 1e6
         - name: rt
-          model: LOESSRegression
-          model_args:
-            n_kernels: 6
+          model: CalibRT
+          model_args: {}
           input_columns:
             - rt_library
           target_columns:
