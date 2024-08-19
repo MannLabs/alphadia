@@ -605,10 +605,11 @@ class RTNormalization(ProcessingStep):
 
 
 class MultiplexLibrary(ProcessingStep):
-    def __init__(self, multiplex_mapping: dict) -> None:
+    def __init__(self, multiplex_mapping: dict, input_channel: str | int | None = None):
         """Initialize the MultiplexLibrary step."""
 
         self._multiplex_mapping = multiplex_mapping
+        self._input_channel = input_channel
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""
@@ -619,10 +620,23 @@ class MultiplexLibrary(ProcessingStep):
         for _, channel_multiplex_mapping in self._multiplex_mapping.items():
             for key, value in channel_multiplex_mapping.items():
                 for mod in [key, value]:
-                    print(mod)
                     if mod not in MOD_DF.index:
                         logger.error(f"Modification {mod} not found in input library")
                         valid = False
+
+        if "channel" in input.precursor_df.columns:
+            channel_unique = input.precursor_df["channel"].unique()
+            if self._input_channel not in channel_unique:
+                logger.error(
+                    f"Input library does not contain channel {self._input_channel}"
+                )
+                valid = False
+
+            if (len(channel_unique) > 1) and (self._input_channel is None):
+                logger.error(
+                    f"Input library contains multiple channels {channel_unique}. Please specify a channel."
+                )
+                valid = False
 
         return valid
 
@@ -630,9 +644,9 @@ class MultiplexLibrary(ProcessingStep):
         """Apply the MultiplexLibrary step to the input object."""
 
         if "channel" in input.precursor_df.columns:
-            channel_unique = input.precursor_df["channel"].unique()
-            logger.info(f"Library already multiplexed for channel {channel_unique}")
-            input.precursor_df = input.precursor_df[input.precursor_df["channel"] == 0]
+            input.precursor_df = input.precursor_df[
+                input.precursor_df["channel"] == self._input_channel
+            ]
 
         channel_lib_list = []
         for channel, channel_mod_translations in self._multiplex_mapping.items():
