@@ -68,7 +68,7 @@ class CustomScheduler(LR_SchedulerInterface):
         self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
-            patience=settings["lr_patience"],
+            patience=3,
             factor=0.5,
         )
         self.warmup_lr = LambdaLR(optimizer, self._warmup)
