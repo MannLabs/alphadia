@@ -1722,8 +1722,10 @@ class CandidateScoring:
             "frame_center",
             "frame_start",
             "frame_stop",
-            "score",
         ]
+
+        candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
+
         df = utils.merge_missing_columns(
             df,
             candidates_df,
