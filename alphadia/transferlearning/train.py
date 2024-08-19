@@ -547,7 +547,7 @@ class FinetuneManager(ModelManager):
             epoch=self.settings["epochs"],
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_ms2(
@@ -706,7 +706,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_rt(
@@ -888,7 +888,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_charge(
@@ -1050,7 +1050,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_ccs(
