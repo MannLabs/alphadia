@@ -249,6 +249,15 @@ class Plan:
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
+        if self.config["library_multiplexing"]["enabled"]:
+            multiplexing = libtransform.MultiplexLibrary(
+                multiplex_mapping=self.config["library_multiplexing"][
+                    "multiplex_mapping"
+                ],
+                input_channel=self.config["library_multiplexing"]["input_channel"],
+            )
+            spectral_library = multiplexing(spectral_library)
+
         library_path = os.path.join(self.output_folder, "speclib.hdf")
         logger.info(f"Saving library to {library_path}")
         spectral_library.save_hdf(library_path)
