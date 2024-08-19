@@ -253,6 +253,7 @@ class PeptDeepPrediction(ProcessingStep):
         nce: int = 25,
         instrument: str = "Lumos",
         peptdeep_model_path: str | None = None,
+        peptdeep_model_type: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
     ) -> None:
@@ -279,6 +280,10 @@ class PeptDeepPrediction(ProcessingStep):
         peptdeep_model_path : str, optional
             Path to a folder containing PeptDeep models. If not provided, the default models will be used.
 
+        peptdeep_model_type : str, optional
+            Use other peptdeep models provided by the peptdeep model manager. Default is None.
+            Possible values are ['generic','phospho','digly']
+
         fragment_types : List[str], optional
             Fragment types to predict. Default is ["b", "y"].
 
@@ -296,6 +301,7 @@ class PeptDeepPrediction(ProcessingStep):
         self.instrument = instrument
         self.mp_process_num = mp_process_num
         self.peptdeep_model_path = peptdeep_model_path
+        self.peptdeep_model_type = peptdeep_model_type
 
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
@@ -313,6 +319,11 @@ class PeptDeepPrediction(ProcessingStep):
         device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
+
+        if self.peptdeep_model_type is not None:
+            logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
+            model_mgr.load_installed_models(self.peptdeep_model_type)
+
         if self.peptdeep_model_path is not None:
             if not os.path.exists(self.peptdeep_model_path):
                 raise ValueError(

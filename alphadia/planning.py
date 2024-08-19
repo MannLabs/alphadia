@@ -226,6 +226,9 @@ class Plan:
                 peptdeep_model_path=self.config["library_prediction"][
                     "peptdeep_model_path"
                 ],
+                peptdeep_model_type=self.config["library_prediction"][
+                    "peptdeep_model_type"
+                ],
                 fragment_types=self.config["library_prediction"][
                     "fragment_types"
                 ].split(";"),
