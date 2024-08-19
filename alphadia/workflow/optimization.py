@@ -31,9 +31,9 @@ class BaseOptimizer(ABC):
             The reporter object used to log information about the optimization process. If None, a new LogBackend object is created.
 
         """
-        self.optimal_parameter = None
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
+        self.num_prev_optimizations = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -82,7 +82,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
-        self.current_step = -1
+        self.num_prev_optimizations = 0
 
     def step(
         self,
@@ -97,7 +97,7 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
-        self.current_step += 1
+        self.num_prev_optimizations += 1
         new_row = pd.DataFrame(
             [
                 {
@@ -232,7 +232,8 @@ class AutomaticOptimizer(BaseOptimizer):
         """
 
         min_steps_reached = (
-            self.current_step >= self.workflow.config["calibration"]["min_steps"] - 1
+            self.num_prev_optimizations
+            >= self.workflow.config["calibration"]["min_steps"]
         )
         return (
             min_steps_reached
@@ -289,7 +290,6 @@ class TargetedOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.has_converged = False
-        self.current_step = -1
 
     def _check_convergence(self, proposed_parameter: float):
         """The optimization has converged if the proposed parameter is equal to or less than the target parameter and the a sufficient number of steps has been taken.
@@ -306,12 +306,11 @@ class TargetedOptimizer(BaseOptimizer):
 
 
         """
-
-        return (
-            proposed_parameter <= self.target_parameter
-            and self.current_step
-            >= self.workflow.config["calibration"]["min_steps"] - 1
+        min_steps_reached = (
+            self.num_prev_optimizations
+            >= self.workflow.config["calibration"]["min_steps"]
         )
+        return proposed_parameter <= self.target_parameter and min_steps_reached
 
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
@@ -339,7 +338,7 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-        self.current_step += 1
+        self.num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
@@ -578,43 +577,39 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
 
 
 class OptimizationLock:
-    def __init__(self, workflow):
+    def __init__(self, library, config: dict):
         """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
 
         Parameters
         ----------
-        workflow: peptidecentric.PeptideCentricWorkflow
-            The workflow object, which includes the spectral library and the calibration and optimization managers.
+        library: alphabase.spectral_library.flat.SpecLibFlat
+            The library object from the PeptideCentricWorkflow object, which includes the precursor and fragment library dataframes.
 
+        config: dict
+            The configuration dictionary from the PeptideCentricWorkflow object.
         """
-        self.workflow = workflow
+        self.library = library
+        self.config = config
 
-        self.reached_target_before = False
-        self.reached_target = False
+        self.first_time_to_reach_target = True
+        self.has_target_num_precursors = False
 
-        self.elution_group_order = self.workflow.spectral_library.precursor_df[
-            "elution_group_idx"
-        ].unique()
-        np.random.shuffle(self.elution_group_order)
+        self.elution_group_order = library._precursor_df["elution_group_idx"].unique()
+        rng = np.random.default_rng(seed=772)
+        rng.shuffle(self.elution_group_order)
 
-        self.target_count = self.workflow.config["calibration"][
-            "optimization_lock_target"
-        ]
+        self.target_count = self.config["calibration"]["optimization_lock_target"]
 
         self.batch_idx = 0
         self.set_batch_plan()
 
-        eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
-        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
-            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
-                eg_idxes
-            )
+        eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+        self.batch_precursor_df = self.library._precursor_df[
+            self.library._precursor_df["elution_group_idx"].isin(eg_idxes)
         ]
 
-        self.total_precursors = len(self.batch_precursor_df)
-
-        self.features = []
-        self.fragments = []
+        self.feature_dfs = []
+        self.fragment_dfs = []
 
     def _get_exponential_batches(self, step):
         """Get the number of batches for a given step
@@ -625,102 +620,116 @@ class OptimizationLock:
 
     def set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
-        n_eg = self.workflow.spectral_library._precursor_df[
-            "elution_group_idx"
-        ].nunique()
+        n_eg = self.library._precursor_df["elution_group_idx"].nunique()
 
         plan = []
 
-        batch_size = self.workflow.config["calibration"]["batch_size"]
+        batch_size = self.config["calibration"]["batch_size"]
         step = 0
-        start_index = 0
+        start_idx = 0
 
-        while start_index < n_eg:
+        while start_idx < n_eg:
             n_batches = self._get_exponential_batches(step)
-            stop_index = min(start_index + n_batches * batch_size, n_eg)
-            plan.append((start_index, stop_index))
+            stop_idx = min(start_idx + n_batches * batch_size, n_eg)
+            plan.append((start_idx, stop_idx))
             step += 1
-            start_index = stop_index
+            start_idx = stop_idx
 
         self.batch_plan = plan
 
-    def extract(self):
-        """Extract features and fragments from the current batch of the optimization lock."""
+    def update_with_extraction(self, feature_df, fragment_df):
+        """Extract features and fragments from the current batch of the optimization lock.
 
-        feature_df, fragment_df = self.workflow.extract_batch(self.batch_precursor_df)
-        self.features += [feature_df]
-        self.fragments += [fragment_df]
+        Parameters
+        ----------
+        feature_df: pd.DataFrame
+            The feature dataframe for the current batch of the optimization lock (from workflow.extract_batch).
 
-    def fdr(self):
-        """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization."""
-        self.precursor_df = self.workflow.fdr_correction(
-            self.features_df,
-            self.fragments_df,
-            self.workflow.optimization_manager.classifier_version,
-        )
+        fragment_df: pd.DataFrame
+            The fragment dataframe for the current batch of the optimization lock (from workflow.extract_batch).
+        """
 
-        self.count = len(self.precursor_df[self.precursor_df["qval"] < 0.01])
+        self.feature_dfs += [feature_df]
+        self.fragment_dfs += [fragment_df]
 
-        if self.count < self.target_count:
-            self.reached_target = False
-        else:
-            self.reached_target = True
+        self.total_precursors = len(self.features_df)
 
-    def adjust_upwards(self):
-        """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute."""
+    def update_with_fdr(self, precursor_df):
+        """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
+
+        Parameters
+        ----------
+        precursor_df: pd.DataFrame
+            The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
+        """
+
+        self.count = len(precursor_df[precursor_df["qval"] < 0.01])
+
+        self.has_target_num_precursors = self.count >= self.target_count
+
+    def increase_batch_idx(self):
+        """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute.
+        This is done by incrementing self.batch_idx.
+        """
         self.batch_idx += 1
 
-        eg_idxes = self.elution_group_order[self.start_index : self.stop_index]
+    def decrease_batch_idx(self):
+        """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly.
+        If not, the same library is used as before.
+        This is done by taking the smallest step in the batch plan which gives more precursors than the target number of precursors.
+        """
 
-        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
-            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
-                eg_idxes
-            )
-        ]
-
-        self.total_precursors += len(self.batch_precursor_df)
-
-    def reset_downwards(self):
-        """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly. If not, the same library is used as before."""
-        self.batch_idx += max(
-            int(np.ceil(np.log2(self.target_count / self.count))), -self.batch_idx
-        )
-
-        eg_idxes = self.elution_group_order[: self.stop_index]
-
-        self.batch_precursor_df = self.workflow.spectral_library._precursor_df[
-            self.workflow.spectral_library._precursor_df["elution_group_idx"].isin(
-                eg_idxes
-            )
-        ]
-
-        self.total_precursors = len(self.batch_precursor_df)
+        batch_plan_diff = np.array(
+            [
+                stop_at_given_idx - self.stop_idx * self.target_count / self.count
+                for _, stop_at_given_idx in self.batch_plan
+            ]
+        )  # Calculate the difference between the number of precursors expected at the given idx and the target number of precursors for each idx in the batch plan.
+        smallest_value = np.min(
+            batch_plan_diff[batch_plan_diff > 0]
+        )  # Take the smallest positive difference (i.e. the smallest idx that is expected to yield more than the target number of precursors).
+        self.batch_idx = np.where(batch_plan_diff == smallest_value)[0][
+            0
+        ]  # Set the batch idx to the index of the smallest positive difference.
 
     def update(self):
-        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached."""
-        if not self.reached_target:
-            self.adjust_upwards()
+        """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
+        If the target has been reached, the feature and fragment dataframes are reset (since decrease will )"""
+        if not self.has_target_num_precursors:
+            self.increase_batch_idx()
+            eg_idxes = self.elution_group_order[
+                self.start_idx : self.stop_idx
+            ]  # Take only additional elution groups in the new step of the batch plan. The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
 
         else:
-            self.reset_downwards()
-            self.features = []
-            self.fragments = []
+            self.first_time_to_reach_target = False
+            self.decrease_batch_idx()
+            eg_idxes = self.elution_group_order[
+                : self.stop_idx
+            ]  # Take all elution groups up the the stop index. The target has been reached and hence the recalibration and optimization have been performed, so everything must be extracted afresh.
+            self.feature_dfs = []
+            self.fragment_dfs = []
+
+        # Sets the batch to be used in the next round of optimization. Note that this batch will only include additional precursors if the target was not reached in this step (as the precursors from this step are stored in the feature_dfs attribute).
+        self.batch_precursor_df = self.library._precursor_df[
+            self.library._precursor_df["elution_group_idx"].isin(eg_idxes)
+        ]
 
     @property
     def features_df(self):
-        return pd.concat(self.features)
+        return pd.concat(self.feature_dfs)
 
     @property
     def fragments_df(self):
-        return pd.concat(self.fragments)
+        return pd.concat(self.fragment_dfs)
 
     @property
-    def start_index(self):
-        if self.reached_target:
+    def start_idx(self):
+        if self.has_target_num_precursors:
             return 0
         else:
             return self.batch_plan[self.batch_idx][0]
 
     @property
-    def stop_index(self):
+    def stop_idx(self):
         return self.batch_plan[self.batch_idx][1]

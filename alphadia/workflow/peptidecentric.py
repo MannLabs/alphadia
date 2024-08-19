@@ -408,7 +408,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        self.optlock = optimization.OptimizationLock(self)
+        self.optlock = optimization.OptimizationLock(self.spectral_library, self.config)
 
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
@@ -426,31 +426,40 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                     break
                 self.reporter.log_string(
-                    f"=== Step {current_step}, extracting elution groups {self.optlock.start_index} to {self.optlock.stop_index} ===",
+                    f"=== Step {current_step}, extracting elution groups {self.optlock.start_idx} to {self.optlock.stop_idx} ===",
                     verbosity="progress",
                 )
-                self.optlock.extract()
+
+                feature_df, fragment_df = self.extract_batch(
+                    self.optlock.batch_precursor_df
+                )
+                self.optlock.update_with_extraction(feature_df, fragment_df)
 
                 self.reporter.log_string(
                     f"=== Step {current_step}, extracted {len(self.optlock.features_df)} precursors and {len(self.optlock.fragments_df)} fragments ===",
                     verbosity="progress",
                 )
 
-                self.optlock.fdr()
+                precursor_df = self.fdr_correction(
+                    self.optlock.features_df,
+                    self.optlock.fragments_df,
+                    self.optimization_manager.classifier_version,
+                )
+
+                self.optlock.update_with_fdr(precursor_df)
 
                 self.reporter.log_string(
                     f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
                     verbosity="info",
                 )
 
-                self.log_precursor_df(self.optlock.precursor_df)
+                self.log_precursor_df(precursor_df)
 
-                if self.optlock.reached_target:
-                    if not self.optlock.reached_target_before:
+                if self.optlock.has_target_num_precursors:
+                    if self.optlock.first_time_to_reach_target:  # Recalibrates and updates classifier, but does not optimize the first time the target is reached. Optimization is more stable when done with calibrated values.
                         self.first_recalibration(
-                            self.optlock.precursor_df, self.optlock.fragments_df
+                            precursor_df, self.optlock.fragments_df
                         )
-                        self.optlock.reached_target_before = True
                         self.optlock.update()
                         self.reporter.log_string(
                             "Required number of precursors found. Starting search parameter optimization.",
@@ -459,7 +468,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         continue
 
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                        self.optlock.precursor_df, self.optlock.fragments_df
+                        precursor_df, self.optlock.fragments_df
                     )
 
                     self.recalibration(precursor_df_filtered, fragments_df_filtered)
@@ -478,7 +487,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     self.reporter.log_string(
-                        f"=== Optimization has been performed for {optimizer.current_step + 1} step(s); minimum number is {self.config['calibration']['min_steps']} ===",
+                        f"=== Optimization has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
                         verbosity="progress",
                     )
 
@@ -540,22 +549,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
         ]
 
-        min_fragments = 500
-        max_fragments = 5000
-        min_correlation = 0.7
         fragments_df_filtered = fragments_df_filtered.sort_values(
-            by=["correlation"], ascending=False
+            by="correlation", ascending=False
         )
-        stop_rank = min(
-            max(
-                np.searchsorted(
-                    fragments_df_filtered["correlation"].values, min_correlation
-                ),
-                min_fragments,
-            ),
-            max_fragments,
-        )
-        fragments_df_filtered = fragments_df_filtered.iloc[:stop_rank]
+        # Determine the number of fragments to keep
+        min_fragments, max_fragments = 500, 5000
+        min_correlation = 0.7
+
+        high_corr_count = (fragments_df_filtered["correlation"] > min_correlation).sum()
+        stop_rank = min(max(high_corr_count, min_fragments), max_fragments)
+
+        # Select top fragments
+        fragments_df_filtered = fragments_df_filtered.head(stop_rank)
 
         self.reporter.log_string(
             f"fragments_df_filtered: {len(fragments_df_filtered)}", verbosity="info"

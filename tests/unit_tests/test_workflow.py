@@ -764,3 +764,92 @@ def test_targeted_mobility_optimizer():
     assert optimizer.has_converged is True
 
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
+
+
+class TEST_LIBRARY:
+    def __init__(self):
+        idxes = np.arange(0, 100000)
+        self._precursor_df = pd.DataFrame({"elution_group_idx": idxes})
+        self._fragments_df = pd.DataFrame(
+            {
+                "precursor_idx": np.concatenate(
+                    [np.full(10, precursor_idx) for precursor_idx in idxes]
+                )
+            }
+        )
+
+
+TEST_OPTLOCK_CONFIG = {
+    "calibration": {
+        "batch_size": 8000,
+        "optimization_lock_target": 200,
+    }
+}
+
+
+def test_optlock():
+    library = TEST_LIBRARY()
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    assert optlock.start_idx == optlock.batch_plan[0][0]
+
+    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_precursors == 1000
+    precursor_df = pd.DataFrame(
+        {"qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)])}
+    )
+    optlock.update_with_fdr(precursor_df)
+
+    assert optlock.has_target_num_precursors is False
+    assert optlock.first_time_to_reach_target is True
+    optlock.update()
+
+    assert optlock.start_idx == optlock.batch_plan[1][0]
+
+    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_precursors == 2000
+
+    precursor_df = pd.DataFrame(
+        {"qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)])}
+    )
+
+    optlock.update_with_fdr(precursor_df)
+
+    assert optlock.has_target_num_precursors is True
+    assert optlock.first_time_to_reach_target is True
+    optlock.update()
+
+    assert optlock.first_time_to_reach_target is False
+    assert optlock.start_idx == 0
+
+
+def test_optlock_batch_idx():
+    library = TEST_LIBRARY()
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    optlock.batch_plan = [[0, 100], [100, 2000], [2000, 8000]]
+
+    assert optlock.start_idx == 0
+
+    optlock.increase_batch_idx()
+    assert optlock.start_idx == 100
+
+    optlock.increase_batch_idx()
+    assert optlock.start_idx == 2000
+
+    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005)})
+
+    optlock.update_with_fdr(precursor_df)
+
+    optlock.decrease_batch_idx()
+
+    assert optlock.start_idx == 0
+    assert optlock.stop_idx == 2000
