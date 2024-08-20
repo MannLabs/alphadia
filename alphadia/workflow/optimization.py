@@ -606,9 +606,7 @@ class OptimizationLock:
         self.set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
-        self.batch_precursor_df = self._library._precursor_df[
-            self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
-        ]
+        self.set_batch_dfs(eg_idxes)
 
         self.feature_dfs = []
         self.fragment_dfs = []
@@ -654,7 +652,7 @@ class OptimizationLock:
         self.feature_dfs += [feature_df]
         self.fragment_dfs += [fragment_df]
 
-        self.total_precursors = len(self.features_df)
+        self.total_precursors = self.features_df.precursor_idx.nunique()
 
     def update_with_fdr(self, precursor_df):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
@@ -704,7 +702,6 @@ class OptimizationLock:
             ]  # Take only additional elution groups in the new step of the batch plan. The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
 
         else:
-            self.first_time_to_reach_target = False
             self.decrease_batch_idx()
             eg_idxes = self.elution_group_order[
                 : self.stop_idx
@@ -713,9 +710,44 @@ class OptimizationLock:
             self.fragment_dfs = []
 
         # Sets the batch to be used in the next round of optimization. Note that this batch will only include additional precursors if the target was not reached in this step (as the precursors from this step are stored in the feature_dfs attribute).
+        self.set_batch_dfs(eg_idxes)
+
+    def set_batch_dfs(self, eg_idxes):
         self.batch_precursor_df = self._library._precursor_df[
             self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
-        ]
+        ].copy()
+
+        start_indices = self.batch_precursor_df["flat_frag_start_idx"].values
+        stop_indices = self.batch_precursor_df["flat_frag_stop_idx"].values
+
+        # Create ranges for each row and concatenate them
+        fragment_idxes = np.concatenate(
+            [
+                np.arange(start, stop)
+                for start, stop in zip(start_indices, stop_indices, strict=True)
+            ]
+        )
+
+        # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
+        self.batch_fragment_df = self._library._fragment_df.iloc[fragment_idxes].copy()
+
+        self.reindex_fragments()
+
+    def reindex_fragments(self):
+        """
+        Reindex the fragment dataframe to have a consecutive range of positive integers as indices. Change the precursor dataframe such that the fragment indices match the reindexed fragment dataframe.
+        """
+        self.batch_fragment_df.reset_index(drop=True, inplace=True)
+
+        # Change the fragment indices in batch_precursor_df to match the fragment indices in batch_fragment_df instead of the full spectral library.
+        num_frags = (
+            self.batch_precursor_df["flat_frag_stop_idx"]
+            - self.batch_precursor_df["flat_frag_start_idx"]
+        )
+        self.batch_precursor_df["flat_frag_stop_idx"] = num_frags.cumsum()
+        self.batch_precursor_df["flat_frag_start_idx"] = self.batch_precursor_df[
+            "flat_frag_stop_idx"
+        ].shift(fill_value=0)
 
     @property
     def features_df(self):

@@ -781,13 +781,24 @@ def test_targeted_mobility_optimizer():
 
 class TEST_LIBRARY:
     def __init__(self):
-        idxes = np.arange(0, 100000)
-        self._precursor_df = pd.DataFrame({"elution_group_idx": idxes})
-        self._fragments_df = pd.DataFrame(
+        precursor_idx = np.arange(1000)
+        elution_group_idx = np.concatenate(
+            [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
+        )
+        flat_frag_start_idx = precursor_idx**2
+        flat_frag_stop_idx = (precursor_idx + 1) ** 2
+        self._precursor_df = pd.DataFrame(
             {
-                "precursor_idx": np.concatenate(
-                    [np.full(10, precursor_idx) for precursor_idx in idxes]
-                )
+                "elution_group_idx": elution_group_idx,
+                "precursor_idx": precursor_idx,
+                "flat_frag_start_idx": flat_frag_start_idx,
+                "flat_frag_stop_idx": flat_frag_stop_idx,
+            }
+        )
+
+        self._fragment_df = pd.DataFrame(
+            {
+                "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
             }
         )
 
@@ -868,4 +879,28 @@ def test_optlock_batch_idx():
     assert optlock.stop_idx == 2000
 
 
-test_optimization_manager_rt_proportion()
+def test_optlock_reindex():
+    library = TEST_LIBRARY()
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock.batch_plan = [[0, 100], [100, 200]]
+    optlock.set_batch_dfs(
+        optlock.elution_group_order[optlock.start_idx : optlock.stop_idx]
+    )
+    optlock.reindex_fragments()
+
+    assert (
+        (
+            optlock.batch_precursor_df["flat_frag_stop_idx"].iloc[100]
+            - optlock.batch_precursor_df["flat_frag_start_idx"].iloc[100]
+        )
+        == (
+            (optlock.batch_precursor_df["precursor_idx"].iloc[100] + 1) ** 2
+            - optlock.batch_precursor_df["precursor_idx"].iloc[100] ** 2
+        )
+    )  # Since each precursor was set (based on its original ID) to have a number of fragments equal to its original ID squared, the difference between the start and stop index should be equal to the original ID squared (even if the start and stop index have been changed to different values)
+    assert (
+        optlock.batch_fragment_df.iloc[
+            optlock.batch_precursor_df.iloc[50]["flat_frag_start_idx"]
+        ]["precursor_idx"]
+        == optlock.batch_precursor_df.iloc[50]["precursor_idx"] ** 2
+    )  # The original start index of any precursor should be equal to the square of the its original ID

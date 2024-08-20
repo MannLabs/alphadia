@@ -352,32 +352,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return ordered_optimizers
 
-    def first_recalibration(
-        self,
-        precursor_df: pd.DataFrame,
-        fragments_df: pd.DataFrame,
-    ):
-        """Performs the first recalibration and optimization step.
-
-        Parameters
-        ----------
-        precursor_df : pd.DataFrame
-            Precursor dataframe from optimization lock
-
-        fragments_df : pd.DataFrame
-            Fragment dataframe from optimization lock
-
-        """
-
-        self.optimization_manager.fit(
-            {"classifier_version": self.fdr_manager.current_version}
-        )
-        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-            precursor_df, fragments_df
-        )
-
-        self.recalibration(precursor_df_filtered, fragments_df_filtered)
-
     def calibration(self):
         """Performs optimization of the search parameters. This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
@@ -428,7 +402,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
 
                 feature_df, fragment_df = self.extract_batch(
-                    self.optlock.batch_precursor_df
+                    self.optlock.batch_precursor_df, self.optlock.batch_fragment_df
                 )
                 self.optlock.update_with_extraction(feature_df, fragment_df)
 
@@ -453,22 +427,24 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.log_precursor_df(precursor_df)
 
                 if self.optlock.has_target_num_precursors:
-                    if self.optlock.first_time_to_reach_target:  # Recalibrates and updates classifier, but does not optimize the first time the target is reached. Optimization is more stable when done with calibrated values.
-                        self.first_recalibration(
-                            precursor_df, self.optlock.fragments_df
+                    precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                        precursor_df, self.optlock.fragments_df
+                    )
+
+                    self.optlock.update()
+
+                    self.recalibration(precursor_df_filtered, fragments_df_filtered)
+
+                    if self.optlock.first_time_to_reach_target:  # Updates classifier but does not optimize the first time the target is reached. Optimization is more stable when done with calibrated values.
+                        self.optlock.first_time_to_reach_target = False
+                        self.optimization_manager.fit(
+                            {"classifier_version": self.fdr_manager.current_version}
                         )
-                        self.optlock.update()
                         self.reporter.log_string(
                             "Required number of precursors found. Starting search parameter optimization.",
                             verbosity="progress",
                         )
                         continue
-
-                    precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                        precursor_df, self.optlock.fragments_df
-                    )
-
-                    self.recalibration(precursor_df_filtered, fragments_df_filtered)
 
                     self.reporter.log_string(
                         "=== checking if optimization conditions were reached ===",
@@ -487,9 +463,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         f"=== Optimization has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
                         verbosity="progress",
                     )
-
-                self.optlock.update()
-
+                else:
+                    self.optlock.update()
             else:
                 self.reporter.log_string(
                     "Optimization did not converge within the maximum number of steps, which is {self.config['calibration']['max_steps']}.",
@@ -595,11 +570,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.calibration_manager.predict(
-            self.spectral_library._precursor_df,
+            self.optlock.batch_precursor_df,
             "precursor",
         )
 
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        self.calibration_manager.predict(self.optlock.batch_fragment_df, "fragment")
 
         self.optimization_manager.fit(
             {
