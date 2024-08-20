@@ -9,6 +9,8 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+from alphadia.exceptions import NoOptimizationLockTargetError
+
 # alphadia imports
 from alphadia.workflow import reporting
 
@@ -727,6 +729,8 @@ class OptimizationLock:
     def start_idx(self):
         if self.has_target_num_precursors:
             return 0
+        elif self.batch_idx >= len(self.batch_plan):
+            raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]
 
