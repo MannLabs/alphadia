@@ -102,7 +102,9 @@ class WorkflowBase:
             self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
-
+        self.config["optimization_manager"]["gradient_length"] = (
+            self.dia_data.rt_values.max()
+        )
         self._optimization_manager = manager.OptimizationManager(
             self.config,
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),

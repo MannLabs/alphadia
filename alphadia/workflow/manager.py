@@ -467,7 +467,10 @@ class OptimizationManager(BaseManager):
             initial_parameters = {
                 "ms1_error": config["search_initial"]["initial_ms1_tolerance"],
                 "ms2_error": config["search_initial"]["initial_ms2_tolerance"],
-                "rt_error": config["search_initial"]["initial_rt_tolerance"],
+                "rt_error": config["search_initial"]["initial_rt_tolerance"]
+                if config["search_initial"]["initial_rt_tolerance"] > 1
+                else config["search_initial"]["initial_rt_tolerance"]
+                * config["optimization_manager"]["gradient_length"],
                 "mobility_error": config["search_initial"][
                     "initial_mobility_tolerance"
                 ],
