@@ -395,9 +395,7 @@ class SearchPlanOutput:
 
         device = utils.get_torch_device(self.config["general"]["use_gpu"])
 
-        tune_mgr = FinetuneManager(
-            device=device, **self.config["transfer_learning"]
-        )
+        tune_mgr = FinetuneManager(device=device, **self.config["transfer_learning"])
         tune_mgr.finetune_rt(transfer_lib.precursor_df)
         tune_mgr.finetune_charge(transfer_lib.precursor_df)
         tune_mgr.finetune_ms2(
