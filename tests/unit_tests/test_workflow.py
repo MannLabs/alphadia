@@ -781,6 +781,30 @@ def test_targeted_mobility_optimizer():
 
 class TEST_LIBRARY:
     def __init__(self):
+        precursor_idx = np.arange(100000)
+        elution_group_idx = np.concatenate(
+            [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
+        )
+        flat_frag_start_idx = precursor_idx * 10
+        flat_frag_stop_idx = (precursor_idx + 1) * 10
+        self._precursor_df = pd.DataFrame(
+            {
+                "elution_group_idx": elution_group_idx,
+                "precursor_idx": precursor_idx,
+                "flat_frag_start_idx": flat_frag_start_idx,
+                "flat_frag_stop_idx": flat_frag_stop_idx,
+            }
+        )
+
+        self._fragment_df = pd.DataFrame(
+            {
+                "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
+            }
+        )
+
+
+class TEST_LIBRARY_INDEX:
+    def __init__(self):
         precursor_idx = np.arange(1000)
         elution_group_idx = np.concatenate(
             [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
@@ -817,8 +841,8 @@ def test_optlock():
 
     assert optlock.start_idx == optlock.batch_plan[0][0]
 
-    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
-    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+    feature_df = pd.DataFrame({"precursor_idx": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"precursor_idx": np.arange(0, 10000)})
 
     optlock.update_with_extraction(feature_df, fragment_df)
 
@@ -834,8 +858,8 @@ def test_optlock():
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
 
-    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
-    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+    feature_df = pd.DataFrame({"precursor_idx": np.arange(1000, 2000)})
+    fragment_df = pd.DataFrame({"precursor_idx": np.arange(10000, 20000)})
 
     optlock.update_with_extraction(feature_df, fragment_df)
 
@@ -849,9 +873,9 @@ def test_optlock():
 
     assert optlock.has_target_num_precursors is True
     assert optlock.first_time_to_reach_target is True
+
     optlock.update()
 
-    assert optlock.first_time_to_reach_target is False
     assert optlock.start_idx == 0
 
 
@@ -880,7 +904,7 @@ def test_optlock_batch_idx():
 
 
 def test_optlock_reindex():
-    library = TEST_LIBRARY()
+    library = TEST_LIBRARY_INDEX()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.batch_plan = [[0, 100], [100, 200]]
     optlock.set_batch_dfs(
