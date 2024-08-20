@@ -593,7 +593,7 @@ class OptimizationLock:
         self._library = library
         self._config = config
 
-        self.first_time_to_reach_target = True
+        self.previously_calibrated = False
         self.has_target_num_precursors = False
 
         self.elution_group_order = library._precursor_df["elution_group_idx"].unique()

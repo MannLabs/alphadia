@@ -435,8 +435,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                     self.recalibration(precursor_df_filtered, fragments_df_filtered)
 
-                    if self.optlock.first_time_to_reach_target:  # Updates classifier but does not optimize the first time the target is reached. Optimization is more stable when done with calibrated values.
-                        self.optlock.first_time_to_reach_target = False
+                    if not self.optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached. Optimization is more stable when done with calibrated values.
+                        self.optlock.previously_calibrated = True
                         self.optimization_manager.fit(
                             {"classifier_version": self.fdr_manager.current_version}
                         )
@@ -465,6 +465,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
                 else:
                     self.optlock.update()
+                    if self.optlock.previously_calibrated:
+                        self.apply_calibration()
             else:
                 self.reporter.log_string(
                     "Optimization did not converge within the maximum number of steps, which is {self.config['calibration']['max_steps']}.",
@@ -569,12 +571,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run = self.neptune
         )
 
-        self.calibration_manager.predict(
-            self.optlock.batch_precursor_df,
-            "precursor",
-        )
-
-        self.calibration_manager.predict(self.optlock.batch_fragment_df, "fragment")
+        self.apply_calibration()
 
         self.optimization_manager.fit(
             {
@@ -591,6 +588,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "score_cutoff": percentile_001,
             }
         )
+
+    def apply_calibration(self):
+        """Predicts values in the optimization lock batch."""
+        self.calibration_manager.predict(
+            self.optlock.batch_precursor_df,
+            "precursor",
+        )
+
+        self.calibration_manager.predict(self.optlock.batch_fragment_df, "fragment")
 
     def fdr_correction(self, features_df, df_fragments, version=-1):
         return self.fdr_manager.fit_predict(
