@@ -853,7 +853,7 @@ def test_optlock():
     optlock.update_with_fdr(precursor_df)
 
     assert optlock.has_target_num_precursors is False
-    assert optlock.first_time_to_reach_target is True
+    assert optlock.is_calibrated is False
     optlock.update()
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
@@ -872,7 +872,7 @@ def test_optlock():
     optlock.update_with_fdr(precursor_df)
 
     assert optlock.has_target_num_precursors is True
-    assert optlock.first_time_to_reach_target is True
+    assert optlock.is_calibrated is False
 
     optlock.update()
 
