@@ -878,7 +878,7 @@ def test_optlock_batch_idx():
     assert optlock.start_idx == 0
     assert optlock.stop_idx == 2000
 
-
+    
 def test_optlock_reindex():
     library = TEST_LIBRARY()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
