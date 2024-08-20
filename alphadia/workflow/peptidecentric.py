@@ -758,7 +758,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         The FDR manager is not saved because it is not used in subsequent parts of the workflow.
         """
         self.calibration_manager.save()
-        self.optimization_manager.save()
+        self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     def extraction(self):
         self.timing_manager.set_start_time("extraction")

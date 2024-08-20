@@ -271,6 +271,7 @@ def test_optimization_manager_fit():
     assert optimization_manager.fwhm_cycles == 10
     assert optimization_manager.fwhm_mobility == 0.02
 
+    optimization_manager.save()
     os.remove(temp_path)
 
 
