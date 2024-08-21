@@ -352,7 +352,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return ordered_optimizers
 
-    def calibration(self):
+    def search_parameter_optimization(self):
         """Performs optimization of the search parameters. This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
         2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.
@@ -371,7 +371,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
             return
-        self.timing_manager.set_start_time("optimization")
+
         # Get the order of optimization
         ordered_optimizers = self.get_ordered_optimizers()
 
@@ -494,7 +494,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.save_managers()
-        self.timing_manager.set_end_time("optimization")
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
@@ -727,7 +726,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     def extraction(self):
-        self.timing_manager.set_start_time("extraction")
         self.optimization_manager.fit(
             {
                 "num_candidates": self.config["search"]["target_num_candidates"],
@@ -770,8 +768,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ]
 
         self.log_precursor_df(precursor_df)
-
-        self.timing_manager.set_end_time("extraction")
 
         return precursor_df, fragments_df
 

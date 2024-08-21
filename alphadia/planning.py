@@ -321,9 +321,16 @@ class Plan:
                     logger.info(f"No existing quantification found for {raw_name}")
 
                 workflow.load(dia_path, speclib)
-                workflow.calibration()
 
+                workflow.timing_manager.set_start_time("optimization")
+                workflow.search_parameter_optimization()
+                workflow.timing_manager.set_end_time("optimization")
+
+                workflow.timing_manager.set_start_time("extraction")
                 psm_df, frag_df = workflow.extraction()
+                workflow.timing_manager.set_end_time("extraction")
+                workflow.timing_manager.save()
+
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
                 if self.config["multiplexing"]["enabled"]:
