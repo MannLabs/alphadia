@@ -77,25 +77,27 @@ def test_output_transform():
 
         optimization_manager = manager.OptimizationManager(
             config,
-            os.path.join(
+            path=os.path.join(
                 raw_folder,
                 peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
             ),
         )
         optimization_manager.fit({"ms2_error": 6})
-
+        optimization_manager.save()
         timing_manager = manager.TimingManager(
-            os.path.join(
+            path=os.path.join(
                 raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
             )
         )
 
-        timing_manager.start("extraction")
-        timing_manager.end("extraction")
+        timing_manager.set_start_time("extraction")
+        timing_manager.set_end_time("extraction")
+        timing_manager.save()
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
     _ = output.build_stat_df(raw_folders, save=True)
+    _ = output.build_internal_df(raw_folders, save=True)
     _ = output.build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
@@ -128,7 +130,7 @@ def test_output_transform():
     assert len(stat_df) == 3
     assert stat_df["ms2_error"][0] == 6
     assert stat_df["rt_error"][0] == 200
-    assert isinstance(stat_df["extraction_duration"][0], float)
+
     assert all(
         [
             col in stat_df.columns
@@ -136,12 +138,14 @@ def test_output_transform():
                 "run",
                 "precursors",
                 "proteins",
-                "optimization_duration",
-                "extraction_duration",
             ]
         ]
     )
 
+    internal_df = pd.read_csv(
+        os.path.join(temp_folder, f"{output.INTERNAL_OUTPUT}.tsv"), sep="\t"
+    )
+    assert isinstance(internal_df["duration_extraction"][0], float)
     # validate protein_df output
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])

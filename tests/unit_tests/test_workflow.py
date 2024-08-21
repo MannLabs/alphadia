@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -232,6 +233,21 @@ def test_optimization_manager():
     assert optimization_manager.is_fitted is False
 
 
+def test_optimization_manager_rt_proportion():
+    TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
+    TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
+    optimization_manager = manager.OptimizationManager(
+        TEST_OPTIMIZATION_CONFIG_PROPORTION, 1200
+    )
+
+    assert optimization_manager.fwhm_rt == 5
+    assert optimization_manager.fwhm_mobility == 0.01
+    optimization_manager.rt_error = 600
+
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is False
+
+
 def test_optimization_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
 
@@ -271,6 +287,7 @@ def test_optimization_manager_fit():
     assert optimization_manager.fwhm_cycles == 10
     assert optimization_manager.fwhm_mobility == 0.02
 
+    optimization_manager.save()
     os.remove(temp_path)
 
 
@@ -430,6 +447,11 @@ def create_workflow_instance():
 
     workflow.init_fdr_manager()
 
+    class MockOptlock:
+        total_precursors = 2000
+
+    workflow.optlock = MockOptlock()
+
     return workflow
 
 
@@ -450,7 +472,7 @@ def test_automatic_ms2_optimizer():
     assert ms2_optimizer.parameter_name == "ms2_error"
 
     workflow.fdr_manager._current_version += 1
-    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(ms2_optimizer.history_df) == 1
 
@@ -462,7 +484,7 @@ def test_automatic_ms2_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     calibration_test_df1 = pd.concat(
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
@@ -472,16 +494,17 @@ def test_automatic_ms2_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    ms2_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+    ms2_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert ms2_optimizer.has_converged is True
     assert (
-        ms2_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        ms2_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.ms2_error
         == ms2_optimizer.history_df.parameter[
-            ms2_optimizer.history_df.precursor_count.idxmax()
+            ms2_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -504,7 +527,7 @@ def test_automatic_rt_optimizer():
     assert rt_optimizer.parameter_name == "rt_error"
 
     workflow.fdr_manager._current_version += 1
-    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(rt_optimizer.history_df) == 1
 
@@ -516,7 +539,7 @@ def test_automatic_rt_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     calibration_test_df1 = pd.concat(
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
@@ -526,16 +549,17 @@ def test_automatic_rt_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    rt_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert rt_optimizer.has_converged is True
     assert (
-        rt_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        rt_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.rt_error
         == rt_optimizer.history_df.parameter[
-            rt_optimizer.history_df.precursor_count.idxmax()
+            rt_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -558,7 +582,7 @@ def test_automatic_ms1_optimizer():
     assert ms1_optimizer.parameter_name == "ms1_error"
 
     workflow.fdr_manager._current_version += 1
-    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(ms1_optimizer.history_df) == 1
 
@@ -570,7 +594,7 @@ def test_automatic_ms1_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     calibration_test_df1 = pd.concat(
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
@@ -580,7 +604,7 @@ def test_automatic_ms1_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    ms1_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+    ms1_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert ms1_optimizer.has_converged is True
     assert (
@@ -609,7 +633,7 @@ def test_automatic_mobility_optimizer():
     assert mobility_optimizer.parameter_name == "mobility_error"
 
     workflow.fdr_manager._current_version += 1
-    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=0)
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(mobility_optimizer.history_df) == 1
 
@@ -620,7 +644,7 @@ def test_automatic_mobility_optimizer():
     workflow.fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
-    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=1)
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     calibration_test_df1 = pd.concat(
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
@@ -630,16 +654,17 @@ def test_automatic_mobility_optimizer():
 
     assert workflow.optimization_manager.classifier_version == -1
 
-    mobility_optimizer.step(calibration_test_df1, calibration_test_df2, current_step=2)
+    mobility_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert mobility_optimizer.has_converged is True
     assert (
-        mobility_optimizer.history_df.precursor_count == pd.Series([1000, 1001, 1002])
+        mobility_optimizer.history_df.precursor_proportion_detected
+        == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.mobility_error
         == mobility_optimizer.history_df.parameter[
-            mobility_optimizer.history_df.precursor_count.idxmax()
+            mobility_optimizer.history_df.precursor_proportion_detected.idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -665,9 +690,7 @@ def test_targeted_ms2_optimizer():
         assert optimizer.has_converged is False
 
         workflow.fdr_manager._current_version += 1
-        optimizer.step(
-            calibration_test_df1, calibration_test_df2, current_step=current_step
-        )
+        optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
 
@@ -695,9 +718,7 @@ def test_targeted_rt_optimizer():
         assert optimizer.has_converged is False
 
         workflow.fdr_manager._current_version += 1
-        optimizer.step(
-            calibration_test_df1, calibration_test_df2, current_step=current_step
-        )
+        optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
 
@@ -725,9 +746,7 @@ def test_targeted_ms1_optimizer():
         assert optimizer.has_converged is False
 
         workflow.fdr_manager._current_version += 1
-        optimizer.step(
-            calibration_test_df1, calibration_test_df2, current_step=current_step
-        )
+        optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
 
@@ -755,12 +774,99 @@ def test_targeted_mobility_optimizer():
         assert optimizer.has_converged is False
 
         workflow.fdr_manager._current_version += 1
-        optimizer.step(
-            calibration_test_df1, calibration_test_df2, current_step=current_step
-        )
+        optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
 
     assert optimizer.has_converged is True
 
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
+
+
+class TEST_LIBRARY:
+    def __init__(self):
+        idxes = np.arange(0, 100000)
+        self._precursor_df = pd.DataFrame({"elution_group_idx": idxes})
+        self._fragments_df = pd.DataFrame(
+            {
+                "precursor_idx": np.concatenate(
+                    [np.full(10, precursor_idx) for precursor_idx in idxes]
+                )
+            }
+        )
+
+
+TEST_OPTLOCK_CONFIG = {
+    "calibration": {
+        "batch_size": 8000,
+        "optimization_lock_target": 200,
+    }
+}
+
+
+def test_optlock():
+    library = TEST_LIBRARY()
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    assert optlock.start_idx == optlock.batch_plan[0][0]
+
+    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_precursors == 1000
+    precursor_df = pd.DataFrame(
+        {"qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)])}
+    )
+    optlock.update_with_fdr(precursor_df)
+
+    assert optlock.has_target_num_precursors is False
+    assert optlock.first_time_to_reach_target is True
+    optlock.update()
+
+    assert optlock.start_idx == optlock.batch_plan[1][0]
+
+    feature_df = pd.DataFrame({"col": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"col": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_precursors == 2000
+
+    precursor_df = pd.DataFrame(
+        {"qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)])}
+    )
+
+    optlock.update_with_fdr(precursor_df)
+
+    assert optlock.has_target_num_precursors is True
+    assert optlock.first_time_to_reach_target is True
+    optlock.update()
+
+    assert optlock.first_time_to_reach_target is False
+    assert optlock.start_idx == 0
+
+
+def test_optlock_batch_idx():
+    library = TEST_LIBRARY()
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    optlock.batch_plan = [[0, 100], [100, 2000], [2000, 8000]]
+
+    assert optlock.start_idx == 0
+
+    optlock.increase_batch_idx()
+    assert optlock.start_idx == 100
+
+    optlock.increase_batch_idx()
+    assert optlock.start_idx == 2000
+
+    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005)})
+
+    optlock.update_with_fdr(precursor_df)
+
+    optlock.decrease_batch_idx()
+
+    assert optlock.start_idx == 0
+    assert optlock.stop_idx == 2000
