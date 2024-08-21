@@ -402,7 +402,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
 
                 feature_df, fragment_df = self.extract_batch(
-                    self.optlock.batch_precursor_df, self.optlock.batch_fragment_df
+                    self.optlock.batch_library.precursor_df,
+                    self.optlock.batch_library.fragment_df,
                 )
                 self.optlock.update_with_extraction(feature_df, fragment_df)
 
@@ -592,11 +593,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def apply_calibration(self):
         """Predicts values in the optimization lock batch."""
         self.calibration_manager.predict(
-            self.optlock.batch_precursor_df,
+            self.optlock.batch_library._precursor_df,
             "precursor",
         )
 
-        self.calibration_manager.predict(self.optlock.batch_fragment_df, "fragment")
+        self.calibration_manager.predict(
+            self.optlock.batch_library._fragment_df, "fragment"
+        )
 
     def fdr_correction(self, features_df, df_fragments, version=-1):
         return self.fdr_manager.fit_predict(

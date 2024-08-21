@@ -4,10 +4,12 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 import numpy as np
 
-# alpha family imports
 # third party imports
 import pandas as pd
 import seaborn as sns
+
+# alpha family imports
+from alphabase.peptide.fragment import remove_unused_fragments
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 
@@ -667,87 +669,33 @@ class OptimizationLock:
 
         self.has_target_num_precursors = self.count >= self.target_count
 
-    def increase_batch_idx(self):
-        """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute.
-        This is done by incrementing self.batch_idx.
-        """
-        self.batch_idx += 1
-
-    def decrease_batch_idx(self):
-        """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly.
-        If not, the same library is used as before.
-        This is done by taking the smallest step in the batch plan which gives more precursors than the target number of precursors.
-        """
-
-        batch_plan_diff = np.array(
-            [
-                stop_at_given_idx - self.stop_idx * self.target_count / self.count
-                for _, stop_at_given_idx in self.batch_plan
-            ]
-        )  # Calculate the difference between the number of precursors expected at the given idx and the target number of precursors for each idx in the batch plan.
-        smallest_value = np.min(
-            batch_plan_diff[batch_plan_diff > 0]
-        )  # Take the smallest positive difference (i.e. the smallest idx that is expected to yield more than the target number of precursors).
-        self.batch_idx = np.where(batch_plan_diff == smallest_value)[0][
-            0
-        ]  # Set the batch idx to the index of the smallest positive difference.
-
     def update(self):
         """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
-        If the target has been reached, the feature and fragment dataframes are reset (since decrease will )"""
+        If the target has been reached, the feature and fragment dataframes are reset
+        """
         if not self.has_target_num_precursors:
-            self.increase_batch_idx()
-            eg_idxes = self.elution_group_order[
-                self.start_idx : self.stop_idx
-            ]  # Take only additional elution groups in the new step of the batch plan. The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
+            self.batch_idx += 1
 
         else:
-            self.decrease_batch_idx()
-            eg_idxes = self.elution_group_order[
-                : self.stop_idx
-            ]  # Take all elution groups up the the stop index. The target has been reached and hence the recalibration and optimization have been performed, so everything must be extracted afresh.
+            self.batch_idx = 0
             self.feature_dfs = []
             self.fragment_dfs = []
 
-        # Sets the batch to be used in the next round of optimization. Note that this batch will only include additional precursors if the target was not reached in this step (as the precursors from this step are stored in the feature_dfs attribute).
+        eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
 
     def set_batch_dfs(self, eg_idxes):
-        self.batch_precursor_df = self._library._precursor_df[
-            self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
-        ].copy()
-
-        start_indices = self.batch_precursor_df["flat_frag_start_idx"].values
-        stop_indices = self.batch_precursor_df["flat_frag_stop_idx"].values
-
-        # Create ranges for each row and concatenate them
-        fragment_idxes = np.concatenate(
-            [
-                np.arange(start, stop)
-                for start, stop in zip(start_indices, stop_indices, strict=True)
-            ]
+        self.batch_library = self._library.copy()
+        self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
+            remove_unused_fragments(
+                self.batch_library._precursor_df[
+                    self.batch_library._precursor_df["elution_group_idx"].isin(eg_idxes)
+                ],
+                (self.batch_library._fragment_df,),
+                frag_start_col="flat_frag_start_idx",
+                frag_stop_col="flat_frag_stop_idx",
+            )
         )
-
-        # Extract the fragments for the optimization lock and reset the indices to a consecutive range of positive integers. This simplifies future access based on position
-        self.batch_fragment_df = self._library._fragment_df.iloc[fragment_idxes].copy()
-
-        self.reindex_fragments()
-
-    def reindex_fragments(self):
-        """
-        Reindex the fragment dataframe to have a consecutive range of positive integers as indices. Change the precursor dataframe such that the fragment indices match the reindexed fragment dataframe.
-        """
-        self.batch_fragment_df.reset_index(drop=True, inplace=True)
-
-        # Change the fragment indices in batch_precursor_df to match the fragment indices in batch_fragment_df instead of the full spectral library.
-        num_frags = (
-            self.batch_precursor_df["flat_frag_stop_idx"]
-            - self.batch_precursor_df["flat_frag_start_idx"]
-        )
-        self.batch_precursor_df["flat_frag_stop_idx"] = num_frags.cumsum()
-        self.batch_precursor_df["flat_frag_start_idx"] = self.batch_precursor_df[
-            "flat_frag_stop_idx"
-        ].shift(fill_value=0)
 
     @property
     def features_df(self):
@@ -759,9 +707,7 @@ class OptimizationLock:
 
     @property
     def start_idx(self):
-        if self.has_target_num_precursors:
-            return 0
-        elif self.batch_idx >= len(self.batch_plan):
+        if self.batch_idx >= len(self.batch_plan):
             raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]
