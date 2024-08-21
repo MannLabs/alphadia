@@ -454,6 +454,7 @@ class CalibrationManager(BaseManager):
 class OptimizationManager(BaseManager):
     def __init__(
         self,
+        gradient_length: float,
         config: None | dict = None,
         path: None | str = None,
         load_from_file: bool = True,
@@ -464,13 +465,15 @@ class OptimizationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
+            rt_error = (
+                config["search_initial"]["initial_rt_tolerance"]
+                if config["search_initial"]["initial_rt_tolerance"] > 1
+                else config["search_initial"]["initial_rt_tolerance"] * gradient_length
+            )
             initial_parameters = {
                 "ms1_error": config["search_initial"]["initial_ms1_tolerance"],
                 "ms2_error": config["search_initial"]["initial_ms2_tolerance"],
-                "rt_error": config["search_initial"]["initial_rt_tolerance"]
-                if config["search_initial"]["initial_rt_tolerance"] > 1
-                else config["search_initial"]["initial_rt_tolerance"]
-                * config["optimization_manager"]["gradient_length"],
+                "rt_error": rt_error,
                 "mobility_error": config["search_initial"][
                     "initial_mobility_tolerance"
                 ],

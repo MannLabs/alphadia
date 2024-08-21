@@ -397,7 +397,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -434,7 +434,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -472,7 +472,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -510,7 +510,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
