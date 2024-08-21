@@ -352,17 +352,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
         else:
             opt_mapping = {
-                "ms2": ms2_optimizer,
-                "rt": rt_optimizer,
-                "ms1": ms1_optimizer,
-                "mobility": mobility_optimizer,
+                "ms2_error": ms2_optimizer,
+                "rt_error": rt_optimizer,
+                "ms1_error": ms1_optimizer,
+                "mobility_error": mobility_optimizer,
             }
             ordered_optimizers = []
             for optimizers_in_ordering in self.config["optimization"][
                 "order_of_optimization"
             ]:
                 ordered_optimizers += [
-                    [opt_mapping[opt] for opt in optimizers_in_ordering]
+                    [
+                        opt_mapping[opt]
+                        for opt in optimizers_in_ordering
+                        if opt is not None
+                    ]
                 ]
 
         return ordered_optimizers

@@ -452,6 +452,12 @@ def create_workflow_instance():
 
     workflow.optlock = MockOptlock()
 
+    class MockDIAData:
+        has_mobility = True
+        has_ms1 = True
+
+    workflow._dia_data = MockDIAData()
+
     return workflow
 
 
@@ -870,3 +876,43 @@ def test_optlock_batch_idx():
 
     assert optlock.start_idx == 0
     assert optlock.stop_idx == 2000
+
+
+def test_configurability():
+    workflow = create_workflow_instance()
+    workflow.config["optimization"].update(
+        {
+            "order_of_optimization": [
+                ["rt_error"],
+                ["ms1_error", "ms2_error"],
+                ["mobility_error"],
+            ],
+            "rt_error": {"update_interval": 0.95, "update_factor": 1.3},
+            "ms2_error": {"update_interval": 0.995, "update_factor": 1.2},
+        }
+    )
+    workflow.config["search"].update(
+        {
+            "target_rt_tolerance": -1,
+        }
+    )
+
+    ordered_optimizers = workflow.get_ordered_optimizers()
+
+    assert len(ordered_optimizers) == 3
+
+    assert ordered_optimizers[0][0].parameter_name == "rt_error"
+    assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
+    assert ordered_optimizers[0][0].update_interval == 0.95
+    assert ordered_optimizers[0][0].update_factor == 1.3
+
+    assert ordered_optimizers[1][0].parameter_name == "ms1_error"
+    assert ordered_optimizers[1][0].update_interval == 0.99
+    assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
+
+    assert ordered_optimizers[1][1].parameter_name == "ms2_error"
+    assert isinstance(ordered_optimizers[1][1], optimization.TargetedMS2Optimizer)
+    assert ordered_optimizers[1][1].update_interval == 0.995
+    assert ordered_optimizers[1][1].update_factor == 1.2
+
+    assert ordered_optimizers[2][0].parameter_name == "mobility_error"
