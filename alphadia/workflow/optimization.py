@@ -380,6 +380,8 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
+        self.update_factor = workflow.config["optimization"]["rt_update_factor"]
+        self.update_interval = workflow.config["optimization"]["rt_update_interval"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -395,9 +397,9 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -417,6 +419,8 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
         self.feature_name = "precursor_proportion_detected"
+        self.update_factor = workflow.config["optimization"]["ms2_update_factor"]
+        self.update_interval = workflow.config["optimization"]["ms2_update_interval"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -432,9 +436,9 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -454,6 +458,8 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
         self.feature_name = "mean_isotope_intensity_correlation"
+        self.update_factor = workflow.config["optimization"]["ms1_update_factor"]
+        self.update_interval = workflow.config["optimization"]["ms1_update_interval"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -470,9 +476,9 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -492,6 +498,10 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
         self.feature_name = "precursor_proportion_detected"
+        self.update_factor = workflow.config["optimization"]["mobility_update_factor"]
+        self.update_interval = workflow.config["optimization"][
+            "mobility_update_interval"
+        ]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _propose_new_parameter(self, df: pd.DataFrame):
@@ -508,9 +518,9 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         """
 
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame

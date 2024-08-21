@@ -189,8 +189,19 @@ search_output:
   # can be either "parquet" or "tsv"
   file_format: "tsv"
 
+optimization:
+  order_of_optimization: null
+  ms2_update_interval: 0.99
+  ms1_update_interval: 0.99
+  mobility_update_interval: 0.99
+  rt_update_interval: 0.99
+  ms2_update_factor: 1.1
+  ms1_update_factor: 1.1
+  mobility_update_factor: 1.1
+  rt_update_factor: 1.1
+
 # configuration for the optimization manager
-# initial parameters, will nbe optimized
+# initial parameters, will be optimized
 optimization_manager:
   fwhm_rt: 5
   fwhm_mobility: 0.01
