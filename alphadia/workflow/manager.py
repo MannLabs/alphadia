@@ -768,12 +768,24 @@ class TimingManager(BaseManager):
             self.timings = {}
 
     def set_start_time(self, workflow_stage: str):
-        """Starts the timer for a portion of the workflow and stores it in the timings attribute under the name given by the parameter workflow_stage"""
+        """Stores the start time of the given stage of the workflow in the timings attribute. Also saves the timing manager to disk.
+
+        Parameters
+        ----------
+        workflow_stage : str
+            The name under which the timing will be stored in the timings dict
+        """
         self.timings.update({workflow_stage: {"start": pd.Timestamp.now()}})
         self.save()
 
     def set_end_time(self, workflow_stage: str):
-        """"""
+        """Stores the end time of the given stage of the workflow in the timings attribute and calculates the duration. Also saves the timing manager to disk.
+        Parameters
+        ----------
+        workflow_stage : str
+            The name under which the timing will be stored in the timings dict
+
+        """
         self.timings[workflow_stage]["end"] = pd.Timestamp.now()
         self.timings[workflow_stage]["duration"] = (
             self.timings[workflow_stage]["end"] - self.timings[workflow_stage]["start"]

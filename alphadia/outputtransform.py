@@ -965,12 +965,14 @@ def _build_run_internal_df(
     )
     raw_name = os.path.basename(folder_path)
 
-    internal_dict = {}
+    internal_dict = {
+        "run": raw_name,
+    }
 
     if os.path.exists(timing_manager_path):
         timing_manager = manager.TimingManager(path=timing_manager_path)
         for key in timing_manager.timings:
-            internal_dict[f"{key}_duration"] = [timing_manager.timings[key]["duration"]]
+            internal_dict[f"duration_{key}"] = [timing_manager.timings[key]["duration"]]
 
     else:
         logger.warning(f"Error reading timing manager for {raw_name}")
