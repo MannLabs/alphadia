@@ -192,17 +192,17 @@ search_output:
 optimization:
   order_of_optimization: null
   ms2_error:
-      update_interval: 0.99
-      update_factor: 1.1
+      update_interval: 0.95
+      update_factor: 1.0
   ms1_error:
-      update_interval: 0.99
-      update_factor: 1.1
+      update_interval: 0.95
+      update_factor: 1.0
   mobility_error:
-      update_interval: 0.99
-      update_factor: 1.1
+      update_interval: 0.95
+      update_factor: 1.0
   rt_error:
-      update_interval: 0.99
-      update_factor: 1.1
+      update_interval: 0.95
+      update_factor: 1.0
 
 # configuration for the optimization manager
 # initial parameters, will be optimized
