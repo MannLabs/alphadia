@@ -349,17 +349,6 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
-                # TODO: omit if, set default quant dir
-                # if self.custom_quant_dir is not None:
-                #     os.mkdir(os.path.join(self.custom_quant_dir, raw_name))
-                #     psm_location_custom = os.path.join(self.custom_quant_dir, raw_name, "psm.parquet")
-                #     frag_location_custom = os.path.join(self.custom_quant_dir, raw_name, "frag.parquet")
-
-                #     psm_df.to_parquet(psm_location_custom, index=False)
-                #     frag_df.to_parquet(frag_location_custom, index=False)
-
-                #     logger.info(f"Saved psm and frag df to custom_quant_dir: {self.custom_quant_dir}")
-
                 workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                 workflow.reporter.context.__exit__(None, None, None)
                 del workflow
