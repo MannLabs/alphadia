@@ -10,6 +10,7 @@ import seaborn as sns
 
 # alpha family imports
 from alphabase.peptide.fragment import remove_unused_fragments
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 
@@ -669,15 +670,65 @@ class OptimizationLock:
 
         self.has_target_num_precursors = self.count >= self.target_count
 
+    def update_with_calibration(self, calibration_manager):
+        """Updates the batch library with the current calibrated values using the calibration manager.
+
+        Parameters
+        ----------
+        calibration_manager: manager.CalibrationManager
+            The calibration manager object from the PeptideCentricWorkflow object.
+
+        """
+        calibration_manager.predict(
+            self.batch_library._precursor_df,
+            "precursor",
+        )
+
+        calibration_manager.predict(self.batch_library._fragment_df, "fragment")
+
+    def increase_batch_idx(self):
+        """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute.
+        This is done by incrementing self.batch_idx.
+        """
+        self.batch_idx += 1
+
+    def decrease_batch_idx(self):
+        """If the optimization lock contains enough precursors at 1% FDR, checks if enough precursors can be obtained using a smaller library and updates the library attribute accordingly.
+        If not, the same library is used as before.
+        This is done by taking the smallest step in the batch plan which gives more precursors than the target number of precursors.
+        """
+
+        batch_plan_diff = np.array(
+            [
+                stop_at_given_idx - self.stop_idx * self.target_count / self.count
+                for _, stop_at_given_idx in self.batch_plan
+            ]
+        )  # Calculate the difference between the number of precursors expected at the given idx and the target number of precursors for each idx in the batch plan.
+        smallest_value = np.min(
+            batch_plan_diff[batch_plan_diff > 0]
+        )  # Take the smallest positive difference (i.e. the smallest idx that is expected to yield more than the target number of precursors).
+        self.batch_idx = np.where(batch_plan_diff == smallest_value)[0][
+            0
+        ]  # Set the batch idx to the index of the smallest positive difference.
+
     def update(self):
         """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
         If the target has been reached, the feature and fragment dataframes are reset
         """
         if not self.has_target_num_precursors:
-            self.batch_idx += 1
+            self.increase_batch_idx()
+            eg_idxes = self.elution_group_order[
+                self.start_idx : self.stop_idx
+            ]  # Take only additional elution groups in the new step of the batch plan.
+            # The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
 
         else:
-            self.batch_idx = 0
+            self.decrease_batch_idx()
+            eg_idxes = self.elution_group_order[
+                : self.stop_idx
+            ]  # Take all elution groups up the the stop index.
+            # The target has been reached and hence the recalibration and optimization have been performed, so everything must be extracted afresh.
+
             self.feature_dfs = []
             self.fragment_dfs = []
 
@@ -685,13 +736,21 @@ class OptimizationLock:
         self.set_batch_dfs(eg_idxes)
 
     def set_batch_dfs(self, eg_idxes):
-        self.batch_library = self._library.copy()
+        """
+        Sets the batch library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
+
+        Parameters
+        ----------
+        eg_idxes: np.ndarray
+            The elution group indexes to use for the next round of optimization.
+        """
+        self.batch_library = SpecLibFlat()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(
-                self.batch_library._precursor_df[
-                    self.batch_library._precursor_df["elution_group_idx"].isin(eg_idxes)
+                self._library._precursor_df[
+                    self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
                 ],
-                (self.batch_library._fragment_df,),
+                (self._library._fragment_df,),
                 frag_start_col="flat_frag_start_idx",
                 frag_stop_col="flat_frag_stop_idx",
             )
@@ -707,7 +766,9 @@ class OptimizationLock:
 
     @property
     def start_idx(self):
-        if self.batch_idx >= len(self.batch_plan):
+        if self.has_target_num_precursors:
+            return 0
+        elif self.batch_idx >= len(self.batch_plan):
             raise NoOptimizationLockTargetError()
         else:
             return self.batch_plan[self.batch_idx][0]

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import yaml
+from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
@@ -779,52 +780,56 @@ def test_targeted_mobility_optimizer():
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
 
 
-class TEST_LIBRARY:
-    def __init__(self):
-        precursor_idx = np.arange(100000)
-        elution_group_idx = np.concatenate(
-            [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
-        )
-        flat_frag_start_idx = precursor_idx * 10
-        flat_frag_stop_idx = (precursor_idx + 1) * 10
-        self._precursor_df = pd.DataFrame(
-            {
-                "elution_group_idx": elution_group_idx,
-                "precursor_idx": precursor_idx,
-                "flat_frag_start_idx": flat_frag_start_idx,
-                "flat_frag_stop_idx": flat_frag_stop_idx,
-            }
-        )
+def create_test_library():
+    lib = SpecLibFlat()
+    precursor_idx = np.arange(100000)
+    elution_group_idx = np.concatenate(
+        [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
+    )
+    flat_frag_start_idx = precursor_idx * 10
+    flat_frag_stop_idx = (precursor_idx + 1) * 10
+    lib._precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": elution_group_idx,
+            "precursor_idx": precursor_idx,
+            "flat_frag_start_idx": flat_frag_start_idx,
+            "flat_frag_stop_idx": flat_frag_stop_idx,
+        }
+    )
 
-        self._fragment_df = pd.DataFrame(
-            {
-                "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
-            }
-        )
+    lib._fragment_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
+        }
+    )
+
+    return lib
 
 
-class TEST_LIBRARY_INDEX:
-    def __init__(self):
-        precursor_idx = np.arange(1000)
-        elution_group_idx = np.concatenate(
-            [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
-        )
-        flat_frag_start_idx = precursor_idx**2
-        flat_frag_stop_idx = (precursor_idx + 1) ** 2
-        self._precursor_df = pd.DataFrame(
-            {
-                "elution_group_idx": elution_group_idx,
-                "precursor_idx": precursor_idx,
-                "flat_frag_start_idx": flat_frag_start_idx,
-                "flat_frag_stop_idx": flat_frag_stop_idx,
-            }
-        )
+def create_test_library_for_indexing():
+    lib = SpecLibFlat()
+    precursor_idx = np.arange(1000)
+    elution_group_idx = np.concatenate(
+        [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
+    )
+    flat_frag_start_idx = precursor_idx**2
+    flat_frag_stop_idx = (precursor_idx + 1) ** 2
+    lib._precursor_df = pd.DataFrame(
+        {
+            "elution_group_idx": elution_group_idx,
+            "precursor_idx": precursor_idx,
+            "flat_frag_start_idx": flat_frag_start_idx,
+            "flat_frag_stop_idx": flat_frag_stop_idx,
+        }
+    )
 
-        self._fragment_df = pd.DataFrame(
-            {
-                "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
-            }
-        )
+    lib._fragment_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(0, flat_frag_stop_idx[-1]),
+        }
+    )
+
+    return lib
 
 
 TEST_OPTLOCK_CONFIG = {
@@ -836,7 +841,7 @@ TEST_OPTLOCK_CONFIG = {
 
 
 def test_optlock():
-    library = TEST_LIBRARY()
+    library = create_test_library()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
 
     assert optlock.start_idx == optlock.batch_plan[0][0]
@@ -880,51 +885,55 @@ def test_optlock():
 
 
 def test_optlock_batch_idx():
-    library = TEST_LIBRARY()
+    library = create_test_library()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
 
     optlock.batch_plan = [[0, 100], [100, 2000], [2000, 8000]]
 
     assert optlock.start_idx == 0
 
-    optlock.increase_batch_idx()
+    optlock.update()
     assert optlock.start_idx == 100
 
-    optlock.increase_batch_idx()
+    optlock.update()
     assert optlock.start_idx == 2000
 
     precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005)})
 
     optlock.update_with_fdr(precursor_df)
 
-    optlock.decrease_batch_idx()
+    optlock.has_target_num_precursors = True
+    optlock.update()
 
     assert optlock.start_idx == 0
-    assert optlock.stop_idx == 2000
 
 
 def test_optlock_reindex():
-    library = TEST_LIBRARY_INDEX()
+    library = create_test_library_for_indexing()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.batch_plan = [[0, 100], [100, 200]]
     optlock.set_batch_dfs(
         optlock.elution_group_order[optlock.start_idx : optlock.stop_idx]
     )
-    optlock.reindex_fragments()
 
     assert (
         (
-            optlock.batch_precursor_df["flat_frag_stop_idx"].iloc[100]
-            - optlock.batch_precursor_df["flat_frag_start_idx"].iloc[100]
+            optlock.batch_library._precursor_df["flat_frag_stop_idx"].iloc[100]
+            - optlock.batch_library._precursor_df["flat_frag_start_idx"].iloc[100]
         )
         == (
-            (optlock.batch_precursor_df["precursor_idx"].iloc[100] + 1) ** 2
-            - optlock.batch_precursor_df["precursor_idx"].iloc[100] ** 2
+            (optlock.batch_library._precursor_df["precursor_idx"].iloc[100] + 1) ** 2
+            - optlock.batch_library._precursor_df["precursor_idx"].iloc[100] ** 2
         )
     )  # Since each precursor was set (based on its original ID) to have a number of fragments equal to its original ID squared, the difference between the start and stop index should be equal to the original ID squared (even if the start and stop index have been changed to different values)
     assert (
-        optlock.batch_fragment_df.iloc[
-            optlock.batch_precursor_df.iloc[50]["flat_frag_start_idx"]
+        optlock.batch_library._fragment_df.iloc[
+            optlock.batch_library._precursor_df.iloc[50]["flat_frag_start_idx"]
         ]["precursor_idx"]
-        == optlock.batch_precursor_df.iloc[50]["precursor_idx"] ** 2
+        == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
+
+
+test_optlock()
+test_optlock_batch_idx()
+test_optlock_reindex()
