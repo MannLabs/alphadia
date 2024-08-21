@@ -378,7 +378,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.recalibration(precursor_df_filtered, fragments_df_filtered)
 
-    def calibration(self):
+    def search_parameter_optimization(self):
         """Performs optimization of the search parameters. This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
         2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.

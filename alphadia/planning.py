@@ -323,7 +323,7 @@ class Plan:
                 workflow.load(dia_path, speclib)
 
                 workflow.timing_manager.set_start_time("optimization")
-                workflow.calibration()
+                workflow.search_parameter_optimization()
                 workflow.timing_manager.set_end_time("optimization")
 
                 workflow.timing_manager.set_start_time("extraction")
