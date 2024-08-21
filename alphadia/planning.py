@@ -329,6 +329,7 @@ class Plan:
                 workflow.timing_manager.set_start_time("extraction")
                 psm_df, frag_df = workflow.extraction()
                 workflow.timing_manager.set_end_time("extraction")
+                workflow.timing_manager.save()
 
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 

@@ -782,7 +782,6 @@ class TimingManager(BaseManager):
             The name under which the timing will be stored in the timings dict
         """
         self.timings.update({workflow_stage: {"start": pd.Timestamp.now()}})
-        self.save()
 
     def set_end_time(self, workflow_stage: str):
         """Stores the end time of the given stage of the workflow in the timings attribute and calculates the duration. Also saves the timing manager to disk.
@@ -796,4 +795,3 @@ class TimingManager(BaseManager):
         self.timings[workflow_stage]["duration"] = (
             self.timings[workflow_stage]["end"] - self.timings[workflow_stage]["start"]
         ).total_seconds() / 60
-        self.save()

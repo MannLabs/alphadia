@@ -92,6 +92,7 @@ def test_output_transform():
 
         timing_manager.set_start_time("extraction")
         timing_manager.set_end_time("extraction")
+        timing_manager.save()
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
