@@ -10,6 +10,7 @@ import seaborn as sns
 
 # alpha family imports
 from alphabase.peptide.fragment import remove_unused_fragments
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 
@@ -627,12 +628,15 @@ class OptimizationLock:
         plan = []
 
         batch_size = self._config["calibration"]["batch_size"]
+        max_batch_size = self._config["calibration"]["max_batch_size"]
         step = 0
         start_idx = 0
 
         while start_idx < n_eg:
             n_batches = self._get_exponential_batches(step)
-            stop_idx = min(start_idx + n_batches * batch_size, n_eg)
+            stop_idx = min(
+                start_idx + min(n_batches * batch_size, max_batch_size), n_eg
+            )
             plan.append((start_idx, stop_idx))
             step += 1
             start_idx = stop_idx
@@ -685,13 +689,13 @@ class OptimizationLock:
         self.set_batch_dfs(eg_idxes)
 
     def set_batch_dfs(self, eg_idxes):
-        self.batch_library = self._library.copy()
+        self.batch_library = SpecLibFlat()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(
-                self.batch_library._precursor_df[
-                    self.batch_library._precursor_df["elution_group_idx"].isin(eg_idxes)
+                self._library._precursor_df[
+                    self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
                 ],
-                (self.batch_library._fragment_df,),
+                (self._library._fragment_df,),
                 frag_start_col="flat_frag_start_idx",
                 frag_stop_col="flat_frag_stop_idx",
             )
