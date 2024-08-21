@@ -887,7 +887,7 @@ def test_configurability():
                 ["ms1_error", "ms2_error"],
                 ["mobility_error"],
             ],
-            "rt_error": {"update_interval": 0.95, "update_factor": 1.3},
+            "rt_error": {"update_interval": 0.99, "update_factor": 1.3},
             "ms2_error": {"update_interval": 0.995, "update_factor": 1.2},
         }
     )
@@ -903,11 +903,11 @@ def test_configurability():
 
     assert ordered_optimizers[0][0].parameter_name == "rt_error"
     assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
-    assert ordered_optimizers[0][0].update_interval == 0.95
+    assert ordered_optimizers[0][0].update_interval == 0.99
     assert ordered_optimizers[0][0].update_factor == 1.3
 
     assert ordered_optimizers[1][0].parameter_name == "ms1_error"
-    assert ordered_optimizers[1][0].update_interval == 0.99
+    assert ordered_optimizers[1][0].update_interval == 0.95
     assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
 
     assert ordered_optimizers[1][1].parameter_name == "ms2_error"
