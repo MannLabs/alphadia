@@ -144,7 +144,7 @@ def test_output_transform():
     internal_df = pd.read_csv(
         os.path.join(temp_folder, f"{output.INTERNAL_OUTPUT}.tsv"), sep="\t"
     )
-    assert isinstance(internal_df["extraction_duration"][0], float)
+    assert isinstance(internal_df["duration_extraction"][0], float)
     # validate protein_df output
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
