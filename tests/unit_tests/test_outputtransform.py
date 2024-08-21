@@ -77,7 +77,7 @@ def test_output_transform():
 
         optimization_manager = manager.OptimizationManager(
             config,
-            os.path.join(
+            path=os.path.join(
                 raw_folder,
                 peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
             ),
@@ -85,7 +85,7 @@ def test_output_transform():
         optimization_manager.fit({"ms2_error": 6})
         optimization_manager.save()
         timing_manager = manager.TimingManager(
-            os.path.join(
+            path=os.path.join(
                 raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
             )
         )
