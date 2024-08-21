@@ -218,7 +218,6 @@ TEST_OPTIMIZATION_CONFIG = {
         "fwhm_rt": 5,
         "fwhm_mobility": 0.01,
         "score_cutoff": 50,
-        "gradient_length": 1000,
     },
 }
 
@@ -228,6 +227,21 @@ def test_optimization_manager():
 
     assert optimization_manager.fwhm_rt == 5
     assert optimization_manager.fwhm_mobility == 0.01
+
+    assert optimization_manager.is_loaded_from_file is False
+    assert optimization_manager.is_fitted is False
+
+
+def test_optimization_manager_rt_proportion():
+    TEST_OPTIMIZATION_CONFIG_PROPORTION = TEST_OPTIMIZATION_CONFIG.copy()
+    TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
+    optimization_manager = manager.OptimizationManager(
+        TEST_OPTIMIZATION_CONFIG_PROPORTION, 1200
+    )
+
+    assert optimization_manager.fwhm_rt == 5
+    assert optimization_manager.fwhm_mobility == 0.01
+    optimization_manager.rt_error = 600
 
     assert optimization_manager.is_loaded_from_file is False
     assert optimization_manager.is_fitted is False
@@ -274,17 +288,6 @@ def test_optimization_manager_fit():
 
     optimization_manager.save()
     os.remove(temp_path)
-
-
-def test_optimization_manager_rt_proportion():
-    temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
-    TEST_OPTIMIZATION_CONFIG_PROPORTION = TEST_OPTIMIZATION_CONFIG.copy()
-    TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
-    optimization_manager = manager.OptimizationManager(
-        TEST_OPTIMIZATION_CONFIG_PROPORTION, path=temp_path, load_from_file=False
-    )
-
-    assert optimization_manager.rt_error == 500
 
 
 @pytest.mark.slow

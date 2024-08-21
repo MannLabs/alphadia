@@ -454,8 +454,8 @@ class CalibrationManager(BaseManager):
 class OptimizationManager(BaseManager):
     def __init__(
         self,
-        gradient_length: float,
         config: None | dict = None,
+        gradient_length: None | float = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
