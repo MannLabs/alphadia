@@ -102,9 +102,9 @@ class WorkflowBase:
             self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
-
         self._optimization_manager = manager.OptimizationManager(
             self.config,
+            gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file=self.config["general"]["reuse_calibration"],
             figure_path=os.path.join(self.path, self.FIGURE_PATH),

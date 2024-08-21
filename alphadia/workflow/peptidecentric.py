@@ -269,42 +269,41 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             List of lists of optimizers
 
         """
-        config_search_initial = self.config["search_initial"]
         config_search = self.config["search"]
 
         if config_search["target_ms2_tolerance"] > 0:
             ms2_optimizer = optimization.TargetedMS2Optimizer(
-                config_search_initial["initial_ms2_tolerance"],
+                self.optimization_manager.ms2_error,
                 config_search["target_ms2_tolerance"],
                 self,
             )
         else:
             ms2_optimizer = optimization.AutomaticMS2Optimizer(
-                config_search_initial["initial_ms2_tolerance"],
+                self.optimization_manager.ms2_error,
                 self,
             )
 
         if config_search["target_rt_tolerance"] > 0:
             rt_optimizer = optimization.TargetedRTOptimizer(
-                config_search_initial["initial_rt_tolerance"],
+                self.optimization_manager.rt_error,
                 config_search["target_rt_tolerance"],
                 self,
             )
         else:
             rt_optimizer = optimization.AutomaticRTOptimizer(
-                config_search_initial["initial_rt_tolerance"],
+                self.optimization_manager.rt_error,
                 self,
             )
         if self.dia_data.has_ms1:
             if config_search["target_ms1_tolerance"] > 0:
                 ms1_optimizer = optimization.TargetedMS1Optimizer(
-                    config_search_initial["initial_ms1_tolerance"],
+                    self.optimization_manager.ms1_error,
                     config_search["target_ms1_tolerance"],
                     self,
                 )
             else:
                 ms1_optimizer = optimization.AutomaticMS1Optimizer(
-                    config_search_initial["initial_ms1_tolerance"],
+                    self.optimization_manager.ms1_error,
                     self,
                 )
         else:
@@ -312,16 +311,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if self.dia_data.has_mobility:
             if config_search["target_mobility_tolerance"] > 0:
                 mobility_optimizer = optimization.TargetedMobilityOptimizer(
-                    config_search_initial["initial_mobility_tolerance"],
+                    self.optimization_manager.mobility_error,
                     config_search["target_mobility_tolerance"],
                     self,
                 )
             else:
                 mobility_optimizer = optimization.AutomaticMobilityOptimizer(
-                    config_search_initial["initial_mobility_tolerance"],
-                    self.calibration_manager,
-                    self.optimization_manager,
-                    self.fdr_manager,
+                    self.optimization_manager.mobility_error,
+                    self,
                 )
         else:
             mobility_optimizer = None

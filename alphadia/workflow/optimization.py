@@ -397,7 +397,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -434,7 +434,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -472,7 +472,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         """
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -510,7 +510,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         return 1.1 * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.975)
+        ).ci(df, 0.99)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -590,8 +590,8 @@ class OptimizationLock:
         config: dict
             The configuration dictionary from the PeptideCentricWorkflow object.
         """
-        self.library = library
-        self.config = config
+        self._library = library
+        self._config = config
 
         self.first_time_to_reach_target = True
         self.has_target_num_precursors = False
@@ -600,14 +600,14 @@ class OptimizationLock:
         rng = np.random.default_rng(seed=772)
         rng.shuffle(self.elution_group_order)
 
-        self.target_count = self.config["calibration"]["optimization_lock_target"]
+        self.target_count = self._config["calibration"]["optimization_lock_target"]
 
         self.batch_idx = 0
         self.set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
-        self.batch_precursor_df = self.library._precursor_df[
-            self.library._precursor_df["elution_group_idx"].isin(eg_idxes)
+        self.batch_precursor_df = self._library._precursor_df[
+            self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
         ]
 
         self.feature_dfs = []
@@ -622,11 +622,11 @@ class OptimizationLock:
 
     def set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
-        n_eg = self.library._precursor_df["elution_group_idx"].nunique()
+        n_eg = self._library._precursor_df["elution_group_idx"].nunique()
 
         plan = []
 
-        batch_size = self.config["calibration"]["batch_size"]
+        batch_size = self._config["calibration"]["batch_size"]
         step = 0
         start_idx = 0
 
@@ -713,8 +713,8 @@ class OptimizationLock:
             self.fragment_dfs = []
 
         # Sets the batch to be used in the next round of optimization. Note that this batch will only include additional precursors if the target was not reached in this step (as the precursors from this step are stored in the feature_dfs attribute).
-        self.batch_precursor_df = self.library._precursor_df[
-            self.library._precursor_df["elution_group_idx"].isin(eg_idxes)
+        self.batch_precursor_df = self._library._precursor_df[
+            self._library._precursor_df["elution_group_idx"].isin(eg_idxes)
         ]
 
     @property
