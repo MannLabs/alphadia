@@ -455,6 +455,7 @@ class OptimizationManager(BaseManager):
     def __init__(
         self,
         config: None | dict = None,
+        gradient_length: None | float = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
@@ -464,10 +465,15 @@ class OptimizationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
+            rt_error = (
+                config["search_initial"]["initial_rt_tolerance"]
+                if config["search_initial"]["initial_rt_tolerance"] > 1
+                else config["search_initial"]["initial_rt_tolerance"] * gradient_length
+            )
             initial_parameters = {
                 "ms1_error": config["search_initial"]["initial_ms1_tolerance"],
                 "ms2_error": config["search_initial"]["initial_ms2_tolerance"],
-                "rt_error": config["search_initial"]["initial_rt_tolerance"],
+                "rt_error": rt_error,
                 "mobility_error": config["search_initial"][
                     "initial_mobility_tolerance"
                 ],
@@ -768,12 +774,12 @@ class TimingManager(BaseManager):
             self.timings = {}
 
     def set_start_time(self, workflow_stage: str):
-        """Starts the timer for a portion of the workflow and stores it in the timings attribute under the name given by the parameter workflow_stage"""
+        """Stores the time at which a given stage of the workflow started in the timings attribute."""
         self.timings.update({workflow_stage: {"start": pd.Timestamp.now()}})
         self.save()
 
     def set_end_time(self, workflow_stage: str):
-        """"""
+        """Stores the time at which a given stage of the workflow ended in the timings attribute."""
         self.timings[workflow_stage]["end"] = pd.Timestamp.now()
         self.timings[workflow_stage]["duration"] = (
             self.timings[workflow_stage]["end"] - self.timings[workflow_stage]["start"]
