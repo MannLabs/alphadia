@@ -1,6 +1,7 @@
 import os
 import shutil
 import tempfile
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -233,7 +234,7 @@ def test_optimization_manager():
 
 
 def test_optimization_manager_rt_proportion():
-    TEST_OPTIMIZATION_CONFIG_PROPORTION = TEST_OPTIMIZATION_CONFIG.copy()
+    TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
     TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
     optimization_manager = manager.OptimizationManager(
         TEST_OPTIMIZATION_CONFIG_PROPORTION, 1200
