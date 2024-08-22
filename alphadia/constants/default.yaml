@@ -48,6 +48,9 @@ library_prediction:
   # set path for custom peptdeep model. If set to null, the default model will be used
   peptdeep_model_path: null
 
+  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'. If set to null, the generic model will be used
+  peptdeep_model_type: null
+
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
 custom_modififcations:
@@ -162,6 +165,38 @@ scoring_config:
   reference_channel: -1
   precursor_mz_tolerance: 10
   fragment_mz_tolerance: 15
+
+# perform non-isobaric multiplexing of any input library
+library_multiplexing:
+  # if true, the library is multiplexed
+  enabled: False
+
+  # if the input library already contains multiplexed channels, the input channel has to be specified.
+  input_channel: 0
+
+  # define channels by their name and how modifications should be translated from the input library to the multiplexed library
+  # channels can be either a number or a string
+  # for every channel, the library gets copied and the modifications are translated according to the mapping
+  # the following example shows how to multiplex mTRAQ to three sample channels and a decoy channel
+  multiplex_mapping: {}
+
+    #0:
+    #  mTRAQ@K: mTRAQ@K
+    #  mTRAQ@Any_N-term: mTRAQ@Any_N-term
+
+    #4:
+    #  mTRAQ@K: mTRAQ:13C(3)15N(1)@K
+    #  mTRAQ@Any_N-term: mTRAQ:13C(3)15N(1)@Any_N-term
+
+    #8:
+    #  mTRAQ@K: mTRAQ:13C(6)15N(2)@K
+    #  mTRAQ@Any_N-term: mTRAQ:13C(6)15N(2)@Any_N-term
+
+    #12:
+    #  mTRAQ@K: mTRAQ:d12@K
+    #  mTRAQ@Any_N-term: mTRAQ:d12@Any_N-term
+
+
 
 multiplexing:
   enabled: False
