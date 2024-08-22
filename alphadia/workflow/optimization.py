@@ -128,33 +128,7 @@ class AutomaticOptimizer(BaseOptimizer):
         if just_converged:
             self.has_converged = True
 
-            index_of_optimum = self.history_df[self.feature_name].idxmax()
-
-            optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-            classifier_version_at_optimum = self.history_df["classifier_version"].loc[
-                index_of_optimum
-            ]
-            score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[
-                index_of_optimum
-            ]
-            fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-            fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
-                index_of_optimum
-            ]
-
-            self.workflow.optimization_manager.fit(
-                {self.parameter_name: optimal_parameter}
-            )
-            self.workflow.optimization_manager.fit(
-                {"classifier_version": classifier_version_at_optimum}
-            )
-            self.workflow.optimization_manager.fit(
-                {"score_cutoff": score_cutoff_at_optimum}
-            )
-            self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
-            self.workflow.optimization_manager.fit(
-                {"fwhm_mobility": fwhm_mobility_at_optimum}
-            )
+            self._update_optimization_manager()
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
@@ -240,7 +214,7 @@ class AutomaticOptimizer(BaseOptimizer):
         Notes
         -----
             Because the check for an increase in feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
-
+            This function may be overwritten in child classes.
 
         """
 
@@ -255,6 +229,54 @@ class AutomaticOptimizer(BaseOptimizer):
             < 1.1 * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
             < 1.1 * self.history_df[self.feature_name].iloc[-3]
+        )
+
+    def _find_index_of_optimum(self):
+        """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
+
+        Returns
+        -------
+        int
+            The index of the row with the optimal value of the feature used for optimization.
+
+        Notes
+        -----
+            This method may be overwritten in child classes if the "optimal" value differs from the value that maximizes the feature used for optimization.
+
+        """
+        return self.history_df[self.feature_name].idxmax()
+
+    def _update_optimization_manager(self):
+        """Updates the optimization manager with the results of the optimization, including:
+            the optimal parameter
+            the classifier version,
+            score cutoff, and
+            FWHM values
+        at the optimal parameter.
+
+        """
+        index_of_optimum = self._find_index_of_optimum()
+
+        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
+        classifier_version_at_optimum = self.history_df["classifier_version"].loc[
+            index_of_optimum
+        ]
+        score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
+        fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
+        fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
+            index_of_optimum
+        ]
+
+        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+        self.workflow.optimization_manager.fit(
+            {"classifier_version": classifier_version_at_optimum}
+        )
+        self.workflow.optimization_manager.fit(
+            {"score_cutoff": score_cutoff_at_optimum}
+        )
+        self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+        self.workflow.optimization_manager.fit(
+            {"fwhm_mobility": fwhm_mobility_at_optimum}
         )
 
     @abstractmethod
@@ -403,6 +425,50 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
         return len(precursors_df) / self.workflow.optlock.total_precursors
+
+    def _check_convergence(self):
+        """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
+        This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
+        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+
+        Notes
+        -----
+            Because the check for an increase in feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
+
+
+        """
+        if len(self.history_df) <= 2:
+            return False
+
+        min_steps_reached = (
+            self.num_prev_optimizations
+            >= self.workflow.config["calibration"]["min_steps"]
+        )
+
+        feature_substantially_decreased = (
+            self.history_df[self.feature_name].iloc[-1]
+            < 0.8 * self.history_df[self.feature_name].iloc[-2]
+            and self.history_df[self.feature_name].iloc[-1]
+            < 0.8 * self.history_df[self.feature_name].iloc[-3]
+        )
+
+        parameter_not_substantially_changed = (
+            self.history_df["parameter"].iloc[-1]
+            / self.history_df["parameter"].iloc[-2]
+            > 0.95
+        )
+
+        return min_steps_reached and (
+            feature_substantially_decreased or parameter_not_substantially_changed
+        )
+
+    def _find_index_of_optimum(self):
+        rows_within_thresh_of_max = self.history_df[self.feature_name].loc[
+            self.history_df[self.feature_name]
+            > self.history_df[self.feature_name].max() * 0.9
+        ]
+        index_of_optimum = rows_within_thresh_of_max.index[-1]
+        return index_of_optimum
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
