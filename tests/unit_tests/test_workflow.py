@@ -449,7 +449,7 @@ def create_workflow_instance():
     workflow.init_fdr_manager()
 
     class MockOptlock:
-        total_precursors = 2000
+        total_elution_groups = 2000
 
     workflow.optlock = MockOptlock()
 

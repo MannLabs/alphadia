@@ -613,7 +613,6 @@ class OptimizationLock:
 
         self.feature_dfs = []
         self.fragment_dfs = []
-        self.total_elution_groups = 0
 
     def _get_exponential_batches(self, step):
         """Get the number of batches for a given step
