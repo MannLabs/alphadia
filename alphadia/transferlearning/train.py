@@ -68,7 +68,7 @@ class CustomScheduler(LR_SchedulerInterface):
         self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
-            patience=settings["lr_patience"],
+            patience=3,
             factor=0.5,
         )
         self.warmup_lr = LambdaLR(optimizer, self._warmup)
@@ -547,7 +547,7 @@ class FinetuneManager(ModelManager):
             epoch=self.settings["epochs"],
             batch_size=self.settings["batch_size"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_ms2(
@@ -706,7 +706,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_rt(
@@ -888,7 +888,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_charge(
@@ -1050,7 +1050,7 @@ class FinetuneManager(ModelManager):
             batch_size=self.settings["batch_size"],
             epoch=self.settings["epochs"],
             warmup_epoch=self.settings["warmup_epochs"],
-            lr=settings["max_lr"],
+            lr=self.settings["max_lr"],
         )
 
         self._test_ccs(
