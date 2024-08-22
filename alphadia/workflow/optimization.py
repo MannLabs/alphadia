@@ -463,11 +463,11 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         )
 
     def _find_index_of_optimum(self):
-        rows_within_thresh_of_max = self.history_df[self.feature_name].loc[
+        rows_within_thresh_of_max = self.history_df.loc[
             self.history_df[self.feature_name]
             > self.history_df[self.feature_name].max() * 0.9
         ]
-        index_of_optimum = rows_within_thresh_of_max.index[-1]
+        index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
         return index_of_optimum
 
 
