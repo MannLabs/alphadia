@@ -190,7 +190,15 @@ search_output:
   file_format: "tsv"
 
 optimization:
+  # The order in which to perform optimization. Should be a list of lists of parameter names
+  # Example: [['ms1_error', 'ms2_error', 'rt_error', 'mobility_error']] means that all parameters are optimized simultaneously.
+  # Example: [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]] means that the parameters are optimized sequentially in the order given.
+  # Example: [["rt_error"], ["ms1_error", "ms2_error"]] means that first rt_error is optimized, then ms1_error and ms2_error are optimized simultaneously, and mobility_error is not optimized at all.
   order_of_optimization: null
+
+  # Parameters for the update rule for each parameter:
+  #   - update_interval: the percentile interval to use (as a decimal)
+  #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
   ms2_error:
       update_interval: 0.95
       update_factor: 1.0
