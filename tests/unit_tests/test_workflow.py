@@ -959,6 +959,8 @@ def test_configurability():
             "rt_error": {
                 "automatic_update_interval": 0.99,
                 "automatic_update_factor": 1.3,
+                "maximal_decrease": 0.8,
+                "minimum_proportion_of_maximum": 0.95,
             },
             "ms2_error": {
                 "automatic_update_interval": 0.80,
