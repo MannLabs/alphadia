@@ -887,8 +887,15 @@ def test_configurability():
                 ["ms1_error", "ms2_error"],
                 ["mobility_error"],
             ],
-            "rt_error": {"update_interval": 0.99, "update_factor": 1.3},
-            "ms2_error": {"update_interval": 0.995, "update_factor": 1.2},
+            "rt_error": {
+                "automatic_update_interval": 0.99,
+                "automatic_update_factor": 1.3,
+            },
+            "ms2_error": {
+                "automatic_update_interval": 0.80,
+                "targeted_update_interval": 0.995,
+                "targeted_update_factor": 1.2,
+            },
         }
     )
     workflow.config["search"].update(
