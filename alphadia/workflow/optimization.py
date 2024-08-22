@@ -86,10 +86,10 @@ class AutomaticOptimizer(BaseOptimizer):
         self.has_converged = False
         self.num_prev_optimizations = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
-            "update_factor"
+            "automatic_update_factor"
         ]
         self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "update_interval"
+            "automatic_update_interval"
         ]
 
     def step(
@@ -208,9 +208,13 @@ class AutomaticOptimizer(BaseOptimizer):
 
         plt.show()
 
-    @abstractmethod
-    def _propose_new_parameter(self, df):
-        """This method specifies the rule according to which the search parameter is updated between rounds of optimization. The rule is specific to the parameter being optimized.
+    def _propose_new_parameter(self, df: pd.DataFrame):
+        """This method specifies the rule according to which the search parameter is updated between rounds of optimization. The update rule is
+            1) calculate the deviation of the predicted mz values from the observed mz values,
+            2) take the mean of the endpoints of the central interval
+                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+            3) multiply this value by self.update_factor.
+        This is implemented by the ci method for the estimator.
 
         Parameters
         ----------
@@ -223,9 +227,10 @@ class AutomaticOptimizer(BaseOptimizer):
         float
             The proposed new value for the search parameter.
 
-
         """
-        pass
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
+            self.estimator_group_name, self.estimator_name
+        ).ci(df, self.update_interval)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
@@ -298,10 +303,10 @@ class TargetedOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.update_factor = workflow.config["optimization"][self.parameter_name][
-            "update_factor"
+            "targeted_update_factor"
         ]
         self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "update_interval"
+            "targeted_update_interval"
         ]
         self.has_converged = False
 
@@ -394,24 +399,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
-    def _propose_new_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central interval
-                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
-            3) multiply this value by self.update_factor.
-        This is implemented by the ci method for the estimator.
-
-        Returns
-        -------
-        float
-            The proposed new value for the search parameter.
-
-        """
-        return self.update_factor * self.workflow.calibration_manager.get_estimator(
-            self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_interval)
-
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
@@ -431,24 +418,6 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.estimator_name = "mz"
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
-
-    def _propose_new_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central interval
-                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
-            3) multiply this value by self.update_factor.
-        This is implemented by the ci method for the estimator.
-
-        Returns
-        -------
-        float
-            The proposed new value for the search parameter.
-
-        """
-        return self.update_factor * self.workflow.calibration_manager.get_estimator(
-            self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -470,24 +439,6 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.feature_name = "mean_isotope_intensity_correlation"
         super().__init__(initial_parameter, workflow, reporter)
 
-    def _propose_new_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central interval
-                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
-            3) multiply this value by self.update_factor.
-        This is implemented by the ci method for the estimator.
-
-        Returns
-        -------
-        float
-            The proposed new value for the search parameter.
-
-        """
-        return self.update_factor * self.workflow.calibration_manager.get_estimator(
-            self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_interval)
-
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
@@ -507,25 +458,6 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.estimator_name = "mobility"
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
-
-    def _propose_new_parameter(self, df: pd.DataFrame):
-        """See base class. The update rule is
-            1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central interval
-                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
-            3) multiply this value by self.update_factor.
-        This is implemented by the ci method for the estimator.
-
-        Returns
-        -------
-        float
-            The proposed new value for the search parameter.
-
-        """
-
-        return self.update_factor * self.workflow.calibration_manager.get_estimator(
-            self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
