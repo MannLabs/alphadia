@@ -402,6 +402,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
+
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
@@ -421,6 +422,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.estimator_name = "mz"
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
+
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -442,6 +444,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.feature_name = "mean_isotope_intensity_correlation"
         super().__init__(initial_parameter, workflow, reporter)
 
+
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
@@ -461,6 +464,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.estimator_name = "mobility"
         self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
+
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
