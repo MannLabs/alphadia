@@ -992,4 +992,3 @@ def test_optlock_reindex():
         ]["precursor_idx"]
         == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
-
