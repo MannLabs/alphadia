@@ -89,10 +89,10 @@ class AutomaticOptimizer(BaseOptimizer):
         self.has_converged = False
         self.num_prev_optimizations = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
-            "update_factor"
+            "automatic_update_factor"
         ]
         self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "update_interval"
+            "automatic_update_interval"
         ]
 
     def step(
@@ -301,10 +301,10 @@ class TargetedOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
         self.update_factor = workflow.config["optimization"][self.parameter_name][
-            "update_factor"
+            "targeted_update_factor"
         ]
         self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "update_interval"
+            "targeted_update_interval"
         ]
         self.has_converged = False
 
