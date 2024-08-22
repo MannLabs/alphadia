@@ -254,6 +254,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_interval: 0.99
       automatic_update_factor: 1.1
+      maximal_decrease: 0.8
+      minimum_proportion_of_maximum: 0.95
 
 # configuration for the optimization manager
 # initial parameters, will be optimized

@@ -422,6 +422,12 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
+        self.maximal_decrease = workflow.config["optimization"]["rt_error"][
+            "maximal_decrease"
+        ]
+        self.minimum_proportion_of_maximum = workflow.config["optimization"][
+            "rt_error"
+        ]["minimum_proportion_of_maximum"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
@@ -450,15 +456,15 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
 
         feature_substantially_decreased = (
             self.history_df[self.feature_name].iloc[-1]
-            < 0.8 * self.history_df[self.feature_name].iloc[-2]
+            < self.maximal_decrease * self.history_df[self.feature_name].iloc[-2]
             and self.history_df[self.feature_name].iloc[-1]
-            < 0.8 * self.history_df[self.feature_name].iloc[-3]
+            < self.maximal_decrease * self.history_df[self.feature_name].iloc[-3]
         )
 
         parameter_not_substantially_changed = (
             self.history_df["parameter"].iloc[-1]
             / self.history_df["parameter"].iloc[-2]
-            > 0.95
+            > self.minimum_proportion_of_maximum
         )
 
         return min_steps_reached and (
