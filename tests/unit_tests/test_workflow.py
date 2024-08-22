@@ -850,12 +850,12 @@ def test_optlock():
 
     assert optlock.start_idx == optlock.batch_plan[0][0]
 
-    feature_df = pd.DataFrame({"precursor_idx": np.arange(0, 1000)})
-    fragment_df = pd.DataFrame({"precursor_idx": np.arange(0, 10000)})
+    feature_df = pd.DataFrame({"elution_group_idx": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"elution_group_idx": np.arange(0, 10000)})
 
     optlock.update_with_extraction(feature_df, fragment_df)
 
-    assert optlock.total_precursors == 1000
+    assert optlock.total_elution_groups == 1000
     precursor_df = pd.DataFrame(
         {"qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)])}
     )
@@ -867,12 +867,12 @@ def test_optlock():
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
 
-    feature_df = pd.DataFrame({"precursor_idx": np.arange(1000, 2000)})
-    fragment_df = pd.DataFrame({"precursor_idx": np.arange(10000, 20000)})
+    feature_df = pd.DataFrame({"elution_group_idx": np.arange(1000, 2000)})
+    fragment_df = pd.DataFrame({"elution_group_idx": np.arange(10000, 20000)})
 
     optlock.update_with_extraction(feature_df, fragment_df)
 
-    assert optlock.total_precursors == 2000
+    assert optlock.total_elution_groups == 2000
 
     precursor_df = pd.DataFrame(
         {"qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)])}
@@ -886,6 +886,8 @@ def test_optlock():
     optlock.update()
 
     assert optlock.start_idx == 0
+
+    assert optlock.total_elution_groups == 2000
 
 
 def test_optlock_batch_idx():
@@ -910,6 +912,7 @@ def test_optlock_batch_idx():
     optlock.update()
 
     assert optlock.start_idx == 0
+    assert optlock.stop_idx == 2000
 
 
 def test_optlock_reindex():
@@ -936,8 +939,3 @@ def test_optlock_reindex():
         ]["precursor_idx"]
         == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
-
-
-test_optlock()
-test_optlock_batch_idx()
-test_optlock_reindex()

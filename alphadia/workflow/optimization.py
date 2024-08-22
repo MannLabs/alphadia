@@ -405,7 +405,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_precursors
+        return len(precursors_df) / self.workflow.optlock.total_elution_groups
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
@@ -442,7 +442,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_precursors
+        return len(precursors_df) / self.workflow.optlock.total_elution_groups
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
@@ -518,7 +518,7 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_precursors
+        return len(precursors_df) / self.workflow.optlock.total_elution_groups
 
 
 class TargetedRTOptimizer(TargetedOptimizer):
@@ -613,6 +613,7 @@ class OptimizationLock:
 
         self.feature_dfs = []
         self.fragment_dfs = []
+        self.total_elution_groups = 0
 
     def _get_exponential_batches(self, step):
         """Get the number of batches for a given step
@@ -655,7 +656,7 @@ class OptimizationLock:
         self.feature_dfs += [feature_df]
         self.fragment_dfs += [fragment_df]
 
-        self.total_precursors = self.features_df.precursor_idx.nunique()
+        self.total_elution_groups = self.features_df.elution_group_idx.nunique()
 
     def update_with_fdr(self, precursor_df):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
