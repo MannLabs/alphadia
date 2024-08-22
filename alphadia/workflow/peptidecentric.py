@@ -365,7 +365,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     [
                         opt_mapping[opt]
                         for opt in optimizers_in_ordering
-                        if opt is not None
+                        if opt_mapping[opt] is not None
                     ]
                 ]
 
