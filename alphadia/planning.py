@@ -226,6 +226,9 @@ class Plan:
                 peptdeep_model_path=self.config["library_prediction"][
                     "peptdeep_model_path"
                 ],
+                peptdeep_model_type=self.config["library_prediction"][
+                    "peptdeep_model_type"
+                ],
                 fragment_types=self.config["library_prediction"][
                     "fragment_types"
                 ].split(";"),
@@ -248,6 +251,15 @@ class Plan:
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
+
+        if self.config["library_multiplexing"]["enabled"]:
+            multiplexing = libtransform.MultiplexLibrary(
+                multiplex_mapping=self.config["library_multiplexing"][
+                    "multiplex_mapping"
+                ],
+                input_channel=self.config["library_multiplexing"]["input_channel"],
+            )
+            spectral_library = multiplexing(spectral_library)
 
         library_path = os.path.join(self.output_folder, "speclib.hdf")
         logger.info(f"Saving library to {library_path}")
