@@ -241,27 +241,27 @@ optimization:
   order_of_optimization: null
 
   # Parameters for the update rule for each parameter:
-  #   - update_interval: the percentile interval to use (as a decimal)
+  #   - update_percentile_range: the percentile interval to use (as a decimal)
   #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
   ms2_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   ms1_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   mobility_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   rt_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
 
 # configuration for the optimization manager

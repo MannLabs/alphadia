@@ -921,53 +921,6 @@ def test_optlock_batch_idx():
     assert optlock.stop_idx == 2000
 
 
-def test_configurability():
-    workflow = create_workflow_instance()
-    workflow.config["optimization"].update(
-        {
-            "order_of_optimization": [
-                ["rt_error"],
-                ["ms1_error", "ms2_error"],
-                ["mobility_error"],
-            ],
-            "rt_error": {
-                "automatic_update_interval": 0.99,
-                "automatic_update_factor": 1.3,
-            },
-            "ms2_error": {
-                "automatic_update_interval": 0.80,
-                "targeted_update_interval": 0.995,
-                "targeted_update_factor": 1.2,
-            },
-        }
-    )
-    workflow.config["search"].update(
-        {
-            "target_rt_tolerance": -1,
-        }
-    )
-
-    ordered_optimizers = workflow.get_ordered_optimizers()
-
-    assert len(ordered_optimizers) == 3
-
-    assert ordered_optimizers[0][0].parameter_name == "rt_error"
-    assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
-    assert ordered_optimizers[0][0].update_interval == 0.99
-    assert ordered_optimizers[0][0].update_factor == 1.3
-
-    assert ordered_optimizers[1][0].parameter_name == "ms1_error"
-    assert ordered_optimizers[1][0].update_interval == 0.95
-    assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
-
-    assert ordered_optimizers[1][1].parameter_name == "ms2_error"
-    assert isinstance(ordered_optimizers[1][1], optimization.TargetedMS2Optimizer)
-    assert ordered_optimizers[1][1].update_interval == 0.995
-    assert ordered_optimizers[1][1].update_factor == 1.2
-
-    assert ordered_optimizers[2][0].parameter_name == "mobility_error"
-
-
 def test_optlock_reindex():
     library = create_test_library_for_indexing()
     optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
@@ -992,3 +945,50 @@ def test_optlock_reindex():
         ]["precursor_idx"]
         == optlock.batch_library._precursor_df.iloc[50]["precursor_idx"] ** 2
     )  # The original start index of any precursor should be equal to the square of the its original ID
+
+
+def test_configurability():
+    workflow = create_workflow_instance()
+    workflow.config["optimization"].update(
+        {
+            "order_of_optimization": [
+                ["rt_error"],
+                ["ms1_error", "ms2_error"],
+                ["mobility_error"],
+            ],
+            "rt_error": {
+                "automatic_update_percentile_range": 0.99,
+                "automatic_update_factor": 1.3,
+            },
+            "ms2_error": {
+                "automatic_update_percentile_range": 0.80,
+                "targeted_update_percentile_range": 0.995,
+                "targeted_update_factor": 1.2,
+            },
+        }
+    )
+    workflow.config["search"].update(
+        {
+            "target_rt_tolerance": -1,
+        }
+    )
+
+    ordered_optimizers = workflow.get_ordered_optimizers()
+
+    assert len(ordered_optimizers) == 3
+
+    assert ordered_optimizers[0][0].parameter_name == "rt_error"
+    assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
+    assert ordered_optimizers[0][0].update_percentile_range == 0.99
+    assert ordered_optimizers[0][0].update_factor == 1.3
+
+    assert ordered_optimizers[1][0].parameter_name == "ms1_error"
+    assert ordered_optimizers[1][0].update_percentile_range == 0.95
+    assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
+
+    assert ordered_optimizers[1][1].parameter_name == "ms2_error"
+    assert isinstance(ordered_optimizers[1][1], optimization.TargetedMS2Optimizer)
+    assert ordered_optimizers[1][1].update_percentile_range == 0.995
+    assert ordered_optimizers[1][1].update_factor == 1.2
+
+    assert ordered_optimizers[2][0].parameter_name == "mobility_error"
