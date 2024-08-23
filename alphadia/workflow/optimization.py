@@ -250,34 +250,38 @@ class AutomaticOptimizer(BaseOptimizer):
         return self.history_df[self.feature_name].idxmax()
 
     def _update_optimization_manager(self):
-        """Updates the optimization manager with the results of the optimization, including:
-            the optimal parameter
+        """Updates the optimization manager with the results of the optimization, namely:
             the classifier version,
-            score cutoff, and
-            FWHM values
+            the optimal parameter,
+            score cutoff,
+            FWHM_RT,
+            and FWHM_mobility
         at the optimal parameter.
 
         """
         index_of_optimum = self._find_index_of_optimum()
 
-        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
         classifier_version_at_optimum = self.history_df["classifier_version"].loc[
             index_of_optimum
         ]
-        score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
-        fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-        fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
-            index_of_optimum
-        ]
-
-        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
         self.workflow.optimization_manager.fit(
             {"classifier_version": classifier_version_at_optimum}
         )
+
+        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
+        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+
+        score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
         self.workflow.optimization_manager.fit(
             {"score_cutoff": score_cutoff_at_optimum}
         )
+
+        fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
         self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+
+        fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
+            index_of_optimum
+        ]
         self.workflow.optimization_manager.fit(
             {"fwhm_mobility": fwhm_mobility_at_optimum}
         )
@@ -446,7 +450,7 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
 
 
         """
-        if len(self.history_df) <= 2:
+        if len(self.history_df) < 3:
             return False
 
         min_steps_reached = (
@@ -454,16 +458,16 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             >= self.workflow.config["calibration"]["min_steps"]
         )
 
+        feature_history = self.history_df[self.feature_name]
         feature_substantially_decreased = (
-            self.history_df[self.feature_name].iloc[-1]
-            < self.maximal_decrease * self.history_df[self.feature_name].iloc[-2]
-            and self.history_df[self.feature_name].iloc[-1]
-            < self.maximal_decrease * self.history_df[self.feature_name].iloc[-3]
+            feature_history.iloc[-1] < self.maximal_decrease * feature_history.iloc[-2]
+            and feature_history.iloc[-1]
+            < self.maximal_decrease * feature_history.iloc[-3]
         )
 
+        parameter_history = self.history_df["parameter"]
         parameter_not_substantially_changed = (
-            self.history_df["parameter"].iloc[-1]
-            / self.history_df["parameter"].iloc[-2]
+            parameter_history.iloc[-1] / parameter_history.iloc[-2]
             > self.minimum_proportion_of_maximum
         )
 
