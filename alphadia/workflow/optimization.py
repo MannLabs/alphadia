@@ -234,7 +234,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
         if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            if len(self.history_df) <= 2:
+            if len(self.history_df) < 3:
                 return False
 
             min_steps_reached = (
