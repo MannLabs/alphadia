@@ -63,7 +63,7 @@ def test_output_transform():
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)
 
-    for raw_folder in raw_folders:
+    for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
 
         psm_df = psm_base_df.sample(50)
@@ -82,17 +82,23 @@ def test_output_transform():
                 peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
             ),
         )
-        optimization_manager.fit({"ms2_error": 6})
-        optimization_manager.save()
+
         timing_manager = manager.TimingManager(
             path=os.path.join(
                 raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
             )
         )
 
-        timing_manager.set_start_time("extraction")
-        timing_manager.set_end_time("extraction")
-        timing_manager.save()
+        if (
+            i == 2
+        ):  # simulate the case that the search fails such that the optimization and timing managers are not saved
+            pass
+        else:
+            optimization_manager.fit({"ms2_error": 6})
+            optimization_manager.save()
+            timing_manager.set_start_time("extraction")
+            timing_manager.set_end_time("extraction")
+            timing_manager.save()
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
@@ -157,3 +163,6 @@ def test_output_transform():
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
 
     shutil.rmtree(temp_folder)
+
+
+test_output_transform()
