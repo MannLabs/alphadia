@@ -94,6 +94,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self.update_percentile_range = workflow.config["optimization"][
             self.parameter_name
         ]["automatic_update_percentile_range"]
+
         self.favour_narrower_parameter = workflow.config["optimization"][
             self.parameter_name
         ]["favour_narrower_parameter"]
@@ -105,6 +106,7 @@ class AutomaticOptimizer(BaseOptimizer):
             self.minimum_proportion_of_maximum = workflow.config["optimization"][
                 self.parameter_name
             ]["minimum_proportion_of_maximum"]
+
 
     def step(
         self,
