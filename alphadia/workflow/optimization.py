@@ -107,7 +107,6 @@ class AutomaticOptimizer(BaseOptimizer):
                 self.parameter_name
             ]["minimum_proportion_of_maximum"]
 
-
     def step(
         self,
         precursors_df: pd.DataFrame,
