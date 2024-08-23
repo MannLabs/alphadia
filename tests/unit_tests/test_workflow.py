@@ -957,15 +957,15 @@ def test_configurability():
                 ["mobility_error"],
             ],
             "rt_error": {
-                "automatic_update_interval": 0.99,
+                "automatic_update_percentile_range": 0.99,
                 "automatic_update_factor": 1.3,
                 "favour_narrower_parameter": True,
                 "maximal_decrease": 0.8,
                 "minimum_proportion_of_maximum": 0.95,
             },
             "ms2_error": {
-                "automatic_update_interval": 0.80,
-                "targeted_update_interval": 0.995,
+                "automatic_update_percentile_range": 0.80,
+                "targeted_update_percentile_range": 0.995,
                 "targeted_update_factor": 1.2,
                 "favour_narrower_parameter": False,
             },
@@ -983,16 +983,16 @@ def test_configurability():
 
     assert ordered_optimizers[0][0].parameter_name == "rt_error"
     assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
-    assert ordered_optimizers[0][0].update_interval == 0.99
+    assert ordered_optimizers[0][0].update_percentile_range == 0.99
     assert ordered_optimizers[0][0].update_factor == 1.3
 
     assert ordered_optimizers[1][0].parameter_name == "ms1_error"
-    assert ordered_optimizers[1][0].update_interval == 0.95
+    assert ordered_optimizers[1][0].update_percentile_range == 0.95
     assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
 
     assert ordered_optimizers[1][1].parameter_name == "ms2_error"
     assert isinstance(ordered_optimizers[1][1], optimization.TargetedMS2Optimizer)
-    assert ordered_optimizers[1][1].update_interval == 0.995
+    assert ordered_optimizers[1][1].update_percentile_range == 0.995
     assert ordered_optimizers[1][1].update_factor == 1.2
 
     assert ordered_optimizers[2][0].parameter_name == "mobility_error"

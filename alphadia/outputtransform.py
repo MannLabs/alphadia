@@ -966,7 +966,7 @@ def _build_run_internal_df(
     raw_name = os.path.basename(folder_path)
 
     internal_dict = {
-        "run": raw_name,
+        "run": [raw_name],
     }
 
     if os.path.exists(timing_manager_path):
