@@ -91,9 +91,9 @@ class AutomaticOptimizer(BaseOptimizer):
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
-        self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "automatic_update_interval"
-        ]
+        self.update_percentile_range = workflow.config["optimization"][
+            self.parameter_name
+        ]["automatic_update_percentile_range"]
 
     def step(
         self,
@@ -215,7 +215,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """This method specifies the rule according to which the search parameter is updated between rounds of optimization. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
             2) take the mean of the endpoints of the central interval
-                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+                (determined by the self.update_percentile_range attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
             3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
 
@@ -233,7 +233,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_interval)
+        ).ci(df, self.update_percentile_range)
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
@@ -308,9 +308,9 @@ class TargetedOptimizer(BaseOptimizer):
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "targeted_update_factor"
         ]
-        self.update_interval = workflow.config["optimization"][self.parameter_name][
-            "targeted_update_interval"
-        ]
+        self.update_percentile_range = workflow.config["optimization"][
+            self.parameter_name
+        ]["targeted_update_percentile_range"]
         self.has_converged = False
 
     def _check_convergence(self, proposed_parameter: float):
@@ -344,7 +344,7 @@ class TargetedOptimizer(BaseOptimizer):
         return self.update_factor * max(
             self.workflow.calibration_manager.get_estimator(
                 self.estimator_group_name, self.estimator_name
-            ).ci(df, self.update_interval),
+            ).ci(df, self.update_percentile_range),
             self.target_parameter,
         )
 
