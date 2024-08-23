@@ -88,6 +88,12 @@ class AutomaticOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
         self.num_prev_optimizations = 0
+        self.update_factor = workflow.config["optimization"][self.parameter_name][
+            "automatic_update_factor"
+        ]
+        self.update_interval = workflow.config["optimization"][self.parameter_name][
+            "automatic_update_interval"
+        ]
 
     def step(
         self,
@@ -294,6 +300,12 @@ class TargetedOptimizer(BaseOptimizer):
         super().__init__(workflow, reporter)
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
+        self.update_factor = workflow.config["optimization"][self.parameter_name][
+            "targeted_update_factor"
+        ]
+        self.update_interval = workflow.config["optimization"][self.parameter_name][
+            "targeted_update_interval"
+        ]
         self.has_converged = False
 
     def _check_convergence(self, proposed_parameter: float):
@@ -324,10 +336,10 @@ class TargetedOptimizer(BaseOptimizer):
             3) take the maximum of this value and the target parameter.
         This is implemented by the ci method for the estimator.
         """
-        return max(
+        return self.update_factor * max(
             self.workflow.calibration_manager.get_estimator(
                 self.estimator_group_name, self.estimator_name
-            ).ci(df, 0.95),
+            ).ci(df, self.update_interval),
             self.target_parameter,
         )
 
@@ -388,8 +400,9 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central 99% of these deviations, and
-            3) multiply this value by 1.1.
+            2) take the mean of the endpoints of the central interval
+                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+            3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
 
         Returns
@@ -398,9 +411,9 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -425,8 +438,9 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central 99% of these deviations, and
-            3) multiply this value by 1.1.
+            2) take the mean of the endpoints of the central interval
+                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+            3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
 
         Returns
@@ -435,9 +449,9 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -462,10 +476,10 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central 99% of these deviations, and
-            3) multiply this value by 1.1.
+            2) take the mean of the endpoints of the central interval
+                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+            3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
-
 
         Returns
         -------
@@ -473,9 +487,9 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -500,8 +514,9 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def _propose_new_parameter(self, df: pd.DataFrame):
         """See base class. The update rule is
             1) calculate the deviation of the predicted mz values from the observed mz values,
-            2) take the mean of the endpoints of the central 99% of these deviations, and
-            3) multiply this value by 1.1.
+            2) take the mean of the endpoints of the central interval
+                (determined by the self.update_interval attribute, which determines the percentile taken expressed as a decimal) of these deviations, and
+            3) multiply this value by self.update_factor.
         This is implemented by the ci method for the estimator.
 
         Returns
@@ -511,9 +526,9 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
 
         """
 
-        return 1.1 * self.workflow.calibration_manager.get_estimator(
+        return self.update_factor * self.workflow.calibration_manager.get_estimator(
             self.estimator_group_name, self.estimator_name
-        ).ci(df, 0.99)
+        ).ci(df, self.update_interval)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame

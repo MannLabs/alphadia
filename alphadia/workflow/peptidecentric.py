@@ -323,32 +323,51 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         else:
             mobility_optimizer = None
 
-        optimizers = [
-            ms2_optimizer,
-            rt_optimizer,
-            ms1_optimizer,
-            mobility_optimizer,
-        ]
-        targeted_optimizers = [
-            [
-                optimizer
-                for optimizer in optimizers
-                if isinstance(optimizer, optimization.TargetedOptimizer)
+        if self.config["optimization"]["order_of_optimization"] is None:
+            optimizers = [
+                ms2_optimizer,
+                rt_optimizer,
+                ms1_optimizer,
+                mobility_optimizer,
             ]
-        ]
-        automatic_optimizers = [
-            [optimizer]
-            for optimizer in optimizers
-            if isinstance(optimizer, optimization.AutomaticOptimizer)
-        ]
+            targeted_optimizers = [
+                [
+                    optimizer
+                    for optimizer in optimizers
+                    if isinstance(optimizer, optimization.TargetedOptimizer)
+                ]
+            ]
+            automatic_optimizers = [
+                [optimizer]
+                for optimizer in optimizers
+                if isinstance(optimizer, optimization.AutomaticOptimizer)
+            ]
 
-        ordered_optimizers = (
-            targeted_optimizers + automatic_optimizers
-            if any(
-                targeted_optimizers
-            )  # This line is required so no empty list is added to the ordered_optimizers list
-            else automatic_optimizers
-        )
+            ordered_optimizers = (
+                targeted_optimizers + automatic_optimizers
+                if any(
+                    targeted_optimizers
+                )  # This line is required so no empty list is added to the ordered_optimizers list
+                else automatic_optimizers
+            )
+        else:
+            opt_mapping = {
+                "ms2_error": ms2_optimizer,
+                "rt_error": rt_optimizer,
+                "ms1_error": ms1_optimizer,
+                "mobility_error": mobility_optimizer,
+            }
+            ordered_optimizers = []
+            for optimizers_in_ordering in self.config["optimization"][
+                "order_of_optimization"
+            ]:
+                ordered_optimizers += [
+                    [
+                        opt_mapping[opt]
+                        for opt in optimizers_in_ordering
+                        if opt_mapping[opt] is not None
+                    ]
+                ]
 
         return ordered_optimizers
 
