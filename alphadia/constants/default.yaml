@@ -224,35 +224,44 @@ search_output:
   # can be either "parquet" or "tsv"
   file_format: "tsv"
 
+# Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
   # The order in which to perform optimization. Should be a list of lists of parameter names
+  # Example:
+    # order_of_optimization:
+    #   - - "rt_error"
+    #   - - "ms2_error"
+    #   - - "ms1_error"
+    #   - - "mobility_error"
+  # The above means that first rt_error is optimized, then ms2_error, then ms1_error, and finally mobility_error. (Other examples are shown in Python list format rather than YAML format to save space.)
   # Example: [['ms1_error', 'ms2_error', 'rt_error', 'mobility_error']] means that all parameters are optimized simultaneously.
   # Example: [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]] means that the parameters are optimized sequentially in the order given.
   # Example: [["rt_error"], ["ms1_error", "ms2_error"]] means that first rt_error is optimized, then ms1_error and ms2_error are optimized simultaneously, and mobility_error is not optimized at all.
+  # If order_of_optimizatoin is null, first all targeted optimizers run simultaneously, then any remaining automatic optimizers run sequentially in the order [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]]
   order_of_optimization: null
 
   # Parameters for the update rule for each parameter:
-  #   - update_interval: the percentile interval to use (as a decimal)
+  #   - update_percentile_range: the percentile interval to use (as a decimal)
   #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
   ms2_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   ms1_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   mobility_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
   rt_error:
-      targeted_update_interval: 0.95
+      targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_interval: 0.99
+      automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
