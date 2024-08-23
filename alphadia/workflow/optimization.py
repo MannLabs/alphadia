@@ -97,12 +97,14 @@ class AutomaticOptimizer(BaseOptimizer):
         self.favour_narrower_parameter = workflow.config["optimization"][
             self.parameter_name
         ]["favour_narrower_parameter"]
-        self.maximal_decrease = workflow.config["optimization"][self.parameter_name][
-            "maximal_decrease"
-        ]
-        self.minimum_proportion_of_maximum = workflow.config["optimization"][
-            self.parameter_name
-        ]["minimum_proportion_of_maximum"]
+
+        if self.favour_narrower_parameter:
+            self.maximal_decrease = workflow.config["optimization"][
+                self.parameter_name
+            ]["maximal_decrease"]
+            self.minimum_proportion_of_maximum = workflow.config["optimization"][
+                self.parameter_name
+            ]["minimum_proportion_of_maximum"]
 
     def step(
         self,
