@@ -74,7 +74,6 @@ parser.add_argument(
     action="append",
     default=[],
 )
-
 parser.add_argument(
     "--config",
     "-c",
@@ -83,7 +82,6 @@ parser.add_argument(
     nargs="?",
     default=None,
 )
-
 parser.add_argument(
     "--wsl",
     "-w",
@@ -97,7 +95,13 @@ parser.add_argument(
     nargs="?",
     default="{}",
 )
-
+parser.add_argument(
+    "--custom-quant-dir",
+    type=str,
+    help="Custom directory for distributed search, containing psm and frag parquet files",
+    nargs="?",
+    default=None,
+)
 
 def parse_config(args: argparse.Namespace) -> dict:
     """Parse config file and config update JSON string.
@@ -166,6 +170,41 @@ def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
 
     return output_directory
 
+def parse_custom_quant_dir(args: argparse.Namespace, config: dict) -> str:
+    """Parse custom quant directory.
+    1. Use custom quant directory from config file if specified.
+    2. Use custom quant directory from command line if specified.
+
+    Parameters
+    ----------
+
+    args : argparse.Namespace
+        Command line arguments.
+
+    config : dict
+        Config dictionary.
+
+    Returns
+    -------
+
+    custom_quant_dir : str
+        Custom quant directory.
+    """
+
+    custom_quant_dir = None
+    if "custom_quant_dir" in config:
+        custom_quant_dir = (
+            utils.windows_to_wsl(config["custom_quant_dir"])
+            if args.wsl
+            else config["custom_quant_dir"]
+        )
+
+    if args.custom_quant_dir is not None:
+        custom_quant_dir = (
+            utils.windows_to_wsl(args.custom_quant_dir) if args.wsl else args.custom_quant_dir
+        )
+
+    return custom_quant_dir
 
 def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     """Parse raw file list.
@@ -305,6 +344,8 @@ def run(*args, **kwargs):
         print("No output directory specified.")
         return
 
+    custom_quant_dir = parse_custom_quant_dir(args, config)
+
     reporting.init_logging(output_directory)
     raw_path_list = parse_raw_path_list(args, config)
 
@@ -322,6 +363,8 @@ def run(*args, **kwargs):
         logger.progress(f"  {f}")
 
     logger.progress(f"Saving output to: {output_directory}")
+    if custom_quant_dir is not None:
+        logger.progress(f"Saving quantification output to 'custom_quant_dir': {custom_quant_dir}")
 
     try:
         import matplotlib
@@ -337,6 +380,7 @@ def run(*args, **kwargs):
             library_path=library_path,
             fasta_path_list=fasta_path_list,
             config=config,
+            custom_quant_dir=custom_quant_dir,
         )
 
         plan.run()
