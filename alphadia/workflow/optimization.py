@@ -221,9 +221,7 @@ class AutomaticOptimizer(BaseOptimizer):
             )
 
             golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
-            golden_parameter_proposal = golden_parameter_values.iloc[2] - 0.618 * (
-                golden_parameter_values.iloc[2] - golden_parameter_values.iloc[0]
-            )
+
         else:
             self.golden_triple_idxes = (
                 parameter_history.loc[
@@ -241,7 +239,14 @@ class AutomaticOptimizer(BaseOptimizer):
             )
 
             golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
+
+        differences = np.diff(golden_parameter_values)
+        if differences[0] < differences[1]:
             golden_parameter_proposal = golden_parameter_values.iloc[0] + 0.618 * (
+                golden_parameter_values.iloc[2] - golden_parameter_values.iloc[0]
+            )
+        else:
+            golden_parameter_proposal = golden_parameter_values.iloc[2] - 0.618 * (
                 golden_parameter_values.iloc[2] - golden_parameter_values.iloc[0]
             )
 
@@ -307,7 +312,7 @@ class AutomaticOptimizer(BaseOptimizer):
         ax.vlines(
             x=self.workflow.optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df[self.feature_name].max(),
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self.feature_name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
@@ -435,17 +440,20 @@ class AutomaticOptimizer(BaseOptimizer):
             This method may be overwritten in child classes.
 
         """
-
+        if self.golden_search_converged:
+            filtered_history_df = self.history_df[self.history_df.golden_search]
+        else:
+            filtered_history_df = self.history_df
         if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            rows_within_thresh_of_max = self.history_df.loc[
-                self.history_df[self.feature_name]
-                > self.history_df[self.feature_name].max() * 0.9
+            rows_within_thresh_of_max = filtered_history_df.loc[
+                filtered_history_df[self.feature_name]
+                > filtered_history_df[self.feature_name].max() * 0.9
             ]
             index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
             return index_of_optimum
 
         else:
-            return self.history_df[self.feature_name].idxmax()
+            return filtered_history_df[self.feature_name].idxmax()
 
     def _update_optimization_manager(self):
         """Updates the optimization manager with the results of the optimization, namely:
