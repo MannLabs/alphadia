@@ -453,6 +453,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     verbosity="warning",
                 )
 
+        self.golden_section_search(ordered_optimizers)
+
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
             verbosity="progress",
@@ -469,8 +471,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         log_string(
             "==============================================", verbosity="progress"
         )
-
-        self.golden_section_search(ordered_optimizers)
 
         self.save_managers()
 
@@ -537,6 +537,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
     def golden_section_search(self, ordered_optimizers):
+        self.reporter.log_string(
+            "Starting golden section search.", verbosity="progress"
+        )
         self.ordered_optimizers = ordered_optimizers  # Debugging purposes
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
@@ -560,6 +563,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 optimizer.golden_section_first_step(
                     precursor_df_filtered, fragments_df_filtered
                 )
+                self.optlock.update()
+                self.optlock.update_with_calibration(self.calibration_manager)
 
                 while not optimizer.golden_search_converged:
                     precursor_df = self.process_batch()
@@ -569,19 +574,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     optimizer.golden_section_step(
                         precursor_df_filtered, fragments_df_filtered
                     )
+                    self.optlock.update()
+                    self.optlock.update_with_calibration(self.calibration_manager)
 
-        self.reporter.log_string(
-            "==============================================", verbosity="progress"
-        )
-        for optimizers in ordered_optimizers:
-            for optimizer in optimizers:
-                self.reporter.log_string(
-                    f"{optimizer.parameter_name:<15}: {self.optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
-                    verbosity="progress",
-                )
-        self.reporter.log_string(
-            "==============================================", verbosity="progress"
-        )
+                optimizer.plot()
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.

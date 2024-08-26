@@ -996,3 +996,27 @@ def test_configurability():
     assert ordered_optimizers[1][1].update_factor == 1.2
 
     assert ordered_optimizers[2][0].parameter_name == "mobility_error"
+
+
+def test_golden_search():
+    workflow = create_workflow_instance()
+    optimizer = optimization.AutomaticMS2Optimizer(50, workflow)
+    optimizer.history_df = pd.DataFrame(
+        {
+            "parameter": [50, 20, 10, 6.4, 4.1],
+            optimizer.feature_name: [0.02, 0.04, 0.07, 0.10, 0.06],
+            "classifier_version": [2, 3, 4, 5, 6],
+            "score_cutoff": [10, 40, 50, 60, 45],
+            "fwhm_rt": [2.1, 2.2, 2.1, 2.2, 2.1],
+            "fwhm_mobility": [2.1, 2.2, 2.1, 2.2, 2.1],
+        }
+    )
+    test_df = pd.DataFrame(
+        {"test": np.arange(0, workflow.optlock.total_elution_groups / 9)}
+    )
+    optimizer.initialize_golden_triple()
+    optimizer.golden_section_first_step(test_df, test_df)
+    test_df = pd.DataFrame(
+        {"test": np.arange(0, workflow.optlock.total_elution_groups / 8)}
+    )
+    optimizer.golden_section_step(test_df, test_df)
