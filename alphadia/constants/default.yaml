@@ -243,26 +243,40 @@ optimization:
   # Parameters for the update rule for each parameter:
   #   - update_percentile_range: the percentile interval to use (as a decimal)
   #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
+  #   - favour_narrower_parameter: if True, the optimization will not take the value that maximizes the feature used for optimization, but instead the smallest value compatible with the minimum_proportion_of_maximum value.
+  #       This setting can be useful for optimizing parameters for which many parameter values have similar feature values and therefore favouring narrower parameters helps to overcome noise.
+  #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if favour_narrower_parameter is True)
+  #   - minimum_proportion_of_maximum: the minimum proportion of the maximum value of the parameter that the designated optimum should have (only relevant if favour_narrower_parameter is True)
   ms2_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      favour_narrower_parameter: False
+      maximal_decrease: 0.8
+      minimum_proportion_of_maximum: 0.95
   ms1_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      favour_narrower_parameter: False
+      maximal_decrease: 0.8
+      minimum_proportion_of_maximum: 0.95
   mobility_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      favour_narrower_parameter: False
+      maximal_decrease: 0.8
+      minimum_proportion_of_maximum: 0.95
   rt_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      favour_narrower_parameter: True
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
 

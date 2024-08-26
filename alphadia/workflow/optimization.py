@@ -95,6 +95,18 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
+        self.favour_narrower_parameter = workflow.config["optimization"][
+            self.parameter_name
+        ]["favour_narrower_parameter"]
+
+        if self.favour_narrower_parameter:
+            self.maximal_decrease = workflow.config["optimization"][
+                self.parameter_name
+            ]["maximal_decrease"]
+            self.minimum_proportion_of_maximum = workflow.config["optimization"][
+                self.parameter_name
+            ]["minimum_proportion_of_maximum"]
+
     def step(
         self,
         precursors_df: pd.DataFrame,
@@ -211,8 +223,12 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
-        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+        If self.favour_narrower_parameter is False:
+            1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
+            2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+        If self.favour_narrower_parameter is True:
+            1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
+            2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
         Notes
         -----
@@ -220,22 +236,53 @@ class AutomaticOptimizer(BaseOptimizer):
             This function may be overwritten in child classes.
 
         """
+        if len(self.history_df) < 3:
+            return False
 
-        min_steps_reached = (
-            self.num_prev_optimizations
-            >= self.workflow.config["calibration"]["min_steps"]
-        )
-        return (
-            min_steps_reached
-            and len(self.history_df) > 2
-            and self.history_df[self.feature_name].iloc[-1]
-            < 1.1 * self.history_df[self.feature_name].iloc[-2]
-            and self.history_df[self.feature_name].iloc[-1]
-            < 1.1 * self.history_df[self.feature_name].iloc[-3]
-        )
+        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+            min_steps_reached = (
+                self.num_prev_optimizations
+                >= self.workflow.config["calibration"]["min_steps"]
+            )
+
+            feature_history = self.history_df[self.feature_name]
+            feature_substantially_decreased = (
+                feature_history.iloc[-1]
+                < self.maximal_decrease * feature_history.iloc[-2]
+                and feature_history.iloc[-1]
+                < self.maximal_decrease * feature_history.iloc[-3]
+            )
+
+            parameter_history = self.history_df["parameter"]
+            parameter_not_substantially_changed = (
+                parameter_history.iloc[-1] / parameter_history.iloc[-2]
+                > self.minimum_proportion_of_maximum
+            )
+
+            return min_steps_reached and (
+                feature_substantially_decreased or parameter_not_substantially_changed
+            )
+
+        else:
+            min_steps_reached = (
+                self.num_prev_optimizations
+                >= self.workflow.config["calibration"]["min_steps"]
+            )
+
+            feature_history = self.history_df[self.feature_name]
+
+            return (
+                min_steps_reached
+                and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-2]
+                and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-3]
+            )
 
     def _find_index_of_optimum(self):
         """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
+        if self.favour_narrower_parameter is False:
+            The index at optimum is the index of the parameter value that maximizes the feature.
+        if self.favour_narrower_parameter is True:
+            The index at optimum is the index of the minimal parameter value whose feature value is at least self.minimum_proportion_of_maximum of the maximum value of the feature.
 
         Returns
         -------
@@ -244,10 +291,20 @@ class AutomaticOptimizer(BaseOptimizer):
 
         Notes
         -----
-            This method may be overwritten in child classes if the "optimal" value differs from the value that maximizes the feature used for optimization.
+            This method may be overwritten in child classes.
 
         """
-        return self.history_df[self.feature_name].idxmax()
+
+        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+            rows_within_thresh_of_max = self.history_df.loc[
+                self.history_df[self.feature_name]
+                > self.history_df[self.feature_name].max() * 0.9
+            ]
+            index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
+            return index_of_optimum
+
+        else:
+            return self.history_df[self.feature_name].idxmax()
 
     def _update_optimization_manager(self):
         """Updates the optimization manager with the results of the optimization, namely:
@@ -438,50 +495,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
         return len(precursors_df) / self.workflow.optlock.total_elution_groups
-
-    def _check_convergence(self):
-        """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
-        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
-
-        Notes
-        -----
-            Because the check for an increase in feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
-
-
-        """
-        if len(self.history_df) < 3:
-            return False
-
-        min_steps_reached = (
-            self.num_prev_optimizations
-            >= self.workflow.config["calibration"]["min_steps"]
-        )
-
-        feature_history = self.history_df[self.feature_name]
-        feature_substantially_decreased = (
-            feature_history.iloc[-1] < self.maximal_decrease * feature_history.iloc[-2]
-            and feature_history.iloc[-1]
-            < self.maximal_decrease * feature_history.iloc[-3]
-        )
-
-        parameter_history = self.history_df["parameter"]
-        parameter_not_substantially_changed = (
-            parameter_history.iloc[-1] / parameter_history.iloc[-2]
-            > self.minimum_proportion_of_maximum
-        )
-
-        return min_steps_reached and (
-            feature_substantially_decreased or parameter_not_substantially_changed
-        )
-
-    def _find_index_of_optimum(self):
-        rows_within_thresh_of_max = self.history_df.loc[
-            self.history_df[self.feature_name]
-            > self.history_df[self.feature_name].max() * 0.9
-        ]
-        index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
-        return index_of_optimum
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
