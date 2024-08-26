@@ -236,10 +236,10 @@ class AutomaticOptimizer(BaseOptimizer):
             This function may be overwritten in child classes.
 
         """
-        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            if len(self.history_df) < 3:
-                return False
+        if len(self.history_df) < 3:
+            return False
 
+        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
                 self.num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
@@ -273,7 +273,6 @@ class AutomaticOptimizer(BaseOptimizer):
 
             return (
                 min_steps_reached
-                and len(self.history_df) > 2
                 and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-2]
                 and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-3]
             )
