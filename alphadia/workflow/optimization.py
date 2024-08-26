@@ -261,15 +261,15 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         index_of_optimum = self._find_index_of_optimum()
 
+        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
+        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+
         classifier_version_at_optimum = self.history_df["classifier_version"].loc[
             index_of_optimum
         ]
         self.workflow.optimization_manager.fit(
             {"classifier_version": classifier_version_at_optimum}
         )
-
-        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
 
         score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
         self.workflow.optimization_manager.fit(
