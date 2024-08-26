@@ -119,6 +119,12 @@ calibration:
   # TODO: remove this parameter
   norm_rt_mode: 'linear'
 
+  # the maximum number of fragments with correlation scores exceeding correlation_threshold to use for calibrating fragment mz (i.e. ms2)
+  max_fragments: 5000
+
+  # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
+  min_correlation: 0.7
+
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy comeptition
   initial_num_candidates: 1
