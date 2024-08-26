@@ -470,6 +470,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             "==============================================", verbosity="progress"
         )
 
+        self.golden_section_search(ordered_optimizers)
+
         self.save_managers()
 
     def process_batch(self):
@@ -532,6 +534,53 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"=== Optimization has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
             verbosity="progress",
+        )
+
+    def golden_section_search(self, ordered_optimizers):
+        self.ordered_optimizers = ordered_optimizers  # Debugging purposes
+        for optimizers in ordered_optimizers:
+            for optimizer in optimizers:
+                if not isinstance(optimizer, optimization.AutomaticOptimizer):
+                    continue
+                if not optimizer.perform_golden_section_search:
+                    continue
+
+                optimizer.initialize_golden_triple()
+                if optimizer.golden_search_unnecessary:
+                    self.reporter.log_string(
+                        f"Optimization of {optimizer.parameter_name} by golden search is not necessary.",
+                        verbosity="progress",
+                    )
+                    continue
+
+                precursor_df = self.process_batch()
+                precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                    precursor_df, self.optlock.fragments_df
+                )
+                optimizer.golden_section_first_step(
+                    precursor_df_filtered, fragments_df_filtered
+                )
+
+                while not optimizer.golden_search_converged:
+                    precursor_df = self.process_batch()
+                    precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                        precursor_df, self.optlock.fragments_df
+                    )
+                    optimizer.golden_section_step(
+                        precursor_df_filtered, fragments_df_filtered
+                    )
+
+        self.reporter.log_string(
+            "==============================================", verbosity="progress"
+        )
+        for optimizers in ordered_optimizers:
+            for optimizer in optimizers:
+                self.reporter.log_string(
+                    f"{optimizer.parameter_name:<15}: {self.optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
+                    verbosity="progress",
+                )
+        self.reporter.log_string(
+            "==============================================", verbosity="progress"
         )
 
     def filter_dfs(self, precursor_df, fragments_df):

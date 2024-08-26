@@ -107,6 +107,16 @@ class AutomaticOptimizer(BaseOptimizer):
                 self.parameter_name
             ]["minimum_proportion_of_maximum"]
 
+        self.perform_golden_section_search = workflow.config["optimization"][
+            self.parameter_name
+        ]["perform_golden_section_search"]
+
+        if self.perform_golden_section_search:
+            self.tolerance_for_golden_section_search = workflow.config["optimization"][
+                self.parameter_name
+            ]["tolerance_for_golden_section_search"]
+            self.golden_search_converged = False
+
     def step(
         self,
         precursors_df: pd.DataFrame,
@@ -163,6 +173,134 @@ class AutomaticOptimizer(BaseOptimizer):
                 f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
+
+    def golden_section_step(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+
+        new_parameter = self._propose_golden_parameter()
+
+        just_converged = (
+            abs(
+                new_parameter
+                - self.workflow.optimization_manager.__dict__[self.parameter_name]
+            )
+            < self.tolerance_for_golden_section_search
+        )
+        if just_converged:
+            self.golden_search_converged = True
+
+            self._update_optimization_manager()
+
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                verbosity="progress",
+            )
+        else:
+            self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
+
+    def golden_section_first_step(
+        self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
+    ):
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+
+        upper_bound = self.history_df.loc[self.golden_triple_idxes[2]].parameter
+        lower_bound = self.history_df.loc[self.golden_triple_idxes[0]].parameter
+        golden_parameter_proposal = upper_bound - 0.618 * (upper_bound - lower_bound)
+
+        self.workflow.optimization_manager.fit(
+            {self.parameter_name: golden_parameter_proposal}
+        )
+
+    def _propose_golden_parameter(self):
+        feature_history = self.history_df[self.feature_name]
+        parameter_history = self.history_df["parameter"]
+
+        if feature_history.loc[self.golden_triple_idxes[1]] > feature_history.iloc[-1]:
+            self.golden_triple_idxes = [
+                self.golden_triple_idxes[0],
+                self.golden_triple_idxes[1],
+                feature_history.idxmax(),
+            ]
+            golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
+            golden_parameter_proposal = golden_parameter_values[0] + 0.618 * (
+                golden_parameter_values[2] - golden_parameter_values[0]
+            )
+        else:
+            self.golden_triple_idxes = [
+                self.golden_triple_idxes[1],
+                feature_history.idxmax(),
+                self.golden_triple_idxes[2],
+            ]
+            golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
+            golden_parameter_proposal = golden_parameter_values[2] - 0.618 * (
+                golden_parameter_values[2] - golden_parameter_values[0]
+            )
+
+        return golden_parameter_proposal
+
+    def initialize_golden_triple(self):
+        sorted_history_df = self.history_df.sort_values(by="parameter").reset_index(
+            drop=True
+        )
+        lower_bound_idx = sorted_history_df[self.feature_name].idxmax() + 1
+        upper_bound_idx = sorted_history_df[self.feature_name].idxmax() - 1
+
+        self.golden_search_unnecessary = False
+
+        try:
+            lower_bound = sorted_history_df.loc[lower_bound_idx].parameter
+        except KeyError:
+            self.golden_search_unnecessary = True
+            return
+        try:
+            upper_bound = sorted_history_df.loc[upper_bound_idx].parameter
+        except KeyError:
+            self.golden_search_unnecessary = True
+            return
+        golden_parameter_proposal = lower_bound + 0.618 * (upper_bound - lower_bound)
+        self.golden_triple_idxes = [
+            lower_bound_idx,
+            np.max(sorted_history_df.index.tolist()) + 1,
+            upper_bound_idx,
+        ]
+
+        self.workflow.optimization_manager.fit(
+            {self.parameter_name: golden_parameter_proposal}
+        )
 
     def plot(self):
         """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
@@ -484,12 +622,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
-        self.maximal_decrease = workflow.config["optimization"]["rt_error"][
-            "maximal_decrease"
-        ]
-        self.minimum_proportion_of_maximum = workflow.config["optimization"][
-            "rt_error"
-        ]["minimum_proportion_of_maximum"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
