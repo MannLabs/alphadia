@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#SBATCH --job-name=dist_ADIA
+#SBATCH --job-name=dist_AD
 #SBATCH --time=21-00:00:00
 
 # parse input parameters
@@ -12,6 +12,7 @@ input_directory='/fs/home/brennsteiner/alphadia/quick_test/'
 target_directory='/fs/home/brennsteiner/alphadia/quick_test/output/'
 input_filename='local_test_2_files.csv'
 config_filename='config.yaml'
+predict_library=1
 first_search=1
 mbr_library=1
 second_search=1
@@ -24,12 +25,14 @@ while [[ "$#" -gt 0 ]]; do
 		--input_filename) input_filename="$2"; shift ;;
 		--config_filename) config_filename="$2"; shift ;;
 		--target_directory) target_directory="$2"; shift ;;
+		--fasta_filename) fasta_filename="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
 		--ntasks_per_node) ntasks_per_node="$2"; shift ;;
 		--cpus) cpus="$2"; shift ;;
 		--mem) mem="$2"; shift ;;
 		# Search flags: if a flag is present, set to true
+		--predict_library) predict_library="$2"; shift ;;
 		--first_search) first_search="$2"; shift ;;
 		--mbr_library) mbr_library="$2"; shift ;;
 		--second_search) second_search="$2"; shift ;;
@@ -57,6 +60,26 @@ mkdir -p ${lfq_directory}
 
 lfq_progress_directory="${target_directory}lfq/chunk_0/.progress/"
 mkdir -p ${lfq_progress_directory}
+
+### PREDICT LIBRARY ###
+
+if [[ "$predict_library" -eq 1]]; then
+	echo "Predicting library"
+
+	# generate config without rawfiles and with fasta
+	python ./speclib_config.py --input_directory "${input_directory}" --fasta_filename "${fasta_filename}"
+
+	# call alphadia to predict spectral library
+	echo "Predicting spectral library with AlphaDIA"
+	sbatch --array=${slurm_array} \
+	--wait --notes=1 \
+	--ntasks-per-node=${ntasks_per_node} \
+	--cpus-per-tasks=${cpus} \
+	--mem=${mem} \
+	--export=ALL,config=speclib_config.yaml alphadia
+else
+	echo "Skipping library prediction"
+fi
 
 ### FIRST SEARCH ###
 

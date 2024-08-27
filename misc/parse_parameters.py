@@ -34,11 +34,6 @@ if args.reuse_quant == "1":
 else:
     config['general']['reuse_quant'] = False
 
-# delete the target directory and recreate it, since it must be empty
-# if os.path.exists(args.target_directory):
-#     shutil.rmtree(args.target_directory)
-# os.makedirs(args.target_directory)
-
 # determine chunk size: division of infile rowcount and number of nodes
 chunk_size = int(np.ceil(infile.shape[0] / int(args.nnodes)))
 
@@ -82,7 +77,7 @@ for i in range(0, max_tasks):
     # save the current config into the target directory: this config contains all search parameters
     # and the rawfiles belonging to the current chunk.
     with open(os.path.join(chunk_folder, 'config.yaml'), 'w') as file:
-        documents = yaml.safe_dump(current_config, file, default_style=None, default_flow_style=False)
+        yaml.safe_dump(current_config, file, default_style=None, default_flow_style=False)
 
     # save the target subdirectory
     target_subdirectories.append(chunk_folder)
