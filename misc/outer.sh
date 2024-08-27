@@ -72,11 +72,11 @@ if [[ "$predict_library" -eq 1 ]]; then
 	# call alphadia to predict spectral library
 	echo "Predicting spectral library with AlphaDIA"
 	sbatch --array=${slurm_array} \
-	--wait --notes=1 \
+	--wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
-	--cpus-per-tasks=${cpus} \
+	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,config=speclib_config.yaml alphadia
+	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
 else
 	echo "Skipping library prediction"
 fi
