@@ -21,13 +21,26 @@ try:
 except:
     pass
 
+# remove spectral library
+try:
+    del config['library'] 
+except:
+    pass
+
 # add fasta_list & set prediction
 config['output_directory'] = args.input_directory
-config['fasta_list'] = args.fasta_filename
+config['fasta_list'] = [args.fasta_filename]
 config['library_prediction']['predict'] = True
 
-# write yaml to input directory
+# write speclib_config.yaml to input directory for the library prediction
 with open(os.path.join(args.input_directory, 'speclib_config.yaml'), 'w') as file:
+    yaml.safe_dump(config, file, default_style=None, default_flow_style=False)
+
+# modify the config.yaml file to include the predicted speclib
+config['library'] = os.path.join(args.input_directory, 'speclib.hdf')
+
+# write the modified config.yaml file to the input directory
+with open(os.path.join(args.input_directory, 'config.yaml'), 'w') as file:
     yaml.safe_dump(config, file, default_style=None, default_flow_style=False)
 
 

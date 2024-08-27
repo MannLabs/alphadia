@@ -64,7 +64,6 @@ mkdir -p ${lfq_progress_directory}
 ### PREDICT LIBRARY ###
 
 if [[ "$predict_library" -eq 1 ]]; then
-	echo "Predicting library"
 
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py --input_directory "${input_directory}" --fasta_filename "${fasta_filename}"
