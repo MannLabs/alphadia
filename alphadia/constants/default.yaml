@@ -263,7 +263,7 @@ optimization:
       favour_narrower_parameter: False
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
-      perform_golden_section_search: True
+      perform_golden_section_search: False
       tolerance_for_golden_section_search: 1
 
   ms1_error:
@@ -274,7 +274,7 @@ optimization:
       favour_narrower_parameter: False
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
-      perform_golden_section_search: True
+      perform_golden_section_search: False
       tolerance_for_golden_section_search: 1
 
   mobility_error:
@@ -285,7 +285,7 @@ optimization:
       favour_narrower_parameter: False
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
-      perform_golden_section_search: True
+      perform_golden_section_search: False
       tolerance_for_golden_section_search: 0.01
 
   rt_error:
@@ -296,7 +296,7 @@ optimization:
       favour_narrower_parameter: True
       maximal_decrease: 0.8
       minimum_proportion_of_maximum: 0.95
-      perform_golden_section_search: True
+      perform_golden_section_search: False
       tolerance_for_golden_section_search: 40
 
 # configuration for the optimization manager

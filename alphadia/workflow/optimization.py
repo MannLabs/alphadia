@@ -440,7 +440,7 @@ class AutomaticOptimizer(BaseOptimizer):
             This method may be overwritten in child classes.
 
         """
-        if self.golden_search_converged:
+        if self.perform_golden_section_search and self.golden_search_converged:
             filtered_history_df = self.history_df[self.history_df.golden_search]
         else:
             filtered_history_df = self.history_df
