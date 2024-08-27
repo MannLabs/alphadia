@@ -80,7 +80,7 @@ if sys.platform[:5] == "linux":
 		upx_exclude=[],
 		icon=icon
 	)
-else:
+else: # non-linux
 	exe = EXE(
 		pyz,
 		a.scripts,

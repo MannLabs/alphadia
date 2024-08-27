@@ -1,3 +1,5 @@
+# TODO remove with old release workflow
+
 # navigate to the root directory
 
 pip install build

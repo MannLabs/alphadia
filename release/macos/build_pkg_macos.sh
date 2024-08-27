@@ -1,4 +1,5 @@
 #!/bin/bash
+# TODO remove with old release workflow
 
 # Set up package name and version
 PACKAGE_NAME="alphadia"

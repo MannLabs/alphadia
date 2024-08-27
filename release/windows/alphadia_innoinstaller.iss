@@ -25,7 +25,8 @@ LicenseFile=..\..\LICENSE.txt
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\..\dist
-OutputBaseFilename=alphadia-1.7.2-win-x64
+; example for BUILD_NAME: alphadia-1.7.2-win-x64
+OutputBaseFilename={#GetEnv('BUILD_NAME')}
 SetupIconFile=..\logos\alphadia.ico
 Compression=lzma
 SolidCompression=yes
