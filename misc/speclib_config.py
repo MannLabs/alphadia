@@ -16,7 +16,10 @@ with open(os.path.join(args.input_directory, "config.yaml"), 'r') as file:
     config = yaml.safe_load(file)
 
 # remove rawfiles for conversion step
-del config['raw_path_list']
+try: 
+    del config['raw_path_list']
+except:
+    pass
 
 # add fasta_list & set prediction
 config['output_directory'] = args.input_directory
