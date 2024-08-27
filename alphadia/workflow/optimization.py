@@ -297,8 +297,13 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def initialize_golden_triple(self):
         self.history_df.sort_values(by="parameter").reset_index(drop=True, inplace=True)
-        lower_bound_idx = self.history_df[self.feature_name].idxmax() + 1
-        upper_bound_idx = self.history_df[self.feature_name].idxmax() - 1
+        feature_history = self.history_df[self.feature_name]
+        lower_bound_idx = self.history_df[
+            self.history_df.index.values > feature_history.idxmax()
+        ][self.feature_name].idxmax()
+        upper_bound_idx = self.history_df[
+            self.history_df.index.values < feature_history.idxmax()
+        ][self.feature_name].idxmax()
 
         self.golden_search_unnecessary = False
 
@@ -360,7 +365,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         ax.set_xlabel(self.parameter_name)
         ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=self.history_df[self.feature_name].max() * 1.1)
+        #        ax.set_ylim(bottom=0, top=self.history_df[self.feature_name].max() * 1.1)
         ax.legend(loc="upper left")
 
         plt.show()
@@ -674,13 +679,13 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        self.feature_name = "mean_top3_frame_correlation"
+        self.feature_name = "sum_ms1_intensity"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return precursors_df.sum_ms1_intensity.mean()
+        return -precursors_df.weighted_ms1_intensity.median()
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
