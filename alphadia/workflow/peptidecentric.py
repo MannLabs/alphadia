@@ -413,6 +413,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     for optimizer in optimizers:
+                        self.golden_section_search(optimizer)
                         optimizer.plot()
 
                     break
@@ -452,8 +453,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     f"Optimization did not converge within the maximum number of steps, which is {self.config['calibration']['max_steps']}.",
                     verbosity="warning",
                 )
-
-        self.golden_section_search(ordered_optimizers)
 
         log_string(
             "Search parameter optimization finished. Values taken forward for search are:",
@@ -536,48 +535,43 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-    def golden_section_search(self, ordered_optimizers):
+    def golden_section_search(self, optimizer):
+        if not isinstance(optimizer, optimization.AutomaticOptimizer):
+            return
+        if not optimizer.perform_golden_section_search:
+            return
         self.reporter.log_string(
             "Starting golden section search.", verbosity="progress"
         )
-        self.ordered_optimizers = ordered_optimizers  # Debugging purposes
-        for optimizers in ordered_optimizers:
-            for optimizer in optimizers:
-                if not isinstance(optimizer, optimization.AutomaticOptimizer):
-                    continue
-                if not optimizer.perform_golden_section_search:
-                    continue
 
-                optimizer.initialize_golden_triple()
-                if optimizer.golden_search_unnecessary:
-                    self.reporter.log_string(
-                        f"Optimization of {optimizer.parameter_name} by golden search is not necessary.",
-                        verbosity="progress",
-                    )
-                    continue
+        optimizer.initialize_golden_triple()
+        if optimizer.golden_search_unnecessary:
+            self.reporter.log_string(
+                f"Optimization of {optimizer.parameter_name} by golden search is not necessary.",
+                verbosity="progress",
+            )
+            return
 
-                precursor_df = self.process_batch()
-                precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                    precursor_df, self.optlock.fragments_df
-                )
-                optimizer.golden_section_first_step(
-                    precursor_df_filtered, fragments_df_filtered
-                )
-                self.optlock.update()
-                self.optlock.update_with_calibration(self.calibration_manager)
+        precursor_df = self.process_batch()
+        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+            precursor_df, self.optlock.fragments_df
+        )
+        optimizer.golden_section_first_step(
+            precursor_df_filtered, fragments_df_filtered
+        )
+        self.optlock.update()
+        self.recalibration(precursor_df_filtered, fragments_df_filtered)
+        self.optlock.update_with_calibration(self.calibration_manager)
 
-                while not optimizer.golden_search_converged:
-                    precursor_df = self.process_batch()
-                    precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                        precursor_df, self.optlock.fragments_df
-                    )
-                    optimizer.golden_section_step(
-                        precursor_df_filtered, fragments_df_filtered
-                    )
-                    self.optlock.update()
-                    self.optlock.update_with_calibration(self.calibration_manager)
-
-                optimizer.plot()
+        while not optimizer.golden_search_converged:
+            precursor_df = self.process_batch()
+            precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                precursor_df, self.optlock.fragments_df
+            )
+            optimizer.golden_section_step(precursor_df_filtered, fragments_df_filtered)
+            self.optlock.update()
+            self.recalibration(precursor_df_filtered, fragments_df_filtered)
+            self.optlock.update_with_calibration(self.calibration_manager)
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.

@@ -137,12 +137,18 @@ class AutomaticOptimizer(BaseOptimizer):
         if just_converged:
             self.has_converged = True
 
-            self._update_optimization_manager()
+            if not self.perform_golden_section_search:
+                self._update_optimization_manager()
 
-            self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
-                verbosity="progress",
-            )
+                self.reporter.log_string(
+                    f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {self.num_prev_optimizations} searches.",
+                    verbosity="progress",
+                )
+            else:
+                self.reporter.log_string(
+                    f"🟠 {self.parameter_name:<15}: initial optimization complete after {self.num_prev_optimizations} searches. Will perform golden section search with tolerance {self.tolerance_for_golden_section_search}.",
+                    verbosity="progress",
+                )
 
         else:
             new_parameter = self._propose_new_parameter(
@@ -154,13 +160,14 @@ class AutomaticOptimizer(BaseOptimizer):
             self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
 
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+                f"❌ {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
 
     def golden_section_step(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
+        self.num_prev_optimizations += 1
         self._update_history_df(precursors_df, fragments_df, golden_search=True)
 
         new_parameter = self._propose_golden_parameter()
@@ -178,15 +185,21 @@ class AutomaticOptimizer(BaseOptimizer):
             self._update_optimization_manager()
 
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {self.num_prev_optimizations} searches.",
                 verbosity="progress",
             )
         else:
             self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
 
+            self.reporter.log_string(
+                f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+                verbosity="progress",
+            )
+
     def golden_section_first_step(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
+        self.num_prev_optimizations += 1
         self._update_history_df(precursors_df, fragments_df, golden_search=True)
 
         upper_bound = self.history_df.loc[self.golden_triple_idxes[2]].parameter
@@ -195,6 +208,11 @@ class AutomaticOptimizer(BaseOptimizer):
 
         self.workflow.optimization_manager.fit(
             {self.parameter_name: golden_parameter_proposal}
+        )
+
+        self.reporter.log_string(
+            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+            verbosity="progress",
         )
 
     def _propose_golden_parameter(self):
@@ -303,6 +321,11 @@ class AutomaticOptimizer(BaseOptimizer):
 
         self.workflow.optimization_manager.fit(
             {self.parameter_name: golden_parameter_proposal}
+        )
+
+        self.reporter.log_string(
+            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+            verbosity="progress",
         )
 
     def plot(self):
@@ -651,13 +674,13 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        self.feature_name = "precursor_proportion_detected"
+        self.feature_name = "mean_top3_frame_correlation"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_elution_groups
+        return precursors_df.sum_ms1_intensity.mean()
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
