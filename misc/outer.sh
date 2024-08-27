@@ -63,7 +63,7 @@ mkdir -p ${lfq_progress_directory}
 
 ### PREDICT LIBRARY ###
 
-if [[ "$predict_library" -eq 1]]; then
+if [[ "$predict_library" -eq 1 ]]; then
 	echo "Predicting library"
 
 	# generate config without rawfiles and with fasta
