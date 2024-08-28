@@ -304,23 +304,23 @@ class AutomaticOptimizer(BaseOptimizer):
     def initialize_golden_triple(self):
         self.history_df.sort_values(by="parameter").reset_index(drop=True, inplace=True)
         feature_history = self.history_df[self.feature_name]
-        lower_bound_idx = self.history_df[
-            self.history_df.index.values > feature_history.idxmax()
-        ][self.feature_name].idxmax()
-        upper_bound_idx = self.history_df[
-            self.history_df.index.values < feature_history.idxmax()
-        ][self.feature_name].idxmax()
 
         self.golden_search_unnecessary = False
 
         try:
+            lower_bound_idx = self.history_df[
+                self.history_df.index.values > feature_history.idxmax()
+            ][self.feature_name].idxmax()
             lower_bound = self.history_df.loc[lower_bound_idx].parameter
-        except KeyError:
+        except ValueError:
             self.golden_search_unnecessary = True
             return
         try:
+            upper_bound_idx = self.history_df[
+                self.history_df.index.values < feature_history.idxmax()
+            ][self.feature_name].idxmax()
             upper_bound = self.history_df.loc[upper_bound_idx].parameter
-        except KeyError:
+        except ValueError:
             self.golden_search_unnecessary = True
             return
         golden_parameter_proposal = lower_bound + 0.618 * (upper_bound - lower_bound)

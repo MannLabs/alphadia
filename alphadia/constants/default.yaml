@@ -263,8 +263,8 @@ optimization:
       use_generous_convergence_criteria: True
       maximal_decrease: 0.6
       favour_narrower_parameter: False
-      maximum_deviation_from_maximum: 0.05
-      perform_golden_section_search: False
+      maximum_deviation_from_maximum: 0.1
+      perform_golden_section_search: True
       tolerance_for_golden_section_search: 1
 
   ms1_error:
@@ -275,8 +275,8 @@ optimization:
       use_generous_convergence_criteria: False
       maximal_decrease: 0.2
       favour_narrower_parameter: False
-      maximum_deviation_from_maximum: 0.05
-      perform_golden_section_search: False
+      maximum_deviation_from_maximum: 0.1
+      perform_golden_section_search: True
       tolerance_for_golden_section_search: 1
 
   mobility_error:
@@ -287,7 +287,7 @@ optimization:
       use_generous_convergence_criteria: False
       maximal_decrease: 0.2
       favour_narrower_parameter: False
-      maximum_deviation_from_maximum: 0.05
+      maximum_deviation_from_maximum: 0.1
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 0.01
 
@@ -299,7 +299,7 @@ optimization:
       use_generous_convergence_criteria: True
       maximal_decrease: 0.6
       favour_narrower_parameter: True
-      maximum_deviation_from_maximum: 0.05
+      maximum_deviation_from_maximum: 0.1
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 40
 
