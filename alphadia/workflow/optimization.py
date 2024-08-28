@@ -103,9 +103,9 @@ class AutomaticOptimizer(BaseOptimizer):
             self.maximal_decrease = workflow.config["optimization"][
                 self.parameter_name
             ]["maximal_decrease"]
-            self.minimum_proportion_of_maximum = workflow.config["optimization"][
+            self.maximum_deviation_from_maximum = workflow.config["optimization"][
                 self.parameter_name
-            ]["minimum_proportion_of_maximum"]
+            ]["maximum_deviation_from_maximum"]
 
         self.perform_golden_section_search = workflow.config["optimization"][
             self.parameter_name
@@ -420,16 +420,14 @@ class AutomaticOptimizer(BaseOptimizer):
 
             feature_history = self.history_df[self.feature_name]
             feature_substantially_decreased = (
-                feature_history.iloc[-1]
-                < self.maximal_decrease * feature_history.iloc[-2]
-                and feature_history.iloc[-1]
-                < self.maximal_decrease * feature_history.iloc[-3]
-            )
+                feature_history.iloc[-1] - feature_history.iloc[-2]
+            ) / np.abs(feature_history.iloc[-2]) < -self.maximal_decrease and (
+                feature_history.iloc[-1] - feature_history.iloc[-3]
+            ) / np.abs(feature_history.iloc[-3]) < -self.maximal_decrease
 
             parameter_history = self.history_df["parameter"]
             parameter_not_substantially_changed = (
-                parameter_history.iloc[-1] / parameter_history.iloc[-2]
-                > self.minimum_proportion_of_maximum
+                parameter_history.iloc[-1] / parameter_history.iloc[-2] > 0.95
             )
 
             return min_steps_reached and (
@@ -447,8 +445,12 @@ class AutomaticOptimizer(BaseOptimizer):
             return (
                 min_steps_reached
                 and len(self.history_df) > 2
-                and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-2]
-                and feature_history.iloc[-1] < 1.1 * feature_history.iloc[-3]
+                and (feature_history.iloc[-1] - feature_history.iloc[-2])
+                / np.abs(feature_history.iloc[-2])
+                < 0.1
+                and (feature_history.iloc[-1] - feature_history.iloc[-3])
+                / np.abs(feature_history.iloc[-3])
+                < 0.1
             )
 
     def _find_index_of_optimum(self):
@@ -456,7 +458,7 @@ class AutomaticOptimizer(BaseOptimizer):
         if self.favour_narrower_parameter is False:
             The index at optimum is the index of the parameter value that maximizes the feature.
         if self.favour_narrower_parameter is True:
-            The index at optimum is the index of the minimal parameter value whose feature value is at least self.minimum_proportion_of_maximum of the maximum value of the feature.
+            The index at optimum is the index of the minimal parameter value whose feature value is at least self.maximum_deviation_from_maximum of the maximum value of the feature.
 
         Returns
         -------
@@ -475,7 +477,9 @@ class AutomaticOptimizer(BaseOptimizer):
         if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             rows_within_thresh_of_max = filtered_history_df.loc[
                 filtered_history_df[self.feature_name]
-                > filtered_history_df[self.feature_name].max() * 0.9
+                > filtered_history_df[self.feature_name].max()
+                - self.maximum_deviation_from_maximum
+                * np.abs(filtered_history_df[self.feature_name].max())
             ]
             index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
             return index_of_optimum
@@ -679,7 +683,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        self.feature_name = "sum_ms1_intensity"
+        self.feature_name = "weighted_ms1_intensity"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
