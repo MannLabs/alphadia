@@ -108,6 +108,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             instance_name,
             config,
         )
+        self.optlock = None
 
     def load(
         self,
@@ -419,7 +420,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                 log_string(f"Starting optimization step {current_step}.")
 
-                precursor_df = self.process_batch()
+                precursor_df = self._process_batch()
 
                 if not self.optlock.has_target_num_precursors:
                     self.optlock.update()
@@ -440,10 +441,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                     if not self.optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached.
                         # Optimization is more stable when done with calibrated values.
-                        self.initiate_search_parameter_optimization()
+                        self._initiate_search_parameter_optimization()
                         continue
 
-                    self.step_all_optimizers(
+                    self._step_all_optimizers(
                         optimizers, precursor_df_filtered, fragments_df_filtered
                     )
 
@@ -472,7 +473,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self.save_managers()
 
-    def process_batch(self):
+    def _process_batch(self):
+        """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
         self.reporter.log_string(
             f"=== Extracting elution groups {self.optlock.start_idx} to {self.optlock.stop_idx} ===",
             verbosity="progress",
@@ -505,7 +507,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return precursor_df
 
-    def initiate_search_parameter_optimization(self):
+    def _initiate_search_parameter_optimization(self):
+        """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""
         self.optlock.previously_calibrated = True
         self.optimization_manager.fit(
             {"classifier_version": self.fdr_manager.current_version}
@@ -515,23 +518,38 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-    def step_all_optimizers(
-        self, optimizers, precursor_df_filtered, fragments_df_filtered
+    def _step_all_optimizers(
+        self,
+        optimizers: list,
+        precursor_df_filtered: pd.DataFrame,
+        fragments_df_filtered: pd.DataFrame,
     ):
+        """All optimizers currently in use are stepped and their current state is logged.
+
+        Parameters
+        ----------
+        optimizers : list
+            List of optimizers to be stepped.
+
+        precursor_df_filtered : pd.DataFrame
+            Filtered precursor dataframe (see filter_dfs).
+
+        fragments_df_filtered : pd.DataFrame
+            Filtered fragment dataframe (see filter_dfs).
+        """
         self.reporter.log_string(
             "=== checking if optimization conditions were reached ===",
         )
 
         for optimizer in optimizers:
             optimizer.step(precursor_df_filtered, fragments_df_filtered)
+            self.reporter.log_string(
+                f"=== Optimization of {optimizer.parameter_name} has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
+                verbosity="progress",
+            )
 
         self.reporter.log_string(
             "==============================================",
-        )
-
-        self.reporter.log_string(
-            f"=== Optimization has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
-            verbosity="progress",
         )
 
     def filter_dfs(self, precursor_df, fragments_df):
