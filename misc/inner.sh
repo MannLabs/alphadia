@@ -3,7 +3,7 @@
 # set Slurm block 
 #SBATCH --job-name=alphadia
 #SBATCH --time=21-00:00:00
-#SBATCH --output=./logs/slurm-%j-%x.out
+#SBATCH --output=./logs/slurm-%A_%a_%x.out
 
 # navigate to chunk directory
 slurm_index=${SLURM_ARRAY_TASK_ID}
