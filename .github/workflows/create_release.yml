@@ -18,6 +18,7 @@ jobs:
     secrets: inherit
     permissions:
       contents: write
+      actions: write
     uses: MannLabs/alphashared/.github/workflows/create_release.yml@v1
     with:
       package_name: alphadia
