@@ -99,10 +99,16 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["favour_narrower_parameter"]
 
-        if self.favour_narrower_parameter:
+        self.use_generous_convergence_criteria = workflow.config["optimization"][
+            self.parameter_name
+        ]["use_generous_convergence_criteria"]
+
+        if self.use_generous_convergence_criteria:
             self.maximal_decrease = workflow.config["optimization"][
                 self.parameter_name
             ]["maximal_decrease"]
+
+        if self.favour_narrower_parameter:
             self.maximum_deviation_from_maximum = workflow.config["optimization"][
                 self.parameter_name
             ]["maximum_deviation_from_maximum"]
@@ -396,10 +402,10 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def _check_convergence(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        If self.favour_narrower_parameter is False:
+        If self.use_generous_convergence_criteria is False:
             1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
             2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
-        If self.favour_narrower_parameter is True:
+        If self.use_generous_convergence_criteria is True:
             1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
             2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
@@ -409,7 +415,7 @@ class AutomaticOptimizer(BaseOptimizer):
             This function may be overwritten in child classes.
 
         """
-        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        if self.use_generous_convergence_criteria:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             if len(self.history_df) < 3:
                 return False
 

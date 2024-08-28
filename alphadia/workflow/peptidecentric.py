@@ -568,10 +568,27 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
                 precursor_df, self.optlock.fragments_df
             )
-            optimizer.golden_section_step(precursor_df_filtered, fragments_df_filtered)
-            self.optlock.update()
-            self.recalibration(precursor_df_filtered, fragments_df_filtered)
-            self.optlock.update_with_calibration(self.calibration_manager)
+
+            if not self.optlock.has_target_num_precursors:
+                self.optlock.update()
+
+                if self.optlock.previously_calibrated:
+                    self.optlock.update_with_calibration(
+                        self.calibration_manager
+                    )  # This is needed so that the addition to the batch libary has the most recent calibration
+
+            else:
+                precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                    precursor_df, self.optlock.fragments_df
+                )
+
+                self.optlock.update()
+                self.recalibration(precursor_df_filtered, fragments_df_filtered)
+                self.optlock.update_with_calibration(self.calibration_manager)
+
+                optimizer.golden_section_step(
+                    precursor_df_filtered, fragments_df_filtered
+                )
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.

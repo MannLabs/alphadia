@@ -260,9 +260,10 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      use_generous_convergence_criteria: True
+      maximal_decrease: 0.6
       favour_narrower_parameter: False
-      maximal_decrease: 0.2
-      maximum_deviation_from_maximum: 0.95
+      maximum_deviation_from_maximum: 0.05
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 1
 
@@ -271,9 +272,10 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: False
+      use_generous_convergence_criteria: False
       maximal_decrease: 0.2
-      maximum_deviation_from_maximum: 0.95
+      favour_narrower_parameter: False
+      maximum_deviation_from_maximum: 0.05
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 1
 
@@ -282,9 +284,10 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: False
+      use_generous_convergence_criteria: False
       maximal_decrease: 0.2
-      maximum_deviation_from_maximum: 0.95
+      favour_narrower_parameter: False
+      maximum_deviation_from_maximum: 0.05
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 0.01
 
@@ -293,9 +296,10 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
+      use_generous_convergence_criteria: True
+      maximal_decrease: 0.6
       favour_narrower_parameter: True
-      maximal_decrease: 0.2
-      minimum_proportion_of_maximum: 0.95
+      maximum_deviation_from_maximum: 0.05
       perform_golden_section_search: False
       tolerance_for_golden_section_search: 40
 
