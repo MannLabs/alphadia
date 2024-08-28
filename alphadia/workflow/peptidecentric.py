@@ -430,13 +430,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                             self.calibration_manager
                         )  # This is needed so that the addition to the batch libary has the most recent calibration
 
-                        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
-                            precursor_df, self.optlock.fragments_df
-                        )
-                        self.step_all_optimizers(
-                            optimizers, precursor_df_filtered, fragments_df_filtered
-                        )
-
                 else:
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
                         precursor_df, self.optlock.fragments_df

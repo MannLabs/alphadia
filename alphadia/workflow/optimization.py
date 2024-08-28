@@ -433,7 +433,11 @@ class AutomaticOptimizer(BaseOptimizer):
 
             parameter_history = self.history_df["parameter"]
             parameter_not_substantially_changed = (
-                parameter_history.iloc[-1] / parameter_history.iloc[-2] > 0.95
+                np.abs(
+                    parameter_history.iloc[-1]
+                    - parameter_history.iloc[-2] / parameter_history.iloc[-2]
+                )
+                < 0.05
             )
 
             return min_steps_reached and (
@@ -689,13 +693,13 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        self.feature_name = "weighted_ms1_intensity"
+        self.feature_name = "precursor_proportion_detected"
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return -precursors_df.weighted_ms1_intensity.median()
+        return len(precursors_df) / self.workflow.optlock.total_elution_groups
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
