@@ -255,8 +255,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
             parameter_history = self.history_df["parameter"]
             parameter_not_substantially_changed = (
-                parameter_history.iloc[-1] / parameter_history.iloc[-2]
-                > self.minimum_proportion_of_maximum
+                parameter_history.iloc[-1] / parameter_history.iloc[-2] > 0.95
             )
 
             return min_steps_reached and (
@@ -298,7 +297,8 @@ class AutomaticOptimizer(BaseOptimizer):
         if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             rows_within_thresh_of_max = self.history_df.loc[
                 self.history_df[self.feature_name]
-                > self.history_df[self.feature_name].max() * 0.9
+                > self.history_df[self.feature_name].max()
+                * self.minimum_proportion_of_maximum
             ]
             index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
             return index_of_optimum
@@ -483,12 +483,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
-        self.maximal_decrease = workflow.config["optimization"]["rt_error"][
-            "maximal_decrease"
-        ]
-        self.minimum_proportion_of_maximum = workflow.config["optimization"][
-            "rt_error"
-        ]["minimum_proportion_of_maximum"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
