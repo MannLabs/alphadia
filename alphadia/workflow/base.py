@@ -3,7 +3,8 @@ import logging
 import os
 
 # alpha family imports
-from alphabase.spectral_library.base import SpecLibBase, SpecLibFlat
+from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 # alphadia imports
 from alphadia.data import alpharaw, bruker
