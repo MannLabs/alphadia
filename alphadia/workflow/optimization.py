@@ -483,12 +483,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
-        self.maximal_decrease = workflow.config["optimization"]["rt_error"][
-            "maximal_decrease"
-        ]
-        self.minimum_proportion_of_maximum = workflow.config["optimization"][
-            "rt_error"
-        ]["minimum_proportion_of_maximum"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
