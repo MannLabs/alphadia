@@ -450,6 +450,7 @@ def create_workflow_instance():
 
     class MockOptlock:
         total_elution_groups = 2000
+        batch_idx = 1
 
     workflow.optlock = MockOptlock()
 
