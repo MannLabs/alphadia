@@ -24,7 +24,7 @@ args = parser.parse_args()
 # read the input filename
 infile = pd.read_csv(os.path.join(args.input_directory, args.input_filename), skiprows = 0)
 
-# read the yaml file
+# read the config .yaml file
 with open(os.path.join(args.input_directory, args.config_filename), 'r') as file:
     config = yaml.safe_load(file)
 
@@ -33,6 +33,15 @@ if args.reuse_quant == "1":
     config['general']['reuse_quant'] = True
 else:
     config['general']['reuse_quant'] = False
+
+# always set prediction of library to false, this should happen prior to chunking
+config['library_prediction']['predict'] = False
+
+# throw out fasta at this point, library must be fully predicted prior to chunking
+try:
+    del config['fasta_list']
+except:
+    pass
 
 # determine chunk size: division of infile rowcount and number of nodes
 chunk_size = int(np.ceil(infile.shape[0] / int(args.nnodes)))
@@ -59,14 +68,14 @@ for i in range(0, max_tasks):
         os.makedirs(chunk_folder)
 
     # retrieve library path from config or arguments and copy to chunk folder, set new library path in config
-    if args.library_path is not None:
-        lib_source = args.library_path
-    elif 'library' in current_config:
+    if args.library_path == "None":
         lib_source = current_config['library']
+    elif 'library' in current_config:
+        lib_source = args.library_path
     else:
         print("No library path provided in config or args, exiting...")
         sys.exit(1)
-        
+
     shutil.copy(lib_source, chunk_folder)
     
     current_config['library'] = os.path.join(chunk_folder, os.path.basename(lib_source))
