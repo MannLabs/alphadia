@@ -134,6 +134,7 @@ class AutomaticOptimizer(BaseOptimizer):
                     "score_cutoff": self.workflow.optimization_manager.score_cutoff,
                     "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
                     "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                    "batch_idx": self.workflow.optlock.batch_idx,
                 }
             ]
         )
@@ -143,7 +144,7 @@ class AutomaticOptimizer(BaseOptimizer):
         if just_converged:
             self.has_converged = True
 
-            self._update_optimization_manager()
+            self._update_workflow()
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
@@ -306,14 +307,14 @@ class AutomaticOptimizer(BaseOptimizer):
         else:
             return self.history_df[self.feature_name].idxmax()
 
-    def _update_optimization_manager(self):
+    def _update_workflow(self):
         """Updates the optimization manager with the results of the optimization, namely:
             the classifier version,
             the optimal parameter,
             score cutoff,
             FWHM_RT,
             and FWHM_mobility
-        at the optimal parameter.
+        at the optimal parameter. Also updates the optlock with the smallest batch index.
 
         """
         index_of_optimum = self._find_index_of_optimum()
@@ -342,6 +343,12 @@ class AutomaticOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit(
             {"fwhm_mobility": fwhm_mobility_at_optimum}
         )
+
+        self.workflow.optlock.batch_idx = self.history_df[
+            "batch_idx"
+        ].min()  # Typically (although not necessarily) the optimal parameter is compatible with the smallest batch index is used.
+        # If optimization has proceeded far beyond the optimal value, then it is possible that the most recent batch index will be bigger.
+        # If the optimal parameter needs a larger batch size to reach the target, the batch index will just increase in the next step so no harm is done.
 
     @abstractmethod
     def _get_feature_value(
@@ -483,12 +490,6 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
-        self.maximal_decrease = workflow.config["optimization"]["rt_error"][
-            "maximal_decrease"
-        ]
-        self.minimum_proportion_of_maximum = workflow.config["optimization"][
-            "rt_error"
-        ]["minimum_proportion_of_maximum"]
         super().__init__(initial_parameter, workflow, reporter)
 
     def _get_feature_value(
@@ -618,7 +619,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
 
 
 class OptimizationLock:
-    def __init__(self, library, config: dict):
+    def __init__(self, library: SpecLibFlat, config: dict):
         """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
 
         Parameters
@@ -676,7 +677,9 @@ class OptimizationLock:
 
         self.batch_plan = plan
 
-    def update_with_extraction(self, feature_df, fragment_df):
+    def update_with_extraction(
+        self, feature_df: pd.DataFrame, fragment_df: pd.DataFrame
+    ):
         """Extract features and fragments from the current batch of the optimization lock.
 
         Parameters
@@ -693,7 +696,7 @@ class OptimizationLock:
 
         self.total_elution_groups = self.features_df.elution_group_idx.nunique()
 
-    def update_with_fdr(self, precursor_df):
+    def update_with_fdr(self, precursor_df: pd.DataFrame):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
 
         Parameters
@@ -753,25 +756,16 @@ class OptimizationLock:
         """
         if not self.has_target_num_precursors:
             self.increase_batch_idx()
-            eg_idxes = self.elution_group_order[
-                self.start_idx : self.stop_idx
-            ]  # Take only additional elution groups in the new step of the batch plan.
-            # The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
 
         else:
             self.decrease_batch_idx()
-            eg_idxes = self.elution_group_order[
-                : self.stop_idx
-            ]  # Take all elution groups up the the stop index.
-            # The target has been reached and hence the recalibration and optimization have been performed, so everything must be extracted afresh.
-
             self.feature_dfs = []
             self.fragment_dfs = []
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
 
-    def set_batch_dfs(self, eg_idxes):
+    def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
         """
         Sets the batch library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
 
@@ -780,6 +774,8 @@ class OptimizationLock:
         eg_idxes: np.ndarray
             The elution group indexes to use for the next round of optimization.
         """
+        if eg_idxes is None:
+            eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.batch_library = SpecLibFlat()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(
@@ -793,15 +789,15 @@ class OptimizationLock:
         )
 
     @property
-    def features_df(self):
+    def features_df(self) -> pd.DataFrame:
         return pd.concat(self.feature_dfs)
 
     @property
-    def fragments_df(self):
+    def fragments_df(self) -> pd.DataFrame:
         return pd.concat(self.fragment_dfs)
 
     @property
-    def start_idx(self):
+    def start_idx(self) -> int:
         if self.has_target_num_precursors:
             return 0
         elif self.batch_idx >= len(self.batch_plan):
@@ -810,5 +806,5 @@ class OptimizationLock:
             return self.batch_plan[self.batch_idx][0]
 
     @property
-    def stop_idx(self):
+    def stop_idx(self) -> int:
         return self.batch_plan[self.batch_idx][1]

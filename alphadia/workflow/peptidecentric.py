@@ -418,6 +418,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         verbosity="progress",
                     )
 
+                    self.optlock.set_batch_dfs()
+                    self.optlock.update_with_calibration(self.calibration_manager)
+
                     for optimizer in optimizers:
                         optimizer.plot()
 
