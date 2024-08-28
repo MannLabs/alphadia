@@ -344,9 +344,8 @@ class AutomaticOptimizer(BaseOptimizer):
             {"fwhm_mobility": fwhm_mobility_at_optimum}
         )
 
-        self.workflow.optlock.batch_idx = self.history_df[
-            "batch_idx"
-        ].min()  # Typically (although not necessarily) the optimal parameter is compatible with the smallest batch index is used.
+        batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
+        self.workflow.optlock.batch_idx = batch_index_at_optimum  # Typically (although not necessarily) the optimal parameter is compatible with the smallest batch index is used.
         # If optimization has proceeded far beyond the optimal value, then it is possible that the most recent batch index will be bigger.
         # If the optimal parameter needs a larger batch size to reach the target, the batch index will just increase in the next step so no harm is done.
 
