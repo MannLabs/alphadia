@@ -4,6 +4,7 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 # alphadia imports
 from alphadia.data import alpharaw, bruker
@@ -139,22 +140,22 @@ class WorkflowBase:
         return self._config
 
     @property
-    def calibration_manager(self) -> str:
+    def calibration_manager(self) -> manager.CalibrationManager:
         """Calibration manager for the workflow. Owns the RT, IM, MZ calibration and the calibration data"""
         return self._calibration_manager
 
     @property
-    def optimization_manager(self) -> str:
+    def optimization_manager(self) -> manager.OptimizationManager:
         """Optimization manager for the workflow. Owns the optimization data"""
         return self._optimization_manager
 
     @property
-    def timing_manager(self) -> str:
+    def timing_manager(self) -> manager.TimingManager:
         """Optimization manager for the workflow. Owns the timing data"""
         return self._timing_manager
 
     @property
-    def spectral_library(self) -> SpecLibBase:
+    def spectral_library(self) -> SpecLibFlat:
         """Spectral library for the workflow. Owns the spectral library data"""
         return self._spectral_library
 

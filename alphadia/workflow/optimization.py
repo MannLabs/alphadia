@@ -173,7 +173,7 @@ class AutomaticOptimizer(BaseOptimizer):
         ax.vlines(
             x=self.workflow.optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df[self.feature_name].max(),
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self.feature_name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
