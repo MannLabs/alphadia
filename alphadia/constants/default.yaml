@@ -114,7 +114,7 @@ calibration:
   min_steps: 2
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
-  max_skips: 2
+  max_skips: 1
 
   # TODO: remove this parameter
   final_full_calibration: False

@@ -160,10 +160,7 @@ class AutomaticOptimizer(BaseOptimizer):
     def skip(self):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
         self.num_consecutive_skips += 1
-        if (
-            self.num_consecutive_skips
-            >= self.workflow.config["calibration"]["max_skips"]
-        ):
+        if self._unnecessary_to_continue:
             self.has_converged = True
             self._update_workflow()
             self.reporter.log_string(
