@@ -101,14 +101,20 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
-        self.favour_narrower_parameter = workflow.config["optimization"][
-            self.parameter_name
-        ]["favour_narrower_parameter"]
+        self.try_narrower_values = workflow.config["optimization"][self.parameter_name][
+            "try_narrower_values"
+        ]
 
-        if self.favour_narrower_parameter:
+        if self.try_narrower_values:
             self.maximal_decrease = workflow.config["optimization"][
                 self.parameter_name
             ]["maximal_decrease"]
+
+        self.favour_narrower_optimum = workflow.config["optimization"][
+            self.parameter_name
+        ]["favour_narrower_optimum"]
+
+        if self.favour_narrower_optimum:
             self.maximum_decrease_from_maximum = workflow.config["optimization"][
                 self.parameter_name
             ]["maximum_decrease_from_maximum"]
@@ -277,10 +283,10 @@ class AutomaticOptimizer(BaseOptimizer):
     @property
     def _just_converged(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        If self.favour_narrower_parameter is False:
+        If self.try_narrower_values is False:
             1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
             2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
-        If self.favour_narrower_parameter is True:
+        If self.try_narrower_values is True:
             1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
             2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
@@ -293,7 +299,7 @@ class AutomaticOptimizer(BaseOptimizer):
         if len(self.history_df) < 3:
             return False
 
-        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        if self.try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
                 self.num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
@@ -355,7 +361,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
 
-        if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        if self.favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             maximum_feature_value = self.history_df[self.feature_name].max()
             rows_within_thresh_of_max = self.history_df.loc[
                 self.history_df[self.feature_name]
