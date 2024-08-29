@@ -49,10 +49,10 @@ class BaseOptimizer(ABC):
         ----------
 
         precursors_df: pd.DataFrame
-            The precursor dataframe for the search
+            The filtered precursor dataframe for the search (see peptidecentric.PeptideCentricWorkflow.filter_dfs).
 
         fragments_df: pd.DataFrame
-            The fragment dataframe for the search
+            The filtered fragment dataframe for the search (see peptidecentric.PeptideCentricWorkflow.filter_dfs).
 
 
         """
@@ -88,6 +88,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
         self.num_prev_optimizations = 0
+        self._num_consecutive_skips = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
@@ -112,7 +113,9 @@ class AutomaticOptimizer(BaseOptimizer):
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
     ):
-        """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        """See base class. The feature is used to track the progres of the optimization and determine whether it has converged.
+        It also resets the internal counter for the number of consecutive skips.
+        """
         if self.has_converged:
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
@@ -120,28 +123,12 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
+        self.num_consecutive_skips = 0
         self.num_prev_optimizations += 1
-        new_row = pd.DataFrame(
-            [
-                {
-                    "parameter": self.workflow.optimization_manager.__dict__[
-                        self.parameter_name
-                    ],
-                    self.feature_name: self._get_feature_value(
-                        precursors_df, fragments_df
-                    ),
-                    "classifier_version": self.workflow.fdr_manager.current_version,
-                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
-                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
-                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
-                    "batch_idx": self.workflow.optlock.batch_idx,
-                }
-            ]
-        )
-        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-        just_converged = self._check_convergence()
 
-        if just_converged:
+        self._update_history(precursors_df, fragments_df)
+
+        if self._just_converged:
             self.has_converged = True
 
             self._update_workflow()
@@ -162,6 +149,20 @@ class AutomaticOptimizer(BaseOptimizer):
 
             self.reporter.log_string(
                 f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+                verbosity="progress",
+            )
+
+    def skip(self):
+        """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
+        self._num_consecutive_skips += 1
+        if (
+            self.num_consecutive_skips
+            > self.workflow.config["optimization"]["max_skips"]
+        ):
+            self.has_converged = True
+            self._update_workflow()
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -222,7 +223,57 @@ class AutomaticOptimizer(BaseOptimizer):
             self.estimator_group_name, self.estimator_name
         ).ci(df, self.update_percentile_range)
 
-    def _check_convergence(self):
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        """This method updates the history dataframe with relevant values.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
+
+        """
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                    "batch_idx": self.workflow.optlock.batch_idx,
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+
+    @property
+    def _unnecessary_to_continue(self):
+        """This function checks if the optimization has already been optimized sufficiently many times and if it has been skipped too many times at the current parameter value.
+        (Being skipped at least twice indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
+
+        Returns
+        -------
+        bool
+            True if the optimization has already been performed the minimum number of times and the maximum number of skips has been reached, False otherwise.
+
+        """
+        return (
+            self.num_prev_optimizations
+            > self.workflow.config["calibration"]["min_steps"]
+            and self.num_consecutive_skips
+            > self.workflow.config["calibration"]["max_skips"]
+        )
+
+    @property
+    def _just_converged(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
         If self.favour_narrower_parameter is False:
             1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
