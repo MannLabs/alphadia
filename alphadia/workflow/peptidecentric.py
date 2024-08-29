@@ -407,9 +407,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.optlock = optimization.OptimizationLock(self.spectral_library, self.config)
-
+        insufficient_precursors_to_optimize = False
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
+            if insufficient_precursors_to_optimize:
+                break
             for current_step in range(
                 self.config["calibration"]["max_steps"]
             ):  # Note current_step here refers to a different step than the attribute of the same name in the optimizer -- this should be rectified
@@ -433,6 +435,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 precursor_df = self._process_batch()
 
                 if not self.optlock.has_target_num_precursors:
+                    if self.optlock.batch_idx + 1 >= len(self.optlock.batch_plan):
+                        for optimizer in optimizers:
+                            optimizer.proceed_with_insufficient_precursors()
+                        insufficient_precursors_to_optimize = True
+                        break
                     self.optlock.update()
 
                     if self.optlock.previously_calibrated:
@@ -821,13 +828,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     def extraction(self):
-        self.optimization_manager.fit(
-            {
-                "num_candidates": self.config["search"]["target_num_candidates"],
-                "column_type": "calibrated",
-            }
-        )
-
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
         )
