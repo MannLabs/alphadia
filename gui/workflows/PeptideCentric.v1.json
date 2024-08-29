@@ -318,7 +318,7 @@
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
                     "value": 100,
-                    "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
@@ -434,7 +434,7 @@
                     "id": "initial_rt_tolerance",
                     "name": "RT Tolerance",
                     "value": 240,
-                    "description": "Initial retention time tolerance in seconds.",
+                    "description": "Initial retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1.",
                     "type": "float"
                 }
             ]
