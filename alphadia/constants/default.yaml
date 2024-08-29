@@ -88,9 +88,13 @@ search:
   compete_for_fragments: True
 
   target_num_candidates: 2
+  # target ms1 tolerance in ppm
   target_ms1_tolerance: 15
+  # target ms2 tolerance in ppm
   target_ms2_tolerance: 15
+  # target ion mobility tolerance in 1/K_0
   target_mobility_tolerance: 0.04
+  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   target_rt_tolerance: 60
 
   quant_window: 3
@@ -138,7 +142,7 @@ search_initial:
   # initial ion mobility tolerance in 1/K_0
   initial_mobility_tolerance: 0.08
 
-  # initial retention time tolerance in seconds
+  # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   initial_rt_tolerance: 240
 
 selection_config:

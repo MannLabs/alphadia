@@ -285,9 +285,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         if config_search["target_rt_tolerance"] > 0:
+            gradient_length = self.dia_data.rt_values.max()
+            target_rt_error = (
+                config_search["target_rt_tolerance"]
+                if config_search["target_rt_tolerance"] > 1
+                else config_search["target_rt_tolerance"] * gradient_length
+            )
             rt_optimizer = optimization.TargetedRTOptimizer(
                 self.optimization_manager.rt_error,
-                config_search["target_rt_tolerance"],
+                target_rt_error,
                 self,
             )
         else:
