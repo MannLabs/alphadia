@@ -314,7 +314,7 @@ class AutomaticOptimizer(BaseOptimizer):
             score cutoff,
             FWHM_RT,
             and FWHM_mobility
-        at the optimal parameter. Also updates the optlock with the smallest batch index.
+        at the optimal parameter. Also updates the optlock with the batch index at the optimum.
 
         """
         index_of_optimum = self._find_index_of_optimum()
@@ -345,9 +345,7 @@ class AutomaticOptimizer(BaseOptimizer):
         )
 
         batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
-        self.workflow.optlock.batch_idx = batch_index_at_optimum  # Typically (although not necessarily) the optimal parameter is compatible with the smallest batch index is used.
-        # If optimization has proceeded far beyond the optimal value, then it is possible that the most recent batch index will be bigger.
-        # If the optimal parameter needs a larger batch size to reach the target, the batch index will just increase in the next step so no harm is done.
+        self.workflow.optlock.batch_idx = batch_index_at_optimum
 
     @abstractmethod
     def _get_feature_value(
