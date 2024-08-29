@@ -398,6 +398,8 @@ class AutomaticOptimizer(BaseOptimizer):
         )
 
         batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
+        # Take the batch index of the optimum, at the cost of potentially getting the batch library twice if this is the same as the current batch index.
+        # The time impact of this is negligible and the benefits can be significant.
         self.workflow.optlock.batch_idx = batch_index_at_optimum
 
     @abstractmethod
@@ -825,8 +827,8 @@ class OptimizationLock:
 
         Parameters
         ----------
-        eg_idxes: np.ndarray
-            The elution group indexes to use for the next round of optimization.
+        eg_idxes: None | np.ndarray
+            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used.
         """
         if eg_idxes is None:
             eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
