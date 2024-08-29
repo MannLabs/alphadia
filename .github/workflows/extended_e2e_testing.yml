@@ -1,0 +1,88 @@
+on:
+  pull_request:
+    types: [ labeled ]
+  push:
+    branches: [ main, development ]
+  workflow_dispatch:
+
+name: Extended end to end testing
+
+jobs:
+  end2end_testing:
+    name: Extended end to end test
+    runs-on: self-hosted
+    if: contains(github.event.pull_request.labels.*.name, 'test:extended_e2e') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    strategy:
+      matrix:
+        # test case name as defined in extended_e2e_test_cases.yaml
+        test_case: [
+          "astral_Wh80_targeted",
+          "astral_Wh120_targeted",
+          "astral_Neo15min_targeted",
+          "astral_Neo30min_targeted",
+          "astral_Neo45min_targeted",
+          "astral_Wh80_automatic",
+          "astral_Wh120_automatic",
+          "astral_Neo15min_automatic",
+          "astral_Neo30min_automatic",
+          "astral_Neo45min_automatic",
+          "timstof_synP_2_2min_targeted",
+          "timstof_diaP_2_2min_targeted",
+          "timstof_synP_5_6min_targeted",
+          "timstof_diaP_5_6min_targeted",
+          "timstof_synP_11min_targeted",
+          "timstof_diaP_11min_targeted",
+          "timstof_synP_21min_targeted",
+          "timstof_diaP_21min_targeted",
+          "timstof_synP_44min_targeted",
+          "timstof_diaP_44min_targeted",
+          "timstof_synP_88min_targeted",
+          "timstof_diaP_88min_targeted",
+          "timstof_synP_2_2min_automatic",
+          "timstof_diaP_2_2min_automatic",
+          "timstof_synP_5_6min_automatic",
+          "timstof_diaP_5_6min_automatic",
+          "timstof_synP_11min_automatic",
+          "timstof_diaP_11min_automatic",
+          "timstof_synP_21min_automatic",
+          "timstof_diaP_21min_automatic",
+          "timstof_synP_44min_automatic",
+          "timstof_diaP_44min_automatic",
+          "timstof_synP_88min_automatic",
+          "timstof_diaP_88min_automatic"
+        ]
+    env:
+      RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+      NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+      NUMBA_BOUNDSCHECK: 1
+      NUMBA_DEVELOPER_MODE: 1
+      NUMBA_FULL_TRACEBACKS: 1
+      TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conda info
+        shell: bash -el {0}
+        run: conda info
+      - name: Pip installation with stable dependencies
+        id: pip_installation
+        shell: bash -el {0}
+        run: |
+          cd misc
+          . ./pip_install.sh stable $RUN_NAME
+      - name: Run e2e tests
+        shell: bash -el {0}
+        run: |
+          cd tests
+           . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
+      - name: Cleanup
+        if: always()
+        shell: bash -el {0}
+        run: |
+          conda remove -n $RUN_NAME --all -y
+      - name: Delete Caches on Error
+        if: ${{ failure() && steps.pip_installation.conclusion == 'failure' }}
+        run: |
+          rm -rf ~/.cache/pip
+          rm -rf ~/.cache/conda
