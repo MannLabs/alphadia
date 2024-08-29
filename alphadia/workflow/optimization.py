@@ -273,12 +273,15 @@ class AutomaticOptimizer(BaseOptimizer):
             True if the optimization has already been performed the minimum number of times and the maximum number of skips has been reached, False otherwise.
 
         """
-        return (
+        min_steps_reached = (
             self.num_prev_optimizations
-            > self.workflow.config["calibration"]["min_steps"]
-            and self.num_consecutive_skips
+            >= self.workflow.config["calibration"]["min_steps"]
+        )
+        max_skips_reached = (
+            self.num_consecutive_skips
             > self.workflow.config["calibration"]["max_skips"]
         )
+        return min_steps_reached and max_skips_reached
 
     @property
     def _just_converged(self):

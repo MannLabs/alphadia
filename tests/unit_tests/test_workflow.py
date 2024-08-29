@@ -1020,11 +1020,15 @@ def test_optimizer_skipping():
 
     assert len(rt_optimizer.history_df) == 1
 
-    rt_optimizer.skip()
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
+
+    assert rt_optimizer.has_converged is False
 
     rt_optimizer.skip()
 
-    assert len(rt_optimizer.history_df) == 1
+    rt_optimizer.skip()
+
+    assert len(rt_optimizer.history_df) == 2
     assert rt_optimizer.has_converged is True
 
     rt_optimizer = optimization.TargetedRTOptimizer(
@@ -1045,3 +1049,6 @@ def test_optimizer_skipping():
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert rt_optimizer.has_converged is True
+
+
+test_optimizer_skipping()
