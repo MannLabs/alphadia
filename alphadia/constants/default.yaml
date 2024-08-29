@@ -264,7 +264,7 @@ optimization:
       automatic_update_factor: 1.1
       favour_narrower_parameter: False
       maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.95
+      minimum_proportion_of_maximum: 0.9
   ms1_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
@@ -272,7 +272,7 @@ optimization:
       automatic_update_factor: 1.1
       favour_narrower_parameter: False
       maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.95
+      minimum_proportion_of_maximum: 0.9
   mobility_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
@@ -280,7 +280,7 @@ optimization:
       automatic_update_factor: 1.1
       favour_narrower_parameter: False
       maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.95
+      minimum_proportion_of_maximum: 0.9
   rt_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
@@ -288,7 +288,7 @@ optimization:
       automatic_update_factor: 1.1
       favour_narrower_parameter: True
       maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.95
+      minimum_proportion_of_maximum: 0.9
 
 # configuration for the optimization manager
 # initial parameters, will be optimized
