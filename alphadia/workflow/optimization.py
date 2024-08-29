@@ -60,6 +60,11 @@ class BaseOptimizer(ABC):
         pass
 
     @abstractmethod
+    def skip(self):
+        """This method is used to record skipping of optimization. It can be overwritten with an empty function if skipping of optimization does not need to be recorded"""
+        pass
+
+    @abstractmethod
     def plot(self):
         """This method plots relevant information about optimization of the search parameter. This can be overwritten with an empty function if there is nothing to plot."""
 
@@ -88,7 +93,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
         self.num_prev_optimizations = 0
-        self._num_consecutive_skips = 0
+        self.num_consecutive_skips = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
@@ -154,10 +159,10 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def skip(self):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
-        self._num_consecutive_skips += 1
+        self.num_consecutive_skips += 1
         if (
             self.num_consecutive_skips
-            > self.workflow.config["optimization"]["max_skips"]
+            >= self.workflow.config["calibration"]["max_skips"]
         ):
             self.has_converged = True
             self._update_workflow()
@@ -523,6 +528,10 @@ class TargetedOptimizer(BaseOptimizer):
 
     def plot(self):
         """See base class. There is nothing of interest to plot here."""
+        pass
+
+    def skip(self):
+        """See base class. There is nothing to record when skipping optimization here."""
         pass
 
 

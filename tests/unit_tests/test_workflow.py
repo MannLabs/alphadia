@@ -997,3 +997,51 @@ def test_configurability():
     assert ordered_optimizers[1][1].update_factor == 1.2
 
     assert ordered_optimizers[2][0].parameter_name == "mobility_error"
+
+
+def test_optimizer_skipping():
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
+
+    rt_optimizer = optimization.AutomaticRTOptimizer(
+        100,
+        workflow,
+    )
+
+    assert rt_optimizer.has_converged is False
+    assert rt_optimizer.parameter_name == "rt_error"
+
+    workflow.fdr_manager._current_version += 1
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
+
+    assert len(rt_optimizer.history_df) == 1
+
+    rt_optimizer.skip()
+
+    rt_optimizer.skip()
+
+    assert len(rt_optimizer.history_df) == 1
+    assert rt_optimizer.has_converged is True
+
+    rt_optimizer = optimization.TargetedRTOptimizer(
+        100,
+        10,
+        workflow,
+    )
+
+    workflow.fdr_manager._current_version += 1
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
+
+    rt_optimizer.skip()
+
+    rt_optimizer.skip()
+
+    assert rt_optimizer.has_converged is False
+
+    rt_optimizer.step(calibration_test_df1, calibration_test_df2)
+
+    assert rt_optimizer.has_converged is True
