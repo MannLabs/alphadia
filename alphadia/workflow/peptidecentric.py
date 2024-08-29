@@ -419,12 +419,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         verbosity="progress",
                     )
 
-                    self.optlock.has_target_num_precursors = True
-                    self.optlock.set_batch_dfs()
-                    self.optlock.update_with_calibration(self.calibration_manager)
+                    self.optlock.reset_after_convergence(self.calibration_manager)
 
                     for optimizer in optimizers:
+                        self.golden_section_search(optimizer)
                         optimizer.plot()
+
+                    self.optlock.reset_after_convergence(self.calibration_manager)
 
                     break
 
@@ -586,6 +587,61 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 verbosity="progress",
             )
             optimizer.skip()
+
+    def golden_section_search(self, optimizer):
+        if not isinstance(optimizer, optimization.AutomaticOptimizer):
+            return
+        if not optimizer.perform_golden_section_search:
+            return
+        self.reporter.log_string(
+            "Starting golden section search.", verbosity="progress"
+        )
+
+        optimizer.initialize_golden_triple()
+        if optimizer.golden_search_unnecessary:
+            self.reporter.log_string(
+                f"Optimization of {optimizer.parameter_name} by golden search is not necessary.",
+                verbosity="progress",
+            )
+            return
+
+        precursor_df = self._process_batch()
+        precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+            precursor_df, self.optlock.fragments_df
+        )
+        optimizer.golden_section_first_step(
+            precursor_df_filtered, fragments_df_filtered
+        )
+        self.optlock.update()
+        self.recalibration(precursor_df_filtered, fragments_df_filtered)
+        self.optlock.update_with_calibration(self.calibration_manager)
+
+        while not optimizer.golden_search_converged:
+            precursor_df = self._process_batch()
+            precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                precursor_df, self.optlock.fragments_df
+            )
+
+            if not self.optlock.has_target_num_precursors:
+                self.optlock.update()
+
+                if self.optlock.previously_calibrated:
+                    self.optlock.update_with_calibration(
+                        self.calibration_manager
+                    )  # This is needed so that the addition to the batch libary has the most recent calibration
+
+            else:
+                precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                    precursor_df, self.optlock.fragments_df
+                )
+
+                self.optlock.update()
+                self.recalibration(precursor_df_filtered, fragments_df_filtered)
+                self.optlock.update_with_calibration(self.calibration_manager)
+
+                optimizer.golden_section_step(
+                    precursor_df_filtered, fragments_df_filtered
+                )
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.

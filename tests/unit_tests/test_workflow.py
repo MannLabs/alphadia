@@ -1050,3 +1050,61 @@ def test_optimizer_skipping():
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert rt_optimizer.has_converged is True
+
+
+def calculate_interval_widths(optimizer):
+    return (
+        optimizer.history_df.parameter.loc[optimizer.golden_triple_idxes].iloc[2]
+        - optimizer.history_df.parameter.loc[optimizer.golden_triple_idxes].iloc[0]
+    )
+
+
+def test_golden_search():
+    workflow = create_workflow_instance()
+    workflow.config["optimization"].update(
+        {
+            "ms2_error": {
+                "automatic_update_percentile_range": 0.80,
+                "automatic_update_factor": 1.2,
+                "try_narrower_values": True,
+                "maximal_decrease": 0.4,
+                "favour_narrower_optimum": False,
+                "maximum_decrease_from_maximum": 0.3,
+                "perform_golden_section_search": True,
+                "tolerance_for_golden_section_search": 1,
+            },
+        }
+    )
+    optimizer = optimization.AutomaticMS2Optimizer(50, workflow)
+    optimizer.history_df = pd.DataFrame(
+        {
+            "parameter": [50, 20, 10, 6.4, 4.1],
+            optimizer.feature_name: [0.02, 0.04, 0.07, 0.10, 0.06],
+            "classifier_version": [2, 3, 4, 5, 6],
+            "score_cutoff": [10, 40, 50, 60, 45],
+            "fwhm_rt": [2.1, 2.2, 2.1, 2.2, 2.1],
+            "fwhm_mobility": [2.1, 2.2, 2.1, 2.2, 2.1],
+        }
+    )
+    test_df = pd.DataFrame(
+        {"test": np.arange(0, workflow.optlock.total_elution_groups / 9)}
+    )
+    optimizer.initialize_golden_triple()
+    optimizer.golden_section_first_step(test_df, test_df)
+    test_df = pd.DataFrame(
+        {"test": np.arange(0, workflow.optlock.total_elution_groups / 8)}
+    )
+
+    interval_widths = [calculate_interval_widths(optimizer)]
+    optimizer.golden_section_step(test_df, test_df)
+    interval_widths.append(calculate_interval_widths(optimizer))
+    optimizer.golden_section_step(test_df, test_df)
+    interval_widths.append(calculate_interval_widths(optimizer))
+    optimizer.golden_section_step(test_df, test_df)
+    interval_widths.append(calculate_interval_widths(optimizer))
+
+    interval_width_array = np.array(interval_widths)
+
+    assert np.all(
+        np.round(interval_width_array[1:] / interval_width_array[:-1], 3) == 0.618
+    )  # assert that the ratios of successive interval widths are approximately the golden ratio
