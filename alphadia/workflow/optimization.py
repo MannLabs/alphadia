@@ -38,7 +38,7 @@ class BaseOptimizer(ABC):
         """
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
-        self.num_prev_optimizations = 0
+        self._num_prev_optimizations = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -61,13 +61,12 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def skip(self):
-        """This method is used to record skipping of optimization. It can be overwritten with an empty function if skipping of optimization does not need to be recorded"""
+        """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
         pass
 
     @abstractmethod
     def plot(self):
-        """This method plots relevant information about optimization of the search parameter. This can be overwritten with an empty function if there is nothing to plot."""
-
+        """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
         pass
 
 
@@ -92,8 +91,8 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
-        self.num_prev_optimizations = 0
-        self.num_consecutive_skips = 0
+        self._num_prev_optimizations = 0
+        self._num_consecutive_skips = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
@@ -128,8 +127,12 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
-        self.num_consecutive_skips = 0
-        self.num_prev_optimizations += 1
+        self._num_consecutive_skips = 0
+        self._num_prev_optimizations += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self.workflow.config['calibration']['min_steps']} ===",
+            verbosity="progress",
+        )
 
         self._update_history(precursors_df, fragments_df)
 
@@ -159,8 +162,12 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def skip(self):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
-        self.num_consecutive_skips += 1
-        if self._unnecessary_to_continue:
+        self._num_consecutive_skips += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self.workflow.config['calibration']['max_skips']} ===",
+            verbosity="progress",
+        )
+        if self._batch_substantially_bigger:
             self.has_converged = True
             self._update_workflow()
             self.reporter.log_string(
@@ -257,9 +264,9 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
     @property
-    def _unnecessary_to_continue(self):
+    def _batch_substantially_bigger(self):
         """This function checks if the optimization has already been optimized sufficiently many times and if it has been skipped too many times at the current parameter value.
-        (Being skipped at least twice indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
+        (Being skipped indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
 
         Returns
         -------
@@ -268,11 +275,11 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self.num_prev_optimizations
+            self._num_prev_optimizations
             >= self.workflow.config["calibration"]["min_steps"]
         )
         max_skips_reached = (
-            self.num_consecutive_skips
+            self._num_consecutive_skips
             > self.workflow.config["calibration"]["max_skips"]
         )
         return min_steps_reached and max_skips_reached
@@ -298,7 +305,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         if self.favour_narrower_parameter:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
-                self.num_prev_optimizations
+                self._num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
@@ -321,7 +328,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         else:
             min_steps_reached = (
-                self.num_prev_optimizations
+                self._num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
@@ -474,7 +481,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self.num_prev_optimizations
+            self._num_prev_optimizations
             >= self.workflow.config["calibration"]["min_steps"]
         )
         return proposed_parameter <= self.target_parameter and min_steps_reached
@@ -505,7 +512,7 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-        self.num_prev_optimizations += 1
+        self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
@@ -528,12 +535,12 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
 
-    def plot(self):
-        """See base class. There is nothing of interest to plot here."""
+    def skip(self):
+        """See base class."""
         pass
 
-    def skip(self):
-        """See base class. There is nothing to record when skipping optimization here."""
+    def plot(self):
+        """See base class"""
         pass
 
 
@@ -823,6 +830,21 @@ class OptimizationLock:
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
+
+    def reset_after_convergence(self, calibration_manager):
+        """Resets the optimization lock after all optimizers in a given round of optimization have converged.
+
+        Parameter
+        ---------
+        calibration_manager: manager.CalibrationManager
+            The calibration manager object from the PeptideCentricWorkflow object.
+
+        """
+        self.has_target_num_precursors = True
+        self.feature_dfs = []
+        self.fragment_dfs = []
+        self.set_batch_dfs()
+        self.update_with_calibration(calibration_manager)
 
     def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
         """
