@@ -436,8 +436,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
                 if not self.optlock.has_target_num_precursors:
                     if self.optlock.batch_idx + 1 >= len(self.optlock.batch_plan):
-                        for optimizer in optimizers:
-                            optimizer.proceed_with_insufficient_precursors()
                         insufficient_precursors_to_optimize = True
                         break
                     self.optlock.update()
@@ -480,6 +478,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         log_string(
             "==============================================", verbosity="progress"
         )
+        if insufficient_precursors_to_optimize:
+            precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                precursor_df, self.optlock.fragments_df
+            )
+            if precursor_df_filtered.shape[0] >= 6:
+                self.recalibration(precursor_df_filtered, fragments_df_filtered)
+            for optimizers in ordered_optimizers:
+                for optimizer in optimizers:
+                    optimizer.proceed_with_insufficient_precursors(
+                        precursor_df_filtered, self.optlock.fragments_df
+                    )
+
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
                 log_string(

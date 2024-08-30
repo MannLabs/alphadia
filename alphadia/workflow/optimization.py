@@ -64,22 +64,17 @@ class BaseOptimizer(ABC):
         """This method is used to record skipping of optimization. It can be overwritten with an empty function if skipping of optimization does not need to be recorded"""
         pass
 
-    def proceed_with_insufficient_precursors(self):
+    def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
         self.workflow.reporter.log_string(
             "No more batches to process. Will proceed to extraction using best parameters available in optimization manager.",
             verbosity="warning",
         )
-        try:
-            self._update_workflow()
-            self.workflow.reporter.log_string(
-                f"Information. Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
-                verbosity="warning",
-            )
-        except KeyError:
-            self.workflow.reporter.log_string(
-                f"No information available. Using initial value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
-                verbosity="warning",
-            )
+        self._update_history(precursors_df, fragments_df)
+        self._update_workflow()
+        self.workflow.reporter.log_string(
+            f"Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
+            verbosity="warning",
+        )
 
     @abstractmethod
     def plot(self):
