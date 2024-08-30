@@ -419,8 +419,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         verbosity="progress",
                     )
 
-                    self.optlock.set_batch_dfs()
-                    self.optlock.update_with_calibration(self.calibration_manager)
+                    self.optlock.reset_after_convergence(self.calibration_manager)
 
                     for optimizer in optimizers:
                         optimizer.plot()
@@ -438,6 +437,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         self.optlock.update_with_calibration(
                             self.calibration_manager
                         )  # This is needed so that the addition to the batch libary has the most recent calibration
+
+                        self._skip_all_optimizers(optimizers)
 
                 else:
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
@@ -529,7 +530,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def _step_all_optimizers(
         self,
-        optimizers: list,
+        optimizers: list[optimization.BaseOptimizer],
         precursor_df_filtered: pd.DataFrame,
         fragments_df_filtered: pd.DataFrame,
     ):
@@ -552,14 +553,29 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         for optimizer in optimizers:
             optimizer.step(precursor_df_filtered, fragments_df_filtered)
-            self.reporter.log_string(
-                f"=== Optimization of {optimizer.parameter_name} has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
-                verbosity="progress",
-            )
 
         self.reporter.log_string(
             "==============================================",
         )
+
+    def _skip_all_optimizers(
+        self,
+        optimizers: list[optimization.BaseOptimizer],
+    ):
+        """All optimizers currently in use are stepped and their current state is logged.
+
+        Parameters
+        ----------
+        optimizers : list
+            List of optimizers to be stepped.
+
+        """
+        self.reporter.log_string(
+            "=== skipping optimization until target number of precursors are found ===",
+        )
+
+        for optimizer in optimizers:
+            optimizer.skip()
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
