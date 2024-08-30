@@ -555,10 +555,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         for optimizer in optimizers:
-            self.reporter.log_string(
-                f"=== Optimization of {optimizer.parameter_name} has been performed {optimizer.num_prev_optimizations + 1} time(s); minimum number is {self.config['calibration']['min_steps']} ===",
-                verbosity="progress",
-            )
             optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
         self.reporter.log_string(
@@ -582,13 +578,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         for optimizer in optimizers:
-            self.reporter.log_string(
-                f"=== Optimization of {optimizer.parameter_name} has been skipped {optimizer.num_consecutive_skips + 1} time(s); maximum number is {self.config['calibration']['max_skips']} ===",
-                verbosity="progress",
-            )
             optimizer.skip()
 
     def golden_section_search(self, optimizer):
+        """Performs a deterministic search to find the optimal value of the parameter more precisely using a golden section search.
+
+        Parameters
+        ----------
+        optimizer : optimization.AutomaticOptimizer
+            The optimizer for which the golden section search is to be performed.
+            If an optimization.TargetedOptimizer is passed, the function will return without performing the search.
+
+        """
         if not isinstance(optimizer, optimization.AutomaticOptimizer):
             return
         if not optimizer.perform_golden_section_search:

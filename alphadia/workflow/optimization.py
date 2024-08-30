@@ -38,7 +38,7 @@ class BaseOptimizer(ABC):
         """
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
-        self.num_prev_optimizations = 0
+        self._num_prev_optimizations = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -61,13 +61,12 @@ class BaseOptimizer(ABC):
 
     @abstractmethod
     def skip(self):
-        """This method is used to record skipping of optimization. It can be overwritten with an empty function if skipping of optimization does not need to be recorded"""
+        """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
         pass
 
     @abstractmethod
     def plot(self):
-        """This method plots relevant information about optimization of the search parameter. This can be overwritten with an empty function if there is nothing to plot."""
-
+        """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
         pass
 
 
@@ -92,8 +91,8 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
-        self.num_prev_optimizations = 0
-        self.num_consecutive_skips = 0
+        self._num_prev_optimizations = 0
+        self._num_consecutive_skips = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
@@ -101,33 +100,45 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
-        self.try_narrower_values = workflow.config["optimization"][self.parameter_name][
-            "try_narrower_values"
-        ]
+        self._try_narrower_values = workflow.config["optimization"][
+            self.parameter_name
+        ]["try_narrower_values"]
 
-        if self.try_narrower_values:
-            self.maximal_decrease = workflow.config["optimization"][
-                self.parameter_name
-            ]["maximal_decrease"]
+        self._maximal_decrease = (
+            workflow.config["optimization"][self.parameter_name]["maximal_decrease"]
+            if self._try_narrower_values
+            else None
+        )
 
-        self.favour_narrower_optimum = workflow.config["optimization"][
+        self._favour_narrower_optimum = workflow.config["optimization"][
             self.parameter_name
         ]["favour_narrower_optimum"]
 
-        if self.favour_narrower_optimum:
-            self.maximum_decrease_from_maximum = workflow.config["optimization"][
-                self.parameter_name
-            ]["maximum_decrease_from_maximum"]
+        self._maximum_decrease_from_maximum = (
+            workflow.config["optimization"][self.parameter_name][
+                "maximum_decrease_from_maximum"
+            ]
+            if self._favour_narrower_optimum
+            else None
+        )
 
         self.perform_golden_section_search = workflow.config["optimization"][
             self.parameter_name
         ]["perform_golden_section_search"]
 
-        if self.perform_golden_section_search:
-            self.tolerance_for_golden_section_search = workflow.config["optimization"][
-                self.parameter_name
-            ]["tolerance_for_golden_section_search"]
-            self.golden_search_converged = False
+        self.tolerance_for_golden_section_search = (
+            workflow.config["optimization"][self.parameter_name][
+                "tolerance_for_golden_section_search"
+            ]
+            if self.perform_golden_section_search
+            else None
+        )
+        self.golden_search_converged = (
+            False if self.perform_golden_section_search else None
+        )
+        self.inverse_phi = (
+            0.618 if self.perform_golden_section_search else None
+        )  # The inverse of the golden ratio, used for the golden section search
 
     def step(
         self,
@@ -144,8 +155,12 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
-        self.num_consecutive_skips = 0
-        self.num_prev_optimizations += 1
+        self._num_consecutive_skips = 0
+        self._num_prev_optimizations += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self.workflow.config['calibration']['min_steps']} ===",
+            verbosity="progress",
+        )
 
         self._update_history(precursors_df, fragments_df)
 
@@ -168,11 +183,18 @@ class AutomaticOptimizer(BaseOptimizer):
 
     def skip(self):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
-        self.num_consecutive_skips += 1
-        if self._unnecessary_to_continue:
+        self._num_consecutive_skips += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self.workflow.config['calibration']['max_skips']} ===",
+            verbosity="progress",
+        )
+        if self._batch_substantially_bigger:
             self._update_after_convergence()
 
     def _update_after_convergence(self):
+        """
+        After the optimizer has converged, the workflow should be updated and the golden section search initiated if desired.
+        """
         self.has_converged = True
 
         if not self.perform_golden_section_search:
@@ -191,14 +213,26 @@ class AutomaticOptimizer(BaseOptimizer):
             # The time impact of this is negligible and the benefits can be significant.
             self.workflow.optlock.batch_idx = batch_index_at_optimum
             self.reporter.log_string(
-                f"🟠 {self.parameter_name:<15}: initial optimization complete after {self.num_prev_optimizations} searches. Will perform golden section search with tolerance {self.tolerance_for_golden_section_search}.",
+                f"🟠 {self.parameter_name:<15}: initial optimization complete after {self._num_prev_optimizations} searches. Will perform golden section search with tolerance {self.tolerance_for_golden_section_search}.",
                 verbosity="progress",
             )
 
     def golden_section_step(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        self.num_prev_optimizations += 1
+        """The golden section search is an efficient method for finding the maximum of a concave function.
+        It is used here as a heuristic to find the optimum more precisely as the feature values chosen should be concave on average (although as they are stochastic this is not guaranteed to be observed in practice).
+        The details of choosing the next parameter value are handled by the _propose_golden_parameter method.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
+        """
+        self._num_prev_optimizations += 1
         self._update_history(precursors_df, fragments_df, golden_search=True)
 
         new_parameter = self._propose_golden_parameter()
@@ -216,92 +250,115 @@ class AutomaticOptimizer(BaseOptimizer):
             self._update_workflow()
 
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {self.num_prev_optimizations} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {self._num_prev_optimizations} searches.",
                 verbosity="progress",
             )
         else:
             self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
 
             self.reporter.log_string(
-                f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+                f"🟠 {self.parameter_name:<15}: optimization incomplete after {self._num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
 
     def golden_section_first_step(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        self.num_prev_optimizations += 1
+        """See golden_section_step for rationale. The golden section search relies on an initial calculation to start the process of iterative updates.
+        This method performs the first calculation, the rest of which are handled by iterative calls to golden_section_step.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
+
+        """
+        self._num_prev_optimizations += 1
         self._update_history(precursors_df, fragments_df, golden_search=True)
 
         upper_bound = self.history_df.loc[self.golden_triple_idxes[2]].parameter
         lower_bound = self.history_df.loc[self.golden_triple_idxes[0]].parameter
-        golden_parameter_proposal = upper_bound - 0.618 * (upper_bound - lower_bound)
+        golden_parameter_proposal = upper_bound - self.inverse_phi * (
+            upper_bound - lower_bound
+        )
 
         self.workflow.optimization_manager.fit(
             {self.parameter_name: golden_parameter_proposal}
         )
 
         self.reporter.log_string(
-            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self._num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
             verbosity="progress",
         )
 
     def _propose_golden_parameter(self):
+        """The golden section search chooses parameters that divide the current extreme points of the current golden triple interval in the golden ratio.
+        There are two possible ways to divide an interval in the golden ratio, one of which should already be calculated as the current middle value of the golden triple.
+        The golden ratio is used because it allows for consistent narrowing of the interval by a constant multiple equal to the inverse of the golden ratio.
+        """
         feature_history = self.history_df[self.feature_name]
         parameter_history = self.history_df["parameter"]
 
-        if (
-            parameter_history.loc[self.golden_triple_idxes[1]]
-            > parameter_history.iloc[-1]
-        ):
-            self.golden_triple_idxes = (
-                parameter_history.loc[
-                    [
-                        self.golden_triple_idxes[2]
-                        if feature_history.loc[self.golden_triple_idxes[1]]
-                        > feature_history.iloc[-1]
-                        else self.golden_triple_idxes[0],
-                        self.golden_triple_idxes[1],
-                        feature_history.index.max(),
-                    ]
+        lower_middle_parameter = np.min(
+            [
+                parameter_history.loc[self.golden_triple_idxes[1]],
+                parameter_history.iloc[-1],
+            ]
+        )
+        upper_middle_parameter = np.max(
+            [
+                parameter_history.loc[self.golden_triple_idxes[1]],
+                parameter_history.iloc[-1],
+            ]
+        )
+
+        self.golden_triple_idxes = (
+            parameter_history.loc[
+                [
+                    self.golden_triple_idxes[2]
+                    if upper_middle_parameter > lower_middle_parameter
+                    else self.golden_triple_idxes[0],
+                    # If the upper middle parameter yields a greater feature value than the lower middle parameter,
+                    # we narrow the lower bound (i.e. we exclude the current lower bound from the golden triple, and the lower middle parameter becomes the new lower bound);
+                    # otherwise, we narrow it the upper bound (and the upper middle parameter becomes the new upper bound).
+                    self.golden_triple_idxes[1],
+                    feature_history.index.max(),
                 ]
-                .sort_values()
-                .index.tolist()
-            )
+            ]
+            .sort_values()
+            .index.tolist()
+        )
 
-            golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
-
-        else:
-            self.golden_triple_idxes = (
-                parameter_history.loc[
-                    [
-                        self.golden_triple_idxes[1],
-                        feature_history.index.max(),
-                        self.golden_triple_idxes[0]
-                        if feature_history.loc[self.golden_triple_idxes[1]]
-                        > feature_history.iloc[-1]
-                        else self.golden_triple_idxes[2],
-                    ]
-                ]
-                .sort_values()
-                .index.tolist()
-            )
-
-            golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
+        golden_parameter_values = parameter_history.loc[self.golden_triple_idxes]
 
         differences = np.diff(golden_parameter_values)
+        # The differences between the parameter values in the golden triple. This is a simple way of ascertaining which of the two possible ways of dividing the interval has already been performed, and thereby choosing the other option as the next parameter proposal.
         if differences[0] < differences[1]:
-            golden_parameter_proposal = golden_parameter_values.iloc[0] + 0.618 * (
+            golden_parameter_proposal = golden_parameter_values.iloc[
+                0
+            ] + self.inverse_phi * (
                 golden_parameter_values.iloc[2] - golden_parameter_values.iloc[0]
             )
         else:
-            golden_parameter_proposal = golden_parameter_values.iloc[2] - 0.618 * (
+            golden_parameter_proposal = golden_parameter_values.iloc[
+                2
+            ] - self.inverse_phi * (
                 golden_parameter_values.iloc[2] - golden_parameter_values.iloc[0]
             )
 
         return golden_parameter_proposal
 
     def initialize_golden_triple(self):
+        """The golden section search requires an initial triple of parameter values to start the search.
+        This method initializes the triple by choosing the two parameter values with the second-highest feature values on either side of the parameter value with the highest feature value.
+        On the assumption that the underlying feature is concave, this should bound the maximum. Although this assumption is not strictly true, it should work as a heuristic.
+
+        If it is not possible to find points satisfying the above criteria (e.g. if the maximal feature value is on the boundary of the points sampled), then the golden search is not performed.
+        """
+
         self.history_df.sort_values(by="parameter").reset_index(drop=True, inplace=True)
         feature_history = self.history_df[self.feature_name]
 
@@ -323,7 +380,9 @@ class AutomaticOptimizer(BaseOptimizer):
         except ValueError:
             self.golden_search_unnecessary = True
             return
-        golden_parameter_proposal = lower_bound + 0.618 * (upper_bound - lower_bound)
+        golden_parameter_proposal = lower_bound + self.inverse_phi * (
+            upper_bound - lower_bound
+        )
         self.golden_triple_idxes = [
             lower_bound_idx,
             np.max(self.history_df.index.tolist()) + 1,
@@ -335,7 +394,7 @@ class AutomaticOptimizer(BaseOptimizer):
         )
 
         self.reporter.log_string(
-            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self.num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+            f"🟠 {self.parameter_name:<15}: optimization incomplete after {self._num_prev_optimizations} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
             verbosity="progress",
         )
 
@@ -438,9 +497,9 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
     @property
-    def _unnecessary_to_continue(self):
+    def _batch_substantially_bigger(self):
         """This function checks if the optimization has already been optimized sufficiently many times and if it has been skipped too many times at the current parameter value.
-        (Being skipped at least twice indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
+        (Being skipped indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
 
         Returns
         -------
@@ -449,11 +508,11 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self.num_prev_optimizations
+            self._num_prev_optimizations
             >= self.workflow.config["calibration"]["min_steps"]
         )
         max_skips_reached = (
-            self.num_consecutive_skips
+            self._num_consecutive_skips
             > self.workflow.config["calibration"]["max_skips"]
         )
         return min_steps_reached and max_skips_reached
@@ -461,10 +520,10 @@ class AutomaticOptimizer(BaseOptimizer):
     @property
     def _just_converged(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        If self.try_narrower_values is False:
+        If self._try_narrower_values is False:
             1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
             2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
-        If self.try_narrower_values is True:
+        If self._try_narrower_values is True:
             1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
             2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
@@ -477,24 +536,31 @@ class AutomaticOptimizer(BaseOptimizer):
         if len(self.history_df) < 3:
             return False
 
-        if self.try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        feature_history = self.history_df[self.feature_name]
+        last_feature_value = feature_history.iloc[-1]
+        second_last_feature_value = feature_history.iloc[-2]
+        third_last_feature_value = feature_history.iloc[-3]
+
+        if self._try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
-                self.num_prev_optimizations
+                self._num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
-            feature_history = self.history_df[self.feature_name]
             feature_substantially_decreased = (
-                feature_history.iloc[-1] - feature_history.iloc[-2]
-            ) / np.abs(feature_history.iloc[-2]) < -self.maximal_decrease and (
-                feature_history.iloc[-1] - feature_history.iloc[-3]
-            ) / np.abs(feature_history.iloc[-3]) < -self.maximal_decrease
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < -self._maximal_decrease and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < -self._maximal_decrease
 
             parameter_history = self.history_df["parameter"]
+
+            last_parameter_value = parameter_history.iloc[-1]
+            second_last_parameter_value = parameter_history.iloc[-2]
             parameter_not_substantially_changed = (
                 np.abs(
-                    (parameter_history.iloc[-1] - parameter_history.iloc[-2])
-                    / parameter_history.iloc[-2]
+                    (last_parameter_value - second_last_parameter_value)
+                    / second_last_parameter_value
                 )
                 < 0.05
             )
@@ -505,28 +571,24 @@ class AutomaticOptimizer(BaseOptimizer):
 
         else:
             min_steps_reached = (
-                self.num_prev_optimizations
+                self._num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
-            feature_history = self.history_df[self.feature_name]
+            feature_not_substantially_increased = (
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < 0.1 and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < 0.1
 
-            return (
-                min_steps_reached
-                and (feature_history.iloc[-1] - feature_history.iloc[-2])
-                / np.abs(feature_history.iloc[-2])
-                < 0.1
-                and (feature_history.iloc[-1] - feature_history.iloc[-3])
-                / np.abs(feature_history.iloc[-3])
-                < 0.1
-            )
+            return min_steps_reached and feature_not_substantially_increased
 
     def _find_index_of_optimum(self):
         """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
-        if self.favour_narrower_parameter is False:
+        if self._favour_narrower_parameter is False:
             The index at optimum is the index of the parameter value that maximizes the feature.
-        if self.favour_narrower_parameter is True:
-            The index at optimum is the index of the minimal parameter value whose feature value is at least self.maximum_decrease_from_maximum of the maximum value of the feature.
+        if self._favour_narrower_parameter is True:
+            The index at optimum is the index of the minimal parameter value whose feature value is at least self._maximum_decrease_from_maximum of the maximum value of the feature.
 
         Returns
         -------
@@ -543,13 +605,14 @@ class AutomaticOptimizer(BaseOptimizer):
         else:
             filtered_history_df = self.history_df
 
-        if self.favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             maximum_feature_value = filtered_history_df[self.feature_name].max()
             rows_within_thresh_of_max = filtered_history_df.loc[
                 filtered_history_df[self.feature_name]
                 > (
                     maximum_feature_value
-                    - self.maximum_decrease_from_maximum * np.abs(maximum_feature_value)
+                    - self._maximum_decrease_from_maximum
+                    * np.abs(maximum_feature_value)
                 )
             ]
             index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
@@ -669,7 +732,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self.num_prev_optimizations
+            self._num_prev_optimizations
             >= self.workflow.config["calibration"]["min_steps"]
         )
         return proposed_parameter <= self.target_parameter and min_steps_reached
@@ -700,7 +763,7 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-        self.num_prev_optimizations += 1
+        self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
@@ -723,12 +786,12 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
 
-    def plot(self):
-        """See base class. There is nothing of interest to plot here."""
+    def skip(self):
+        """See base class."""
         pass
 
-    def skip(self):
-        """See base class. There is nothing to record when skipping optimization here."""
+    def plot(self):
+        """See base class"""
         pass
 
 
