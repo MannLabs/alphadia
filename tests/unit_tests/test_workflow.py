@@ -964,12 +964,14 @@ def test_configurability():
                 "maximal_decrease": 0.4,
                 "favour_narrower_optimum": True,
                 "maximum_decrease_from_maximum": 0.3,
+                "perform_golden_section_search": False,
             },
             "ms2_error": {
                 "automatic_update_percentile_range": 0.80,
                 "targeted_update_percentile_range": 0.995,
                 "targeted_update_factor": 1.2,
                 "favour_narrower_optimum": False,
+                "perform_golden_section_search": False,
             },
         }
     )
