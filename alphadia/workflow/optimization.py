@@ -101,23 +101,27 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
-        self.try_narrower_values = workflow.config["optimization"][self.parameter_name][
-            "try_narrower_values"
-        ]
+        self._try_narrower_values = workflow.config["optimization"][
+            self.parameter_name
+        ]["try_narrower_values"]
 
-        if self.try_narrower_values:
-            self.maximal_decrease = workflow.config["optimization"][
-                self.parameter_name
-            ]["maximal_decrease"]
+        self._maximal_decrease = (
+            workflow.config["optimization"][self.parameter_name]["maximal_decrease"]
+            if self._try_narrower_values
+            else None
+        )
 
-        self.favour_narrower_optimum = workflow.config["optimization"][
+        self._favour_narrower_optimum = workflow.config["optimization"][
             self.parameter_name
         ]["favour_narrower_optimum"]
 
-        if self.favour_narrower_optimum:
-            self.maximum_decrease_from_maximum = workflow.config["optimization"][
-                self.parameter_name
-            ]["maximum_decrease_from_maximum"]
+        self._maximum_decrease_from_maximum = (
+            workflow.config["optimization"][self.parameter_name][
+                "maximum_decrease_from_maximum"
+            ]
+            if self._favour_narrower_optimum
+            else None
+        )
 
     def step(
         self,
@@ -286,10 +290,10 @@ class AutomaticOptimizer(BaseOptimizer):
     @property
     def _just_converged(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        If self.try_narrower_values is False:
+        If self._try_narrower_values is False:
             1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
             2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
-        If self.try_narrower_values is True:
+        If self._try_narrower_values is True:
             1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
             2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
@@ -302,24 +306,31 @@ class AutomaticOptimizer(BaseOptimizer):
         if len(self.history_df) < 3:
             return False
 
-        if self.try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        feature_history = self.history_df[self.feature_name]
+        last_feature_value = feature_history.iloc[-1]
+        second_last_feature_value = feature_history.iloc[-2]
+        third_last_feature_value = feature_history.iloc[-3]
+
+        if self._try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
                 self.num_prev_optimizations
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
-            feature_history = self.history_df[self.feature_name]
             feature_substantially_decreased = (
-                feature_history.iloc[-1] - feature_history.iloc[-2]
-            ) / np.abs(feature_history.iloc[-2]) < -self.maximal_decrease and (
-                feature_history.iloc[-1] - feature_history.iloc[-3]
-            ) / np.abs(feature_history.iloc[-3]) < -self.maximal_decrease
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < -self._maximal_decrease and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < -self._maximal_decrease
 
             parameter_history = self.history_df["parameter"]
+
+            last_parameter_value = parameter_history.iloc[-1]
+            second_last_parameter_value = parameter_history.iloc[-2]
             parameter_not_substantially_changed = (
                 np.abs(
-                    (parameter_history.iloc[-1] - parameter_history.iloc[-2])
-                    / parameter_history.iloc[-2]
+                    (last_parameter_value - second_last_parameter_value)
+                    / second_last_parameter_value
                 )
                 < 0.05
             )
@@ -334,24 +345,20 @@ class AutomaticOptimizer(BaseOptimizer):
                 >= self.workflow.config["calibration"]["min_steps"]
             )
 
-            feature_history = self.history_df[self.feature_name]
+            feature_not_substantially_increased = (
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < 0.1 and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < 0.1
 
-            return (
-                min_steps_reached
-                and (feature_history.iloc[-1] - feature_history.iloc[-2])
-                / np.abs(feature_history.iloc[-2])
-                < 0.1
-                and (feature_history.iloc[-1] - feature_history.iloc[-3])
-                / np.abs(feature_history.iloc[-3])
-                < 0.1
-            )
+            return min_steps_reached and feature_not_substantially_increased
 
     def _find_index_of_optimum(self):
         """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
-        if self.favour_narrower_parameter is False:
+        if self._favour_narrower_parameter is False:
             The index at optimum is the index of the parameter value that maximizes the feature.
-        if self.favour_narrower_parameter is True:
-            The index at optimum is the index of the minimal parameter value whose feature value is at least self.maximum_decrease_from_maximum of the maximum value of the feature.
+        if self._favour_narrower_parameter is True:
+            The index at optimum is the index of the minimal parameter value whose feature value is at least self._maximum_decrease_from_maximum of the maximum value of the feature.
 
         Returns
         -------
@@ -364,13 +371,14 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
 
-        if self.favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+        if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             maximum_feature_value = self.history_df[self.feature_name].max()
             rows_within_thresh_of_max = self.history_df.loc[
                 self.history_df[self.feature_name]
                 > (
                     maximum_feature_value
-                    - self.maximum_decrease_from_maximum * np.abs(maximum_feature_value)
+                    - self._maximum_decrease_from_maximum
+                    * np.abs(maximum_feature_value)
                 )
             ]
             index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
