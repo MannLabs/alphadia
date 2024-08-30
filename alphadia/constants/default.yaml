@@ -250,48 +250,55 @@ optimization:
   # Example: [['ms1_error', 'ms2_error', 'rt_error', 'mobility_error']] means that all parameters are optimized simultaneously.
   # Example: [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]] means that the parameters are optimized sequentially in the order given.
   # Example: [["rt_error"], ["ms1_error", "ms2_error"]] means that first rt_error is optimized, then ms1_error and ms2_error are optimized simultaneously, and mobility_error is not optimized at all.
-  # If order_of_optimizatoin is null, first all targeted optimizers run simultaneously, then any remaining automatic optimizers run sequentially in the order [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]]
+  # If order_of_optimization is null, first all targeted optimizers run simultaneously, then any remaining automatic optimizers run sequentially in the order [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]]
   order_of_optimization: null
 
   # Parameters for the update rule for each parameter:
   #   - update_percentile_range: the percentile interval to use (as a decimal)
   #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
-  #   - favour_narrower_parameter: if True, the optimization will not take the value that maximizes the feature used for optimization, but instead the smallest value compatible with the minimum_proportion_of_maximum value.
-  #       This setting can be useful for optimizing parameters for which many parameter values have similar feature values and therefore favouring narrower parameters helps to overcome noise.
-  #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if favour_narrower_parameter is True)
-  #   - minimum_proportion_of_maximum: the minimum proportion of the maximum value of the parameter that the designated optimum should have (only relevant if favour_narrower_parameter is True)
+  #   - try_narrower_parameters: if True, the optimization will try narrower parameters until a substantial (as determined by maximal_decrease) decrease in the feature used for optimization is observed.
+  #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if favour_narrower_parameter is True).
+  #     For example, a value of 0.2 indicates up to 20% decrease from the previous parameter is permissible.
+  #   - favour_narrower_optimum: if True, the optimization will not take the value that maximizes the feature used for optimization, but instead the smallest value compatible with the maximum_decrease_from_maximum value.
+  #     This setting can be useful for optimizing parameters for which many parameter values have similar feature values and therefore favouring narrower parameters helps to overcome noise.
+  #   - maximum_decrease_from_maximum: the maximum proportional decrease from the maximum value of the parameter that the designated optimum should have (only relevant if favour_narrower_optimum is True).
+  #     For example, a value of 0.1 indicates that the optimum should no more than 10% less than the maximum value.
   ms2_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: False
-      maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.9
+      try_narrower_values: False
+      maximal_decrease: 0.2
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
   ms1_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: False
-      maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.9
+      try_narrower_values: False
+      maximal_decrease: 0.2
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
   mobility_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: False
-      maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.9
+      try_narrower_values: False
+      maximal_decrease: 0.2
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
   rt_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      favour_narrower_parameter: True
-      maximal_decrease: 0.8
-      minimum_proportion_of_maximum: 0.9
+      try_narrower_values: True
+      maximal_decrease: 0.2
+      favour_narrower_optimum: True
+      maximum_decrease_from_maximum: 0.1
 
 # configuration for the optimization manager
 # initial parameters, will be optimized
