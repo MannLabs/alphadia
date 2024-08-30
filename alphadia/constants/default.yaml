@@ -120,7 +120,7 @@ calibration:
   norm_rt_mode: 'linear'
 
 search_initial:
-  # Number of peak groups identified in the convolution score to classify with target decoy comeptition
+  # Number of peak groups identified in the convolution score to classify with target decoy competition
   initial_num_candidates: 1
 
   # initial ms1 tolerance in ppm
