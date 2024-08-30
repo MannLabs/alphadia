@@ -268,8 +268,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      try_narrower_values: False
-      maximal_decrease: 0.2
+      try_narrower_values: True
+      maximal_decrease: 0.5
       favour_narrower_optimum: False
       maximum_decrease_from_maximum: 0.1
   ms1_error:
