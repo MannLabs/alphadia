@@ -42,20 +42,22 @@ class CustomScheduler(LR_SchedulerInterface):
             The number of warmup steps. Defaults to 5.
         - num_training_steps: int
             The number of training steps. Defaults to 50.
+        - lr_patience: int
+            The patience for the ReduceLROnPlateau scheduler. Defaults to 3.
     """
 
     def __init__(self, optimizer: torch.optim.Optimizer, **kwargs):
-        self.optimizer = optimizer
-        self.num_warmup_steps = kwargs.get("num_warmup_steps", 5)
-        self.num_training_steps = kwargs.get("num_training_steps", 50)
-        self.lr_patience = kwargs.get("lr_patience", 3)
-        self.reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        self._optimizer = optimizer
+        self._num_warmup_steps = kwargs.get("num_warmup_steps", 5)
+        self._num_training_steps = kwargs.get("num_training_steps", 50)
+        self._lr_patience = kwargs.get("lr_patience", 3)
+        self._reduce_lr_on_plateau = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer,
             mode="min",
-            patience=self.lr_patience,
+            patience=self._lr_patience,
             factor=0.5,
         )
-        self.warmup_lr = LambdaLR(optimizer, self._warmup)
+        self._warmup_lr = LambdaLR(optimizer, self._warmup)
 
     def _warmup(self, epoch: int):
         """
@@ -66,7 +68,7 @@ class CustomScheduler(LR_SchedulerInterface):
         epoch : int
             The current epoch number.
         """
-        return float(epoch + 1) / float(max(1, self.num_warmup_steps))
+        return float(epoch + 1) / float(max(1, self._num_warmup_steps))
 
     def step(self, epoch: int, loss: float) -> float:
         """
@@ -85,16 +87,16 @@ class CustomScheduler(LR_SchedulerInterface):
             The learning rate for the next epoch.
 
         """
-        if epoch < self.num_warmup_steps:
-            self.warmup_lr.step()
+        if epoch < self._num_warmup_steps:
+            self._warmup_lr.step()
         else:
-            self.reduce_lr_on_plateau.step(loss)
+            self._reduce_lr_on_plateau.step(loss)
 
     def get_last_lr(self):
         """
         Get the last learning rate.
         """
-        return [self.optimizer.param_groups[0]["lr"]]
+        return [self._optimizer.param_groups[0]["lr"]]
 
 
 class EarlyStopping:
@@ -104,11 +106,11 @@ class EarlyStopping:
     """
 
     def __init__(self, patience: int = 5, margin: float = 0.01):
-        self.patience = patience
-        self.best_loss = np.inf
-        self.last_loss = np.inf
-        self.margin = margin
-        self.counter = 0
+        self._patience = patience
+        self._best_loss = np.inf
+        self._last_loss = np.inf
+        self._margin = margin
+        self._counter = 0
 
     def step(self, val_loss: float):
         """
@@ -124,27 +126,27 @@ class EarlyStopping:
         continue_training : bool
             Whether to continue training or not based on the early stopping criteria.
         """
-        if self.last_loss != np.inf:
+        if self._last_loss != np.inf:
             if (
-                val_loss > self.best_loss * (1 + self.margin)
-                or abs(val_loss - self.last_loss) / self.last_loss < self.margin
+                val_loss > self._best_loss * (1 + self._margin)
+                or abs(val_loss - self._last_loss) / self._last_loss < self._margin
             ):
-                self.counter += 1
-                if self.counter >= self.patience:
+                self._counter += 1
+                if self._counter >= self._patience:
                     return False
             else:
-                self.best_loss = val_loss
-                self.counter = 0
-        self.last_loss = val_loss
+                self._best_loss = val_loss
+                self._counter = 0
+        self._last_loss = val_loss
         return True
 
     def reset(self):
         """
         Reset the early stopping criteria.
         """
-        self.best_loss = np.inf
-        self.last_loss = np.inf
-        self.counter = 0
+        self._best_loss = np.inf
+        self._last_loss = np.inf
+        self._counter = 0
 
 
 class CustomCallbackHandler(CallbackHandler):
@@ -162,8 +164,8 @@ class CustomCallbackHandler(CallbackHandler):
 
     def __init__(self, test_callback, **callback_args):
         super().__init__()
-        self.test_callback = test_callback
-        self.callback_args = callback_args
+        self._test_callback = test_callback
+        self._callback_args = callback_args
 
     def epoch_callback(self, epoch: int, epoch_loss: float):
         """
@@ -181,7 +183,7 @@ class CustomCallbackHandler(CallbackHandler):
         bool: continue_training
             Whether to continue training or not based on the early stopping criteria.
         """
-        return self.test_callback(epoch, epoch_loss, **self.callback_args)
+        return self._test_callback(epoch, epoch_loss, **self._callback_args)
 
 
 class FinetuneManager(ModelManager):
@@ -217,15 +219,14 @@ class FinetuneManager(ModelManager):
         instrument: str = "Lumos",
     ):
         super().__init__(mask_modloss, device)
-        self.lr_patience = lr_patience
-        self.test_interval = test_interval
-        self.train_fraction = train_fraction
-        self.validation_fraction = validation_fraction
-        self.test_fraction = test_fraction
-        self.epochs = epochs
-        self.warmup_epochs = warmup_epochs
-        self.batch_size = batch_size
-        self.max_lr = max_lr
+        self._test_interval = test_interval
+        self._train_fraction = train_fraction
+        self._validation_fraction = validation_fraction
+        self._test_fraction = test_fraction
+        self._epochs = epochs
+        self._warmup_epochs = warmup_epochs
+        self._batch_size = batch_size
+        self._max_lr = max_lr
         self.nce = nce
         self.instrument = instrument
 
@@ -233,7 +234,8 @@ class FinetuneManager(ModelManager):
         self.early_stopping = EarlyStopping(patience=(lr_patience // test_interval) * 4)
 
         assert (
-            self.train_fraction + self.validation_fraction + self.test_fraction <= 1.0
+            self._train_fraction + self._validation_fraction + self._test_fraction
+            <= 1.0
         ), "The sum of the train, validation and test fractions should be less than or equal to 1.0"
 
     def _reset_frag_idx(self, df):
@@ -297,47 +299,6 @@ class FinetuneManager(ModelManager):
                 old_start_idx:old_end_idx, :
             ]
         return reordered
-
-    def _log_training_progress(
-        self, epoch: int, current_lr: float, epoch_loss: float, val_loss: float
-    ):
-        """
-        Log the training progress.
-
-        Parameters
-        ----------
-        epoch : int
-            The current epoch number.
-        current_lr : float
-            The current learning rate.
-        epoch_loss : float
-            The training loss value of the current epoch.
-        val_loss : float
-            The validation loss value of the current epoch.
-        """
-        logger.progress(
-            f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   validation loss: {val_loss:.4f}"
-        )
-
-    def _log_test_metrics(self, val_metrics: pd.DataFrame, data_split: str):
-        """
-        Log the test metrics.
-
-        Parameters
-        ----------
-        val_metrics : pd.DataFrame
-            The dataframe containing the test metrics.
-        data_split : str
-            The dataset label used for testing e.g. "validation", "train", "test"
-        """
-
-        logger.progress(
-            f" Model tested on {data_split} dataset with the following metrics:"
-        )
-        for i in range(len(val_metrics)):
-            logger.progress(
-                f" {val_metrics['metric_name'].values[i]:<30}: {val_metrics['value'].values[i]:.4f}"
-            )
 
     def _accumulate_training_metrics(
         self,
@@ -427,9 +388,17 @@ class FinetuneManager(ModelManager):
                 "value"
             ].values[0]
             continue_training = self.early_stopping.step(val_loss)
-            self._log_training_progress(epoch, current_lr, epoch_loss, val_loss)
+            logger.progress(
+                f" Epoch {epoch:<3} Lr: {current_lr:.5f}   Training loss: {epoch_loss:.4f}   validation loss: {val_loss:.4f}"
+            )
         else:
-            self._log_test_metrics(val_metrics, data_split)
+            logger.progress(
+                f" Model tested on {data_split} dataset with the following metrics:"
+            )
+            for i in range(len(val_metrics)):
+                logger.progress(
+                    f" {val_metrics['metric_name'].values[i]:<30}: {val_metrics['value'].values[i]:.4f}"
+                )
 
         return continue_training
 
@@ -473,7 +442,7 @@ class FinetuneManager(ModelManager):
 
         """
         continue_training = True
-        if epoch % self.test_interval and epoch != -1:
+        if epoch % self._test_interval and epoch != -1:
             return continue_training
 
         self.ms2_model.model.eval()
@@ -557,10 +526,10 @@ class FinetuneManager(ModelManager):
         self._normalize_intensity(psm_df, matched_intensity_df)
 
         # Shuffle the psm_df and split it into train and test
-        train_psm_df = psm_df.sample(frac=self.train_fraction).copy()
+        train_psm_df = psm_df.sample(frac=self._train_fraction).copy()
         val_psm_df = (
             psm_df.drop(train_psm_df.index)
-            .sample(frac=self.validation_fraction / (1 - self.train_fraction))
+            .sample(frac=self._validation_fraction / (1 - self._train_fraction))
             .copy()
         )
         test_psm_df = psm_df.drop(train_psm_df.index).drop(val_psm_df.index).copy()
@@ -639,26 +608,26 @@ class FinetuneManager(ModelManager):
         # Train the model
         logger.progress(" Fine-tuning MS2 model with the following settings:")
         logger.info(
-            f" Train fraction:      {self.train_fraction:3.2f}     Train size:      {len(train_psm_df):<10}"
+            f" Train fraction:      {self._train_fraction:3.2f}     Train size:      {len(train_psm_df):<10}"
         )
         logger.info(
-            f" Validation fraction: {self.validation_fraction:3.2f}     Validation size: {len(val_psm_df):<10}"
+            f" Validation fraction: {self._validation_fraction:3.2f}     Validation size: {len(val_psm_df):<10}"
         )
         logger.info(
-            f" Test fraction:       {self.test_fraction:3.2f}     Test size:       {len(test_psm_df):<10}"
+            f" Test fraction:       {self._test_fraction:3.2f}     Test size:       {len(test_psm_df):<10}"
         )
         self.ms2_model.model.train()
         self.ms2_model.train(
             precursor_df=train_psm_df,
             fragment_intensity_df=train_intensity_df,
-            epoch=self.epochs,
-            batch_size=self.batch_size,
-            warmup_epoch=self.warmup_epochs,
-            lr=self.max_lr,
+            epoch=self._epochs,
+            batch_size=self._batch_size,
+            warmup_epoch=self._warmup_epochs,
+            lr=self._max_lr,
         )
 
         self._test_ms2(
-            self.epochs,
+            self._epochs,
             0,
             reordered_test_psm_df,
             reordered_test_intensity_df,
@@ -699,7 +668,7 @@ class FinetuneManager(ModelManager):
             Whether to continue training or not based on the early stopping criteria.
         """
         continue_training = True
-        if epoch % self.test_interval != 0 and epoch != -1:
+        if epoch % self._test_interval != 0 and epoch != -1:
             return continue_training
 
         self.rt_model.model.eval()
@@ -740,9 +709,9 @@ class FinetuneManager(ModelManager):
         """
 
         # Shuffle the psm_df and split it into train and test
-        train_df = psm_df.sample(frac=self.train_fraction)
+        train_df = psm_df.sample(frac=self._train_fraction)
         val_df = psm_df.drop(train_df.index).sample(
-            frac=self.validation_fraction / (1 - self.train_fraction)
+            frac=self._validation_fraction / (1 - self._train_fraction)
         )
         test_df = psm_df.drop(train_df.index).drop(val_df.index)
 
@@ -771,24 +740,24 @@ class FinetuneManager(ModelManager):
         # Train the model
         logger.progress(" Fine-tuning RT model with the following settings:")
         logger.info(
-            f" Train fraction:      {self.train_fraction:3.2f}     Train size:      {len(train_df):<10}"
+            f" Train fraction:      {self._train_fraction:3.2f}     Train size:      {len(train_df):<10}"
         )
         logger.info(
-            f" Validation fraction: {self.validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
+            f" Validation fraction: {self._validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
         )
         logger.info(
-            f" Test fraction:       {self.test_fraction:3.2f}     Test size:       {len(test_df):<10}"
+            f" Test fraction:       {self._test_fraction:3.2f}     Test size:       {len(test_df):<10}"
         )
         self.rt_model.model.train()
         self.rt_model.train(
             train_df,
-            batch_size=self.batch_size,
-            epoch=self.epochs,
-            warmup_epoch=self.warmup_epochs,
-            lr=self.max_lr,
+            batch_size=self._batch_size,
+            epoch=self._epochs,
+            warmup_epoch=self._warmup_epochs,
+            lr=self._max_lr,
         )
 
-        self._test_rt(self.epochs, 0, test_df, test_metric_manager, data_split="test")
+        self._test_rt(self._epochs, 0, test_df, test_metric_manager, data_split="test")
 
         metrics = test_metric_manager.get_stats()
 
@@ -824,7 +793,7 @@ class FinetuneManager(ModelManager):
             Whether to continue training or not based on the early stopping criteria.
         """
         continue_training = True
-        if epoch % self.test_interval != 0 and epoch != -1:
+        if epoch % self._test_interval != 0 and epoch != -1:
             return continue_training
 
         self.charge_model.model.eval()
@@ -892,9 +861,9 @@ class FinetuneManager(ModelManager):
         )
 
         # Shuffle the psm_df and split it into train and test
-        train_df = psm_df.sample(frac=self.train_fraction)
+        train_df = psm_df.sample(frac=self._train_fraction)
         val_df = psm_df.drop(train_df.index).sample(
-            frac=self.validation_fraction / (1 - self.train_fraction)
+            frac=self._validation_fraction / (1 - self._train_fraction)
         )
         test_df = psm_df.drop(train_df.index).drop(val_df.index)
 
@@ -925,25 +894,25 @@ class FinetuneManager(ModelManager):
         # Train the model
         logger.progress(" Fine-tuning Charge model with following settings:")
         logger.info(
-            f" Train fraction:      {self.train_fraction:3.2f}     Train size:      {len(train_df):<10}"
+            f" Train fraction:      {self._train_fraction:3.2f}     Train size:      {len(train_df):<10}"
         )
         logger.info(
-            f" Validation fraction: {self.validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
+            f" Validation fraction: {self._validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
         )
         logger.info(
-            f" Test fraction:       {self.test_fraction:3.2f}     Test size:       {len(test_df):<10}"
+            f" Test fraction:       {self._test_fraction:3.2f}     Test size:       {len(test_df):<10}"
         )
         self.charge_model.model.train()
         self.charge_model.train(
             train_df,
-            batch_size=self.batch_size,
-            epoch=self.epochs,
-            warmup_epoch=self.warmup_epochs,
-            lr=self.max_lr,
+            batch_size=self._batch_size,
+            epoch=self._epochs,
+            warmup_epoch=self._warmup_epochs,
+            lr=self._max_lr,
         )
 
         self._test_charge(
-            self.epochs, 0, test_df, test_metric_manager, data_split="test"
+            self._epochs, 0, test_df, test_metric_manager, data_split="test"
         )
         metrics = test_metric_manager.get_stats()
 
@@ -978,7 +947,7 @@ class FinetuneManager(ModelManager):
             Whether to continue training or not based on the early stopping criteria.
         """
         continue_training = True
-        if epoch % self.test_interval != 0 and epoch != -1:
+        if epoch % self._test_interval != 0 and epoch != -1:
             return continue_training
 
         self.ccs_model.model.eval()
@@ -1032,9 +1001,9 @@ class FinetuneManager(ModelManager):
             psm_df["mobility"] = ccs_to_mobility_for_df(psm_df, "ccs")
 
         # Shuffle the psm_df and split it into train and test
-        train_df = psm_df.sample(frac=self.train_fraction)
+        train_df = psm_df.sample(frac=self._train_fraction)
         val_df = psm_df.drop(train_df.index).sample(
-            frac=self.validation_fraction / (1 - self.train_fraction)
+            frac=self._validation_fraction / (1 - self._train_fraction)
         )
         test_df = psm_df.drop(train_df.index).drop(val_df.index)
 
@@ -1062,24 +1031,24 @@ class FinetuneManager(ModelManager):
         # Train the model
         logger.progress(" Fine-tuning CCS model with the following settings:")
         logger.info(
-            f" Train fraction:      {self.train_fraction:3.2f}     Train size:      {len(train_df):<10}"
+            f" Train fraction:      {self._train_fraction:3.2f}     Train size:      {len(train_df):<10}"
         )
         logger.info(
-            f" Validation fraction: {self.validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
+            f" Validation fraction: {self._validation_fraction:3.2f}     Validation size: {len(val_df):<10}"
         )
         logger.info(
-            f" Test fraction:       {self.test_fraction:3.2f}     Test size:       {len(test_df):<10}"
+            f" Test fraction:       {self._test_fraction:3.2f}     Test size:       {len(test_df):<10}"
         )
         self.ccs_model.model.train()
         self.ccs_model.train(
             train_df,
-            batch_size=self.batch_size,
-            epoch=self.epochs,
-            warmup_epoch=self.warmup_epochs,
-            lr=self.max_lr,
+            batch_size=self._batch_size,
+            epoch=self._epochs,
+            warmup_epoch=self._warmup_epochs,
+            lr=self._max_lr,
         )
 
-        self._test_ccs(self.epochs, 0, test_df, test_metric_manager, data_split="test")
+        self._test_ccs(self._epochs, 0, test_df, test_metric_manager, data_split="test")
 
         metrics = test_metric_manager.get_stats()
 
