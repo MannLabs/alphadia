@@ -302,6 +302,7 @@ class SearchPlanOutput:
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
+    TRANSFER_STATS_OUTPUT = "stats.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -377,9 +378,17 @@ class SearchPlanOutput:
             _ = self.build_transfer_library(folder_list, save=True)
 
         if self.config["transfer_learning"]["enabled"]:
-            _ = self.build_transfer_model()
+            _ = self.build_transfer_model(save=True)
 
-    def build_transfer_model(self):
+    def build_transfer_model(self, save=True):
+        """
+        Finetune PeptDeep models using the transfer library
+
+        Parameters
+        ----------
+        save : bool, optional
+            Whether to save the statistics of the transfer learning on disk, by default True
+        """
         logger.progress("Train PeptDeep Models")
 
         transfer_lib_path = os.path.join(
@@ -400,13 +409,23 @@ class SearchPlanOutput:
         tune_mgr = FinetuneManager(
             device=device, settings=self.config["transfer_learning"]
         )
-        tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        tune_mgr.finetune_ms2(
+        rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        ms2_stats = tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
         tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
+
+        combined_stats = pd.concat([rt_stats, charge_stats, ms2_stats])
+
+        if save:
+            logger.info("Writing transfer learning stats output to disk")
+            write_df(
+                combined_stats,
+                os.path.join(self.output_folder, self.TRANSFER_STATS_OUTPUT),
+                file_format="tsv",
+            )
 
     def build_transfer_library(
         self,
