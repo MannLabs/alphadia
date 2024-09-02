@@ -9,5 +9,5 @@ python -m build
 pip install "dist/alphadia-1.7.2-py3-none-any.whl[stable]"
 
 # Creating the stand-alone pyinstaller folder
-pip install pyinstaller tbb==2021.13.1
-pyinstaller release/pyinstaller/alphadia.spec -y
+pip install tbb==2021.13.1
+pyinstaller release/pyinstaller/alphadia.spec --distpath dist_pyinstaller --workpath build_pyinstaller -y

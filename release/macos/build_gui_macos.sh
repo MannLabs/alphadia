@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e -u
 
 # Build the GUI for MacOS.
 # This script needs to be run from the root of the repository.
