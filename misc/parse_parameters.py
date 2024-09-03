@@ -68,16 +68,18 @@ for i in range(0, max_tasks):
         os.makedirs(chunk_folder)
 
     # retrieve library path from config or arguments and copy to chunk folder, set new library path in config
-    if args.library_path == "None":
-        lib_source = current_config['library']
-    elif 'library' in current_config:
+    if os.path.exists(args.library_path) and os.path.basename(args.library_path).endswith('.hdf'):
         lib_source = args.library_path
+    elif 'library' in current_config and os.path.exists(current_config['library']) and os.path.basename(current_config['library']).endswith('.hdf'):
+        lib_source = current_config['library']
     else:
-        print("No library path provided in config or args, exiting...")
+        print("No valid library_path to a .hdf file provided and no valid library path to a .hdf file specified in config file, exiting...")
         sys.exit(1)
 
+    # copy library into chunk folder to avoid simultaneous reads of the same library
     shutil.copy(lib_source, chunk_folder)
     
+    # set new library path in chunk config
     current_config['library'] = os.path.join(chunk_folder, os.path.basename(lib_source))
 
     # set chunk folder as output_directory in the config
