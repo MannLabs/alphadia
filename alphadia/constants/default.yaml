@@ -93,9 +93,9 @@ search:
   # target ms2 tolerance in ppm
   target_ms2_tolerance: 15
   # target ion mobility tolerance in 1/K_0
-  target_mobility_tolerance: 0.04
+  target_mobility_tolerance: 0.0 # default is to optimize automatically
   # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
-  target_rt_tolerance: 60
+  target_rt_tolerance: 0.0 # default is to optimize automatically
 
   quant_window: 3
   quant_all: True
@@ -268,8 +268,8 @@ optimization:
       targeted_update_factor: 1.0
       automatic_update_percentile_range: 0.99
       automatic_update_factor: 1.1
-      try_narrower_values: False
-      maximal_decrease: 0.2
+      try_narrower_values: True
+      maximal_decrease: 0.5
       favour_narrower_optimum: False
       maximum_decrease_from_maximum: 0.1
   ms1_error:
