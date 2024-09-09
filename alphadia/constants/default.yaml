@@ -133,7 +133,7 @@ calibration:
   min_correlation: 0.7
 
 search_initial:
-  # Number of peak groups identified in the convolution score to classify with target decoy comeptition
+  # Number of peak groups identified in the convolution score to classify with target decoy competition
   initial_num_candidates: 1
 
   # initial ms1 tolerance in ppm
