@@ -64,9 +64,33 @@ class BaseOptimizer(ABC):
         """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
         pass
 
+    def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
+        self.workflow.reporter.log_string(
+            "No more batches to process. Will proceed to extraction using best parameters available in optimization manager.",
+            verbosity="warning",
+        )
+        self._update_history(precursors_df, fragments_df)
+        self._update_workflow()
+        self.workflow.reporter.log_string(
+            f"Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
+            verbosity="warning",
+        )
+
     @abstractmethod
     def plot(self):
         """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
+        pass
+
+    @abstractmethod
+    def _update_workflow():
+        """This method updates the optimization manager with the results of the optimization, namely:
+        the classifier version,
+        the optimal parameter,
+        score cutoff,
+        FWHM_RT,
+        and FWHM_mobility
+
+        """
         pass
 
 
@@ -567,6 +591,9 @@ class TargetedOptimizer(BaseOptimizer):
         """See base class"""
         pass
 
+    def _update_workflow(self, new_parameter: float):
+        pass
+
 
 class AutomaticRTOptimizer(AutomaticOptimizer):
     def __init__(
@@ -906,7 +933,7 @@ class OptimizationLock:
         if self.has_target_num_precursors:
             return 0
         elif self.batch_idx >= len(self.batch_plan):
-            raise NoOptimizationLockTargetError()
+            raise NoOptimizationLockTargetError()  # This should never be triggered since introduction of the BaseOptimizer.proceed_with_insufficient_precursors method and associated code, and could be removed.
         else:
             return self.batch_plan[self.batch_idx][0]
 
