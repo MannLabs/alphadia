@@ -12,3 +12,6 @@ pip install "dist/alphadia-1.7.2-py3-none-any.whl[stable]"
 
 # Creating the stand-alone pyinstaller folder
 pyinstaller release/pyinstaller/alphadia.spec --distpath dist_pyinstaller --workpath build_pyinstaller -y
+
+# to avoid 'no space left on device' error
+rm -r build_pyinstaller
