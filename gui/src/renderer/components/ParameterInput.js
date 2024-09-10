@@ -16,8 +16,7 @@ const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
             console.log(err);
         })
     }
-
-    const folderName = parameter.replace(/^.*[\\\/]/, '')
+    const folderName = parameter ? parameter.replace(/^.*[\\\/]/, '') : ''
 
     return (
         <>
