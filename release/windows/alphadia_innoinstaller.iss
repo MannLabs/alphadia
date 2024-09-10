@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "AlphaDIA"
-#define MyAppVersion "1.7.2"
+#define MyAppVersion "1.8.0"
 #define MyAppPublisher "Max Planck Institute of Biochemistry, Mann Labs"
 #define MyAppURL "https://github.com/MannLabs/alphadia"
 #define MyAppExeName "alphadia-gui.exe"
@@ -25,7 +25,7 @@ LicenseFile=..\..\LICENSE.txt
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\..\dist
-OutputBaseFilename=alphadia-1.7.2-win-x64
+OutputBaseFilename=alphadia-1.8.0-win-x64
 SetupIconFile=..\logos\alphadia.ico
 Compression=lzma
 SolidCompression=yes
