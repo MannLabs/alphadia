@@ -21,7 +21,7 @@ block_cipher = None
 location = os.getcwd()
 project = "alphadia"
 remove_tests = True
-bundle_name = "AlphaDIA"
+bundle_name = "alphadia"
 #####################
 
 
