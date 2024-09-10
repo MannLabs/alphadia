@@ -328,7 +328,7 @@ class PeptDeepPrediction(ProcessingStep):
             logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
             model_mgr.load_installed_models(self.peptdeep_model_type)
 
-        if self.peptdeep_model_path is not None:
+        if self.peptdeep_model_path is not None and self.peptdeep_model_path != "":
             if not os.path.exists(self.peptdeep_model_path):
                 raise ValueError(
                     f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"
