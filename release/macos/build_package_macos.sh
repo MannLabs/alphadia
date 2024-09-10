@@ -6,7 +6,7 @@ set -e -u
 
 # Set up package name and version
 PACKAGE_NAME="alphadia"
-APP_NAME="alphaDIA"
+APP_NAME="alphadia"
 PACKAGE_VERSION="1.7.2"
 PKG_FOLDER="dist/$APP_NAME.app"
 

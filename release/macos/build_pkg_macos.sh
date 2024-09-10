@@ -15,7 +15,7 @@ KERNEL=$(uname -s | tr '[:upper:]' '[:lower:]')
 
 BUILD_NAME="${PACKAGE_NAME}-${PACKAGE_VERSION}-${KERNEL}-${ARCH}"
 
-PKG_FOLDER="dist/alphaDIA.app"
+PKG_FOLDER="dist/alphadia.app"
 
 # Cleanup the package folder
 echo "Cleaning up the package folder"
@@ -68,11 +68,11 @@ cp -a ${GUI_BUILD}/. $PKG_FOLDER/Contents/Frameworks/
 echo "Copying resources"
 cp release/logos/alphadia.icns $PKG_FOLDER/Contents/Resources/
 cp release/logos/alphadia.png $PKG_FOLDER/Contents/Resources/
-cp release/macos/alphaDIA $PKG_FOLDER/Contents/MacOS/
+cp release/macos/alphadia $PKG_FOLDER/Contents/MacOS/
 
 cp release/macos/Info.plist $PKG_FOLDER/Contents/
 
 #change permissions for entry script
-chmod +x $PKG_FOLDER/Contents/MacOS/alphaDIA
+chmod +x $PKG_FOLDER/Contents/MacOS/alphadia
 
-pkgbuild --root $PKG_FOLDER --identifier de.mpg.biochem.alphadia.app --version $PACKAGE_VERSION --install-location /Applications/alphaDIA.app --scripts release/macos/scripts dist/$BUILD_NAME.pkg --nopayload
+pkgbuild --root $PKG_FOLDER --identifier de.mpg.biochem.alphadia.app --version $PACKAGE_VERSION --install-location /Applications/alphadia.app --scripts release/macos/scripts dist/$BUILD_NAME.pkg --nopayload
