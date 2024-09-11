@@ -86,6 +86,9 @@ if [[ "$predict_library" -eq 1 ]]; then
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py --input_directory "${input_directory}" --target_directory "{$target_directory}"
 
+	# navigate to predicted speclib directory
+	cd "${predicted_library_directory}"	
+
 	# call alphadia to predict spectral library
 	echo "Predicting spectral library with AlphaDIA"
 	sbatch --array=${slurm_array} \
