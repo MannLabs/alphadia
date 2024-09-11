@@ -40,6 +40,7 @@ echo
 cp -a ${GUI_BUILD}/. ${BIN_PATH}
 
 
+mkdir -p dist_pyinstaller/${BUILD_NAME}/usr/local/bin
 cd dist_pyinstaller/${BUILD_NAME}/usr/local/bin
 ln -s ../alphadia/alphadia alphadia
 ln -s ../alphadia/alphadia-gui alphadia-gui
