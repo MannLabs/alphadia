@@ -10,7 +10,7 @@ PACKAGE_NAME=alphadia
 rm -rf ${BUILD_NAME}.deb
 
 BIN_PATH=dist_pyinstaller/${BUILD_NAME}/usr/local/${PACKAGE_NAME}
-mkdir -p ${BIN_PATH}/gui
+mkdir -p ${BIN_PATH}
 
 # === GUI ===
 echo "Copying GUI"
@@ -37,10 +37,11 @@ echo ls ${GUI_BUILD}
 ls ${GUI_BUILD}
 echo
 
-cp -a ${GUI_BUILD}/. ${BIN_PATH}/gui
+cp -a ${GUI_BUILD}/. ${BIN_PATH}
 
-cd ${BIN_PATH}
-ln -s ./gui/alphadia-gui ./alphadia-gui
+cd dist_pyinstaller/${BUILD_NAME}/usr/local
+ln -s alphadia ./alphadia/alphadia
+ln -s alphadia-gui ./alphadia/alphadia-gui
 cd -
 
 # Wrapping the pyinstaller folder in a .deb package
