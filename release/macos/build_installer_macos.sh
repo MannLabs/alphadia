@@ -7,6 +7,8 @@ set -e -u
 rm -rf dist build *.egg-info
 rm -rf dist_pyinstaller build_pyinstaller
 
+export EAGER_IMPORT=true  # TODO check if this can be removed with newset peptdeep version w/out transformer dependenc
+
 python -m build
 pip install "dist/alphadia-1.7.2-py3-none-any.whl[stable]"
 
