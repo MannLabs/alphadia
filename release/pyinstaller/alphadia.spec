@@ -21,7 +21,7 @@ block_cipher = None
 location = os.getcwd()
 project = "alphadia"
 remove_tests = True
-bundle_name = "AlphaDIA"
+bundle_name = "alphadia"
 #####################
 
 
@@ -80,7 +80,7 @@ if sys.platform[:5] == "linux":
 		upx_exclude=[],
 		icon=icon
 	)
-else:
+else: # non-linux
 	exe = EXE(
 		pyz,
 		a.scripts,
