@@ -26,5 +26,5 @@ config['output_directory'] = os.path.join(args.target_directory, 'predicted_spec
 config['library_prediction']['predict'] = True
 
 # write speclib_config.yaml to input directory for the library prediction
-with open(os.path.join(args.target_directory, 'speclib_config.yaml'), 'w') as file:
+with open(os.path.join(config['output_directory'], 'speclib_config.yaml'), 'w') as file:
     yaml.safe_dump(config, file, default_style=None, default_flow_style=False)
