@@ -54,6 +54,9 @@ while [[ "$#" -gt 0 ]]; do
 	shift
 done
 
+	# create logs directory if it does not exist
+	mkdir -p ./logs
+
 	# remove and create target directory
 	rm -rf ${target_directory}
 	mkdir ${target_directory}
@@ -96,7 +99,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output=./logs/slurm-%j-speclib.out \
+	--output=./../../logs/slurm-%j-speclib.out \
 	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
 
 	# if prediction took place, let the new speclib.hdf be the library path
