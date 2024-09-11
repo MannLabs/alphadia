@@ -89,9 +89,9 @@ search:
 
   target_num_candidates: 2
   # target ms1 tolerance in ppm
-  target_ms1_tolerance: 15
+  target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
-  target_ms2_tolerance: 15
+  target_ms2_tolerance: 10
   # target ion mobility tolerance in 1/K_0
   target_mobility_tolerance: 0.0 # default is to optimize automatically
   # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
@@ -143,10 +143,10 @@ search_initial:
   initial_ms2_tolerance: 30
 
   # initial ion mobility tolerance in 1/K_0
-  initial_mobility_tolerance: 0.08
+  initial_mobility_tolerance: 0.1
 
   # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
-  initial_rt_tolerance: 240
+  initial_rt_tolerance: 0.5
 
 selection_config:
   peak_len_rt: 10.

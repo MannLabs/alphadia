@@ -263,7 +263,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "--no-capture-output",
                                         "alphadia",
                                         "--config",
-                                        path.join(workflow.output_directory.path, "config.yaml")
+                                        `"${path.join(workflow.output_directory.path, "config.yaml")}"`
                                     ] , { env:{...process.env, PATH}, shell: true});
             run.pid = run.process.pid
 
@@ -423,7 +423,7 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             // use binary location as cwd and binary name as command
             run.process = spawn(prefix + binaryName,
                 ["--config",
-                path.join(workflow.output_directory.path, "config.yaml")
+                `"${path.join(workflow.output_directory.path, "config.yaml")}"`
                 ],
                 {
                     env:{...process.env, PATH},
