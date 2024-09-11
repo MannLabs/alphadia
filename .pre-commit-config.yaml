@@ -13,3 +13,5 @@ repos:
     - id: ruff-format
     - id: ruff
       args: [ '--fix' ]
+
+exclude: .bumpversion.cfg
