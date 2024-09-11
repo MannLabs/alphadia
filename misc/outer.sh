@@ -89,7 +89,8 @@ if [[ "$predict_library" -eq 1 ]]; then
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py --input_directory "${input_directory}" --target_directory "${target_directory}"
 
-	# navigate to predicted speclib directory
+	# log current directory and navigate to predicted speclib directory
+	home_directory=$(pwd)
 	cd "${predicted_library_directory}"	
 
 	# call alphadia to predict spectral library
@@ -101,6 +102,9 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--mem=${mem} \
 	--output=./../../logs/slurm-%j-speclib.out \
 	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
+
+	# navigate back to home directory
+	cd "${home_directory}"
 
 	# if prediction took place, let the new speclib.hdf be the library path
 	library_path="${predicted_library_directory}speclib.hdf"
