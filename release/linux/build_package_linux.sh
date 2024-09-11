@@ -32,16 +32,16 @@ if [ ! -d "$GUI_BUILD" ]; then
   echo "GUI build not found at $GUI_BUILD"
   exit 1
 fi
-
 echo ls ${GUI_BUILD}
 ls ${GUI_BUILD}
 echo
 
 cp -a ${GUI_BUILD}/. ${BIN_PATH}
 
+
 cd dist_pyinstaller/${BUILD_NAME}/usr/local
-ln -s alphadia ./alphadia/alphadia
-ln -s alphadia-gui ./alphadia/alphadia-gui
+ln -s ./alphadia/alphadia alphadia
+ln -s ./alphadia/alphadia-gui alphadia-gui
 cd -
 
 # Wrapping the pyinstaller folder in a .deb package
