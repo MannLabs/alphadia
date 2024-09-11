@@ -35,7 +35,6 @@ def mock_precursor_df(
         A mock precursor dataframe
     """
 
-    precursor_idx = np.arange(n_precursor)
     precursor_mz = np.random.rand(n_precursor) * 2000 + 500
     precursor_charge = np.random.choice([2, 3], size=n_precursor)
 
@@ -61,18 +60,18 @@ def mock_precursor_df(
         for __ in range(6):
             sequence += chr(np.random.randint(65, 91))
         sequences.append(sequence)
-    return pd.DataFrame(
+
+    df = pd.DataFrame(
         {
-            "precursor_idx": precursor_idx,
             "decoy": decoy,
             "mz_library": precursor_mz,
             "rt_library": random_rt,
             "mobility_library": random_mobility,
-            "mz_observed": precursor_mz,
-            "rt_observed": random_rt,
-            "mobility_observed": random_mobility,
-            "mz_calibrated": precursor_mz,
-            "rt_calibrated": random_rt,
+            "mz_observed": precursor_mz + np.random.rand(n_precursor) * 0.1,
+            "rt_observed": random_rt + np.random.rand(n_precursor) * 0.1,
+            "mobility_observed": random_mobility + np.random.rand(n_precursor) * 0.1,
+            "mz_calibrated": precursor_mz + np.random.rand(n_precursor) * 0.1,
+            "rt_calibrated": random_rt + np.random.rand(n_precursor) * 0.1,
             "charge": precursor_charge,
             "proteins": proteins,
             "genes": genes,
@@ -84,6 +83,10 @@ def mock_precursor_df(
             "channel": [0] * n_precursor,
         }
     )
+
+    df = df.sample(frac=1).reset_index(drop=True)
+    df["precursor_idx"] = np.arange(len(df))
+    return df
 
 
 def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
