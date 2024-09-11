@@ -37,19 +37,19 @@ class NoPsmFoundError(BusinessError):
     _msg = "No psm files accumulated, can't continue"
 
 
-class NoRecalibrationTargetError(BusinessError):
-    """Raise when no recalibration target is found."""
+class NoOptimizationLockTargetError(BusinessError):
+    """Raise when the optimization lock target is not found."""
 
-    _error_code = "NO_RECALIBRATION_TARGET"
+    _error_code = "NO_OPTIMIZATION_LOCK_TARGET"
 
-    _msg = "Searched all data without finding recalibration target"
+    _msg = "Searched all data without finding optimization lock target"
 
-    _detail_msg = """Search for raw file failed as not enough precursors were found for calibration.
+    _detail_msg = """Search for raw file failed as not enough precursors were found for calibration and optimization.
                  This can have the following reasons:
                    1. The sample was empty and therefore no precursors were found.
                    2. The sample contains only very few precursors.
                       For small libraries, try to set recalibration_target to a lower value.
-                      For large libraries, try to reduce the library size and reduce the calibration MS1 and MS2 tolerance.
+                      For large libraries, try to reduce the library size and reduce the initial MS1 and MS2 tolerance.
                    3. There was a fundamental issue with search parameters."""
 
 

@@ -297,10 +297,12 @@ class SearchPlanOutput:
     PSM_INPUT = "psm"
     PRECURSOR_OUTPUT = "precursors"
     STAT_OUTPUT = "stat"
+    INTERNAL_OUTPUT = "internal"
     PG_OUTPUT = "protein_groups"
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
+    TRANSFER_STATS_OUTPUT = "stats.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -365,6 +367,7 @@ class SearchPlanOutput:
             folder_list, save=False, base_spec_lib=base_spec_lib
         )
         _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
+        _ = self.build_internal_df(folder_list, save=True)
         _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
         _ = self.build_library(
             base_spec_lib,
@@ -375,9 +378,17 @@ class SearchPlanOutput:
             _ = self.build_transfer_library(folder_list, save=True)
 
         if self.config["transfer_learning"]["enabled"]:
-            _ = self.build_transfer_model()
+            _ = self.build_transfer_model(save=True)
 
-    def build_transfer_model(self):
+    def build_transfer_model(self, save=True):
+        """
+        Finetune PeptDeep models using the transfer library
+
+        Parameters
+        ----------
+        save : bool, optional
+            Whether to save the statistics of the transfer learning on disk, by default True
+        """
         logger.progress("Train PeptDeep Models")
 
         transfer_lib_path = os.path.join(
@@ -409,13 +420,23 @@ class SearchPlanOutput:
             nce=self.config["transfer_learning"]["nce"],
             instrument=self.config["transfer_learning"]["instrument"],
         )
-        tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        tune_mgr.finetune_ms2(
+        rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        ms2_stats = tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
         tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
+
+        combined_stats = pd.concat([rt_stats, charge_stats, ms2_stats])
+
+        if save:
+            logger.info("Writing transfer learning stats output to disk")
+            write_df(
+                combined_stats,
+                os.path.join(self.output_folder, self.TRANSFER_STATS_OUTPUT),
+                file_format="tsv",
+            )
 
     def build_transfer_library(
         self,
@@ -689,6 +710,50 @@ class SearchPlanOutput:
 
         return stat_df
 
+    def build_internal_df(
+        self,
+        folder_list: list[str],
+        save: bool = True,
+    ):
+        """Build internal data table from a list of seach outputs
+
+        Parameters
+        ----------
+
+        folder_list: List[str]
+            List of folders containing the search outputs
+
+        save: bool
+            Save the precursor table to disk
+
+        Returns
+        -------
+
+        stat_df: pd.DataFrame
+            Precursor table
+        """
+        logger.progress("Building internal statistics")
+
+        internal_df_list = []
+        for folder in folder_list:
+            internal_df_list.append(
+                _build_run_internal_df(
+                    folder,
+                )
+            )
+
+        internal_df = pd.concat(internal_df_list)
+
+        if save:
+            logger.info("Writing internal output to disk")
+            write_df(
+                internal_df,
+                os.path.join(self.output_folder, self.INTERNAL_OUTPUT),
+                file_format="tsv",
+            )
+
+        return internal_df
+
     def build_lfq_tables(
         self,
         folder_list: list[str],
@@ -861,9 +926,6 @@ def _build_run_stat_df(
     optimization_manager_path = os.path.join(
         folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH
     )
-    timing_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
-    )
 
     if channels is None:
         channels = [0]
@@ -905,20 +967,47 @@ def _build_run_stat_df(
             base_dict["rt_error"] = np.nan
             base_dict["mobility_error"] = np.nan
 
-        if os.path.exists(timing_manager_path):
-            timing_manager = manager.TimingManager(path=timing_manager_path)
-
-            base_dict["optimization_duration"] = timing_manager.optimization["duration"]
-            base_dict["extraction_duration"] = timing_manager.extraction["duration"]
-
-        else:
-            logger.warning(f"Error reading timing manager for {raw_name}")
-            base_dict["optimization_duration"] = np.nan
-            base_dict["extraction_duration"] = np.nan
-
         out_df.append(base_dict)
 
     return pd.DataFrame(out_df)
+
+
+def _build_run_internal_df(
+    folder_path: str,
+):
+    """Build stat dataframe for a single run.
+
+    Parameters
+    ----------
+
+    folder_path: str
+        Path (from the base directory of the output_folder attribute of the Plan class) to the directory containing the raw file and the managers
+
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe containing the statistics
+
+    """
+    timing_manager_path = os.path.join(
+        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+    )
+    raw_name = os.path.basename(folder_path)
+
+    internal_dict = {
+        "run": [raw_name],
+    }
+
+    if os.path.exists(timing_manager_path):
+        timing_manager = manager.TimingManager(path=timing_manager_path)
+        for key in timing_manager.timings:
+            internal_dict[f"duration_{key}"] = [timing_manager.timings[key]["duration"]]
+
+    else:
+        logger.warning(f"Error reading timing manager for {raw_name}")
+
+    return pd.DataFrame(internal_dict)
 
 
 def perform_protein_fdr(psm_df):

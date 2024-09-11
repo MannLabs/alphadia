@@ -226,6 +226,9 @@ class Plan:
                 peptdeep_model_path=self.config["library_prediction"][
                     "peptdeep_model_path"
                 ],
+                peptdeep_model_type=self.config["library_prediction"][
+                    "peptdeep_model_type"
+                ],
                 fragment_types=self.config["library_prediction"][
                     "fragment_types"
                 ].split(";"),
@@ -248,6 +251,15 @@ class Plan:
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
+
+        if self.config["library_multiplexing"]["enabled"]:
+            multiplexing = libtransform.MultiplexLibrary(
+                multiplex_mapping=self.config["library_multiplexing"][
+                    "multiplex_mapping"
+                ],
+                input_channel=self.config["library_multiplexing"]["input_channel"],
+            )
+            spectral_library = multiplexing(spectral_library)
 
         library_path = os.path.join(self.output_folder, "speclib.hdf")
         logger.info(f"Saving library to {library_path}")
@@ -321,9 +333,16 @@ class Plan:
                     logger.info(f"No existing quantification found for {raw_name}")
 
                 workflow.load(dia_path, speclib)
-                workflow.calibration()
 
+                workflow.timing_manager.set_start_time("optimization")
+                workflow.search_parameter_optimization()
+                workflow.timing_manager.set_end_time("optimization")
+
+                workflow.timing_manager.set_start_time("extraction")
                 psm_df, frag_df = workflow.extraction()
+                workflow.timing_manager.set_end_time("extraction")
+                workflow.timing_manager.save()
+
                 psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
                 if self.config["multiplexing"]["enabled"]:

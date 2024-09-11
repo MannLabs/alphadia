@@ -210,3 +210,39 @@ def test_keep_top_constraint():
         ), f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
 
     shutil.rmtree(temp_folder)
+
+
+def test_default_column_assignment():
+    """
+    Test that col [rt,mobility,mz] columns are correctly assigned where:
+    col = col_observed if col_observed is in columns
+    col = col_calibrated if col_observed is not in columns
+    col = col_library if col_observed is not in columns and col_calibrated is not in columns
+    """
+    # Given:
+    config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
+    keep_top = 2
+    config["transfer_library"]["top_k_samples"] = keep_top
+
+    # When:
+    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    _ = output.build_transfer_library(raw_folders, save=True)
+    built_lib = SpecLibBase()
+    built_lib.load_hdf(
+        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+    )
+
+    # Then: The columns rt, mobility, mz should be correctly assigned
+    for col in ["rt", "mobility", "mz"]:
+        if f"{col}_observed" in built_lib.precursor_df.columns:
+            assert built_lib.precursor_df[f"{col}"].equals(
+                built_lib.precursor_df[f"{col}_observed"]
+            ), f"{col} != {col}_observed"
+        elif f"{col}_calibrated" in built_lib.precursor_df.columns:
+            assert built_lib.precursor_df[f"{col}"].equals(
+                built_lib.precursor_df[f"{col}_calibrated"]
+            ), f"{col} != {col}_calibrated"
+        else:
+            assert built_lib.precursor_df[f"{col}"].equals(
+                built_lib.precursor_df[f"{col}_library"]
+            ), f"{col} != {col}_library"

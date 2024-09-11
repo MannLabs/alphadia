@@ -239,11 +239,23 @@
                     ]
                 },
                 {
-                    "id": "checkpoint_folder_path",
-                    "name": "PeptDeep Model",
+                    "id": "peptdeep_model_path",
+                    "name": "PeptDeep Model Path",
                     "value": "",
                     "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on.",
                     "type": "singleFolderSelection"
+                },
+                {
+                    "id": "peptdeep_model_type",
+                    "name": "PeptDeep Model Type",
+                    "value": "generic",
+                    "description": "Select a custom pretrained PeptDeep model for library prediction. Possible values are 'generic', 'phospho' and 'digly'.",
+                    "type": "dropdown",
+                    "options": [
+                        "generic",
+                        "phospho",
+                        "digly"
+                    ]
                 }
 
             ]
@@ -306,7 +318,7 @@
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
                     "value": 100,
-                    "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
@@ -422,7 +434,7 @@
                     "id": "initial_rt_tolerance",
                     "name": "RT Tolerance",
                     "value": 240,
-                    "description": "Initial retention time tolerance in seconds.",
+                    "description": "Initial retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1.",
                     "type": "float"
                 }
             ]
