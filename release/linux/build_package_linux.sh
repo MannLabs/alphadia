@@ -9,7 +9,8 @@ PACKAGE_NAME=alphadia
 # BUILD_NAME is taken from environment variables, e.g. 'alphadia-1.2.1-linux-x64'
 rm -rf ${BUILD_NAME}.deb
 
-mkdir -p dist_pyinstaller/${BUILD_NAME}/usr/local/bin
+BIN_PATH=dist_pyinstaller/${BUILD_NAME}/opt/${PACKAGE_NAME}/bin
+mkdir -p ${BIN_PATH}
 
 # === GUI ===
 echo "Copying GUI"
@@ -30,13 +31,15 @@ if [ ! -d "$GUI_BUILD" ]; then
   exit 1
 fi
 
-cp -a ${GUI_BUILD}/. dist_pyinstaller/${BUILD_NAME}/usr/local/bin/
+ls ${GUI_BUILD}
+cp -a ${GUI_BUILD}/. ${BIN_PATH}
 
 
 # Wrapping the pyinstaller folder in a .deb package
-mv dist_pyinstaller/${PACKAGE_NAME} dist_pyinstaller/${BUILD_NAME}/usr/local/bin/${PACKAGE_NAME}
+mv dist_pyinstaller/${PACKAGE_NAME} ${BIN_PATH}
 mkdir dist_pyinstaller/${BUILD_NAME}/DEBIAN
 cp release/linux/control dist_pyinstaller/${BUILD_NAME}/DEBIAN
+
 dpkg-deb --build --root-owner-group dist_pyinstaller/${BUILD_NAME}
 
 # release workflow expects artifact at root of repository
