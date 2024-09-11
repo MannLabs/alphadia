@@ -407,7 +407,18 @@ class SearchPlanOutput:
         device = utils.get_torch_device(self.config["general"]["use_gpu"])
 
         tune_mgr = FinetuneManager(
-            device=device, settings=self.config["transfer_learning"]
+            device=device,
+            lr_patience=self.config["transfer_learning"]["lr_patience"],
+            test_interval=self.config["transfer_learning"]["test_interval"],
+            train_fraction=self.config["transfer_learning"]["train_fraction"],
+            validation_fraction=self.config["transfer_learning"]["validation_fraction"],
+            test_fraction=self.config["transfer_learning"]["test_fraction"],
+            epochs=self.config["transfer_learning"]["epochs"],
+            warmup_epochs=self.config["transfer_learning"]["warmup_epochs"],
+            batch_size=self.config["transfer_learning"]["batch_size"],
+            max_lr=self.config["transfer_learning"]["max_lr"],
+            nce=self.config["transfer_learning"]["nce"],
+            instrument=self.config["transfer_learning"]["instrument"],
         )
         rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
         charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
