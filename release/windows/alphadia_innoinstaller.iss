@@ -5,7 +5,7 @@
 ; so all paths are given relative to the location of this .iss file.
 
 #define MyAppName "AlphaDIA"
-#define MyAppVersion "1.7.2"
+#define MyAppVersion "1.8.0"
 #define MyAppPublisher "Max Planck Institute of Biochemistry, Mann Labs"
 #define MyAppURL "https://github.com/MannLabs/alphadia"
 #define MyAppExeName "alphadia-gui.exe"
@@ -29,7 +29,7 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 ; release workflow expects artifact at root of repository
 OutputDir=..\..\
-; example for BUILD_NAME: alphadia-1.7.2-win-x64
+; example for BUILD_NAME: alphadia-1.8.0-win-x64
 OutputBaseFilename={#GetEnv('BUILD_NAME')}
 SetupIconFile=..\logos\alphadia.ico
 Compression=lzma

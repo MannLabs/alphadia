@@ -3,7 +3,7 @@
 ; # TODO remove with old release workflow
 
 #define MyAppName "AlphaDIA"
-#define MyAppVersion "1.7.2"
+#define MyAppVersion "1.8.0"
 #define MyAppPublisher "Max Planck Institute of Biochemistry, Mann Labs"
 #define MyAppURL "https://github.com/MannLabs/alphadia"
 #define MyAppExeName "alphadia-gui.exe"
