@@ -16,7 +16,7 @@ function getAppRoot() {
     if ( process.platform === 'win32' ) {
       return path.join( app.getAppPath(), '/../../' );
     } else if ( process.platform === 'linux' ) {
-      return path.join( app.getAppPath(), '/../../' );
+      return path.join( app.getAppPath(), '/../../../' );
     } else {
       return path.join( app.getAppPath(), '/../../../../' );
     }

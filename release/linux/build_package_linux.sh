@@ -9,8 +9,8 @@ PACKAGE_NAME=alphadia
 # BUILD_NAME is taken from environment variables, e.g. 'alphadia-1.2.1-linux-x64'
 rm -rf ${BUILD_NAME}.deb
 
-BIN_PATH=dist_pyinstaller/${BUILD_NAME}/opt/${PACKAGE_NAME}/bin
-mkdir -p ${BIN_PATH}
+BIN_PATH=dist_pyinstaller/${BUILD_NAME}/usr/local/${PACKAGE_NAME}
+mkdir -p ${BIN_PATH}/gui
 
 # === GUI ===
 echo "Copying GUI"
@@ -23,7 +23,9 @@ fi
 KERNEL=$(uname -s | tr '[:upper:]' '[:lower:]')
 echo ARCH=${ARCH} KERNEL=${KERNEL}
 
+echo ls ./gui/out
 ls ./gui/out
+echo
 
 GUI_BUILD="./gui/out/${PACKAGE_NAME}-gui-${KERNEL}-${ARCH}"
 if [ ! -d "$GUI_BUILD" ]; then
@@ -31,9 +33,15 @@ if [ ! -d "$GUI_BUILD" ]; then
   exit 1
 fi
 
+echo ls ${GUI_BUILD}
 ls ${GUI_BUILD}
-cp -a ${GUI_BUILD}/. ${BIN_PATH}
+echo
 
+cp -a ${GUI_BUILD}/. ${BIN_PATH}/gui
+
+cd ${BIN_PATH}
+ln -s ./gui/alphadia-gui ./alphadia-gui
+cd -
 
 # Wrapping the pyinstaller folder in a .deb package
 mv dist_pyinstaller/${PACKAGE_NAME} ${BIN_PATH}
