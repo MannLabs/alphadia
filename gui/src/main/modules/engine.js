@@ -12,9 +12,12 @@ const path = require('path');
 var kill = require('tree-kill');
 
 function getAppRoot() {
+    console.log("getAppPath=" + app.getAppPath() + " platform=" + process.platform)
     if ( process.platform === 'win32' ) {
       return path.join( app.getAppPath(), '/../../' );
-    }  else {
+    } else if ( process.platform === 'linux' ) {
+      return path.join( app.getAppPath(), '/../../../../local/bin/' );
+    } else {
       return path.join( app.getAppPath(), '/../../../../' );
     }
   }
