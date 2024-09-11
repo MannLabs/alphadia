@@ -11,6 +11,7 @@ rm -rf ${BUILD_NAME}.deb
 
 BIN_PATH=dist_pyinstaller/${BUILD_NAME}/usr/local/${PACKAGE_NAME}
 mkdir -p ${BIN_PATH}
+chmod 755 ${BIN_PATH}
 
 # === GUI ===
 echo "Copying GUI"
@@ -39,9 +40,9 @@ echo
 cp -a ${GUI_BUILD}/. ${BIN_PATH}
 
 
-cd dist_pyinstaller/${BUILD_NAME}/usr/local
-ln -s ./alphadia/alphadia alphadia
-ln -s ./alphadia/alphadia-gui alphadia-gui
+cd dist_pyinstaller/${BUILD_NAME}/usr/local/bin
+ln -s ../alphadia/alphadia alphadia
+ln -s ../alphadia/alphadia-gui alphadia-gui
 cd -
 
 # Wrapping the pyinstaller folder in a .deb package
