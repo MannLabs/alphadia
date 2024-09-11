@@ -4,6 +4,7 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 # alphadia imports
 from alphadia.data import alpharaw, bruker
@@ -23,6 +24,7 @@ class WorkflowBase:
 
     CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
     OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
+    TIMING_MANAGER_PATH = "timing_manager.pkl"
     FDR_MANAGER_PATH = "fdr_manager.pkl"
     FIGURE_PATH = "figures"
 
@@ -45,13 +47,19 @@ class WorkflowBase:
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
         """
-        self._instance_name = instance_name
-        self._parent_path = os.path.join(config["output"], TEMP_FOLDER)
-        self._config = config
+        self._instance_name: str = instance_name
+        self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
+        self._config: dict = config
+        self.reporter: reporting.Pipeline | None = None
+        self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
+        self._spectral_library: SpecLibBase | None = None
+        self._calibration_manager: manager.CalibrationManager | None = None
+        self._optimization_manager: manager.OptimizationManager | None = None
+        self._timing_manager: manager.TimingManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
-            os.mkdir(self.parent_path)
+            os.makedirs(self.parent_path)
 
         if not os.path.exists(self.path):
             logger.info(
@@ -96,11 +104,17 @@ class WorkflowBase:
 
         # initialize the optimization manager
         self._optimization_manager = manager.OptimizationManager(
-            self.config["optimization_manager"],
+            self.config,
+            gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
             load_from_file=self.config["general"]["reuse_calibration"],
             figure_path=os.path.join(self.path, self.FIGURE_PATH),
             reporter=self.reporter,
+        )
+
+        self._timing_manager = manager.TimingManager(
+            path=os.path.join(self.path, self.TIMING_MANAGER_PATH),
+            load_from_file=self.config["general"]["reuse_calibration"],
         )
 
         self.reporter.log_event("section_stop", {})
@@ -126,17 +140,22 @@ class WorkflowBase:
         return self._config
 
     @property
-    def calibration_manager(self) -> str:
+    def calibration_manager(self) -> manager.CalibrationManager:
         """Calibration manager for the workflow. Owns the RT, IM, MZ calibration and the calibration data"""
         return self._calibration_manager
 
     @property
-    def optimization_manager(self) -> str:
+    def optimization_manager(self) -> manager.OptimizationManager:
         """Optimization manager for the workflow. Owns the optimization data"""
         return self._optimization_manager
 
     @property
-    def spectral_library(self) -> SpecLibBase:
+    def timing_manager(self) -> manager.TimingManager:
+        """Optimization manager for the workflow. Owns the timing data"""
+        return self._timing_manager
+
+    @property
+    def spectral_library(self) -> SpecLibFlat:
         """Spectral library for the workflow. Owns the spectral library data"""
         return self._spectral_library
 

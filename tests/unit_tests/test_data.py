@@ -8,13 +8,14 @@ def test_transpose():
     values = np.array([1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0])
     tof_indices = np.array([0, 3, 2, 4, 1, 2, 4])
     push_ptr = np.array([0, 2, 4, 5, 7])
+    n_tof_indices = 7
 
     push_indices, tof_indptr, intensity_values = bruker.transpose(
-        tof_indices, push_ptr, values
+        tof_indices, push_ptr, n_tof_indices, values
     )
 
     _push_indices = np.array([0, 2, 1, 3, 0, 1, 3])
-    _tof_indptr = np.array([0, 1, 2, 4, 5, 7])
+    _tof_indptr = np.array([0, 1, 2, 4, 5, 7, 7, 7])
     _intensity_values = np.array([1.0, 5.0, 3.0, 6.0, 2.0, 4.0, 7.0])
 
     assert np.allclose(push_indices, _push_indices)

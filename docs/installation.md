@@ -39,7 +39,7 @@ A detailed guide to installing alphaRaw with mono can be found [here](https://gi
 It is highly recommended to use a conda environment for the installation of alphaDIA.
 This ensures that all dependencies are installed correctly and do not interfere with other packages.
 ```bash
-conda create -n alphadia python=3.11
+conda create -n alphadia python=3.11 -y
 conda activate alphadia
 ```
 
@@ -65,7 +65,7 @@ AlphaDIA can be installed in editable (i.e. developer) mode. This allows to full
 
 Make sure you have a conda environment and Mono installed for reading `.raw` files as described [here](https://github.com/MannLabs/alpharaw#installation).
 
-See also the [developer guide](contributing.md) for more information on how to contribute to alphaDIA.
+See also the [developer guide](developer_guide.md) for more information on how to contribute to alphaDIA.
 
 ### 1. Setting up the repository
 
@@ -165,33 +165,34 @@ docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
 
 ### 1. Set up environment
 Check if conda is available on your cluster. If not, install it, or, if provided, load the corresponding module, e.g.
-`module load anaconda/3/2023.03`.
+`module load anaconda/3/2023.03`. You might be asked to run `conda init bash` to initialize conda.
 
 Create and activate a new conda environment
 ```bash
-conda create -n alphadia python=3.11
+conda create -n alphadia -y
 conda activate alphadia
 ```
 ### 2. Installing mono
 Install mono to support reading proprietary vendor formats like Thermo `.raw` files.
 
-Please make sure you include the conda-forge channel
+
+Install python into your new environment
 ```bash
-conda install python=3.11 -c conda-forge
+conda install python=3.11 -y
 ```
 Then install mono by
 ```bash
-conda install mono -c conda-forge
+conda install mono=6.12.0.182 -c anaconda -y
 ```
 
-Make sure mono is installed by running
+Test that mono is correctly installed by running
 ```bash
 mono --version
 ```
 
-Make sure the output looks something like this:
+The output should look something like this:
 ```
-Mono JIT compiler version 6.12.0.90 (tarball Fri Mar  5 04:37:13 UTC 2021)
+Mono JIT compiler version 6.12.0.182 (tarball Mon Jun 26 17:39:19 UTC 2023)
 Copyright (C) 2002-2014 Novell, Inc, Xamarin Inc and Contributors. www.mono-project.com
 	TLS:           __thread
 	SIGSEGV:       altstack
@@ -212,5 +213,15 @@ Install alphaDIA using pip:
 ```bash
 pip install "alphadia[stable]"
 ```
-Afterwards, verify the alphaDIA installation by running:
+Afterward, verify the alphaDIA installation by running:
 `alphadia --version` which should output the current version.
+
+### Notes on running alphaDIA as part of automated workflows
+AlphaDIA is designed to be run in a headless mode. In case of an error, a nonzero exit code is returned.
+A exit code of 127 indicates that there was an unknown error. All other nonzero exit codes pertain to
+'business errors', i.e. those caused most likely by user input (data and/or configuration).
+
+Further details on such errors can be found in the `events.jsonl` file in the `.progress` folder(s) of the output directory.
+
+### Slurm script example
+You can find an example of a Slurm script here: [./tests/e2e_tests/e2e_slurm.sh](./tests/e2e_tests/e2e_slurm.sh).

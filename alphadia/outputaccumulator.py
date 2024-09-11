@@ -137,14 +137,13 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df["raw_name"] = foldername
 
         # remove decoy precursors
-        psm_df = psm_df[psm_df["decoy"] == 0]
+        # assert that  decoy is int
+        psm_df["decoy"] = psm_df["decoy"].astype(int)
+        psm_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
 
         self._precursor_df = pd.DataFrame()
         for col in psm_df.columns:
             self._precursor_df[col] = psm_df[col]
-
-        self._precursor_df["decoy"] = self._precursor_df["decoy"].astype(int)
-        self._precursor_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
 
         # self._precursor_df.set_index('precursor_idx', inplace=True)
         # Change the data type of the mods column to string

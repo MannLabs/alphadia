@@ -9,9 +9,10 @@ jobs:
     name: Run all pre-commit hooks
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions/setup-python@v3
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
     - uses: pre-commit/action@v3.0.1
+
   # For feature branches, we don't test the full matrix (os x [stable, loose]) in order to save time & resources.
   run-tests-stable:
     name: Test stable pip installation on ubuntu-latest
@@ -25,3 +26,13 @@ jobs:
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,test
       test-script: ./run_unit_tests.sh
+
+  get-code-review-input:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: MannLabs/alphashared/actions/get-code-review-input@v1
+        continue-on-error: true
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          EXCLUDED_EXTENSIONS: ipynb;js

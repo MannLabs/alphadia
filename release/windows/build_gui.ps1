@@ -1,3 +1,5 @@
+# TODO remove with old release workflow
+
 # Powershell script to build the GUI for Windows
 
 cd gui

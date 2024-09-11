@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
 <installer-script minSpecVersion="1.000000">
-    <title>alphaDIA 1.7.2</title>
+    <title>AlphaDIA 1.8.0</title>
     <background mime-type="image/png" file="alphadia.png" scaling="proportional"/>
     <welcome file="welcome.html" mime-type="text/html" />
     <conclusion file="conclusion.html" mime-type="text/html" />
@@ -8,10 +8,10 @@
     <options customize="never" allow-external-scripts="no"/>
     <domains enable_localSystem="true" />
     <choices-outline>
-        <line choice="alphaDIA"/>
+        <line choice="alphadia"/>
     </choices-outline>
-    <choice id="alphaDIA" title="alphaDIA">
-        <pkg-ref id="alphaDIA.pkg"/>
+    <choice id="alphadia" title="alphadia">
+        <pkg-ref id="alphadia.pkg"/>
     </choice>
-    <pkg-ref id="alphaDIA.pkg" auth="Root">alphaDIA.pkg</pkg-ref>
+    <pkg-ref id="alphadia.pkg" auth="Root">alphadia.pkg</pkg-ref>
 </installer-script>

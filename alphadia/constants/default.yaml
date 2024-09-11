@@ -11,6 +11,9 @@ general:
   wsl: false
   mmap_detector_events: false
   use_gpu: true
+  # whether to save the libraries to the output directory
+  save_library: True       # input library
+  save_mbr_library: True   # output library
 
 library_loading:
   rt_heuristic: 180
@@ -41,7 +44,43 @@ library_prediction:
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
-  checkpoint_folder_path: None
+
+  # set path for custom peptdeep model. If set to null, the default model will be used
+  peptdeep_model_path: null
+
+  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'. If set to null, the generic model will be used
+  peptdeep_model_type: null
+
+# define custom alphabase modifications not part of unimod or alphabase
+# also used for decoy channels
+custom_modififcations:
+  # Dimethyl @K channel decoy
+  Dimethyl:d12@K:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Any_N-term channel decoy
+  Dimethyl:d12@Any_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # Dimethyl @Protein_N-term channel decoy
+  Dimethyl:d12@Protein_N-term:
+    composition: H(-2)2H(8)13C(2)
+
+  # mTRAQ @K channel decoy
+  mTRAQ:d12@K:
+    composition: H(12)C(1)13C(10)15N(2)O(1)
+
+  # mTRAQ @Any_N-term channel decoy
+  mTRAQ:d12@Any_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # mTRAQ @Protein_N-term channel decoy
+  mTRAQ:d12@Protein_N-term:
+    composition: H(12)C(1)13C(14)15N(2)O(1)
+
+  # SILAC heavy @K channel decoy
+  Label:13C(12)@K:
+    composition: C(12)
 
 search:
   channel_filter: '0'
@@ -49,10 +88,14 @@ search:
   compete_for_fragments: True
 
   target_num_candidates: 2
-  target_ms1_tolerance: 15
-  target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.04
-  target_rt_tolerance: 60
+  # target ms1 tolerance in ppm
+  target_ms1_tolerance: 5
+  # target ms2 tolerance in ppm
+  target_ms2_tolerance: 10
+  # target ion mobility tolerance in 1/K_0
+  target_mobility_tolerance: 0.0 # default is to optimize automatically
+  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
+  target_rt_tolerance: 0.0 # default is to optimize automatically
 
   quant_window: 3
   quant_all: True
@@ -62,17 +105,20 @@ search_advanced:
 
 calibration:
 
-  # minimum number of times (epochs) the updated calibration target has to been passed
-  min_epochs: 3
-
   # Number of precursors searched and scored per batch
   batch_size: 8000
 
-  # recalibration target for the first epoch. For subsequent epochs, the target will increase by this amount.
-  recalibration_target: 200
+  # minimum number of precursors to be found before search parameter optimization begins
+  optimization_lock_target: 200
 
-  # TODO: remove as not relevant anymore
-  max_epochs: 20
+  # the maximum number of steps that a given optimizer is permitted to take
+  max_steps: 20
+
+  # the minimum number of steps that a given optimizer must take before it can be said to have converged
+  min_steps: 2
+
+  # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
+  max_skips: 1
 
   # TODO: remove this parameter
   final_full_calibration: False
@@ -80,8 +126,14 @@ calibration:
   # TODO: remove this parameter
   norm_rt_mode: 'linear'
 
+  # the maximum number of fragments with correlation scores exceeding correlation_threshold to use for calibrating fragment mz (i.e. ms2)
+  max_fragments: 5000
+
+  # the correlation threshold for fragments used to calibrate fragment mz (i.e. ms2)
+  min_correlation: 0.7
+
 search_initial:
-  # Number of peak groups identified in the convolution score to classify with target decoy comeptition
+  # Number of peak groups identified in the convolution score to classify with target decoy competition
   initial_num_candidates: 1
 
   # initial ms1 tolerance in ppm
@@ -91,10 +143,10 @@ search_initial:
   initial_ms2_tolerance: 30
 
   # initial ion mobility tolerance in 1/K_0
-  initial_mobility_tolerance: 0.08
+  initial_mobility_tolerance: 0.1
 
-  # initial retention time tolerance in seconds
-  initial_rt_tolerance: 240
+  # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
+  initial_rt_tolerance: 0.5
 
 selection_config:
   peak_len_rt: 10.
@@ -127,6 +179,38 @@ scoring_config:
   precursor_mz_tolerance: 10
   fragment_mz_tolerance: 15
 
+# perform non-isobaric multiplexing of any input library
+library_multiplexing:
+  # if true, the library is multiplexed
+  enabled: False
+
+  # if the input library already contains multiplexed channels, the input channel has to be specified.
+  input_channel: 0
+
+  # define channels by their name and how modifications should be translated from the input library to the multiplexed library
+  # channels can be either a number or a string
+  # for every channel, the library gets copied and the modifications are translated according to the mapping
+  # the following example shows how to multiplex mTRAQ to three sample channels and a decoy channel
+  multiplex_mapping: {}
+
+    #0:
+    #  mTRAQ@K: mTRAQ@K
+    #  mTRAQ@Any_N-term: mTRAQ@Any_N-term
+
+    #4:
+    #  mTRAQ@K: mTRAQ:13C(3)15N(1)@K
+    #  mTRAQ@Any_N-term: mTRAQ:13C(3)15N(1)@Any_N-term
+
+    #8:
+    #  mTRAQ@K: mTRAQ:13C(6)15N(2)@K
+    #  mTRAQ@Any_N-term: mTRAQ:13C(6)15N(2)@Any_N-term
+
+    #12:
+    #  mTRAQ@K: mTRAQ:d12@K
+    #  mTRAQ@Any_N-term: mTRAQ:d12@Any_N-term
+
+
+
 multiplexing:
   enabled: False
   target_channels: '4,8'
@@ -153,8 +237,71 @@ search_output:
   # can be either "parquet" or "tsv"
   file_format: "tsv"
 
+# Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
+optimization:
+  # The order in which to perform optimization. Should be a list of lists of parameter names
+  # Example:
+    # order_of_optimization:
+    #   - - "rt_error"
+    #   - - "ms2_error"
+    #   - - "ms1_error"
+    #   - - "mobility_error"
+  # The above means that first rt_error is optimized, then ms2_error, then ms1_error, and finally mobility_error. (Other examples are shown in Python list format rather than YAML format to save space.)
+  # Example: [['ms1_error', 'ms2_error', 'rt_error', 'mobility_error']] means that all parameters are optimized simultaneously.
+  # Example: [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]] means that the parameters are optimized sequentially in the order given.
+  # Example: [["rt_error"], ["ms1_error", "ms2_error"]] means that first rt_error is optimized, then ms1_error and ms2_error are optimized simultaneously, and mobility_error is not optimized at all.
+  # If order_of_optimization is null, first all targeted optimizers run simultaneously, then any remaining automatic optimizers run sequentially in the order [["ms2_error"], ["rt_error"], ["ms1_error"], ["mobility_error"]]
+  order_of_optimization: null
+
+  # Parameters for the update rule for each parameter:
+  #   - update_percentile_range: the percentile interval to use (as a decimal)
+  #   - update_factor: the factor by which to multiply the result from the percentile interval to get the new parameter value for the next round of search
+  #   - try_narrower_parameters: if True, the optimization will try narrower parameters until a substantial (as determined by maximal_decrease) decrease in the feature used for optimization is observed.
+  #   - maximal_decrease: the maximal decrease of the parameter value before stopping optimization (only relevant if favour_narrower_parameter is True).
+  #     For example, a value of 0.2 indicates up to 20% decrease from the previous parameter is permissible.
+  #   - favour_narrower_optimum: if True, the optimization will not take the value that maximizes the feature used for optimization, but instead the smallest value compatible with the maximum_decrease_from_maximum value.
+  #     This setting can be useful for optimizing parameters for which many parameter values have similar feature values and therefore favouring narrower parameters helps to overcome noise.
+  #   - maximum_decrease_from_maximum: the maximum proportional decrease from the maximum value of the parameter that the designated optimum should have (only relevant if favour_narrower_optimum is True).
+  #     For example, a value of 0.1 indicates that the optimum should no more than 10% less than the maximum value.
+  ms2_error:
+      targeted_update_percentile_range: 0.95
+      targeted_update_factor: 1.0
+      automatic_update_percentile_range: 0.99
+      automatic_update_factor: 1.1
+      try_narrower_values: True
+      maximal_decrease: 0.5
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
+  ms1_error:
+      targeted_update_percentile_range: 0.95
+      targeted_update_factor: 1.0
+      automatic_update_percentile_range: 0.99
+      automatic_update_factor: 1.1
+      try_narrower_values: False
+      maximal_decrease: 0.2
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
+  mobility_error:
+      targeted_update_percentile_range: 0.95
+      targeted_update_factor: 1.0
+      automatic_update_percentile_range: 0.99
+      automatic_update_factor: 1.1
+      try_narrower_values: False
+      maximal_decrease: 0.2
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.1
+  rt_error:
+      targeted_update_percentile_range: 0.95
+      targeted_update_factor: 1.0
+      automatic_update_percentile_range: 0.99
+      automatic_update_factor: 1.1
+      try_narrower_values: True
+      maximal_decrease: 0.2
+      favour_narrower_optimum: True
+      maximum_decrease_from_maximum: 0.1
+
 # configuration for the optimization manager
-# initial parameters, will nbe optimized
+# initial parameters, will be optimized
 optimization_manager:
   fwhm_rt: 5
   fwhm_mobility: 0.01
