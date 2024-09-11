@@ -19,6 +19,9 @@ parser.add_argument('--config_filename')
 parser.add_argument('--target_directory')
 parser.add_argument('--nnodes')
 parser.add_argument('--reuse_quant')
+parser.add_argument('--num_candidates')
+parser.add_argument('--rt_tolerance')
+parser.add_argument('--inference_strategy')
 args = parser.parse_args()
 
 # read the input filename
@@ -84,6 +87,18 @@ for i in range(0, max_tasks):
 
     # set chunk folder as output_directory in the config
     current_config['output_directory'] = "./"
+
+    # set number of candidates
+    current_num_candidates = current_config['search']['target_num_candidates'] if 'target_num_candidates' in current_config['search'] else 3
+    current_config['search']['target_num_candidates'] = int(args.num_candidates) if args.num_candidates else current_num_candidates
+
+    # set rt tolerance
+    current_rt_tolerance = current_config['search']['target_rt_tolerance'] if 'target_rt_tolerance' in current_config['search'] else 200
+    current_config['search']['target_rt_tolerance'] = float(args.rt_tolerance) if args.rt_tolerance else current_rt_tolerance
+
+    # set inference strategy
+    current_inf_strategy = current_config['fdr']['inference_strategy'] if 'inference_strategy' in current_config['fdr'] else 'heuristic'
+    current_config['fdr']['inference_strategy'] = args.inference_strategy if args.inference_strategy else current_inf_strategy
 
     # save the current config into the target directory: this config contains all search parameters
     # and the rawfiles belonging to the current chunk.

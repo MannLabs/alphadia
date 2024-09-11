@@ -19,6 +19,12 @@ first_search=1
 mbr_library=1
 second_search=1
 lfq=1
+first_search_candidates=3
+second_search_candidates=5
+first_search_target_rt=200
+second_search_target_rt=100
+first_search_inference="heuristic"
+second_search_inference="library"
 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
@@ -38,6 +44,11 @@ while [[ "$#" -gt 0 ]]; do
 		--mbr_library) mbr_library="$2"; shift ;;
 		--second_search) second_search="$2"; shift ;;
 		--lfq) lfq="$2"; shift ;;
+		# Search parameters
+		--first_search_candidates) first_search_candidates="$2"; shift ;;
+		--second_search_candidates) second_search_candidates="$2"; shift ;;
+		--first_search_target_rt) first_search_target_rt="$2"; shift ;;
+		--second_search_target_rt) second_search_target_rt="$2"; shift ;;
 		*) echo "Unknown parameter $1"; shift ;;
 	esac
 	shift
@@ -97,7 +108,7 @@ if [[ "$first_search" -eq 1 ]]; then
 	echo "Performing first search"
 	
 	# generate subdirectories for chunked first search
-	first_search_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${first_search_directory}" --nnodes ${nnodes} --library_path ${library_path})
+	first_search_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${first_search_directory}" --nnodes ${nnodes} --library_path ${library_path} --num_candidates ${first_search_candidates} --rt_tolerance ${first_search_target_rt} --inference_strategy ${first_search_inference})
 
 	# create slurm array for first search
 	IFS=$'\n' read -d '' -r -a subdir_array <<< "$first_search_subdirectories"
@@ -144,7 +155,7 @@ fi
 if [[ "$second_search" -eq 1 ]]; then
 	echo "Performing second search"
 
-	second_search_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${second_search_directory}" --nnodes ${nnodes} --library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf")
+	second_search_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${second_search_directory}" --nnodes ${nnodes} --library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf" --num_candidates ${second_search_candidates} --rt_tolerance ${second_search_target_rt} --inference_strategy ${second_search_inference})
 
 	# create slurm array for second search
 	IFS=$'\n' read -d '' -r -a subdir_array <<< "$second_search_subdirectories"
@@ -169,7 +180,7 @@ if [[ "$lfq" -eq 1 ]]; then
 	echo "Performing LFQ"
 
 	# set lfq directory to the quant files from the second search
-	lfq_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${lfq_directory}" --nnodes 1 --reuse_quant 1 --library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf")
+	lfq_subdirectories=$(python ./parse_parameters.py --input_directory "${input_directory}" --input_filename "${input_filename}" --config_filename "${config_filename}" --target_directory "${lfq_directory}" --nnodes 1 --reuse_quant 1 --library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf" --inference_strategy ${second_search_inference})
 
 	# create slurm array with one subdir, which is the quant files from the second search
 	slurm_array="0-0%1"
