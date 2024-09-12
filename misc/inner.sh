@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 
 # set Slurm block 
-#SBATCH --job-name=alphadia
+#SBATCH --job-name=alphaDIA
 #SBATCH --time=21-00:00:00
-#SBATCH --output=./logs/slurm-%A_%a_%x.out
+#SBATCH --output=./logs/%A_%a_%x-slurm.out
 
 # navigate to chunk directory
 slurm_index=${SLURM_ARRAY_TASK_ID}

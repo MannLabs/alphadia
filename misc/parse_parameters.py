@@ -28,13 +28,14 @@ infile = pd.read_csv(os.path.join(args.input_directory, args.input_filename), sk
 with open(os.path.join(args.input_directory, args.config_filename), 'r') as file:
     config = yaml.safe_load(file)
 
-# modify general parameters in the config file
+# set requantition, False for searches, True for MBR, LFQ
 config['general']['reuse_quant'] = True if args.reuse_quant == "1" else False
-config['library_prediction']['predict'] = False # library must be fully predicted prior to chunking
-try:
-    del config['fasta_list'] # remove fasta list from config, prediction/reannotation must be done prior to chunking
-except:
-    pass
+
+# library must be predicted/annotated prior to chunking
+config['library_prediction']['predict'] = False
+
+# remove any fasta if one is present in the config file
+config.pop('fasta_list', None)
 
 # determine chunk size: division of infile rowcount and number of nodes
 chunk_size = int(np.ceil(infile.shape[0] / int(args.nnodes)))
@@ -63,8 +64,6 @@ for i in range(0, max_tasks):
     # retrieve library path from config or arguments and copy to chunk folder, set new library path in config
     if os.path.exists(args.library_path) and os.path.basename(args.library_path).endswith('.hdf'):
         lib_source = args.library_path
-    elif 'library' in current_config and os.path.exists(current_config['library']) and os.path.basename(current_config['library']).endswith('.hdf'):
-        lib_source = current_config['library']
     else:
         print("No valid library_path to a .hdf file provided and no valid library path to a .hdf file specified in config file, exiting...")
         sys.exit(1)

@@ -2,19 +2,22 @@
 
 #SBATCH --job-name=dist_AD
 #SBATCH --time=21-00:00:00
-#SBATCH --output=./logs/slurm-%j-%x.out
+#SBATCH --output=./logs/%j-%x-slurm.out
 
-# parse input parameters
+# slurm parameters
 nnodes=1
 ntasks_per_node=1
 cpus=32
 mem='250G'
+# Search parameters
 input_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/"
-target_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/search/"
 input_filename="file_list.csv"
+target_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/search/"
+library_path="/fs/home/brennsteiner/alphadia/distributed_search_test/48_fraction_hela_PaSk_orbitrap_ms2.hdf"
+fasta_path="/fs/home/brennsteiner/alphadia/distributed_search_test/uniprotkb_proteome_UP000005640_2023_11_12.fasta"
 first_search_config_filename="config.yaml"
 second_search_config_filename="config.yaml"
-library_path="None"
+# Search flags
 predict_library=1
 first_search=1
 mbr_library=1
@@ -28,6 +31,7 @@ while [[ "$#" -gt 0 ]]; do
 		--input_filename) input_filename="$2"; shift ;;
 		--target_directory) target_directory="$2"; shift ;;
 		--library_path) library_path="$2"; shift ;;
+		--fasta_path) fasta_path="$2"; shift ;;
 		--first_search_config_filename) first_search_config_filename="$2"; shift ;;
 		--second_search_config_filename) second_search_config_filename="$2"; shift ;;
 		# SLURM parameters
@@ -94,7 +98,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output=./../../logs/slurm-%j-speclib.out \
+	--output=./../../logs/%j-speclib-slurm.out \
 	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
 
 	# navigate back to home directory
