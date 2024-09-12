@@ -63,5 +63,5 @@ if __name__ == '__main__':
 	)
 
 	output_path = args.output_filename if os.path.isabs(args.output_filename) else os.path.join('./', args.output_filename)
-	out_frame.to_csv(output_path)
+	out_frame.to_csv(output_path, index=False)
 	

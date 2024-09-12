@@ -22,7 +22,7 @@ with open(os.path.join(args.input_directory, "config.yaml"), 'r') as file:
 config['fasta_list'] = [args.fasta_path] if args.fasta_path else []
 
 # add library path to config
-config['library_path'] = args.library_path if args.library_path else None
+config['library'] = args.library_path if args.library_path else None
 
 # set library prediction to True
 config['library_prediction']['predict'] = True
