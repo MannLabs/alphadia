@@ -791,9 +791,9 @@ def test_targeted_mobility_optimizer():
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
 
 
-def create_test_library():
+def create_test_library(count=100000):
     lib = SpecLibFlat()
-    precursor_idx = np.arange(100000)
+    precursor_idx = np.arange(count)
     elution_group_idx = np.concatenate(
         [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
     )
@@ -843,6 +843,37 @@ def create_test_library_for_indexing():
     return lib
 
 
+def test_optlock_spot_on_target():
+    TEST_OPTLOCK_CONFIG = {
+        "calibration": {
+            "batch_size": 2000,
+            "optimization_lock_target": 200,
+        }
+    }
+
+    # edge case where the number of precursors is exactly the target
+    library = create_test_library(2000)
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    assert optlock.start_idx == optlock.batch_plan[0][0]
+
+    feature_df = pd.DataFrame({"elution_group_idx": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"elution_group_idx": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_elution_groups == 1000
+    precursor_df = pd.DataFrame(
+        {"qval": np.concatenate([np.full(200, 0.005), np.full(800, 0.05)])}
+    )
+    optlock.update_with_fdr(precursor_df)
+    optlock.update()
+
+    assert optlock.start_idx == 0
+    assert optlock.stop_idx == optlock.batch_plan[0][1]
+    assert optlock.has_target_num_precursors
+
+
 TEST_OPTLOCK_CONFIG = {
     "calibration": {
         "batch_size": 8000,
@@ -868,8 +899,8 @@ def test_optlock():
     )
     optlock.update_with_fdr(precursor_df)
 
-    assert optlock.has_target_num_precursors is False
-    assert optlock.previously_calibrated is False
+    assert not optlock.has_target_num_precursors
+    assert not optlock.previously_calibrated
     optlock.update()
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
@@ -887,8 +918,8 @@ def test_optlock():
 
     optlock.update_with_fdr(precursor_df)
 
-    assert optlock.has_target_num_precursors is True
-    assert optlock.previously_calibrated is False
+    assert optlock.has_target_num_precursors
+    assert not optlock.previously_calibrated
 
     optlock.update()
 
