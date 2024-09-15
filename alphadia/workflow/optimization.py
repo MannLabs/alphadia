@@ -848,7 +848,9 @@ class OptimizationLock:
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
         """
 
-        self._precursor_at_fdr_count = np.sum(precursor_df["qval"] < 0.01)
+        self._precursor_at_fdr_count = np.sum(
+            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
+        )
         self.has_target_num_precursors = (
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
