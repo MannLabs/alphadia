@@ -818,7 +818,7 @@ class OptimizationLock:
         self.batch_plan = plan
 
     def batches_remaining(self):
-        return self.batch_idx + 1 > len(self.batch_plan)
+        return self.batch_idx + 1 < len(self.batch_plan)
 
     def update_with_extraction(
         self, feature_df: pd.DataFrame, fragment_df: pd.DataFrame
