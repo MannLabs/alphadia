@@ -139,7 +139,7 @@
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
-                    "value": "Oxidation@M;Acetyl@Protein N-term",
+                    "value": "Oxidation@M;Acetyl@Protein_N-term",
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "string"
                 },
