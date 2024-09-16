@@ -23,7 +23,7 @@ library_prediction:
   predict: False
   enzyme: trypsin
   fixed_modifications: 'Carbamidomethyl@C'
-  variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+  variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
   max_var_mod_num: 2
   missed_cleavages: 1
   precursor_len:
