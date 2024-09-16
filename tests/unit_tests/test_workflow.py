@@ -886,7 +886,10 @@ def test_optlock_spot_on_target():
 
     assert optlock.total_elution_groups == 1000
     precursor_df = pd.DataFrame(
-        {"qval": np.concatenate([np.full(200, 0.005), np.full(800, 0.05)])}
+        {
+            "qval": np.concatenate([np.full(200, 0.005), np.full(800, 0.05)]),
+            "decoy": np.zeros(1000),
+        }
     )
     optlock.update_with_fdr(precursor_df)
     optlock.update()
@@ -917,7 +920,10 @@ def test_optlock():
 
     assert optlock.total_elution_groups == 1000
     precursor_df = pd.DataFrame(
-        {"qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)])}
+        {
+            "qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)]),
+            "decoy": np.zeros(1100),
+        }
     )
     optlock.update_with_fdr(precursor_df)
 
@@ -935,7 +941,10 @@ def test_optlock():
     assert optlock.total_elution_groups == 2000
 
     precursor_df = pd.DataFrame(
-        {"qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)])}
+        {
+            "qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)]),
+            "decoy": np.zeros(1200),
+        }
     )
 
     optlock.update_with_fdr(precursor_df)
@@ -964,7 +973,7 @@ def test_optlock_batch_idx():
     optlock.update()
     assert optlock.start_idx == 2000
 
-    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005)})
+    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005), "decoy": np.zeros(4500)})
 
     optlock.update_with_fdr(precursor_df)
 

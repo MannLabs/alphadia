@@ -764,16 +764,12 @@ class SearchPlanOutput:
 
         Parameters
         ----------
-
         folder_list: List[str]
             List of folders containing the search outputs
-
         psm_df: Union[pd.DataFrame, None]
             Combined precursor table. If None, the precursor table is loaded from disk.
-
         save: bool
             Save the precursor table to disk
-
         """
         logger.progress("Performing label free quantification")
 
@@ -785,22 +781,26 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
-        group_list = []
-        group_nice_list = []
+        group_configs = [
+            (
+                "mod_seq_hash",
+                "peptide",
+                self.config["search_output"]["peptide_level_lfq"],
+            ),
+            (
+                "mod_seq_charge_hash",
+                "precursor",
+                self.config["search_output"]["precursor_level_lfq"],
+            ),
+            ("pg", "pg", True),  # Always process protein group level
+        ]
 
-        if self.config["search_output"]["peptide_level_lfq"]:
-            group_list.append("mod_seq_hash")
-            group_nice_list.append("peptide")
+        lfq_results = {}
 
-        if self.config["search_output"]["precursor_level_lfq"]:
-            group_list.append("mod_seq_charge_hash")
-            group_nice_list.append("precursor")
+        for group, group_nice, should_process in group_configs:
+            if not should_process:
+                continue
 
-        group_list.append("pg")
-        group_nice_list.append("pg")
-
-        # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(group_list, group_nice_list, strict=True):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )
@@ -813,14 +813,11 @@ class SearchPlanOutput:
                 group_column=group,
             )
 
-            # remove all rows for testing
-            group_intensity_df = group_intensity_df.iloc[0:0]
-
             if len(group_intensity_df) == 0:
                 logger.warning(
                     f"No fragments found for {group_nice}, skipping label-free quantification"
                 )
-                lfq_df = pd.DataFrame(columns=["pg", "intensity"])
+                lfq_results[group_nice] = pd.DataFrame()
                 continue
 
             lfq_df = qb.lfq(
@@ -835,17 +832,21 @@ class SearchPlanOutput:
                 group_column=group,
             )
 
+            lfq_results[group_nice] = lfq_df
+
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-
                 write_df(
                     lfq_df,
                     os.path.join(self.output_folder, f"{group_nice}.matrix"),
                     file_format=self.config["search_output"]["file_format"],
                 )
 
-        if len(lfq_df) > 0 and len(lfq_df.columns) > 2:
-            protein_df_melted = lfq_df.melt(
+        # Use protein group (pg) results for merging with psm_df
+        pg_lfq_df = lfq_results.get("pg", pd.DataFrame())
+
+        if len(pg_lfq_df) > 0:
+            protein_df_melted = pg_lfq_df.melt(
                 id_vars="pg", var_name="run", value_name="intensity"
             )
             psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
@@ -858,7 +859,7 @@ class SearchPlanOutput:
                 file_format=self.config["search_output"]["file_format"],
             )
 
-        return lfq_df
+        return lfq_results
 
     def build_library(
         self,
