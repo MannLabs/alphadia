@@ -262,10 +262,6 @@ class QuantBuilder:
 
         _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
 
-        _intensity_df.to_csv(
-            "/Users/georgwallmann/Downloads/intensity_df.tsv", sep="\t", index=False
-        )
-
         lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
