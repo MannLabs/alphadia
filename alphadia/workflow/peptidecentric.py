@@ -483,6 +483,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             if precursor_df_filtered.shape[0] >= 6:
                 self.recalibration(precursor_df_filtered, fragments_df_filtered)
+
             for optimizers in ordered_optimizers:
                 for optimizer in optimizers:
                     optimizer.proceed_with_insufficient_precursors(
@@ -691,7 +692,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
     def fdr_correction(self, features_df, df_fragments, version=-1):
-        return self.fdr_manager.fit_predict(
+        features_df = self.fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor_channel_wise"
             if self.config["fdr"]["channel_wise_fdr"]
@@ -704,6 +705,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             version=version,
             # neptune_run=self.neptune
         )
+        features_df["qval"] = 0.1
+        return features_df
 
     def extract_batch(
         self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False

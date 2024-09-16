@@ -71,6 +71,7 @@ class BaseOptimizer(ABC):
         )
         self._update_history(precursors_df, fragments_df)
         self._update_workflow()
+
         self.workflow.reporter.log_string(
             f"Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
             verbosity="warning",
@@ -89,6 +90,21 @@ class BaseOptimizer(ABC):
         score cutoff,
         FWHM_RT,
         and FWHM_mobility
+
+        """
+        pass
+
+    @abstractmethod
+    def _update_history():
+        """This method updates the history dataframe with relevant values.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
 
         """
         pass
@@ -267,6 +283,7 @@ class AutomaticOptimizer(BaseOptimizer):
         ).ci(df, self.update_percentile_range)
 
     def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        print("_update_history", precursors_df, fragments_df)
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -295,6 +312,7 @@ class AutomaticOptimizer(BaseOptimizer):
                 }
             ]
         )
+        print(new_row)
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
     @property
@@ -384,7 +402,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
             return min_steps_reached and feature_not_substantially_increased
 
-    def _find_index_of_optimum(self):
+    def _find_index_of_optimum(self) -> int:
         """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
         if self._favour_narrower_parameter is False:
             The index at optimum is the index of the parameter value that maximizes the feature.
@@ -394,26 +412,36 @@ class AutomaticOptimizer(BaseOptimizer):
         Returns
         -------
         int
-            The index of the row with the optimal value of the feature used for optimization.
-
+            The index of the row in the history dataframe with the optimal value of the feature used for optimization.
         Notes
         -----
             This method may be overwritten in child classes.
 
         """
 
+        if len(self.history_df) == 0:
+            raise ValueError(f"Optimizer: {self.parameter_name} has no history.")
+
+        if len(self.history_df) == 1:
+            # If there's only one row, return its index
+            return self.history_df.index[0]
+
         if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             maximum_feature_value = self.history_df[self.feature_name].max()
-            rows_within_thresh_of_max = self.history_df.loc[
-                self.history_df[self.feature_name]
-                > (
-                    maximum_feature_value
-                    - self._maximum_decrease_from_maximum
-                    * np.abs(maximum_feature_value)
-                )
+            threshold = (
+                maximum_feature_value
+                - self._maximum_decrease_from_maximum * np.abs(maximum_feature_value)
+            )
+
+            rows_within_thresh_of_max = self.history_df[
+                self.history_df[self.feature_name] > threshold
             ]
-            index_of_optimum = rows_within_thresh_of_max["parameter"].idxmin()
-            return index_of_optimum
+
+            if rows_within_thresh_of_max.empty:
+                # If no rows meet the threshold, return the index of the max feature value
+                return self.history_df[self.feature_name].idxmax()
+            else:
+                return rows_within_thresh_of_max["parameter"].idxmin()
 
         else:
             return self.history_df[self.feature_name].idxmax()
@@ -591,7 +619,10 @@ class TargetedOptimizer(BaseOptimizer):
         """See base class"""
         pass
 
-    def _update_workflow(self, new_parameter: float):
+    def _update_workflow(self):
+        pass
+
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         pass
 
 
