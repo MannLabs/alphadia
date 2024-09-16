@@ -483,6 +483,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             if precursor_df_filtered.shape[0] >= 6:
                 self.recalibration(precursor_df_filtered, fragments_df_filtered)
+
             for optimizers in ordered_optimizers:
                 for optimizer in optimizers:
                     optimizer.proceed_with_insufficient_precursors(
@@ -1062,7 +1063,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         target_channels = [
             int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
         ]
-        print("target_channels", target_channels)
         reference_channel = self.config["multiplexing"]["reference_channel"]
 
         psm_df = self.fdr_manager.fit_predict(
