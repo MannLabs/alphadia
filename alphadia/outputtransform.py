@@ -262,6 +262,10 @@ class QuantBuilder:
 
         _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
 
+        _intensity_df.to_csv(
+            "/Users/georgwallmann/Downloads/intensity_df.tsv", sep="\t", index=False
+        )
+
         lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
@@ -813,6 +817,16 @@ class SearchPlanOutput:
                 group_column=group,
             )
 
+            # remove all rows for testing
+            group_intensity_df = group_intensity_df.iloc[0:0]
+
+            if len(group_intensity_df) == 0:
+                logger.warning(
+                    f"No fragments found for {group_nice}, skipping label-free quantification"
+                )
+                lfq_df = pd.DataFrame(columns=["pg", "intensity"])
+                continue
+
             lfq_df = qb.lfq(
                 group_intensity_df,
                 quality_df,
@@ -834,11 +848,11 @@ class SearchPlanOutput:
                     file_format=self.config["search_output"]["file_format"],
                 )
 
-        protein_df_melted = lfq_df.melt(
-            id_vars="pg", var_name="run", value_name="intensity"
-        )
-
-        psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
+        if len(lfq_df) > 0 and len(lfq_df.columns) > 2:
+            protein_df_melted = lfq_df.melt(
+                id_vars="pg", var_name="run", value_name="intensity"
+            )
+            psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
 
         if save:
             logger.info("Writing psm output to disk")
@@ -872,6 +886,10 @@ class SearchPlanOutput:
         if psm_df is None:
             psm_df = self.load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
+
+        if len(psm_df) == 0:
+            logger.warning("No precursors found, skipping library building")
+            return
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,

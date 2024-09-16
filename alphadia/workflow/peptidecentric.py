@@ -692,7 +692,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
     def fdr_correction(self, features_df, df_fragments, version=-1):
-        features_df = self.fdr_manager.fit_predict(
+        return self.fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor_channel_wise"
             if self.config["fdr"]["channel_wise_fdr"]
@@ -705,8 +705,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             version=version,
             # neptune_run=self.neptune
         )
-        features_df["qval"] = 0.1
-        return features_df
 
     def extract_batch(
         self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
@@ -1065,7 +1063,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         target_channels = [
             int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
         ]
-        print("target_channels", target_channels)
         reference_channel = self.config["multiplexing"]["reference_channel"]
 
         psm_df = self.fdr_manager.fit_predict(

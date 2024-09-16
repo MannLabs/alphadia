@@ -283,7 +283,6 @@ class AutomaticOptimizer(BaseOptimizer):
         ).ci(df, self.update_percentile_range)
 
     def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        print("_update_history", precursors_df, fragments_df)
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -312,7 +311,6 @@ class AutomaticOptimizer(BaseOptimizer):
                 }
             ]
         )
-        print(new_row)
         self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
 
     @property

@@ -518,6 +518,28 @@ def test_automatic_ms2_optimizer():
     assert workflow.optimization_manager.classifier_version == 2
 
 
+@pytest.mark.parametrize("favour_narrower_optimum", [True, False])
+def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df2, "fragment", plot=False)
+
+    ms2_optimizer = optimization.AutomaticMS2Optimizer(
+        100,
+        workflow,
+    )
+    ms2_optimizer._favour_narrower_optimum = favour_narrower_optimum
+    ms2_optimizer.proceed_with_insufficient_precursors(
+        calibration_test_df1, calibration_test_df2
+    )
+
+    assert ms2_optimizer.has_converged is False
+    assert len(ms2_optimizer.history_df) == 1
+
+
 def test_automatic_rt_optimizer():
     workflow = create_workflow_instance()
 
