@@ -122,10 +122,11 @@ def test_calibration_manager_init():
 
 
 def calibration_testdata():
+    np.random.seed(42)
     # create some test data and make sure estimation works
     mz_library = np.linspace(100, 1000, 1000)
     mz_observed = (
-        mz_library + np.random.normal(0, 0.001, 1000) + mz_library * 0.00001 + 0.005
+        mz_library + np.random.normal(0, 0.0001, 1000) + mz_library * 0.00001 + 0.005
     )
 
     rt_library = np.linspace(0, 100, 1000)
@@ -518,6 +519,28 @@ def test_automatic_ms2_optimizer():
     assert workflow.optimization_manager.classifier_version == 2
 
 
+@pytest.mark.parametrize("favour_narrower_optimum", [True, False])
+def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
+    workflow = create_workflow_instance()
+
+    calibration_test_df1 = calibration_testdata()
+    calibration_test_df2 = calibration_testdata()
+
+    workflow.calibration_manager.fit(calibration_test_df2, "fragment", plot=False)
+
+    ms2_optimizer = optimization.AutomaticMS2Optimizer(
+        100,
+        workflow,
+    )
+    ms2_optimizer._favour_narrower_optimum = favour_narrower_optimum
+    ms2_optimizer.proceed_with_insufficient_precursors(
+        calibration_test_df1, calibration_test_df2
+    )
+
+    assert ms2_optimizer.has_converged is False
+    assert len(ms2_optimizer.history_df) == 1
+
+
 def test_automatic_rt_optimizer():
     workflow = create_workflow_instance()
 
@@ -791,9 +814,9 @@ def test_targeted_mobility_optimizer():
     assert workflow.optimization_manager.mobility_error == optimizer.target_parameter
 
 
-def create_test_library():
+def create_test_library(count=100000):
     lib = SpecLibFlat()
-    precursor_idx = np.arange(100000)
+    precursor_idx = np.arange(count)
     elution_group_idx = np.concatenate(
         [np.full(2, i, dtype=int) for i in np.arange(len(precursor_idx) / 2)]
     )
@@ -843,6 +866,40 @@ def create_test_library_for_indexing():
     return lib
 
 
+def test_optlock_spot_on_target():
+    TEST_OPTLOCK_CONFIG = {
+        "calibration": {
+            "batch_size": 2000,
+            "optimization_lock_target": 200,
+        }
+    }
+
+    # edge case where the number of precursors is exactly the target
+    library = create_test_library(2000)
+    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+
+    assert optlock.start_idx == optlock.batch_plan[0][0]
+
+    feature_df = pd.DataFrame({"elution_group_idx": np.arange(0, 1000)})
+    fragment_df = pd.DataFrame({"elution_group_idx": np.arange(0, 10000)})
+
+    optlock.update_with_extraction(feature_df, fragment_df)
+
+    assert optlock.total_elution_groups == 1000
+    precursor_df = pd.DataFrame(
+        {
+            "qval": np.concatenate([np.full(200, 0.005), np.full(800, 0.05)]),
+            "decoy": np.zeros(1000),
+        }
+    )
+    optlock.update_with_fdr(precursor_df)
+    optlock.update()
+
+    assert optlock.start_idx == 0
+    assert optlock.stop_idx == optlock.batch_plan[0][1]
+    assert optlock.has_target_num_precursors
+
+
 TEST_OPTLOCK_CONFIG = {
     "calibration": {
         "batch_size": 8000,
@@ -864,12 +921,15 @@ def test_optlock():
 
     assert optlock.total_elution_groups == 1000
     precursor_df = pd.DataFrame(
-        {"qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)])}
+        {
+            "qval": np.concatenate([np.full(100, 0.005), np.full(1000, 0.05)]),
+            "decoy": np.zeros(1100),
+        }
     )
     optlock.update_with_fdr(precursor_df)
 
-    assert optlock.has_target_num_precursors is False
-    assert optlock.previously_calibrated is False
+    assert not optlock.has_target_num_precursors
+    assert not optlock.previously_calibrated
     optlock.update()
 
     assert optlock.start_idx == optlock.batch_plan[1][0]
@@ -882,13 +942,16 @@ def test_optlock():
     assert optlock.total_elution_groups == 2000
 
     precursor_df = pd.DataFrame(
-        {"qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)])}
+        {
+            "qval": np.concatenate([np.full(200, 0.005), np.full(1000, 0.05)]),
+            "decoy": np.zeros(1200),
+        }
     )
 
     optlock.update_with_fdr(precursor_df)
 
-    assert optlock.has_target_num_precursors is True
-    assert optlock.previously_calibrated is False
+    assert optlock.has_target_num_precursors
+    assert not optlock.previously_calibrated
 
     optlock.update()
 
@@ -911,7 +974,7 @@ def test_optlock_batch_idx():
     optlock.update()
     assert optlock.start_idx == 2000
 
-    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005)})
+    precursor_df = pd.DataFrame({"qval": np.full(4500, 0.005), "decoy": np.zeros(4500)})
 
     optlock.update_with_fdr(precursor_df)
 
