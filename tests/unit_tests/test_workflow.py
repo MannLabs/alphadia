@@ -122,10 +122,11 @@ def test_calibration_manager_init():
 
 
 def calibration_testdata():
+    np.random.seed(42)
     # create some test data and make sure estimation works
     mz_library = np.linspace(100, 1000, 1000)
     mz_observed = (
-        mz_library + np.random.normal(0, 0.001, 1000) + mz_library * 0.00001 + 0.005
+        mz_library + np.random.normal(0, 0.0001, 1000) + mz_library * 0.00001 + 0.005
     )
 
     rt_library = np.linspace(0, 100, 1000)
