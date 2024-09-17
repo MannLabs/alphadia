@@ -1,0 +1,1323 @@
+test_cases:
+# Explanation of format:
+#  - name: some_name
+#    config:
+#      # add any non-default configuration here
+#    raw_data:
+#    - source_url: https://source_of_file or folder
+#    library:
+#    - source_url: https://source_of_file
+#    fasta:
+#    - source_url: https://source_of_file
+#    metrics:
+#      # possible selections are all subclasses of the calc_metrics.py:Metrics class
+
+
+# Astral test cases
+## Targeted test cases
+  - name: astral_Wh80_targeted
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 6
+        target_rt_tolerance: 0.1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_01.raw"
+
+    metrics:
+      - BasicStats
+
+  - name: astral_Wh120_targeted
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 6
+        target_rt_tolerance: 0.1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo15min_targeted
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 6
+        target_rt_tolerance: 0.1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo30min_targeted
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 6
+        target_rt_tolerance: 0.1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo45min_targeted
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 6
+        target_rt_tolerance: 0.1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+## Automatic test cases
+
+  - name: astral_Wh80_automatic
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1002575_200ng_noF_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240704_OA4_Evo11_16p3min_PaSk_SA_HYE_1005050_200ng_noF_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Wh120_automatic
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1002575_200ng_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_08/20240807_OA4_Evo11_Wh120_PaSk_SA_HYE_1005050_200ng_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo15min_automatic
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_15min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo30min_automatic
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_30min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+  - name: astral_Neo45min_automatic
+    config:
+      library_prediction:
+        predict: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    fasta:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_ecoli.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_human.fasta"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/rt_optimizer_tuning_2024_08_22/libraries/2024_02_21_yeast.fasta"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_75_25_01.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_05.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_04.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_03.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_02.raw"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-ms14/astral4/2024_07/20240713_OA4_Neo1_45min_PaSk_SA_HYE_100_50_50_01.raw"
+    metrics:
+      - BasicStats
+
+# timsTOF test cases
+## Targeted test cases
+  - name: timstof_synP_2_2min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_05_S4-D5_1_44663.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_04_S4-D4_1_44662.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_03_S4-D3_1_44661.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_02_S4-D2_1_44660.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_01_S4-D1_1_44659.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_05_S4-D10_1_44670.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_04_S4-D9_1_44669.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_03_S4-D8_1_44668.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_02_S4-D7_1_44667.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_01_S4-D6_1_44666.d"
+    metrics:
+      - BasicStats
+
+  - name: timstof_diaP_2_2min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_05_S4-C5_1_44649.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_04_S4-C4_1_44648.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_03_S4-C3_1_44647.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_02_S4-C2_1_44646.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_01_S4-C1_1_44645.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_05_S4-C10_1_44656.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_04_S4-C9_1_44655.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_03_S4-C8_1_44654.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_02_S4-C7_1_44653.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_01_S4-C6_1_44652.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_5_6min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_05_S4-B5_1_44635.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_04_S4-B4_1_44634.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_03_S4-B3_1_44633.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_02_S4-B2_1_44632.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_01_S4-B1_1_44631.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_05_S4-B10_1_44642.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_04_S4-B9_1_44641.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_03_S4-B8_1_44640.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_02_S4-B7_1_44639.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_01_S4-B6_1_44638.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_5_6min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_05_S4-A5_1_44621.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_04_S4-A4_1_44620.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_03_S4-A3_1_44619.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_02_S4-A2_1_44618.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_01_S4-A1_1_44617.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_05_S4-A10_1_44628.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_04_S4-A9_1_44627.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_03_S4-A8_1_44626.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_02_S4-A7_1_44625.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_01_S4-A6_1_44624.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_11min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_05_S4-D5_1_44599.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_04_S4-D4_1_44598.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_03_S4-D3_1_44597.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_02_S4-D2_1_44596.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_01_S4-D1_1_44595.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_05_S4-D10_1_44606.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_04_S4-D9_1_44605.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_03_S4-D8_1_44604.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_02_S4-D7_1_44603.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_01_S4-D6_1_44602.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_11min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_05_S4-C5_1_44585.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_04_S4-C4_1_44584.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_03_S4-C3_1_44583.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_02_S4-C2_1_44582.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_01_S4-C1_1_44581.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_05_S4-C10_1_44592.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_04_S4-C9_1_44591.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_03_S4-C8_1_44590.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_02_S4-C7_1_44589.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_01_S4-C6_1_44588.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_21min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_05_S4-B5_1_44571.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_04_S4-B4_1_44570.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_03_S4-B3_1_44569.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_02_S4-B2_1_44568.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_01_S4-B1_1_44567.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_05_S4-B10_1_44578.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_04_S4-B9_1_44577.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_03_S4-B8_1_44576.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_02_S4-B7_1_44575.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_01_S4-B6_1_44574.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_21min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_05_S4-A5_1_44557.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_04_S4-A4_1_44556.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_03_S4-A3_1_44555.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_02_S4-A2_1_44554.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_01_S4-A1_1_44553.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_05_S4-A10_1_44564.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_04_S4-A9_1_44563.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_03_S4-A8_1_44562.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_02_S4-A7_1_44561.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_01_S4-A6_1_44560.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_44min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_05_S4-D5_1_44533.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_04_S4-D4_1_44532.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_03_S4-D3_1_44531.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_02_S4-D2_1_44530.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_01_S4-D1_1_44529.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_05_S4-D10_1_44540.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_04_S4-D9_1_44539.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_03_S4-D8_1_44538.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_02_S4-D7_1_44537.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_01_S4-D6_1_44536.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_44min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_05_S4-C5_1_44519.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_04_S4-C4_1_44518.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_03_S4-C3_1_44517.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_02_S4-C2_1_44516.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_01_S4-C1_1_44515.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_05_S4-C10_1_44526.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_04_S4-C9_1_44525.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_03_S4-C8_1_44524.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_02_S4-C7_1_44523.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_01_S4-C6_1_44522.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_88min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B5_1_44505.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B4_1_44504.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B3_1_44503.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B2_1_44502.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B1_1_44501.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B10_1_44512.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B9_1_44511.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B8_1_44510.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B7_1_44509.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B6_1_44508.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_88min_targeted
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_rt_tolerance: 0.1
+        target_mobility_tolerance: 0.04
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_05_S4-A5_1_44491.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_04_S4-A4_1_44490.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_03_S4-A3_1_44489.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_02_S4-A2_1_44488.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_01_S4-A1_1_44487.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_05_S4-A10_1_44498.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_04_S4-A9_1_44497.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_03_S4-A8_1_44496.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_02_S4-A7_1_44495.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_01_S4-A6_1_44494.d"
+    metrics:
+      - BasicStats
+
+
+
+## Automatic test cases
+  - name: timstof_synP_2_2min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_05_S4-D5_1_44663.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_04_S4-D4_1_44662.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_03_S4-D3_1_44661.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_02_S4-D2_1_44660.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_synP_01_S4-D1_1_44659.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_05_S4-D10_1_44670.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_04_S4-D9_1_44669.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_03_S4-D8_1_44668.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_02_S4-D7_1_44667.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_synP_01_S4-D6_1_44666.d"
+    metrics:
+      - BasicStats
+
+  - name: timstof_diaP_2_2min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_05_S4-C5_1_44649.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_04_S4-C4_1_44648.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_03_S4-C3_1_44647.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_02_S4-C2_1_44646.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_2_2min_diaP_01_S4-C1_1_44645.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_05_S4-C10_1_44656.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_04_S4-C9_1_44655.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_03_S4-C8_1_44654.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_02_S4-C7_1_44653.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_2_2min_diaP_01_S4-C6_1_44652.d"
+    metrics:
+      - BasicStats
+
+  - name: timstof_synP_5_6min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_05_S4-B5_1_44635.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_04_S4-B4_1_44634.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_03_S4-B3_1_44633.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_02_S4-B2_1_44632.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_synP_01_S4-B1_1_44631.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_05_S4-B10_1_44642.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_04_S4-B9_1_44641.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_03_S4-B8_1_44640.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_02_S4-B7_1_44639.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_synP_01_S4-B6_1_44638.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_5_6min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_05_S4-A5_1_44621.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_04_S4-A4_1_44620.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_03_S4-A3_1_44619.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_02_S4-A2_1_44618.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_25_75_200ng_5_6min_diaP_01_S4-A1_1_44617.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_05_S4-A10_1_44628.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_04_S4-A9_1_44627.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_03_S4-A8_1_44626.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_02_S4-A7_1_44625.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240716_TIMS03_OEMD_SA_HYE_100_50_50_200ng_5_6min_diaP_01_S4-A6_1_44624.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_11min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_05_S4-D5_1_44599.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_04_S4-D4_1_44598.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_03_S4-D3_1_44597.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_02_S4-D2_1_44596.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_synP_01_S4-D1_1_44595.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_05_S4-D10_1_44606.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_04_S4-D9_1_44605.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_03_S4-D8_1_44604.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_02_S4-D7_1_44603.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_synP_01_S4-D6_1_44602.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_11min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_05_S4-C5_1_44585.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_04_S4-C4_1_44584.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_03_S4-C3_1_44583.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_02_S4-C2_1_44582.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_11min_diaP_01_S4-C1_1_44581.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_05_S4-C10_1_44592.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_04_S4-C9_1_44591.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_03_S4-C8_1_44590.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_02_S4-C7_1_44589.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_11min_diaP_01_S4-C6_1_44588.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_21min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_05_S4-B5_1_44571.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_04_S4-B4_1_44570.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_03_S4-B3_1_44569.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_02_S4-B2_1_44568.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_synP_01_S4-B1_1_44567.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_05_S4-B10_1_44578.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_04_S4-B9_1_44577.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_03_S4-B8_1_44576.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_02_S4-B7_1_44575.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_synP_01_S4-B6_1_44574.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_21min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_05_S4-A5_1_44557.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_04_S4-A4_1_44556.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_03_S4-A3_1_44555.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_02_S4-A2_1_44554.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_25_75_200ng_21min_diaP_01_S4-A1_1_44553.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_05_S4-A10_1_44564.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_04_S4-A9_1_44563.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_03_S4-A8_1_44562.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_02_S4-A7_1_44561.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240715_TIMS03_OEMD_SA_HYE_100_50_50_200ng_21min_diaP_01_S4-A6_1_44560.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_44min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_05_S4-D5_1_44533.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_04_S4-D4_1_44532.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_03_S4-D3_1_44531.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_02_S4-D2_1_44530.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_synP_01_S4-D1_1_44529.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_05_S4-D10_1_44540.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_04_S4-D9_1_44539.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_03_S4-D8_1_44538.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_02_S4-D7_1_44537.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_synP_01_S4-D6_1_44536.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_44min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_05_S4-C5_1_44519.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_04_S4-C4_1_44518.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_03_S4-C3_1_44517.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_02_S4-C2_1_44516.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_44min_diaP_01_S4-C1_1_44515.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_05_S4-C10_1_44526.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_04_S4-C9_1_44525.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_03_S4-C8_1_44524.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_02_S4-C7_1_44523.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_44min_diaP_01_S4-C6_1_44522.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_synP_88min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B5_1_44505.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B4_1_44504.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B3_1_44503.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B2_1_44502.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_synP_01_S4-B1_1_44501.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B10_1_44512.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B9_1_44511.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B8_1_44510.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B7_1_44509.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_synP_01_S4-B6_1_44508.d"
+    metrics:
+      - BasicStats
+
+
+  - name: timstof_diaP_88min_automatic
+    config:
+      library_prediction:
+        predict: false
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+        target_mobility_tolerance: -1
+      search_initial:
+        initial_num_candidates: 1
+        initial_ms1_tolerance: 50
+        initial_ms2_tolerance: 50
+        initial_rt_tolerance: 0.5
+        initial_mobility_tolerance: 0.08
+      search_output:
+        peptide_level_lfq: true
+        precursor_level_lfq: true
+    library:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-projects/despard/hpo/timstof_2024_08_26/report-lib.tsv"
+    raw_data:
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_05_S4-A5_1_44491.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_04_S4-A4_1_44490.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_03_S4-A3_1_44489.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_02_S4-A2_1_44488.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_25_75_200ng_88min_diaP_01_S4-A1_1_44487.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_05_S4-A10_1_44498.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_04_S4-A9_1_44497.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_03_S4-A8_1_44496.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_02_S4-A7_1_44495.d"
+      - source_url: "//samba-pool-mann-pub.biochem.mpg.de/pool-mann-tof04/tims03/2024_07/20240712_TIMS03_OEMD_SA_HYE_100_50_50_200ng_88min_diaP_01_S4-A6_1_44494.d"
+    metrics:
+      - BasicStats
