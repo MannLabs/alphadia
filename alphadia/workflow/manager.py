@@ -464,7 +464,7 @@ class OptimizationManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-        if not self.is_loaded_from_file:
+        if not self.is_loaded_from_file and config is not None:
             rt_error = (
                 config["search_initial"]["initial_rt_tolerance"]
                 if config["search_initial"]["initial_rt_tolerance"] > 1

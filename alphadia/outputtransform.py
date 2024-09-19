@@ -970,10 +970,11 @@ def _build_run_stat_df(
                 path=optimization_manager_path
             )
 
-            base_dict["ms2_error"] = optimization_manager.ms2_error
-            base_dict["ms1_error"] = optimization_manager.ms1_error
-            base_dict["rt_error"] = optimization_manager.rt_error
-            base_dict["mobility_error"] = optimization_manager.mobility_error
+            if optimization_manager.is_loaded_from_file:
+                base_dict["ms2_error"] = optimization_manager.ms2_error
+                base_dict["ms1_error"] = optimization_manager.ms1_error
+                base_dict["rt_error"] = optimization_manager.rt_error
+                base_dict["mobility_error"] = optimization_manager.mobility_error
 
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
