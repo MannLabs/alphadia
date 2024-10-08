@@ -11,10 +11,11 @@ parser.add_argument('--input_directory')
 parser.add_argument('--target_directory')
 parser.add_argument('--fasta_path')
 parser.add_argument('--library_path')
+parser.add_argument('--config_filename')
 args = parser.parse_args()
 
 # read the config.yaml file from the input directory
-with open(os.path.join(args.input_directory, "config.yaml"), 'r') as file:
+with open(os.path.join(args.input_directory, args.config_filename), 'r') as file:
     config = yaml.safe_load(file)
 
 # if library and fasta are set, predicting will result in repredicted & annotated library
