@@ -88,6 +88,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--target_directory "${target_directory}" \
 	--fasta_path "${fasta_path}" \
 	--library_path "${library_path}" \
+	--config_filename "${first_search_config_filename}" \
 
 	# log current directory and navigate to predicted speclib directory
 	home_directory=$(pwd)
