@@ -1,4 +1,3 @@
- // Start of Selection
 # DIA Transfer Learning for Dimethyl Labeled Samples
 **This tutorial was created using alphaDIA 1.8.1 - please be aware that there might be changes in your version.**
 
@@ -89,8 +88,13 @@ This data is then used to train PeptDeep models for retention time, ion mobility
 ## 4. First Search
 We will now use our custom PeptDeep model to perform a regular two-step search as recommended for DIA data. Select all raw files and the FASTA file in the input and set the output folder to `first_pass`.
 
+
 ### 4.1 Search Settings
 We will use the same settings as in the regular two-step workflow. Set the `thread_count` to the number of logical cores available on your system. Enable library prediction from FASTA and set the `precursor_mz` range to 380-980. Use `Dimethyl@Any_N-term` and `Dimethyl@K` as fixed modifications, and allow two variable modifications each of `Oxidation@M` and `Acetyl@Protein_N-term` and one missed cleavage. Set the `target_ms1_tolerance` to 4 ppm and `target_ms2_tolerance` to 7 ppm. For retention time optimization, set `target_rt_tolerance` to 0 for automatic optimization and set the number of peak groups `target_num_candidates` to use for deep-learning based scoring to 3.
+
+:::{important}
+Make sure that a valid FASTA file is selected as input and library prediction is enabled. Both the transfer learning and the first search will use library prediction.
+:::
 
 <img src="../_static/images/transfer-dimethyl/first_settings.png" width="100%" height="auto">
 
