@@ -18,7 +18,11 @@ To set up the first search, select all raw files and add them to the file list. 
 
 For this search, most parameters can be left at their default values. To speed up processing, set `thread_count` to the number of logical cores you have available in your system. Also enable library prediction from FASTA and set the `precursor_mz` range to the range of the dataset `380`-`980` to predict only the relevant subset of precursors. By default, this search will have `Carbamidomethyl@C` as a fixed modification and up to two variable modifications of `Oxidation@M` and `Acetyl@Protein_N-term`.
 
-For the search, we will use known `target_ms1_tolerance` of 4ppm and `target_ms2_tolerance` of 7ppm. These values are optimal for Orbitrap Astral data and can be reused. For lower resolution instruments, 10ppm or 15ppm might be optimal. If the optimal mass tolerance is not known, it can be set to `0` to activate automatic optimization. We recommend noting down the optimized value across multiple runs and reusing it for the same instrument/resolution combination. The `target_rt_tolerance` will also be set to `0` for automatic optimization. Lastly, we increase the number of peak groups `target_num_candidates` to use for deep-learning based scoring to `3`.
+For the search, we will use known `target_ms1_tolerance` of 4ppm and `target_ms2_tolerance` of 7ppm. These values are optimal for Orbitrap Astral data and can be reused. For lower resolution instruments, 10ppm or 15ppm might be optimal. If the optimal mass tolerance is not known, it can be set to `0` to activate automatic optimization. The `target_rt_tolerance` will also be set to `0` for automatic optimization. Lastly, we increase the number of peak groups `target_num_candidates` to use for deep-learning based scoring to `3`.
+
+:::{tip}
+Keeping track of optimized mass tolerance values for different instrument setups can save time in future analyses and ensure consistent results across projects.
+:::
 
 <img src="../_static/images/libfree-gui/first_settings.png" width="100%" height="auto">
 
