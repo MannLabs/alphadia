@@ -3,7 +3,7 @@
 
 ## 1. Prerequisites
 Make sure that you have a machine with at least 64 gigabytes of memory.
-Please download the test data for this tutorial [here](https://datashare.biochem.mpg.de/s/Nsp8CaHMBf7FHq1).
+Please download the test data for this tutorial [here](https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm).
 We will be using replicates of dimethyl-labeled tryptic HeLa digests. The samples are not multiplexed and only contain the natural light isotope.
 
 Also, make sure you have a valid alphaDIA installation including the GUI. The easiest option is the one-click installer, and a summary of all installation options can be found [here](<project:../installation.md>).
