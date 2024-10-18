@@ -302,6 +302,7 @@ class SearchPlanOutput:
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
+    TRANSFER_STATS_OUTPUT = "stats.transfer"
 
     def __init__(self, config: dict, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -377,9 +378,17 @@ class SearchPlanOutput:
             _ = self.build_transfer_library(folder_list, save=True)
 
         if self.config["transfer_learning"]["enabled"]:
-            _ = self.build_transfer_model()
+            _ = self.build_transfer_model(save=True)
 
-    def build_transfer_model(self):
+    def build_transfer_model(self, save=True):
+        """
+        Finetune PeptDeep models using the transfer library
+
+        Parameters
+        ----------
+        save : bool, optional
+            Whether to save the statistics of the transfer learning on disk, by default True
+        """
         logger.progress("Train PeptDeep Models")
 
         transfer_lib_path = os.path.join(
@@ -398,15 +407,36 @@ class SearchPlanOutput:
         device = utils.get_torch_device(self.config["general"]["use_gpu"])
 
         tune_mgr = FinetuneManager(
-            device=device, settings=self.config["transfer_learning"]
+            device=device,
+            lr_patience=self.config["transfer_learning"]["lr_patience"],
+            test_interval=self.config["transfer_learning"]["test_interval"],
+            train_fraction=self.config["transfer_learning"]["train_fraction"],
+            validation_fraction=self.config["transfer_learning"]["validation_fraction"],
+            test_fraction=self.config["transfer_learning"]["test_fraction"],
+            epochs=self.config["transfer_learning"]["epochs"],
+            warmup_epochs=self.config["transfer_learning"]["warmup_epochs"],
+            batch_size=self.config["transfer_learning"]["batch_size"],
+            max_lr=self.config["transfer_learning"]["max_lr"],
+            nce=self.config["transfer_learning"]["nce"],
+            instrument=self.config["transfer_learning"]["instrument"],
         )
-        tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        tune_mgr.finetune_ms2(
+        rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
+        charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        ms2_stats = tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
 
         tune_mgr.save_models(os.path.join(self.output_folder, self.TRANSFER_MODEL))
+
+        combined_stats = pd.concat([rt_stats, charge_stats, ms2_stats])
+
+        if save:
+            logger.info("Writing transfer learning stats output to disk")
+            write_df(
+                combined_stats,
+                os.path.join(self.output_folder, self.TRANSFER_STATS_OUTPUT),
+                file_format="tsv",
+            )
 
     def build_transfer_library(
         self,
@@ -734,16 +764,12 @@ class SearchPlanOutput:
 
         Parameters
         ----------
-
         folder_list: List[str]
             List of folders containing the search outputs
-
         psm_df: Union[pd.DataFrame, None]
             Combined precursor table. If None, the precursor table is loaded from disk.
-
         save: bool
             Save the precursor table to disk
-
         """
         logger.progress("Performing label free quantification")
 
@@ -755,22 +781,26 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
-        group_list = []
-        group_nice_list = []
+        group_configs = [
+            (
+                "mod_seq_hash",
+                "peptide",
+                self.config["search_output"]["peptide_level_lfq"],
+            ),
+            (
+                "mod_seq_charge_hash",
+                "precursor",
+                self.config["search_output"]["precursor_level_lfq"],
+            ),
+            ("pg", "pg", True),  # Always process protein group level
+        ]
 
-        if self.config["search_output"]["peptide_level_lfq"]:
-            group_list.append("mod_seq_hash")
-            group_nice_list.append("peptide")
+        lfq_results = {}
 
-        if self.config["search_output"]["precursor_level_lfq"]:
-            group_list.append("mod_seq_charge_hash")
-            group_nice_list.append("precursor")
+        for group, group_nice, should_process in group_configs:
+            if not should_process:
+                continue
 
-        group_list.append("pg")
-        group_nice_list.append("pg")
-
-        # IMPORTANT: 'pg' has to be the last group in the list as this will be reused
-        for group, group_nice in zip(group_list, group_nice_list, strict=True):
             logger.progress(
                 f"Performing label free quantification on the {group_nice} level"
             )
@@ -782,6 +812,13 @@ class SearchPlanOutput:
                 min_correlation=self.config["search_output"]["min_correlation"],
                 group_column=group,
             )
+
+            if len(group_intensity_df) == 0:
+                logger.warning(
+                    f"No fragments found for {group_nice}, skipping label-free quantification"
+                )
+                lfq_results[group_nice] = pd.DataFrame()
+                continue
 
             lfq_df = qb.lfq(
                 group_intensity_df,
@@ -795,20 +832,24 @@ class SearchPlanOutput:
                 group_column=group,
             )
 
+            lfq_results[group_nice] = lfq_df
+
             if save:
                 logger.info(f"Writing {group_nice} output to disk")
-
                 write_df(
                     lfq_df,
                     os.path.join(self.output_folder, f"{group_nice}.matrix"),
                     file_format=self.config["search_output"]["file_format"],
                 )
 
-        protein_df_melted = lfq_df.melt(
-            id_vars="pg", var_name="run", value_name="intensity"
-        )
+        # Use protein group (pg) results for merging with psm_df
+        pg_lfq_df = lfq_results.get("pg", pd.DataFrame())
 
-        psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
+        if len(pg_lfq_df) > 0:
+            protein_df_melted = pg_lfq_df.melt(
+                id_vars="pg", var_name="run", value_name="intensity"
+            )
+            psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
 
         if save:
             logger.info("Writing psm output to disk")
@@ -818,7 +859,7 @@ class SearchPlanOutput:
                 file_format=self.config["search_output"]["file_format"],
             )
 
-        return lfq_df
+        return lfq_results
 
     def build_library(
         self,
@@ -842,6 +883,10 @@ class SearchPlanOutput:
         if psm_df is None:
             psm_df = self.load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
+
+        if len(psm_df) == 0:
+            logger.warning("No precursors found, skipping library building")
+            return
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,

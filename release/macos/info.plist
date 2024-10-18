@@ -3,19 +3,19 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>alphaDIA</string>
+	<string>AlphaDIA</string>
     <key>CFBundleExecutable</key>
-    <string>alphaDIA</string>
+    <string>alphadia</string>
 	<key>CFBundleIconFile</key>
 	<string>alphadia.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>alphadia.1.7.2</string>
+	<string>alphadia.1.8.1</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.7.2</string>
+	<string>1.8.1</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>alphaDIA</string>
+	<string>alphadia</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>LSBackgroundOnly</key>

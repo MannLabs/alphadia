@@ -38,7 +38,7 @@ class BaseOptimizer(ABC):
         """
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
-        self.num_prev_optimizations = 0
+        self._num_prev_optimizations = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -49,10 +49,10 @@ class BaseOptimizer(ABC):
         ----------
 
         precursors_df: pd.DataFrame
-            The precursor dataframe for the search
+            The filtered precursor dataframe for the search (see peptidecentric.PeptideCentricWorkflow.filter_dfs).
 
         fragments_df: pd.DataFrame
-            The fragment dataframe for the search
+            The filtered fragment dataframe for the search (see peptidecentric.PeptideCentricWorkflow.filter_dfs).
 
 
         """
@@ -60,9 +60,53 @@ class BaseOptimizer(ABC):
         pass
 
     @abstractmethod
-    def plot(self):
-        """This method plots relevant information about optimization of the search parameter. This can be overwritten with an empty function if there is nothing to plot."""
+    def skip(self):
+        """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
+        pass
 
+    def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
+        self.workflow.reporter.log_string(
+            "No more batches to process. Will proceed to extraction using best parameters available in optimization manager.",
+            verbosity="warning",
+        )
+        self._update_history(precursors_df, fragments_df)
+        self._update_workflow()
+
+        self.workflow.reporter.log_string(
+            f"Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
+            verbosity="warning",
+        )
+
+    @abstractmethod
+    def plot(self):
+        """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
+        pass
+
+    @abstractmethod
+    def _update_workflow():
+        """This method updates the optimization manager with the results of the optimization, namely:
+        the classifier version,
+        the optimal parameter,
+        score cutoff,
+        FWHM_RT,
+        and FWHM_mobility
+
+        """
+        pass
+
+    @abstractmethod
+    def _update_history():
+        """This method updates the history dataframe with relevant values.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
+
+        """
         pass
 
 
@@ -87,7 +131,8 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
-        self.num_prev_optimizations = 0
+        self._num_prev_optimizations = 0
+        self._num_consecutive_skips = 0
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
@@ -95,12 +140,36 @@ class AutomaticOptimizer(BaseOptimizer):
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
+        self._try_narrower_values = workflow.config["optimization"][
+            self.parameter_name
+        ]["try_narrower_values"]
+
+        self._maximal_decrease = (
+            workflow.config["optimization"][self.parameter_name]["maximal_decrease"]
+            if self._try_narrower_values
+            else None
+        )
+
+        self._favour_narrower_optimum = workflow.config["optimization"][
+            self.parameter_name
+        ]["favour_narrower_optimum"]
+
+        self._maximum_decrease_from_maximum = (
+            workflow.config["optimization"][self.parameter_name][
+                "maximum_decrease_from_maximum"
+            ]
+            if self._favour_narrower_optimum
+            else None
+        )
+
     def step(
         self,
         precursors_df: pd.DataFrame,
         fragments_df: pd.DataFrame,
     ):
-        """See base class. The feature is used to track the progres of the optimization (stored in .feature) and determine whether it has converged."""
+        """See base class. The feature is used to track the progres of the optimization and determine whether it has converged.
+        It also resets the internal counter for the number of consecutive skips.
+        """
         if self.has_converged:
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
@@ -108,56 +177,19 @@ class AutomaticOptimizer(BaseOptimizer):
             )
             return
 
-        self.num_prev_optimizations += 1
-        new_row = pd.DataFrame(
-            [
-                {
-                    "parameter": self.workflow.optimization_manager.__dict__[
-                        self.parameter_name
-                    ],
-                    self.feature_name: self._get_feature_value(
-                        precursors_df, fragments_df
-                    ),
-                    "classifier_version": self.workflow.fdr_manager.current_version,
-                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
-                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
-                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
-                }
-            ]
+        self._num_consecutive_skips = 0
+        self._num_prev_optimizations += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self.workflow.config['calibration']['min_steps']} ===",
+            verbosity="progress",
         )
-        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
-        just_converged = self._check_convergence()
 
-        if just_converged:
+        self._update_history(precursors_df, fragments_df)
+
+        if self._just_converged:
             self.has_converged = True
 
-            index_of_optimum = self.history_df[self.feature_name].idxmax()
-
-            optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-            classifier_version_at_optimum = self.history_df["classifier_version"].loc[
-                index_of_optimum
-            ]
-            score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[
-                index_of_optimum
-            ]
-            fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-            fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
-                index_of_optimum
-            ]
-
-            self.workflow.optimization_manager.fit(
-                {self.parameter_name: optimal_parameter}
-            )
-            self.workflow.optimization_manager.fit(
-                {"classifier_version": classifier_version_at_optimum}
-            )
-            self.workflow.optimization_manager.fit(
-                {"score_cutoff": score_cutoff_at_optimum}
-            )
-            self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
-            self.workflow.optimization_manager.fit(
-                {"fwhm_mobility": fwhm_mobility_at_optimum}
-            )
+            self._update_workflow()
 
             self.reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
@@ -178,6 +210,21 @@ class AutomaticOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
 
+    def skip(self):
+        """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
+        self._num_consecutive_skips += 1
+        self.reporter.log_string(
+            f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self.workflow.config['calibration']['max_skips']} ===",
+            verbosity="progress",
+        )
+        if self._batch_substantially_bigger:
+            self.has_converged = True
+            self._update_workflow()
+            self.reporter.log_string(
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                verbosity="progress",
+            )
+
     def plot(self):
         """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
         fig, ax = plt.subplots()
@@ -185,7 +232,7 @@ class AutomaticOptimizer(BaseOptimizer):
         ax.vlines(
             x=self.workflow.optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df[self.feature_name].max(),
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self.feature_name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
@@ -235,30 +282,209 @@ class AutomaticOptimizer(BaseOptimizer):
             self.estimator_group_name, self.estimator_name
         ).ci(df, self.update_percentile_range)
 
-    def _check_convergence(self):
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
+        """This method updates the history dataframe with relevant values.
+
+        Parameters
+        ----------
+        precursors_df: pd.DataFrame
+            The filtered precursor dataframe for the search.
+
+        fragments_df: pd.DataFrame
+            The filtered fragment dataframe for the search.
+
+        """
+        new_row = pd.DataFrame(
+            [
+                {
+                    "parameter": self.workflow.optimization_manager.__dict__[
+                        self.parameter_name
+                    ],
+                    self.feature_name: self._get_feature_value(
+                        precursors_df, fragments_df
+                    ),
+                    "classifier_version": self.workflow.fdr_manager.current_version,
+                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
+                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
+                    "batch_idx": self.workflow.optlock.batch_idx,
+                }
+            ]
+        )
+        self.history_df = pd.concat([self.history_df, new_row], ignore_index=True)
+
+    @property
+    def _batch_substantially_bigger(self):
+        """This function checks if the optimization has already been optimized sufficiently many times and if it has been skipped too many times at the current parameter value.
+        (Being skipped indicates that the current parameter proposal significantly reduces the number of identified precursors and is unlikely to be optimal.)
+
+        Returns
+        -------
+        bool
+            True if the optimization has already been performed the minimum number of times and the maximum number of skips has been reached, False otherwise.
+
+        """
+        min_steps_reached = (
+            self._num_prev_optimizations
+            >= self.workflow.config["calibration"]["min_steps"]
+        )
+        max_skips_reached = (
+            self._num_consecutive_skips
+            > self.workflow.config["calibration"]["max_skips"]
+        )
+        return min_steps_reached and max_skips_reached
+
+    @property
+    def _just_converged(self):
         """Optimization should stop if continued narrowing of the parameter is not improving the feature value.
-        This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
-        If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+        If self._try_narrower_values is False:
+            1) This function checks if the previous rounds of optimization have led to a meaningful improvement in the feature value.
+            2) If so, it continues optimization and appends the proposed new parameter to the list of parameters. If not, it stops optimization and sets the optimal parameter attribute.
+        If self._try_narrower_values is True:
+            1) This function checks if the previous rounds of optimization have led to a meaningful disimprovement in the feature value or if the parameter has not changed substantially.
+            2) If not, it continues optimization and appends the proposed new parameter to the list of parameters. If so, it stops optimization and sets the optimal parameter attribute.
 
         Notes
         -----
             Because the check for an increase in feature value requires two previous rounds, the function will also initialize for another round of optimization if there have been fewer than 3 rounds.
+            This function may be overwritten in child classes.
 
+        """
+        if len(self.history_df) < 3:
+            return False
+
+        feature_history = self.history_df[self.feature_name]
+        last_feature_value = feature_history.iloc[-1]
+        second_last_feature_value = feature_history.iloc[-2]
+        third_last_feature_value = feature_history.iloc[-3]
+
+        if self._try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+            min_steps_reached = (
+                self._num_prev_optimizations
+                >= self.workflow.config["calibration"]["min_steps"]
+            )
+
+            feature_substantially_decreased = (
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < -self._maximal_decrease and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < -self._maximal_decrease
+
+            parameter_history = self.history_df["parameter"]
+
+            last_parameter_value = parameter_history.iloc[-1]
+            second_last_parameter_value = parameter_history.iloc[-2]
+            parameter_not_substantially_changed = (
+                np.abs(
+                    (last_parameter_value - second_last_parameter_value)
+                    / second_last_parameter_value
+                )
+                < 0.05
+            )
+
+            return min_steps_reached and (
+                feature_substantially_decreased or parameter_not_substantially_changed
+            )
+
+        else:
+            min_steps_reached = (
+                self._num_prev_optimizations
+                >= self.workflow.config["calibration"]["min_steps"]
+            )
+
+            feature_not_substantially_increased = (
+                last_feature_value - second_last_feature_value
+            ) / np.abs(second_last_feature_value) < 0.1 and (
+                last_feature_value - third_last_feature_value
+            ) / np.abs(third_last_feature_value) < 0.1
+
+            return min_steps_reached and feature_not_substantially_increased
+
+    def _find_index_of_optimum(self) -> int:
+        """Finds the index of the row in the history dataframe with the optimal value of the feature used for optimization.
+        if self._favour_narrower_parameter is False:
+            The index at optimum is the index of the parameter value that maximizes the feature.
+        if self._favour_narrower_parameter is True:
+            The index at optimum is the index of the minimal parameter value whose feature value is at least self._maximum_decrease_from_maximum of the maximum value of the feature.
+
+        Returns
+        -------
+        int
+            The index of the row in the history dataframe with the optimal value of the feature used for optimization.
+        Notes
+        -----
+            This method may be overwritten in child classes.
 
         """
 
-        min_steps_reached = (
-            self.num_prev_optimizations
-            >= self.workflow.config["calibration"]["min_steps"]
+        if len(self.history_df) == 0:
+            raise ValueError(f"Optimizer: {self.parameter_name} has no history.")
+
+        if len(self.history_df) == 1:
+            # If there's only one row, return its index
+            return self.history_df.index[0]
+
+        if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
+            maximum_feature_value = self.history_df[self.feature_name].max()
+            threshold = (
+                maximum_feature_value
+                - self._maximum_decrease_from_maximum * np.abs(maximum_feature_value)
+            )
+
+            rows_within_thresh_of_max = self.history_df[
+                self.history_df[self.feature_name] > threshold
+            ]
+
+            if rows_within_thresh_of_max.empty:
+                # If no rows meet the threshold, return the index of the max feature value
+                return self.history_df[self.feature_name].idxmax()
+            else:
+                return rows_within_thresh_of_max["parameter"].idxmin()
+
+        else:
+            return self.history_df[self.feature_name].idxmax()
+
+    def _update_workflow(self):
+        """Updates the optimization manager with the results of the optimization, namely:
+            the classifier version,
+            the optimal parameter,
+            score cutoff,
+            FWHM_RT,
+            and FWHM_mobility
+        at the optimal parameter. Also updates the optlock with the batch index at the optimum.
+
+        """
+        index_of_optimum = self._find_index_of_optimum()
+
+        optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
+        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+
+        classifier_version_at_optimum = self.history_df["classifier_version"].loc[
+            index_of_optimum
+        ]
+        self.workflow.optimization_manager.fit(
+            {"classifier_version": classifier_version_at_optimum}
         )
-        return (
-            min_steps_reached
-            and len(self.history_df) > 2
-            and self.history_df[self.feature_name].iloc[-1]
-            < 1.1 * self.history_df[self.feature_name].iloc[-2]
-            and self.history_df[self.feature_name].iloc[-1]
-            < 1.1 * self.history_df[self.feature_name].iloc[-3]
+
+        score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
+        self.workflow.optimization_manager.fit(
+            {"score_cutoff": score_cutoff_at_optimum}
         )
+
+        fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
+        self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+
+        fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
+            index_of_optimum
+        ]
+        self.workflow.optimization_manager.fit(
+            {"fwhm_mobility": fwhm_mobility_at_optimum}
+        )
+
+        batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
+        # Take the batch index of the optimum, at the cost of potentially getting the batch library twice if this is the same as the current batch index.
+        # The time impact of this is negligible and the benefits can be significant.
+        self.workflow.optlock.batch_idx = batch_index_at_optimum
 
     @abstractmethod
     def _get_feature_value(
@@ -329,7 +555,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self.num_prev_optimizations
+            self._num_prev_optimizations
             >= self.workflow.config["calibration"]["min_steps"]
         )
         return proposed_parameter <= self.target_parameter and min_steps_reached
@@ -360,7 +586,7 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
             return
-        self.num_prev_optimizations += 1
+        self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
@@ -383,8 +609,18 @@ class TargetedOptimizer(BaseOptimizer):
                 verbosity="progress",
             )
 
+    def skip(self):
+        """See base class."""
+        pass
+
     def plot(self):
-        """See base class. There is nothing of interest to plot here."""
+        """See base class"""
+        pass
+
+    def _update_workflow(self):
+        pass
+
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         pass
 
 
@@ -529,7 +765,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
 
 
 class OptimizationLock:
-    def __init__(self, library, config: dict):
+    def __init__(self, library: SpecLibFlat, config: dict):
         """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
 
         Parameters
@@ -550,7 +786,9 @@ class OptimizationLock:
         rng = np.random.default_rng(seed=772)
         rng.shuffle(self.elution_group_order)
 
-        self.target_count = self._config["calibration"]["optimization_lock_target"]
+        self._precursor_target_count = self._config["calibration"][
+            "optimization_lock_target"
+        ]
 
         self.batch_idx = 0
         self.set_batch_plan()
@@ -561,6 +799,27 @@ class OptimizationLock:
         self.feature_dfs = []
         self.fragment_dfs = []
 
+    @property
+    def features_df(self) -> pd.DataFrame:
+        return pd.concat(self.feature_dfs)
+
+    @property
+    def fragments_df(self) -> pd.DataFrame:
+        return pd.concat(self.fragment_dfs)
+
+    @property
+    def start_idx(self) -> int:
+        if self.has_target_num_precursors:
+            return 0
+        elif self.batch_idx >= len(self.batch_plan):
+            raise NoOptimizationLockTargetError()  # This should never be triggered since introduction of the BaseOptimizer.proceed_with_insufficient_precursors method and associated code, and could be removed.
+        else:
+            return self.batch_plan[self.batch_idx][0]
+
+    @property
+    def stop_idx(self) -> int:
+        return self.batch_plan[self.batch_idx][1]
+
     def _get_exponential_batches(self, step):
         """Get the number of batches for a given step
         This plan has the shape:
@@ -570,7 +829,7 @@ class OptimizationLock:
 
     def set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
-        n_eg = self._library._precursor_df["elution_group_idx"].nunique()
+        n_eg = len(self.elution_group_order)
 
         plan = []
 
@@ -587,7 +846,12 @@ class OptimizationLock:
 
         self.batch_plan = plan
 
-    def update_with_extraction(self, feature_df, fragment_df):
+    def batches_remaining(self):
+        return self.batch_idx + 1 < len(self.batch_plan)
+
+    def update_with_extraction(
+        self, feature_df: pd.DataFrame, fragment_df: pd.DataFrame
+    ):
         """Extract features and fragments from the current batch of the optimization lock.
 
         Parameters
@@ -604,7 +868,7 @@ class OptimizationLock:
 
         self.total_elution_groups = self.features_df.elution_group_idx.nunique()
 
-    def update_with_fdr(self, precursor_df):
+    def update_with_fdr(self, precursor_df: pd.DataFrame):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.
 
         Parameters
@@ -613,9 +877,12 @@ class OptimizationLock:
             The precursor dataframe for the current batch of the optimization lock (from workflow.perform_fdr).
         """
 
-        self.count = len(precursor_df[precursor_df["qval"] < 0.01])
-
-        self.has_target_num_precursors = self.count >= self.target_count
+        self._precursor_at_fdr_count = np.sum(
+            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
+        )
+        self.has_target_num_precursors = (
+            self._precursor_at_fdr_count >= self._precursor_target_count
+        )
 
     def update_with_calibration(self, calibration_manager):
         """Updates the batch library with the current calibrated values using the calibration manager.
@@ -631,7 +898,10 @@ class OptimizationLock:
             "precursor",
         )
 
-        calibration_manager.predict(self.batch_library._fragment_df, "fragment")
+        calibration_manager.predict(
+            self.batch_library._fragment_df,
+            "fragment",
+        )
 
     def increase_batch_idx(self):
         """If the optimization lock does not contain enough precursors at 1% FDR, the optimization lock proceeds to include the next step in the batch plan in the library attribute.
@@ -647,50 +917,57 @@ class OptimizationLock:
 
         batch_plan_diff = np.array(
             [
-                stop_at_given_idx - self.stop_idx * self.target_count / self.count
+                stop_at_given_idx
+                - self.stop_idx
+                * self._precursor_target_count
+                / self._precursor_at_fdr_count
                 for _, stop_at_given_idx in self.batch_plan
             ]
         )  # Calculate the difference between the number of precursors expected at the given idx and the target number of precursors for each idx in the batch plan.
-        smallest_value = np.min(
-            batch_plan_diff[batch_plan_diff > 0]
-        )  # Take the smallest positive difference (i.e. the smallest idx that is expected to yield more than the target number of precursors).
-        self.batch_idx = np.where(batch_plan_diff == smallest_value)[0][
-            0
-        ]  # Set the batch idx to the index of the smallest positive difference.
+        # get index of smallest value >= 0
+        self.batch_idx = np.where(batch_plan_diff >= 0)[0][0]
 
     def update(self):
         """Updates the library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
         If the target has been reached, the feature and fragment dataframes are reset
         """
-        if not self.has_target_num_precursors:
-            self.increase_batch_idx()
-            eg_idxes = self.elution_group_order[
-                self.start_idx : self.stop_idx
-            ]  # Take only additional elution groups in the new step of the batch plan.
-            # The target has not been reached and hence recalibration and optimization have not been performed, so previous extractions can be re-used.
-
-        else:
+        if self.has_target_num_precursors:
             self.decrease_batch_idx()
-            eg_idxes = self.elution_group_order[
-                : self.stop_idx
-            ]  # Take all elution groups up the the stop index.
-            # The target has been reached and hence the recalibration and optimization have been performed, so everything must be extracted afresh.
-
             self.feature_dfs = []
             self.fragment_dfs = []
+
+        else:
+            self.increase_batch_idx()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
 
-    def set_batch_dfs(self, eg_idxes):
+    def reset_after_convergence(self, calibration_manager):
+        """Resets the optimization lock after all optimizers in a given round of optimization have converged.
+
+        Parameter
+        ---------
+        calibration_manager: manager.CalibrationManager
+            The calibration manager object from the PeptideCentricWorkflow object.
+
+        """
+        self.has_target_num_precursors = True
+        self.feature_dfs = []
+        self.fragment_dfs = []
+        self.set_batch_dfs()
+        self.update_with_calibration(calibration_manager)
+
+    def set_batch_dfs(self, eg_idxes: None | np.ndarray = None):
         """
         Sets the batch library to use for the next round of optimization, either adjusting it upwards or downwards depending on whether the target has been reached.
 
         Parameters
         ----------
-        eg_idxes: np.ndarray
-            The elution group indexes to use for the next round of optimization.
+        eg_idxes: None | np.ndarray
+            The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used.
         """
+        if eg_idxes is None:
+            eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.batch_library = SpecLibFlat()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(
@@ -702,24 +979,3 @@ class OptimizationLock:
                 frag_stop_col="flat_frag_stop_idx",
             )
         )
-
-    @property
-    def features_df(self):
-        return pd.concat(self.feature_dfs)
-
-    @property
-    def fragments_df(self):
-        return pd.concat(self.fragment_dfs)
-
-    @property
-    def start_idx(self):
-        if self.has_target_num_precursors:
-            return 0
-        elif self.batch_idx >= len(self.batch_plan):
-            raise NoOptimizationLockTargetError()
-        else:
-            return self.batch_plan[self.batch_idx][0]
-
-    @property
-    def stop_idx(self):
-        return self.batch_plan[self.batch_idx][1]

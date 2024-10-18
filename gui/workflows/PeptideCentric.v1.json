@@ -36,13 +36,6 @@
                     "type": "integer"
                 },
                 {
-                    "id": "reuse_calibration",
-                    "name": "Reuse Calibration",
-                    "value": false,
-                    "description": "AlphaDIA will save the calibration parameters in the project file. If this option is enabled, the calibration parameters will be reused for subsequent searches of the same file.",
-                    "type": "boolean"
-                },
-                {
                     "id": "reuse_quant",
                     "name": "Reuse Ion Quantities",
                     "value": false,
@@ -146,14 +139,14 @@
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
-                    "value": "Oxidation@M;Acetyl@Protein N-term",
+                    "value": "Oxidation@M;Acetyl@Protein_N-term",
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "string"
                 },
                 {
                     "id": "max_var_mod_num",
                     "name": "Maximum variable modifications",
-                    "value": 1,
+                    "value": 2,
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "integer"
                 },
@@ -241,7 +234,7 @@
                 {
                     "id": "peptdeep_model_path",
                     "name": "PeptDeep Model Path",
-                    "value": "",
+                    "value": null,
                     "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on.",
                     "type": "singleFolderSelection"
                 },
@@ -265,6 +258,34 @@
             "name": "Search",
             "hidden": false,
             "parameters": [
+                {
+                    "id": "target_ms1_tolerance",
+                    "name": "MS1 Tolerance",
+                    "value": 5,
+                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_ms2_tolerance",
+                    "name": "MS2 Tolerance",
+                    "value": 10,
+                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_mobility_tolerance",
+                    "name": "Mobility Tolerance",
+                    "value": 0.0,
+                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_rt_tolerance",
+                    "name": "RT Tolerance",
+                    "value": 0.0,
+                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
+                    "type": "float"
+                },
                 {
                     "id": "channel_filter",
                     "name": "Channel Filter",
@@ -293,34 +314,7 @@
                     "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },
-                {
-                    "id": "target_ms1_tolerance",
-                    "name": "MS1 Tolerance",
-                    "value": 5,
-                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_ms2_tolerance",
-                    "name": "MS2 Tolerance",
-                    "value": 10,
-                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_mobility_tolerance",
-                    "name": "Mobility Tolerance",
-                    "value": 0.04,
-                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_rt_tolerance",
-                    "name": "RT Tolerance",
-                    "value": 100,
-                    "description": "Retention time tolerance in seconds. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
+
                 {
                     "id": "quant_window",
                     "name": "Quant window",
@@ -332,7 +326,7 @@
                 {
                     "id": "quant_all",
                     "name": "Use all MS2 observations",
-                    "value": false,
+                    "value": true,
                     "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
                     "type": "boolean"
 
@@ -375,13 +369,6 @@
                     ]
                 },
                 {
-                    "id": "competetive_scoring",
-                    "name": "Competetive Scoring",
-                    "value": true,
-                    "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
-                    "type": "boolean"
-                },
-                {
                     "id": "channel_wise_fdr",
                     "name": "Channel wise FDR",
                     "value": false,
@@ -405,7 +392,7 @@
                 {
                     "id": "initial_num_candidates",
                     "name": "Number of Candidates",
-                    "value": 2,
+                    "value": 1,
                     "description": "Initial number of candidates to extract per precursor.",
                     "type": "integer"
                 },
@@ -426,15 +413,15 @@
                 {
                     "id": "initial_mobility_tolerance",
                     "name": "Mobility Tolerance",
-                    "value": 0.08,
+                    "value": 0.1,
                     "description": "Initial mobility tolerance in 1/K_0.",
                     "type": "float"
                 },
                 {
                     "id": "initial_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 240,
-                    "description": "Initial retention time tolerance in seconds.",
+                    "value": 0.5,
+                    "description": "Initial retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1.",
                     "type": "float"
                 }
             ]
@@ -445,7 +432,7 @@
             "hidden": true,
             "parameters": [
                 {
-                    "id": "multiplexed_quant",
+                    "id": "enabled",
                     "name": "Enable Multiplexing",
                     "value": false,
                     "description": "Quantify and score identification across non-isobaric labled channels.",

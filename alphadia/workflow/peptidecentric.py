@@ -110,6 +110,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config,
             custom_temp_folder,
         )
+        self.optlock = None
 
     def load(
         self,
@@ -286,9 +287,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         if config_search["target_rt_tolerance"] > 0:
+            gradient_length = self.dia_data.rt_values.max()
+            target_rt_error = (
+                config_search["target_rt_tolerance"]
+                if config_search["target_rt_tolerance"] > 1
+                else config_search["target_rt_tolerance"] * gradient_length
+            )
             rt_optimizer = optimization.TargetedRTOptimizer(
                 self.optimization_manager.rt_error,
-                config_search["target_rt_tolerance"],
+                target_rt_error,
                 self,
             )
         else:
@@ -402,9 +409,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.optlock = optimization.OptimizationLock(self.spectral_library, self.config)
-
+        insufficient_precursors_to_optimize = False
         # Start of optimization/recalibration loop
         for optimizers in ordered_optimizers:
+            if insufficient_precursors_to_optimize:
+                break
             for current_step in range(
                 self.config["calibration"]["max_steps"]
             ):  # Note current_step here refers to a different step than the attribute of the same name in the optimizer -- this should be rectified
@@ -414,81 +423,47 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                         verbosity="progress",
                     )
 
+                    self.optlock.reset_after_convergence(self.calibration_manager)
+
                     for optimizer in optimizers:
                         optimizer.plot()
 
                     break
-                log_string(
-                    f"=== Step {current_step}, extracting elution groups {self.optlock.start_idx} to {self.optlock.stop_idx} ===",
-                    verbosity="progress",
-                )
 
-                feature_df, fragment_df = self.extract_batch(
-                    self.optlock.batch_library.precursor_df,
-                    self.optlock.batch_library.fragment_df,
-                )
-                self.optlock.update_with_extraction(feature_df, fragment_df)
+                log_string(f"Starting optimization step {current_step}.")
 
-                log_string(
-                    f"=== Step {current_step}, extracted {len(self.optlock.features_df)} precursors and {len(self.optlock.fragments_df)} fragments ===",
-                    verbosity="progress",
-                )
-
-                precursor_df = self.fdr_correction(
-                    self.optlock.features_df,
-                    self.optlock.fragments_df,
-                    self.optimization_manager.classifier_version,
-                )
-
-                self.optlock.update_with_fdr(precursor_df)
-
-                log_string(
-                    f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
-                )
-
-                self.log_precursor_df(precursor_df)
+                precursor_df = self._process_batch()
 
                 if not self.optlock.has_target_num_precursors:
+                    if not self.optlock.batches_remaining():
+                        insufficient_precursors_to_optimize = True
+                        break
+
                     self.optlock.update()
+
                     if self.optlock.previously_calibrated:
-                        self.optlock.update_with_calibration(self.calibration_manager)
+                        self.optlock.update_with_calibration(
+                            self.calibration_manager
+                        )  # This is needed so that the addition to the batch libary has the most recent calibration
+
+                        self._skip_all_optimizers(optimizers)
+
                 else:
                     precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
                         precursor_df, self.optlock.fragments_df
                     )
 
                     self.optlock.update()
-
                     self.recalibration(precursor_df_filtered, fragments_df_filtered)
-
                     self.optlock.update_with_calibration(self.calibration_manager)
 
                     if not self.optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached.
                         # Optimization is more stable when done with calibrated values.
-                        self.optlock.previously_calibrated = True
-                        self.optimization_manager.fit(
-                            {"classifier_version": self.fdr_manager.current_version}
-                        )
-                        log_string(
-                            "Required number of precursors found. Starting search parameter optimization.",
-                            verbosity="progress",
-                        )
+                        self._initiate_search_parameter_optimization()
                         continue
 
-                    log_string(
-                        "=== checking if optimization conditions were reached ===",
-                    )
-
-                    for optimizer in optimizers:
-                        optimizer.step(precursor_df_filtered, fragments_df_filtered)
-
-                    log_string(
-                        "==============================================",
-                    )
-
-                    log_string(
-                        f"=== Optimization has been performed {optimizer.num_prev_optimizations} times; minimum number is {self.config['calibration']['min_steps']} ===",
-                        verbosity="progress",
+                    self._step_all_optimizers(
+                        optimizers, precursor_df_filtered, fragments_df_filtered
                     )
 
             else:
@@ -504,6 +479,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         log_string(
             "==============================================", verbosity="progress"
         )
+        if insufficient_precursors_to_optimize:
+            precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
+                precursor_df, self.optlock.fragments_df
+            )
+            if precursor_df_filtered.shape[0] >= 6:
+                self.recalibration(precursor_df_filtered, fragments_df_filtered)
+
+            for optimizers in ordered_optimizers:
+                for optimizer in optimizers:
+                    optimizer.proceed_with_insufficient_precursors(
+                        precursor_df_filtered, self.optlock.fragments_df
+                    )
+
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
                 log_string(
@@ -515,6 +503,100 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.save_managers()
+
+    def _process_batch(self):
+        """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
+        self.reporter.log_string(
+            f"=== Extracting elution groups {self.optlock.start_idx} to {self.optlock.stop_idx} ===",
+            verbosity="progress",
+        )
+
+        feature_df, fragment_df = self.extract_batch(
+            self.optlock.batch_library.precursor_df,
+            self.optlock.batch_library.fragment_df,
+        )
+        self.optlock.update_with_extraction(feature_df, fragment_df)
+
+        self.reporter.log_string(
+            f"=== Extracted {len(self.optlock.features_df)} precursors and {len(self.optlock.fragments_df)} fragments ===",
+            verbosity="progress",
+        )
+
+        precursor_df = self.fdr_correction(
+            self.optlock.features_df,
+            self.optlock.fragments_df,
+            self.optimization_manager.classifier_version,
+        )
+
+        self.optlock.update_with_fdr(precursor_df)
+
+        self.reporter.log_string(
+            f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
+        )
+
+        self.log_precursor_df(precursor_df)
+
+        return precursor_df
+
+    def _initiate_search_parameter_optimization(self):
+        """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""
+        self.optlock.previously_calibrated = True
+        self.optimization_manager.fit(
+            {"classifier_version": self.fdr_manager.current_version}
+        )
+        self.reporter.log_string(
+            "Required number of precursors found. Starting search parameter optimization.",
+            verbosity="progress",
+        )
+
+    def _step_all_optimizers(
+        self,
+        optimizers: list[optimization.BaseOptimizer],
+        precursor_df_filtered: pd.DataFrame,
+        fragments_df_filtered: pd.DataFrame,
+    ):
+        """All optimizers currently in use are stepped and their current state is logged.
+
+        Parameters
+        ----------
+        optimizers : list
+            List of optimizers to be stepped.
+
+        precursor_df_filtered : pd.DataFrame
+            Filtered precursor dataframe (see filter_dfs).
+
+        fragments_df_filtered : pd.DataFrame
+            Filtered fragment dataframe (see filter_dfs).
+        """
+        self.reporter.log_string(
+            "=== checking if optimization conditions were reached ===",
+        )
+
+        for optimizer in optimizers:
+            optimizer.step(precursor_df_filtered, fragments_df_filtered)
+
+        self.reporter.log_string(
+            "==============================================",
+        )
+
+    def _skip_all_optimizers(
+        self,
+        optimizers: list[optimization.BaseOptimizer],
+    ):
+        """All optimizers currently in use are stepped and their current state is logged.
+
+        Parameters
+        ----------
+        optimizers : list
+            List of optimizers to be stepped.
+
+        """
+        self.reporter.log_string(
+            "=== skipping optimization until target number of precursors are found ===",
+        )
+
+        for optimizer in optimizers:
+            optimizer.skip()
 
     def filter_dfs(self, precursor_df, fragments_df):
         """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
@@ -551,8 +633,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             by="correlation", ascending=False
         )
         # Determine the number of fragments to keep
-        min_fragments, max_fragments = 500, 5000
-        min_correlation = 0.7
+        min_fragments, max_fragments = (
+            500,
+            self.config["calibration"]["max_fragments"],
+        )  # TODO remove min_fragments as it seems to have no effect
+        min_correlation = self.config["calibration"]["min_correlation"]
 
         high_corr_count = (fragments_df_filtered["correlation"] > min_correlation).sum()
         stop_rank = min(max(high_corr_count, min_fragments), max_fragments)
@@ -747,13 +832,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     def extraction(self):
-        self.optimization_manager.fit(
-            {
-                "num_candidates": self.config["search"]["target_num_candidates"],
-                "column_type": "calibrated",
-            }
-        )
-
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
         )
@@ -987,7 +1065,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         target_channels = [
             int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
         ]
-        print("target_channels", target_channels)
         reference_channel = self.config["multiplexing"]["reference_channel"]
 
         psm_df = self.fdr_manager.fit_predict(

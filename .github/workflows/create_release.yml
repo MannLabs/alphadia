@@ -1,200 +1,22 @@
+# Create a draft release and build and upload all installers to it.
+name: Create Release
+
 on:
   workflow_dispatch:
     inputs:
-      commit_to_release:
-        description: 'Enter commit hash to release (example: ef4037cb571f99cb4919b520fde7174972aae473)'
-        required: true
-      tag_to_release:
-        description: 'Enter tag to release (example: v1.5.5)'
-        required: true
-
-
-name: Create Draft Release
+      commitish_to_release:
+        type: string
+        description: 'Enter commit hash or branch to release (default: main).'
+        default: "main"
 
 jobs:
-  Get_New_Version:
-    runs-on: ubuntu-latest
-    outputs:
-      new_version: ${{ steps.check_release_tag.outputs.new_version }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.commit_to_release }}
-
-      - name: Check release tag
-        id: check_release_tag
-        shell: bash -le {0}
-        run: |
-          CURRENT_VERSION=$(./misc/get_current_version.sh)
-          if [ "v${CURRENT_VERSION}" != "${{ inputs.tag_to_release }}" ]; then
-            echo Code version "v${CURRENT_VERSION}" does not match the tag to release ${{ inputs.tag_to_release }}
-            exit 1
-          fi
-          echo "new_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-
-      - uses: mukunku/tag-exists-action@v1.6.0
-        id: check-tag
-        with:
-          tag: ${{ inputs.tag_to_release }}
-
-      - name: Check if tag already exists
-        run: |
-          echo "Tag already exists!"
-          exit 1
-        if: steps.check-tag.outputs.exists == 'true'
-
-
-  Create_Draft_Release:
-    runs-on: ubuntu-latest
-    needs: Get_New_Version
-    outputs:
-      upload_url: ${{ steps.draft_release.outputs.upload_url }}
-    steps:
-      - name: Draft Release
-        id: draft_release
-        # TODO this action is deprecated, replace with https://github.com/ncipollo/release-action
-        # cf. https://github.com/actions/create-release/issues/119#issuecomment-783010321
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ inputs.tag_to_release }}
-          release_name: ${{ inputs.tag_to_release }}
-          draft: true
-          prerelease: false
-
-  Create_MacOS_Installer:
-    needs: [Create_Draft_Release, Get_New_Version]
-    env:
-        ARCH: x64
-        EAGER_IMPORT: true
-    runs-on: macos-latest-xlarge
-    steps:
-    - name : Checkout code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.commit_to_release }}
-
-    # Build backend
-    - name: Install conda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniconda-version: "latest"
-        auto-update-conda: true
-        activate-environment: alpha
-        python-version: "3.11"
-
-    - name: Check arm64
-      shell: bash -el {0}
-      run: |
-        python -c "import platform; print(platform.machine())"
-
-    - name: Build backend
-      shell: bash -el {0}
-      run: |
-        release/macos/build_backend_macos.sh
-
-    - name: Test backend
-      shell: bash -el {0}
-      run: |
-        dist/alphadia/alphadia --version
-
-    # Build GUI
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-
-    - name: Build GUI
-      run: |
-        release/macos/build_gui_macos.sh
-
-    # combine backend and GUI
-    - name: Build package
-      shell: bash -el {0}
-      run: |
-        release/macos/build_pkg_macos.sh
-
-    - name: List output files
-      run: |
-        ls dist
-
-    # Upload the package
-    - name: Upload a Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          upload_url: ${{ needs.Create_Draft_Release.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Get_New_Version.outputs.new_version }}-darwin-${{ env.ARCH }}.pkg
-          asset_name: alphadia-${{ needs.Get_New_Version.outputs.new_version }}-darwin-${{ env.ARCH }}.pkg
-          asset_content_type: application/zip
-
-  Create_Windows_Installer:
-    needs: [Create_Draft_Release, Get_New_Version]
-    env:
-        ARCH: x64
-    runs-on: windows-latest
-    steps:
-    - name : Checkout code
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ inputs.commit_to_release }}
-
-    # Build backend
-    - name: Install conda
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniconda-version: "latest"
-        auto-update-conda: true
-        activate-environment: alpha
-        python-version: "3.11"
-
-    - name: Build Backend
-      shell: powershell
-      run: |
-        release/windows/build_backend.ps1
-
-    - name: Test Backend
-      shell: powershell
-      run: |
-        dist\alphadia\alphadia.exe --version
-
-    # Build GUI
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-
-    - name: Build GUI
-      shell: powershell
-      run: |
-        release/windows/build_gui.ps1
-
-    # combine backend and GUI
-    - name: Check if Innosetup is installed
-      shell: powershell
-      run: |
-        if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
-          Write-Host "Inno Setup is not installed"
-          exit 1
-        }
-        else {
-          Write-Host "Inno Setup is installed"
-        }
-
-    - name: Build Installer
-      shell: powershell
-      run: |
-        release/windows/build_installer.ps1
-
-    - name: List output files
-      run: |
-        ls dist
-
-    - name: Upload a Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          upload_url: ${{ needs.Create_Draft_Release.outputs.upload_url }}
-          asset_path: dist/alphadia-${{ needs.Get_New_Version.outputs.new_version }}-win-${{ env.ARCH }}.exe
-          asset_name: alphadia-${{ needs.Get_New_Version.outputs.new_version }}-win-${{ env.ARCH }}.exe
-          asset_content_type: application/zip
+  create-release:
+    uses: MannLabs/alphashared/.github/workflows/create_release.yml@v1
+    secrets: inherit
+    permissions:
+      contents: write
+    with:
+      package_name: alphadia
+      commitish_to_release: ${{ inputs.commitish_to_release }}
+      build_nodejs_ui: true
+      test_app: false

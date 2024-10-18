@@ -12,9 +12,12 @@ const path = require('path');
 var kill = require('tree-kill');
 
 function getAppRoot() {
+    console.log("getAppPath=" + app.getAppPath() + " platform=" + process.platform)
     if ( process.platform === 'win32' ) {
       return path.join( app.getAppPath(), '/../../' );
-    }  else {
+    } else if ( process.platform === 'linux' ) {
+      return path.join( app.getAppPath(), '/../../../' );
+    } else {
       return path.join( app.getAppPath(), '/../../../../' );
     }
   }
@@ -260,7 +263,7 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "--no-capture-output",
                                         "alphadia",
                                         "--config",
-                                        path.join(workflow.output_directory.path, "config.yaml")
+                                        `"${path.join(workflow.output_directory.path, "config.yaml")}"`
                                     ] , { env:{...process.env, PATH}, shell: true});
             run.pid = run.process.pid
 
@@ -420,7 +423,7 @@ class BundledExecutionEngine extends BaseExecutionEngine {
             // use binary location as cwd and binary name as command
             run.process = spawn(prefix + binaryName,
                 ["--config",
-                path.join(workflow.output_directory.path, "config.yaml")
+                `"${path.join(workflow.output_directory.path, "config.yaml")}"`
                 ],
                 {
                     env:{...process.env, PATH},

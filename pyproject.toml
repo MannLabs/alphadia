@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "alphaDIA"
+name = "alphadia"
 requires-python = ">=3.10.0"
 dynamic = ["version", "dependencies", "optional-dependencies"]
 
@@ -59,6 +59,8 @@ version = {attr = "alphadia.__version__"}
 [project.scripts]
 alphadia = "alphadia.cli:run"
 
+[tool.ruff]
+extend-exclude = ["misc/.bumpversion.cfg"]
 
 [tool.ruff.lint]
 select =  [
