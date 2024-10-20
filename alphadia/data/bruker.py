@@ -586,6 +586,13 @@ class TimsTOFTransposeJIT:
             dtype=np.float32,
         )
 
+        # LOW_EPSILON will be used to avoid division errors
+        # as LOW_EPSILON will be added to the numerator and denominator
+        # intensity values approaching LOW_EPSILON would result in updated dim1 values with 1
+        # therefore, LOW_EPSILON should be orderes of magnitude smaller than HIGH_EPSILON
+        # TODO: refactor the calculation of dim1 for performance and numerical stability
+        LOW_EPSILON = 1e-36
+
         if absolute_masses:
             pass
         else:
@@ -641,7 +648,9 @@ class TimsTOFTransposeJIT:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * measured_mz_value
-                                ) / (accumulated_intensity + new_intensity)
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             else:
                                 new_error = (
@@ -652,7 +661,9 @@ class TimsTOFTransposeJIT:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * new_error
-                                ) / (accumulated_intensity + new_intensity)
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             dense_output[
                                 0,
