@@ -567,7 +567,7 @@ class TimsTOFTransposeJIT:
         n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
-        # scan valuesa
+        # scan values
         mobility_start = int(scan_limits[0, 0])
         mobility_stop = int(scan_limits[0, 1])
         mobility_len = mobility_stop - mobility_start
@@ -585,6 +585,9 @@ class TimsTOFTransposeJIT:
             (2, n_tof_slices, n_precursor_indices, mobility_len, precursor_cycle_len),
             dtype=np.float32,
         )
+
+        # intensities below HIGH_EPSILON will be set to zero
+        HIGH_EPSILON = 1e-26
 
         # LOW_EPSILON will be used to avoid division errors
         # as LOW_EPSILON will be added to the numerator and denominator
@@ -643,11 +646,15 @@ class TimsTOFTransposeJIT:
                             ]
 
                             new_intensity = self.intensity_values[idx]
+                            new_intensity = new_intensity * (
+                                new_intensity > HIGH_EPSILON
+                            )
 
                             if absolute_masses:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * measured_mz_value
+                                    + LOW_EPSILON
                                 ) / (
                                     accumulated_intensity + new_intensity + LOW_EPSILON
                                 )
@@ -661,6 +668,7 @@ class TimsTOFTransposeJIT:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * new_error
+                                    + LOW_EPSILON
                                 ) / (
                                     accumulated_intensity + new_intensity + LOW_EPSILON
                                 )
