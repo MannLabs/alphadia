@@ -9,11 +9,15 @@ Also ensure the right execution engine has been selected and your version is up 
 <img src="../_static/images/libfree-gui/initial_engine.png" width="100%" height="auto">
 
 ## 2. Project Structure
-We will be performing two DIA searches: a first search for library generation and a second search for joined quantification. To accommodate this, we prepare the project directory to have a `first_pass` and a `second_pass` folder.
+We will be performing two DIA searches: a first search for library generation and a second search for joined quantification. To accommodate this, we prepare the project directory to have a `first_pass` and a `second_pass` folder. You can change the project path in the `Output Files` tab
 <img src="../_static/images/libfree-gui/folder_structure.png" width="100%" height="auto">
 
 ## 3. First search
-To set up the first search, select all raw files and add them to the file list. Also add the FASTA file which will be used for library prediction.
+To set up the first search:
+
+1. Select all raw files by clicking the `.raw` button and add them to the file list.
+2. Add the FASTA file which will be used for library prediction by clicking the `SELECT FILE` button.
+
 <img src="../_static/images/libfree-gui/first_input.png" width="100%" height="auto">
 
 For this search, most parameters can be left at their default values. To speed up processing, set `thread_count` to the number of logical cores you have available in your system. Also enable library prediction from FASTA and set the `precursor_mz` range to the range of the dataset `380`-`980` to predict only the relevant subset of precursors. By default, this search will have `Carbamidomethyl@C` as a fixed modification and up to two variable modifications of `Oxidation@M` and `Acetyl@Protein_N-term`.
