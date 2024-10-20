@@ -94,6 +94,8 @@ We will use the same settings as in the regular two-step workflow. Set the `thre
 
 :::{important}
 Make sure that a valid FASTA file is selected as input and library prediction is enabled. Both the transfer learning and the first search will use library prediction.
+
+Make sure to disable the modules from the previous steps `Transfer Library > Disabled` and `Transfer Learning > Disabled`.
 :::
 
 <img src="../_static/images/transfer-dimethyl/first_settings.png" width="100%" height="auto">
@@ -118,7 +120,7 @@ After completing both searches, you'll find full search outputs in both the `sec
 
 You can get a quick overview from the contents of the `stat.tsv` file in the `second_pass` folder. This will show you the number of precursors and protein groups identified across your samples, along with other relevant metrics.
 
-Alltough the different parameters do not allow for fair comparison of absolut numbers between steps, we can still get an idea how transfer learning affects the number of identified precursors.
+Altough the different parameters do not allow for fair comparison of absolut numbers between steps, we can still get an idea how transfer learning affects the number of identified precursors.
 
 |   run                                                | precursors transfer_pass | precursors first_pass | precursors second_pass |
 |------------------------------------------------------|--------------------------|-----------------------|------------------------|
