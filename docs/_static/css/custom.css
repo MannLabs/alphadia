@@ -4,7 +4,7 @@
 
 .content {
     font-size: 14px;
-    width: 60em;
+    width: 70em;
 }
 
 .autosummary.longtable{
@@ -13,4 +13,8 @@
 
 .sidebar-brand{
     width: 50%;
+}
+
+.sidebar-drawer{
+    width: calc(50% - 34em);
 }
