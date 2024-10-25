@@ -859,7 +859,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(
             rt_df, on="elution_group_idx", how="right"
         )
-        mbr_spec_lib._precursor_df["genes"] = mbr_spec_lib._precursor_df["pg"]
+        mbr_spec_lib._precursor_df["genes"] = mbr_spec_lib._precursor_df["genes"]
         mbr_spec_lib._precursor_df["proteins"] = mbr_spec_lib._precursor_df["pg"]
 
         mbr_spec_lib._precursor_df.drop(columns=["pg"], inplace=True)
