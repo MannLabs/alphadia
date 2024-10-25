@@ -236,4 +236,3 @@ else
 	echo "Skipping LFQ"
 fi
 
-echo "All searches completed successfully"
