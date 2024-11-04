@@ -1371,7 +1371,7 @@ class OuptutPsmDF:
         )
 
 
-@alphatims.utils.pjit
+@alphatims.utils.pjit()
 def _executor(
     i,
     sg_container,
@@ -1397,7 +1397,7 @@ def _executor(
     )
 
 
-@alphatims.utils.pjit
+@alphatims.utils.pjit()
 def transfer_feature(
     idx, score_group_container, feature_array, precursor_idx_array, rank_array
 ):
