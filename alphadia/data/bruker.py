@@ -813,7 +813,7 @@ class TimsTOFTransposeJIT:
         )
 
 
-@alphatims.utils.pjit
+@alphatims.utils.pjit()
 def transpose_chunk(
     chunk_idx,
     chunks,
