@@ -392,8 +392,10 @@ class PrecisionRecallTestMetric(TestMetricBase):
             for j in range(n_classes):
                 confusion_matrix[i, j] = np.sum((predictions == i) & (targets == j))
 
-        precision = np.diag(confusion_matrix) / np.sum(confusion_matrix, axis=0)
-        recall = np.diag(confusion_matrix) / np.sum(confusion_matrix, axis=1)
+        precision = np.diag(confusion_matrix) / (
+            np.sum(confusion_matrix, axis=0) + 1e-6
+        )
+        recall = np.diag(confusion_matrix) / (np.sum(confusion_matrix, axis=1) + 1e-6)
 
         new_stats = pd.DataFrame(
             np.array([np.mean(precision), np.mean(recall)]).reshape(1, 2),

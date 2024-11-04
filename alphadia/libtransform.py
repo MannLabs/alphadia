@@ -2,11 +2,13 @@
 import logging
 import os
 import typing
+from functools import reduce
 from pathlib import Path
 
 # third party imports
 import numpy as np
 import pandas as pd
+from alphabase.constants.modification import MOD_DF
 
 # alpha family imports
 from alphabase.peptide import fragment
@@ -252,7 +254,8 @@ class PeptDeepPrediction(ProcessingStep):
         fragment_mz: list[int] | None = None,
         nce: int = 25,
         instrument: str = "Lumos",
-        checkpoint_folder_path: str | None = None,
+        peptdeep_model_path: str | None = None,
+        peptdeep_model_type: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
     ) -> None:
@@ -276,8 +279,13 @@ class PeptDeepPrediction(ProcessingStep):
         instrument : str, optional
             Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
 
-        checkpoint_folder_path : str, optional
+        peptdeep_model_path : str, optional
             Path to a folder containing PeptDeep models. If not provided, the default models will be used.
+
+        peptdeep_model_type : str, optional
+            Use other peptdeep models provided by the peptdeep model manager.
+            Default is None, which means the peptdeep default model ("generic") is being used.
+            Possible values are ['generic','phospho','digly']
 
         fragment_types : List[str], optional
             Fragment types to predict. Default is ["b", "y"].
@@ -295,7 +303,8 @@ class PeptDeepPrediction(ProcessingStep):
         self.nce = nce
         self.instrument = instrument
         self.mp_process_num = mp_process_num
-        self.checkpoint_folder_path = checkpoint_folder_path
+        self.peptdeep_model_path = peptdeep_model_path
+        self.peptdeep_model_type = peptdeep_model_type
 
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
@@ -313,12 +322,23 @@ class PeptDeepPrediction(ProcessingStep):
         device = utils.get_torch_device(self.use_gpu)
 
         model_mgr = ModelManager(device=device)
-        if self.checkpoint_folder_path is not None:
-            logging.info(f"Loading PeptDeep models from {self.checkpoint_folder_path}")
+
+        # will load other model than default generic
+        if self.peptdeep_model_type:
+            logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
+            model_mgr.load_installed_models(self.peptdeep_model_type)
+
+        if self.peptdeep_model_path and self.peptdeep_model_path != "":
+            if not os.path.exists(self.peptdeep_model_path):
+                raise ValueError(
+                    f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"
+                )
+
+            logging.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
             model_mgr.load_external_models(
-                ms2_model_file=os.path.join(self.checkpoint_folder_path, "ms2.pth"),
-                rt_model_file=os.path.join(self.checkpoint_folder_path, "rt.pth"),
-                ccs_model_file=os.path.join(self.checkpoint_folder_path, "ccs.pth"),
+                ms2_model_file=os.path.join(self.peptdeep_model_path, "ms2.pth"),
+                rt_model_file=os.path.join(self.peptdeep_model_path, "rt.pth"),
+                ccs_model_file=os.path.join(self.peptdeep_model_path, "ccs.pth"),
             )
 
         model_mgr.nce = self.nce
@@ -595,6 +615,72 @@ class RTNormalization(ProcessingStep):
         )
 
         return input
+
+
+class MultiplexLibrary(ProcessingStep):
+    def __init__(self, multiplex_mapping: dict, input_channel: str | int | None = None):
+        """Initialize the MultiplexLibrary step."""
+
+        self._multiplex_mapping = multiplex_mapping
+        self._input_channel = input_channel
+
+    def validate(self, input: str) -> bool:
+        """Validate the input object. It is expected that the input is a path to a file which exists."""
+        valid = True
+        valid &= isinstance(input, SpecLibBase)
+
+        # check if all modifications are valid
+        for _, channel_multiplex_mapping in self._multiplex_mapping.items():
+            for key, value in channel_multiplex_mapping.items():
+                for mod in [key, value]:
+                    if mod not in MOD_DF.index:
+                        logger.error(f"Modification {mod} not found in input library")
+                        valid = False
+
+        if "channel" in input.precursor_df.columns:
+            channel_unique = input.precursor_df["channel"].unique()
+            if self._input_channel not in channel_unique:
+                logger.error(
+                    f"Input library does not contain channel {self._input_channel}"
+                )
+                valid = False
+
+            if (len(channel_unique) > 1) and (self._input_channel is None):
+                logger.error(
+                    f"Input library contains multiple channels {channel_unique}. Please specify a channel."
+                )
+                valid = False
+
+        return valid
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        """Apply the MultiplexLibrary step to the input object."""
+
+        if "channel" in input.precursor_df.columns:
+            input.precursor_df = input.precursor_df[
+                input.precursor_df["channel"] == self._input_channel
+            ]
+
+        channel_lib_list = []
+        for channel, channel_mod_translations in self._multiplex_mapping.items():
+            logger.info(f"Multiplexing library for channel {channel}")
+            channel_lib = input.copy()
+            for original_mod, channel_mod in channel_mod_translations.items():
+                channel_lib._precursor_df["mods"] = channel_lib._precursor_df[
+                    "mods"
+                ].str.replace(original_mod, channel_mod)
+                channel_lib._precursor_df["channel"] = channel
+
+            channel_lib.calc_fragment_mz_df()
+            channel_lib_list.append(channel_lib)
+
+        def apply_func(x, y):
+            x.append(y)
+            return x
+
+        speclib = reduce(lambda x, y: apply_func(x, y), channel_lib_list)
+        speclib.remove_unused_fragments()
+        return speclib
 
 
 class FlattenLibrary(ProcessingStep):

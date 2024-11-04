@@ -7,6 +7,7 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
+from alphadia.workflow import manager, peptidecentric
 
 
 def test_output_transform():
@@ -36,6 +37,18 @@ def test_output_transform():
         "multiplexing": {
             "enabled": False,
         },
+        "search_initial": {
+            "initial_ms1_tolerance": 4,
+            "initial_ms2_tolerance": 7,
+            "initial_rt_tolerance": 200,
+            "initial_mobility_tolerance": 0.04,
+            "initial_num_candidates": 1,
+        },
+        "optimization_manager": {
+            "fwhm_rt": 2.75,
+            "fwhm_mobility": 2,
+            "score_cutoff": 50,
+        },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
@@ -50,7 +63,7 @@ def test_output_transform():
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)
 
-    for raw_folder in raw_folders:
+    for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
 
         psm_df = psm_base_df.sample(50)
@@ -62,9 +75,35 @@ def test_output_transform():
         frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
 
+        optimization_manager = manager.OptimizationManager(
+            config,
+            path=os.path.join(
+                raw_folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
+            ),
+        )
+
+        timing_manager = manager.TimingManager(
+            path=os.path.join(
+                raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+            )
+        )
+
+        if (
+            i == 2
+        ):  # simulate the case that the search fails such that the optimization and timing managers are not saved
+            pass
+        else:
+            optimization_manager.fit({"ms2_error": 6})
+            optimization_manager.save()
+            timing_manager.set_start_time("extraction")
+            timing_manager.set_end_time("extraction")
+            timing_manager.save()
+
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
     _ = output.build_stat_df(raw_folders, save=True)
+    _ = output.build_internal_df(raw_folders, save=True)
     _ = output.build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
@@ -95,8 +134,24 @@ def test_output_transform():
         os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
-    assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
+    assert stat_df["ms2_error"][0] == 6
+    assert stat_df["rt_error"][0] == 200
 
+    assert all(
+        [
+            col in stat_df.columns
+            for col in [
+                "run",
+                "precursors",
+                "proteins",
+            ]
+        ]
+    )
+
+    internal_df = pd.read_csv(
+        os.path.join(temp_folder, f"{output.INTERNAL_OUTPUT}.tsv"), sep="\t"
+    )
+    assert isinstance(internal_df["duration_extraction"][0], float)
     # validate protein_df output
     protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])

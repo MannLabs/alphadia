@@ -1,23 +1,18 @@
-# native imports
 import logging
 import math
 import os
 
 import alphatims.bruker
 import alphatims.tempmmap as tm
-
-# alpha family imports
 import alphatims.utils
 import numba as nb
-
-# third party imports
 import numpy as np
 from numba.core import types
 from numba.experimental import jitclass
 
-# alphadia imports
 from alphadia import utils
 from alphadia.data.stats import log_stats
+from alphadia.exceptions import NotDiaDataError
 
 logger = logging.getLogger()
 
@@ -65,15 +60,18 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     mmap_detector_events,
                 )
 
-                if self._cycle.shape[0] != 1:
-                    logger.error(
-                        "Unexpected cycle shape. Will only retain first frame group"
-                    )
-                    raise ValueError(
-                        "Unexpected cycle shape. Will only retain first frame group"
-                    )
+                try:
+                    cycle_shape = self._cycle.shape[0]
+                except AttributeError as e:
+                    raise NotDiaDataError() from e
+                else:
+                    if cycle_shape != 1:
+                        msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "
+                        logger.error(msg)
+                        raise ValueError(msg)
 
                 self.transpose()
+
         elif bruker_d_folder_name.endswith(".hdf"):
             self._import_data_from_hdf_file(
                 bruker_d_folder_name,
@@ -81,7 +79,8 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             )
             self.bruker_hdf_file_name = bruker_d_folder_name
         else:
-            raise NotImplementedError("WARNING: file extension not understood")
+            raise NotImplementedError("ERROR: file extension not understood")
+
         if not hasattr(self, "version"):
             self._version = "N.A."
         if self.version != alphatims.__version__:
@@ -106,7 +105,10 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         logger.info("Transposing detector events")
         push_indices, tof_indptr, intensity_values = transpose(
-            self._tof_indices, self._push_indptr, self._intensity_values
+            self._tof_indices,
+            self._push_indptr,
+            len(self._mz_values),
+            self._intensity_values,
         )
         logger.info("Finished transposing data")
 
@@ -565,7 +567,7 @@ class TimsTOFTransposeJIT:
         n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
-        # scan valuesa
+        # scan values
         mobility_start = int(scan_limits[0, 0])
         mobility_stop = int(scan_limits[0, 1])
         mobility_len = mobility_stop - mobility_start
@@ -583,6 +585,16 @@ class TimsTOFTransposeJIT:
             (2, n_tof_slices, n_precursor_indices, mobility_len, precursor_cycle_len),
             dtype=np.float32,
         )
+
+        # intensities below HIGH_EPSILON will be set to zero
+        HIGH_EPSILON = 1e-26
+
+        # LOW_EPSILON will be used to avoid division errors
+        # as LOW_EPSILON will be added to the numerator and denominator
+        # intensity values approaching LOW_EPSILON would result in updated dim1 values with 1
+        # therefore, LOW_EPSILON should be orderes of magnitude smaller than HIGH_EPSILON
+        # TODO: refactor the calculation of dim1 for performance and numerical stability
+        LOW_EPSILON = 1e-36
 
         if absolute_masses:
             pass
@@ -634,12 +646,18 @@ class TimsTOFTransposeJIT:
                             ]
 
                             new_intensity = self.intensity_values[idx]
+                            new_intensity = new_intensity * (
+                                new_intensity > HIGH_EPSILON
+                            )
 
                             if absolute_masses:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * measured_mz_value
-                                ) / (accumulated_intensity + new_intensity)
+                                    + LOW_EPSILON
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             else:
                                 new_error = (
@@ -650,7 +668,10 @@ class TimsTOFTransposeJIT:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * new_error
-                                ) / (accumulated_intensity + new_intensity)
+                                    + LOW_EPSILON
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             dense_output[
                                 0,
@@ -860,7 +881,7 @@ def build_chunks(number_of_elements, num_chunks):
 
 
 @nb.njit(cache=True)
-def transpose(tof_indices, push_indptr, values):
+def transpose(tof_indices, push_indptr, n_tof_indices, values):
     """
     The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
     A lookup starts with a given push index p which points to the row. The start and stop indices of the row are accessed from dia_data.push_indptr[p] and dia_data.push_indptr[p+1].
@@ -877,6 +898,9 @@ def transpose(tof_indices, push_indptr, values):
 
     push_indptr : np.ndarray
         start stop values for each row (n_rows +1)
+
+    n_tof_indices : int
+        number of tof indices which is usually equal to len(dia_data.mz_values)
 
     values : np.ndarray
         values (n_values)
@@ -897,28 +921,25 @@ def transpose(tof_indices, push_indptr, values):
         values (n_values)
 
     """
-    # this is one less than the old col count or the new row count
-    max_tof_index = tof_indices.max()
-
-    tof_indcount = np.zeros((max_tof_index + 1), dtype=np.uint32)
+    tof_indcount = np.zeros((n_tof_indices), dtype=np.uint32)
 
     # get new row counts
     for v in tof_indices:
         tof_indcount[v] += 1
 
     # get new indptr
-    tof_indptr = np.zeros((max_tof_index + 1 + 1), dtype=np.int64)
+    tof_indptr = np.zeros((n_tof_indices + 1), dtype=np.int64)
 
-    for i in range(max_tof_index + 1):
+    for i in range(n_tof_indices):
         tof_indptr[i + 1] = tof_indptr[i] + tof_indcount[i]
 
-    tof_indcount = np.zeros((max_tof_index + 1), dtype=np.uint32)
+    tof_indcount = np.zeros((n_tof_indices), dtype=np.uint32)
 
     # get new values
     push_indices = np.zeros((len(tof_indices)), dtype=np.uint32)
     new_values = np.zeros_like(values)
 
-    chunks = build_chunks(max_tof_index + 1, 20)
+    chunks = build_chunks(n_tof_indices, 20)
 
     with nb.objmode:
         alphatims.utils.set_threads(20)

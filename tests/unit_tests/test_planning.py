@@ -3,6 +3,7 @@ import tempfile
 
 import pytest
 from alphabase.constants import _const
+from alphabase.constants.modification import MOD_DF
 
 from alphadia import planning
 from alphadia.test_data_downloader import DataShareDownloader
@@ -72,3 +73,18 @@ def test_library_loading():
         plan = planning.Plan(temp_directory, library_path=test_data_location)
         assert len(plan.spectral_library.precursor_df) > 0
         assert len(plan.spectral_library.fragment_df) > 0
+
+
+def test_custom_modifications():
+    temp_directory = tempfile.gettempdir()
+
+    config = {
+        "custom_modififcations": {
+            "ThisModDoesNotExists@K": {
+                "composition": "H(10)",
+            },
+        }
+    }
+
+    plan = planning.Plan(temp_directory, [], config=config)  # noqa F841
+    assert "ThisModDoesNotExists@K" in MOD_DF["mod_name"].values

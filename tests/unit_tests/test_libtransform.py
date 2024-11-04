@@ -1,6 +1,8 @@
 import tempfile
 
 import numpy as np
+import pandas as pd
+from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import libtransform
 
@@ -79,3 +81,53 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 
     assert speclib.precursor_df["decoy"].sum() == 2
     assert np.all(speclib.precursor_df["cardinality"] == [2, 2, 1, 1])
+
+
+def test_multiplex_library():
+    # given
+    repeat = 2
+    peptides = ["AGHCEWQMK"] * repeat
+    mods = ["mTRAQ@K"] * repeat
+    sites = ["0;9"] * repeat
+
+    precursor_df = pd.DataFrame(
+        {"sequence": peptides, "mods": mods, "mod_sites": sites}
+    )
+    precursor_df["nAA"] = precursor_df["sequence"].str.len()
+    precursor_df["charge"] = [2, 3]
+
+    test_lib = SpecLibBase()
+    test_lib.precursor_df = precursor_df
+    test_lib.calc_precursor_mz()
+    test_lib.calc_fragment_mz_df()
+
+    test_multiplex_mapping = {
+        0: {"mTRAQ@K": "mTRAQ@K"},
+        "magic_chanel": {"mTRAQ@K": "mTRAQ:13C(3)15N(1)@K"},
+        1337: {"mTRAQ@K": "mTRAQ:13C(6)15N(2)@K"},
+    }
+
+    # when
+    multiplexer = libtransform.MultiplexLibrary(test_multiplex_mapping)
+    result_lib = multiplexer.forward(test_lib)
+
+    # then
+    assert result_lib.precursor_df["sequence"].shape == (6,)
+    assert result_lib.precursor_df["charge"].nunique() == 2
+    assert result_lib.precursor_df["frag_stop_idx"].nunique() == 6
+
+    for channel in [0, 1337, "magic_chanel"]:
+        assert (
+            result_lib.precursor_df[
+                result_lib.precursor_df["channel"] == channel
+            ].shape[0]
+            == repeat
+        )
+
+    for modification in ["mTRAQ@K", "mTRAQ:13C(3)15N(1)@K", "mTRAQ:13C(6)15N(2)@K"]:
+        assert (
+            result_lib.precursor_df[
+                result_lib.precursor_df["mods"].str.contains(modification, regex=False)
+            ].shape[0]
+            == repeat
+        )

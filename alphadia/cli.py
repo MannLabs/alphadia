@@ -1,8 +1,9 @@
 #!python
+"""CLI for alphaDIA.
 
-# native imports
-# alpha family imports
-# third party imports
+Ideally the CLI module should have as little logic as possible so that the search behaves the same from the CLI or a jupyter notebook.
+"""
+
 import argparse
 import json
 import logging
@@ -12,9 +13,9 @@ import sys
 
 import yaml
 
-# alphadia imports
 import alphadia
 from alphadia import utils
+from alphadia.exceptions import CustomError
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
@@ -325,7 +326,7 @@ def run(*args, **kwargs):
     try:
         import matplotlib
 
-        # important to supress matplotlib output
+        # important to suppress matplotlib output
         matplotlib.use("Agg")
 
         from alphadia.planning import Plan
@@ -341,8 +342,18 @@ def run(*args, **kwargs):
         plan.run()
 
     except Exception as e:
-        import traceback
+        if isinstance(e, CustomError):
+            exit_code = 1
+        else:
+            import traceback
 
-        logger.info(traceback.format_exc())
+            logger.info(traceback.format_exc())
+            exit_code = 127
+
         logger.error(e)
-        sys.exit(1)
+        sys.exit(exit_code)
+
+
+# uncomment for debugging:
+# if __name__ == "__main__":
+#     run()

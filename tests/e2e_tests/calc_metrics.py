@@ -184,8 +184,9 @@ def _get_history_plots(test_results: dict, metrics_classes: list):
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
     run_time_minutes = int(sys.argv[2]) / 60
-    short_sha = sys.argv[3]
-    branch_name = sys.argv[4]
+    neptune_upload = sys.argv[3] == "True"
+    short_sha = sys.argv[4]
+    branch_name = sys.argv[5]
 
     test_case = get_test_case(test_case_name)
     selected_metrics = test_case["metrics"]  # ['BasicStats', ]
@@ -212,30 +213,36 @@ if __name__ == "__main__":
             test_results |= metrics
     except Exception as e:
         print(e)
-    finally:
-        neptune_run = neptune.init_run(
-            project=NEPTUNE_PROJECT_NAME,
-            tags=[test_case_name, short_sha, branch_name],
-        )
 
-        # metrics
-        for k, v in test_results.items():
-            print(f"adding {k}={v}")
-            neptune_run[k] = v
+    print(test_results)
 
-        # files
-        for file_name in OutputFiles.all_values():
-            print("adding", file_name)
-            file_path = os.path.join(output_path, file_name)
-            if os.path.exists(file_path):
-                neptune_run["output/" + file_name].track_files(file_path)
+    if not neptune_upload:
+        print("skipping neptune upload")
+        exit(0)
 
-        try:
-            history_plots = _get_history_plots(test_results, metrics_classes)
+    neptune_run = neptune.init_run(
+        project=NEPTUNE_PROJECT_NAME,
+        tags=[test_case_name, short_sha, branch_name],
+    )
 
-            for name, plot in history_plots:
-                neptune_run[f"plots/{name}"].upload(plot)
-        except Exception as e:
-            print(f"no plots today: {e}")
+    # metrics
+    for k, v in test_results.items():
+        print(f"adding {k}={v}")
+        neptune_run[k] = v
 
-        neptune_run.stop()
+    # files
+    for file_name in OutputFiles.all_values():
+        print("adding", file_name)
+        file_path = os.path.join(output_path, file_name)
+        if os.path.exists(file_path):
+            neptune_run["output/" + file_name].track_files(file_path)
+
+    try:
+        history_plots = _get_history_plots(test_results, metrics_classes)
+
+        for name, plot in history_plots:
+            neptune_run[f"plots/{name}"].upload(plot)
+    except Exception as e:
+        print(f"no plots today: {e}")
+
+    neptune_run.stop()

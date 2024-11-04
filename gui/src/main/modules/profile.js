@@ -1,13 +1,14 @@
-
 const fs = require("fs")
 const path = require("path")
-const { app, shell} = require("electron")
+const { app, shell, BrowserWindow} = require("electron")
 const { dialog } = require('electron')
+
+const VERSION = "1.8.2"
 
 const Profile = class {
 
     config = {
-        "version": "1.7.0",
+        "version": VERSION,
         "conda": {
             "envName": "alphadia",
             "path": ""
@@ -34,8 +35,6 @@ const Profile = class {
         } else {
             this.loadProfile()
         }
-
-        console.log(this.getProfilePath())
     }
 
     saveProfile() {
@@ -43,16 +42,37 @@ const Profile = class {
     }
 
     loadProfile() {
+        let loaded_config = {}
+
         try {
-            this.config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+            loaded_config = JSON.parse(fs.readFileSync(this.getProfilePath()))
+            console.log(loaded_config)
         } catch (err) {
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                 type: 'error',
                 title: 'Error while loading profile',
                 message: `Could not load profile. ${err}`,
             }).catch((err) => {
                 console.log(err)
             })
+            return
+        }
+
+        if (loaded_config.version !== VERSION) {
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
+                type: 'info',
+                title: 'Found old alphaDIA profile',
+                message: `Found old alphaDIA profile. Updating to version ${VERSION}`,
+            }).catch((err) => {
+                console.log(err)
+            })
+            this.saveProfile()
+        } else {
+            this.config = loaded_config
         }
     }
 
