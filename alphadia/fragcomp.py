@@ -6,7 +6,6 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
-from alphadia.pjit import pjit
 
 from alphadia.pjit import pjit
 
@@ -53,7 +52,7 @@ def get_fragment_overlap(
     return frag_overlap
 
 
-@pjit
+@timsutils.pjit
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
