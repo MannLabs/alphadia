@@ -13,7 +13,6 @@ import pandas as pd
 from alphadia import features, quadrupole, utils, validate
 from alphadia.data import alpharaw, bruker
 from alphadia.numba import config, fragments
-from alphadia.pjit import pjit
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
@@ -1350,7 +1349,7 @@ class OuptutPsmDF:
         )
 
 
-@pjit
+@alphatims.utils.pjit
 def _executor(
     i,
     sg_container,
@@ -1376,7 +1375,7 @@ def _executor(
     )
 
 
-@pjit
+@alphatims.utils.pjit
 def transfer_feature(
     idx, score_group_container, feature_array, precursor_idx_array, rank_array
 ):

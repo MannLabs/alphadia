@@ -18,7 +18,6 @@ from numba.experimental import jitclass
 # alphadia imports
 from alphadia import utils
 from alphadia.data.stats import log_stats
-from alphadia.pjit import pjit
 
 logger = logging.getLogger()
 
@@ -814,7 +813,7 @@ class TimsTOFTransposeJIT:
         )
 
 
-@pjit
+@alphatims.utils.pjit
 def transpose_chunk(
     chunk_idx,
     chunks,

@@ -15,7 +15,6 @@ from alphadia import utils, validate
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import assemble_isotope_mz
-from alphadia.pjit import pjit
 
 logger = logging.getLogger()
 
@@ -286,7 +285,7 @@ class CandidateDF:
         )
 
 
-@pjit
+@alphatims.utils.pjit
 def _executor(
     i,
     jit_data,
