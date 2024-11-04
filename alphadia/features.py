@@ -149,7 +149,7 @@ def or_envelope_2d(x):
     return res
 
 
-@nb.njit(inline="always")
+@nb.njit(inline="always", cache=True)
 def _odd_center_envelope(x: np.ndarray):
     """
     Applies an interference correction envelope to a collection of odd-length 1D arrays.
@@ -181,7 +181,7 @@ def _odd_center_envelope(x: np.ndarray):
             ) * 0.5
 
 
-@nb.njit(inline="always", cache="True")
+@nb.njit(inline="always", cache=True)
 def _even_center_envelope(x: np.ndarray):
     """
     Applies an interference correction envelope to a collection of even-length 1D arrays.
@@ -240,7 +240,7 @@ def center_envelope_1d(x: np.ndarray):
         _odd_center_envelope(x)
 
 
-@nb.njit
+@nb.njit(cache=True)
 def weighted_mean_a1(array, weight_mask):
     """
     takes an array of shape (a, b) and a mask of shape (a, b)
