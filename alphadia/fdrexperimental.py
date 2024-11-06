@@ -8,9 +8,8 @@ from copy import deepcopy
 # third party imports
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from sklearn import model_selection
+from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
@@ -30,7 +29,6 @@ class Classifier(ABC):
     @abstractmethod
     def fitted(self):
         """Return whether the classifier has been fitted."""
-        pass
 
     @abstractmethod
     def fit(self, x: np.array, y: np.array):
@@ -46,7 +44,6 @@ class Classifier(ABC):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        pass
 
     @abstractmethod
     def predict(self, x: np.array):
@@ -65,7 +62,6 @@ class Classifier(ABC):
             Predicted class of shape (n_samples,).
 
         """
-        pass
 
     @abstractmethod
     def predict_proba(self, x: np.array):
@@ -84,7 +80,6 @@ class Classifier(ABC):
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
-        pass
 
     @abstractmethod
     def to_state_dict(self):
@@ -97,7 +92,6 @@ class Classifier(ABC):
         state_dict : dict
             State dict of the classifier.
         """
-        pass
 
     @abstractmethod
     def from_state_dict(self, state_dict: dict):
@@ -111,7 +105,6 @@ class Classifier(ABC):
             State dict of the classifier.
 
         """
-        pass
 
 
 class BinaryClassifier(Classifier):

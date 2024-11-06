@@ -331,7 +331,9 @@ def get_ion_group_mapping(
 
     score_group_intensity = np.zeros((len(ion_mz)), dtype=np.float32)
 
-    for precursor, mz, intensity in zip(ion_precursor, ion_mz, ion_intensity):  # noqa: B905 ('strict' not supported by numba yet
+    for precursor, mz, intensity in zip(
+        ion_precursor, ion_mz, ion_intensity
+    ):  # ('strict' not supported by numba yet
         # score_group_idx = precursor_group[precursor]
 
         if len(grouped_mz) == 0 or np.abs(grouped_mz[-1] - mz) > EPSILON:

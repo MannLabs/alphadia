@@ -40,7 +40,7 @@ def test_cycle():
     assert cycle_start == rand_cycle_start
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_raw_data():
     if pytest.test_data is None:
         pytest.skip("No test data found")

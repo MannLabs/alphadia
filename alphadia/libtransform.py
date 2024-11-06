@@ -32,7 +32,6 @@ class ProcessingStep:
     def __init__(self) -> None:
         """Base class for processing steps. Each implementation must implement the `validate` and `forward` method.
         Processing steps can be chained together in a ProcessingPipeline."""
-        pass
 
     def __call__(self, *args: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""

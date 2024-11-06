@@ -47,13 +47,13 @@ def rfft2(x: np.array, s: None | tuple = None) -> np.array:
 @overload(rfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
-        return
+        return None
 
     if x.ndim != 2:
-        return
+        return None
 
     if x.dtype != nb.types.float32:
-        return
+        return None
 
     def funcx_impl(x, s=None):
         s, axes = ndshape_and_axes(x, s, (-2, -1))
@@ -98,13 +98,13 @@ def irfft2(x: np.array, s: None | tuple = None) -> np.array:
 @overload(irfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
-        return
+        return None
 
     if x.ndim != 2:
-        return
+        return None
 
     if x.dtype != nb.types.complex64:
-        return
+        return None
 
     def funcx_impl(x, s=None):
         s, axes = ndshape_and_axes(x, s, (-2, -1))
@@ -161,16 +161,16 @@ def convolve_fourier(dense, kernel):
 @overload(convolve_fourier, fastmath=True)
 def _(dense, kernel):
     if not isinstance(dense, nb.types.Array):
-        return
+        return None
 
     if not isinstance(kernel, nb.types.Array):
-        return
+        return None
 
     if kernel.ndim != 2:
-        return
+        return None
 
     if dense.ndim < 2:
-        return
+        return None
 
     if dense.ndim == 2:
 
