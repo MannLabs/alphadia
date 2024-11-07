@@ -7,7 +7,7 @@
 # slurm parameters
 nnodes=1
 ntasks_per_node=1
-cpus=32
+cpus=12
 mem='250G'
 # Search parameters
 input_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/"
