@@ -88,7 +88,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py \
 	--input_directory "${input_directory}" \
-	--target_directory "${target_directory}" \
+	--target_directory "${predicted_library_directory}" \
 	--fasta_path "${fasta_path}" \
 	--library_path "${library_path}" \
 	--config_filename "${first_search_config_filename}" \

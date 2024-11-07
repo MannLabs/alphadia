@@ -32,7 +32,7 @@ config['library_prediction']['predict'] = True
 config.pop('raw_path_list', None)
 
 # set output directory for predicted spectral library
-config['output_directory'] = os.path.join(args.target_directory, 'predicted_speclib/')
+config['output_directory'] = os.path.join(args.target_directory)
 
 # write speclib_config.yaml to input directory for the library prediction
 with open(os.path.join(config['output_directory'], 'speclib_config.yaml'), 'w') as file:
