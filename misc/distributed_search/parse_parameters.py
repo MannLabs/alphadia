@@ -32,6 +32,8 @@ with open(os.path.join(args.input_directory, args.config_filename), 'r') as file
 config['general']['reuse_quant'] = True if args.reuse_quant == "1" else False
 
 # library must be predicted/annotated prior to chunking
+if 'library_prediction' not in config:
+    config['library_prediction'] = {}
 config['library_prediction']['predict'] = False
 
 # remove any fasta if one is present in the config file
