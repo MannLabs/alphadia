@@ -7,7 +7,7 @@
 # slurm parameters
 nnodes=1
 ntasks_per_node=1
-cpus=12
+cpus=32
 mem='250G'
 # Search parameters
 input_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/"
@@ -50,6 +50,9 @@ while [[ "$#" -gt 0 ]]; do
 	shift
 done
 
+	# generate timestamp in YYYMMDDHHMM format
+	timestamp=$(date + "%Y%m%d%H%M")
+
 	# create logs directory if it does not exist
 	mkdir -p ./logs
 
@@ -57,7 +60,7 @@ done
 	rm -rf ${target_directory}
 	mkdir ${target_directory}
 
-	predicted_library_directory="${target_directory}predicted_speclib/"
+	predicted_library_directory="${target_directory}predicted_speclib_${timestamp}/"
 	mkdir -p ${predicted_library_directory}
 
 	first_search_directory="${target_directory}first_search/"
