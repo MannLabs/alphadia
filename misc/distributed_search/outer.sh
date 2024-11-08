@@ -57,10 +57,6 @@ echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
-# generate timestamp in YYYMMDDHHMM format
-timestamp=$(date + "%Y%m%d%H%M")
-timestamp=""	
-
 # create logs directory if it does not exist
 mkdir -p ./logs
 
@@ -68,7 +64,7 @@ mkdir -p ./logs
 rm -rf ${target_directory}
 mkdir ${target_directory}
 
-predicted_library_directory="${target_directory}predicted_speclib${timestamp}/"
+predicted_library_directory="${target_directory}predicted_speclib/"
 mkdir -p ${predicted_library_directory}
 
 first_search_directory="${target_directory}first_search/"
