@@ -64,7 +64,7 @@ mkdir -p ./logs
 rm -rf ${target_directory}
 mkdir ${target_directory}
 
-predicted_library_directory="${target_directory}predicted_speclib/"
+predicted_library_directory="${target_directory}1_predicted_speclib/"
 mkdir -p ${predicted_library_directory}
 
 first_search_directory="${target_directory}first_search/"
@@ -103,8 +103,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# call alphadia to predict spectral library
 	echo "Predicting spectral library with AlphaDIA"
-	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	sbatch --wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
