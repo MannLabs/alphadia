@@ -7,6 +7,7 @@
 # Set behavior when errors are encountered
 set -e -u -x
 
+# Default search parameters
 nnodes=1
 ntasks_per_node=1
 cpus=32
