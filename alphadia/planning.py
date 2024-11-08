@@ -312,6 +312,7 @@ class Plan:
 
         workflow_folder_list = []
 
+        run_info = {}  # alternative
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
@@ -356,6 +357,11 @@ class Plan:
                 psm_df.to_parquet(psm_location, index=False)
                 frag_df.to_parquet(frag_location, index=False)
 
+                # alternative
+                run_info[raw_name] = {
+                    "gradient_length": workflow.dia_data.rt_values.max()
+                }
+
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
                 continue
@@ -376,7 +382,11 @@ class Plan:
                 os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
             )
 
-            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output = outputtransform.SearchPlanOutput(
+                self.config,
+                self.output_folder,
+                # run_info # alternative
+            )
             output.build(workflow_folder_list, base_spec_lib)
         except Exception as e:
             _log_exception_event(e)
