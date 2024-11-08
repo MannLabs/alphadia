@@ -17,6 +17,9 @@ mbr_library=1
 second_search=1
 lfq=1
 
+# Default search configuration file
+search_config="search.config"
+
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
