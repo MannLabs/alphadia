@@ -4,7 +4,9 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
-# Default SLURM parameters
+# Set behavior when errors are encountered
+set -e -u -x
+
 nnodes=1
 ntasks_per_node=1
 cpus=32
