@@ -1,6 +1,7 @@
 import pandas as pd
 from pathlib import Path
 import regex as re
+import sys
 
 def match_files(
     project_regex: str,
@@ -37,31 +38,36 @@ def match_files(
     out_frame = pd.DataFrame(columns=['project','filepath'], index=range(len(_matched_paths)))
     out_frame['project'] = project_regex
     out_frame['filepath'] = _matched_paths
-
+    
     return out_frame
 
 if __name__ == '__main__':
-	
-	import argparse
-	import os
-	
-	parser = argparse.ArgumentParser(
+    
+    import argparse
+    import os
+    
+    parser = argparse.ArgumentParser(
 		prog = "Discovering project filenames",
 		description = "Search project files based on regex string and put them into a csv file for distributed processing")
-	parser.add_argument('--project_regex')
-	parser.add_argument('--source_directories', nargs='+', help='List of source directories')
-	parser.add_argument('--search_recursively', action='store_true')
-	parser.add_argument('--file_ending', default='raw')
-	parser.add_argument('--output_filename')
-	args = parser.parse_args()
+    parser.add_argument('--project_regex', help='Regex string to match project files')
+    parser.add_argument('--source_directories', nargs='+', help='List of source directories')
+    parser.add_argument('--search_recursively', action='store_true')
+    parser.add_argument('--file_ending', default='raw')
+    parser.add_argument('--output_filename', default='file_list.csv')
 
-	out_frame = match_files(
+    if len(sys.argv) == 1:
+        parser.print_help(sys.stderr)
+        sys.exit(1)
+
+    args = parser.parse_args()
+    
+    out_frame = match_files(
 		args.project_regex,
 		args.source_directories,
 		args.search_recursively,
 		args.file_ending,
 	)
-
-	output_path = args.output_filename if os.path.isabs(args.output_filename) else os.path.join('./', args.output_filename)
-	out_frame.to_csv(output_path, index=False)
+    
+    output_path = args.output_filename if os.path.isabs(args.output_filename) else os.path.join('./', args.output_filename)
+    out_frame.to_csv(output_path, index=False)
 	

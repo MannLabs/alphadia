@@ -4,6 +4,9 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
+# Set behavior when errors are encountered
+set -e -u -x
+
 # slurm parameters
 nnodes=1
 ntasks_per_node=1
