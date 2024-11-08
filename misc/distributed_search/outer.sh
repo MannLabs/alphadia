@@ -4,20 +4,13 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
-# slurm parameters
+# Default SLURM parameters
 nnodes=1
 ntasks_per_node=1
 cpus=32
 mem='250G'
-# Search parameters
-input_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/"
-input_filename="file_list.csv"
-target_directory="/fs/home/brennsteiner/alphadia/distributed_search_test/search/"
-library_path="/fs/home/brennsteiner/alphadia/distributed_search_test/48_fraction_hela_PaSk_orbitrap_ms2.hdf"
-fasta_path="/fs/home/brennsteiner/alphadia/distributed_search_test/uniprotkb_proteome_UP000005640_2023_11_12.fasta"
-first_search_config_filename="config.yaml"
-second_search_config_filename="config.yaml"
-# Search flags
+
+# Default search flags
 predict_library=1
 first_search=1
 mbr_library=1
@@ -27,13 +20,7 @@ lfq=1
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
-		--input_directory) input_directory="$2"; shift ;;
-		--input_filename) input_filename="$2"; shift ;;
-		--target_directory) target_directory="$2"; shift ;;
-		--library_path) library_path="$2"; shift ;;
-		--fasta_path) fasta_path="$2"; shift ;;
-		--first_search_config_filename) first_search_config_filename="$2"; shift ;;
-		--second_search_config_filename) second_search_config_filename="$2"; shift ;;
+		--search_config) search_config="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
 		--ntasks_per_node) ntasks_per_node="$2"; shift ;;
@@ -50,37 +37,51 @@ while [[ "$#" -gt 0 ]]; do
 	shift
 done
 
-	# generate timestamp in YYYMMDDHHMM format
-	timestamp=$(date + "%Y%m%d%H%M")
-	timestamp=""	
+# Source search configuration
+if [[ -n "${search_config}" ]]; then
+	source ./${search_config}
+	echo "Using search config: ${search_config}"
+else
+	echo "No search config provided, exiting"
+	exit 1
+fi
 
-	# create logs directory if it does not exist
-	mkdir -p ./logs
+# report set parameters
+echo "Search config: ${search_config}"
+echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
+echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
-	# remove and create target directory
-	rm -rf ${target_directory}
-	mkdir ${target_directory}
+# generate timestamp in YYYMMDDHHMM format
+timestamp=$(date + "%Y%m%d%H%M")
+timestamp=""	
 
-	predicted_library_directory="${target_directory}predicted_speclib${timestamp}/"
-	mkdir -p ${predicted_library_directory}
+# create logs directory if it does not exist
+mkdir -p ./logs
 
-	first_search_directory="${target_directory}first_search/"
-	mkdir -p ${first_search_directory}
+# remove and create target directory
+rm -rf ${target_directory}
+mkdir ${target_directory}
 
-	mbr_library_directory="${target_directory}mbr_library/"
-	mkdir -p ${mbr_library_directory}
-	
-	mbr_progress_directory="${target_directory}mbr_library/chunk_0/.progress/"
-	mkdir -p ${mbr_progress_directory}
+predicted_library_directory="${target_directory}predicted_speclib${timestamp}/"
+mkdir -p ${predicted_library_directory}
 
-	second_search_directory="${target_directory}second_search/"
-	mkdir -p ${second_search_directory}
+first_search_directory="${target_directory}first_search/"
+mkdir -p ${first_search_directory}
 
-	lfq_directory="${target_directory}lfq/"
-	mkdir -p ${lfq_directory}
+mbr_library_directory="${target_directory}mbr_library/"
+mkdir -p ${mbr_library_directory}
 
-	lfq_progress_directory="${target_directory}lfq/chunk_0/.progress/"
-	mkdir -p ${lfq_progress_directory}
+mbr_progress_directory="${target_directory}mbr_library/chunk_0/.progress/"
+mkdir -p ${mbr_progress_directory}
+
+second_search_directory="${target_directory}second_search/"
+mkdir -p ${second_search_directory}
+
+lfq_directory="${target_directory}lfq/"
+mkdir -p ${lfq_directory}
+
+lfq_progress_directory="${target_directory}lfq/chunk_0/.progress/"
+mkdir -p ${lfq_progress_directory}
 
 ### PREDICT LIBRARY ###
 
