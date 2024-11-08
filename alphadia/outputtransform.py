@@ -982,6 +982,8 @@ def _build_run_stat_df(
             base_dict["rt_error"] = np.nan
             base_dict["mobility_error"] = np.nan
 
+        base_dict["gradient_length_m"] = channel_df["gradient_length"].max() / 60
+
         out_df.append(base_dict)
 
     return pd.DataFrame(out_df)

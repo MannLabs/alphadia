@@ -864,6 +864,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragments_df["candidate_idx"].isin(precursor_df["candidate_idx"])
         ]
 
+        precursor_df["gradient_length"] = self.dia_data.rt_values.max()
+
         self.log_precursor_df(precursor_df)
 
         return precursor_df, fragments_df
