@@ -4,8 +4,9 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
-# Set behavior when errors are encountered
-set -e -u -x
+# Set behavior when errors are encountered 
+# TODO: unresolved issues with failing on error due to library generation steps expecting AlphaDIA to fail since there are no rawfiles.
+# set -e -u -x
 
 # Default search parameters
 nnodes=1
