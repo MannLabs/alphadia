@@ -105,7 +105,6 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output=./../../logs/%j-speclib-slurm.out \
 	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
 
 	# navigate back to home directory
