@@ -4,7 +4,8 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
-# Set behavior when errors are encountered
+# Set behavior when errors are encountered 
+# # TODO: unresolved issues with failing on error due to library generation steps expecting AlphaDIA to fail since there are no rawfiles.
 # set -e -u -x
 
 # Default search parameters
@@ -103,8 +104,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# call alphadia to predict spectral library
 	echo "Predicting spectral library with AlphaDIA"
-	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	sbatch --wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \

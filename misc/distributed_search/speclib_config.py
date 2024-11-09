@@ -26,6 +26,8 @@ config['fasta_list'] = [args.fasta_path] if args.fasta_path else []
 config['library'] = args.library_path if args.library_path else None
 
 # set library prediction to True
+if 'library_prediction' not in config:
+    config['library_prediction'] = {}
 config['library_prediction']['predict'] = True
 
 # remove rawfiles for prediction step in case some are set
