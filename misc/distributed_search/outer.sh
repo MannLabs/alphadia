@@ -5,7 +5,7 @@
 #SBATCH --output=./logs/%j-%x-slurm.out
 
 # Set behavior when errors are encountered
-set -e -u -x
+# set -e -u -x
 
 # Default search parameters
 nnodes=1
@@ -64,25 +64,25 @@ mkdir -p ./logs
 rm -rf ${target_directory}
 mkdir ${target_directory}
 
-predicted_library_directory="${target_directory}predicted_speclib/"
+predicted_library_directory="${target_directory}1_predicted_speclib/"
 mkdir -p ${predicted_library_directory}
 
-first_search_directory="${target_directory}first_search/"
+first_search_directory="${target_directory}2_first_search/"
 mkdir -p ${first_search_directory}
 
-mbr_library_directory="${target_directory}mbr_library/"
+mbr_library_directory="${target_directory}3_mbr_library/"
 mkdir -p ${mbr_library_directory}
 
-mbr_progress_directory="${target_directory}mbr_library/chunk_0/.progress/"
+mbr_progress_directory="${target_directory}3_mbr_library/chunk_0/.progress/"
 mkdir -p ${mbr_progress_directory}
 
-second_search_directory="${target_directory}second_search/"
+second_search_directory="${target_directory}4_second_search/"
 mkdir -p ${second_search_directory}
 
-lfq_directory="${target_directory}lfq/"
+lfq_directory="${target_directory}5_lfq/"
 mkdir -p ${lfq_directory}
 
-lfq_progress_directory="${target_directory}lfq/chunk_0/.progress/"
+lfq_progress_directory="${target_directory}5_lfq/chunk_0/.progress/"
 mkdir -p ${lfq_progress_directory}
 
 ### PREDICT LIBRARY ###
