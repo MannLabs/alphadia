@@ -172,8 +172,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 
 	# we force the single array to select the correct chunk and run the library building search
 	echo "Performing library building search on all quant files from first search"
-	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	sbatch --wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
