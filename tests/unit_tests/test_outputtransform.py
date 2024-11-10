@@ -134,8 +134,9 @@ def test_output_transform():
         os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
-    assert stat_df["ms2_error"][0] == 6
-    assert stat_df["rt_error"][0] == 200
+
+    assert stat_df["optimization.ms2_error"][0] == 6
+    assert stat_df["optimization.rt_error"][0] == 200
 
     assert all(
         [
