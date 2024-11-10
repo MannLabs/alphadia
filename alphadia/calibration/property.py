@@ -75,6 +75,7 @@ class Calibration:
             float(transform_deviation) if transform_deviation is not None else None
         )
         self.is_fitted = False
+        self.metrics = None
 
     def __repr__(self) -> str:
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"
@@ -175,7 +176,9 @@ class Calibration:
             logging.error(f"Could not fit estimator {self.name}: {e}")
             return
 
-        if plot is True:
+        self._save_metrics(dataframe)
+
+        if plot:
             self.plot(dataframe, **kwargs)
 
     def predict(self, dataframe, inplace=True):
@@ -296,6 +299,13 @@ class Calibration:
             ],
             axis=1,
         )
+
+    def _save_metrics(self, dataframe):
+        deviation = self.deviation(dataframe)
+        self.metrics = {
+            "median_accuracy": np.median(np.abs(deviation[:, 1])),
+            "median_precision": np.median(np.abs(deviation[:, 2])),
+        }
 
     def ci(self, dataframe, ci: float = 0.95):
         """Calculate the residual deviation at the given confidence interval.

@@ -2,6 +2,7 @@
 import logging
 import os
 import pickle
+import traceback
 import typing
 from collections import defaultdict
 from copy import deepcopy
@@ -82,10 +83,15 @@ class BaseManager:
             try:
                 with open(self.path, "wb") as f:
                     pickle.dump(self, f)
-            except Exception:
+            except Exception as e:
                 self.reporter.log_string(
-                    f"Failed to save {self.__class__.__name__} to {self.path}",
+                    f"Failed to save {self.__class__.__name__} to {self.path}: {str(e)}",
                     verbosity="error",
+                )
+                # Log the full traceback
+
+                self.reporter.log_string(
+                    f"Traceback: {traceback.format_exc()}", verbosity="error"
                 )
 
     def load(self):
