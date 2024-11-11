@@ -127,7 +127,6 @@ fi
 ### FIRST SEARCH ###
 
 if [[ "$first_search" -eq 1 ]]; then
-	echo "Performing first search"
 	
 	# generate subdirectories for chunked first search
 	first_search_subdirectories=$(python ./parse_parameters.py \
@@ -159,7 +158,6 @@ fi
 ### MBR LIBRARY building ### --> simply reuse inner.sh with one chunk containing all files
 
 if [[ "$mbr_library" -eq 1 ]]; then
-	echo "Performing MBR library building"
 
 	# set mbr library directory to the quant files from the first search
 	mbr_library_subdirectories=$(python ./parse_parameters.py \
@@ -175,7 +173,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	slurm_array="0-0%1"
 
 	# we force the single array to select the correct chunk and run the library building search
-	echo "Performing library building search on all quant files from first search"
+	echo "Performing MBR library building search on all quant files from first search"
 	sbatch --array=${slurm_array} \
 	--wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
@@ -189,7 +187,6 @@ fi
 ### SECOND SEARCH ###
 
 if [[ "$second_search" -eq 1 ]]; then
-	echo "Performing second search"
 
 	second_search_subdirectories=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
@@ -220,7 +217,6 @@ fi
 ### LFQ ###
 
 if [[ "$lfq" -eq 1 ]]; then
-	echo "Performing LFQ"
 
 	# set lfq directory to the quant files from the second search
 	lfq_subdirectories=$(python ./parse_parameters.py \
