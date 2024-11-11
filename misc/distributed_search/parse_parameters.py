@@ -67,7 +67,7 @@ for i in range(0, max_tasks):
     if os.path.exists(args.library_path) and os.path.basename(args.library_path).endswith('.hdf'):
         lib_source = args.library_path
     else:
-        print("No valid library_path to a .hdf file provided and no valid library path to a .hdf file specified in config file, exiting...")
+        print("No valid library_path to a .hdf file provided and no valid library path to a .hdf file specified in config file, exiting...", file=sys.stderr)
         sys.exit(1)
 
     # copy library into chunk folder to avoid simultaneous reads of the same library

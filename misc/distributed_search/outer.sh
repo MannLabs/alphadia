@@ -6,7 +6,7 @@
 
 # Set behavior when errors are encountered 
 # # TODO: unresolved issues with failing on error due to library generation steps expecting AlphaDIA to fail since there are no rawfiles.
-# set -e -u -x
+set -u -x
 
 # Default search parameters
 nnodes=1
