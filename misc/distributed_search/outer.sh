@@ -61,10 +61,6 @@ echo "Search flags: predict_library=${predict_library}, first_search=${first_sea
 # create logs directory if it does not exist
 mkdir -p ./logs
 
-# Evaluate no restarting of target directory for researching single steps
-# rm -rf ${target_directory}
-# mkdir ${target_directory}
-
 predicted_library_directory="${target_directory}1_predicted_speclib/"
 mkdir -p ${predicted_library_directory}
 
