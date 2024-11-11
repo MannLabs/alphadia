@@ -102,9 +102,13 @@ if [[ "$predict_library" -eq 1 ]]; then
 	home_directory=$(pwd)
 	cd "${predicted_library_directory}"	
 
+	# create slurm array with length 1
+	slurm_array="0-0%1"
+
 	# call alphadia to predict spectral library
 	echo "Predicting spectral library with AlphaDIA"
-	sbatch --wait --nodes=1 \
+	sbatch --array=${slurm_array} \
+	--wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
@@ -172,7 +176,8 @@ if [[ "$mbr_library" -eq 1 ]]; then
 
 	# we force the single array to select the correct chunk and run the library building search
 	echo "Performing library building search on all quant files from first search"
-	sbatch --wait --nodes=1 \
+	sbatch --array=${slurm_array} \
+	--wait --nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
