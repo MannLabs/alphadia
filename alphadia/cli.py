@@ -98,7 +98,7 @@ parser.add_argument(
 parser.add_argument(
     "--custom-quant-dir",
     type=str,
-    help="Custom directory for distributed search, containing psm and frag parquet files",
+    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search",
     nargs="?",
     default=None,
 )

@@ -1,4 +1,7 @@
-# modify config to include fasta for library prediction
+# Modify config.yaml file for spectral library prediction by removing any 
+# rawfiles that may be set, setting prediction to True and adding 
+# library/fasta paths. Since spectral library prediction should take place 
+# with the same settings as the first search, the config filename is hard-coded.
 
 import os
 import yaml

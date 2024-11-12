@@ -1,3 +1,9 @@
+# Discover project files by searching a project regex. Attempted to make this 
+# as fast as possible by running rglob/glob search to get all filepaths with 
+# correct endings into a dict, and then searching that dict with the actual 
+# project-specific regex. Searching the dict is significantly faster than 
+# stepping through all directories and subdirectories and running re.search.
+
 import pandas as pd
 from pathlib import Path
 import regex as re

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 
-# set Slurm block 
+# Run alphadia with custom quantification directory. The point here is to use 
+# the slurm_index to find the proper chunk folder.
+
 #SBATCH --job-name=alphaDIA
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%A_%a_%x-slurm.out

@@ -1,4 +1,11 @@
 # Parse input parameters for distributed AlphaDIA search
+# The objective is to pull as much logic from the outer and inner shell scripts 
+# into a python script for easier reading/debugging. This script splits filepaths 
+# into properly sized chunks, creates chunk folders, copies the spectral library 
+# to each chunk folder*, writes an adapted config.yaml file for each chunk 
+# (i.e. a config.yaml which contains the filepaths for that specific chunk 
+# for running inner.sh).
+# *Temporary solution to avoid simultaneous reads of the same library file.
 
 import os
 import sys

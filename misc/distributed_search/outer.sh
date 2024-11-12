@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+# Main script, sets source and destination folders, which csv file to read 
+# in order to get rawfile paths. Walks through the steps of a distributed
+# search, waiting for each one to be finished before initializing 
+# the next one. For searches, the "inner.sh" script is called. For predicting 
+# speclibs, alphadia is run directly without rawfiles.
+
 #SBATCH --job-name=dist_AD
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
