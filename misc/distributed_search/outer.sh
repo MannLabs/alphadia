@@ -67,25 +67,25 @@ echo "Search flags: predict_library=${predict_library}, first_search=${first_sea
 # create logs directory if it does not exist
 mkdir -p ./logs
 
-predicted_library_directory="${target_directory}1_predicted_speclib/"
+predicted_library_directory="${target_directory}/1_predicted_speclib"
 mkdir -p ${predicted_library_directory}
 
-first_search_directory="${target_directory}2_first_search/"
+first_search_directory="${target_directory}/2_first_search"
 mkdir -p ${first_search_directory}
 
-mbr_library_directory="${target_directory}3_mbr_library/"
+mbr_library_directory="${target_directory}/3_mbr_library"
 mkdir -p ${mbr_library_directory}
 
-mbr_progress_directory="${target_directory}3_mbr_library/chunk_0/.progress/"
+mbr_progress_directory="${target_directory}/3_mbr_library/chunk_0/.progress"
 mkdir -p ${mbr_progress_directory}
 
-second_search_directory="${target_directory}4_second_search/"
+second_search_directory="${target_directory}/4_second_search"
 mkdir -p ${second_search_directory}
 
-lfq_directory="${target_directory}5_lfq/"
+lfq_directory="${target_directory}/5_lfq"
 mkdir -p ${lfq_directory}
 
-lfq_progress_directory="${target_directory}5_lfq/chunk_0/.progress/"
+lfq_progress_directory="${target_directory}/5_lfq/chunk_0/.progress"
 mkdir -p ${lfq_progress_directory}
 
 ### PREDICT LIBRARY ###
@@ -121,7 +121,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	cd "${home_directory}"
 
 	# if prediction took place, let the new speclib.hdf be the library path
-	library_path="${predicted_library_directory}speclib.hdf"
+	library_path="${predicted_library_directory}/speclib.hdf"
 else
 	echo "Skipping library prediction"
 fi
@@ -197,7 +197,7 @@ if [[ "$second_search" -eq 1 ]]; then
 	--target_directory "${second_search_directory}" \
 	--nnodes ${nnodes} \
 	--reuse_quant 0 \
-	--library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf")
+	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array for second search
 	IFS=$'\n' read -d '' -r -a subdir_array <<< "$second_search_subdirectories"
@@ -228,7 +228,7 @@ if [[ "$lfq" -eq 1 ]]; then
 	--target_directory "${lfq_directory}" \
 	--nnodes 1 \
 	--reuse_quant 1 \
-	--library_path "${mbr_library_directory}chunk_0/speclib.mbr.hdf")
+	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array with one subdir, which is the quant files from the second search
 	slurm_array="0-0%1"
