@@ -9,7 +9,7 @@
 
 # navigate to chunk directory
 slurm_index=${SLURM_ARRAY_TASK_ID}
-chunk_directory="${target_directory}chunk_${slurm_index}/"
+chunk_directory="${target_directory}/chunk_${slurm_index}/"
 cd $chunk_directory || exit
 
 # determine config file
