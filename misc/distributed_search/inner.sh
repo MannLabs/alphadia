@@ -12,8 +12,8 @@ slurm_index=${SLURM_ARRAY_TASK_ID}
 chunk_directory="${target_directory}/chunk_${slurm_index}/"
 cd $chunk_directory || exit
 
-# determine config file
-config_filename=$(ls | grep "config.yaml")
+# config file fixed as config.yaml
+config_filename="config.yaml"
 
 # run with or without custom quant_dir
 if [ -z "${custom_quant_dir}" ]; then
