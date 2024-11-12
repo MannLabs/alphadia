@@ -67,8 +67,7 @@ for i in range(0, max_tasks):
 
     # create folder for current chunk in target directory. Don't create the folder if it already exists.
     chunk_folder = os.path.join(args.target_directory, "chunk_" + str(i))
-    if not os.path.exists(chunk_folder):
-        os.makedirs(chunk_folder)
+    os.makedirs(chunk_folder, exist_ok=True)
 
     # retrieve library path from config or arguments and copy to chunk folder, set new library path in config
     if os.path.exists(args.library_path) and os.path.basename(args.library_path).endswith('.hdf'):
