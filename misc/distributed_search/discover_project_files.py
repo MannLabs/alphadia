@@ -49,7 +49,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
 		prog = "Discovering project filenames",
 		description = "Search project files based on regex string and put them into a csv file for distributed processing")
-    parser.add_argument('--project_regex', help='Regex string to match project files')
+    parser.add_argument('--project_regex', help='Regex string to match project files', default='.*')
     parser.add_argument('--source_directories', nargs='+', help='List of source directories')
     parser.add_argument('--search_recursively', action='store_true')
     parser.add_argument('--file_ending', default='raw')
