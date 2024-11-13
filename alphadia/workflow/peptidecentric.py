@@ -103,12 +103,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self,
         instance_name: str,
         config: dict,
-        custom_temp_folder: str = None,
+        quant_path: str = None,
     ) -> None:
         super().__init__(
             instance_name,
             config,
-            custom_temp_folder,
+            quant_path,
         )
         self.optlock = None
 

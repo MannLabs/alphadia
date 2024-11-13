@@ -320,7 +320,7 @@ def test_workflow_base():
             assert my_workflow.config["output"] == config["output"]
             assert my_workflow.instance_name == workflow_name
             assert my_workflow.parent_path == os.path.join(
-                config["output"], base.TEMP_FOLDER
+                config["output"], base.QUANT_FOLDER_NAME
             )
             assert my_workflow.path == os.path.join(
                 my_workflow.parent_path, workflow_name

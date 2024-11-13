@@ -14,7 +14,8 @@ from alphadia.workflow import manager, reporting
 
 logger = logging.getLogger()
 
-TEMP_FOLDER = ".progress"
+QUANT_FOLDER_NAME = "quant"
+
 
 
 class WorkflowBase:
@@ -32,7 +33,7 @@ class WorkflowBase:
         self,
         instance_name: str,
         config: dict,
-        custom_temp_folder: str = None,
+        quant_path: str = None,
     ) -> None:
         """
         Parameters
@@ -44,13 +45,13 @@ class WorkflowBase:
         config: dict
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
-        custom_temp_folder: str
-            custom parent_path for workflow folders, relevant for distributed searches
+        quant_path: str
+            path to directory holding quant folders, relevant for distributed searches
 
         """
         self._instance_name: str = instance_name
-        self._parent_path: str = custom_temp_folder or os.path.join(
-            config["output"], TEMP_FOLDER
+        self._parent_path: str = quant_path or os.path.join(
+            config["output"], QUANT_FOLDER_NAME
         )
         self._config: dict = config
         self.reporter: reporting.Pipeline | None = None
