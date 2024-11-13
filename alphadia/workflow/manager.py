@@ -20,6 +20,7 @@ import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.workflow import reporting
+from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
@@ -462,7 +463,7 @@ class CalibrationManager(BaseManager):
 class OptimizationManager(BaseManager):
     def __init__(
         self,
-        config: None | dict = None,
+        config: None | Config = None,
         gradient_length: None | float = None,
         path: None | str = None,
         load_from_file: bool = True,

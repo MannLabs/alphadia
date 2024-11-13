@@ -8,6 +8,7 @@ from alphabase.spectral_library.base import SpecLibBase
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow import manager, reporting
+from alphadia.workflow.config import Config
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 # third party imports
@@ -144,7 +145,7 @@ class WorkflowBase:
         return os.path.join(self.parent_path, self.instance_name)
 
     @property
-    def config(self) -> dict:
+    def config(self) -> Config:
         """Configuration for the workflow."""
         return self._config
 
