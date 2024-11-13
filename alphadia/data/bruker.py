@@ -11,7 +11,6 @@ from numba.core import types
 from numba.experimental import jitclass
 
 from alphadia import utils
-from alphadia.data.stats import log_stats
 from alphadia.exceptions import NotDiaDataError
 
 logger = logging.getLogger()
@@ -95,7 +94,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         # Precompile
         logger.info(f"Successfully imported data from {bruker_d_folder_name}")
-        log_stats(self.rt_values, self.cycle)
 
     def transpose(self):
         # abort if transposed data is already present

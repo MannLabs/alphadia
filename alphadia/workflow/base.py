@@ -21,6 +21,7 @@ class WorkflowBase:
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
 
+    RAW_DATA_MANAGER_PATH = "raw_data_manager.pkl"
     CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
     OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
     TIMING_MANAGER_PATH = "timing_manager.pkl"
@@ -57,6 +58,7 @@ class WorkflowBase:
         self._calibration_manager: manager.CalibrationManager | None = None
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
+        self._raw_file_manager: manager.RawFileManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
@@ -83,9 +85,18 @@ class WorkflowBase:
         self.reporter.context.__enter__()
         self.reporter.log_event("section_start", {"name": "Initialize Workflow"})
 
-        self.reporter.log_event("loading_data", {"progress": 0})
         # load the raw data
-        self._dia_data = self._get_dia_data_object(dia_data_path)
+        self.reporter.log_event("loading_data", {"progress": 0})
+        raw_file_manager = manager.RawFileManager(
+            self.config,
+            path=os.path.join(self.path, self.RAW_DATA_MANAGER_PATH),
+            reporter=self.reporter,
+        )
+
+        self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
+        raw_file_manager.calc_stats(self._dia_data)
+        raw_file_manager.save()
+
         self.reporter.log_event("loading_data", {"progress": 1})
 
         # load the spectral library
