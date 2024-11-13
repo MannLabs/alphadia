@@ -105,7 +105,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	cd "${predicted_library_directory}"	
 
 	# call alphadia to predict spectral library as one task
-	echo "Predicting spectral library with AlphaDIA"
+	echo "Predicting spectral library with AlphaDIA..."
 	sbatch --array="0-0%1" \
 	--wait \
 	--nodes=1 \
@@ -143,7 +143,7 @@ if [[ "$first_search" -eq 1 ]]; then
 	echo "First search array: ${slurm_array}"
 
 	# slurm passes the array index to the inner script, we add the target directory
-	echo "Performing first search in ${subdir_array_length} chunks..."
+	echo "Performing first search in ${num_tasks} chunks..."
 	sbatch --array=${slurm_array} \
 	--wait \
 	--nodes=1 \
@@ -174,7 +174,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	echo "MBR library array: ${slurm_array}"
 
 	# we force the single array to select the correct chunk and run the library building search
-	echo "Performing MBR library building in ${num_tasks} chunks on all quant files from first search"
+	echo "Performing MBR library building in ${num_tasks} chunks on all quant files from first search..."
 	sbatch --array=${slurm_array} \
 	--wait \
 	--nodes=1 \
@@ -204,7 +204,7 @@ if [[ "$second_search" -eq 1 ]]; then
 	echo "Second search array: ${slurm_array}"
 
 	# slurm passes the array index to the inner script, we add the target directory
-	echo "Performing second search in ${subdir_array_length} chunks..."
+	echo "Performing second search in ${num_tasks} chunks..."
 	sbatch --array=${slurm_array} \
 	--wait \
 	--nodes=1 \
@@ -235,7 +235,7 @@ if [[ "$lfq" -eq 1 ]]; then
 	echo "LFQ array: ${slurm_array}"
 
 	# we force the single array to select the correct chunk and run the library building search
-	echo "Performing LFQ on all quant files from second search"
+	echo "Performing LFQ in ${num_tasks} chunks on all quant files from second search..."
 	sbatch --array=${slurm_array} \
 	--wait \
 	--nodes=1 \
