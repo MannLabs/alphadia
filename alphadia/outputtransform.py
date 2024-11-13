@@ -940,11 +940,11 @@ def _build_run_stat_df(
 
     """
     optimization_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH
+        folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME
     )
 
     calibration_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PATH
+        folder, peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME
     )
 
     if channels is None:
@@ -1027,7 +1027,7 @@ def _build_run_stat_df(
 
         if os.path.exists(
             raw_file_manager_path := os.path.join(
-                folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PATH
+                folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
             )
         ):
             raw_file_manager = RawFileManager(
@@ -1073,7 +1073,7 @@ def _build_run_internal_df(
 
     """
     timing_manager_path = os.path.join(
-        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
     )
     raw_name = os.path.basename(folder_path)
 

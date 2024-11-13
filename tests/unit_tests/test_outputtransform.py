@@ -79,13 +79,13 @@ def test_output_transform():
             config,
             path=os.path.join(
                 raw_folder,
-                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
             ),
         )
 
         timing_manager = manager.TimingManager(
             path=os.path.join(
-                raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+                raw_folder, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
             )
         )
 
