@@ -93,13 +93,8 @@ for i in range(0, max_tasks):
     # save the target subdirectory
     target_subdirectories.append(chunk_folder)
 
-# # return the list of target subdirectories
-# for target_subdirectory in target_subdirectories:
-#     print(target_subdirectory)
-    
-# translate list of target subdirectories into a string for SBATCH array
-sbatch_array = f"0-{max_tasks}%{args.nnodes}"
-print(sbatch_array)
+# the only return value needed is number of tasks
+print(max_tasks)
 
     
     

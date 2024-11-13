@@ -104,13 +104,11 @@ if [[ "$predict_library" -eq 1 ]]; then
 	home_directory=$(pwd)
 	cd "${predicted_library_directory}"	
 
-	# create slurm array with length 1
-	slurm_array="0-0%1"
-
-	# call alphadia to predict spectral library
+	# call alphadia to predict spectral library as one task
 	echo "Predicting spectral library with AlphaDIA"
-	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	sbatch --array="0-0%1" \
+	--wait \
+	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
@@ -131,7 +129,7 @@ fi
 if [[ "$first_search" -eq 1 ]]; then
 	
 	# generate subdirectories for chunked first search
-	slurm_array=$(python ./parse_parameters.py \
+	num_tasks=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${first_search_config_filename}" \
@@ -141,14 +139,14 @@ if [[ "$first_search" -eq 1 ]]; then
 	--library_path ${library_path})
 
 	# create slurm array for first search
-	# IFS=$'\n' read -d '' -r -a subdir_array <<< "$first_search_subdirectories"
-	# subdir_array_length=${#subdir_array[@]}
-	# slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
+	slurm_array="0-$(($num_tasks-1))%${nnodes}"
+	echo "First search array: ${slurm_array}"
 
 	# slurm passes the array index to the inner script, we add the target directory
 	echo "Performing first search in ${subdir_array_length} chunks..."
 	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	--wait \
+	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
@@ -162,7 +160,7 @@ fi
 if [[ "$mbr_library" -eq 1 ]]; then
 
 	# set mbr library directory to the quant files from the first search
-	slurm_array=$(python ./parse_parameters.py \
+	num_tasks=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -172,12 +170,14 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	--library_path ${library_path})
 
 	# create slurm array with one subdir, which is the quant files from the first search
-	# slurm_array="0-0%1"
+	slurm_array="0-$(($num_tasks-1))%${nnodes}"
+	echo "MBR library array: ${slurm_array}"
 
 	# we force the single array to select the correct chunk and run the library building search
-	echo "Performing MBR library building search on all quant files from first search"
+	echo "Performing MBR library building in ${num_tasks} chunks on all quant files from first search"
 	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	--wait \
+	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
@@ -190,7 +190,7 @@ fi
 
 if [[ "$second_search" -eq 1 ]]; then
 
-	slurm_array=$(python ./parse_parameters.py \
+	num_tasks=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -200,14 +200,14 @@ if [[ "$second_search" -eq 1 ]]; then
 	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array for second search
-	# IFS=$'\n' read -d '' -r -a subdir_array <<< "$second_search_subdirectories"
-	# subdir_array_length=${#subdir_array[@]}
-	# slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
+	slurm_array="0-$(($num_tasks-1))%${nnodes}"
+	echo "Second search array: ${slurm_array}"
 
 	# slurm passes the array index to the inner script, we add the target directory
 	echo "Performing second search in ${subdir_array_length} chunks..."
 	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	--wait \
+	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
@@ -221,7 +221,7 @@ fi
 if [[ "$lfq" -eq 1 ]]; then
 
 	# set lfq directory to the quant files from the second search
-	slurm_array=$(python ./parse_parameters.py \
+	num_tasks=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -231,12 +231,14 @@ if [[ "$lfq" -eq 1 ]]; then
 	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array with one subdir, which is the quant files from the second search
-	# slurm_array="0-0%1"
+	slurm_array="0-$(($num_tasks-1))%${nnodes}"
+	echo "LFQ array: ${slurm_array}"
 
 	# we force the single array to select the correct chunk and run the library building search
 	echo "Performing LFQ on all quant files from second search"
 	sbatch --array=${slurm_array} \
-	--wait --nodes=1 \
+	--wait \
+	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
