@@ -131,7 +131,7 @@ fi
 if [[ "$first_search" -eq 1 ]]; then
 	
 	# generate subdirectories for chunked first search
-	first_search_subdirectories=$(python ./parse_parameters.py \
+	slurm_array=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${first_search_config_filename}" \
@@ -141,9 +141,9 @@ if [[ "$first_search" -eq 1 ]]; then
 	--library_path ${library_path})
 
 	# create slurm array for first search
-	IFS=$'\n' read -d '' -r -a subdir_array <<< "$first_search_subdirectories"
-	subdir_array_length=${#subdir_array[@]}
-	slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
+	# IFS=$'\n' read -d '' -r -a subdir_array <<< "$first_search_subdirectories"
+	# subdir_array_length=${#subdir_array[@]}
+	# slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
 
 	# slurm passes the array index to the inner script, we add the target directory
 	echo "Performing first search in ${subdir_array_length} chunks..."
@@ -162,7 +162,7 @@ fi
 if [[ "$mbr_library" -eq 1 ]]; then
 
 	# set mbr library directory to the quant files from the first search
-	mbr_library_subdirectories=$(python ./parse_parameters.py \
+	slurm_array=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -172,7 +172,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	--library_path ${library_path})
 
 	# create slurm array with one subdir, which is the quant files from the first search
-	slurm_array="0-0%1"
+	# slurm_array="0-0%1"
 
 	# we force the single array to select the correct chunk and run the library building search
 	echo "Performing MBR library building search on all quant files from first search"
@@ -190,7 +190,7 @@ fi
 
 if [[ "$second_search" -eq 1 ]]; then
 
-	second_search_subdirectories=$(python ./parse_parameters.py \
+	slurm_array=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -200,9 +200,9 @@ if [[ "$second_search" -eq 1 ]]; then
 	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array for second search
-	IFS=$'\n' read -d '' -r -a subdir_array <<< "$second_search_subdirectories"
-	subdir_array_length=${#subdir_array[@]}
-	slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
+	# IFS=$'\n' read -d '' -r -a subdir_array <<< "$second_search_subdirectories"
+	# subdir_array_length=${#subdir_array[@]}
+	# slurm_array="0-$(($subdir_array_length - 1))%${nnodes}" # throttle is nnodes by definition
 
 	# slurm passes the array index to the inner script, we add the target directory
 	echo "Performing second search in ${subdir_array_length} chunks..."
@@ -221,7 +221,7 @@ fi
 if [[ "$lfq" -eq 1 ]]; then
 
 	# set lfq directory to the quant files from the second search
-	lfq_subdirectories=$(python ./parse_parameters.py \
+	slurm_array=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
 	--input_filename "${input_filename}" \
 	--config_filename "${second_search_config_filename}" \
@@ -231,7 +231,7 @@ if [[ "$lfq" -eq 1 ]]; then
 	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
 
 	# create slurm array with one subdir, which is the quant files from the second search
-	slurm_array="0-0%1"
+	# slurm_array="0-0%1"
 
 	# we force the single array to select the correct chunk and run the library building search
 	echo "Performing LFQ on all quant files from second search"
