@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Run alphadia with custom quantification directory. The point here is to use 
+# Run alphadia with custom quantification directory. The point here is to use
 # the slurm_index to find the proper chunk folder.
 
 #SBATCH --job-name=alphaDIA
@@ -17,9 +17,9 @@ config_filename="config.yaml"
 
 # run with or without custom quant_dir
 if [ -z "${custom_quant_dir}" ]; then
-    alphadia --config ${config_filename} 
+    alphadia --config ${config_filename}
 else
-    alphadia --config ${config_filename} --custom-quant-dir ${custom_quant_dir} 
+    alphadia --config ${config_filename} --custom-quant-dir ${custom_quant_dir}
 fi
 
 echo "AlphaDIA completed successfully"

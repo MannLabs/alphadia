@@ -16,6 +16,7 @@ logger = logging.getLogger()
 
 TEMP_FOLDER = ".progress"
 
+
 class WorkflowBase:
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.
@@ -48,7 +49,9 @@ class WorkflowBase:
 
         """
         self._instance_name: str = instance_name
-        self._parent_path: str = custom_temp_folder or os.path.join(config["output"], TEMP_FOLDER)
+        self._parent_path: str = custom_temp_folder or os.path.join(
+            config["output"], TEMP_FOLDER
+        )
         self._config: dict = config
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
