@@ -103,6 +103,7 @@ parser.add_argument(
     default=None,
 )
 
+
 def parse_config(args: argparse.Namespace) -> dict:
     """Parse config file and config update JSON string.
     1. Load config file if specified.
@@ -170,6 +171,7 @@ def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
 
     return output_directory
 
+
 def parse_custom_quant_dir(args: argparse.Namespace, config: dict) -> str:
     """Parse custom quant directory.
     1. Use custom quant directory from config file if specified.
@@ -201,10 +203,13 @@ def parse_custom_quant_dir(args: argparse.Namespace, config: dict) -> str:
 
     if args.custom_quant_dir is not None:
         custom_quant_dir = (
-            utils.windows_to_wsl(args.custom_quant_dir) if args.wsl else args.custom_quant_dir
+            utils.windows_to_wsl(args.custom_quant_dir)
+            if args.wsl
+            else args.custom_quant_dir
         )
 
     return custom_quant_dir
+
 
 def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     """Parse raw file list.
@@ -364,7 +369,9 @@ def run(*args, **kwargs):
 
     logger.progress(f"Saving output to: {output_directory}")
     if custom_quant_dir is not None:
-        logger.progress(f"Saving quantification output to 'custom_quant_dir': {custom_quant_dir}")
+        logger.progress(
+            f"Saving quantification output to 'custom_quant_dir': {custom_quant_dir}"
+        )
 
     try:
         import matplotlib

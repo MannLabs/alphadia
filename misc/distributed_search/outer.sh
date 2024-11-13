@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 
-# Main script, sets source and destination folders, which csv file to read 
+# Main script, sets source and destination folders, which csv file to read
 # in order to get rawfile paths. Walks through the steps of a distributed
-# search, waiting for each one to be finished before initializing 
-# the next one. For searches, the "inner.sh" script is called. For predicting 
+# search, waiting for each one to be finished before initializing
+# the next one. For searches, the "inner.sh" script is called. For predicting
 # speclibs, alphadia is run directly without rawfiles.
 
 #SBATCH --job-name=dist_AD
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
 
-# Set behavior when errors are encountered 
+# Set behavior when errors are encountered
 # # TODO: unresolved issues with failing on error due to library generation steps expecting AlphaDIA to fail since there are no rawfiles.
 set -u -x
 
@@ -102,7 +102,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# log current directory and navigate to predicted speclib directory
 	home_directory=$(pwd)
-	cd "${predicted_library_directory}"	
+	cd "${predicted_library_directory}"
 
 	# call alphadia to predict spectral library as one task
 	echo "Predicting spectral library with AlphaDIA..."
@@ -127,7 +127,7 @@ fi
 ### FIRST SEARCH ###
 
 if [[ "$first_search" -eq 1 ]]; then
-	
+
 	# generate subdirectories for chunked first search
 	num_tasks=$(python ./parse_parameters.py \
 	--input_directory "${input_directory}" \
@@ -246,4 +246,3 @@ if [[ "$lfq" -eq 1 ]]; then
 else
 	echo "Skipping LFQ"
 fi
-
