@@ -25,6 +25,7 @@ from alphadia.outputaccumulator import (
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 logger = logging.getLogger()
 
@@ -1023,6 +1024,30 @@ def _build_run_stat_df(
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
+
+        if os.path.exists(
+            raw_file_manager_path := os.path.join(
+                folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PATH
+            )
+        ):
+            raw_file_manager = RawFileManager(
+                path=raw_file_manager_path, load_from_file=True
+            )
+            prefix = "raw."
+            stats = raw_file_manager.stats
+
+            # deliberately mapping explicitly to avoid coupling stats to the output too tightly
+            base_dict[f"{prefix}rt_limit_min"] = stats["rt_limit_min"]
+            base_dict[f"{prefix}rt_limit_max"] = stats["rt_limit_max"]
+
+            base_dict[f"{prefix}rt_duration_sec"] = stats["rt_duration_sec"]
+
+            base_dict[f"{prefix}cycle_length"] = stats["cycle_length"]
+            base_dict[f"{prefix}cycle_duration"] = stats["cycle_duration"]
+            base_dict[f"{prefix}cycle_number"] = stats["cycle_number"]
+
+            base_dict[f"{prefix}msms_range_min"] = stats["msms_range_min"]
+            base_dict[f"{prefix}msms_range_max"] = stats["msms_range_max"]
 
         out_df.append(base_dict)
 
