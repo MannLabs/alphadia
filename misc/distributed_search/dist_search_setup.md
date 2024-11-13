@@ -20,6 +20,7 @@ Steps to set up a search
 2. Copy all files from alphadia/misc/distributed_search into the search directory
 3. If no .csv file with rawfile paths exists, it can be obtained by running **discover_project_files.py** from the search directory.
 4. Set first and second search configurations in **first_config.yaml** and **second_config.yaml**. For example, number of precursor candidates and inference strategy, as well as mass tolerances may differ between first and second search.
+Leave all the predefined settings in the two .yaml files as they are.
 5. Set the search parameters in **outer.sh**. While these can also be provided as command line arguments, it is convenient to set them in **outer.sh** itself. This file requires the following settings:
     - input_directory: the search directory
     - input_filename: the .csv file containing rawfile paths
