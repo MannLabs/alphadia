@@ -595,7 +595,7 @@ class Pipeline:
         for backend in self.backends:
             backend.log_figure(name, figure, *args, **kwargs)
 
-    def log_metric(self, name: str, value: float, *args, **kwargs):
+    def log_metric(self, name: str, value: float | str, *args, **kwargs):
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
 

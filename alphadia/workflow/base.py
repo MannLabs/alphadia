@@ -4,10 +4,9 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.flat import SpecLibFlat
 
 # alphadia imports
-from alphadia.data import alpharaw, bruker
+from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow import manager, reporting
 
 # third party imports
@@ -51,7 +50,9 @@ class WorkflowBase:
         self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
         self._config: dict = config
         self.reporter: reporting.Pipeline | None = None
-        self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
+        self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (
+            None
+        )
         self._spectral_library: SpecLibBase | None = None
         self._calibration_manager: manager.CalibrationManager | None = None
         self._optimization_manager: manager.OptimizationManager | None = None
@@ -155,20 +156,20 @@ class WorkflowBase:
         return self._timing_manager
 
     @property
-    def spectral_library(self) -> SpecLibFlat:
+    def spectral_library(self) -> SpecLibBase | None:
         """Spectral library for the workflow. Owns the spectral library data"""
         return self._spectral_library
 
     @property
     def dia_data(
         self,
-    ) -> bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT:
+    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
 
     def _get_dia_data_object(
         self, dia_data_path: str
-    ) -> bruker.TimsTOFTranspose | alpharaw.AlphaRaw:
+    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -211,7 +212,7 @@ class WorkflowBase:
             ):
                 cv = self.config["raw_data_loading"]["cv"]
 
-            dia_data = alpharaw.Thermo(
+            dia_data = alpharaw_wrapper.Thermo(
                 dia_data_path,
                 process_count=self.config["general"]["thread_count"],
                 astral_ms1=self.config["general"]["astral_ms1"],
@@ -221,7 +222,7 @@ class WorkflowBase:
         elif file_extension.lower() == ".mzml":
             self.reporter.log_metric("raw_data_type", "mzml")
 
-            dia_data = alpharaw.MzML(
+            dia_data = alpharaw_wrapper.MzML(
                 dia_data_path,
                 process_count=self.config["general"]["thread_count"],
             )
@@ -229,7 +230,7 @@ class WorkflowBase:
         elif file_extension.lower() == ".wiff":
             self.reporter.log_metric("raw_data_type", "sciex")
 
-            dia_data = alpharaw.Sciex(
+            dia_data = alpharaw_wrapper.Sciex(
                 dia_data_path,
                 process_count=self.config["general"]["thread_count"],
             )
