@@ -27,7 +27,7 @@ class RawFileManager(BaseManager):
 
         self._stats = {}
 
-    def get_dia_data_object(  # move to RawFileManager
+    def get_dia_data_object(
         self, dia_data_path: str
     ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw:
         """Get the correct data class depending on the file extension of the DIA data file.

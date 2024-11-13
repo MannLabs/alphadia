@@ -23,6 +23,8 @@ from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 
+# TODO move all managers to dedicated modules
+
 
 class BaseManager:
     def __init__(
