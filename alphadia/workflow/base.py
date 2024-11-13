@@ -33,7 +33,7 @@ class WorkflowBase:
     def __init__(
         self,
         instance_name: str,
-        config: dict,
+        config: Config,
     ) -> None:
         """
         Parameters
@@ -48,7 +48,7 @@ class WorkflowBase:
         """
         self._instance_name: str = instance_name
         self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
-        self._config: dict = config
+        self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (
             None
