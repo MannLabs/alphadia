@@ -16,11 +16,36 @@ This package uses a shared release process defined in the
 
 ## Notes for developers
 ### Debugging
-To debug e2e tests with PyCharm:
+A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
+
+##### Debug e2e tests with PyCharm
 1. Create a "Run/Debug configuration" with
  - "module": `alphadia.cli`
  - "script parameters": `--config /abs/path/to/tests/e2e_tests/basic/config.yaml`
  - "working directory": `/abs/path/to/tests/e2e_tests`
+2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
+3. Run the configuration.
+
+##### Debug e2e tests with VsCode
+1. Create the following debug configuration (`launch.json`):
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Current File with Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "cwd": "/abs/path/to/tests/e2e_tests",
+            "program": "../../alphadia/cli.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--config", "/abs/path/to/tests/e2e_tests/basic/config.yaml"
+            ]
+        }
+    ]
+}
+```
 2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
 3. Run the configuration.
 
