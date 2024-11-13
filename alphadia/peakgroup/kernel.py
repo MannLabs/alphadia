@@ -177,7 +177,6 @@ class GaussianKernel:
         mobility_resolution = np.mean(np.diff(self.dia_data.mobility_values[::-1]))
 
         if verbose:
-            pass
             logger.info(
                 f"Duty cycle consists of {rt_datapoints} frames, {rt_resolution:.2f} seconds cycle time"
             )
@@ -189,7 +188,6 @@ class GaussianKernel:
         mobility_sigma = self.determine_mobility_sigma(mobility_resolution)
 
         if verbose:
-            pass
             logger.info(
                 f"FWHM in RT is {self.fwhm_rt:.2f} seconds, sigma is {rt_sigma:.2f}"
             )

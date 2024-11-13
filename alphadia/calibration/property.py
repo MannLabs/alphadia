@@ -172,7 +172,7 @@ class Calibration:
             self.function.fit(input_values, target_value)
             self.is_fitted = True
         except Exception as e:
-            logging.error(f"Could not fit estimator {self.name}: {e}")
+            logging.exception(f"Could not fit estimator {self.name}: {e}")
             return
 
         if plot is True:
@@ -200,13 +200,13 @@ class Calibration:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
             )
-            return
+            return None
 
         if not set(self.input_columns).issubset(dataframe.columns):
             logging.warning(
                 f"{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe"
             )
-            return
+            return None
 
         input_values = dataframe[self.input_columns].values
 

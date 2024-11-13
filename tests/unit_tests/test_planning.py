@@ -9,7 +9,7 @@ from alphadia import planning
 from alphadia.test_data_downloader import DataShareDownloader
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_fasta_digest():
     # digest & predict new library
     common_contaminants = os.path.join(_const.CONST_FILE_FOLDER, "contaminants.fasta")
@@ -45,7 +45,7 @@ def test_fasta_digest():
     assert len(plan.spectral_library.fragment_df) > 0
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_library_loading():
     temp_directory = tempfile.gettempdir()
 

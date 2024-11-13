@@ -116,7 +116,7 @@ class QuantBuilder:
         raw_name, df = next(df_iterable, (None, None))
         if df is None:
             logger.warning(f"no frag file found for {raw_name}")
-            return
+            return None
 
         df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -886,7 +886,7 @@ class SearchPlanOutput:
 
         if len(psm_df) == 0:
             logger.warning("No precursors found, skipping library building")
-            return
+            return None
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,
