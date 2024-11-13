@@ -21,13 +21,13 @@ class RawFileManager(BaseManager):
         **kwargs,
     ):
         """Contains and updates timing information for the portions of the workflow."""
+        self.stats = {}  # needs to be before super().__init__ to avoid overwriting when loading
+
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         self._config: Config = config
-
-        self._stats = {}
 
     def get_dia_data_object(
         self, dia_data_path: str
@@ -111,36 +111,41 @@ class RawFileManager(BaseManager):
         rt_values = dia_data.rt_values
         cycle = dia_data.cycle
 
-        self._stats["rt_limits"] = rt_values.min() / 60, rt_values.max() / 60
-        self._stats["rt_duration_sec"] = rt_values.max() - rt_values.min()
+        stats = {}
+        stats["rt_limit_min"] = rt_values.min()
+        stats["rt_limit_max"] = rt_values.max()
+
+        stats["rt_duration_sec"] = rt_values.max() - rt_values.min()
 
         cycle_length = cycle.shape[1]
-        self._stats["cycle_length"] = cycle_length
-        self._stats["cycle_duration"] = np.diff(rt_values[::cycle_length]).mean()
-        self._stats["cycle_number"] = len(rt_values) // cycle_length
+        stats["cycle_length"] = cycle_length
+        stats["cycle_duration"] = np.diff(rt_values[::cycle_length]).mean()
+        stats["cycle_number"] = len(rt_values) // cycle_length
 
         flat_cycle = cycle.flatten()
         flat_cycle = flat_cycle[flat_cycle > 0]
 
-        self._stats["msms_range_min"] = flat_cycle.min()
-        self._stats["msms_range_max"] = flat_cycle.max()
+        stats["msms_range_min"] = flat_cycle.min()
+        stats["msms_range_max"] = flat_cycle.max()
+
+        self.stats = stats
 
         self._log_stats()
 
     def _log_stats(self):
         """Log the statistics calculated from the DIA data."""
-        rt_duration_min = self._stats["rt_duration_sec"] / 60
+        rt_duration_min = self.stats["rt_duration_sec"] / 60
 
         logger.info(
-            f"{'RT (min)':<20}: {self._stats['rt_limits'][0]:.1f} - {self._stats['rt_limits'][1]:.1f}"
+            f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
         )
-        logger.info(f"{'RT duration (sec)':<20}: {self._stats['rt_duration_sec']:.1f}")
+        logger.info(f"{'RT duration (sec)':<20}: {self.stats['rt_duration_sec']:.1f}")
         logger.info(f"{'RT duration (min)':<20}: {rt_duration_min:.1f}")
 
-        logger.info(f"{'Cycle len (scans)':<20}: {self._stats['cycle_length']:.0f}")
-        logger.info(f"{'Cycle len (sec)':<20}: {self._stats['cycle_duration']:.2f}")
-        logger.info(f"{'Number of cycles':<20}: {self._stats['cycle_number']:.0f}")
+        logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
+        logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")
+        logger.info(f"{'Number of cycles':<20}: {self.stats['cycle_number']:.0f}")
 
         logger.info(
-            f"{'MS2 range (m/z)':<20}: {self._stats['msms_range_min']:.1f} - {self._stats['msms_range_max']:.1f}"
+            f"{'MS2 range (m/z)':<20}: {self.stats['msms_range_min']:.1f} - {self.stats['msms_range_max']:.1f}"
         )
