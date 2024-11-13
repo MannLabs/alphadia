@@ -364,6 +364,7 @@ def run(*args, **kwargs):
     for f in fasta_path_list:
         logger.progress(f"  {f}")
 
+    # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
     logger.progress(f"Saving output to: {output_directory}")
     if quant_dir is not None:
         logger.progress(f"Saving quantification output to {quant_dir=}")
