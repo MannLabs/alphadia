@@ -24,10 +24,13 @@ class RawFileManager(BaseManager):
         self.stats = {}  # needs to be before super().__init__ to avoid overwriting loaded values
 
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
-        self.reporter.log_string(f"Initializing {self.__class__.__name__}")
-        self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         self._config: Config = config
+
+        # deliberately not saving the actual raw data here to avoid the saved manager file being too large
+
+        self.reporter.log_string(f"Initializing {self.__class__.__name__}")
+        self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
     def get_dia_data_object(
         self, dia_data_path: str
