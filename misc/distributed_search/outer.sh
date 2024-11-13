@@ -76,7 +76,7 @@ mkdir -p ${first_search_directory}
 mbr_library_directory="${target_directory}/3_mbr_library"
 mkdir -p ${mbr_library_directory}
 
-mbr_progress_directory="${target_directory}/3_mbr_library/chunk_0/.progress"
+mbr_progress_directory="${target_directory}/3_mbr_library/chunk_0/quant"
 mkdir -p ${mbr_progress_directory}
 
 second_search_directory="${target_directory}/4_second_search"
@@ -85,7 +85,7 @@ mkdir -p ${second_search_directory}
 lfq_directory="${target_directory}/5_lfq"
 mkdir -p ${lfq_directory}
 
-lfq_progress_directory="${target_directory}/5_lfq/chunk_0/.progress"
+lfq_progress_directory="${target_directory}/5_lfq/chunk_0/quant"
 mkdir -p ${lfq_progress_directory}
 
 ### PREDICT LIBRARY ###
@@ -150,7 +150,7 @@ if [[ "$first_search" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${first_search_directory},custom_quant_dir=${mbr_progress_directory} ./inner.sh
+	--export=ALL,target_directory=${first_search_directory},quant_dir=${mbr_progress_directory} ./inner.sh
 else
 	echo "Skipping first search"
 fi
@@ -211,7 +211,7 @@ if [[ "$second_search" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${second_search_directory},custom_quant_dir=${lfq_progress_directory} ./inner.sh
+	--export=ALL,target_directory=${second_search_directory},quant_dir=${lfq_progress_directory} ./inner.sh
 else
 	echo "Skipping second search"
 fi
