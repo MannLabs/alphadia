@@ -22,7 +22,7 @@ class WorkflowBase:
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
 
-    RAW_DATA_MANAGER_PATH = "raw_data_manager.pkl"
+    RAW_FILE_MANAGER_PATH = "raw_file_manager.pkl"
     CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
     OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
     TIMING_MANAGER_PATH = "timing_manager.pkl"
@@ -39,10 +39,7 @@ class WorkflowBase:
         ----------
 
         instance_name: str
-            Name for the particular workflow instance. this will usually be the name of the raw file
-
-        parent_path: str
-            Path where the workflow folder will be created
+            Name for the particular workflow instance. This will usually be the name of the raw file
 
         config: dict
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
@@ -89,7 +86,7 @@ class WorkflowBase:
         self.reporter.log_event("loading_data", {"progress": 0})
         raw_file_manager = RawFileManager(
             self.config,
-            path=os.path.join(self.path, self.RAW_DATA_MANAGER_PATH),
+            path=os.path.join(self.path, self.RAW_FILE_MANAGER_PATH),
             reporter=self.reporter,
         )
 

@@ -6,6 +6,7 @@ import os
 import numpy as np
 
 from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.workflow.config import Config
 from alphadia.workflow.manager import BaseManager
 
 logger = logging.getLogger()
@@ -14,7 +15,7 @@ logger = logging.getLogger()
 class RawFileManager(BaseManager):
     def __init__(
         self,
-        config: None | dict = None,
+        config: None | Config = None,
         path: None | str = None,
         **kwargs,
     ):
@@ -23,7 +24,7 @@ class RawFileManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-        self._config = config
+        self._config: Config = config
 
         self._stats = {}
 
@@ -66,7 +67,7 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
 
-            cv = self._config.get(["raw_data_loading"], {}).get("cv")
+            cv = self._config.get("raw_data_loading", {}).get("cv")
 
             dia_data = alpharaw_wrapper.Thermo(
                 dia_data_path,
