@@ -839,7 +839,8 @@ class RawFileManager(BaseManager):
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
-        if self._config["general"]["wsl"]:
+        is_wsl = self._config["general"]["wsl"]
+        if is_wsl:
             # copy file to /tmp # TODO why is that?
             import shutil
 
@@ -849,21 +850,16 @@ class RawFileManager(BaseManager):
             dia_data_path = tmp_dia_data_path
 
         if file_extension.lower() == ".d" or file_extension.lower() == ".hdf":
-            self.reporter.log_metric("raw_data_type", "bruker")
+            raw_data_type = "bruker"
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".raw":
-            self.reporter.log_metric("raw_data_type", "thermo")
-            # check if cv selection exists
-            cv = None
-            if (
-                "raw_data_loading" in self._config
-                and "cv" in self._config["raw_data_loading"]
-            ):
-                cv = self._config["raw_data_loading"]["cv"]
+            raw_data_type = "thermo"
+
+            cv = self._config.get(["raw_data_loading"], {}).get("cv")
 
             dia_data = alpharaw_wrapper.Thermo(
                 dia_data_path,
@@ -873,7 +869,7 @@ class RawFileManager(BaseManager):
             )
 
         elif file_extension.lower() == ".mzml":
-            self.reporter.log_metric("raw_data_type", "mzml")
+            raw_data_type = "mzml"
 
             dia_data = alpharaw_wrapper.MzML(
                 dia_data_path,
@@ -881,7 +877,7 @@ class RawFileManager(BaseManager):
             )
 
         elif file_extension.lower() == ".wiff":
-            self.reporter.log_metric("raw_data_type", "sciex")
+            raw_data_type = "sciex"
 
             dia_data = alpharaw_wrapper.Sciex(
                 dia_data_path,
@@ -893,8 +889,10 @@ class RawFileManager(BaseManager):
                 f"Unknown file extension {file_extension} for file at {dia_data_path}"
             )
 
+        self.reporter.log_metric("raw_data_type", raw_data_type)
+
         # remove tmp file if wsl
-        if self._config["general"]["wsl"]:
+        if is_wsl:
             os.remove(tmp_dia_data_path)
 
         return dia_data
