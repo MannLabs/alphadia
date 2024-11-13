@@ -17,10 +17,11 @@ class RawFileManager(BaseManager):
         self,
         config: None | Config = None,
         path: None | str = None,
+        load_from_file: bool = False,
         **kwargs,
     ):
         """Contains and updates timing information for the portions of the workflow."""
-        super().__init__(path=path, load_from_file=False, **kwargs)
+        super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
