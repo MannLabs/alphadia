@@ -8,6 +8,7 @@ from alphabase.spectral_library.base import SpecLibBase
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow import manager, reporting
+from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 # third party imports
 
@@ -58,7 +59,6 @@ class WorkflowBase:
         self._calibration_manager: manager.CalibrationManager | None = None
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
-        self._raw_file_manager: manager.RawFileManager | None = None
 
         if not os.path.exists(self.parent_path):
             logger.info(f"Creating parent folder for workflows at {self.parent_path}")
@@ -87,7 +87,7 @@ class WorkflowBase:
 
         # load the raw data
         self.reporter.log_event("loading_data", {"progress": 0})
-        raw_file_manager = manager.RawFileManager(
+        raw_file_manager = RawFileManager(
             self.config,
             path=os.path.join(self.path, self.RAW_DATA_MANAGER_PATH),
             reporter=self.reporter,
