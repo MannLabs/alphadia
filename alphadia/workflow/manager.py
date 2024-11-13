@@ -816,7 +816,7 @@ class RawFileManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-        self.config = config
+        self._config = config
 
         self._stats = {}
 
@@ -839,7 +839,7 @@ class RawFileManager(BaseManager):
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
-        if self.config["general"]["wsl"]:
+        if self._config["general"]["wsl"]:
             # copy file to /tmp # TODO why is that?
             import shutil
 
@@ -852,7 +852,7 @@ class RawFileManager(BaseManager):
             self.reporter.log_metric("raw_data_type", "bruker")
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
-                mmap_detector_events=self.config["general"]["mmap_detector_events"],
+                mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".raw":
@@ -860,15 +860,15 @@ class RawFileManager(BaseManager):
             # check if cv selection exists
             cv = None
             if (
-                "raw_data_loading" in self.config
-                and "cv" in self.config["raw_data_loading"]
+                "raw_data_loading" in self._config
+                and "cv" in self._config["raw_data_loading"]
             ):
-                cv = self.config["raw_data_loading"]["cv"]
+                cv = self._config["raw_data_loading"]["cv"]
 
             dia_data = alpharaw_wrapper.Thermo(
                 dia_data_path,
-                process_count=self.config["general"]["thread_count"],
-                astral_ms1=self.config["general"]["astral_ms1"],
+                process_count=self._config["general"]["thread_count"],
+                astral_ms1=self._config["general"]["astral_ms1"],
                 cv=cv,
             )
 
@@ -877,7 +877,7 @@ class RawFileManager(BaseManager):
 
             dia_data = alpharaw_wrapper.MzML(
                 dia_data_path,
-                process_count=self.config["general"]["thread_count"],
+                process_count=self._config["general"]["thread_count"],
             )
 
         elif file_extension.lower() == ".wiff":
@@ -885,7 +885,7 @@ class RawFileManager(BaseManager):
 
             dia_data = alpharaw_wrapper.Sciex(
                 dia_data_path,
-                process_count=self.config["general"]["thread_count"],
+                process_count=self._config["general"]["thread_count"],
             )
 
         else:
@@ -894,7 +894,7 @@ class RawFileManager(BaseManager):
             )
 
         # remove tmp file if wsl
-        if self.config["general"]["wsl"]:
+        if self._config["general"]["wsl"]:
             os.remove(tmp_dia_data_path)
 
         return dia_data
