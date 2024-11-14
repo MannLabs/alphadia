@@ -55,6 +55,7 @@ class BaseManager:
         self.reporter = reporting.LogBackend() if reporter is None else reporter
 
         if load_from_file:
+            # Note: be careful not to overwrite loaded values by initializing them in child classes after calling super().__init__()
             self.load()
 
     @property

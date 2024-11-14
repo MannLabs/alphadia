@@ -20,8 +20,8 @@ class RawFileManager(BaseManager):
         load_from_file: bool = False,
         **kwargs,
     ):
-        """Contains and updates timing information for the portions of the workflow."""
-        self.stats = {}  # needs to be before super().__init__ to avoid overwriting when loading
+        """Handles raw file loading and contains information on the raw file."""
+        self.stats = {}  # needs to be before super().__init__ to avoid overwriting loaded values
 
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -50,7 +50,7 @@ class RawFileManager(BaseManager):
 
         is_wsl = self._config["general"]["wsl"]
         if is_wsl:
-            # copy file to /tmp # TODO why is that?
+            # copy file to /tmp # TODO check if WSL support can be dropped
             import shutil
 
             tmp_path = "/tmp"
