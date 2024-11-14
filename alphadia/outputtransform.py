@@ -943,25 +943,28 @@ def _build_run_stat_df(
 
     if channels is None:
         channels = [0]
-    out_df = []
+    all_stats = []
 
     for channel in channels:
         channel_df = run_df[run_df["channel"] == channel]
 
-        base_dict = {
+        stats = {
             "run": raw_name,
             "channel": channel,
             "precursors": len(channel_df),
             "proteins": channel_df["pg"].nunique(),
         }
 
+        stats["fwhm_rt"] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            base_dict["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+            stats["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
 
+        stats["fwhm_mobility"] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+            stats["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
         # collect optimization stats
+        optimization_stats = defaultdict(lambda: np.nan)
         if os.path.exists(
             optimization_manager_path := os.path.join(
                 folder,
@@ -971,21 +974,19 @@ def _build_run_stat_df(
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-            base_dict["optimization.ms2_error"] = optimization_manager.ms2_error
-            base_dict["optimization.ms1_error"] = optimization_manager.ms1_error
-            base_dict["optimization.rt_error"] = optimization_manager.rt_error
-            base_dict["optimization.mobility_error"] = (
-                optimization_manager.mobility_error
-            )
-
+            optimization_stats["ms2_error"] = optimization_manager.ms2_error
+            optimization_stats["ms1_error"] = optimization_manager.ms1_error
+            optimization_stats["rt_error"] = optimization_manager.rt_error
+            optimization_stats["mobility_error"] = optimization_manager.mobility_error
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
-            base_dict["optimization.ms2_error"] = np.nan
-            base_dict["optimization.ms1_error"] = np.nan
-            base_dict["optimization.rt_error"] = np.nan
-            base_dict["optimization.mobility_error"] = np.nan
+
+        prefix = "optimization."
+        for key in ["ms2_error", "ms1_error", "rt_error", "mobility_error"]:
+            stats[f"{prefix}{key}"] = optimization_stats[key]
 
         # collect calibration stats
+        calibration_stats = defaultdict(lambda: np.nan)
         if os.path.exists(
             calibration_manager_path := os.path.join(
                 folder,
@@ -1001,10 +1002,10 @@ def _build_run_stat_df(
                     "fragment", "mz"
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                base_dict["calibration.ms2_median_accuracy"] = fragment_mz_metrics[
+                calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[
                     "median_accuracy"
                 ]
-                base_dict["calibration.ms2_median_precision"] = fragment_mz_metrics[
+                calibration_stats["ms2_median_precision"] = fragment_mz_metrics[
                     "median_precision"
                 ]
 
@@ -1013,54 +1014,58 @@ def _build_run_stat_df(
                     "precursor", "mz"
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                base_dict["calibration.ms1_median_accuracy"] = precursor_mz_metrics[
+                calibration_stats["ms1_median_accuracy"] = precursor_mz_metrics[
                     "median_accuracy"
                 ]
-                base_dict["calibration.ms1_median_precision"] = precursor_mz_metrics[
+                calibration_stats["ms1_median_precision"] = precursor_mz_metrics[
                     "median_precision"
                 ]
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
-            base_dict["calibration.ms2_median_accuracy"] = np.nan
-            base_dict["calibration.ms2_median_precision"] = np.nan
-            base_dict["calibration.ms1_median_accuracy"] = np.nan
-            base_dict["calibration.ms1_median_precision"] = np.nan
 
+        prefix = "calibration."
+        for key in [
+            "ms2_median_accuracy",
+            "ms2_median_precision",
+            "ms1_median_accuracy",
+            "ms1_median_precision",
+        ]:
+            stats[f"{prefix}{key}"] = calibration_stats[key]
+
+        # collect raw stats
+        raw_stats = defaultdict(lambda: np.nan)
         if os.path.exists(
             raw_file_manager_path := os.path.join(
                 folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
             )
         ):
-            raw_file_manager = RawFileManager(
+            raw_stats = RawFileManager(
                 path=raw_file_manager_path, load_from_file=True
-            )
-
-            stats = raw_file_manager.stats
+            ).stats
         else:
             logger.warning(f"Error reading raw file manager for {raw_name}")
-            stats = defaultdict(lambda: np.nan)
 
-        # deliberately mapping explicitly to avoid coupling stats to the output too tightly
+        # deliberately mapping explicitly to avoid coupling raw_stats to the output too tightly
         prefix = "raw."
 
-        base_dict[f"{prefix}gradient_min_m"] = stats["rt_limit_min"] / 60
-        base_dict[f"{prefix}gradient_max_m"] = stats["rt_limit_max"] / 60
-
-        base_dict[f"{prefix}gradient_length_m"] = (
-            stats["rt_limit_max"] - stats["rt_limit_min"]
+        stats[f"{prefix}gradient_min_m"] = raw_stats["rt_limit_min"] / 60
+        stats[f"{prefix}gradient_max_m"] = raw_stats["rt_limit_max"] / 60
+        stats[f"{prefix}gradient_length_m"] = (
+            raw_stats["rt_limit_max"] - raw_stats["rt_limit_min"]
         )
+        for key in [
+            "cycle_length",
+            "cycle_duration",
+            "cycle_number",
+            "msms_range_min",
+            "msms_range_max",
+        ]:
+            stats[f"{prefix}{key}"] = raw_stats[key]
 
-        base_dict[f"{prefix}cycle_length"] = stats["cycle_length"]
-        base_dict[f"{prefix}cycle_duration"] = stats["cycle_duration"]
-        base_dict[f"{prefix}cycle_number"] = stats["cycle_number"]
+        all_stats.append(stats)
 
-        base_dict[f"{prefix}msms_range_min"] = stats["msms_range_min"]
-        base_dict[f"{prefix}msms_range_max"] = stats["msms_range_max"]
-
-        out_df.append(base_dict)
-
-    return pd.DataFrame(out_df)
+    return pd.DataFrame(all_stats)
 
 
 def _get_value_or_nan(d: dict, key: str):
