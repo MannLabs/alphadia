@@ -717,8 +717,8 @@ def get_frame_indices(
 
     Returns
     -------
-    np.ndarray, shape = (2,), dtype = int64
-        Array of frame indices.
+    np.ndarray, shape = (1, 3), dtype = int64
+        Array of frame indices (start, stop, 1)
     """
     if rt_values.shape != (2,):
         raise ValueError("rt_values must be a numpy array of shape (2,)")
