@@ -70,9 +70,9 @@ class Plan:
         reporting.init_logging(self.output_folder)
 
         logger.progress("          _      _         ___ ___   _   ")
-        logger.progress("     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _` | | '_ \ ' \\/ _` | |) | | / _ \ ")
-        logger.progress("    \__,_|_| .__/_||_\__,_|___/___/_/ \_\\")
+        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
+        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
+        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
         logger.progress("           |_|                           ")
         logger.progress("")
 

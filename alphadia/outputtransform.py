@@ -116,7 +116,7 @@ class QuantBuilder:
         raw_name, df = next(df_iterable, (None, None))
         if df is None:
             logger.warning(f"no frag file found for {raw_name}")
-            return
+            return None
 
         df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -886,7 +886,7 @@ class SearchPlanOutput:
 
         if len(psm_df) == 0:
             logger.warning("No precursors found, skipping library building")
-            return
+            return None
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,
@@ -942,6 +942,10 @@ def _build_run_stat_df(
         folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH
     )
 
+    calibration_manager_path = os.path.join(
+        folder, peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PATH
+    )
+
     if channels is None:
         channels = [0]
     out_df = []
@@ -956,31 +960,69 @@ def _build_run_stat_df(
             "proteins": channel_df["pg"].nunique(),
         }
 
-        if "weighted_mass_error" in channel_df.columns:
-            base_dict["ms1_accuracy"] = np.mean(channel_df["weighted_mass_error"])
-
         if "cycle_fwhm" in channel_df.columns:
             base_dict["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
 
         if "mobility_fwhm" in channel_df.columns:
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
+        # collect optimization stats
+        base_dict["optimization.ms2_error"] = np.nan
+        base_dict["optimization.ms1_error"] = np.nan
+        base_dict["optimization.rt_error"] = np.nan
+        base_dict["optimization.mobility_error"] = np.nan
+
         if os.path.exists(optimization_manager_path):
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-
-            base_dict["ms2_error"] = optimization_manager.ms2_error
-            base_dict["ms1_error"] = optimization_manager.ms1_error
-            base_dict["rt_error"] = optimization_manager.rt_error
-            base_dict["mobility_error"] = optimization_manager.mobility_error
+            base_dict["optimization.ms2_error"] = optimization_manager.ms2_error
+            base_dict["optimization.ms1_error"] = optimization_manager.ms1_error
+            base_dict["optimization.rt_error"] = optimization_manager.rt_error
+            base_dict["optimization.mobility_error"] = (
+                optimization_manager.mobility_error
+            )
 
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
-            base_dict["ms2_error"] = np.nan
-            base_dict["ms1_error"] = np.nan
-            base_dict["rt_error"] = np.nan
-            base_dict["mobility_error"] = np.nan
+
+        # collect calibration stats
+        base_dict["calibration.ms2_median_accuracy"] = np.nan
+        base_dict["calibration.ms2_median_precision"] = np.nan
+        base_dict["calibration.ms1_median_accuracy"] = np.nan
+        base_dict["calibration.ms1_median_precision"] = np.nan
+
+        if os.path.exists(calibration_manager_path):
+            calibration_manager = manager.CalibrationManager(
+                path=calibration_manager_path
+            )
+
+            if (
+                fragment_mz_estimator := calibration_manager.get_estimator(
+                    "fragment", "mz"
+                )
+            ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
+                base_dict["calibration.ms2_median_accuracy"] = fragment_mz_metrics[
+                    "median_accuracy"
+                ]
+                base_dict["calibration.ms2_median_precision"] = fragment_mz_metrics[
+                    "median_precision"
+                ]
+
+            if (
+                precursor_mz_estimator := calibration_manager.get_estimator(
+                    "precursor", "mz"
+                )
+            ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
+                base_dict["calibration.ms1_median_accuracy"] = precursor_mz_metrics[
+                    "median_accuracy"
+                ]
+                base_dict["calibration.ms1_median_precision"] = precursor_mz_metrics[
+                    "median_precision"
+                ]
+
+        else:
+            logger.warning(f"Error reading calibration manager for {raw_name}")
 
         out_df.append(base_dict)
 

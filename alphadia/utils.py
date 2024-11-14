@@ -9,13 +9,13 @@ from ctypes import Structure, c_double
 # alpha family imports
 import alphatims.bruker
 import alphatims.utils
-import matplotlib.patches as patches
 import numba as nb
 import numpy as np
 
 # third party imports
 import pandas as pd
 import torch
+from matplotlib import patches
 
 logger = logging.getLogger()
 

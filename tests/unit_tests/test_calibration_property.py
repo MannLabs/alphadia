@@ -20,6 +20,8 @@ def test_uninitialized_calibration():
     with pytest.raises(ValueError):
         mz_calibration.fit(mz_df)
 
+    assert mz_calibration.metrics is None
+
 
 def test_fit_predict_linear():
     library_mz = np.linspace(100, 1000, 100)
@@ -38,6 +40,8 @@ def test_fit_predict_linear():
     mz_calibration.predict(mz_df)
 
     assert "calibrated_mz" in mz_df.columns
+    assert "median_accuracy" in mz_calibration.metrics
+    assert "median_precision" in mz_calibration.metrics
 
 
 def test_fit_predict_loess():
@@ -57,6 +61,8 @@ def test_fit_predict_loess():
     mz_calibration.predict(mz_df)
 
     assert "calibrated_mz" in mz_df.columns
+    assert "median_accuracy" in mz_calibration.metrics
+    assert "median_precision" in mz_calibration.metrics
 
 
 def test_save_load():
@@ -86,3 +92,5 @@ def test_save_load():
     mz_calibration_loaded.predict(df_loaded)
 
     assert np.allclose(df_original["calibrated_mz"], df_loaded["calibrated_mz"])
+    assert "median_accuracy" in mz_calibration.metrics
+    assert "median_precision" in mz_calibration.metrics

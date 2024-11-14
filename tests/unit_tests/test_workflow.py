@@ -293,7 +293,7 @@ def test_optimization_manager_fit():
     os.remove(temp_path)
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_workflow_base():
     if pytest.test_data is None:
         pytest.skip("No test data found")

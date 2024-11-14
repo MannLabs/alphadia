@@ -317,8 +317,6 @@ class AlphaRaw(alpharawthermo.MSData_Base):
         This function is implemented in the sub-class.
         """
 
-        pass
-
     def jitclass(self):
         return AlphaRawJIT(
             self.cycle,
