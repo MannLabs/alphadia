@@ -1,6 +1,7 @@
 # native imports
 import logging
 import os
+from collections import defaultdict
 from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
@@ -1026,8 +1027,6 @@ def _build_run_stat_df(
             base_dict["calibration.ms1_median_accuracy"] = np.nan
             base_dict["calibration.ms1_median_precision"] = np.nan
 
-        prefix = "raw."
-
         if os.path.exists(
             raw_file_manager_path := os.path.join(
                 folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
@@ -1038,40 +1037,37 @@ def _build_run_stat_df(
             )
 
             stats = raw_file_manager.stats
-
-            # deliberately mapping explicitly to avoid coupling stats to the output too tightly
-
-            base_dict[f"{prefix}gradient_min_m"] = stats["rt_limit_min"] / 60
-            base_dict[f"{prefix}gradient_max_m"] = stats["rt_limit_max"] / 60
-
-            base_dict[f"{prefix}gradient_length_m"] = (
-                stats["rt_limit_max"] - stats["rt_limit_min"]
-            )
-
-            base_dict[f"{prefix}cycle_length"] = stats["cycle_length"]
-            base_dict[f"{prefix}cycle_duration"] = stats["cycle_duration"]
-            base_dict[f"{prefix}cycle_number"] = stats["cycle_number"]
-
-            base_dict[f"{prefix}msms_range_min"] = stats["msms_range_min"]
-            base_dict[f"{prefix}msms_range_max"] = stats["msms_range_max"]
-
         else:
             logger.warning(f"Error reading raw file manager for {raw_name}")
-            base_dict[f"{prefix}gradient_min_m"] = np.nan
-            base_dict[f"{prefix}gradient_max_m"] = np.nan
+            stats = defaultdict(lambda: np.nan)
 
-            base_dict[f"{prefix}gradient_length_m"] = np.nan
+        # deliberately mapping explicitly to avoid coupling stats to the output too tightly
+        prefix = "raw."
 
-            base_dict[f"{prefix}cycle_length"] = np.nan
-            base_dict[f"{prefix}cycle_duration"] = np.nan
-            base_dict[f"{prefix}cycle_number"] = np.nan
+        base_dict[f"{prefix}gradient_min_m"] = stats["rt_limit_min"] / 60
+        base_dict[f"{prefix}gradient_max_m"] = stats["rt_limit_max"] / 60
 
-            base_dict[f"{prefix}msms_range_min"] = np.nan
-            base_dict[f"{prefix}msms_range_max"] = np.nan
+        base_dict[f"{prefix}gradient_length_m"] = (
+            stats["rt_limit_max"] - stats["rt_limit_min"]
+        )
+
+        base_dict[f"{prefix}cycle_length"] = stats["cycle_length"]
+        base_dict[f"{prefix}cycle_duration"] = stats["cycle_duration"]
+        base_dict[f"{prefix}cycle_number"] = stats["cycle_number"]
+
+        base_dict[f"{prefix}msms_range_min"] = stats["msms_range_min"]
+        base_dict[f"{prefix}msms_range_max"] = stats["msms_range_max"]
 
         out_df.append(base_dict)
 
     return pd.DataFrame(out_df)
+
+
+def _get_value_or_nan(d: dict, key: str):
+    try:
+        return d[key]
+    except KeyError:
+        return np.nan
 
 
 def _build_run_internal_df(
