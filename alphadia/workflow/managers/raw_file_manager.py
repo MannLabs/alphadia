@@ -104,9 +104,15 @@ class RawFileManager(BaseManager):
         if is_wsl:
             os.remove(tmp_dia_data_path)
 
+        self._calc_stats(dia_data)
+
+        self._log_stats()
+
         return dia_data
 
-    def calc_stats(self, dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw):
+    def _calc_stats(
+        self, dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw
+    ):
         """Calculate statistics from the DIA data."""
         rt_values = dia_data.rt_values
         cycle = dia_data.cycle
@@ -129,8 +135,6 @@ class RawFileManager(BaseManager):
         stats["msms_range_max"] = flat_cycle.max()
 
         self.stats = stats
-
-        self._log_stats()
 
     def _log_stats(self):
         """Log the statistics calculated from the DIA data."""
