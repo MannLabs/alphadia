@@ -1037,10 +1037,13 @@ def _build_run_stat_df(
             stats = raw_file_manager.stats
 
             # deliberately mapping explicitly to avoid coupling stats to the output too tightly
-            base_dict[f"{prefix}rt_limit_min"] = stats["rt_limit_min"]
-            base_dict[f"{prefix}rt_limit_max"] = stats["rt_limit_max"]
 
-            base_dict[f"{prefix}rt_duration_sec"] = stats["rt_duration_sec"]
+            base_dict[f"{prefix}gradient_min_m"] = stats["rt_limit_min"] / 60
+            base_dict[f"{prefix}gradient_max_m"] = stats["rt_limit_max"] / 60
+
+            base_dict[f"{prefix}gradient_length_m"] = (
+                stats["rt_limit_max"] - stats["rt_limit_min"]
+            )
 
             base_dict[f"{prefix}cycle_length"] = stats["cycle_length"]
             base_dict[f"{prefix}cycle_duration"] = stats["cycle_duration"]

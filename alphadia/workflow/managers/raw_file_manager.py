@@ -124,8 +124,6 @@ class RawFileManager(BaseManager):
         stats["rt_limit_min"] = rt_values.min()
         stats["rt_limit_max"] = rt_values.max()
 
-        stats["rt_duration_sec"] = rt_values.max() - rt_values.min()
-
         cycle_length = cycle.shape[1]
         stats["cycle_length"] = cycle_length
         stats["cycle_duration"] = np.diff(rt_values[::cycle_length]).mean()
@@ -141,13 +139,13 @@ class RawFileManager(BaseManager):
 
     def _log_stats(self):
         """Log the statistics calculated from the DIA data."""
-        rt_duration_min = self.stats["rt_duration_sec"] / 60
+        rt_duration = self.stats["rt_limit_max"] - self.stats["rt_limit_min"]
 
         logger.info(
             f"{'RT (min)':<20}: {self.stats['rt_limit_min']/60:.1f} - {self.stats['rt_limit_max']/60:.1f}"
         )
-        logger.info(f"{'RT duration (sec)':<20}: {self.stats['rt_duration_sec']:.1f}")
-        logger.info(f"{'RT duration (min)':<20}: {rt_duration_min:.1f}")
+        logger.info(f"{'RT duration (sec)':<20}: {rt_duration:.1f}")
+        logger.info(f"{'RT duration (min)':<20}: {rt_duration/60:.1f}")
 
         logger.info(f"{'Cycle len (scans)':<20}: {self.stats['cycle_length']:.0f}")
         logger.info(f"{'Cycle len (sec)':<20}: {self.stats['cycle_duration']:.2f}")
