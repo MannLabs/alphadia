@@ -1053,7 +1053,7 @@ def _build_run_stat_df(
         stats[f"{prefix}gradient_max_m"] = raw_stats["rt_limit_max"] / 60
         stats[f"{prefix}gradient_length_m"] = (
             raw_stats["rt_limit_max"] - raw_stats["rt_limit_min"]
-        )
+        ) / 60
         for key in [
             "cycle_length",
             "cycle_duration",
