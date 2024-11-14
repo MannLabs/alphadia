@@ -141,11 +141,8 @@ def test_output_transform():
     assert all(
         [
             col in stat_df.columns
-            for col in [
-                "run",
-                "precursors",
-                "proteins",
-            ]
+            for col in ['run', 'channel', 'precursors', 'proteins', 'fwhm_rt', 'fwhm_mobility', 'optimization.ms2_error', 'optimization.ms1_error', 'optimization.rt_error', 'optimization.mobility_error', 'calibration.ms2_median_accuracy', 'calibration.ms2_median_precision', 'calibration.ms1_median_accuracy', 'calibration.ms1_median_precision', 'raw.gradient_min_m', 'raw.gradient_max_m', 'raw.gradient_length_m', 'raw.cycle_length', 'raw.cycle_duration', 'raw.cycle_number', 'raw.msms_range_min', 'raw.msms_range_max']
+
         ]
     )
 
