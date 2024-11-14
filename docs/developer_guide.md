@@ -26,8 +26,8 @@ A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
 2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
 3. Run the configuration.
 
-##### Debug e2e tests with VsCode
-1. Create the following debug configuration (`launch.json`):
+##### Debug e2e tests with VS Code
+1. Create the following debug configuration (`launch.json`, see [here](https://code.visualstudio.com/docs/editor/debugging#_launch-configurations)):
 ```json
 {
     "version": "0.2.0",
