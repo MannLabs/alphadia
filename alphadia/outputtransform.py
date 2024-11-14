@@ -939,13 +939,6 @@ def _build_run_stat_df(
         Dataframe containing the statistics
 
     """
-    optimization_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME
-    )
-
-    calibration_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME
-    )
 
     if channels is None:
         channels = [0]
@@ -968,12 +961,12 @@ def _build_run_stat_df(
             base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
         # collect optimization stats
-        base_dict["optimization.ms2_error"] = np.nan
-        base_dict["optimization.ms1_error"] = np.nan
-        base_dict["optimization.rt_error"] = np.nan
-        base_dict["optimization.mobility_error"] = np.nan
-
-        if os.path.exists(optimization_manager_path):
+        if os.path.exists(
+            optimization_manager_path := os.path.join(
+                folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+            )
+        ):
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
@@ -986,14 +979,18 @@ def _build_run_stat_df(
 
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
+            base_dict["optimization.ms2_error"] = np.nan
+            base_dict["optimization.ms1_error"] = np.nan
+            base_dict["optimization.rt_error"] = np.nan
+            base_dict["optimization.mobility_error"] = np.nan
 
         # collect calibration stats
-        base_dict["calibration.ms2_median_accuracy"] = np.nan
-        base_dict["calibration.ms2_median_precision"] = np.nan
-        base_dict["calibration.ms1_median_accuracy"] = np.nan
-        base_dict["calibration.ms1_median_precision"] = np.nan
-
-        if os.path.exists(calibration_manager_path):
+        if os.path.exists(
+            calibration_manager_path := os.path.join(
+                folder,
+                peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME,
+            )
+        ):
             calibration_manager = manager.CalibrationManager(
                 path=calibration_manager_path
             )
@@ -1024,6 +1021,12 @@ def _build_run_stat_df(
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
+            base_dict["calibration.ms2_median_accuracy"] = np.nan
+            base_dict["calibration.ms2_median_precision"] = np.nan
+            base_dict["calibration.ms1_median_accuracy"] = np.nan
+            base_dict["calibration.ms1_median_precision"] = np.nan
+
+        prefix = "raw."
 
         if os.path.exists(
             raw_file_manager_path := os.path.join(
@@ -1033,7 +1036,7 @@ def _build_run_stat_df(
             raw_file_manager = RawFileManager(
                 path=raw_file_manager_path, load_from_file=True
             )
-            prefix = "raw."
+
             stats = raw_file_manager.stats
 
             # deliberately mapping explicitly to avoid coupling stats to the output too tightly
@@ -1051,6 +1054,20 @@ def _build_run_stat_df(
 
             base_dict[f"{prefix}msms_range_min"] = stats["msms_range_min"]
             base_dict[f"{prefix}msms_range_max"] = stats["msms_range_max"]
+
+        else:
+            logger.warning(f"Error reading raw file manager for {raw_name}")
+            base_dict[f"{prefix}gradient_min_m"] = np.nan
+            base_dict[f"{prefix}gradient_max_m"] = np.nan
+
+            base_dict[f"{prefix}gradient_length_m"] = np.nan
+
+            base_dict[f"{prefix}cycle_length"] = np.nan
+            base_dict[f"{prefix}cycle_duration"] = np.nan
+            base_dict[f"{prefix}cycle_number"] = np.nan
+
+            base_dict[f"{prefix}msms_range_min"] = np.nan
+            base_dict[f"{prefix}msms_range_max"] = np.nan
 
         out_df.append(base_dict)
 
