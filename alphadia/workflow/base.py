@@ -17,7 +17,6 @@ logger = logging.getLogger()
 QUANT_FOLDER_NAME = "quant"
 
 
-
 class WorkflowBase:
     """Base class for all workflows. This class is responsible for creating the workflow folder.
     It also initializes the calibration_manager and fdr_manager for the workflow.

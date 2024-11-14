@@ -207,7 +207,6 @@ def parse_quant_dir(args: argparse.Namespace, config: dict) -> str:
     return quant_dir
 
 
-
 def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     """Parse raw file list.
     1. Use raw file list from config file if specified.
