@@ -351,7 +351,9 @@ def select_candidates(
     rt = precursor_container.rt[i]
     mobility = precursor_container.mobility[i]
 
-    frame_limits = jit_data.get_frame_indices_tolerance(rt, config.rt_tolerance)
+    frame_limits = jit_data.get_frame_indices_tolerance(
+        rt, config.rt_tolerance, min_size=config.kernel_size
+    )
     scan_limits = jit_data.get_scan_indices_tolerance(
         mobility, config.mobility_tolerance
     )
