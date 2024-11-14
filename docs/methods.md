@@ -6,5 +6,6 @@ methods/command-line
 methods/configuration
 methods/calibration
 methods/transfer-learning
+methods/output-format
 
 ```
