@@ -38,9 +38,18 @@ Leave all the predefined settings in the two .yaml files as they are.
     - --second_search (1/0): whether to perform a second search with the focused MBR library
     - --lfq (1/0): whether to perform LFQ quantification of the second search results
 
-A typical call for running the search could look like this: 'sbatch outer.sh --nnodes 3 --search_config search.config', where the 'search.config' contains the name of the .csv file containing rawfile paths and other settings, and '--nnodes 3' indicates that the search will be parallelized across three nodes.
+#### A typical call for running the search could look like this:
 
-Running the search creates five subdirectories in the target folder:
+```console
+sbatch outer.sh --nnodes 3 --search_config search.config
+```
+where the 'search.config' contains the name of the .csv file containing rawfile paths and other settings, and
+```console
+--nnodes 3
+```
+indicates that the search will be parallelized across three nodes.
+
+#### Running the search creates five subdirectories in the target folder:
 
 - _predicted_speclib_: If spectral library prediction was set, this folder contains the .hdf spectral library
 - _first_search_: Contains one subdirectory for each processing chunk. AlphaDIA subprocesses for the first search are run from these chunks and their specific config.yaml files. Precursor and fragment datasets from these searches are saved into the _mbr_library_ folder
