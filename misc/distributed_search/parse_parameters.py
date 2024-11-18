@@ -9,7 +9,6 @@
 
 import argparse
 import os
-import shutil
 import sys
 
 import numpy as np
@@ -84,11 +83,8 @@ for i in range(0, max_tasks):
         )
         sys.exit(1)
 
-    # copy library into chunk folder to avoid simultaneous reads of the same library
-    shutil.copy(lib_source, chunk_folder)
-
-    # set new library path in chunk config
-    current_config["library"] = os.path.join(chunk_folder, os.path.basename(lib_source))
+    # set library path in config
+    current_config["library"] = lib_source
 
     # set chunk folder as output_directory in the config
     current_config["output_directory"] = "./"
