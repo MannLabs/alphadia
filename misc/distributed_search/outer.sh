@@ -64,6 +64,12 @@ echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
+# if target directory is not empty, exit
+if [ "$(ls -A ${target_directory})" ]; then
+	echo "Target directory is not empty, exiting"
+	exit 1
+fi
+
 # create logs directory if it does not exist
 mkdir -p ./logs
 
