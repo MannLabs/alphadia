@@ -1,20 +1,17 @@
-Distributed AlphaDIA search on HPCL
-=================================================
+## Distributed AlphaDIA search on HPCL
 
 This guide deals with setting up a distributed search in AlphaDIA, with the following prerequisites:
 - A Linux (Ubuntu) HPCL system with Slurm Workload Manager installed. All resource management is handled by Slurm, AlphaDIA does not select, manage or monitor worker nodes.
 - The distributed search requires absolute paths for each raw file, saved in the second column of a two-column .csv document. Simpler structures that e.g. process all files in a given directory are disfavored as large cohorts frequently consist of rawfiles spread across a number of subfolders.
 - An Anaconda environment called "alphadia" with _mono_ and _alphadia_ installed (for installing _mono_, see https://github.com/MannLabs/alpharaw#installation)
 
-Distributed search concept
-==========================
+## Distributed search concept
 
 ![Distributed_Search](../../assets/distributed_search_schematic.svg)
 
 Compared to a linear two step search, distributing the raw file search steps offers a significant advantage in speed. At the most extreme, N files could be searched on N machines in parallel, completely decoupling search time from the number of files. In practice, not all steps of a search can be easily parallelized (i.e. steps which require knowledge of all files at the same time). Additionally, processing nodes available are never unlimited, requiring a chunking approach to ensure the maximum amount of parallelization with a given number of processing nodes. The diagram above summarizes these steps, indicating parallel AlphaDIA instances for first and second pass fo raw file searches.
 
-Steps to set up a search
-========================
+## Steps to set up a search
 
 1. Set up an empty search directory on your HPCL partition. One directory corresponds to one study, i.e. one set of raw files, fasta/library and search configuration.
 2. Copy all files from alphadia/misc/distributed_search into the search directory
