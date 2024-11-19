@@ -49,7 +49,7 @@ infile = pd.read_csv(
 
 # read the config .yaml file
 with open(os.path.join(args.input_directory, args.config_filename)) as file:
-    config = yaml.safe_load(file)
+    config = yaml.safe_load(file) or {}
 
 # set requantition, False for searches, True for MBR, LFQ
 safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")

@@ -34,7 +34,7 @@ args = parser.parse_args()
 
 # read the config.yaml file from the input directory
 with open(os.path.join(args.input_directory, args.config_filename)) as file:
-    config = yaml.safe_load(file)
+    config = yaml.safe_load(file) or {}
 
 # if library and fasta are set, predicting will result in repredicted & annotated library
 # add fasta_list to config
