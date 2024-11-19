@@ -2,6 +2,7 @@
 import logging
 import os
 import pickle
+import traceback
 import typing
 from collections import defaultdict
 from copy import deepcopy
@@ -19,8 +20,11 @@ import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.workflow import reporting
+from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
+
+# TODO move all managers to dedicated modules
 
 
 class BaseManager:
@@ -51,6 +55,7 @@ class BaseManager:
         self.reporter = reporting.LogBackend() if reporter is None else reporter
 
         if load_from_file:
+            # Note: be careful not to overwrite loaded values by initializing them in child classes after calling super().__init__()
             self.load()
 
     @property
@@ -78,46 +83,51 @@ class BaseManager:
 
     def save(self):
         """Save the state to pickle file."""
-        if self.path is not None:
-            try:
-                with open(self.path, "wb") as f:
-                    pickle.dump(self, f)
-            except Exception:
-                self.reporter.log_string(
-                    f"Failed to save {self.__class__.__name__} to {self.path}",
-                    verbosity="error",
-                )
+        if self.path is None:
+            return
+
+        try:
+            with open(self.path, "wb") as f:
+                pickle.dump(self, f)
+        except Exception as e:
+            self.reporter.log_string(
+                f"Failed to save {self.__class__.__name__} to {self.path}: {str(e)}",
+                verbosity="error",
+            )
+
+            self.reporter.log_string(
+                f"Traceback: {traceback.format_exc()}", verbosity="error"
+            )
 
     def load(self):
         """Load the state from pickle file."""
-        if self.path is not None:
-            if os.path.exists(self.path):
-                try:
-                    with open(self.path, "rb") as f:
-                        loaded_state = pickle.load(f)
+        if self.path is None or not os.path.exists(self.path):
+            self.reporter.log_string(
+                f"{self.__class__.__name__} not found at: {self.path}",
+                verbosity="warning",
+            )
+            return
 
-                        if loaded_state._version == self._version:
-                            self.__dict__.update(loaded_state.__dict__)
-                            self.is_loaded_from_file = True
-                        else:
-                            self.reporter.log_string(
-                                f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
-                                verbosity="warning",
-                            )
-                except Exception:
-                    self.reporter.log_string(
-                        f"Failed to load {self.__class__.__name__} from {self.path}",
-                        verbosity="error",
-                    )
-                else:
+        try:
+            with open(self.path, "rb") as f:
+                loaded_state = pickle.load(f)
+
+                if loaded_state._version == self._version:
+                    self.__dict__.update(loaded_state.__dict__)
+                    self.is_loaded_from_file = True
                     self.reporter.log_string(
                         f"Loaded {self.__class__.__name__} from {self.path}"
                     )
-            else:
-                self.reporter.log_string(
-                    f"{self.__class__.__name__} not found at: {self.path}",
-                    verbosity="warning",
-                )
+                else:
+                    self.reporter.log_string(
+                        f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
+                        verbosity="warning",
+                    )
+        except Exception:
+            self.reporter.log_string(
+                f"Failed to load {self.__class__.__name__} from {self.path}",
+                verbosity="error",
+            )
 
     def fit(self):
         """Fit the workflow property of the manager."""
@@ -454,7 +464,7 @@ class CalibrationManager(BaseManager):
 class OptimizationManager(BaseManager):
     def __init__(
         self,
-        config: None | dict = None,
+        config: None | Config = None,
         gradient_length: None | float = None,
         path: None | str = None,
         load_from_file: bool = True,

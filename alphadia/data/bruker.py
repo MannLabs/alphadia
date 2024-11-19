@@ -11,7 +11,6 @@ from numba.core import types
 from numba.experimental import jitclass
 
 from alphadia import utils
-from alphadia.data.stats import log_stats
 from alphadia.exceptions import NotDiaDataError
 
 logger = logging.getLogger()
@@ -95,7 +94,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         # Precompile
         logger.info(f"Successfully imported data from {bruker_d_folder_name}")
-        log_stats(self.rt_values, self.cycle)
 
     def transpose(self):
         # abort if transposed data is already present
@@ -288,7 +286,9 @@ class TimsTOFTransposeJIT:
 
         self.has_mobility = True
 
-    def get_frame_indices(self, rt_values: np.array, optimize_size: int = 16):
+    def get_frame_indices(
+        self, rt_values: np.array, optimize_size: int = 16, min_size: int = 32
+    ):
         """
 
         Convert an interval of two rt values to a frame index interval.
@@ -302,6 +302,9 @@ class TimsTOFTransposeJIT:
         optimize_size : int, default = 16
             To optimize for fft efficiency, we want to extend the precursor cycle to a multiple of 16
 
+        min_size : int, default = 32
+            The minimum number of dia cycles to include
+
         Returns
         -------
         np.ndarray, shape = (2,), dtype = int64
@@ -309,45 +312,18 @@ class TimsTOFTransposeJIT:
 
         """
 
-        if rt_values.shape != (2,):
-            raise ValueError("rt_values must be a numpy array of shape (2,)")
-
-        frame_index = np.searchsorted(self.rt_values, rt_values, "left")
-
-        precursor_cycle_limits = (frame_index + self.zeroth_frame) // self.cycle.shape[
-            1
-        ]
-        precursor_cycle_len = precursor_cycle_limits[1] - precursor_cycle_limits[0]
-
-        # round up to the next multiple of 16
-        optimal_len = int(
-            optimize_size * math.ceil(precursor_cycle_len / optimize_size)
+        return utils.get_frame_indices(
+            rt_values=rt_values,
+            rt_values_array=self.rt_values,
+            zeroth_frame=self.zeroth_frame,
+            cycle_len=self.cycle.shape[1],
+            precursor_cycle_max_index=self.precursor_cycle_max_index,
+            optimize_size=optimize_size,
+            min_size=min_size,
         )
-
-        # by default, we extend the precursor cycle to the right
-        optimal_cycle_limits = np.array(
-            [precursor_cycle_limits[0], precursor_cycle_limits[0] + optimal_len],
-            dtype=np.int64,
-        )
-
-        # if the cycle is too long, we extend it to the left
-        if optimal_cycle_limits[1] > self.precursor_cycle_max_index:
-            optimal_cycle_limits[1] = self.precursor_cycle_max_index
-            optimal_cycle_limits[0] = self.precursor_cycle_max_index - optimal_len
-
-            if optimal_cycle_limits[0] < 0:
-                optimal_cycle_limits[0] = (
-                    0 if self.precursor_cycle_max_index % 2 == 0 else 1
-                )
-
-        # second element is the index of the first whole cycle which should not be used
-        # precursor_cycle_limits[1] += 1
-        # convert back to frame indices
-        frame_limits = optimal_cycle_limits * self.cycle.shape[1] + self.zeroth_frame
-        return utils.make_slice_1d(frame_limits)
 
     def get_frame_indices_tolerance(
-        self, rt: float, tolerance: float, optimize_size: int = 16
+        self, rt: float, tolerance: float, optimize_size: int = 16, min_size: int = 32
     ):
         """
         Determine the frame indices for a given retention time and tolerance.
@@ -364,6 +340,9 @@ class TimsTOFTransposeJIT:
         optimize_size : int, default = 16
             To optimize for fft efficiency, we want to extend the precursor cycle to a multiple of 16
 
+        min_size : int, default = 32
+            The minimum number of dia cycles to include
+
         Returns
         -------
         np.ndarray, shape = (1, 3,), dtype = int64
@@ -373,7 +352,9 @@ class TimsTOFTransposeJIT:
 
         rt_limits = np.array([rt - tolerance, rt + tolerance], dtype=np.float32)
 
-        return self.get_frame_indices(rt_limits, optimize_size=optimize_size)
+        return self.get_frame_indices(
+            rt_limits, optimize_size=optimize_size, min_size=min_size
+        )
 
     def get_scan_indices(self, mobility_values: np.array, optimize_size: int = 16):
         """convert array of mobility values into scan indices, njit compatible.
@@ -567,7 +548,7 @@ class TimsTOFTransposeJIT:
         n_precursor_indices = len(unique_precursor_index)
         n_tof_slices = len(tof_limits)
 
-        # scan valuesa
+        # scan values
         mobility_start = int(scan_limits[0, 0])
         mobility_stop = int(scan_limits[0, 1])
         mobility_len = mobility_stop - mobility_start
@@ -585,6 +566,16 @@ class TimsTOFTransposeJIT:
             (2, n_tof_slices, n_precursor_indices, mobility_len, precursor_cycle_len),
             dtype=np.float32,
         )
+
+        # intensities below HIGH_EPSILON will be set to zero
+        HIGH_EPSILON = 1e-26
+
+        # LOW_EPSILON will be used to avoid division errors
+        # as LOW_EPSILON will be added to the numerator and denominator
+        # intensity values approaching LOW_EPSILON would result in updated dim1 values with 1
+        # therefore, LOW_EPSILON should be orderes of magnitude smaller than HIGH_EPSILON
+        # TODO: refactor the calculation of dim1 for performance and numerical stability
+        LOW_EPSILON = 1e-36
 
         if absolute_masses:
             pass
@@ -636,12 +627,18 @@ class TimsTOFTransposeJIT:
                             ]
 
                             new_intensity = self.intensity_values[idx]
+                            new_intensity = new_intensity * (
+                                new_intensity > HIGH_EPSILON
+                            )
 
                             if absolute_masses:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * measured_mz_value
-                                ) / (accumulated_intensity + new_intensity)
+                                    + LOW_EPSILON
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             else:
                                 new_error = (
@@ -652,7 +649,10 @@ class TimsTOFTransposeJIT:
                                 new_dim1 = (
                                     accumulated_dim1 * accumulated_intensity
                                     + new_intensity * new_error
-                                ) / (accumulated_intensity + new_intensity)
+                                    + LOW_EPSILON
+                                ) / (
+                                    accumulated_intensity + new_intensity + LOW_EPSILON
+                                )
 
                             dense_output[
                                 0,

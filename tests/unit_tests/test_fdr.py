@@ -159,7 +159,7 @@ def test_get_q_values():
     )
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_fdr():
     matplotlib.use("Agg")
 

@@ -11,7 +11,7 @@ import pandas as pd
 
 # alphadia imports
 from alphadia import features, quadrupole, utils, validate
-from alphadia.data import alpharaw, bruker
+from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import config, fragments
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
@@ -1389,7 +1389,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT,
+        dia_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,

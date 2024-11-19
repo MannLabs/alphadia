@@ -4,11 +4,12 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.flat import SpecLibFlat
 
 # alphadia imports
-from alphadia.data import alpharaw, bruker
+from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow import manager, reporting
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 # third party imports
 
@@ -22,16 +23,17 @@ class WorkflowBase:
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
 
-    CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
-    OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
-    TIMING_MANAGER_PATH = "timing_manager.pkl"
-    FDR_MANAGER_PATH = "fdr_manager.pkl"
-    FIGURE_PATH = "figures"
+    RAW_FILE_MANAGER_PKL_NAME = "raw_file_manager.pkl"
+    CALIBRATION_MANAGER_PKL_NAME = "calibration_manager.pkl"
+    OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
+    TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
+    FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
+    FIGURES_FOLDER_NAME = "figures"
 
     def __init__(
         self,
         instance_name: str,
-        config: dict,
+        config: Config,
         quant_path: str = None,
     ) -> None:
         """
@@ -52,9 +54,11 @@ class WorkflowBase:
         self._parent_path: str = quant_path or os.path.join(
             config["output"], QUANT_FOLDER_NAME
         )
-        self._config: dict = config
+        self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
-        self._dia_data: bruker.TimsTOFTranspose | alpharaw.AlphaRaw | None = None
+        self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (
+            None
+        )
         self._spectral_library: SpecLibBase | None = None
         self._calibration_manager: manager.CalibrationManager | None = None
         self._optimization_manager: manager.OptimizationManager | None = None
@@ -85,9 +89,17 @@ class WorkflowBase:
         self.reporter.context.__enter__()
         self.reporter.log_event("section_start", {"name": "Initialize Workflow"})
 
-        self.reporter.log_event("loading_data", {"progress": 0})
         # load the raw data
-        self._dia_data = self._get_dia_data_object(dia_data_path)
+        self.reporter.log_event("loading_data", {"progress": 0})
+        raw_file_manager = RawFileManager(
+            self.config,
+            path=os.path.join(self.path, self.RAW_FILE_MANAGER_PKL_NAME),
+            reporter=self.reporter,
+        )
+
+        self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
+        raw_file_manager.save()
+
         self.reporter.log_event("loading_data", {"progress": 1})
 
         # load the spectral library
@@ -96,7 +108,7 @@ class WorkflowBase:
         # initialize the calibration manager
         self._calibration_manager = manager.CalibrationManager(
             self.config["calibration_manager"],
-            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
+            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
             reporter=self.reporter,
         )
@@ -109,14 +121,14 @@ class WorkflowBase:
         self._optimization_manager = manager.OptimizationManager(
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
-            path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
+            path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
-            figure_path=os.path.join(self.path, self.FIGURE_PATH),
+            figure_path=os.path.join(self.path, self.FIGURES_FOLDER_NAME),
             reporter=self.reporter,
         )
 
         self._timing_manager = manager.TimingManager(
-            path=os.path.join(self.path, self.TIMING_MANAGER_PATH),
+            path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
         )
 
@@ -138,7 +150,7 @@ class WorkflowBase:
         return os.path.join(self.parent_path, self.instance_name)
 
     @property
-    def config(self) -> dict:
+    def config(self) -> Config:
         """Configuration for the workflow."""
         return self._config
 
@@ -158,91 +170,13 @@ class WorkflowBase:
         return self._timing_manager
 
     @property
-    def spectral_library(self) -> SpecLibFlat:
+    def spectral_library(self) -> SpecLibBase | None:
         """Spectral library for the workflow. Owns the spectral library data"""
         return self._spectral_library
 
     @property
     def dia_data(
         self,
-    ) -> bruker.TimsTOFTransposeJIT | alpharaw.AlphaRawJIT:
+    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
-
-    def _get_dia_data_object(
-        self, dia_data_path: str
-    ) -> bruker.TimsTOFTranspose | alpharaw.AlphaRaw:
-        """Get the correct data class depending on the file extension of the DIA data file.
-
-        Parameters
-        ----------
-
-        dia_data_path: str
-            Path to the DIA data file
-
-        Returns
-        -------
-        typing.Union[bruker.TimsTOFTranspose, thermo.Thermo],
-            TimsTOFTranspose object containing the DIA data
-
-        """
-        file_extension = os.path.splitext(dia_data_path)[1]
-
-        if self.config["general"]["wsl"]:
-            # copy file to /tmp
-            import shutil
-
-            tmp_path = "/tmp"
-            tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
-            shutil.copyfile(dia_data_path, tmp_dia_data_path)
-            dia_data_path = tmp_dia_data_path
-
-        if file_extension.lower() == ".d" or file_extension.lower() == ".hdf":
-            self.reporter.log_metric("raw_data_type", "bruker")
-            dia_data = bruker.TimsTOFTranspose(
-                dia_data_path,
-                mmap_detector_events=self.config["general"]["mmap_detector_events"],
-            )
-
-        elif file_extension.lower() == ".raw":
-            self.reporter.log_metric("raw_data_type", "thermo")
-            # check if cv selection exists
-            cv = None
-            if (
-                "raw_data_loading" in self.config
-                and "cv" in self.config["raw_data_loading"]
-            ):
-                cv = self.config["raw_data_loading"]["cv"]
-
-            dia_data = alpharaw.Thermo(
-                dia_data_path,
-                process_count=self.config["general"]["thread_count"],
-                astral_ms1=self.config["general"]["astral_ms1"],
-                cv=cv,
-            )
-
-        elif file_extension.lower() == ".mzml":
-            self.reporter.log_metric("raw_data_type", "mzml")
-
-            dia_data = alpharaw.MzML(
-                dia_data_path,
-                process_count=self.config["general"]["thread_count"],
-            )
-
-        elif file_extension.lower() == ".wiff":
-            self.reporter.log_metric("raw_data_type", "sciex")
-
-            dia_data = alpharaw.Sciex(
-                dia_data_path,
-                process_count=self.config["general"]["thread_count"],
-            )
-
-        else:
-            raise ValueError(
-                f"Unknown file extension {file_extension} for file at {dia_data_path}"
-            )
-
-        # remove tmp file if wsl
-        if self.config["general"]["wsl"]:
-            os.remove(tmp_dia_data_path)
-        return dia_data

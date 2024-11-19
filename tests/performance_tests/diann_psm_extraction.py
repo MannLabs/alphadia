@@ -25,7 +25,7 @@ if __name__ == "__main__":
     try:
         neptune_token = os.environ["NEPTUNE_TOKEN"]
     except KeyError:
-        logging.error("NEPTUNE_TOKEN environtment variable not set")
+        logging.exception("NEPTUNE_TOKEN environtment variable not set")
         raise KeyError from None
 
     run = neptune.init_run(project="MannLabs/alphaDIA", api_token=neptune_token)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     try:
         test_dir = os.environ["TEST_DATA_DIR"]
     except KeyError:
-        logging.error("TEST_DATA_DIR environtment variable not set")
+        logging.exception("TEST_DATA_DIR environtment variable not set")
         raise KeyError from None
 
     logging.info(f"Test data directory: {test_dir}")

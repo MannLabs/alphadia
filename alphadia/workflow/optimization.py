@@ -57,12 +57,9 @@ class BaseOptimizer(ABC):
 
         """
 
-        pass
-
     @abstractmethod
     def skip(self):
         """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
-        pass
 
     def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
         self.workflow.reporter.log_string(
@@ -80,7 +77,6 @@ class BaseOptimizer(ABC):
     @abstractmethod
     def plot(self):
         """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
-        pass
 
     @abstractmethod
     def _update_workflow():
@@ -92,7 +88,6 @@ class BaseOptimizer(ABC):
         and FWHM_mobility
 
         """
-        pass
 
     @abstractmethod
     def _update_history():
@@ -107,7 +102,6 @@ class BaseOptimizer(ABC):
             The filtered fragment dataframe for the search.
 
         """
-        pass
 
 
 class AutomaticOptimizer(BaseOptimizer):
@@ -503,7 +497,6 @@ class AutomaticOptimizer(BaseOptimizer):
 
 
         """
-        pass
 
 
 class TargetedOptimizer(BaseOptimizer):
@@ -611,11 +604,9 @@ class TargetedOptimizer(BaseOptimizer):
 
     def skip(self):
         """See base class."""
-        pass
 
     def plot(self):
         """See base class"""
-        pass
 
     def _update_workflow(self):
         pass

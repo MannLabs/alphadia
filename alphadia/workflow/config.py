@@ -528,6 +528,9 @@ class Config:
     def to_dict(self) -> dict[str, Any]:
         return self.config
 
+    def get(self, key: str, default: Any = None) -> Any:
+        return self.config.get(key, default)
+
     def __getitem__(self, key: str) -> Any:
         return self.config[key]
 
