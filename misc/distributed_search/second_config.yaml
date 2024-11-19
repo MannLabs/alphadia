@@ -1,0 +1,6 @@
+# config template for "second search"
+fdr:
+  inference_strategy: library # do not change for "second search"
+search:
+  target_num_candidates: 5 # do not change for "second search"
+# adapt the rest of the config to your use case ...

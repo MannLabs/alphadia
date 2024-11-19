@@ -8,6 +8,7 @@ from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
 from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
 def test_output_transform():
@@ -54,11 +55,11 @@ def test_output_transform():
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
     os.makedirs(temp_folder, exist_ok=True)
 
-    progress_folder = os.path.join(temp_folder, "progress")
-    os.makedirs(progress_folder, exist_ok=True)
+    quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
+    os.makedirs(quant_path, exist_ok=True)
 
     # setup raw folders
-    raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
+    raw_folders = [os.path.join(quant_path, run) for run in run_columns]
 
     psm_base_df = mock_precursor_df(n_precursor=100)
     fragment_base_df = mock_fragment_df(n_precursor=200)

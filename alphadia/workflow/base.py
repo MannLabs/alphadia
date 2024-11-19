@@ -15,7 +15,7 @@ from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 logger = logging.getLogger()
 
-TEMP_FOLDER = ".progress"
+QUANT_FOLDER_NAME = "quant"
 
 
 class WorkflowBase:
@@ -34,20 +34,26 @@ class WorkflowBase:
         self,
         instance_name: str,
         config: Config,
+        quant_path: str = None,
     ) -> None:
         """
         Parameters
         ----------
 
         instance_name: str
-            Name for the particular workflow instance. This will usually be the name of the raw file
+            Name for the particular workflow instance. this will usually be the name of the raw file
 
         config: dict
             Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
 
+        quant_path: str
+            path to directory holding quant folders, relevant for distributed searches
+
         """
         self._instance_name: str = instance_name
-        self._parent_path: str = os.path.join(config["output"], TEMP_FOLDER)
+        self._parent_path: str = quant_path or os.path.join(
+            config["output"], QUANT_FOLDER_NAME
+        )
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (

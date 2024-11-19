@@ -40,6 +40,7 @@ class Plan:
         fasta_path_list: list[str] | None = None,
         config: dict | None = None,
         config_base_path: str | None = None,
+        quant_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -58,6 +59,9 @@ class Plan:
 
         config_update : dict, optional
             dict to update the default config. Can be used for debugging purposes etc.
+
+        quant_path : str, optional
+            path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
 
         """
         if config is None:
@@ -80,6 +84,7 @@ class Plan:
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
+        self.quant_path = quant_path
 
         logger.progress(f"version: {alphadia.__version__}")
 
@@ -318,11 +323,11 @@ class Plan:
                 workflow = peptidecentric.PeptideCentricWorkflow(
                     raw_name,
                     self.config,
+                    quant_path=self.quant_path,
                 )
 
-                workflow_folder_list.append(workflow.path)
-
                 # check if the raw file is already processed
+                workflow_folder_list.append(workflow.path)
                 psm_location = os.path.join(workflow.path, "psm.parquet")
                 frag_location = os.path.join(workflow.path, "frag.parquet")
 
