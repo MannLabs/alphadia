@@ -8,6 +8,7 @@
 # *Temporary solution to avoid simultaneous reads of the same library file.
 
 import argparse
+import copy
 import os
 import sys
 
@@ -74,7 +75,7 @@ for i in range(0, max_tasks):
     end_idx = start_idx + chunk_size
 
     # copy original config for the current chunk
-    current_config = config
+    current_config = copy.deepcopy(config)
 
     # save current chunk indices into chunk-yaml as raw files
     safe_add_key(

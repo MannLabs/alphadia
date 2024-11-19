@@ -8,6 +8,19 @@ import os
 
 import yaml
 
+
+# Add keys to config if they don't exist
+def safe_add_key(config, parent_key, key, value):
+    """Safely add keys and values to config file dictionary"""
+    if parent_key is None:
+        config[key] = value
+    else:
+        if parent_key not in config:
+            config[parent_key] = {}
+        config[parent_key][key] = value
+
+
+# parse input parameters
 parser = argparse.ArgumentParser(
     prog="DistributedAlphaDIALibrary",
     description="Append fasta file to config for library prediction.",
@@ -25,21 +38,21 @@ with open(os.path.join(args.input_directory, args.config_filename)) as file:
 
 # if library and fasta are set, predicting will result in repredicted & annotated library
 # add fasta_list to config
-config["fasta_list"] = [args.fasta_path] if args.fasta_path else []
+_new_fasta_list = [args.fasta_path] if args.fasta_path else []
+safe_add_key(config, None, "fasta_list", _new_fasta_list)
 
 # add library path to config
-config["library"] = args.library_path if args.library_path else None
+_new_library = args.library_path if args.library_path else None
+safe_add_key(config, None, "library", _new_library)
 
 # set library prediction to True
-if "library_prediction" not in config:
-    config["library_prediction"] = {}
-config["library_prediction"]["predict"] = True
+safe_add_key(config, "library_prediction", "predict", True)
 
 # remove rawfiles for prediction step in case some are set
 config.pop("raw_path_list", None)
 
 # set output directory for predicted spectral library
-config["output_directory"] = os.path.join(args.target_directory)
+safe_add_key(config, None, "output_directory", os.path.join(args.target_directory))
 
 # write speclib_config.yaml to input directory for the library prediction
 with open(os.path.join(config["output_directory"], "speclib_config.yaml"), "w") as file:
