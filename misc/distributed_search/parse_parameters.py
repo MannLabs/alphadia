@@ -15,6 +15,18 @@ import numpy as np
 import pandas as pd
 import yaml
 
+
+# Add keys to config if they don't exist
+def safe_add_key(config, parent_key, key, value):
+    """Safely add keys and values to config file dictionary"""
+    if parent_key is None:
+        config[key] = value
+    else:
+        if parent_key not in config:
+            config[parent_key] = {}
+        config[parent_key][key] = value
+
+
 # parse input parameters
 parser = argparse.ArgumentParser(
     prog="DistributedAlphaDIAParams",
@@ -39,12 +51,10 @@ with open(os.path.join(args.input_directory, args.config_filename)) as file:
     config = yaml.safe_load(file)
 
 # set requantition, False for searches, True for MBR, LFQ
-config["general"]["reuse_quant"] = args.reuse_quant == "1"
+safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")
 
 # library must be predicted/annotated prior to chunking
-if "library_prediction" not in config:
-    config["library_prediction"] = {}
-config["library_prediction"]["predict"] = False
+safe_add_key(config, "library_prediction", "predict", False)
 
 # remove any fasta if one is present in the config file
 config.pop("fasta_list", None)
@@ -63,15 +73,19 @@ for i in range(0, max_tasks):
     start_idx = chunk_size * i
     end_idx = start_idx + chunk_size
 
-    # save current chunk indices into yaml as raw files
+    # copy original config for the current chunk
     current_config = config
-    current_config["raw_path_list"] = list(all_filepaths[start_idx:end_idx])
+
+    # save current chunk indices into chunk-yaml as raw files
+    safe_add_key(
+        current_config, None, "raw_path_list", list(all_filepaths[start_idx:end_idx])
+    )
 
     # create folder for current chunk in target directory. Don't create the folder if it already exists.
     chunk_folder = os.path.join(args.target_directory, "chunk_" + str(i))
     os.makedirs(chunk_folder, exist_ok=True)
 
-    # retrieve library path from config or arguments and copy to chunk folder, set new library path in config
+    # retrieve library path from config or arguments, set new library path in config
     if os.path.exists(args.library_path) and os.path.basename(
         args.library_path
     ).endswith(".hdf"):
@@ -84,13 +98,12 @@ for i in range(0, max_tasks):
         sys.exit(1)
 
     # set library path in config
-    current_config["library"] = lib_source
+    safe_add_key(current_config, None, "library", lib_source)
 
     # set chunk folder as output_directory in the config
-    current_config["output_directory"] = "./"
+    safe_add_key(current_config, None, "output_directory", "./")
 
-    # save the current config into the target directory: this config contains all search parameters
-    # and the rawfiles belonging to the current chunk.
+    # save the config with the current chunk's rawfiles belonging to the current chunk folder
     with open(os.path.join(chunk_folder, "config.yaml"), "w") as file:
         yaml.safe_dump(
             current_config, file, default_style=None, default_flow_style=False
