@@ -8,7 +8,7 @@ import numba as nb
 import numpy as np
 
 # alphadia imports
-from alphadia.data import alpharaw, bruker
+from alphadia.data import alpharaw_wrapper, bruker
 
 logger = logging.getLogger()
 
@@ -54,7 +54,7 @@ class GaussianKernel:
         self,
         dia_data: bruker.TimsTOFTransposeJIT
         | bruker.TimsTOFTranspose
-        | alpharaw.AlphaRaw,
+        | alpharaw_wrapper.AlphaRaw,
         fwhm_rt: float = 10.0,
         sigma_scale_rt: float = 1.0,
         fwhm_mobility: float = 0.03,

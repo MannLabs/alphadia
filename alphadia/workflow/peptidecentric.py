@@ -17,6 +17,7 @@ from alphadia import fdrexperimental as fdrx
 from alphadia import fragcomp, plexscoring, utils
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
+from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
@@ -102,7 +103,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def __init__(
         self,
         instance_name: str,
-        config: dict,
+        config: Config,
     ) -> None:
         super().__init__(
             instance_name,

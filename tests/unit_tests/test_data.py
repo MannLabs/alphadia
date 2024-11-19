@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.data import alpharaw, bruker
+from alphadia.data import alpharaw_wrapper, bruker
 
 
 def test_transpose():
@@ -31,9 +31,9 @@ def test_cycle():
     cycle = np.zeros(rand_cycle_start)
     cycle = np.append(cycle, np.tile(np.arange(rand_cycle_length), rand_num_cycles))
 
-    cycle_length = alpharaw.get_cycle_length(cycle)
-    cycle_start = alpharaw.get_cycle_start(cycle, cycle_length)
-    cycle_valid = alpharaw.assert_cycle(cycle, cycle_length, cycle_start)
+    cycle_length = alpharaw_wrapper.get_cycle_length(cycle)
+    cycle_start = alpharaw_wrapper.get_cycle_start(cycle, cycle_length)
+    cycle_valid = alpharaw_wrapper.assert_cycle(cycle, cycle_length, cycle_start)
 
     assert cycle_valid
     assert cycle_length == rand_cycle_length
@@ -51,7 +51,7 @@ def test_raw_data():
             if name == "bruker":
                 jit_data = bruker.TimsTOFTranspose(file).jitclass()
             elif name == "thermo":
-                jit_data = alpharaw.Thermo(file).jitclass()
+                jit_data = alpharaw_wrapper.Thermo(file).jitclass()
             else:
                 continue
 
@@ -260,7 +260,7 @@ def mock_alpha_raw_jit():
     frame_max_index = 99
 
     # Instantiate AlphaRawJIT
-    alpha_raw_jit = alpharaw.AlphaRawJIT(
+    alpha_raw_jit = alpharaw_wrapper.AlphaRawJIT(
         cycle=cycle,
         rt_values=rt_values,
         mobility_values=mobility_values,

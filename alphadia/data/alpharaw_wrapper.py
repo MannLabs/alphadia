@@ -3,23 +3,13 @@ import logging
 import os
 
 import numba as nb
-
-# third party imports
 import numpy as np
 import pandas as pd
-from alpharaw import mzml as alpharawmzml
+from alpharaw import mzml as alpharaw_mzml
+from alpharaw import sciex as alpharaw_sciex
+from alpharaw import thermo as alpharaw_thermo
 
-# TODO fix: "import resolves to its containing file"
-from alpharaw import sciex as alpharawsciex
-
-# alpha family imports
-from alpharaw import (
-    thermo as alpharawthermo,
-)
-
-# alphadia imports
 from alphadia import utils
-from alphadia.data.stats import log_stats
 
 logger = logging.getLogger()
 
@@ -251,7 +241,7 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
-class AlphaRaw(alpharawthermo.MSData_Base):
+class AlphaRaw(alpharaw_thermo.MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.has_mobility = False
@@ -337,28 +327,25 @@ class AlphaRaw(alpharawthermo.MSData_Base):
         )
 
 
-class MzML(AlphaRaw, alpharawmzml.MzMLReader):
+class MzML(AlphaRaw, alpharaw_mzml.MzMLReader):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
-        log_stats(self.rt_values, self.cycle)
 
 
-class Sciex(AlphaRaw, alpharawsciex.SciexWiffData):
+class Sciex(AlphaRaw, alpharaw_sciex.SciexWiffData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
-        log_stats(self.rt_values, self.cycle)
 
 
-class Thermo(AlphaRaw, alpharawthermo.ThermoRawData):
+class Thermo(AlphaRaw, alpharaw_thermo.ThermoRawData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
-        log_stats(self.rt_values, self.cycle)
 
     def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
         """
