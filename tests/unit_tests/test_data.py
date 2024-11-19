@@ -260,7 +260,7 @@ def mock_alpha_raw_jit():
     frame_max_index = 99
 
     # Instantiate AlphaRawJIT
-    alpha_raw_jit = alpharaw.AlphaRawJIT(
+    alpha_raw_jit = alpharaw_wrapper.AlphaRawJIT(
         cycle=cycle,
         rt_values=rt_values,
         mobility_values=mobility_values,
