@@ -83,51 +83,51 @@ class BaseManager:
 
     def save(self):
         """Save the state to pickle file."""
-        if self.path is not None:
-            try:
-                with open(self.path, "wb") as f:
-                    pickle.dump(self, f)
-            except Exception as e:
-                self.reporter.log_string(
-                    f"Failed to save {self.__class__.__name__} to {self.path}: {str(e)}",
-                    verbosity="error",
-                )
-                # Log the full traceback
+        if self.path is None:
+            return
 
-                self.reporter.log_string(
-                    f"Traceback: {traceback.format_exc()}", verbosity="error"
-                )
+        try:
+            with open(self.path, "wb") as f:
+                pickle.dump(self, f)
+        except Exception as e:
+            self.reporter.log_string(
+                f"Failed to save {self.__class__.__name__} to {self.path}: {str(e)}",
+                verbosity="error",
+            )
+
+            self.reporter.log_string(
+                f"Traceback: {traceback.format_exc()}", verbosity="error"
+            )
 
     def load(self):
         """Load the state from pickle file."""
-        if self.path is not None:
-            if os.path.exists(self.path):
-                try:
-                    with open(self.path, "rb") as f:
-                        loaded_state = pickle.load(f)
+        if self.path is None or not os.path.exists(self.path):
+            self.reporter.log_string(
+                f"{self.__class__.__name__} not found at: {self.path}",
+                verbosity="warning",
+            )
+            return
 
-                        if loaded_state._version == self._version:
-                            self.__dict__.update(loaded_state.__dict__)
-                            self.is_loaded_from_file = True
-                        else:
-                            self.reporter.log_string(
-                                f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
-                                verbosity="warning",
-                            )
-                except Exception:
-                    self.reporter.log_string(
-                        f"Failed to load {self.__class__.__name__} from {self.path}",
-                        verbosity="error",
-                    )
-                else:
+        try:
+            with open(self.path, "rb") as f:
+                loaded_state = pickle.load(f)
+
+                if loaded_state._version == self._version:
+                    self.__dict__.update(loaded_state.__dict__)
+                    self.is_loaded_from_file = True
                     self.reporter.log_string(
                         f"Loaded {self.__class__.__name__} from {self.path}"
                     )
-            else:
-                self.reporter.log_string(
-                    f"{self.__class__.__name__} not found at: {self.path}",
-                    verbosity="warning",
-                )
+                else:
+                    self.reporter.log_string(
+                        f"Version mismatch while loading {self.__class__}: {loaded_state._version} != {self._version}. Will not load.",
+                        verbosity="warning",
+                    )
+        except Exception:
+            self.reporter.log_string(
+                f"Failed to load {self.__class__.__name__} from {self.path}",
+                verbosity="error",
+            )
 
     def fit(self):
         """Fit the workflow property of the manager."""

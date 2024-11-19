@@ -23,12 +23,12 @@ class WorkflowBase:
     It also initializes the calibration_manager and fdr_manager for the workflow.
     """
 
-    RAW_FILE_MANAGER_PATH = "raw_file_manager.pkl"
-    CALIBRATION_MANAGER_PATH = "calibration_manager.pkl"
-    OPTIMIZATION_MANAGER_PATH = "optimization_manager.pkl"
-    TIMING_MANAGER_PATH = "timing_manager.pkl"
-    FDR_MANAGER_PATH = "fdr_manager.pkl"
-    FIGURE_PATH = "figures"
+    RAW_FILE_MANAGER_PKL_NAME = "raw_file_manager.pkl"
+    CALIBRATION_MANAGER_PKL_NAME = "calibration_manager.pkl"
+    OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
+    TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
+    FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
+    FIGURES_FOLDER_NAME = "figures"
 
     def __init__(
         self,
@@ -87,7 +87,7 @@ class WorkflowBase:
         self.reporter.log_event("loading_data", {"progress": 0})
         raw_file_manager = RawFileManager(
             self.config,
-            path=os.path.join(self.path, self.RAW_FILE_MANAGER_PATH),
+            path=os.path.join(self.path, self.RAW_FILE_MANAGER_PKL_NAME),
             reporter=self.reporter,
         )
 
@@ -102,7 +102,7 @@ class WorkflowBase:
         # initialize the calibration manager
         self._calibration_manager = manager.CalibrationManager(
             self.config["calibration_manager"],
-            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PATH),
+            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
             reporter=self.reporter,
         )
@@ -115,14 +115,14 @@ class WorkflowBase:
         self._optimization_manager = manager.OptimizationManager(
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
-            path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PATH),
+            path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
-            figure_path=os.path.join(self.path, self.FIGURE_PATH),
+            figure_path=os.path.join(self.path, self.FIGURES_FOLDER_NAME),
             reporter=self.reporter,
         )
 
         self._timing_manager = manager.TimingManager(
-            path=os.path.join(self.path, self.TIMING_MANAGER_PATH),
+            path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
         )
 
