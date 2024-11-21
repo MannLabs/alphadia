@@ -8,6 +8,7 @@ import numba as nb
 # third party imports
 import numpy as np
 import pandas as pd
+from alpharaw import ms_data_base as alpharawms_data_base
 from alpharaw import mzml as alpharawmzml
 
 # TODO fix: "import resolves to its containing file"
@@ -336,6 +337,14 @@ class AlphaRaw(alpharawthermo.MSData_Base):
             self.scan_max_index,
             self.frame_max_index,
         )
+
+
+class AlphaRawBase(AlphaRaw, alpharawms_data_base.MSData_Base):
+    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
+        super().__init__(process_count=process_count)
+        self.load_hdf(raw_file_path)
+        self.process_alpharaw(**kwargs)
+        log_stats(self.rt_values, self.cycle)
 
 
 class MzML(AlphaRaw, alpharawmzml.MzMLReader):
