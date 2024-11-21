@@ -5,6 +5,7 @@ import os
 import numba as nb
 import numpy as np
 import pandas as pd
+from alpharaw import ms_data_base as alpharaw_ms_data_base
 from alpharaw import mzml as alpharaw_mzml
 from alpharaw import sciex as alpharaw_sciex
 from alpharaw import thermo as alpharaw_thermo
@@ -325,6 +326,13 @@ class AlphaRaw(alpharaw_thermo.MSData_Base):
             self.scan_max_index,
             self.frame_max_index,
         )
+
+
+class AlphaRawBase(AlphaRaw, alpharaw_ms_data_base.MSData_Base):
+    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
+        super().__init__(process_count=process_count)
+        self.load_hdf(raw_file_path)
+        self.process_alpharaw(**kwargs)
 
 
 class MzML(AlphaRaw, alpharaw_mzml.MzMLReader):
