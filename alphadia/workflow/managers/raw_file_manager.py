@@ -61,11 +61,18 @@ class RawFileManager(BaseManager):
             shutil.copyfile(dia_data_path, tmp_dia_data_path)
             dia_data_path = tmp_dia_data_path
 
-        if file_extension.lower() == ".d" or file_extension.lower() == ".hdf":
+        if file_extension.lower() == ".d":
             raw_data_type = "bruker"
             dia_data = bruker.TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self._config["general"]["mmap_detector_events"],
+            )
+
+        elif file_extension.lower() == ".hdf":
+            raw_data_type = "alpharaw"
+            dia_data = alpharaw_wrapper.AlphaRawBase(
+                dia_data_path,
+                process_count=self._config["general"]["thread_count"],
             )
 
         elif file_extension.lower() == ".raw":
