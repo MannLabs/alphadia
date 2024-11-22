@@ -260,6 +260,30 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         else:
             raise ValueError(f"Unknown norm_rt_mode {mode}")
 
+    @property
+    def precursor_mz_column(self):
+        return (
+            f"mz_{self.optimization_manager.column_type}"
+            if self.dia_data.has_ms1
+            else "mz_library"
+        )
+
+    @property
+    def fragment_mz_column(self):
+        return f"mz_{self.optimization_manager.column_type}"
+
+    @property
+    def rt_column(self):
+        return f"rt_{self.optimization_manager.column_type}"
+
+    @property
+    def mobility_column(self):
+        return (
+            f"mobility_{self.optimization_manager.column_type}"
+            if self.dia_data.has_mobility
+            else "mobility_library"
+        )
+
     def get_ordered_optimizers(self):
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
         if a value less than or equal to 0 is supplied, automatic optimization is used.
@@ -436,9 +460,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 precursor_df = self._process_batch()
 
                 if not self.optlock.has_target_num_precursors:
-                    if not self.optlock.batches_remaining():
-                        insufficient_precursors_to_optimize = True
-                        break
+                    # if not self.optlock.batches_remaining():
+                    insufficient_precursors_to_optimize = True
+                    break
 
                     self.optlock.update()
 
@@ -480,6 +504,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         log_string(
             "==============================================", verbosity="progress"
         )
+
         if insufficient_precursors_to_optimize:
             precursor_df_filtered, fragments_df_filtered = self.filter_dfs(
                 precursor_df, self.optlock.fragments_df
@@ -759,14 +784,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             batch_precursor_df,
             batch_fragment_df,
             config.jitclass(),
-            rt_column=f"rt_{self.optimization_manager.column_type}",
-            mobility_column=f"mobility_{self.optimization_manager.column_type}"
-            if self.dia_data.has_mobility
-            else "mobility_library",
-            precursor_mz_column=f"mz_{self.optimization_manager.column_type}"
-            if self.dia_data.has_ms1
-            else "mz_library",
-            fragment_mz_column=f"mz_{self.optimization_manager.column_type}",
+            rt_column=self.rt_column,
+            mobility_column=self.mobility_column,
+            precursor_mz_column=self.precursor_mz_column,
+            fragment_mz_column=self.fragment_mz_column,
             fwhm_rt=self.optimization_manager.fwhm_rt,
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
@@ -806,14 +827,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             batch_precursor_df,
             batch_fragment_df,
             config=config,
-            rt_column=f"rt_{self.optimization_manager.column_type}",
-            mobility_column=f"mobility_{self.optimization_manager.column_type}"
-            if self.dia_data.has_mobility
-            else "mobility_library",
-            precursor_mz_column=f"mz_{self.optimization_manager.column_type}"
-            if self.dia_data.has_ms1
-            else "mz_library",
-            fragment_mz_column=f"mz_{self.optimization_manager.column_type}",
+            rt_column=self.rt_column,
+            mobility_column=self.mobility_column,
+            precursor_mz_column=self.precursor_mz_column,
+            fragment_mz_column=self.fragment_mz_column,
         )
 
         features_df, fragments_df = candidate_scoring(
@@ -1051,12 +1068,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library.precursor_df_unfiltered,
             self.spectral_library.fragment_df,
             config=config,
-            precursor_mz_column="mz_calibrated",
-            fragment_mz_column="mz_calibrated",
-            rt_column="rt_calibrated",
-            mobility_column="mobility_calibrated"
-            if self.dia_data.has_mobility
-            else "mobility_library",
+            rt_column=self.rt_column,
+            mobility_column=self.mobility_column,
+            precursor_mz_column=self.precursor_mz_column,
+            fragment_mz_column=self.fragment_mz_column,
         )
 
         multiplexed_candidates["rank"] = 0
@@ -1144,8 +1159,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            precursor_mz_column="mz_calibrated",
-            fragment_mz_column="mz_calibrated",
+            rt_column=self.rt_column,
+            mobility_column=self.mobility_column,
+            precursor_mz_column=self.precursor_mz_column,
+            fragment_mz_column=self.fragment_mz_column,
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
