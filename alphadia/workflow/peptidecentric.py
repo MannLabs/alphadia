@@ -460,9 +460,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 precursor_df = self._process_batch()
 
                 if not self.optlock.has_target_num_precursors:
-                    # if not self.optlock.batches_remaining():
-                    insufficient_precursors_to_optimize = True
-                    break
+                    if not self.optlock.batches_remaining():
+                        insufficient_precursors_to_optimize = True
+                        break
 
                     self.optlock.update()
 
