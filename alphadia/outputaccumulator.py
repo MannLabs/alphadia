@@ -130,15 +130,16 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
         frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
-        assert set(
-            mandatory_precursor_columns
-        ).issubset(
-            psm_df.columns
-        ), f"mandatory_precursor_columns must be a subset of psm_df.columns didnt find {set(mandatory_precursor_columns) - set(psm_df.columns)}"
+        if not set(mandatory_precursor_columns).issubset(psm_df.columns):
+            raise ValueError(
+                f"mandatory_precursor_columns must be a subset of psm_df.columns didnt find {set(mandatory_precursor_columns) - set(psm_df.columns)}"
+            )
 
-        available_columns = list(
-            set(mandatory_precursor_columns)
-            | (set(optional_precursor_columns) & set(psm_df.columns))
+        available_columns = sorted(
+            list(
+                set(mandatory_precursor_columns)
+                | (set(optional_precursor_columns) & set(psm_df.columns))
+            )
         )
         psm_df = psm_df[available_columns]
 
