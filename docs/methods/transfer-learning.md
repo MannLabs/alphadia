@@ -1,5 +1,5 @@
 
-## Transfer Learning
+# Transfer Learning
 
 Generally, transfer learning refers to the process of leveraging the knowledge learned in one model for better performance on a different task. A task is a vague term, but it essentially includes learning a different objective, for example, transitioning from regression to classification. It can also involve learning the same objective with a different loss function or optimizer, or using the same loss and objective but with different data. In cases where the dataset is too small to train a model from scratch without overfitting, we start from a pretrained model that has good performance on a larger dataset. This last type is the transfer learning we are using in alphaDIA.
 
@@ -26,12 +26,12 @@ Learning rates are crucial parameters that define the magnitude of updates made 
 
 For alphaDIA, we use a custom learning rate scheduler with two phases:
 
-### 1) Warmup Phase
+### 1. Warmup Phase
 In this phase, the learning rate starts small and gradually increases over a certain number of "warmup epochs". Our default is **5**. This technique significantly helps in training transformers when using optimizers like Adam or SGD ([https://arxiv.org/abs/2002.04745](https://arxiv.org/abs/2002.04745)). Since we are not training from scratch, we set the default number of warmup epochs to 5. The user only needs to define the maximum learning rate and the number of epochs for warm-up. During this phase, the learning rate lr(t) is calculated as:
 
 $$\text{lr}(t) = \text{max lr} \times \left( \frac{t}{\text{number of warmup epochs}} \right)$$
 
-### 2) Reduce on Plateau LR Schedule
+### 2. Reduce on Plateau LR Schedule
 After the warmup phase, the learning rate reaches the maximum value set by the user and remains there until the training loss reaches a plateau. A plateau is defined as the training loss not significantly improving for a certain number of epochs, referred to as "patience". For this phase, we use the PyTorch implementation `torch.optim.lr_scheduler.ReduceLROnPlateau` with a default patience value of 3 epochs.
 
 This approach makes the fine-tuning process less sensitive to the user-defined learning rate. If the model is not learning for 3 epochs, it is likely that the learning rate is too high, and the scheduler will then reduce the learning rate to encourage further learning.
@@ -129,15 +129,13 @@ With the learning scheduler we are using, we could theoretically keep training i
 
 To address these issues, we implement two measures:
 
-### 1) Maximum Number of Epochs
+### 1. Maximum Number of Epochs
 We set the maximum number of epochs to 50. From our experiments, we find that 50 epochs are usually sufficient to achieve significant performance gains without spending unnecessary time/epochs on insignificant improvements.
 
-### 2) Early Stopping
+### 2. Early Stopping
 We use an Early Stopping implementation that monitors the validation loss and terminates the training if one of the following criteria is met for more than the patience epochs (this is different from the learning rate scheduler's patience value, but they are related, more on this later):
-
-a) The validation loss is increasing, which may indicate overfitting.
-
-b) The validation loss is not significantly improving, indicating no significant performance gains on the validation dataset.
+- The validation loss is increasing, which may indicate overfitting.
+- The validation loss is not significantly improving, indicating no significant performance gains on the validation dataset.
 
 The early stopping patience value represents the number of epochs we allow the model to meet the criteria without taking any action. This is because training neural networks with smaller batches can be a bit unstable, so we allow for some volatility before intervening. We set the early stopping patience to be a multiple of the learning rate scheduler patience. The idea is to give the learning rate scheduler a chance to address the problem before terminating the training.
 

@@ -1,12 +1,36 @@
-# Search Parameter Optimization
+# Optimization and Calibration
+In peptide centric DIA search, calibration of the library and optimization of search parameters is required to maximize the number of confident identifications. AlphaDIA performs both calibration and optimization iteratively. Calibration removes the systematic deviation of observed and library values to account for technical variation from the LC or MS instrument. Optimization reduces the search space to improve the confidence in identifications and to accelerate search.
+:::{note}
+Calibration and optimization are different but connected to transfer learning. In [transfer learning](./transfer-learning.md) the residual (non-systematic) variation is learned and thereby reduced. This usually leads to better performance if used with optimization and calibration.
+:::
 
-## Calibration and optimization
+## Overview of optimization
+AlphaDIA can perform optimization for the following parameters, `target_ms1_tolerance`, `target_ms2_tolerance`, `target_mobility_tolerance` and `target_rt_tolerance`. There are two optimization strategies, targeted and automatic.
+
+### Targeted optimization
+The search space is progressively narrowed until a target tolerance is reached for a given parameter.
+
+To activate targeted optimization for example for fragment m/z tolerance, set `target_ms2_tolerance` to `10` for using a target tolerance of 10 ppm.
+For retention time, the target value can be either set as an absolute value in seconds or as a fraction of the total retention time range.
+
+For example, setting `target_rt_tolerance` to `300` will result in a target tolerance of 300 seconds, while setting it to `0.3` will use 30% of the gradient length as the target tolerance.
+
+### Automatic optimization
+In automatic optimization the search space is reduced until an optimal value is detected. This optimization is curently performed for every raw file individually. The results of the optimization can be found in the [stats.tsv](<project:../methods/output-format.md>) file in the output directory.
+
+To activate automatic optimization for example for retention time, set `target_rt_tolerance` to `0.0`.
+
+:::{tip}
+We recommend to always use automatic optimization for retention time and ion mobility as set by default. For automatic optimization of mass tolerances we recommend using optimization in the first pass and then using the optimized values in the second pass.
+:::
+
+## Optimization and Calibration Algorithm
 ### Overall process
-The first step of every AlphaDIA run is the optimization of search parameters and the calibration of the empirical or fully predicted spectral library to the observed values. This step has two main purposes: 1) removing the systematic deviation of observed and library values, and 2) optimizing the size of the search space to reflect the expected deviation from the library values. For DIA search this means calibration and optimization of certain parameters: retention time, ion mobility, precursor m/z and fragment m/z. The process of iterative calibration and optimization is illustrated below.
+AlphaDIA performs iterative optimization and calibration of retention time, ion mobility, precursor m/z and fragment m/z parameters as illustrated below.
 
 <img src="../_static/images/methods_optimization.png" width="100%" height="auto">
 
-Optimization can be performed in either a targeted or automatic manner. In targeted optimization, the search space is progressively narrowed until a target tolerance is reached for a given parameter. In automatic optimization, the search space is progressively narrowed until an internal algorithm detects that further narrowing will reduce the confident identification of precursors (either by directly assessing the proportion of the library which has been detected or using a surrogate metric, such as the mean isotope intensity correlation for precursor m/z tolerance), at which point the optimal value is selected for search. Automatic optimization can be triggered by setting the target tolerance to 0.0 (or a negative value). It is possible to use targeted optimization for some parameters and automatic optimization for others; currently, it is recommended to use targeted optimization for precursor m/z, fragment m/z and ion mobility, and automatic optimization for retention time.
+Optimization can be performed in either a targeted or automatic manner. In targeted optimization, the search space is progressively narrowed until a target tolerance is reached for a given parameter. In automatic optimization, the search space is progressively narrowed until an internal algorithm detects that further narrowing will reduce the confident identification of precursors (either by directly assessing the proportion of the library which has been detected or using a surrogate metric, such as the mean isotope intensity correlation for precursor m/z tolerance), at which point the optimal value is selected for search. It is possible to use targeted optimization for some parameters and automatic optimization for others.
 
 AlphaDIA iteratively performs calibration and optimization based on a subset of the spectral library used for search. The size of this subset is adjusted according to an exponential batch plan to balance accuracy and efficiency. A defined number of precursors, set by the ``optimization_lock_target`` (default: 200), need to be identified at 1% FDR before calibration and optimization are performed. If fewer precursors than the target number are identified using a given step of the batch plan, AlphaDIA will search for precursors from the next step of the batch plan in addition to those already searched. If more precursors than the target number are identified, AlphaDIA will check if any previous step of the batch plan is also likely to yield at least the target number, in which case it will use the smallest such step of the batch plan for the next iteration of calibration and optimization. In this way, AlphaDIA ensures that calibration is always performed on sufficient precursors to be reliable, while calibrating on the smallest-possible subset of the library to maximize efficiency.
 
@@ -20,12 +44,32 @@ If enough confident target precursors have been detected, they are calibrated to
 ### Optimization
 For optimizing the search space, tolerances like retention time, ion mobility and m/z ratios need to be reduced. The goal is to cover the expected spectrum space but reduce it as much as possible to accelerate search and gain statistical power. Search starts with initial tolerances as defined in `search_initial`.  For targeted optimization, the 95% deviation after calibration is adopted as the new tolerance until the target tolerances defined in the `search` section are reached. For automatic optimization, the 99% deviation plus 10% of the absolute value of the tolerance is adopted as the new tolerance, and search continues until parameter-specific convergence rules are met.
 
-The optimization is finished as soon as the minimum number of steps `min_steps` has passed and all tolerances have either 1) reached the target tolerances defined in `search` if using targeted optimization, or 2) have converged if using automatic optimization.
+The optimization is finished as soon as the minimum number of steps `min_steps` has passed and all tolerances have either 1. reached the target tolerances defined in `search` if using targeted optimization, or 2. have converged if using automatic optimization.
 
 ## Configuring calibration and optimization
 The configuration below will perform targeted optimization of precursor m/z, fragment m/z and ion mobility, and automatic optimization of retention time.
 
 ```yaml
+search:
+  # Number of peak groups identified in the convolution score to classify with target decoy competition
+  target_num_candidates: 2
+
+  # Targeted optimization of precursor m/z tolerance.
+  # Use absolute values in ppm (e.g. 15ppm) or set to 0 for automatic optimization.
+  target_ms1_tolerance: 5
+
+  # Targeted optimization of fragment m/z tolerance.
+  # Use absolute values in ppm (e.g. 15ppm) or set to 0 for automatic optimization.
+  target_ms2_tolerance: 10
+
+  # Targeted optimization of ion mobility tolerance.
+  # Use absolute values in 1/K0 (e.g. 0.04 1/K0) or set to 0 for automatic optimization.
+  target_mobility_tolerance: 0
+
+  # Targeted optimization of retention time tolerance.
+  # Use absolute values in seconds (e.g. 300s) or set to 0 for automatic optimization.
+  target_rt_tolerance: 0
+
 calibration:
   # Number of precursors searched and scored per batch
   batch_size: 8000
@@ -50,17 +94,10 @@ search_initial:
   initial_ms2_tolerance: 30
 
   # initial ion mobility tolerance in 1/K_0
-  initial_mobility_tolerance: 0.08
+  initial_mobility_tolerance: 0.1
 
-  # initial retention time tolerance in seconds
-  initial_rt_tolerance: 240
-
-search:
-  target_num_candidates: 2
-  target_ms1_tolerance: 15
-  target_ms2_tolerance: 15
-  target_mobility_tolerance: 0.04
-  target_rt_tolerance: 0
+  # initial retention time tolerance as a fraction of the total gradient length
+  initial_rt_tolerance: 0.5
 
 ```
 
@@ -87,6 +124,7 @@ calibration_manager:
           - mz_observed
         output_columns:
           - mz_calibrated
+        # display deviation in ppm
         transform_deviation: 1e6
   - name: precursor
     estimators:
@@ -100,6 +138,7 @@ calibration_manager:
             - mz_observed
           output_columns:
             - mz_calibrated
+          # display deviation in ppm
           transform_deviation: 1e6
         - name: rt
           model: LOESSRegression
