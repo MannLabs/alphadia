@@ -78,7 +78,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
     def parse_output_folder(
         self,
         folder: str,
-        selected_precursor_columns: list[str] | None = None,
+        mandatory_precursor_columns: list[str] | None = None,
+        optional_precursor_columns: list[str] | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
         Parse the output folder to get a precursor and fragment dataframe in the flat format.
@@ -87,7 +88,7 @@ class SpecLibFlatFromOutput(SpecLibFlat):
         ----------
         folder : str
             The output folder to be parsed.
-        selected_precursor_columns : list, optional
+        mandatory_precursor_columns : list, optional
             The columns to be selected from the precursor dataframe, by default ['precursor_idx', 'sequence', 'flat_frag_start_idx', 'flat_frag_stop_idx', 'charge', 'rt_library', 'mobility_library', 'mz_library', 'proteins', 'genes', 'mods', 'mod_sites', 'proba']
 
         Returns
@@ -99,8 +100,8 @@ class SpecLibFlatFromOutput(SpecLibFlat):
 
 
         """
-        if selected_precursor_columns is None:
-            selected_precursor_columns = [
+        if mandatory_precursor_columns is None:
+            mandatory_precursor_columns = [
                 "precursor_idx",
                 "sequence",
                 "flat_frag_start_idx",
@@ -108,12 +109,10 @@ class SpecLibFlatFromOutput(SpecLibFlat):
                 "charge",
                 "rt_library",
                 "rt_observed",
-                "rt_calibrated",
                 "mobility_library",
                 "mobility_observed",
                 "mz_library",
                 "mz_observed",
-                "mz_calibrated",
                 "proteins",
                 "genes",
                 "mods",
@@ -121,16 +120,28 @@ class SpecLibFlatFromOutput(SpecLibFlat):
                 "proba",
                 "decoy",
             ]
+
+        if optional_precursor_columns is None:
+            optional_precursor_columns = [
+                "rt_calibrated",
+                "mz_calibrated",
+            ]
+
         psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
         frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
-        assert set(
-            selected_precursor_columns
-        ).issubset(
-            psm_df.columns
-        ), f"selected_precursor_columns must be a subset of psm_df.columns didnt find {set(selected_precursor_columns) - set(psm_df.columns)}"
-        psm_df = psm_df[selected_precursor_columns]
-        # validate.precursors_flat_from_output(psm_df)
+        if not set(mandatory_precursor_columns).issubset(psm_df.columns):
+            raise ValueError(
+                f"mandatory_precursor_columns must be a subset of psm_df.columns didnt find {set(mandatory_precursor_columns) - set(psm_df.columns)}"
+            )
+
+        available_columns = sorted(
+            list(
+                set(mandatory_precursor_columns)
+                | (set(optional_precursor_columns) & set(psm_df.columns))
+            )
+        )
+        psm_df = psm_df[available_columns]
 
         # get foldername of the output folder
         foldername = os.path.basename(folder)
@@ -260,9 +271,6 @@ class AccumulationBroadcaster:
         self._lock = threading.Lock()  # Lock to prevent two processes trying to update the same subscriber at the same time
 
     def subscribe(self, subscriber: BaseAccumulator):
-        assert isinstance(
-            subscriber, BaseAccumulator
-        ), f"subscriber must be an instance of BaseAccumulator, got {type(subscriber)}"
         self._subscribers.append(subscriber)
 
     def _update_subscriber(
@@ -420,14 +428,21 @@ class TransferLearningAccumulator(BaseAccumulator):
         Post process the consensus_speclibase by normalizing retention times.
         """
 
-        logger.info(
-            "Performing quality control for transfer learning."
-            + f"Normalize by delta: {self._norm_delta_max}"
-            + f"Precursor correlation cutoff: {self._precursor_correlation_cutoff}"
-            + f"Fragment correlation cutoff: {self._fragment_correlation_ratio}"
-        )
+        norm_delta_max = self._norm_delta_max
+        if "rt_calibrated" not in self.consensus_speclibase.precursor_df.columns:
+            logger.warning(
+                "rt_calibrated not found in the precursor_df, delta-max normalization will not be performed"
+            )
+            norm_delta_max = False
 
-        if self._norm_delta_max:
+        logger.info("Performing quality control for transfer learning.")
+        logger.info(f"Normalize by delta: {norm_delta_max}")
+        logger.info(
+            f"Precursor correlation cutoff: {self._precursor_correlation_cutoff}"
+        )
+        logger.info(f"Fragment correlation cutoff: {self._fragment_correlation_ratio}")
+
+        if norm_delta_max:
             self.consensus_speclibase = normalize_rt_delta_max(
                 self.consensus_speclibase
             )
@@ -563,13 +578,20 @@ def ms2_quality_control(
 
         # calculate the median correlation for the precursor
         intensity_mask = flat_intensity > 0.0
-        median_correlation = np.median(flat_correlation[intensity_mask])
+        median_correlation = (
+            np.median(flat_correlation[intensity_mask]) if intensity_mask.any() else 0.0
+        )
 
         # use the precursor for MS2 learning if the median correlation is above the cutoff
         use_for_ms2[i] = median_correlation > precursor_correlation_cutoff
 
-        fragment_intensity_view[:] = fragment_intensity_view * (
-            fragment_correlation_view > median_correlation * fragment_correlation_ratio
+        # Fix: Use loc to modify the original DataFrame instead of the view
+        spec_lib_base.fragment_intensity_df.loc[start_idx:stop_idx] = (
+            fragment_intensity_view.values
+            * (
+                fragment_correlation_view
+                > median_correlation * fragment_correlation_ratio
+            )
         )
 
     spec_lib_base.precursor_df["use_for_ms2"] = use_for_ms2
