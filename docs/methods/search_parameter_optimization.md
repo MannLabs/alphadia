@@ -1,7 +1,7 @@
 # Optimization and Calibration
 In peptide centric DIA search, calibration of the library and optimization of search parameters is required to maximize the number of confident identifications. AlphaDIA performs both calibration and optimization iteratively. Calibration removes the systematic deviation of observed and library values to account for technical variation from the LC or MS instrument. Optimization reduces the search space to improve the confidence in identifications and to accelerate search.
 :::{note}
-Calibration and optimization are different but connected to transfer learning. In [transfer learning](./transfer-learning.md) the residual (non-systematic) variation is learned and thereby reduced. This usually leads to better performance if used with optimization and calibration.
+Calibration and optimization are different but both connected to transfer learning. In [transfer learning](./transfer-learning.md) the residual (non-systematic) variation is learned and thereby reduced. This usually leads to better performance if used with optimization and calibration.
 :::
 
 ## Overview of optimization
@@ -18,7 +18,7 @@ For example, setting `target_rt_tolerance` to `300` will result in a target tole
 ### Automatic optimization
 In automatic optimization the search space is reduced until an optimal value is detected. This optimization is curently performed for every raw file individually. The results of the optimization can be found in the [stats.tsv](<project:../methods/output-format.md>) file in the output directory.
 
-To activate automatic optimization for example for retention time, set `target_rt_tolerance` to `0.0`.
+To activate automatic optimization for a certain quantity, set the respective target to `0.0`, for example set `target_rt_tolerance=0.0` for automatic retention time optimization.
 
 :::{tip}
 We recommend to always use automatic optimization for retention time and ion mobility as set by default. For automatic optimization of mass tolerances we recommend using optimization in the first pass and then using the optimized values in the second pass.
@@ -47,7 +47,7 @@ For optimizing the search space, tolerances like retention time, ion mobility an
 The optimization is finished as soon as the minimum number of steps `min_steps` has passed and all tolerances have either 1. reached the target tolerances defined in `search` if using targeted optimization, or 2. have converged if using automatic optimization.
 
 ## Configuring calibration and optimization
-The configuration below will perform targeted optimization of precursor m/z, fragment m/z and ion mobility, and automatic optimization of retention time.
+By default, alphaDIA performs targeted optimization of precursor m/z, fragment m/z, and automatic optimization of retention time and ion mobility using the settings below.
 
 ```yaml
 search:
@@ -69,36 +69,6 @@ search:
   # Targeted optimization of retention time tolerance.
   # Use absolute values in seconds (e.g. 300s) or set to 0 for automatic optimization.
   target_rt_tolerance: 0
-
-calibration:
-  # Number of precursors searched and scored per batch
-  batch_size: 8000
-
-  # minimum number of precursors to be found before search parameter optimization begins
-  optimization_lock_target: 200
-
-  # the maximum number of steps that a given optimizer is permitted to take
-  max_steps: 20
-
-  # the minimum number of steps that a given optimizer must take before it can be said to have converged
-  min_steps: 2
-
-search_initial:
-  # Number of peak groups identified in the convolution score to classify with target decoy competition
-  initial_num_candidates: 1
-
-  # initial ms1 tolerance in ppm
-  initial_ms1_tolerance: 30
-
-  # initial ms2 tolerance in ppm
-  initial_ms2_tolerance: 30
-
-  # initial ion mobility tolerance in 1/K_0
-  initial_mobility_tolerance: 0.1
-
-  # initial retention time tolerance as a fraction of the total gradient length
-  initial_rt_tolerance: 0.5
-
 ```
 
 ## Calibration using LOESS
