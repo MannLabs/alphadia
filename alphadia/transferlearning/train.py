@@ -994,7 +994,7 @@ class FinetuneManager(ModelManager):
             logger.error(
                 "Failed to finetune CCS model. PSM dataframe does not contain mobility or ccs columns."
             )
-            return
+            return None
         if "ccs" not in psm_df.columns:
             psm_df["ccs"] = mobility_to_ccs_for_df(psm_df, "mobility")
         elif "mobility" not in psm_df.columns:

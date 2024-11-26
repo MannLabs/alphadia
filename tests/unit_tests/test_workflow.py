@@ -293,7 +293,7 @@ def test_optimization_manager_fit():
     os.remove(temp_path)
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_workflow_base():
     if pytest.test_data is None:
         pytest.skip("No test data found")
@@ -320,7 +320,7 @@ def test_workflow_base():
             assert my_workflow.config["output"] == config["output"]
             assert my_workflow.instance_name == workflow_name
             assert my_workflow.parent_path == os.path.join(
-                config["output"], base.TEMP_FOLDER
+                config["output"], base.QUANT_FOLDER_NAME
             )
             assert my_workflow.path == os.path.join(
                 my_workflow.parent_path, workflow_name
@@ -434,16 +434,16 @@ def create_workflow_instance():
     )
     workflow._calibration_manager = manager.CalibrationManager(
         workflow.config["calibration_manager"],
-        path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PATH),
+        path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         reporter=workflow.reporter,
     )
 
     workflow._optimization_manager = manager.OptimizationManager(
         TEST_OPTIMIZATION_CONFIG,
-        path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PATH),
+        path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
-        figure_path=os.path.join(workflow.path, workflow.FIGURE_PATH),
+        figure_path=os.path.join(workflow.path, workflow.FIGURES_FOLDER_NAME),
         reporter=workflow.reporter,
     )
 

@@ -18,16 +18,16 @@ def assemble_isotope_mz(mono_mz, charge, isotope_intensity):
 @overload(assemble_isotope_mz)
 def _(mono_mz, charge, isotope_intensity):
     if not isinstance(mono_mz, nb.types.Float):
-        return
+        return None
 
     if not isinstance(charge, nb.types.Integer):
-        return
+        return None
 
     if not isinstance(isotope_intensity, nb.types.Array):
-        return
+        return None
 
     if isotope_intensity.ndim != 1:
-        return
+        return None
 
     def funcx_impl(mono_mz, charge, isotope_intensity):
         offset = np.arange(len(isotope_intensity)) * 1.0033548350700006 / charge

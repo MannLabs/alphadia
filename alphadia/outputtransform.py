@@ -1,6 +1,7 @@
 # native imports
 import logging
 import os
+from collections import defaultdict
 from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
@@ -25,6 +26,7 @@ from alphadia.outputaccumulator import (
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 logger = logging.getLogger()
 
@@ -116,7 +118,7 @@ class QuantBuilder:
         raw_name, df = next(df_iterable, (None, None))
         if df is None:
             logger.warning(f"no frag file found for {raw_name}")
-            return
+            return None
 
         df = prepare_df(df, self.psm_df, column=self.column)
 
@@ -886,7 +888,7 @@ class SearchPlanOutput:
 
         if len(psm_df) == 0:
             logger.warning("No precursors found, skipping library building")
-            return
+            return None
 
         libbuilder = libtransform.MbrLibraryBuilder(
             fdr=0.01,
@@ -938,53 +940,139 @@ def _build_run_stat_df(
         Dataframe containing the statistics
 
     """
-    optimization_manager_path = os.path.join(
-        folder, peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PATH
-    )
 
     if channels is None:
         channels = [0]
-    out_df = []
+    all_stats = []
 
     for channel in channels:
         channel_df = run_df[run_df["channel"] == channel]
 
-        base_dict = {
+        stats = {
             "run": raw_name,
             "channel": channel,
             "precursors": len(channel_df),
             "proteins": channel_df["pg"].nunique(),
         }
 
-        if "weighted_mass_error" in channel_df.columns:
-            base_dict["ms1_accuracy"] = np.mean(channel_df["weighted_mass_error"])
-
+        stats["fwhm_rt"] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            base_dict["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+            stats["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
 
+        stats["fwhm_mobility"] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            base_dict["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+            stats["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
 
-        if os.path.exists(optimization_manager_path):
+        # collect optimization stats
+        optimization_stats = defaultdict(lambda: np.nan)
+        if os.path.exists(
+            optimization_manager_path := os.path.join(
+                folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+            )
+        ):
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-
-            base_dict["ms2_error"] = optimization_manager.ms2_error
-            base_dict["ms1_error"] = optimization_manager.ms1_error
-            base_dict["rt_error"] = optimization_manager.rt_error
-            base_dict["mobility_error"] = optimization_manager.mobility_error
-
+            optimization_stats["ms2_error"] = optimization_manager.ms2_error
+            optimization_stats["ms1_error"] = optimization_manager.ms1_error
+            optimization_stats["rt_error"] = optimization_manager.rt_error
+            optimization_stats["mobility_error"] = optimization_manager.mobility_error
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
-            base_dict["ms2_error"] = np.nan
-            base_dict["ms1_error"] = np.nan
-            base_dict["rt_error"] = np.nan
-            base_dict["mobility_error"] = np.nan
 
-        out_df.append(base_dict)
+        prefix = "optimization."
+        for key in ["ms2_error", "ms1_error", "rt_error", "mobility_error"]:
+            stats[f"{prefix}{key}"] = optimization_stats[key]
 
-    return pd.DataFrame(out_df)
+        # collect calibration stats
+        calibration_stats = defaultdict(lambda: np.nan)
+        if os.path.exists(
+            calibration_manager_path := os.path.join(
+                folder,
+                peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME,
+            )
+        ):
+            calibration_manager = manager.CalibrationManager(
+                path=calibration_manager_path
+            )
+
+            if (
+                fragment_mz_estimator := calibration_manager.get_estimator(
+                    "fragment", "mz"
+                )
+            ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
+                calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[
+                    "median_accuracy"
+                ]
+                calibration_stats["ms2_median_precision"] = fragment_mz_metrics[
+                    "median_precision"
+                ]
+
+            if (
+                precursor_mz_estimator := calibration_manager.get_estimator(
+                    "precursor", "mz"
+                )
+            ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
+                calibration_stats["ms1_median_accuracy"] = precursor_mz_metrics[
+                    "median_accuracy"
+                ]
+                calibration_stats["ms1_median_precision"] = precursor_mz_metrics[
+                    "median_precision"
+                ]
+
+        else:
+            logger.warning(f"Error reading calibration manager for {raw_name}")
+
+        prefix = "calibration."
+        for key in [
+            "ms2_median_accuracy",
+            "ms2_median_precision",
+            "ms1_median_accuracy",
+            "ms1_median_precision",
+        ]:
+            stats[f"{prefix}{key}"] = calibration_stats[key]
+
+        # collect raw stats
+        raw_stats = defaultdict(lambda: np.nan)
+        if os.path.exists(
+            raw_file_manager_path := os.path.join(
+                folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
+            )
+        ):
+            raw_stats = RawFileManager(
+                path=raw_file_manager_path, load_from_file=True
+            ).stats
+        else:
+            logger.warning(f"Error reading raw file manager for {raw_name}")
+
+        # deliberately mapping explicitly to avoid coupling raw_stats to the output too tightly
+        prefix = "raw."
+
+        stats[f"{prefix}gradient_min_m"] = raw_stats["rt_limit_min"] / 60
+        stats[f"{prefix}gradient_max_m"] = raw_stats["rt_limit_max"] / 60
+        stats[f"{prefix}gradient_length_m"] = (
+            raw_stats["rt_limit_max"] - raw_stats["rt_limit_min"]
+        ) / 60
+        for key in [
+            "cycle_length",
+            "cycle_duration",
+            "cycle_number",
+            "msms_range_min",
+            "msms_range_max",
+        ]:
+            stats[f"{prefix}{key}"] = raw_stats[key]
+
+        all_stats.append(stats)
+
+    return pd.DataFrame(all_stats)
+
+
+def _get_value_or_nan(d: dict, key: str):
+    try:
+        return d[key]
+    except KeyError:
+        return np.nan
 
 
 def _build_run_internal_df(
@@ -1006,7 +1094,7 @@ def _build_run_internal_df(
 
     """
     timing_manager_path = os.path.join(
-        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PATH
+        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
     )
     raw_name = os.path.basename(folder_path)
 
