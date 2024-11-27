@@ -132,15 +132,6 @@ class Plan:
         torch.set_num_threads(self.config["general"]["thread_count"])
 
     @property
-    def raw_path_list(self) -> list[str]:
-        """List of input files locations."""
-        return self._raw_path_list
-
-    @raw_path_list.setter
-    def raw_path_list(self, raw_path_list: list[str]):
-        self._raw_path_list = raw_path_list
-
-    @property
     def config(self) -> Config:
         """Dict with all configuration parameters for the extraction."""
         return self._config
