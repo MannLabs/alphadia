@@ -17,6 +17,8 @@ import pandas as pd
 import torch
 from matplotlib import patches
 
+from alphadia.data.alpharaw_wrapper import search_sorted_left
+
 logger = logging.getLogger()
 
 
@@ -723,7 +725,9 @@ def get_frame_indices(
     if rt_values.shape != (2,):
         raise ValueError("rt_values must be a numpy array of shape (2,)")
 
-    frame_index = np.searchsorted(rt_values_array, rt_values, "left")
+    frame_index = np.zeros(len(rt_values), dtype=np.int64)
+    for i, rt in enumerate(rt_values):
+        frame_index[i] = search_sorted_left(rt_values_array, rt)
 
     precursor_cycle_limits = (frame_index + zeroth_frame) // cycle_len
     precursor_cycle_len = precursor_cycle_limits[1] - precursor_cycle_limits[0]
