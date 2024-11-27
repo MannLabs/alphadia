@@ -732,12 +732,9 @@ def get_frame_indices(
     precursor_cycle_limits = (frame_index + zeroth_frame) // cycle_len
     precursor_cycle_len = precursor_cycle_limits[1] - precursor_cycle_limits[0]
 
-    # Apply minimum size
-    optimal_len = max(precursor_cycle_len, min_size)
-    # Round up to the next multiple of `optimize_size`
-    optimal_len = int(optimize_size * math.ceil(optimal_len / optimize_size))
-
-    # By default, extend the precursor cycle to the right
+    # round up to the next multiple of 16
+    optimal_len = int(optimize_size * math.ceil(precursor_cycle_len / optimize_size))
+    # by default, we extend the precursor cycle to the right
     optimal_cycle_limits = np.array(
         [precursor_cycle_limits[0], precursor_cycle_limits[0] + optimal_len],
         dtype=np.int64,
