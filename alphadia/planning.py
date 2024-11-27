@@ -400,7 +400,10 @@ class Plan:
 
     def clean(self):
         if not self.config["general"]["save_library"]:
-            os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+            try:
+                os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+            except Exception as e:
+                logger.exception(f"Error deleting library: {e}")
 
 
 def _log_exception_event(
