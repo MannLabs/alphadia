@@ -1,18 +1,11 @@
-# native imports
 import logging
 import math
 import platform
 import re
 from ctypes import Structure, c_double
 
-# alphadia imports
-# alpha family imports
-import alphatims.bruker
-import alphatims.utils
 import numba as nb
 import numpy as np
-
-# third party imports
 import pandas as pd
 import torch
 from matplotlib import patches
@@ -203,7 +196,7 @@ def plt_limits(mobility_limits, dia_cycle_limits):
     return rect
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
 
@@ -234,7 +227,7 @@ def find_peaks_1d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def find_peaks_2d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
     scan = []
@@ -268,7 +261,7 @@ def find_peaks_2d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def amean1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -276,7 +269,7 @@ def amean1(array):
     return out
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def amean0(array):
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -284,7 +277,7 @@ def amean0(array):
     return out
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def astd0(array):
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -292,7 +285,7 @@ def astd0(array):
     return out
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -323,7 +316,7 @@ def get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def mass_range(mz_list, ppm_tolerance):
     out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)
     out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
@@ -348,12 +341,12 @@ class Point(Structure):
     _fields_ = [("x", c_double), ("y", c_double)]
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
 
 
-@alphatims.utils.njit
+@nb.njit
 def make_slice_1d(start_stop):
     """Numba helper function to create a 1D slice object from a start and stop value.
 
@@ -373,7 +366,7 @@ def make_slice_1d(start_stop):
     return np.array([[start_stop[0], start_stop[1], 1]], dtype=start_stop.dtype)
 
 
-@alphatims.utils.njit
+@nb.njit
 def make_slice_2d(start_stop):
     """Numba helper function to create a 2D slice object from multiple start and stop value.
 
@@ -397,7 +390,7 @@ def make_slice_2d(start_stop):
     return out
 
 
-@alphatims.utils.njit
+@nb.njit
 def fourier_filter(dense_stack, kernel):
     """Numba helper function to apply a gaussian filter to a dense stack.
     The filter is applied as convolution wrapping around the edges, calculated in fourier space.
