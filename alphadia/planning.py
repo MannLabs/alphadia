@@ -3,6 +3,7 @@ import logging
 import os
 import socket
 from datetime import datetime
+from importlib import metadata
 from pathlib import Path
 
 import alphabase
@@ -164,6 +165,14 @@ class Plan:
         logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
         logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
+        logger.progress("===================================================")
+
+        logger.progress("================= Pip Environment =================")
+        pip_env = [
+            f"{dist.metadata['Name']}=={dist.version}"
+            for dist in metadata.distributions()
+        ]
+        logger.progress(" ".join(pip_env))
         logger.progress("===================================================")
 
     def init_alphabase(self):
