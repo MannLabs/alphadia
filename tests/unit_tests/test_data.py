@@ -367,7 +367,7 @@ def test_get_frame_indices_optimization_left_min_size_overflow(mock_alpha_raw_ji
     optimize_size = 4
     min_size = 1000
     rt_values = np.array([90.0, 95.0], dtype=np.float32)
-    expected_indices = np.array([[0, 95, 1]], dtype=np.int64)
+    expected_indices = np.array([[5, 95, 1]], dtype=np.int64)
 
     # when
     frame_indices = mock_alpha_raw_jit.get_frame_indices(

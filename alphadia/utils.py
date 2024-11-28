@@ -745,7 +745,7 @@ def get_frame_indices(
         optimal_cycle_limits[0] = precursor_cycle_max_index - optimal_len
 
         if optimal_cycle_limits[0] < 0:
-            optimal_cycle_limits[0] = 0
+            optimal_cycle_limits[0] = 0 if precursor_cycle_max_index % 2 == 0 else 1
 
     # Convert back to frame indices
     frame_limits = optimal_cycle_limits * cycle_len + zeroth_frame
