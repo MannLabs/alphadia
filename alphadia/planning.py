@@ -170,11 +170,11 @@ class Plan:
         """Init alphabase by registering custom modifications."""
 
         # register custom modifications
-        if "custom_modififcations" in self.config:
-            n_modifications = len(self.config["custom_modififcations"])
+        if "custom_modifications" in self.config:
+            n_modifications = len(self.config["custom_modifications"])
             logging.info(f"Registering {n_modifications} custom modifications")
 
-            modification.add_new_modifications(self.config["custom_modififcations"])
+            modification.add_new_modifications(self.config["custom_modifications"])
 
     def load_library(self):
         """
