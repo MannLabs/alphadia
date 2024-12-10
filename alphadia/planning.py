@@ -121,7 +121,7 @@ class Plan:
         user_config: dict | Config,
         output_folder: str,
         config_base_path: str | None,
-    ):
+    ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
         # default config path is not defined in the function definition to account for different path separators on different OS
