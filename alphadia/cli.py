@@ -83,12 +83,6 @@ parser.add_argument(
     default=None,
 )
 parser.add_argument(
-    "--wsl",
-    "-w",
-    action="store_true",
-    help="Set if running on Windows Subsystem for Linux.",
-)
-parser.add_argument(
     "--config-dict",
     type=str,
     help="Python Dict which will be used to update the default config.",
@@ -206,9 +200,7 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     raw_path_list = config.get("raw_path_list", [])
     raw_path_list += args.file
 
-    config_directory = config.get("directory")
-
-    if config_directory is not None:
+    if (config_directory := config.get("directory")) is not None:
         raw_path_list += [
             os.path.join(config_directory, f) for f in os.listdir(config_directory)
         ]
