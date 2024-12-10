@@ -98,23 +98,8 @@ parser.add_argument(
 )
 
 
-def parse_config(args: argparse.Namespace) -> dict:
-    """Parse config file and config update JSON string.
-    1. Load config file if specified.
-    2. Update config with config update JSON string.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    Returns
-    -------
-
-    config : dict
-        Updated config dictionary.
-    """
+def _get_config_from_args(args: argparse.Namespace) -> dict:
+    """Parse config file from `args.config` if given and update with optional JSON string `args.config_dict`."""
 
     config = {}
     if args.config is not None:
@@ -129,74 +114,34 @@ def parse_config(args: argparse.Namespace) -> dict:
     return config
 
 
-def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
-    """Parse output directory.
-    1. Use output directory from config file if specified.
-    2. Use output directory from command line if specified.
+def _get_from_args_or_config(
+    args: argparse.Namespace, config: dict, *, args_key: str, config_key: str
+) -> str:
+    """Get a value from command line arguments (key: `args_key`) or config file (key: `config_key`), the former taking precedence."""
+    value_from_args = args.__dict__.get(args_key)
+    return value_from_args if value_from_args is not None else config.get(config_key)
 
-    Parameters
-    ----------
 
-    args : argparse.Namespace
-        Command line arguments.
+def _get_raw_path_list_from_args_and_config(
+    args: argparse.Namespace, config: dict
+) -> list:
+    """
+    Generate a list of raw file paths based on command-line arguments and configuration.
 
-    config : dict
-        Config dictionary.
+    This function combines file paths specified in the configuration and command-line
+    arguments, including files from specified directories. It filters the resulting
+    list of file paths using a regular expression provided in the arguments.
 
-    Returns
-    -------
+    Args:
+        args (argparse.Namespace): Command-line arguments containing file and directory
+            paths, as well as a regex pattern for filtering.
+        config (dict): Configuration dictionary that may include a list of raw paths
+            and a directory to search for files.
 
-    output_directory : str
-        Output directory.
+    Returns:
+        list: A list of file paths that match the specified regex pattern.
     """
 
-    return args.output if args.output is not None else config.get("output_directory")
-
-
-def parse_quant_dir(args: argparse.Namespace, config: dict) -> str:
-    """Parse custom quant path.
-    1. Use custom quant path from config file if specified.
-    2. Use custom quant path from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    quant_dir : str
-        path to quant directory.
-    """
-
-    return args.quant_dir if args.quant_dir is not None else config.get("quant_dir")
-
-
-def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
-    """Parse raw file list.
-    1. Use raw file list from config file if specified.
-    2. Use raw file list from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    raw_path_list : list
-        List of raw files.
-    """
     raw_path_list = config.get("raw_path_list", [])
     raw_path_list += args.file
 
@@ -221,49 +166,10 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     return raw_path_list
 
 
-def parse_library(args: argparse.Namespace, config: dict) -> str:
-    """Parse spectral library.
-    1. Use spectral library from config file if specified.
-    2. Use spectral library from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    library : str
-        Spectral library.
-    """
-    return args.library if args.library is not None else config.get("library")
-
-
-def parse_fasta(args: argparse.Namespace, config: dict) -> list:
-    """Parse fasta file list.
-    1. Use fasta file list from config file if specified.
-    2. Use fasta file list from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    fasta_path_list : list
-        List of fasta files.
-    """
+def _get_fasta_list_from_args_and_config(
+    args: argparse.Namespace, config: dict
+) -> list:
+    """Parse fasta file list from command line arguments and config file, merging them if both are given."""
 
     fasta_path_list = config.get("fasta_list", [])
     fasta_path_list += args.fasta
@@ -284,36 +190,38 @@ def run(*args, **kwargs):
         print(f"{alphadia.__version__}")
         return
 
-    config = parse_config(args)
+    user_config = _get_config_from_args(args)
 
-    output_directory = parse_output_directory(args, config)
+    output_directory = _get_from_args_or_config(
+        args, user_config, args_key="output", config_key="output_directory"
+    )
     if output_directory is None:
-        # print help message if no output directory specified
         parser.print_help()
-
         print("No output directory specified.")
         return
 
-    quant_dir = parse_quant_dir(args, config)
-
     reporting.init_logging(output_directory)
-    raw_path_list = parse_raw_path_list(args, config)
+    logger.progress(f"Saving output to: {output_directory}")
 
-    library_path = parse_library(args, config)
-    fasta_path_list = parse_fasta(args, config)
-
+    raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
     logger.progress(f"Searching {len(raw_path_list)} files:")
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
+    library_path = _get_from_args_or_config(
+        args, user_config, args_key="library", config_key="library"
+    )
     logger.progress(f"Using library: {library_path}")
 
+    fasta_path_list = _get_fasta_list_from_args_and_config(args, user_config)
     logger.progress(f"Using {len(fasta_path_list)} fasta files:")
     for f in fasta_path_list:
         logger.progress(f"  {f}")
 
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
-    logger.progress(f"Saving output to: {output_directory}")
+    quant_dir = _get_from_args_or_config(
+        args, user_config, args_key="quant_dir", config_key="quant_dir"
+    )
     if quant_dir is not None:
         logger.progress(f"Saving quantification output to {quant_dir=}")
 
@@ -330,7 +238,7 @@ def run(*args, **kwargs):
             raw_path_list=raw_path_list,
             library_path=library_path,
             fasta_path_list=fasta_path_list,
-            config=config,
+            config=user_config,
             quant_path=quant_dir,
         )
 
