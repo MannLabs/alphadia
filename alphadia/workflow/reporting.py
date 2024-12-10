@@ -142,6 +142,8 @@ def init_logging(
     logger.addHandler(ch)
 
     if log_folder is not None:
+        os.makedirs(log_folder, exist_ok=True)
+
         log_name = os.path.join(log_folder, "log.txt")
         # check if log file exists
         if os.path.exists(log_name) and overwrite:
