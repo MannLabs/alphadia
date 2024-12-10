@@ -2,6 +2,7 @@
 import logging
 import os
 import socket
+from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
@@ -295,7 +296,7 @@ class Plan:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
-    def get_run_data(self):
+    def get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
@@ -312,14 +313,7 @@ class Plan:
 
     def run(
         self,
-        figure_path=None,
-        neptune_token=None,
-        neptune_tags=None,
-        keep_decoys=False,
-        fdr=0.01,
     ):
-        if neptune_tags is None:
-            neptune_tags = []
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
@@ -327,46 +321,8 @@ class Plan:
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
-                workflow = peptidecentric.PeptideCentricWorkflow(
-                    raw_name,
-                    self.config,
-                    quant_path=self.quant_path,
-                )
-
-                # check if the raw file is already processed
+                workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
-                psm_location = os.path.join(workflow.path, "psm.parquet")
-                frag_location = os.path.join(workflow.path, "frag.parquet")
-
-                if self.config["general"]["reuse_quant"]:
-                    if os.path.exists(psm_location) and os.path.exists(frag_location):
-                        logger.info(f"Found existing quantification for {raw_name}")
-                        continue
-                    logger.info(f"No existing quantification found for {raw_name}")
-
-                workflow.load(dia_path, speclib)
-
-                workflow.timing_manager.set_start_time("optimization")
-                workflow.search_parameter_optimization()
-                workflow.timing_manager.set_end_time("optimization")
-
-                workflow.timing_manager.set_start_time("extraction")
-                psm_df, frag_df = workflow.extraction()
-                workflow.timing_manager.set_end_time("extraction")
-                workflow.timing_manager.save()
-
-                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-                if self.config["multiplexing"]["enabled"]:
-                    psm_df = workflow.requantify(psm_df)
-                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-                if self.config["transfer_library"]["enabled"]:
-                    psm_df, frag_df = workflow.requantify_fragments(psm_df)
-
-                psm_df["run"] = raw_name
-                psm_df.to_parquet(psm_location, index=False)
-                frag_df.to_parquet(frag_location, index=False)
 
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -394,11 +350,58 @@ class Plan:
             _log_exception_event(e)
             raise e
         finally:
-            self.clean()
+            self._clean()
 
         logger.progress("=================== Search Finished ===================")
 
-    def clean(self):
+    def _process_raw_file(
+        self, dia_path: str, raw_name: str, speclib: SpecLibFlat
+    ) -> peptidecentric.PeptideCentricWorkflow:
+        """Process a single raw file."""
+
+        workflow = peptidecentric.PeptideCentricWorkflow(
+            raw_name,
+            self.config,
+            quant_path=self.quant_path,
+        )
+
+        # check if the raw file is already processed
+        psm_location = os.path.join(workflow.path, "psm.parquet")
+        frag_location = os.path.join(workflow.path, "frag.parquet")
+
+        if self.config["general"]["reuse_quant"]:
+            if os.path.exists(psm_location) and os.path.exists(frag_location):
+                logger.info(f"Found existing quantification for {raw_name}")
+                return workflow
+            logger.info(f"No existing quantification found for {raw_name}")
+
+        workflow.load(dia_path, speclib)
+
+        workflow.timing_manager.set_start_time("optimization")
+        workflow.search_parameter_optimization()
+        workflow.timing_manager.set_end_time("optimization")
+
+        workflow.timing_manager.set_start_time("extraction")
+        psm_df, frag_df = workflow.extraction()
+        workflow.timing_manager.set_end_time("extraction")
+        workflow.timing_manager.save()
+
+        psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        if self.config["multiplexing"]["enabled"]:
+            psm_df = workflow.requantify(psm_df)
+            psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        if self.config["transfer_library"]["enabled"]:
+            psm_df, frag_df = workflow.requantify_fragments(psm_df)
+
+        psm_df["run"] = raw_name
+        psm_df.to_parquet(psm_location, index=False)
+        frag_df.to_parquet(frag_location, index=False)
+
+        return workflow
+
+    def _clean(self):
         if not self.config["general"]["save_library"]:
             try:
                 os.remove(os.path.join(self.output_folder, "speclib.hdf"))
