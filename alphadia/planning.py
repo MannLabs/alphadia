@@ -2,15 +2,18 @@
 import logging
 import os
 import socket
+from collections import defaultdict
 from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
+from typing import Literal
 
 import alphabase
 import alpharaw
 import alphatims
 import directlfq
+import numpy as np
 import peptdeep
 
 # third party imports
@@ -43,6 +46,7 @@ class Plan:
         config: dict | Config | None = None,
         config_base_path: str | None = None,
         quant_path: str | None = None,
+        step: Literal["transfer", "library", "mbr"] | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -72,7 +76,12 @@ class Plan:
         quant_path : str, optional
             path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
 
+        step : str, optional
+            step to run. If provided, the current config will be updated with they keys from "multistep_searc.<step>"
+            Options are "transfer", "library" and "mbr"
+
         """
+
         if config is None:
             config = {}
         if fasta_path_list is None:
@@ -87,6 +96,7 @@ class Plan:
         self.quant_path = quant_path
 
         self.spectral_library = None
+        self.estimators = None
 
         # needs to be done before any logging:
         reporting.init_logging(self.output_folder)
@@ -95,7 +105,7 @@ class Plan:
 
         self._print_environment()
 
-        self._config = self._init_config(config, output_folder, config_base_path)
+        self._config = self._init_config(config, output_folder, config_base_path, step)
 
         level_to_set = self._config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
@@ -121,6 +131,7 @@ class Plan:
         user_config: dict | Config,
         output_folder: str,
         config_base_path: str | None,
+        step: Literal["transfer", "library", "mbr"] | None = None,
     ):
         """Initialize the config with default values and update with user defined values."""
 
@@ -148,6 +159,14 @@ class Plan:
 
         if "output" not in config:
             config["output"] = output_folder
+
+        if (
+            step is not None
+            and (step_config := config["multistep_search"]["steps"][step]) is not None
+        ):
+            update_config = Config(f"multistep search step {step}")
+            update_config.from_dict(step_config)
+            config.update([update_config], print_modifications=True)
 
         return config
 
@@ -328,12 +347,15 @@ class Plan:
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
+        single_estimators = defaultdict(list)  # needs a better name
 
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
                 workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
+
+                self._update_estimators(single_estimators, workflow)
 
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -348,6 +370,8 @@ class Plan:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
+
+        self.estimators = self._aggregate_estimators(single_estimators)
 
         try:
             base_spec_lib = SpecLibBase()
@@ -364,6 +388,28 @@ class Plan:
             self._clean()
 
         logger.progress("=================== Search Finished ===================")
+
+    @staticmethod
+    def _update_estimators(
+        estimators: dict, workflow: peptidecentric.PeptideCentricWorkflow
+    ):
+        """Update the estimators with the current workflow."""
+
+        estimators["ms1_accuracy"].append(
+            workflow.calibration_manager.get_estimator("precursor", "mz").metrics[
+                "median_accuracy"
+            ]
+        )
+
+    @staticmethod
+    def _aggregate_estimators(estimators: dict):
+        """Aggregate the estimators over workflows."""
+
+        agg_estimators = {}
+        for name, values in estimators.items():
+            agg_estimators[name] = np.median(values)
+
+        return agg_estimators
 
     def _process_raw_file(
         self, dia_path: str, raw_name: str, speclib: SpecLibFlat
