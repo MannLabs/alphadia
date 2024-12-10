@@ -404,6 +404,14 @@ def run(*args, **kwargs):
             )
             library_plan.run()
 
+            # TODO take any required information from library_plan and pass it via config to the next step
+            # e.g.
+            new_config = config | {  # noqa: F841
+                "search": {
+                    "target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]
+                }
+            }
+
             mbr_output_directory = os.path.join(output_directory, "3_mbr")
             Plan(
                 mbr_output_directory,

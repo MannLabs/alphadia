@@ -2,6 +2,7 @@
 import logging
 import os
 import socket
+from collections import defaultdict
 from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
@@ -12,6 +13,7 @@ import alphabase
 import alpharaw
 import alphatims
 import directlfq
+import numpy as np
 import peptdeep
 
 # third party imports
@@ -94,6 +96,7 @@ class Plan:
         self.quant_path = quant_path
 
         self.spectral_library = None
+        self.estimators = None
 
         # needs to be done before any logging:
         reporting.init_logging(self.output_folder)
@@ -344,12 +347,15 @@ class Plan:
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
+        single_estimators = defaultdict(list)  # needs a better name
 
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
                 workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
+
+                self._update_estimators(single_estimators, workflow)
 
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -364,6 +370,8 @@ class Plan:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
+
+        self.estimators = self._aggregate_estimators(single_estimators)
 
         try:
             base_spec_lib = SpecLibBase()
@@ -380,6 +388,28 @@ class Plan:
             self._clean()
 
         logger.progress("=================== Search Finished ===================")
+
+    @staticmethod
+    def _update_estimators(
+        estimators: dict, workflow: peptidecentric.PeptideCentricWorkflow
+    ):
+        """Update the estimators with the current workflow."""
+
+        estimators["ms1_accuracy"].append(
+            workflow.calibration_manager.get_estimator("precursor", "mz").metrics[
+                "median_accuracy"
+            ]
+        )
+
+    @staticmethod
+    def _aggregate_estimators(estimators: dict):
+        """Aggregate the estimators over workflows."""
+
+        agg_estimators = {}
+        for name, values in estimators.items():
+            agg_estimators[name] = np.median(values)
+
+        return agg_estimators
 
     def _process_raw_file(
         self, dia_path: str, raw_name: str, speclib: SpecLibFlat
