@@ -40,7 +40,7 @@ class Plan:
         raw_path_list: list[str] | None = None,
         library_path: str | None = None,
         fasta_path_list: list[str] | None = None,
-        config: dict | None = None,
+        config: dict | Config | None = None,
         config_base_path: str | None = None,
         quant_path: str | None = None,
     ) -> None:
@@ -79,65 +79,77 @@ class Plan:
             fasta_path_list = []
         if raw_path_list is None:
             raw_path_list = []
+
         self.output_folder = output_folder
-        reporting.init_logging(self.output_folder)
-
-        logger.progress("          _      _         ___ ___   _   ")
-        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
-        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
-        logger.progress("           |_|                           ")
-        logger.progress("")
-
-        self.spectral_library = None
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
         self.quant_path = quant_path
 
-        logger.progress(f"version: {alphadia.__version__}")
+        self.spectral_library = None
 
-        # print hostname, date with day format and time
-        logger.progress(f"hostname: {socket.gethostname()}")
-        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        logger.progress(f"date: {now}")
+        # needs to be done before any logging:
+        reporting.init_logging(self.output_folder)
 
-        # print environment
-        self.log_environment()
+        self._print_logo()
 
-        # 1. default config path is not defined in the function definition to account for different path separators on different OS
-        if config_base_path is None:
-            # default yaml config location under /misc/config/config.yaml
-            config_base_path = os.path.join(
-                os.path.dirname(__file__), "constants", "default.yaml"
-            )
+        self._print_environment()
 
-        self.config = Config()
+        self._config = self._init_config(config, output_folder, config_base_path)
 
-        logger.info(f"loading default config from {config_base_path}")
-        self.config.from_yaml(config_base_path)
-
-        # 2. load update config from dict
-        if isinstance(config, dict):
-            update_config = Config("user defined")
-            update_config.from_dict(config)
-        else:
-            update_config = config  # TODO what is it in this case?
-
-        self.config.update([update_config], print_modifications=True)
-
-        if "output" not in self.config:
-            self.config["output"] = output_folder
-
-        # set log level
-        level_to_set = self.config["general"]["log_level"]
+        level_to_set = self._config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
         logger.setLevel(level_code)
 
         self.init_alphabase()
         self.load_library()
 
-        torch.set_num_threads(self.config["general"]["thread_count"])
+        torch.set_num_threads(self._config["general"]["thread_count"])
+
+    def _print_logo(self) -> None:
+        """Print the alphadia logo and version."""
+        logger.progress("          _      _         ___ ___   _   ")
+        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
+        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
+        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
+        logger.progress("           |_|                           ")
+        logger.progress("")
+        logger.progress(f"version: {alphadia.__version__}")
+
+    def _init_config(
+        self,
+        user_config: dict | Config,
+        output_folder: str,
+        config_base_path: str | None,
+    ):
+        """Initialize the config with default values and update with user defined values."""
+
+        # default config path is not defined in the function definition to account for different path separators on different OS
+        if config_base_path is None:
+            # default yaml config location under /misc/config/config.yaml
+            config_base_path = os.path.join(
+                os.path.dirname(__file__), "constants", "default.yaml"
+            )
+
+        logger.info(f"loading default config from {config_base_path}")
+        config = Config()
+        config.from_yaml(config_base_path)
+
+        # load update config from dict
+        if isinstance(user_config, dict):
+            update_config = Config("user defined")
+            update_config.from_dict(user_config)
+        elif isinstance(user_config, Config):
+            update_config = user_config
+        else:
+            raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
+
+        config.update([update_config], print_modifications=True)
+
+        if "output" not in config:
+            config["output"] = output_folder
+
+        return config
 
     @property
     def config(self) -> Config:
@@ -157,7 +169,13 @@ class Plan:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def log_environment(self):
+    def _print_environment(self) -> None:
+        """Log information about the python environment."""
+
+        logger.progress(f"hostname: {socket.gethostname()}")
+        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        logger.progress(f"date: {now}")
+
         logger.progress("================ AlphaX Environment ===============")
         logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
         logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
