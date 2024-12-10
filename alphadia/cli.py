@@ -241,7 +241,7 @@ def parse_library(args: argparse.Namespace, config: dict) -> str:
     library : str
         Spectral library.
     """
-    return args.library if args.quant_dir is not None else config.get("library")
+    return args.library if args.library is not None else config.get("library")
 
 
 def parse_fasta(args: argparse.Namespace, config: dict) -> list:
