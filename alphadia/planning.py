@@ -6,6 +6,7 @@ from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
+from typing import Literal
 
 import alphabase
 import alpharaw
@@ -43,6 +44,7 @@ class Plan:
         config: dict | Config | None = None,
         config_base_path: str | None = None,
         quant_path: str | None = None,
+        step: Literal["transfer", "library", "mbr"] | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -72,7 +74,12 @@ class Plan:
         quant_path : str, optional
             path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
 
+        step : str, optional
+            step to run. If provided, the current config will be updated with they keys from "multistep_searc.<step>"
+            Options are "transfer", "library" and "mbr"
+
         """
+
         if config is None:
             config = {}
         if fasta_path_list is None:
@@ -95,7 +102,7 @@ class Plan:
 
         self._print_environment()
 
-        self._config = self._init_config(config, output_folder, config_base_path)
+        self._config = self._init_config(config, output_folder, config_base_path, step)
 
         level_to_set = self._config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
@@ -121,6 +128,7 @@ class Plan:
         user_config: dict | Config,
         output_folder: str,
         config_base_path: str | None,
+        step: Literal["transfer", "library", "mbr"] | None = None,
     ):
         """Initialize the config with default values and update with user defined values."""
 
@@ -148,6 +156,14 @@ class Plan:
 
         if "output" not in config:
             config["output"] = output_folder
+
+        if (
+            step is not None
+            and (step_config := config["multistep_search"]["steps"][step]) is not None
+        ):
+            update_config = Config(f"multistep search step {step}")
+            update_config.from_dict(step_config)
+            config.update([update_config], print_modifications=True)
 
         return config
 
