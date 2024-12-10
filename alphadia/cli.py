@@ -11,11 +11,13 @@ import os
 import re
 import sys
 
+import matplotlib
 import yaml
 
 import alphadia
 from alphadia import utils
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, NoPsmFoundError
+from alphadia.planning import Plan
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
@@ -368,24 +370,60 @@ def run(*args, **kwargs):
     if quant_dir is not None:
         logger.progress(f"Saving quantification output to {quant_dir=}")
 
+    # important to suppress matplotlib output
+    matplotlib.use("Agg")
+
     try:
-        import matplotlib
+        if config.get("multistep_search", {}).get("enabled", False):
+            transfer_output_directory = os.path.join(output_directory, "1_transfer")
+            try:
+                transfer_plan = Plan(
+                    transfer_output_directory,
+                    raw_path_list=[],
+                    library_path=library_path,
+                    fasta_path_list=fasta_path_list,
+                    config=config,
+                    quant_path=quant_dir,  # None
+                    step="transfer",
+                )
+                transfer_plan.run()
 
-        # important to suppress matplotlib output
-        matplotlib.use("Agg")
+            except NoPsmFoundError:
+                # TODO this is a workaround, should have "prediction only" mode
+                pass
 
-        from alphadia.planning import Plan
+            library_output_directory = os.path.join(output_directory, "2_library")
+            library_plan = Plan(
+                library_output_directory,
+                raw_path_list=raw_path_list,
+                library_path=os.path.join(transfer_output_directory, "speclib.hdf"),
+                fasta_path_list=[],
+                config=config,
+                quant_path=os.path.join(transfer_output_directory, "quant"),
+                step="library",
+            )
+            library_plan.run()
 
-        plan = Plan(
-            output_directory,
-            raw_path_list=raw_path_list,
-            library_path=library_path,
-            fasta_path_list=fasta_path_list,
-            config=config,
-            quant_path=quant_dir,
-        )
+            mbr_output_directory = os.path.join(output_directory, "3_mbr")
+            Plan(
+                mbr_output_directory,
+                raw_path_list=raw_path_list,
+                library_path=library_path,
+                fasta_path_list=[],
+                config=config,
+                quant_path=os.path.join(library_output_directory, "quant"),
+                step="mbr",
+            ).run()
 
-        plan.run()
+        else:
+            Plan(
+                output_directory,
+                raw_path_list=raw_path_list,
+                library_path=library_path,
+                fasta_path_list=fasta_path_list,
+                config=config,
+                quant_path=quant_dir,
+            ).run()
 
     except Exception as e:
         if isinstance(e, CustomError):
