@@ -216,28 +216,28 @@ class Plan:
 
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
+
+        prediction_config = self.config["library_prediction"]
+
         fasta_digest = libtransform.FastaDigest(
-            enzyme=self.config["library_prediction"]["enzyme"],
+            enzyme=prediction_config["enzyme"],
             fixed_modifications=_parse_modifications(
-                self.config["library_prediction"]["fixed_modifications"]
+                prediction_config["fixed_modifications"]
             ),
             variable_modifications=_parse_modifications(
-                self.config["library_prediction"]["variable_modifications"]
+                prediction_config["variable_modifications"]
             ),
-            max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
-            missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
-            precursor_len=self.config["library_prediction"]["precursor_len"],
-            precursor_charge=self.config["library_prediction"]["precursor_charge"],
-            precursor_mz=self.config["library_prediction"]["precursor_mz"],
+            max_var_mod_num=prediction_config["max_var_mod_num"],
+            missed_cleavages=prediction_config["missed_cleavages"],
+            precursor_len=prediction_config["precursor_len"],
+            precursor_charge=prediction_config["precursor_charge"],
+            precursor_mz=prediction_config["precursor_mz"],
         )
 
-        if self.library_path is None and self.config["library_prediction"]["predict"]:
+        if self.library_path is None and prediction_config["predict"]:
             logger.progress("No library provided. Building library from fasta files.")
             spectral_library = fasta_digest(self.fasta_path_list)
-        elif (
-            self.library_path is None
-            and not self.config["library_prediction"]["predict"]
-        ):
+        elif self.library_path is None and not prediction_config["predict"]:
             logger.error("No library provided and prediction disabled.")
             return
         else:
@@ -245,50 +245,43 @@ class Plan:
 
         # 2. Check if properties should be predicted
 
-        if self.config["library_prediction"]["predict"]:
+        thread_count = self.config["general"]["thread_count"]
+
+        if prediction_config["predict"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = libtransform.PeptDeepPrediction(
                 use_gpu=self.config["general"]["use_gpu"],
-                fragment_mz=self.config["library_prediction"]["fragment_mz"],
-                nce=self.config["library_prediction"]["nce"],
-                instrument=self.config["library_prediction"]["instrument"],
-                mp_process_num=self.config["general"]["thread_count"],
-                peptdeep_model_path=self.config["library_prediction"][
-                    "peptdeep_model_path"
-                ],
-                peptdeep_model_type=self.config["library_prediction"][
-                    "peptdeep_model_type"
-                ],
-                fragment_types=self.config["library_prediction"][
-                    "fragment_types"
-                ].split(";"),
-                max_fragment_charge=self.config["library_prediction"][
-                    "max_fragment_charge"
-                ],
+                fragment_mz=prediction_config["fragment_mz"],
+                nce=prediction_config["nce"],
+                instrument=prediction_config["instrument"],
+                mp_process_num=thread_count,
+                peptdeep_model_path=prediction_config["peptdeep_model_path"],
+                peptdeep_model_type=prediction_config["peptdeep_model_type"],
+                fragment_types=prediction_config["fragment_types"].split(";"),
+                max_fragment_charge=prediction_config["max_fragment_charge"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
 
-        # 3. import library and harmoniza
+        # 3. import library and harmonize
         harmonize_pipeline = libtransform.ProcessingPipeline(
             [
                 libtransform.PrecursorInitializer(),
                 libtransform.AnnotateFasta(self.fasta_path_list),
                 libtransform.IsotopeGenerator(
-                    n_isotopes=4, mp_process_num=self.config["general"]["thread_count"]
+                    n_isotopes=4, mp_process_num=thread_count
                 ),
                 libtransform.RTNormalization(),
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
-        if self.config["library_multiplexing"]["enabled"]:
+        multiplexing_config = self.config["library_multiplexing"]
+        if multiplexing_config["enabled"]:
             multiplexing = libtransform.MultiplexLibrary(
-                multiplex_mapping=self.config["library_multiplexing"][
-                    "multiplex_mapping"
-                ],
-                input_channel=self.config["library_multiplexing"]["input_channel"],
+                multiplex_mapping=multiplexing_config["multiplex_mapping"],
+                input_channel=multiplexing_config["input_channel"],
             )
             spectral_library = multiplexing(spectral_library)
 
@@ -302,7 +295,7 @@ class Plan:
             [
                 libtransform.DecoyGenerator(
                     decoy_type="diann",
-                    mp_process_num=self.config["general"]["thread_count"],
+                    mp_process_num=thread_count,
                 ),
                 libtransform.FlattenLibrary(
                     self.config["search_advanced"]["top_k_fragments"]
