@@ -2,6 +2,7 @@
 import logging
 import os
 import socket
+from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
@@ -39,7 +40,7 @@ class Plan:
         raw_path_list: list[str] | None = None,
         library_path: str | None = None,
         fasta_path_list: list[str] | None = None,
-        config: dict | None = None,
+        config: dict | Config | None = None,
         config_base_path: str | None = None,
         quant_path: str | None = None,
     ) -> None:
@@ -78,65 +79,77 @@ class Plan:
             fasta_path_list = []
         if raw_path_list is None:
             raw_path_list = []
+
         self.output_folder = output_folder
-        reporting.init_logging(self.output_folder)
-
-        logger.progress("          _      _         ___ ___   _   ")
-        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
-        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
-        logger.progress("           |_|                           ")
-        logger.progress("")
-
-        self.spectral_library = None
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
         self.quant_path = quant_path
 
-        logger.progress(f"version: {alphadia.__version__}")
+        self.spectral_library = None
 
-        # print hostname, date with day format and time
-        logger.progress(f"hostname: {socket.gethostname()}")
-        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        logger.progress(f"date: {now}")
+        # needs to be done before any logging:
+        reporting.init_logging(self.output_folder)
 
-        # print environment
-        self.log_environment()
+        self._print_logo()
 
-        # 1. default config path is not defined in the function definition to account for different path separators on different OS
-        if config_base_path is None:
-            # default yaml config location under /misc/config/config.yaml
-            config_base_path = os.path.join(
-                os.path.dirname(__file__), "constants", "default.yaml"
-            )
+        self._print_environment()
 
-        self.config = Config()
+        self._config = self._init_config(config, output_folder, config_base_path)
 
-        logger.info(f"loading default config from {config_base_path}")
-        self.config.from_yaml(config_base_path)
-
-        # 2. load update config from dict
-        if isinstance(config, dict):
-            update_config = Config("user defined")
-            update_config.from_dict(config)
-        else:
-            update_config = config  # TODO what is it in this case?
-
-        self.config.update([update_config], print_modifications=True)
-
-        if "output" not in self.config:
-            self.config["output"] = output_folder
-
-        # set log level
-        level_to_set = self.config["general"]["log_level"]
+        level_to_set = self._config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
         logger.setLevel(level_code)
 
         self.init_alphabase()
         self.load_library()
 
-        torch.set_num_threads(self.config["general"]["thread_count"])
+        torch.set_num_threads(self._config["general"]["thread_count"])
+
+    def _print_logo(self) -> None:
+        """Print the alphadia logo and version."""
+        logger.progress("          _      _         ___ ___   _   ")
+        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
+        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
+        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
+        logger.progress("           |_|                           ")
+        logger.progress("")
+        logger.progress(f"version: {alphadia.__version__}")
+
+    def _init_config(
+        self,
+        user_config: dict | Config,
+        output_folder: str,
+        config_base_path: str | None,
+    ) -> Config:
+        """Initialize the config with default values and update with user defined values."""
+
+        # default config path is not defined in the function definition to account for different path separators on different OS
+        if config_base_path is None:
+            # default yaml config location under /misc/config/config.yaml
+            config_base_path = os.path.join(
+                os.path.dirname(__file__), "constants", "default.yaml"
+            )
+
+        logger.info(f"loading default config from {config_base_path}")
+        config = Config()
+        config.from_yaml(config_base_path)
+
+        # load update config from dict
+        if isinstance(user_config, dict):
+            update_config = Config("user defined")
+            update_config.from_dict(user_config)
+        elif isinstance(user_config, Config):
+            update_config = user_config
+        else:
+            raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
+
+        config.update([update_config], print_modifications=True)
+
+        if "output" not in config:
+            config["output"] = output_folder
+
+        return config
 
     @property
     def config(self) -> Config:
@@ -156,7 +169,13 @@ class Plan:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def log_environment(self):
+    def _print_environment(self) -> None:
+        """Log information about the python environment."""
+
+        logger.progress(f"hostname: {socket.gethostname()}")
+        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
+        logger.progress(f"date: {now}")
+
         logger.progress("================ AlphaX Environment ===============")
         logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
         logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
@@ -197,28 +216,28 @@ class Plan:
 
         # 1. Check if library exists, else perform fasta digest
         dynamic_loader = libtransform.DynamicLoader()
+
+        prediction_config = self.config["library_prediction"]
+
         fasta_digest = libtransform.FastaDigest(
-            enzyme=self.config["library_prediction"]["enzyme"],
+            enzyme=prediction_config["enzyme"],
             fixed_modifications=_parse_modifications(
-                self.config["library_prediction"]["fixed_modifications"]
+                prediction_config["fixed_modifications"]
             ),
             variable_modifications=_parse_modifications(
-                self.config["library_prediction"]["variable_modifications"]
+                prediction_config["variable_modifications"]
             ),
-            max_var_mod_num=self.config["library_prediction"]["max_var_mod_num"],
-            missed_cleavages=self.config["library_prediction"]["missed_cleavages"],
-            precursor_len=self.config["library_prediction"]["precursor_len"],
-            precursor_charge=self.config["library_prediction"]["precursor_charge"],
-            precursor_mz=self.config["library_prediction"]["precursor_mz"],
+            max_var_mod_num=prediction_config["max_var_mod_num"],
+            missed_cleavages=prediction_config["missed_cleavages"],
+            precursor_len=prediction_config["precursor_len"],
+            precursor_charge=prediction_config["precursor_charge"],
+            precursor_mz=prediction_config["precursor_mz"],
         )
 
-        if self.library_path is None and self.config["library_prediction"]["predict"]:
+        if self.library_path is None and prediction_config["predict"]:
             logger.progress("No library provided. Building library from fasta files.")
             spectral_library = fasta_digest(self.fasta_path_list)
-        elif (
-            self.library_path is None
-            and not self.config["library_prediction"]["predict"]
-        ):
+        elif self.library_path is None and not prediction_config["predict"]:
             logger.error("No library provided and prediction disabled.")
             return
         else:
@@ -226,50 +245,43 @@ class Plan:
 
         # 2. Check if properties should be predicted
 
-        if self.config["library_prediction"]["predict"]:
+        thread_count = self.config["general"]["thread_count"]
+
+        if prediction_config["predict"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = libtransform.PeptDeepPrediction(
                 use_gpu=self.config["general"]["use_gpu"],
-                fragment_mz=self.config["library_prediction"]["fragment_mz"],
-                nce=self.config["library_prediction"]["nce"],
-                instrument=self.config["library_prediction"]["instrument"],
-                mp_process_num=self.config["general"]["thread_count"],
-                peptdeep_model_path=self.config["library_prediction"][
-                    "peptdeep_model_path"
-                ],
-                peptdeep_model_type=self.config["library_prediction"][
-                    "peptdeep_model_type"
-                ],
-                fragment_types=self.config["library_prediction"][
-                    "fragment_types"
-                ].split(";"),
-                max_fragment_charge=self.config["library_prediction"][
-                    "max_fragment_charge"
-                ],
+                fragment_mz=prediction_config["fragment_mz"],
+                nce=prediction_config["nce"],
+                instrument=prediction_config["instrument"],
+                mp_process_num=thread_count,
+                peptdeep_model_path=prediction_config["peptdeep_model_path"],
+                peptdeep_model_type=prediction_config["peptdeep_model_type"],
+                fragment_types=prediction_config["fragment_types"].split(";"),
+                max_fragment_charge=prediction_config["max_fragment_charge"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
 
-        # 3. import library and harmoniza
+        # 3. import library and harmonize
         harmonize_pipeline = libtransform.ProcessingPipeline(
             [
                 libtransform.PrecursorInitializer(),
                 libtransform.AnnotateFasta(self.fasta_path_list),
                 libtransform.IsotopeGenerator(
-                    n_isotopes=4, mp_process_num=self.config["general"]["thread_count"]
+                    n_isotopes=4, mp_process_num=thread_count
                 ),
                 libtransform.RTNormalization(),
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
-        if self.config["library_multiplexing"]["enabled"]:
+        multiplexing_config = self.config["library_multiplexing"]
+        if multiplexing_config["enabled"]:
             multiplexing = libtransform.MultiplexLibrary(
-                multiplex_mapping=self.config["library_multiplexing"][
-                    "multiplex_mapping"
-                ],
-                input_channel=self.config["library_multiplexing"]["input_channel"],
+                multiplex_mapping=multiplexing_config["multiplex_mapping"],
+                input_channel=multiplexing_config["input_channel"],
             )
             spectral_library = multiplexing(spectral_library)
 
@@ -283,7 +295,7 @@ class Plan:
             [
                 libtransform.DecoyGenerator(
                     decoy_type="diann",
-                    mp_process_num=self.config["general"]["thread_count"],
+                    mp_process_num=thread_count,
                 ),
                 libtransform.FlattenLibrary(
                     self.config["search_advanced"]["top_k_fragments"]
@@ -295,7 +307,7 @@ class Plan:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
-    def get_run_data(self):
+    def get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
@@ -312,14 +324,7 @@ class Plan:
 
     def run(
         self,
-        figure_path=None,
-        neptune_token=None,
-        neptune_tags=None,
-        keep_decoys=False,
-        fdr=0.01,
     ):
-        if neptune_tags is None:
-            neptune_tags = []
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
@@ -327,46 +332,8 @@ class Plan:
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
-                workflow = peptidecentric.PeptideCentricWorkflow(
-                    raw_name,
-                    self.config,
-                    quant_path=self.quant_path,
-                )
-
-                # check if the raw file is already processed
+                workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
-                psm_location = os.path.join(workflow.path, "psm.parquet")
-                frag_location = os.path.join(workflow.path, "frag.parquet")
-
-                if self.config["general"]["reuse_quant"]:
-                    if os.path.exists(psm_location) and os.path.exists(frag_location):
-                        logger.info(f"Found existing quantification for {raw_name}")
-                        continue
-                    logger.info(f"No existing quantification found for {raw_name}")
-
-                workflow.load(dia_path, speclib)
-
-                workflow.timing_manager.set_start_time("optimization")
-                workflow.search_parameter_optimization()
-                workflow.timing_manager.set_end_time("optimization")
-
-                workflow.timing_manager.set_start_time("extraction")
-                psm_df, frag_df = workflow.extraction()
-                workflow.timing_manager.set_end_time("extraction")
-                workflow.timing_manager.save()
-
-                psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-                if self.config["multiplexing"]["enabled"]:
-                    psm_df = workflow.requantify(psm_df)
-                    psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
-
-                if self.config["transfer_library"]["enabled"]:
-                    psm_df, frag_df = workflow.requantify_fragments(psm_df)
-
-                psm_df["run"] = raw_name
-                psm_df.to_parquet(psm_location, index=False)
-                frag_df.to_parquet(frag_location, index=False)
 
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -394,11 +361,58 @@ class Plan:
             _log_exception_event(e)
             raise e
         finally:
-            self.clean()
+            self._clean()
 
         logger.progress("=================== Search Finished ===================")
 
-    def clean(self):
+    def _process_raw_file(
+        self, dia_path: str, raw_name: str, speclib: SpecLibFlat
+    ) -> peptidecentric.PeptideCentricWorkflow:
+        """Process a single raw file."""
+
+        workflow = peptidecentric.PeptideCentricWorkflow(
+            raw_name,
+            self.config,
+            quant_path=self.quant_path,
+        )
+
+        # check if the raw file is already processed
+        psm_location = os.path.join(workflow.path, "psm.parquet")
+        frag_location = os.path.join(workflow.path, "frag.parquet")
+
+        if self.config["general"]["reuse_quant"]:
+            if os.path.exists(psm_location) and os.path.exists(frag_location):
+                logger.info(f"Found existing quantification for {raw_name}")
+                return workflow
+            logger.info(f"No existing quantification found for {raw_name}")
+
+        workflow.load(dia_path, speclib)
+
+        workflow.timing_manager.set_start_time("optimization")
+        workflow.search_parameter_optimization()
+        workflow.timing_manager.set_end_time("optimization")
+
+        workflow.timing_manager.set_start_time("extraction")
+        psm_df, frag_df = workflow.extraction()
+        workflow.timing_manager.set_end_time("extraction")
+        workflow.timing_manager.save()
+
+        psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        if self.config["multiplexing"]["enabled"]:
+            psm_df = workflow.requantify(psm_df)
+            psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
+        if self.config["transfer_library"]["enabled"]:
+            psm_df, frag_df = workflow.requantify_fragments(psm_df)
+
+        psm_df["run"] = raw_name
+        psm_df.to_parquet(psm_location, index=False)
+        frag_df.to_parquet(frag_location, index=False)
+
+        return workflow
+
+    def _clean(self):
         if not self.config["general"]["save_library"]:
             try:
                 os.remove(os.path.join(self.output_folder, "speclib.hdf"))
