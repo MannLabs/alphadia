@@ -14,10 +14,6 @@ const Profile = class {
             "path": ""
         },
         "clippy": false,
-        "WSLExecutionEngine": {
-            "envName": "alphadia",
-
-        },
         "CMDExecutionEngine": {
             "envName": "alphadia",
             "condaPath": ""
