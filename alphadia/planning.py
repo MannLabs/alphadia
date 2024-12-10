@@ -3,6 +3,7 @@ import logging
 import os
 import socket
 from datetime import datetime
+from importlib import metadata
 from pathlib import Path
 
 import alphabase
@@ -48,16 +49,23 @@ class Plan:
 
         Parameters
         ----------
-        raw_data : list
+
+        output_folder : str
+            output folder to save the results
+
+        raw_path_list : list
             list of input file locations
 
-        config_path : str, optional
+        library_path : str, optional
+            path to the spectral library file. If not provided, the library is built from fasta files
+
+        fasta_path_list : list, optional
+            list of fasta file locations to build the library from
+
+        config_base_path : str, optional
             yaml file containing the default config.
 
-        config_update_path : str, optional
-           yaml file to update the default config.
-
-        config_update : dict, optional
+        config : dict, optional
             dict to update the default config. Can be used for debugging purposes etc.
 
         quant_path : str, optional
@@ -96,7 +104,7 @@ class Plan:
         # print environment
         self.log_environment()
 
-        # 1. default config path is not defined in the function definition to account for for different path separators on different OS
+        # 1. default config path is not defined in the function definition to account for different path separators on different OS
         if config_base_path is None:
             # default yaml config location under /misc/config/config.yaml
             config_base_path = os.path.join(
@@ -113,7 +121,7 @@ class Plan:
             update_config = Config("user defined")
             update_config.from_dict(config)
         else:
-            update_config = config
+            update_config = config  # TODO what is it in this case?
 
         self.config.update([update_config], print_modifications=True)
 
@@ -129,15 +137,6 @@ class Plan:
         self.load_library()
 
         torch.set_num_threads(self.config["general"]["thread_count"])
-
-    @property
-    def raw_path_list(self) -> list[str]:
-        """List of input files locations."""
-        return self._raw_path_list
-
-    @raw_path_list.setter
-    def raw_path_list(self, raw_path_list: list[str]):
-        self._raw_path_list = raw_path_list
 
     @property
     def config(self) -> Config:
@@ -158,12 +157,20 @@ class Plan:
         self._spectral_library = spectral_library
 
     def log_environment(self):
-        logger.progress("=================== Environment ===================")
+        logger.progress("================ AlphaX Environment ===============")
         logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
         logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
         logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
         logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
         logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
+        logger.progress("===================================================")
+
+        logger.progress("================= Pip Environment =================")
+        pip_env = [
+            f"{dist.metadata['Name']}=={dist.version}"
+            for dist in metadata.distributions()
+        ]
+        logger.progress(" ".join(pip_env))
         logger.progress("===================================================")
 
     def init_alphabase(self):
@@ -393,7 +400,10 @@ class Plan:
 
     def clean(self):
         if not self.config["general"]["save_library"]:
-            os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+            try:
+                os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+            except Exception as e:
+                logger.exception(f"Error deleting library: {e}")
 
 
 def _log_exception_event(
