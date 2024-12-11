@@ -4,6 +4,8 @@
 # TODO these settings are just a semi-educated guess
 
 transfer:
+  general:
+    save_library: False
   library_prediction:
     predict: True
   transfer_library:
@@ -12,6 +14,8 @@ transfer:
     enabled: True
 
 library:
+  general:
+    save_library: False
   library_prediction: # needs to be done if transfer AND/OR mbr enabled?
     predict: True
 #  general: do we need this here ?
@@ -20,6 +24,7 @@ library:
 mbr:
   general:
     reuse_quant: True
+    save_library: False
   fdr:
     inference_strategy: library
   search:

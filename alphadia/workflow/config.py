@@ -33,6 +33,9 @@ import yaml
 
 logger = logging.getLogger()
 
+USER_DEFINED = "user defined"
+MULTISTEP_SEARCH = "multistep search"
+
 
 def get_tree_structure(last_item_arr: list[bool], update=False):
     tree_structure = ""
@@ -77,7 +80,11 @@ def print_w_style(
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
-        style = "default" if "default" in string else "new"
+        style = (
+            "new"
+            if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
+            else "default"
+        )
 
     if style in ["update", "new"]:
         # Green color

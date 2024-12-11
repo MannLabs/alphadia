@@ -47,7 +47,7 @@ test_cases:
       calibration:
         batch_size: 1000
       transfer_learning:
-        epochs: 5
+        epochs: 5  # this is to speed the test up a little
       multistep_search:
         transfer_step_enabled: True
         mbr_step_enabled: True

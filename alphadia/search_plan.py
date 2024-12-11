@@ -50,7 +50,7 @@ class SearchPlan:
 
         reporting.init_logging(output_directory)
 
-        self._library_path = Path(library_path)
+        self._library_path = None if library_path is None else Path(library_path)
         self._fasta_path_list = fasta_path_list
         self._quant_dir = None if quant_dir is None else Path(quant_dir)
         self._raw_path_list = raw_path_list
@@ -95,7 +95,8 @@ class SearchPlan:
                 self._transfer_step_output_dir / QUANT_FOLDER_NAME
             )
             self._library_step_library_path = (
-                self._transfer_step_output_dir / SPECLIB_FILE_NAME
+                self._transfer_step_output_dir
+                / SPECLIB_FILE_NAME  # TODO is this the correct one? or rather speclib.transfer.hdf?
             )
 
         # in case mbr step is enabled, we need to adjust the library step settings
@@ -103,7 +104,8 @@ class SearchPlan:
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
             self._mbr_step_quant_dir = self._library_step_output_dir / QUANT_FOLDER_NAME
             self._mbr_step_library_path = (
-                self._library_step_output_dir / SPECLIB_FILE_NAME
+                self._library_step_output_dir
+                / SPECLIB_FILE_NAME  # TODO is this the correct one? or rather speclib.mbr.hdf?
             )
 
     def run_plan(self):
@@ -115,8 +117,10 @@ class SearchPlan:
         Plan.print_logo()
         Plan.print_environment()
 
+        # TODO add some logging here on the directories (if they are not logged elsewhere)
         library_step_extra_config = {}
         if self._transfer_step_enabled:
+            logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
             self.run_step(
@@ -139,6 +143,9 @@ class SearchPlan:
 
         # same as transfer_step
         # output: MBR library
+        logger.info(
+            f"Running step '{LIBRARY_STEP_NAME}'"
+        )  # TODO the names of the steps need to be adjusted
         library_plan = self.run_step(
             self._library_step_output_dir,
             self._library_step_library_path,
@@ -148,6 +155,7 @@ class SearchPlan:
 
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
+            logger.info(f"Running step '{MBR_STEP_NAME}'")
             add_config = self._update_config_from_library_plan(library_plan)
             mbr_step_extra_config = self._multistep_config[MBR_STEP_NAME] | add_config
             self.run_step(
@@ -160,7 +168,7 @@ class SearchPlan:
     def run_step(
         self,
         output_directory: Path,
-        library_path: Path,
+        library_path: Path | None,
         extra_config: dict,
         quant_dir: Path | None,
     ) -> Plan:
@@ -168,7 +176,7 @@ class SearchPlan:
         step = Plan(
             str(output_directory),
             raw_path_list=self._raw_path_list,
-            library_path=str(library_path),
+            library_path=None if library_path is None else str(library_path),
             fasta_path_list=self._fasta_path_list,
             config=self._user_config,
             extra_config=extra_config,
@@ -184,6 +192,11 @@ class SearchPlan:
         # new_config = self._user_config | {  # noqa: F841
         #     "search": {"target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]}
         # }
+
+        # TODO:
+        #  map median(optimization_manager.ms2_error) -> config["search"]["target_ms2_tolerance"]
+        #  map median(optimization_manager.ms1_error) -> config["search"]["target_ms1_tolerance"]
+        #  what about target_mobility_tolerance and target_rt_tolerance?
 
         logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
         return new_config

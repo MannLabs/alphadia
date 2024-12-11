@@ -30,7 +30,7 @@ from alphadia import libtransform, outputtransform
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
-from alphadia.workflow.config import Config
+from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
 
 logger = logging.getLogger()
 
@@ -91,6 +91,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
+        reporting.init_logging(self.output_folder)
 
         self.raw_path_list = raw_path_list
         self.library_path = library_path
@@ -100,20 +101,11 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         self.spectral_library = None
         self.estimators = None
 
-        # needs to be done before any logging:
-        reporting.init_logging(self.output_folder)
-
-        self.print_logo()
-
-        self.print_environment()
-
         self._config = self._init_config(
             config, extra_config, output_folder, config_base_path
         )
 
-        level_to_set = self._config["general"]["log_level"]
-        level_code = logging.getLevelName(level_to_set)
-        logger.setLevel(level_code)
+        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
         self.init_alphabase()
         self.load_library()
@@ -153,7 +145,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         # load update config from dict
         if isinstance(user_config, dict):
-            update_config = Config("user defined")
+            update_config = Config(USER_DEFINED)
             update_config.from_dict(user_config)
         elif isinstance(user_config, Config):
             update_config = user_config
@@ -166,7 +158,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
             config["output"] = output_folder
 
         if extra_config is not None:
-            update_config = Config("multistep search")
+            update_config = Config(MULTISTEP_SEARCH)
             update_config.from_dict(extra_config)
             # need to overwrite user-defined output folder here
             extra_config["output"] = output_folder
