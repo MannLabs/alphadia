@@ -1,7 +1,6 @@
 """Search plan for multistep search."""
 
 import os
-from typing import Literal
 
 import yaml
 
@@ -103,7 +102,6 @@ class SearchPlan:
                 self.library_path,
                 self.multistep_config[STEP1_NAME],
                 self.quant_dir,
-                step=STEP1_NAME,
             )
 
             add_config = {
@@ -122,7 +120,6 @@ class SearchPlan:
             self.step2_library_path,
             step2_extra_config,
             self.step2_quant_dir,
-            step=self.step2_name,
         )
 
         if self.step3_enabled and library_plan is not None:
@@ -134,7 +131,6 @@ class SearchPlan:
                 self.step3_library_path,
                 extra_config,
                 self.step3_quant_dir,
-                step=STEP3_NAME,
             )
 
     def run_step(
@@ -143,7 +139,6 @@ class SearchPlan:
         library_path: str,
         extra_config: dict,
         quant_dir: str | None,
-        step: Literal["transfer", "library", "mbr"] | None,
     ) -> Plan:
         plan = Plan(
             output_directory,
@@ -153,7 +148,6 @@ class SearchPlan:
             config=self._user_config,
             extra_config=extra_config,
             quant_path=quant_dir,
-            step_name=step,
         )
         plan.run()
         return plan

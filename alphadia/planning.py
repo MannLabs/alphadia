@@ -48,7 +48,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         config_base_path: str | None = None,
         extra_config: dict | None = None,
         quant_path: str | None = None,
-        step_name: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -80,9 +79,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         quant_path : str, optional
             path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
-
-        step_name : str, optional
-            name of the step to run. Will be used to distinguish output data between different steps in a multistep search.
 
         """
 
