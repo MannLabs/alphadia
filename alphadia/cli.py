@@ -16,8 +16,8 @@ import yaml
 
 import alphadia
 from alphadia import utils
-from alphadia.exceptions import CustomError, NoPsmFoundError
-from alphadia.planning import Plan
+from alphadia.exceptions import CustomError
+from alphadia.search_plan import SearchPlan
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
@@ -355,7 +355,7 @@ def run(*args, **kwargs):
     library_path = parse_library(args, config)
     fasta_path_list = parse_fasta(args, config)
 
-    logger.progress(f"Searching {len(raw_path_list)} files:")
+    logger.progress(f"Searching {len(raw_path_list)} files:")  # TODO move
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
@@ -374,64 +374,14 @@ def run(*args, **kwargs):
     matplotlib.use("Agg")
 
     try:
-        if config.get("multistep_search", {}).get("enabled", False):
-            transfer_output_directory = os.path.join(output_directory, "1_transfer")
-            try:
-                transfer_plan = Plan(
-                    transfer_output_directory,
-                    raw_path_list=[],
-                    library_path=library_path,
-                    fasta_path_list=fasta_path_list,
-                    config=config,
-                    quant_path=quant_dir,  # None
-                    step="transfer",
-                )
-                transfer_plan.run()
-
-            except NoPsmFoundError:
-                # TODO this is a workaround, should have "prediction only" mode
-                pass
-
-            library_output_directory = os.path.join(output_directory, "2_library")
-            library_plan = Plan(
-                library_output_directory,
-                raw_path_list=raw_path_list,
-                library_path=os.path.join(transfer_output_directory, "speclib.hdf"),
-                fasta_path_list=[],
-                config=config,
-                quant_path=os.path.join(transfer_output_directory, "quant"),
-                step="library",
-            )
-            library_plan.run()
-
-            # TODO take any required information from library_plan and pass it via config to the next step
-            # e.g.
-            new_config = config | {  # noqa: F841
-                "search": {
-                    "target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]
-                }
-            }
-
-            mbr_output_directory = os.path.join(output_directory, "3_mbr")
-            Plan(
-                mbr_output_directory,
-                raw_path_list=raw_path_list,
-                library_path=library_path,
-                fasta_path_list=[],
-                config=config,
-                quant_path=os.path.join(library_output_directory, "quant"),
-                step="mbr",
-            ).run()
-
-        else:
-            Plan(
-                output_directory,
-                raw_path_list=raw_path_list,
-                library_path=library_path,
-                fasta_path_list=fasta_path_list,
-                config=config,
-                quant_path=quant_dir,
-            ).run()
+        SearchPlan(
+            config,
+            output_directory,
+            library_path,
+            fasta_path_list,
+            quant_dir,
+            raw_path_list,
+        ).run_plan()
 
     except Exception as e:
         if isinstance(e, CustomError):

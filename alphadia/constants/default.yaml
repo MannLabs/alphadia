@@ -425,24 +425,7 @@ calibration_manager:
           output_columns:
             - mobility_calibrated
 
+# scope of default yaml should be one search step
 multistep_search:
-  enabled: False
-  steps:
-    transfer:
-      # in code: remove rawfiles for prediction step in case some are set
-      # in code: automatically appends "transfer" suffix
-      library_prediction:
-        predict: True
-
-    library:
-        # in code: automatically consumes "transfer" suffix
-        # in code: automatically appends "library" suffix
-    mbr:
-      # in code: automatically consumes "library" suffix
-      # in code: automatically appends "mbr" suffix
-      general:
-        reuse_quant: True
-      fdr:
-        inference_strategy: library # do not change for "second search"
-      search:
-        target_num_candidates: 5 # do not change for "second search"
+  transfer_enabled: False
+  mbr_enabled: False

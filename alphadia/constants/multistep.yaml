@@ -1,0 +1,27 @@
+# configuration for multistep search
+# for each of the three steps, the configuration values defined here override the default values and the values defined by the user
+
+transfer:
+  library_prediction:
+    predict: True
+  transfer_library:
+    enabled: True
+  transfer_learning:
+    enabled: True
+
+library:
+  library_prediction:
+    predict: True
+#  general: ?
+#    reuse_quant: False
+
+mbr:
+  general:
+    reuse_quant: True
+  fdr:
+    inference_strategy: library
+  search:
+    target_num_candidates: 5
+  library_prediction:
+    predict: False
+    # need to make sure basic users settings are compatible with each step in multistep search

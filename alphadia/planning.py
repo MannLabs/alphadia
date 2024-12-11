@@ -7,7 +7,6 @@ from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
 from pathlib import Path
-from typing import Literal
 
 import alphabase
 import alpharaw
@@ -35,8 +34,10 @@ from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
+SPECLIB_FILE_NAME = "speclib.hdf"
 
-class Plan:
+
+class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
     def __init__(
         self,
         output_folder: str,
@@ -45,8 +46,9 @@ class Plan:
         fasta_path_list: list[str] | None = None,
         config: dict | Config | None = None,
         config_base_path: str | None = None,
+        extra_config: dict | None = None,
         quant_path: str | None = None,
-        step: Literal["transfer", "library", "mbr"] | None = None,
+        step_name: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
         Owns the input file list, speclib and the config.
@@ -68,17 +70,19 @@ class Plan:
             list of fasta file locations to build the library from
 
         config_base_path : str, optional
-            yaml file containing the default config.
+            user-provided yaml file containing the default config.
 
         config : dict, optional
-            dict to update the default config. Can be used for debugging purposes etc.
+            user-provided dict to update the default config. Can be used for debugging purposes etc.
+
+        extra_config : dict, optional
+            dict to update the final config. Used for multistep searches.
 
         quant_path : str, optional
             path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
 
-        step : str, optional
-            step to run. If provided, the current config will be updated with they keys from "multistep_searc.<step>"
-            Options are "transfer", "library" and "mbr"
+        step_name : str, optional
+            name of the step to run. Will be used to distinguish output data between different steps in a multistep search.
 
         """
 
@@ -105,7 +109,9 @@ class Plan:
 
         self._print_environment()
 
-        self._config = self._init_config(config, output_folder, config_base_path, step)
+        self._config = self._init_config(
+            config, extra_config, output_folder, config_base_path
+        )
 
         level_to_set = self._config["general"]["log_level"]
         level_code = logging.getLevelName(level_to_set)
@@ -129,9 +135,9 @@ class Plan:
     def _init_config(
         self,
         user_config: dict | Config,
+        extra_config: dict,
         output_folder: str,
         config_base_path: str | None,
-        step: Literal["transfer", "library", "mbr"] | None = None,
     ):
         """Initialize the config with default values and update with user defined values."""
 
@@ -160,12 +166,9 @@ class Plan:
         if "output" not in config:
             config["output"] = output_folder
 
-        if (
-            step is not None
-            and (step_config := config["multistep_search"]["steps"][step]) is not None
-        ):
-            update_config = Config(f"multistep search step {step}")
-            update_config.from_dict(step_config)
+        if extra_config is not None:
+            update_config = Config("multistep search")
+            update_config.from_dict(extra_config)
             config.update([update_config], print_modifications=True)
 
         return config
