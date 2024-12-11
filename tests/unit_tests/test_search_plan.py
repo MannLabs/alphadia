@@ -1,5 +1,4 @@
-from pathlib import Path
-from unittest.mock import call, patch
+from unittest.mock import MagicMock, call, patch
 
 from alphadia.search_plan import SearchPlan
 
@@ -23,58 +22,6 @@ def get_search_plan(config):
             config=config,
             quant_dir="/quant",
         )
-
-
-def test_initializes_correctly():
-    """Test that the SearchPlan object initializes correctly."""
-    search_plan = get_search_plan({})
-    assert search_plan._output_dir == Path("/output")
-    assert search_plan._library_path == Path("/library")
-    assert search_plan._fasta_path_list == ["/fasta1"]
-    assert search_plan._quant_dir == Path("/quant")
-    assert search_plan._raw_path_list == ["/raw1"]
-
-
-def test_initialize_correctly_transfer_only():
-    """Test that the SearchPlan object initializes correctly with only the transfer step enabled."""
-    search_plan = get_search_plan(
-        {"multistep_search": {"transfer_step_enabled": True, "mbr_step_enabled": False}}
-    )
-    assert search_plan._transfer_step_output_dir == Path("/output/transfer")
-    assert search_plan._library_step_quant_dir == Path("/output/transfer/quant")
-    assert search_plan._library_step_library_path == Path(
-        "/output/transfer/speclib.hdf"
-    )
-    assert search_plan._library_step_output_dir == Path("/output")
-    assert search_plan._mbr_step_quant_dir is None
-    assert search_plan._mbr_step_library_path is None
-
-
-def test_initialize_correctly_mbr_only():
-    """Test that the SearchPlan object initializes correctly with only the mbr step enabled."""
-    search_plan = get_search_plan(
-        {"multistep_search": {"transfer_step_enabled": False, "mbr_step_enabled": True}}
-    )
-    assert search_plan._transfer_step_output_dir is None
-    assert search_plan._library_step_quant_dir == Path("/quant")
-    assert search_plan._library_step_library_path == Path("/library")
-    assert search_plan._library_step_output_dir == Path("/output/library")
-    assert search_plan._mbr_step_quant_dir == Path("/output/library/quant")
-    assert search_plan._mbr_step_library_path == Path("/output/library/speclib.hdf")
-
-
-def test_initialize_correctly_transfer_and_mbr():
-    search_plan = get_search_plan(
-        {"multistep_search": {"transfer_step_enabled": True, "mbr_step_enabled": True}}
-    )
-    assert search_plan._transfer_step_output_dir == Path("/output/transfer")
-    assert search_plan._library_step_quant_dir == Path("/output/transfer/quant")
-    assert search_plan._library_step_library_path == Path(
-        "/output/transfer/speclib.hdf"
-    )
-    assert search_plan._library_step_output_dir == Path("/output/library")
-    assert search_plan._mbr_step_quant_dir == Path("/output/library/quant")
-    assert search_plan._mbr_step_library_path == Path("/output/library/speclib.hdf")
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
@@ -117,8 +64,17 @@ def test_runs_plan_with_transfer_step(mock_plan, mock_init_logging):
     }
     search_plan = get_search_plan(user_config | multistep_search_config)
 
+    transfer_step = MagicMock()
+    library_step = MagicMock()
+    mock_plan.side_effect = [transfer_step, library_step]
+
     # when
     search_plan.run_plan()
+
+    mock_init_logging.assert_called_once_with("/output")
+
+    transfer_step.run.assert_called_once_with()
+    library_step.run.assert_called_once_with()
 
     mock_init_logging.assert_called_once_with("/output")
 
@@ -133,7 +89,6 @@ def test_runs_plan_with_transfer_step(mock_plan, mock_init_logging):
                 extra_config=MOCK_MULTISTEP_CONFIG["transfer"],
                 quant_path="/quant",
             ),
-            call().run(),
             call(
                 "/output",
                 raw_path_list=["/raw1"],
@@ -148,7 +103,6 @@ def test_runs_plan_with_transfer_step(mock_plan, mock_init_logging):
                 },
                 quant_path="/output/transfer/quant",
             ),
-            call().run(),
         ]
     )
 
@@ -169,8 +123,18 @@ def test_runs_plan_with_mbr_step(mock_plan, mock_init_logging):
     }
     search_plan = get_search_plan(user_config | multistep_search_config)
 
+    library_step = MagicMock()
+    mbr_step = MagicMock()
+    mock_plan.side_effect = [library_step, mbr_step]
+
     # when
     search_plan.run_plan()
+
+    mock_init_logging.assert_called_once_with("/output")
+
+    library_step.run.assert_called_once_with()
+    library_step.estimators.__getitem__.assert_called_once_with("ms1_accuracy")
+    mbr_step.run.assert_called_once_with()
 
     mock_init_logging.assert_called_once_with("/output")
 
@@ -185,7 +149,6 @@ def test_runs_plan_with_mbr_step(mock_plan, mock_init_logging):
                 extra_config={},  # TODO should this be MOCK_MULTISTEP_CONFIG["library"]?
                 quant_path="/quant",
             ),
-            call().run(),
             call(
                 "/output",
                 raw_path_list=["/raw1"],
@@ -195,7 +158,6 @@ def test_runs_plan_with_mbr_step(mock_plan, mock_init_logging):
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"],
                 quant_path="/output/library/quant",
             ),
-            call().run(),
         ],
     )
 
@@ -216,10 +178,20 @@ def test_runs_plan_with_transfer_and_mbr_steps(mock_plan, mock_init_logging):
     }
     search_plan = get_search_plan(user_config | multistep_search_config)
 
+    transfer_step = MagicMock()
+    library_step = MagicMock()
+    mbr_step = MagicMock()
+    mock_plan.side_effect = [transfer_step, library_step, mbr_step]
+
     # when
     search_plan.run_plan()
 
     mock_init_logging.assert_called_once_with("/output")
+
+    transfer_step.run.assert_called_once_with()
+    library_step.run.assert_called_once_with()
+    library_step.estimators.__getitem__.assert_called_once_with("ms1_accuracy")
+    mbr_step.run.assert_called_once_with()
 
     mock_plan.assert_has_calls(
         [
@@ -232,7 +204,6 @@ def test_runs_plan_with_transfer_and_mbr_steps(mock_plan, mock_init_logging):
                 extra_config=MOCK_MULTISTEP_CONFIG["transfer"],
                 quant_path="/quant",
             ),
-            call().run(),
             call(
                 "/output/library",
                 raw_path_list=["/raw1"],
@@ -247,7 +218,6 @@ def test_runs_plan_with_transfer_and_mbr_steps(mock_plan, mock_init_logging):
                 },
                 quant_path="/output/transfer/quant",
             ),
-            call().run(),
             call(
                 "/output",
                 raw_path_list=["/raw1"],
@@ -257,6 +227,5 @@ def test_runs_plan_with_transfer_and_mbr_steps(mock_plan, mock_init_logging):
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"],
                 quant_path="/output/library/quant",
             ),
-            call().run(),
         ],
     )

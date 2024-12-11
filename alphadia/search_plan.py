@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from alphadia.outputtransform import SearchPlanOutput
-from alphadia.planning import SPECLIB_FILE_NAME, Plan
+from alphadia.planning import SPECLIB_FILE_NAME, Plan, logger
 from alphadia.workflow import reporting
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
@@ -47,6 +47,9 @@ class SearchPlan:
 
         self._user_config = config
         self._output_dir = Path(output_directory)
+
+        reporting.init_logging(output_directory)
+
         self._library_path = Path(library_path)
         self._fasta_path_list = fasta_path_list
         self._quant_dir = None if quant_dir is None else Path(quant_dir)
@@ -109,8 +112,6 @@ class SearchPlan:
         Depending on what steps are to be run, the relevant information (e.g. file paths or thresholds) is passed
         from one to the next step via 'extra config'.
         """
-
-        reporting.init_logging(str(self._output_dir))
         Plan.print_logo()
         Plan.print_environment()
 
@@ -164,7 +165,7 @@ class SearchPlan:
         quant_dir: Path | None,
     ) -> Plan:
         """Run a single step of the search plan."""
-        plan = Plan(
+        step = Plan(
             str(output_directory),
             raw_path_list=self._raw_path_list,
             library_path=str(library_path),
@@ -173,8 +174,8 @@ class SearchPlan:
             extra_config=extra_config,
             quant_path=None if quant_dir is None else str(quant_dir),
         )
-        plan.run()
-        return plan
+        step.run()
+        return step
 
     def _update_config_from_library_plan(self, library_plan: Plan) -> dict:
         """Update the config based on the library plan."""
@@ -184,5 +185,5 @@ class SearchPlan:
         #     "search": {"target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]}
         # }
 
-        # logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
+        logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
         return new_config
