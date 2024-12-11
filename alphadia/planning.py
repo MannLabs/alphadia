@@ -103,9 +103,9 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         # needs to be done before any logging:
         reporting.init_logging(self.output_folder)
 
-        self._print_logo()
+        self.print_logo()
 
-        self._print_environment()
+        self.print_environment()
 
         self._config = self._init_config(
             config, extra_config, output_folder, config_base_path
@@ -120,7 +120,8 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
-    def _print_logo(self) -> None:
+    @staticmethod
+    def print_logo() -> None:  # TODO move elsewhere
         """Print the alphadia logo and version."""
         logger.progress("          _      _         ___ ___   _   ")
         logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
@@ -191,7 +192,8 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def _print_environment(self) -> None:
+    @staticmethod
+    def print_environment() -> None:  # TODO move elsewhere
         """Log information about the python environment."""
 
         logger.progress(f"hostname: {socket.gethostname()}")

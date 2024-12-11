@@ -7,6 +7,7 @@ import yaml
 
 from alphadia.outputtransform import SearchPlanOutput
 from alphadia.planning import SPECLIB_FILE_NAME, Plan, logger
+from alphadia.workflow import reporting
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 TRANSFER_STEP_NAME = "transfer"
@@ -45,16 +46,16 @@ class SearchPlan:
         """
 
         self._user_config = config
-        self._output_directory = Path(output_directory)
+        self._output_dir = Path(output_directory)
         self._library_path = Path(library_path)
         self._fasta_path_list = fasta_path_list
-        self._quant_dir = Path(quant_dir)
+        self._quant_dir = None if quant_dir is None else Path(quant_dir)
         self._raw_path_list = raw_path_list
 
         # these are the default settings if the library step is the only one
         self._library_step_quant_dir = self._quant_dir
         self._library_step_library_path = self._library_path
-        self._library_step_output_dir = self._output_directory
+        self._library_step_output_dir = self._output_dir
 
         # multistep search:
         self._multistep_config = None
@@ -70,8 +71,8 @@ class SearchPlan:
 
         if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
-            with Path(
-                os.path.dirname(__file__) / "constants" / "multistep.yaml"
+            with (
+                Path(os.path.dirname(__file__)) / "constants" / "multistep.yaml"
             ).open() as f:
                 self._multistep_config = yaml.safe_load(f)
 
@@ -86,7 +87,7 @@ class SearchPlan:
 
         # in case transfer step is enabled, we need to adjust the library step settings
         if self._transfer_step_enabled:
-            self._transfer_step_output_dir = self._output_directory / TRANSFER_STEP_NAME
+            self._transfer_step_output_dir = self._output_dir / TRANSFER_STEP_NAME
             self._library_step_quant_dir = (
                 self._transfer_step_output_dir / QUANT_FOLDER_NAME
             )
@@ -100,7 +101,7 @@ class SearchPlan:
             self._mbr_step_library_path = (
                 self._library_step_output_dir / SPECLIB_FILE_NAME
             )
-            self._library_step_output_dir = self._output_directory / LIBRARY_STEP_NAME
+            self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
 
     def run_plan(self):
         """Run the search plan.
@@ -108,6 +109,10 @@ class SearchPlan:
         Depending on what steps are to be run, the relevant information (e.g. file paths or thresholds) is passed
         from one to the next step via 'extra config'.
         """
+
+        reporting.init_logging(str(self._output_dir))
+        Plan.print_logo()
+        Plan.print_environment()
 
         library_step_extra_config = {}
         if self._transfer_step_enabled:
@@ -147,7 +152,7 @@ class SearchPlan:
                 self._multistep_config[LIBRARY_STEP_NAME] | add_config
             )
             self.run_step(
-                self._output_directory,
+                self._output_dir,
                 self._mbr_step_library_path,
                 mbr_step_extra_config,
                 self._mbr_step_quant_dir,
