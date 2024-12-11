@@ -91,6 +91,8 @@ def test_log_backend():
     if os.path.exists(os.path.join(tempfolder, "log.txt")):
         os.remove(os.path.join(tempfolder, "log.txt"))
 
+    reporting.__is_initiated__ = False
+
     stdout_backend = reporting.LogBackend(path=tempfolder)
     stdout_backend.log_string("test", verbosity="progress")
     stdout_backend.log_string("test", verbosity="info")
@@ -108,6 +110,8 @@ def test_log_backend():
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_pipeline():
     tempfolder = random_tempfolder()
+
+    reporting.__is_initiated__ = False
 
     pipeline = reporting.Pipeline(
         backends=[
