@@ -375,12 +375,12 @@ def run(*args, **kwargs):
 
     try:
         SearchPlan(
-            config,
             output_directory,
+            raw_path_list,
             library_path,
             fasta_path_list,
+            config,
             quant_dir,
-            raw_path_list,
         ).run_plan()
 
     except Exception as e:

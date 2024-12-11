@@ -1,6 +1,8 @@
 # configuration for multistep search
 # for each of the three steps, the configuration values defined here override the default values and the values defined by the user
 
+# TODO these settings are just a semi-educated guess
+
 transfer:
   library_prediction:
     predict: True
@@ -10,9 +12,9 @@ transfer:
     enabled: True
 
 library:
-  library_prediction:
+  library_prediction: # needs to be done if transfer AND/OR mbr enabled?
     predict: True
-#  general: ?
+#  general: do we need this here ?
 #    reuse_quant: False
 
 mbr:

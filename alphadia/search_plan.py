@@ -20,12 +20,12 @@ class SearchPlan:
 
     def __init__(
         self,
-        config: dict,
         output_directory: str,
+        raw_path_list: list[str],
         library_path: str,
         fasta_path_list: list[str],
+        config: dict,
         quant_dir: str | None,
-        raw_path_list: list[str],
     ):
         """Initialize search plan for multistep search.
 
@@ -97,11 +97,11 @@ class SearchPlan:
 
         # in case mbr step is enabled, we need to adjust the library step settings
         if self._mbr_step_enabled:
+            self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
             self._mbr_step_quant_dir = self._library_step_output_dir / QUANT_FOLDER_NAME
             self._mbr_step_library_path = (
                 self._library_step_output_dir / SPECLIB_FILE_NAME
             )
-            self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
 
     def run_plan(self):
         """Run the search plan.
