@@ -13,9 +13,10 @@ jobs:
     runs-on: self-hosted
     if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     strategy:
+      fail-fast: false
       matrix:
         # test case name as defined in e2e_test_cases.yaml
-        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", ]
+        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", "basic_multistep"]
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
