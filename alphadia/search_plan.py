@@ -1,4 +1,4 @@
-"""Search plan for multistep search."""
+"""Search plan for single- and multistep search."""
 
 import os
 from pathlib import Path
@@ -16,7 +16,7 @@ MBR_STEP_NAME = "mbr"
 
 
 class SearchPlan:
-    """Search plan for multistep search."""
+    """Search plan for single- and multistep search."""
 
     def __init__(
         self,
@@ -27,7 +27,11 @@ class SearchPlan:
         config: dict,
         quant_dir: str | None,
     ):
-        """Initialize search plan for multistep search.
+        """Initialize search plan.
+
+        In case of a single step search, this can be considered as a slim wrapper around the Plan class.
+        In case of a multistep search, this class orchestrates the different steps, their data paths,
+         and passes information from one step to the next.
 
         Parameters
         ----------
@@ -45,26 +49,27 @@ class SearchPlan:
             List of raw paths.
         """
 
-        self._user_config = config
-        self._output_dir = Path(output_directory)
-
+        self._user_config: dict = config
+        self._output_dir: Path = Path(output_directory)
         reporting.init_logging(output_directory)
 
-        self._library_path = None if library_path is None else Path(library_path)
-        self._fasta_path_list = fasta_path_list
-        self._quant_dir = None if quant_dir is None else Path(quant_dir)
-        self._raw_path_list = raw_path_list
+        self._library_path: Path | None = (
+            None if library_path is None else Path(library_path)
+        )
+        self._fasta_path_list: list[str] = fasta_path_list
+        self._quant_dir: Path | None = None if quant_dir is None else Path(quant_dir)
+        self._raw_path_list: list[str] = raw_path_list
 
-        # these are the default settings if the library step is the only one
-        self._library_step_quant_dir = self._quant_dir
-        self._library_step_library_path = self._library_path
-        self._library_step_output_dir = self._output_dir
+        # these are the default paths if the library step is the only one
+        self._library_step_output_dir: Path = self._output_dir
+        self._library_step_library_path: Path | None = self._library_path
+        self._library_step_quant_dir: Path | None = self._quant_dir
 
         # multistep search:
-        self._multistep_config = None
-        self._transfer_step_output_dir = None
-        self._mbr_step_quant_dir = None
-        self._mbr_step_library_path = None
+        self._multistep_config: dict | None = None
+        self._transfer_step_output_dir: Path | None = None
+        self._mbr_step_quant_dir: Path | None = None
+        self._mbr_step_library_path: Path | None = None
 
         multistep_search_config = self._user_config.get("multistep_search", {})
         self._transfer_step_enabled = multistep_search_config.get(
