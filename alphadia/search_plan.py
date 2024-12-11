@@ -16,6 +16,7 @@ from alphadia.planning import (
 from alphadia.workflow import reporting
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
+# TODO the names of the steps need to be adjusted
 TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
@@ -129,12 +130,13 @@ class SearchPlan:
         Plan.print_environment()
 
         # TODO add some logging here on the directories (if they are not logged elsewhere)
-        library_step_extra_config = {}
+        extra_config_for_library_step = {}
+        dynamic_config = {}
         if self._transfer_step_enabled:
             logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
-            self.run_step(
+            transfer_step = self.run_step(
                 self._transfer_step_output_dir,
                 self._library_path,
                 self._multistep_config[TRANSFER_STEP_NAME],
@@ -148,27 +150,32 @@ class SearchPlan:
                     )
                 }
             }
-            library_step_extra_config = (
+
+            dynamic_config = self._get_dynamic_config_from_step(transfer_step)
+
+            extra_config_for_library_step = (
                 self._multistep_config[LIBRARY_STEP_NAME] | add_config
-            )
+            ) | dynamic_config
 
         # same as transfer_step
         # output: MBR library
-        logger.info(
-            f"Running step '{LIBRARY_STEP_NAME}'"
-        )  # TODO the names of the steps need to be adjusted
-        library_plan = self.run_step(
+        logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
+        library_step = self.run_step(
             self._library_step_output_dir,
             self._library_step_library_path,
-            library_step_extra_config,
+            extra_config_for_library_step,
             self._library_step_quant_dir,
         )
 
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
             logger.info(f"Running step '{MBR_STEP_NAME}'")
-            add_config = self._get_dynamic_config_from_library_step(library_plan)
-            mbr_step_extra_config = self._multistep_config[MBR_STEP_NAME] | add_config
+            if dynamic_config == {}:
+                dynamic_config = self._get_dynamic_config_from_step(library_step)
+
+            mbr_step_extra_config = (
+                self._multistep_config[MBR_STEP_NAME] | dynamic_config
+            )
             self.run_step(
                 self._output_dir,
                 self._mbr_step_library_path,
@@ -197,14 +204,14 @@ class SearchPlan:
         return step
 
     @staticmethod
-    def _get_dynamic_config_from_library_step(library_step: Plan) -> dict:
+    def _get_dynamic_config_from_step(step: Plan) -> dict:
         """Update the config based on the library plan."""
 
         # TODO can we assume that the source values always exists?
         extra_config = {
             "search": {
-                "target_ms1_tolerance": library_step.estimators[OPTIMIZATION_MS1_ERROR],
-                "target_ms2_tolerance": library_step.estimators[OPTIMIZATION_MS2_ERROR],
+                "target_ms1_tolerance": step.estimators[OPTIMIZATION_MS1_ERROR],
+                "target_ms2_tolerance": step.estimators[OPTIMIZATION_MS2_ERROR],
             }
         }  # TODO: what about target_mobility_tolerance and target_rt_tolerance?
 
