@@ -307,7 +307,7 @@ class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
             )
             spectral_library = multiplexing(spectral_library)
 
-        library_path = os.path.join(self.output_folder, "speclib.hdf")
+        library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
         logger.info(f"Saving library to {library_path}")
         spectral_library.save_hdf(library_path)
 
@@ -369,7 +369,7 @@ class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
                 raise e
 
             finally:
-                if workflow.reporter:
+                if workflow and workflow.reporter:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
@@ -379,7 +379,7 @@ class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
         try:
             base_spec_lib = SpecLibBase()
             base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+                os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
             )
 
             output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
@@ -464,7 +464,7 @@ class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
     def _clean(self):
         if not self.config["general"]["save_library"]:
             try:
-                os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+                os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
                 logger.exception(f"Error deleting library: {e}")
 
