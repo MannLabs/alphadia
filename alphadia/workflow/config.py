@@ -77,17 +77,13 @@ def print_w_style(
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
-        style = "new" if "user defined" in string else "default"
+        style = "default" if "default" in string else "new"
 
-    if style == "update":
+    if style in ["update", "new"]:
         # Green color
         style = "\x1b[32;20m"
         reset = "\x1b[0m"
-    elif style == "new":
-        # green color
-        style = "\x1b[32;20m"
-        reset = "\x1b[0m"
-    elif style == "default":
+    else:
         # no color
         style = ""
         reset = ""
@@ -360,7 +356,9 @@ def update_recursive(
 
     for key in all_keys:
         style = "auto"
-        if key not in default_config:
+        if (
+            key not in default_config
+        ):  # TODO either this is obsolete or the module docstring needs an update
             style = "new"
             for experiment_config in experiment_configs:
                 if key in experiment_config:

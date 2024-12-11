@@ -88,7 +88,7 @@ class SearchPlan:
             self.step3_library_path = os.path.join(
                 self.step2_output_dir, SPECLIB_FILE_NAME
             )
-            self.step3_output_dir = os.path.join(self.output_directory, STEP3_NAME)
+            self.step3_output_dir = self.output_directory
 
     def run_plan(self):
         """Run the search plans."""

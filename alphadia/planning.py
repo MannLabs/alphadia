@@ -94,6 +94,8 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
             raw_path_list = []
 
         self.output_folder = output_folder
+        os.makedirs(output_folder, exist_ok=True)
+
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
@@ -169,6 +171,8 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         if extra_config is not None:
             update_config = Config("multistep search")
             update_config.from_dict(extra_config)
+            # need to overwrite user-defined output folder here
+            extra_config["output"] = output_folder
             config.update([update_config], print_modifications=True)
 
         return config

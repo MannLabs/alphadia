@@ -129,6 +129,9 @@ def init_logging(
 
     global __is_initiated__
 
+    if __is_initiated__:
+        return
+
     logger = logging.getLogger()
     logger.handlers = []
     logger.setLevel(log_level)
