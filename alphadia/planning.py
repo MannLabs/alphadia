@@ -37,7 +37,7 @@ logger = logging.getLogger()
 SPECLIB_FILE_NAME = "speclib.hdf"
 
 
-class Plan:  # TODO rename -> SearchStep, plannning.py -> search_step.py
+class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     def __init__(
         self,
         output_folder: str,

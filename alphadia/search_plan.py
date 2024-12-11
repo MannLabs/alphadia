@@ -52,8 +52,8 @@ class SearchPlan:
         self.raw_path_list = raw_path_list
 
         multistep_search_config = self._user_config.get("multistep_search", {})
-        self.step1_enabled = multistep_search_config.get("transfer_enabled", False)
-        self.step3_enabled = multistep_search_config.get("mbr_enabled", False)
+        self.step1_enabled = multistep_search_config.get("transfer_step_enabled", False)
+        self.step3_enabled = multistep_search_config.get("mbr_step_enabled", False)
 
         with open(
             os.path.join(os.path.dirname(__file__), "constants", "multistep.yaml")

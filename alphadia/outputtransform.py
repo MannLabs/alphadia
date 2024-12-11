@@ -26,6 +26,7 @@ from alphadia.outputaccumulator import (
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.config import Config
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
 logger = logging.getLogger()
@@ -306,7 +307,7 @@ class SearchPlanOutput:
     TRANSFER_MODEL = "peptdeep.transfer"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
 
-    def __init__(self, config: dict, output_folder: str):
+    def __init__(self, config: Config, output_folder: str):
         """Combine individual searches into and build combined outputs
 
         In alphaDIA the search plan orchestrates the library building preparation,

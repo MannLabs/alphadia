@@ -427,5 +427,5 @@ calibration_manager:
 
 # scope of default yaml should be one search step
 multistep_search:
-  transfer_enabled: False
-  mbr_enabled: False
+  transfer_step_enabled: False
+  mbr_step_enabled: False
