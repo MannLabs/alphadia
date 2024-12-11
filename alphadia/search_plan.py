@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 from alphadia.outputtransform import SearchPlanOutput
-from alphadia.planning import SPECLIB_FILE_NAME, Plan, logger
+from alphadia.planning import SPECLIB_FILE_NAME, Plan
 from alphadia.workflow import reporting
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
@@ -148,9 +148,7 @@ class SearchPlan:
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
             add_config = self._update_config_from_library_plan(library_plan)
-            mbr_step_extra_config = (
-                self._multistep_config[LIBRARY_STEP_NAME] | add_config
-            )
+            mbr_step_extra_config = self._multistep_config[MBR_STEP_NAME] | add_config
             self.run_step(
                 self._output_dir,
                 self._mbr_step_library_path,
@@ -186,5 +184,5 @@ class SearchPlan:
         #     "search": {"target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]}
         # }
 
-        logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
+        # logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
         return new_config
