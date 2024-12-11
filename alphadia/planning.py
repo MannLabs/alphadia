@@ -32,9 +32,12 @@ from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
 
-logger = logging.getLogger()
-
 SPECLIB_FILE_NAME = "speclib.hdf"
+
+OPTIMIZATION_MS1_ERROR = "optimization:ms1_error"
+OPTIMIZATION_MS2_ERROR = "optimization:ms2_error"
+
+logger = logging.getLogger()
 
 
 class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
@@ -235,27 +238,27 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         prediction_config = self.config["library_prediction"]
 
-        fasta_digest = libtransform.FastaDigest(
-            enzyme=prediction_config["enzyme"],
-            fixed_modifications=_parse_modifications(
-                prediction_config["fixed_modifications"]
-            ),
-            variable_modifications=_parse_modifications(
-                prediction_config["variable_modifications"]
-            ),
-            max_var_mod_num=prediction_config["max_var_mod_num"],
-            missed_cleavages=prediction_config["missed_cleavages"],
-            precursor_len=prediction_config["precursor_len"],
-            precursor_charge=prediction_config["precursor_charge"],
-            precursor_mz=prediction_config["precursor_mz"],
-        )
-
-        if self.library_path is None and prediction_config["predict"]:
-            logger.progress("No library provided. Building library from fasta files.")
-            spectral_library = fasta_digest(self.fasta_path_list)
-        elif self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["predict"]:
             logger.error("No library provided and prediction disabled.")
             return
+        elif self.library_path is None and prediction_config["predict"]:
+            logger.progress("No library provided. Building library from fasta files.")
+
+            fasta_digest = libtransform.FastaDigest(
+                enzyme=prediction_config["enzyme"],
+                fixed_modifications=_parse_modifications(
+                    prediction_config["fixed_modifications"]
+                ),
+                variable_modifications=_parse_modifications(
+                    prediction_config["variable_modifications"]
+                ),
+                max_var_mod_num=prediction_config["max_var_mod_num"],
+                missed_cleavages=prediction_config["missed_cleavages"],
+                precursor_len=prediction_config["precursor_len"],
+                precursor_charge=prediction_config["precursor_charge"],
+                precursor_mz=prediction_config["precursor_mz"],
+            )
+            spectral_library = fasta_digest(self.fasta_path_list)
         else:
             spectral_library = dynamic_loader(self.library_path)
 
@@ -344,7 +347,9 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
-        single_estimators = defaultdict(list)  # needs a better name
+        single_estimators = defaultdict(
+            list
+        )  # TODO: is 'estimators' a good name for this concept?
 
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
@@ -392,10 +397,11 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     ):
         """Update the estimators with the current workflow."""
 
-        estimators["ms1_accuracy"].append(
-            workflow.calibration_manager.get_estimator("precursor", "mz").metrics[
-                "median_accuracy"
-            ]
+        estimators[OPTIMIZATION_MS1_ERROR].append(
+            workflow.optimization_manager.ms1_error
+        )
+        estimators[OPTIMIZATION_MS2_ERROR].append(
+            workflow.optimization_manager.ms2_error
         )
 
     @staticmethod

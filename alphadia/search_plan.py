@@ -6,7 +6,13 @@ from pathlib import Path
 import yaml
 
 from alphadia.outputtransform import SearchPlanOutput
-from alphadia.planning import SPECLIB_FILE_NAME, Plan, logger
+from alphadia.planning import (
+    OPTIMIZATION_MS1_ERROR,
+    OPTIMIZATION_MS2_ERROR,
+    SPECLIB_FILE_NAME,
+    Plan,
+    logger,
+)
 from alphadia.workflow import reporting
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
@@ -161,7 +167,7 @@ class SearchPlan:
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
             logger.info(f"Running step '{MBR_STEP_NAME}'")
-            add_config = self._update_config_from_library_plan(library_plan)
+            add_config = self._get_dynamic_config_from_library_step(library_plan)
             mbr_step_extra_config = self._multistep_config[MBR_STEP_NAME] | add_config
             self.run_step(
                 self._output_dir,
@@ -190,18 +196,17 @@ class SearchPlan:
         step.run()
         return step
 
-    def _update_config_from_library_plan(self, library_plan: Plan) -> dict:
+    @staticmethod
+    def _get_dynamic_config_from_library_step(library_step: Plan) -> dict:
         """Update the config based on the library plan."""
-        new_config = {}
-        # take any required information from library_plan and pass it via config to the next step, e.g.
-        # new_config = self._user_config | {  # noqa: F841
-        #     "search": {"target_ms1_tolerance": library_plan.estimators["ms1_accuracy"]}
-        # }
 
-        # TODO:
-        #  map median(optimization_manager.ms2_error) -> config["search"]["target_ms2_tolerance"]
-        #  map median(optimization_manager.ms1_error) -> config["search"]["target_ms1_tolerance"]
-        #  what about target_mobility_tolerance and target_rt_tolerance?
+        # TODO can we assume that the source values always exists?
+        extra_config = {
+            "search": {
+                "target_ms1_tolerance": library_step.estimators[OPTIMIZATION_MS1_ERROR],
+                "target_ms2_tolerance": library_step.estimators[OPTIMIZATION_MS2_ERROR],
+            }
+        }  # TODO: what about target_mobility_tolerance and target_rt_tolerance?
 
-        logger.info(f"Using ms1_accuracy: {library_plan.estimators['ms1_accuracy']}")
-        return new_config
+        logger.info(f"Extracted extra_config from library_plan: {extra_config}")
+        return extra_config
