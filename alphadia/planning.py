@@ -394,7 +394,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     @staticmethod
     def _update_estimators(
         estimators: dict, workflow: peptidecentric.PeptideCentricWorkflow
-    ):
+    ) -> None:
         """Update the estimators with the current workflow."""
 
         estimators[OPTIMIZATION_MS1_ERROR].append(
@@ -405,7 +405,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         )
 
     @staticmethod
-    def _aggregate_estimators(estimators: dict):
+    def _aggregate_estimators(estimators: dict) -> dict:
         """Aggregate the estimators over workflows."""
 
         agg_estimators = {}

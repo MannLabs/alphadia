@@ -16,12 +16,12 @@ def get_search_plan(config):
         "alphadia.search_plan.yaml.safe_load", return_value=MOCK_MULTISTEP_CONFIG
     ):
         return SearchPlan(
-            output_directory="/output",
+            output_directory="/user_provided_output_path",
             raw_path_list=["/raw1"],
-            library_path="/library",
+            library_path="/user_provided_library_path",
             fasta_path_list=["/fasta1"],
             config=config,
-            quant_dir="/quant",
+            quant_dir="/user_provided_quant_path",
         )
 
 
@@ -34,16 +34,16 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with("/output")
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     mock_plan.assert_called_once_with(
-        "/output",
+        "/user_provided_output_path",
         raw_path_list=["/raw1"],
-        library_path="/library",
+        library_path="/user_provided_library_path",
         fasta_path_list=["/fasta1"],
         config={"some_user_config_key": "some_user_config_value"},
         extra_config={},
-        quant_path="/quant",
+        quant_path="/user_provided_quant_path",
     )
 
     mock_plan.return_value.run.assert_called_once_with()
@@ -74,34 +74,34 @@ def test_runs_plan_with_transfer_step(
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with("/output")
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     mock_plan.assert_has_calls(
         [
             call(
-                "/output/transfer",
+                "/user_provided_output_path/transfer",
                 raw_path_list=["/raw1"],
-                library_path="/library",
+                library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["transfer"],
-                quant_path="/quant",
+                quant_path="/user_provided_quant_path",
             ),
             call().run(),
             call(
-                "/output",
+                "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/output/transfer/speclib.hdf",
+                library_path="/user_provided_output_path/transfer/speclib.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
                 | {
                     "library_prediction": {
-                        "peptdeep_model_path": "/output/transfer/peptdeep.transfer"
+                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer"
                     },
                 }
                 | dynamic_config,
-                quant_path="/output/transfer/quant",
+                quant_path="/user_provided_output_path/transfer/quant",
             ),
             call().run(),
         ]
@@ -131,28 +131,28 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with("/output")
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     mock_plan.assert_has_calls(
         [
             call(
-                "/output/library",
+                "/user_provided_output_path/library",
                 raw_path_list=["/raw1"],
-                library_path="/library",
+                library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config={},  # TODO should this be MOCK_MULTISTEP_CONFIG["library"]?
-                quant_path="/quant",
+                quant_path="/user_provided_quant_path",
             ),
             call().run(),
             call(
-                "/output",
+                "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/output/library/speclib.hdf",
+                library_path="/user_provided_output_path/library/speclib.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-                quant_path="/output/library/quant",
+                quant_path="/user_provided_output_path/library/quant",
             ),
             call().run(),
         ],
@@ -184,44 +184,44 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with("/output")
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     mock_plan.assert_has_calls(
         [
             call(
-                "/output/transfer",
+                "/user_provided_output_path/transfer",
                 raw_path_list=["/raw1"],
-                library_path="/library",
+                library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["transfer"],
-                quant_path="/quant",
+                quant_path="/user_provided_quant_path",
             ),
             call().run(),
             call(
-                "/output/library",
+                "/user_provided_output_path/library",
                 raw_path_list=["/raw1"],
-                library_path="/output/transfer/speclib.hdf",
+                library_path="/user_provided_output_path/transfer/speclib.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
                 | {
                     "library_prediction": {
-                        "peptdeep_model_path": "/output/transfer/peptdeep.transfer"
+                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer"
                     },
                 }
                 | dynamic_config,
-                quant_path="/output/transfer/quant",
+                quant_path="/user_provided_output_path/transfer/quant",
             ),
             call().run(),
             call(
-                "/output",
+                "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/output/library/speclib.hdf",
+                library_path="/user_provided_output_path/library/speclib.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-                quant_path="/output/library/quant",
+                quant_path="/user_provided_output_path/library/quant",
             ),
             call().run(),
         ],
