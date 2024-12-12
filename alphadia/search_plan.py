@@ -9,7 +9,6 @@ from alphadia.outputtransform import SearchPlanOutput
 from alphadia.planning import (
     OPTIMIZATION_MS1_ERROR,
     OPTIMIZATION_MS2_ERROR,
-    SPECLIB_FILE_NAME,
     Plan,
     logger,
 )
@@ -69,7 +68,6 @@ class SearchPlan:
 
         # these are the default paths if the library step is the only one
         self._library_step_output_dir: Path = self._output_dir
-        self._library_step_library_path: Path | None = self._library_path
         self._library_step_quant_dir: Path | None = self._quant_dir
 
         # multistep search:
@@ -106,18 +104,13 @@ class SearchPlan:
             self._library_step_quant_dir = (
                 self._transfer_step_output_dir / QUANT_FOLDER_NAME
             )
-            self._library_step_library_path = (
-                self._transfer_step_output_dir
-                / f"{SearchPlanOutput.TRANSFER_OUTPUT}.hdf"  # TODO is this the correct one?
-            )
 
         # in case mbr step is enabled, we need to adjust the library step settings
         if self._mbr_step_enabled:
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
             self._mbr_step_quant_dir = self._library_step_output_dir / QUANT_FOLDER_NAME
             self._mbr_step_library_path = (
-                self._library_step_output_dir
-                / SPECLIB_FILE_NAME  # TODO is this the correct one? or rather speclib.mbr.hdf?
+                self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
             )
 
     def run_plan(self):
@@ -162,7 +155,7 @@ class SearchPlan:
         logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
         library_step = self.run_step(
             self._library_step_output_dir,
-            self._library_step_library_path,
+            self._library_path,
             extra_config_for_library_step,
             self._library_step_quant_dir,
         )
@@ -208,12 +201,16 @@ class SearchPlan:
         """Update the config based on the library plan."""
 
         # TODO can we assume that the source values always exists?
+        # TODO get from stats table
         extra_config = {
             "search": {
                 "target_ms1_tolerance": step.estimators[OPTIMIZATION_MS1_ERROR],
                 "target_ms2_tolerance": step.estimators[OPTIMIZATION_MS2_ERROR],
             }
-        }  # TODO: what about target_mobility_tolerance and target_rt_tolerance?
+        }
+        # Notes:
+        # - ms1 & ms2 's calibration is valid across all steps, not dependent on transfer learning
+        # - target_mobility_tolerance and target_rt_tolerance should be reoptimized with the lib resulting from transfer learning step
 
         logger.info(f"Extracted extra_config from library_plan: {extra_config}")
         return extra_config

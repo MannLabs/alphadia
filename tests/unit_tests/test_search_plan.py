@@ -91,7 +91,7 @@ def test_runs_plan_with_transfer_step(
             call(
                 "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/transfer/speclib.transfer.hdf",
+                library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
@@ -141,14 +141,14 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
                 library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
-                extra_config={},  # TODO should this be MOCK_MULTISTEP_CONFIG["library"]?
+                extra_config={},
                 quant_path="/user_provided_quant_path",
             ),
             call().run(),
             call(
                 "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/library/speclib.hdf",
+                library_path="/user_provided_output_path/library/speclib.mbr.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
@@ -186,6 +186,8 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
+    # TODO add case with None quant_dir/lib
+    # TODO: make this nicer to debug
     mock_plan.assert_has_calls(
         [
             call(
@@ -201,7 +203,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             call(
                 "/user_provided_output_path/library",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/transfer/speclib.transfer.hdf",
+                library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
@@ -217,7 +219,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             call(
                 "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/library/speclib.hdf",
+                library_path="/user_provided_output_path/library/speclib.mbr.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
