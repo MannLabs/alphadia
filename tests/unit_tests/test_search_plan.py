@@ -1,6 +1,9 @@
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
-from alphadia.planning import Plan
+import numpy as np
+import pandas as pd
+
 from alphadia.search_plan import SearchPlan
 
 MOCK_MULTISTEP_CONFIG = {
@@ -143,6 +146,9 @@ def test_runs_plan_with_transfer_step(
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
+    mock_get_dyn_config.assert_called_once_with(
+        Path("/user_provided_output_path/transfer")
+    )
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
@@ -190,6 +196,9 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
+    mock_get_dyn_config.assert_called_once_with(
+        Path("/user_provided_output_path/library")
+    )
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
@@ -257,18 +266,23 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call(), call()])
+    mock_get_dyn_config.assert_called_once_with(
+        Path("/user_provided_output_path/transfer")
+    )
 
 
 def test_get_optimized_values_config():
-    """Test that the SearchPlan object updates the config with the library step."""
-    library_step = MagicMock(spec=Plan)
-    library_step.estimators = {
-        "optimization.ms1_error": 10,
-        "optimization.ms2_error": 20,
-    }
+    """Test that the SearchPlan object updates the config correct data, incl. handling NaNs."""
+
+    df = pd.DataFrame({"ms1_error": [10, 20, np.nan], "ms2_error": [20, np.nan, 30]})
+
+    output_dir = MagicMock(wraps=Path)
 
     # when
-    extra_config = SearchPlan._get_optimized_values_config(library_step)
+    with patch("alphadia.search_plan.pd.read_csv", return_value=df) as mock_read_csv:
+        extra_config = SearchPlan._get_optimized_values_config(output_dir)
+
     assert extra_config == {
-        "search": {"target_ms1_tolerance": 10, "target_ms2_tolerance": 20}
+        "search": {"target_ms1_tolerance": 15.0, "target_ms2_tolerance": 25.0}
     }
+    mock_read_csv.assert_called_once_with(output_dir / "stat_output.tsv", sep="\t")

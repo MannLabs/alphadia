@@ -29,6 +29,10 @@ from alphadia.workflow import manager, peptidecentric
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 
+# TODO move to a class with the rest of the constants
+MS1_ERROR = "ms1_error"
+MS2_ERROR = "ms2_error"
+
 logger = logging.getLogger()
 
 
@@ -976,15 +980,15 @@ def _build_run_stat_df(
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-            optimization_stats["ms2_error"] = optimization_manager.ms2_error
-            optimization_stats["ms1_error"] = optimization_manager.ms1_error
+            optimization_stats[MS2_ERROR] = optimization_manager.ms2_error
+            optimization_stats[MS1_ERROR] = optimization_manager.ms1_error
             optimization_stats["rt_error"] = optimization_manager.rt_error
             optimization_stats["mobility_error"] = optimization_manager.mobility_error
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
 
         prefix = "optimization."
-        for key in ["ms2_error", "ms1_error", "rt_error", "mobility_error"]:
+        for key in [MS2_ERROR, MS1_ERROR, "rt_error", "mobility_error"]:
             stats[f"{prefix}{key}"] = optimization_stats[key]
 
         # collect calibration stats

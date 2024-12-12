@@ -3,12 +3,12 @@
 import os
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import yaml
 
-from alphadia.outputtransform import SearchPlanOutput
+from alphadia.outputtransform import MS1_ERROR, MS2_ERROR, SearchPlanOutput
 from alphadia.planning import (
-    OPTIMIZATION_MS1_ERROR,
-    OPTIMIZATION_MS2_ERROR,
     Plan,
     logger,
 )
@@ -135,7 +135,7 @@ class SearchPlan:
             logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
-            transfer_step = self.run_step(
+            self.run_step(
                 self._transfer_step_output_dir,
                 self._library_path,
                 self._multistep_config[TRANSFER_STEP_NAME],
@@ -151,7 +151,9 @@ class SearchPlan:
                 }
             }
 
-            optimized_values_config = self._get_optimized_values_config(transfer_step)
+            optimized_values_config = self._get_optimized_values_config(
+                self._transfer_step_output_dir
+            )
 
             extra_config_for_library_step = (
                 extra_config_for_library_step
@@ -162,7 +164,7 @@ class SearchPlan:
         # same as transfer_step
         # output: MBR library
         logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
-        library_step = self.run_step(
+        self.run_step(
             self._library_step_output_dir,
             self._library_path,
             extra_config_for_library_step,
@@ -174,7 +176,7 @@ class SearchPlan:
             logger.info(f"Running step '{MBR_STEP_NAME}'")
             if optimized_values_config == {}:
                 optimized_values_config = self._get_optimized_values_config(
-                    library_step
+                    self._library_step_output_dir
                 )
 
             mbr_step_extra_config = (
@@ -193,7 +195,7 @@ class SearchPlan:
         library_path: Path | None,
         extra_config: dict,
         quant_dir: Path | None,
-    ) -> Plan:
+    ) -> None:
         """Run a single step of the search plan."""
         step = Plan(
             output_folder=str(output_directory),
@@ -205,18 +207,20 @@ class SearchPlan:
             quant_path=None if quant_dir is None else str(quant_dir),
         )
         step.run()
-        return step
 
     @staticmethod
-    def _get_optimized_values_config(step: Plan) -> dict:
+    def _get_optimized_values_config(output_folder: Path) -> dict:
         """Update the config based on the library plan."""
 
-        # TODO can we assume that the source values always exists?
-        # TODO get from stats table
+        df = pd.read_csv(
+            output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
+        )
+
+        # TODO can we assume that the source values always exists? TODO warn if NaN
         extra_config = {
             "search": {
-                "target_ms1_tolerance": step.estimators[OPTIMIZATION_MS1_ERROR],
-                "target_ms2_tolerance": step.estimators[OPTIMIZATION_MS2_ERROR],
+                "target_ms1_tolerance": np.nanmedian(df[MS1_ERROR]),
+                "target_ms2_tolerance": np.nanmedian(df[MS2_ERROR]),
             }
         }
         # Notes:
