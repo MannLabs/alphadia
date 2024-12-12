@@ -34,8 +34,8 @@ from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
-OPTIMIZATION_MS1_ERROR = "optimization:ms1_error"
-OPTIMIZATION_MS2_ERROR = "optimization:ms2_error"
+OPTIMIZATION_MS1_ERROR = "optimization.ms1_error"
+OPTIMIZATION_MS2_ERROR = "optimization.ms2_error"
 
 logger = logging.getLogger()
 
