@@ -123,8 +123,14 @@ class SearchPlan:
         Plan.print_environment()
 
         # TODO add some logging here on the directories (if they are not logged elsewhere)
-        extra_config_for_library_step = {}
-        dynamic_config = {}
+
+        extra_config_for_library_step = (
+            self._multistep_config[LIBRARY_STEP_NAME]
+            if self._transfer_step_enabled or self._mbr_step_enabled
+            else {}
+        )
+
+        optimized_values_config = {}
         if self._transfer_step_enabled:
             logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
@@ -136,19 +142,22 @@ class SearchPlan:
                 self._quant_dir,
             )
 
-            add_config = {
+            extra_config_from_transfer_step = {
                 "library_prediction": {
                     "peptdeep_model_path": os.path.join(
                         self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
-                    )
+                    ),
+                    "predict": True,  # the step following the 'transfer' step needs to have this
                 }
             }
 
-            dynamic_config = self._get_dynamic_config_from_step(transfer_step)
+            optimized_values_config = self._get_optimized_values_config(transfer_step)
 
             extra_config_for_library_step = (
-                self._multistep_config[LIBRARY_STEP_NAME] | add_config
-            ) | dynamic_config
+                extra_config_for_library_step
+                | extra_config_from_transfer_step
+                | optimized_values_config
+            )
 
         # same as transfer_step
         # output: MBR library
@@ -163,11 +172,13 @@ class SearchPlan:
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
             logger.info(f"Running step '{MBR_STEP_NAME}'")
-            if dynamic_config == {}:
-                dynamic_config = self._get_dynamic_config_from_step(library_step)
+            if optimized_values_config == {}:
+                optimized_values_config = self._get_optimized_values_config(
+                    library_step
+                )
 
             mbr_step_extra_config = (
-                self._multistep_config[MBR_STEP_NAME] | dynamic_config
+                self._multistep_config[MBR_STEP_NAME] | optimized_values_config
             )
             self.run_step(
                 self._output_dir,
@@ -197,7 +208,7 @@ class SearchPlan:
         return step
 
     @staticmethod
-    def _get_dynamic_config_from_step(step: Plan) -> dict:
+    def _get_optimized_values_config(step: Plan) -> dict:
         """Update the config based on the library plan."""
 
         # TODO can we assume that the source values always exists?

@@ -51,7 +51,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
 
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.Plan")
-@patch("alphadia.search_plan.SearchPlan._get_dynamic_config_from_step")
+@patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_transfer_step(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
@@ -97,7 +97,8 @@ def test_runs_plan_with_transfer_step(
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
                 | {
                     "library_prediction": {
-                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer"
+                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer",
+                        "predict": True,
                     },
                 }
                 | dynamic_config,
@@ -110,7 +111,7 @@ def test_runs_plan_with_transfer_step(
 
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.Plan")
-@patch("alphadia.search_plan.SearchPlan._get_dynamic_config_from_step")
+@patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly with the mbr step enabled."""
     multistep_search_config = {
@@ -141,7 +142,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
                 library_path="/user_provided_library_path",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
-                extra_config={},
+                extra_config=MOCK_MULTISTEP_CONFIG["library"],
                 quant_path="/user_provided_quant_path",
             ),
             call().run(),
@@ -161,7 +162,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
 
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.Plan")
-@patch("alphadia.search_plan.SearchPlan._get_dynamic_config_from_step")
+@patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_transfer_and_mbr_steps(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
@@ -209,7 +210,8 @@ def test_runs_plan_with_transfer_and_mbr_steps(
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
                 | {
                     "library_prediction": {
-                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer"
+                        "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer",
+                        "predict": True,
                     },
                 }
                 | dynamic_config,
@@ -230,16 +232,16 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     )
 
 
-def test_get_dynamic_config_from_step():
+def test_get_optimized_values_config():
     """Test that the SearchPlan object updates the config with the library step."""
     library_step = MagicMock(spec=Plan)
     library_step.estimators = {
-        "optimization:ms1_error": 10,
-        "optimization:ms2_error": 20,
+        "optimization.ms1_error": 10,
+        "optimization.ms2_error": 20,
     }
 
     # when
-    extra_config = SearchPlan._get_dynamic_config_from_step(library_step)
+    extra_config = SearchPlan._get_optimized_values_config(library_step)
     assert extra_config == {
         "search": {"target_ms1_tolerance": 10, "target_ms2_tolerance": 20}
     }

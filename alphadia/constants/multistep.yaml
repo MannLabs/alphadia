@@ -20,9 +20,9 @@ transfer:
   # TODO: enforce optimizaion of rt here?
 
 library:
-  library_prediction:
-    predict: True  # force only to true if transfer was done before
-    # the step following TL needs to have this
+# the step following TL needs to have this. It will be forced to true only (by code) if transfer step was done before
+#  library_prediction:
+#    predict: True
 
   # override settings that could have been set by the user:
   general:
