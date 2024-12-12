@@ -48,6 +48,8 @@ test_cases:
         batch_size: 1000
       transfer_learning:
         epochs: 5  # this is to speed the test up a little
+      library_prediction:
+        predict: True
       multistep_search:
         transfer_step_enabled: True
         mbr_step_enabled: True
