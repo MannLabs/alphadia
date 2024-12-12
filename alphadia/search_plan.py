@@ -196,7 +196,7 @@ class SearchPlan:
     ) -> Plan:
         """Run a single step of the search plan."""
         step = Plan(
-            str(output_directory),
+            output_folder=str(output_directory),
             raw_path_list=self._raw_path_list,
             library_path=None if library_path is None else str(library_path),
             fasta_path_list=self._fasta_path_list,
