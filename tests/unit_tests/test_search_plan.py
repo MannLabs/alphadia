@@ -12,7 +12,7 @@ MOCK_MULTISTEP_CONFIG = {
     "mbr": {"some_mbr_config_key": "some_mbr_config_value"},
 }
 
-USER_CONFIG = {
+BASE_USER_CONFIG = {
     "some_user_config_key": "some_user_config_value",
 }
 
@@ -36,7 +36,7 @@ def get_search_plan(config):
 @patch("alphadia.search_plan.Plan")
 def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps."""
-    search_plan = get_search_plan(USER_CONFIG)
+    search_plan = get_search_plan(BASE_USER_CONFIG)
 
     # when
     search_plan.run_plan()
@@ -49,7 +49,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG,
+        "config": BASE_USER_CONFIG,
         "extra_config": {},
         "quant_path": "/user_provided_quant_path",
     }
@@ -99,14 +99,14 @@ def test_runs_plan_with_transfer_step(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
     """Test that the SearchPlan object runs the plan correctly with the transfer step enabled."""
-    multistep_search_config = {
+    additional_user_config = {
         "multistep_search": {
             "transfer_step_enabled": True,
             "mbr_step_enabled": False,
         }
     }
 
-    search_plan = get_search_plan(USER_CONFIG | multistep_search_config)
+    search_plan = get_search_plan(BASE_USER_CONFIG | additional_user_config)
 
     dynamic_config = {"some_dynamic_config_key": "some_dynamic_config_value"}
     mock_get_dyn_config.return_value = dynamic_config
@@ -122,7 +122,7 @@ def test_runs_plan_with_transfer_step(
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "quant_path": None,
     }
@@ -133,7 +133,7 @@ def test_runs_plan_with_transfer_step(
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
             "library_prediction": {
@@ -156,14 +156,14 @@ def test_runs_plan_with_transfer_step(
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly with the mbr step enabled."""
-    multistep_search_config = {
+    additional_user_config = {
         "multistep_search": {
             "transfer_step_enabled": False,
             "mbr_step_enabled": True,
         }
     }
 
-    search_plan = get_search_plan(USER_CONFIG | multistep_search_config)
+    search_plan = get_search_plan(BASE_USER_CONFIG | additional_user_config)
 
     dynamic_config = {"some_dynamic_config_key": "some_dynamic_config_value"}
     mock_get_dyn_config.return_value = dynamic_config
@@ -179,7 +179,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"],
         "quant_path": None,
     }
@@ -190,7 +190,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_output_path/library/speclib.mbr.hdf",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
         "quant_path": None,
     }
@@ -208,14 +208,14 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
     """Test that the SearchPlan object runs the plan correctly with both the transfer and mbr steps enabled."""
-    multistep_search_config = {
+    additional_user_config = {
         "multistep_search": {
             "transfer_step_enabled": True,
             "mbr_step_enabled": True,
         }
     }
 
-    search_plan = get_search_plan(USER_CONFIG | multistep_search_config)
+    search_plan = get_search_plan(BASE_USER_CONFIG | additional_user_config)
 
     dynamic_config = {"some_dynamic_config_key": "some_dynamic_config_value"}
     mock_get_dyn_config.return_value = dynamic_config
@@ -231,7 +231,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "quant_path": None,
     }
@@ -242,7 +242,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_library_path",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
             "library_prediction": {
@@ -260,7 +260,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "raw_path_list": ["/raw1"],
         "library_path": "/user_provided_output_path/library/speclib.mbr.hdf",
         "fasta_path_list": ["/fasta1"],
-        "config": USER_CONFIG | multistep_search_config,
+        "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
         "quant_path": None,
     }
