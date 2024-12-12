@@ -13,7 +13,6 @@ from alphadia.planning import (
     logger,
 )
 from alphadia.workflow import reporting
-from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 # TODO the names of the steps need to be adjusted
 TRANSFER_STEP_NAME = "transfer"
@@ -63,17 +62,17 @@ class SearchPlan:
             None if library_path is None else Path(library_path)
         )
         self._fasta_path_list: list[str] = fasta_path_list
-        self._quant_dir: Path | None = None if quant_dir is None else Path(quant_dir)
         self._raw_path_list: list[str] = raw_path_list
 
         # these are the default paths if the library step is the only one
         self._library_step_output_dir: Path = self._output_dir
-        self._library_step_quant_dir: Path | None = self._quant_dir
+        self._library_quant_dir: Path | None = (
+            None if quant_dir is None else Path(quant_dir)
+        )
 
         # multistep search:
         self._multistep_config: dict | None = None
         self._transfer_step_output_dir: Path | None = None
-        self._mbr_step_quant_dir: Path | None = None
         self._mbr_step_library_path: Path | None = None
 
         multistep_search_config = self._user_config.get("multistep_search", {})
@@ -100,15 +99,13 @@ class SearchPlan:
 
         # in case transfer step is enabled, we need to adjust the library step settings
         if self._transfer_step_enabled:
+            self._library_quant_dir = None
             self._transfer_step_output_dir = self._output_dir / TRANSFER_STEP_NAME
-            self._library_step_quant_dir = (
-                self._transfer_step_output_dir / QUANT_FOLDER_NAME
-            )
 
         # in case mbr step is enabled, we need to adjust the library step settings
         if self._mbr_step_enabled:
+            self._library_quant_dir = None
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
-            self._mbr_step_quant_dir = self._library_step_output_dir / QUANT_FOLDER_NAME
             self._mbr_step_library_path = (
                 self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
             )
@@ -139,7 +136,6 @@ class SearchPlan:
                 self._transfer_step_output_dir,
                 self._library_path,
                 self._multistep_config[TRANSFER_STEP_NAME],
-                self._quant_dir,
             )
 
             extra_config_from_transfer_step = {
@@ -168,7 +164,7 @@ class SearchPlan:
             self._library_step_output_dir,
             self._library_path,
             extra_config_for_library_step,
-            self._library_step_quant_dir,
+            self._library_quant_dir,
         )
 
         if self._mbr_step_enabled:
@@ -186,7 +182,6 @@ class SearchPlan:
                 self._output_dir,
                 self._mbr_step_library_path,
                 mbr_step_extra_config,
-                self._mbr_step_quant_dir,
             )
 
     def run_step(
@@ -194,7 +189,7 @@ class SearchPlan:
         output_directory: Path,
         library_path: Path | None,
         extra_config: dict,
-        quant_dir: Path | None,
+        quant_dir: Path | None = None,
     ) -> None:
         """Run a single step of the search plan."""
         step = Plan(

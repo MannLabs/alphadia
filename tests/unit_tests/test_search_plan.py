@@ -124,7 +124,7 @@ def test_runs_plan_with_transfer_step(
         "fasta_path_list": ["/fasta1"],
         "config": USER_CONFIG | multistep_search_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
-        "quant_path": "/user_provided_quant_path",
+        "quant_path": None,
     }
 
     # library_step
@@ -142,7 +142,7 @@ def test_runs_plan_with_transfer_step(
             },
         }
         | dynamic_config,
-        "quant_path": "/user_provided_output_path/transfer/quant",
+        "quant_path": None,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -181,7 +181,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "fasta_path_list": ["/fasta1"],
         "config": USER_CONFIG | multistep_search_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"],
-        "quant_path": "/user_provided_quant_path",
+        "quant_path": None,
     }
 
     # mbr_step
@@ -192,7 +192,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "fasta_path_list": ["/fasta1"],
         "config": USER_CONFIG | multistep_search_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-        "quant_path": "/user_provided_output_path/library/quant",
+        "quant_path": None,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -233,7 +233,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "fasta_path_list": ["/fasta1"],
         "config": USER_CONFIG | multistep_search_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
-        "quant_path": "/user_provided_quant_path",
+        "quant_path": None,
     }
 
     # library_step
@@ -251,7 +251,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             },
         }
         | dynamic_config,
-        "quant_path": "/user_provided_output_path/transfer/quant",
+        "quant_path": None,
     }
 
     # mbr_step
@@ -262,7 +262,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "fasta_path_list": ["/fasta1"],
         "config": USER_CONFIG | multistep_search_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-        "quant_path": "/user_provided_output_path/library/quant",
+        "quant_path": None,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call(), call()])
