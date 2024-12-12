@@ -91,7 +91,7 @@ def test_runs_plan_with_transfer_step(
             call(
                 "/user_provided_output_path",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/transfer/speclib.hdf",
+                library_path="/user_provided_output_path/transfer/speclib.transfer.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]
@@ -201,7 +201,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             call(
                 "/user_provided_output_path/library",
                 raw_path_list=["/raw1"],
-                library_path="/user_provided_output_path/transfer/speclib.hdf",
+                library_path="/user_provided_output_path/transfer/speclib.transfer.hdf",
                 fasta_path_list=["/fasta1"],
                 config=user_config | multistep_search_config,
                 extra_config=MOCK_MULTISTEP_CONFIG["library"]

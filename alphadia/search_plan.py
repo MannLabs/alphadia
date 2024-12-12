@@ -108,7 +108,7 @@ class SearchPlan:
             )
             self._library_step_library_path = (
                 self._transfer_step_output_dir
-                / SPECLIB_FILE_NAME  # TODO is this the correct one? or rather speclib.transfer.hdf?
+                / f"{SearchPlanOutput.TRANSFER_OUTPUT}.hdf"  # TODO is this the correct one?
             )
 
         # in case mbr step is enabled, we need to adjust the library step settings
