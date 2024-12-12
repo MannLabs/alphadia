@@ -28,7 +28,7 @@ class SearchPlan:
         self,
         output_directory: str,
         raw_path_list: list[str],
-        library_path: str,
+        library_path: str | None,
         fasta_path_list: list[str],
         config: dict,
         quant_dir: str | None,
