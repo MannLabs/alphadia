@@ -2,7 +2,6 @@
 import logging
 import os
 import socket
-from collections import defaultdict
 from collections.abc import Generator
 from datetime import datetime
 from importlib import metadata
@@ -12,7 +11,6 @@ import alphabase
 import alpharaw
 import alphatims
 import directlfq
-import numpy as np
 import peptdeep
 
 # third party imports
@@ -33,9 +31,6 @@ from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
 
 SPECLIB_FILE_NAME = "speclib.hdf"
-
-OPTIMIZATION_MS1_ERROR = "optimization.ms1_error"
-OPTIMIZATION_MS2_ERROR = "optimization.ms2_error"
 
 logger = logging.getLogger()
 
@@ -102,7 +97,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         self.quant_path = quant_path
 
         self.spectral_library = None
-        self.estimators = None
 
         self._config = self._init_config(
             config, extra_config, output_folder, config_base_path
@@ -347,17 +341,12 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
-        single_estimators = defaultdict(
-            list
-        )  # TODO: is 'estimators' a good name for this concept?
 
         for raw_name, dia_path, speclib in self.get_run_data():
             workflow = None
             try:
                 workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
-
-                self._update_estimators(single_estimators, workflow)
 
             except CustomError as e:
                 _log_exception_event(e, raw_name, workflow)
@@ -372,8 +361,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
-
-        self.estimators = self._aggregate_estimators(single_estimators)
 
         try:
             base_spec_lib = SpecLibBase()
@@ -390,29 +377,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
             self._clean()
 
         logger.progress("=================== Search Finished ===================")
-
-    @staticmethod
-    def _update_estimators(
-        estimators: dict, workflow: peptidecentric.PeptideCentricWorkflow
-    ) -> None:
-        """Update the estimators with the current workflow."""
-
-        estimators[OPTIMIZATION_MS1_ERROR].append(
-            workflow.optimization_manager.ms1_error
-        )
-        estimators[OPTIMIZATION_MS2_ERROR].append(
-            workflow.optimization_manager.ms2_error
-        )
-
-    @staticmethod
-    def _aggregate_estimators(estimators: dict) -> dict:
-        """Aggregate the estimators over workflows."""
-
-        agg_estimators = {}
-        for name, values in estimators.items():
-            agg_estimators[name] = np.median(values)
-
-        return agg_estimators
 
     def _process_raw_file(
         self, dia_path: str, raw_name: str, speclib: SpecLibFlat
