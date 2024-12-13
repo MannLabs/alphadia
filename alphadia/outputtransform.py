@@ -19,6 +19,7 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
+from alphadia.constants.keys import OutputKeys
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
@@ -28,12 +29,6 @@ from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow import manager, peptidecentric
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
-
-# TODO move to a class with the rest of the constants
-MS1_ERROR = "ms1_error"
-MS2_ERROR = "ms2_error"
-
-OPTIMIZATION_PREFIX = "optimization."
 
 logger = logging.getLogger()
 
@@ -982,15 +977,22 @@ def _build_run_stat_df(
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-            optimization_stats[MS2_ERROR] = optimization_manager.ms2_error
-            optimization_stats[MS1_ERROR] = optimization_manager.ms1_error
-            optimization_stats["rt_error"] = optimization_manager.rt_error
-            optimization_stats["mobility_error"] = optimization_manager.mobility_error
+            optimization_stats[OutputKeys.MS2_ERROR] = optimization_manager.ms2_error
+            optimization_stats[OutputKeys.MS1_ERROR] = optimization_manager.ms1_error
+            optimization_stats[OutputKeys.RT_ERROR] = optimization_manager.rt_error
+            optimization_stats[OutputKeys.MOBILITY_ERROR] = (
+                optimization_manager.mobility_error
+            )
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
 
-        for key in [MS2_ERROR, MS1_ERROR, "rt_error", "mobility_error"]:
-            stats[f"{OPTIMIZATION_PREFIX}{key}"] = optimization_stats[key]
+        for key in [
+            OutputKeys.MS2_ERROR,
+            OutputKeys.MS1_ERROR,
+            OutputKeys.RT_ERROR,
+            OutputKeys.MOBILITY_ERROR,
+        ]:
+            stats[f"{OutputKeys.OPTIMIZATION_PREFIX}{key}"] = optimization_stats[key]
 
         # collect calibration stats
         calibration_stats = defaultdict(lambda: np.nan)
