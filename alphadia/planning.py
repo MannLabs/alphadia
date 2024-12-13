@@ -149,6 +149,8 @@ class Plan:
         if "output" not in config:
             config["output"] = output_folder
 
+        config.to_yaml(os.path.join(output_folder, "full_config.yaml"))
+
         return config
 
     @property
