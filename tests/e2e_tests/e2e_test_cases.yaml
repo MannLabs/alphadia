@@ -43,13 +43,15 @@ test_cases:
         target_num_candidates: 1
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
-        target_rt_tolerance: 100
-      calibration:
-        batch_size: 1000
       transfer_learning:
         epochs: 5  # this is to speed the test up a little
       library_prediction:
         predict: True
+        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
+        variable_modifications: 'Oxidation@M'
+        max_var_mod_num: 1
+        missed_cleavages: 1
+
       multistep_search:
         transfer_step_enabled: True
         mbr_step_enabled: True
