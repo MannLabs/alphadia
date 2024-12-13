@@ -9,7 +9,10 @@ Make sure you have installed the GUI using the one-click installer. To verify yo
 
 ## 2. Test data
 
-For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral. Download the test samples and save them: [HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk), [RAW files].(https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
+For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral.
+Download the test samples and save them:
+[HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk),
+[RAW files](https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
 
 ## 3. Search settings
 
