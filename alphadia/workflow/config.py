@@ -554,8 +554,9 @@ class Config:
 
     def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
-        Updates the config with the experiment configs,
-        and allow for multiple experiment configs to be added.
+        Updates the config with the experiment configs, and allow for multiple experiment configs to be added.
+
+        The order of experiments holds significance, with configurations later in the sequence taking precedence in terms of their impact on changes.
 
         Parameters
         ----------
@@ -563,9 +564,7 @@ class Config:
             List of experiment configs
 
         print_modifications : bool, optional
-            Whether to print the modifications or not, either way the updated config will be printed. When set to True,
-            the modifications will be first printed to show old, updated, new values where as the updated config
-            contains updated and unmodifed values.
+            Whether to print the modifications or not, either way the updated config will be printed.
         """
 
         # The translated config contains the source of the modifications on leaf nodes

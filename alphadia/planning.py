@@ -136,30 +136,32 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
                 os.path.dirname(__file__), "constants", "default.yaml"
             )
 
-        logger.info(f"loading default config from {config_base_path}")
+        logger.info(f"loading config from {config_base_path}")
         config = Config()
         config.from_yaml(config_base_path)
 
+        config_updates = []
         # load update config from dict
         if isinstance(user_config, dict):
-            update_config = Config(USER_DEFINED)
-            update_config.from_dict(user_config)
+            user_config_update = Config(USER_DEFINED)
+            user_config_update.from_dict(user_config)
+            config_updates.append(user_config_update)
         elif isinstance(user_config, Config):
-            update_config = user_config
+            config_updates.append(user_config)
         else:
             raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
 
-        config.update([update_config], print_modifications=True)
+        if extra_config is not None:
+            extra_config_update = Config(MULTISTEP_SEARCH)
+            extra_config_update.from_dict(extra_config)
+            # need to overwrite user-defined output folder here
+            extra_config["output"] = output_folder
+            config_updates.append(extra_config_update)
+
+        config.update(config_updates, print_modifications=True)
 
         if "output" not in config:
             config["output"] = output_folder
-
-        if extra_config is not None:
-            update_config = Config(MULTISTEP_SEARCH)
-            update_config.from_dict(extra_config)
-            # need to overwrite user-defined output folder here
-            extra_config["output"] = output_folder
-            config.update([update_config], print_modifications=True)
 
         return config
 
