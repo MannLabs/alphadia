@@ -1,29 +1,13 @@
-# native imports
 import logging
 import os
-import socket
 from collections.abc import Generator
-from datetime import datetime
-from importlib import metadata
 from pathlib import Path
 
-import alphabase
-import alpharaw
-import alphatims
-import directlfq
-import peptdeep
-
-# third party imports
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
-
-# alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
 
-import alphadia
-
-# alphadia imports
 from alphadia import libtransform, outputtransform
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
@@ -109,16 +93,7 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
-    @staticmethod
-    def print_logo() -> None:  # TODO move elsewhere
-        """Print the alphadia logo and version."""
-        logger.progress("          _      _         ___ ___   _   ")
-        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
-        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
-        logger.progress("           |_|                           ")
-        logger.progress("")
-        logger.progress(f"version: {alphadia.__version__}")
+        self._log_inputs()
 
     def _init_config(
         self,
@@ -182,30 +157,6 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     @spectral_library.setter
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
-
-    @staticmethod
-    def print_environment() -> None:  # TODO move elsewhere
-        """Log information about the python environment."""
-
-        logger.progress(f"hostname: {socket.gethostname()}")
-        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        logger.progress(f"date: {now}")
-
-        logger.progress("================ AlphaX Environment ===============")
-        logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
-        logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
-        logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
-        logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
-        logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
-        logger.progress("===================================================")
-
-        logger.progress("================= Pip Environment =================")
-        pip_env = [
-            f"{dist.metadata['Name']}=={dist.version}"
-            for dist in metadata.distributions()
-        ]
-        logger.progress(" ".join(pip_env))
-        logger.progress("===================================================")
 
     def init_alphabase(self):
         """Init alphabase by registering custom modifications."""
@@ -433,6 +384,20 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
                 os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
                 logger.exception(f"Error deleting library: {e}")
+
+    def _log_inputs(self):
+        """Log all relevant inputs."""
+
+        logger.info(f"Searching {len(self.raw_path_list)} files:")
+        for f in self.raw_path_list:
+            logger.info(f"  {os.path.basename(f)}")
+
+        logger.info(f"Using {len(self.fasta_path_list)} fasta files:")
+        for f in self.fasta_path_list:
+            logger.info(f"  {f}")
+
+        logger.info(f"Using library: {self.library_path}")
+        logger.info(f"Saving output to: {self.output_folder}")
 
 
 def _log_exception_event(
