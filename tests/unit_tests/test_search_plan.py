@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, call, patch
 
 import numpy as np
 import pandas as pd
+import pytest
 
 from alphadia.search_plan import SearchPlan
 
@@ -271,10 +272,36 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     )
 
 
-def test_get_optimized_values_config():
+@pytest.mark.parametrize(
+    ("input_data", "expected_output"),
+    [
+        (
+            ([10, 20, np.nan], [20, np.nan, 30]),
+            {"search": {"target_ms1_tolerance": 15.0, "target_ms2_tolerance": 25.0}},
+        ),
+        (
+            ([np.nan, np.nan, np.nan], [20, np.nan, 30]),
+            {"search": {"target_ms2_tolerance": 25.0}},
+        ),
+        (
+            ([10, 20, np.nan], [np.nan, np.nan, np.nan]),
+            {"search": {"target_ms1_tolerance": 15.0}},
+        ),
+        (
+            ([np.nan, np.nan, np.nan], [np.nan, np.nan, np.nan]),
+            {},
+        ),
+    ],
+)
+def test_get_optimized_values_config(input_data, expected_output):
     """Test that the SearchPlan object updates the config correct data, incl. handling NaNs."""
 
-    df = pd.DataFrame({"ms1_error": [10, 20, np.nan], "ms2_error": [20, np.nan, 30]})
+    df = pd.DataFrame(
+        {
+            "optimization.ms1_error": input_data[0],
+            "optimization.ms2_error": input_data[1],
+        }
+    )
 
     output_dir = MagicMock(wraps=Path)
 
@@ -282,7 +309,5 @@ def test_get_optimized_values_config():
     with patch("alphadia.search_plan.pd.read_csv", return_value=df) as mock_read_csv:
         extra_config = SearchPlan._get_optimized_values_config(output_dir)
 
-    assert extra_config == {
-        "search": {"target_ms1_tolerance": 15.0, "target_ms2_tolerance": 25.0}
-    }
+    assert extra_config == expected_output
     mock_read_csv.assert_called_once_with(output_dir / "stat_output.tsv", sep="\t")

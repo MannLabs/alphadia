@@ -33,6 +33,8 @@ from alphadia.workflow.managers.raw_file_manager import RawFileManager
 MS1_ERROR = "ms1_error"
 MS2_ERROR = "ms2_error"
 
+OPTIMIZATION_PREFIX = "optimization."
+
 logger = logging.getLogger()
 
 
@@ -987,9 +989,8 @@ def _build_run_stat_df(
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
 
-        prefix = "optimization."
         for key in [MS2_ERROR, MS1_ERROR, "rt_error", "mobility_error"]:
-            stats[f"{prefix}{key}"] = optimization_stats[key]
+            stats[f"{OPTIMIZATION_PREFIX}{key}"] = optimization_stats[key]
 
         # collect calibration stats
         calibration_stats = defaultdict(lambda: np.nan)

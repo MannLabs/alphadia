@@ -7,7 +7,12 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from alphadia.outputtransform import MS1_ERROR, MS2_ERROR, SearchPlanOutput
+from alphadia.outputtransform import (
+    MS1_ERROR,
+    MS2_ERROR,
+    OPTIMIZATION_PREFIX,
+    SearchPlanOutput,
+)
 from alphadia.planning import (
     Plan,
     logger,
@@ -205,22 +210,31 @@ class SearchPlan:
 
     @staticmethod
     def _get_optimized_values_config(output_folder: Path) -> dict:
-        """Update the config based on the library plan."""
+        """Extract optimized values from a previous step and return an update to the config."""
 
         df = pd.read_csv(
             output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
         )
+        target_ms1_tolerance = np.nanmedian(df[f"{OPTIMIZATION_PREFIX}{MS1_ERROR}"])
+        target_ms2_tolerance = np.nanmedian(df[f"{OPTIMIZATION_PREFIX}{MS2_ERROR}"])
 
-        # TODO can we assume that the source values always exists? TODO warn if NaN
-        extra_config = {
-            "search": {
-                "target_ms1_tolerance": np.nanmedian(df[MS1_ERROR]),
-                "target_ms2_tolerance": np.nanmedian(df[MS2_ERROR]),
-            }
-        }
+        if np.isnan(target_ms1_tolerance) and np.isnan(target_ms2_tolerance):
+            logger.warning(
+                "Could not extract target_ms1_tolerance and target_ms2_tolerance from previous step."
+            )
+            return {}
+
+        extra_config = {"search": {}}
+
+        if not np.isnan(target_ms1_tolerance):
+            extra_config["search"]["target_ms1_tolerance"] = target_ms1_tolerance
+
+        if not np.isnan(target_ms2_tolerance):
+            extra_config["search"]["target_ms2_tolerance"] = target_ms2_tolerance
+
         # Notes:
         # - ms1 & ms2 's calibration is valid across all steps, not dependent on transfer learning
         # - target_mobility_tolerance and target_rt_tolerance should be reoptimized with the lib resulting from transfer learning step
 
-        logger.info(f"Extracted extra_config from library_plan: {extra_config}")
+        logger.info(f"Extracted extra_config from previous step: {extra_config}")
         return extra_config
