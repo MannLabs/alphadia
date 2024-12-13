@@ -156,7 +156,10 @@ In case of issues, check out the following:
 ---
 ## Citations
 
-A manuscript has been submitted to bioRxiv.
+A manuscript has been submitted to bioRxiv:
+> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann
+> bioRxiv 2024.05.28.596182; doi: https://doi.org/10.1101/2024.05.28.596182
 
 ---
 ## How to contribute
