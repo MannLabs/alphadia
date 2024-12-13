@@ -3,8 +3,6 @@
 
 # future : default.yaml -> user.yaml -> multistep_user.yaml -> multistep.yaml
 
-# TODO these settings are just a semi-educated guess
-
 transfer:
 #  library_prediction:  # should be done in 99% of cases
 #      predict: True
@@ -17,7 +15,7 @@ transfer:
   general:
     save_library: False
     reuse_quant: False
-  # TODO: enforce optimizayion of rt here?
+  # TODO: think about enforcing optimization of rt here
 
 library:
 # the step following TL needs to have this. It will be forced to true only (by code) if transfer step was done before
@@ -47,4 +45,3 @@ mbr:
     enabled: False
   transfer_learning:
     enabled: False
-    # need to make sure basic users settings are compatible with each step in multistep search

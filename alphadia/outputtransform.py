@@ -403,10 +403,9 @@ class SearchPlanOutput:
         transfer_lib_path = os.path.join(
             self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
         )
-        if not os.path.exists(transfer_lib_path):
-            raise ValueError(
-                f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
-            )
+        assert os.path.exists(
+            transfer_lib_path
+        ), f"Transfer library not found at {transfer_lib_path}, did you enable library generation?"
 
         transfer_lib = SpecLibBase()
         transfer_lib.load_hdf(

@@ -24,6 +24,9 @@ TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
 
+# TODO we need to make sure basic users settings are compatible with each step in multistep search
+# e.g. by printing warning messages on the biggest mistakes
+
 
 class SearchPlan:
     """Search plan for single- and multistep search."""
