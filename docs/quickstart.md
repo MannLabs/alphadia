@@ -30,3 +30,9 @@ Select an output folder where the search progress and the final results should b
 
 ## 4. Run the search
 Click *Run Workflow* to start the search and see the progress.
+
+# Quickstart using CLI
+1. Clone the repository from GitHub
+2. Create a conda environment called `alphadia` and install AlphaDIA (either from `pip` or local, cf. [Installation](installation.md))
+3. `cd` into the root folder of the repository, then `cd test`
+4. `./run_e2e_tests.sh basic alphadia` will run a basic test after downloading the test data
