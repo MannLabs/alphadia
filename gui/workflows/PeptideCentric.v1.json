@@ -39,7 +39,7 @@
                     "id": "reuse_quant",
                     "name": "Reuse Ion Quantities",
                     "value": false,
-                    "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantiitative features will be reused for subsequent searches of the same file.",
+                    "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantitative features will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
                 {
@@ -62,6 +62,27 @@
                         "WARNING",
                         "ERROR"
                     ]
+                }
+            ]
+        },
+        {
+            "id": "multistep_search",
+            "name": "Multi-step Search",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "transfer_step_enabled",
+                    "name": "Add 'transfer learning' step",
+                    "value": false,
+                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
+                },
+                {
+                    "id": "mbr_step_enabled",
+                    "name": "Add 'second search' step",
+                    "value": false,
+                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
                 }
             ]
         },
