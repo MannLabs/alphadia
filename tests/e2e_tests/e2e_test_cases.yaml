@@ -34,7 +34,7 @@ test_cases:
     metrics:
       - BasicStats
 
-  - name: basic_multistep
+  - name: multistep
     config:
       search_initial:
         initial_num_candidates: 1

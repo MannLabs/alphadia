@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         # test case name as defined in e2e_test_cases.yaml
-        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", "basic_multistep"]
+        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
@@ -49,6 +49,10 @@ jobs:
           conda remove -n $RUN_NAME --all -y
       - name: Delete Caches on Error
         if: ${{ failure() && steps.pip_installation.conclusion == 'failure' }}
+        shell: bash -el {0}
         run: |
           rm -rf ~/.cache/pip
           rm -rf ~/.cache/conda
+
+          # Exit with error code to fail the job
+          exit 1
