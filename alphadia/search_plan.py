@@ -11,8 +11,8 @@ from alphadia.constants.keys import OutputKeys
 from alphadia.outputtransform import (
     SearchPlanOutput,
 )
-from alphadia.planning import (
-    Plan,
+from alphadia.search_step import (
+    SearchStep,
     logger,
 )
 from alphadia.utilities.logging import print_environment, print_logo
@@ -41,7 +41,7 @@ class SearchPlan:
     ):
         """Initialize search plan.
 
-        In case of a single step search, this can be considered as a slim wrapper around the Plan class.
+        In case of a single step search, this can be considered as a slim wrapper around the SearchStep class.
         In case of a multistep search, this class orchestrates the different steps, their data paths,
          and passes information from one step to the next.
 
@@ -199,7 +199,7 @@ class SearchPlan:
         quant_dir: Path | None = None,
     ) -> None:
         """Run a single step of the search plan."""
-        step = Plan(
+        step = SearchStep(
             output_folder=str(output_directory),
             raw_path_list=self._raw_path_list,
             library_path=None if library_path is None else str(library_path),

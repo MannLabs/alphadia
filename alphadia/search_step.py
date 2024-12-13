@@ -19,7 +19,7 @@ SPECLIB_FILE_NAME = "speclib.hdf"
 logger = logging.getLogger()
 
 
-class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
+class SearchStep:
     def __init__(
         self,
         output_folder: str,
@@ -31,7 +31,8 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
         extra_config: dict | None = None,
         quant_path: str | None = None,
     ) -> None:
-        """Highest level class to plan a DIA Search.
+        """Highest level class to plan a DIA search step.
+
         Owns the input file list, speclib and the config.
         Performs required manipulation of the spectral library like transforming RT scales and adding columns.
 
