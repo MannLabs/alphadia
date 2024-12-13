@@ -234,27 +234,27 @@ class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
 
         prediction_config = self.config["library_prediction"]
 
-        fasta_digest = libtransform.FastaDigest(
-            enzyme=prediction_config["enzyme"],
-            fixed_modifications=_parse_modifications(
-                prediction_config["fixed_modifications"]
-            ),
-            variable_modifications=_parse_modifications(
-                prediction_config["variable_modifications"]
-            ),
-            max_var_mod_num=prediction_config["max_var_mod_num"],
-            missed_cleavages=prediction_config["missed_cleavages"],
-            precursor_len=prediction_config["precursor_len"],
-            precursor_charge=prediction_config["precursor_charge"],
-            precursor_mz=prediction_config["precursor_mz"],
-        )
-
-        if self.library_path is None and prediction_config["predict"]:
-            logger.progress("No library provided. Building library from fasta files.")
-            spectral_library = fasta_digest(self.fasta_path_list)
-        elif self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["predict"]:
             logger.error("No library provided and prediction disabled.")
             return
+        elif self.library_path is None and prediction_config["predict"]:
+            logger.progress("No library provided. Building library from fasta files.")
+
+            fasta_digest = libtransform.FastaDigest(
+                enzyme=prediction_config["enzyme"],
+                fixed_modifications=_parse_modifications(
+                    prediction_config["fixed_modifications"]
+                ),
+                variable_modifications=_parse_modifications(
+                    prediction_config["variable_modifications"]
+                ),
+                max_var_mod_num=prediction_config["max_var_mod_num"],
+                missed_cleavages=prediction_config["missed_cleavages"],
+                precursor_len=prediction_config["precursor_len"],
+                precursor_charge=prediction_config["precursor_charge"],
+                precursor_mz=prediction_config["precursor_mz"],
+            )
+            spectral_library = fasta_digest(self.fasta_path_list)
         else:
             spectral_library = dynamic_loader(self.library_path)
 
