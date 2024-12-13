@@ -494,12 +494,16 @@ class OptimizationManager(BaseManager):
                 "fwhm_mobility": config["optimization_manager"]["fwhm_mobility"],
                 "score_cutoff": config["optimization_manager"]["score_cutoff"],
             }
-            self.__dict__.update(initial_parameters)
+            self.__dict__.update(
+                initial_parameters
+            )  # TODO either store this as a dict or in individual instance variables
 
             for key, value in initial_parameters.items():
                 self.reporter.log_string(f"initial parameter: {key} = {value}")
 
-    def fit(self, update_dict):
+    def fit(
+        self, update_dict
+    ):  # TODO siblings' implementations have different signatures
         """Update the parameters dict with the values in update_dict."""
         self.__dict__.update(update_dict)
         self.is_fitted = True
