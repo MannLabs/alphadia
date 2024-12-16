@@ -81,12 +81,12 @@ def print_w_style(
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
         style = (
-            "new"
+            "update"
             if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
             else "default"
         )
 
-    if style in ["update", "new"]:
+    if style in ["update"]:
         # Green color
         style = "\x1b[32;20m"
         reset = "\x1b[0m"
@@ -312,7 +312,7 @@ def update_recursive(
                     experiment_config
                     if experiment_config[0] != new_value[0]
                     else new_value
-                )  #
+                )
         # If we have a new value, print it
         if new_value != default_config and print_output:
             if parent_key is None:
@@ -363,14 +363,10 @@ def update_recursive(
 
     for key in all_keys:
         style = "auto"
-        if (
-            key not in default_config
-        ):  # TODO either this is obsolete or the module docstring needs an update
-            style = "new"
-            for experiment_config in experiment_configs:
-                if key in experiment_config:
-                    default_config[key] = experiment_config[key]
-                    break
+        if key not in default_config:
+            raise ValueError(
+                f"Key not found in default config: {key}. Addition of new keys is not supported."
+            )
 
         default_value = default_config[key]
 

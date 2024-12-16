@@ -1,6 +1,12 @@
 # configuration for the extraction plan
 version: 1
 
+# TODO this could be part of an "io" section?
+library: null
+output_directory: null
+raw_path_list:
+  - null
+
 general:
   thread_count: 10
   # maximum number of threads or processes to use per raw file
