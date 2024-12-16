@@ -909,7 +909,11 @@ class SearchPlanOutput:
 
         if self.config["general"]["save_mbr_library"]:
             logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
+            mbr_spec_lib.save_hdf(
+                os.path.join(
+                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+                )
+            )
 
         return mbr_spec_lib
 
