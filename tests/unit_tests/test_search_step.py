@@ -79,11 +79,12 @@ def test_custom_modifications():
     temp_directory = tempfile.gettempdir()
 
     config = {
-        "custom_modifications": {
-            "ThisModDoesNotExists@K": {
+        "custom_modifications": [
+            {
+                "name": "ThisModDoesNotExists@K",
                 "composition": "H(10)",
             },
-        }
+        ]
     }
 
     step = search_step.SearchStep(temp_directory, [], config=config)  # noqa F841
