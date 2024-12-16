@@ -2,10 +2,15 @@
 version: 1
 
 # TODO this could be part of an "io" section?
-library: null
+# These values are typically filled via CLI parameters
 output_directory: null
+library: null
 raw_path_list:
   - null
+fasta_list:
+  - null
+quant_dir: null
+
 
 general:
   thread_count: 10

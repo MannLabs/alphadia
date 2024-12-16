@@ -139,7 +139,7 @@ class SearchStep:
 
         if ConfigKeys.OUTPUT_DIRECTORY not in config:
             config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
-            # TODO need to update also raw_path_list & library in this way before dumping config to disk
+        # TODO need to update also raw_path_list, fasta_list, quant_dir, library in this way before dumping config to disk
 
         return config
 
