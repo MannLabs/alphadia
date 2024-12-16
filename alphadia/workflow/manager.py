@@ -101,7 +101,12 @@ class BaseManager:
 
     def load(self):
         """Load the state from pickle file."""
-        if self.path is None or not os.path.exists(self.path):
+        if self.path is None:
+            self.reporter.log_string(
+                f"{self.__class__.__name__} not loaded from disk.",
+            )
+            return
+        elif not os.path.exists(self.path):
             self.reporter.log_string(
                 f"{self.__class__.__name__} not found at: {self.path}",
                 verbosity="warning",
@@ -494,12 +499,16 @@ class OptimizationManager(BaseManager):
                 "fwhm_mobility": config["optimization_manager"]["fwhm_mobility"],
                 "score_cutoff": config["optimization_manager"]["score_cutoff"],
             }
-            self.__dict__.update(initial_parameters)
+            self.__dict__.update(
+                initial_parameters
+            )  # TODO either store this as a dict or in individual instance variables
 
             for key, value in initial_parameters.items():
                 self.reporter.log_string(f"initial parameter: {key} = {value}")
 
-    def fit(self, update_dict):
+    def fit(
+        self, update_dict
+    ):  # TODO siblings' implementations have different signatures
         """Update the parameters dict with the values in update_dict."""
         self.__dict__.update(update_dict)
         self.is_fitted = True

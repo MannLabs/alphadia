@@ -346,29 +346,14 @@ def run(*args, **kwargs):
 
         print("No output directory specified.")
         return
+    reporting.init_logging(output_directory)
 
     quant_dir = parse_quant_dir(args, config)
-
-    reporting.init_logging(output_directory)
     raw_path_list = parse_raw_path_list(args, config)
-
     library_path = parse_library(args, config)
     fasta_path_list = parse_fasta(args, config)
 
-    logger.progress(f"Searching {len(raw_path_list)} files:")  # TODO move
-    for f in raw_path_list:
-        logger.progress(f"  {os.path.basename(f)}")
-
-    logger.progress(f"Using library: {library_path}")
-
-    logger.progress(f"Using {len(fasta_path_list)} fasta files:")
-    for f in fasta_path_list:
-        logger.progress(f"  {f}")
-
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
-    logger.progress(f"Saving output to: {output_directory}")
-    if quant_dir is not None:
-        logger.progress(f"Saving quantification output to {quant_dir=}")
 
     # important to suppress matplotlib output
     matplotlib.use("Agg")

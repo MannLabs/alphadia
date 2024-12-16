@@ -7,16 +7,15 @@ import numpy as np
 import pandas as pd
 import yaml
 
+from alphadia.constants.keys import StatOutputKeys
 from alphadia.outputtransform import (
-    MS1_ERROR,
-    MS2_ERROR,
-    OPTIMIZATION_PREFIX,
     SearchPlanOutput,
 )
 from alphadia.planning import (
     Plan,
     logger,
 )
+from alphadia.utilities.logging import print_environment, print_logo
 from alphadia.workflow import reporting
 
 # TODO the names of the steps need to be adjusted
@@ -124,8 +123,8 @@ class SearchPlan:
         Depending on what steps are to be run, the relevant information (e.g. file paths or thresholds) is passed
         from one to the next step via 'extra config'.
         """
-        Plan.print_logo()
-        Plan.print_environment()
+        print_logo()
+        print_environment()
 
         # TODO add some logging here on the directories (if they are not logged elsewhere)
 
@@ -218,8 +217,12 @@ class SearchPlan:
         df = pd.read_csv(
             output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
         )
-        target_ms1_tolerance = np.nanmedian(df[f"{OPTIMIZATION_PREFIX}{MS1_ERROR}"])
-        target_ms2_tolerance = np.nanmedian(df[f"{OPTIMIZATION_PREFIX}{MS2_ERROR}"])
+        target_ms1_tolerance = np.nanmedian(
+            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS1_ERROR}"]
+        )
+        target_ms2_tolerance = np.nanmedian(
+            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS2_ERROR}"]
+        )
 
         if np.isnan(target_ms1_tolerance) and np.isnan(target_ms2_tolerance):
             logger.warning(

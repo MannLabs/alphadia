@@ -54,6 +54,8 @@ class WorkflowBase:
         self._parent_path: str = quant_path or os.path.join(
             config["output"], QUANT_FOLDER_NAME
         )
+        logger.info(f"Saving quantification results to {self._parent_path}")
+
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (
