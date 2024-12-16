@@ -53,7 +53,7 @@ library_prediction:
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
-custom_modififcations:
+custom_modifications:
   # Dimethyl @K channel decoy
   Dimethyl:d12@K:
     composition: H(-2)2H(8)13C(2)

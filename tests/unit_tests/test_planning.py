@@ -79,7 +79,7 @@ def test_custom_modifications():
     temp_directory = tempfile.gettempdir()
 
     config = {
-        "custom_modififcations": {
+        "custom_modifications": {
             "ThisModDoesNotExists@K": {
                 "composition": "H(10)",
             },

@@ -1,10 +1,3 @@
-# native imports
-
-# alphadia imports
-# alpha family imports
-import alphatims.utils
-
-# third party imports
 import numba as nb
 import numpy as np
 from numba.experimental import jitclass
@@ -13,7 +6,7 @@ from scipy.optimize import curve_fit
 from alphadia import utils
 
 
-@alphatims.utils.njit
+@nb.njit
 def logistic(x: np.array, mu: float, sigma: float):
     """Numba implementation of the logistic function
 
@@ -41,13 +34,13 @@ def logistic(x: np.array, mu: float, sigma: float):
     return y
 
 
-@alphatims.utils.njit
+@nb.njit
 def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y
 
 
-@alphatims.utils.njit
+@nb.njit
 def linear(x, m, b):
     return m * x + b
 
@@ -267,7 +260,7 @@ class SimpleQuadrupole:
         return new_cycle
 
 
-@alphatims.utils.njit
+@nb.njit
 def quadrupole_transfer_function_single(
     quadrupole_calibration_jit, observation_indices, scan_indices, isotope_mz
 ):
