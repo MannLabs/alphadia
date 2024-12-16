@@ -69,31 +69,31 @@ library_prediction:
 #    composition: H(-2)2H(8)13C(2)
 custom_modifications:
   # Dimethyl @K channel decoy
-  Dimethyl:d12@K:
+  - name: Dimethyl:d12@K
     composition: H(-2)2H(8)13C(2)
 
   # Dimethyl @Any_N-term channel decoy
-  Dimethyl:d12@Any_N-term:
+  - name: Dimethyl:d12@Any_N-term
     composition: H(-2)2H(8)13C(2)
 
   # Dimethyl @Protein_N-term channel decoy
-  Dimethyl:d12@Protein_N-term:
+  - name: Dimethyl:d12@Protein_N-term
     composition: H(-2)2H(8)13C(2)
 
   # mTRAQ @K channel decoy
-  mTRAQ:d12@K:
+  - name: mTRAQ:d12@K
     composition: H(12)C(1)13C(10)15N(2)O(1)
 
   # mTRAQ @Any_N-term channel decoy
-  mTRAQ:d12@Any_N-term:
+  - name: mTRAQ:d12@Any_N-term
     composition: H(12)C(1)13C(14)15N(2)O(1)
 
   # mTRAQ @Protein_N-term channel decoy
-  mTRAQ:d12@Protein_N-term:
+  - name: mTRAQ:d12@Protein_N-term
     composition: H(12)C(1)13C(14)15N(2)O(1)
 
   # SILAC heavy @K channel decoy
-  Label:13C(12)@K:
+  - name: Label:13C(12)@K
     composition: C(12)
 
 search:
