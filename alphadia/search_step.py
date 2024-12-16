@@ -164,12 +164,14 @@ class SearchStep:
     def init_alphabase(self):
         """Init alphabase by registering custom modifications."""
 
-        # register custom modifications
-        if "custom_modifications" in self.config:
-            n_modifications = len(self.config["custom_modifications"])
-            logging.info(f"Registering {n_modifications} custom modifications")
+        new_modifications = {}
+        for mod in self.config["custom_modifications"]:
+            new_modifications[mod["name"]] = {"composition": mod["composition"]}
 
-            modification.add_new_modifications(self.config["custom_modifications"])
+        if new_modifications:
+            logging.info(f"Registering {len(new_modifications)} custom modifications")
+
+            modification.add_new_modifications(new_modifications)
 
     def load_library(self):
         """
