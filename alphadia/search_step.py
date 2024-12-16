@@ -9,6 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
@@ -131,13 +132,14 @@ class SearchStep:
             extra_config_update = Config(MULTISTEP_SEARCH)
             extra_config_update.from_dict(extra_config)
             # need to overwrite user-defined output folder here
-            extra_config["output"] = output_folder
+            extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
             config_updates.append(extra_config_update)
 
         config.update(config_updates, do_print=True)
 
-        if "output" not in config:
-            config["output"] = output_folder
+        if ConfigKeys.OUTPUT_DIRECTORY not in config:
+            config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+            # TODO need to update also raw_path_list & library in this way before dumping config to disk
 
         return config
 

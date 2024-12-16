@@ -22,3 +22,9 @@ class OutputKeys(metaclass=ConstantsClass):
     MS2_ERROR = "ms2_error"
     RT_ERROR = "rt_error"
     MOBILITY_ERROR = "mobility_error"
+
+
+class ConfigKeys(metaclass=ConstantsClass):
+    """String constants for accessing the config."""
+
+    OUTPUT_DIRECTORY = "output_directory"
