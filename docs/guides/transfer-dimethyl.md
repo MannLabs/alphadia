@@ -153,3 +153,7 @@ multistep_search:
   transfer_step_enabled: True
   mbr_step_enabled: True
 ```
+
+In case the multistep search fails at some step, you can restart the failed step by
+using the `full_config.yaml` that is stored in the respective subfolder. You can of course edit
+this file in order to fix the issue that caused the failure.
