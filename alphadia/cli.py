@@ -16,6 +16,7 @@ import yaml
 
 import alphadia
 from alphadia import utils
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
 from alphadia.search_plan import SearchPlan
 from alphadia.workflow import reporting
@@ -159,11 +160,11 @@ def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
     """
 
     output_directory = None
-    if "output_directory" in config:
+    if config.get(ConfigKeys.OUTPUT_DIRECTORY) is not None:
         output_directory = (
-            utils.windows_to_wsl(config["output_directory"])
+            utils.windows_to_wsl(config[ConfigKeys.OUTPUT_DIRECTORY])
             if args.wsl
-            else config["output_directory"]
+            else config[ConfigKeys.OUTPUT_DIRECTORY]
         )
 
     if args.output is not None:
@@ -344,7 +345,7 @@ def run(*args, **kwargs):
         # print help message if no output directory specified
         parser.print_help()
 
-        print("No output directory specified.")
+        print("No output directory specified. Please do so via CL-argument or config.")
         return
     reporting.init_logging(output_directory)
 
