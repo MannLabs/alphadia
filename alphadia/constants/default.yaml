@@ -1,10 +1,11 @@
 # configuration for the extraction plan
 version: 1
 
+# TODO this could be part of an "io" section?
 library: null
 output_directory: null
-raw_path_list: []
-output: null
+raw_path_list:
+  - null
 
 general:
   thread_count: 10
