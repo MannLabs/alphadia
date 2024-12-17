@@ -109,12 +109,15 @@ def perform_fdr(
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
+    logger.info("train_test_split")
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
         X, y, test_size=0.2
     )
 
+    logger.info("classifier.fit")
     classifier.fit(X_train, y_train)
 
+    logger.info("pd.concat")
     psm_df = pd.concat([df_target, df_decoy])
 
     psm_df["_decoy"] = y
@@ -128,14 +131,19 @@ def perform_fdr(
     else:
         group_columns = ["precursor_idx"]
 
+    logger.info("predict_proba")
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
+    logger.info("sort_values")
     psm_df.sort_values("proba", ascending=True, inplace=True)
 
+    logger.info("get_q_values")
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
+    logger.info("if dia_cycle is not None")
     if dia_cycle is not None and dia_cycle.shape[2] <= 2:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
+        logger.info("searchsorted")
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
         if start_idx == 0:
             start_idx = len(psm_df)
@@ -146,14 +154,19 @@ def perform_fdr(
                 raise ValueError(
                     "dia_cycle must be provided if reuse_fragments is False"
                 )
+            logger.info("FragmentCompetition")
             fragment_competition = fragcomp.FragmentCompetition()
+            logger.info("fragment_competition")
             psm_df = fragment_competition(
                 psm_df.iloc[:start_idx], df_fragments, dia_cycle
             )
 
+    logger.info("keep_best")
     psm_df = keep_best(psm_df, group_columns=group_columns)
+    logger.info("get_q_values")
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
+    logger.info("plot_fdr")
     plot_fdr(
         X_train,
         X_test,
@@ -342,21 +355,27 @@ def plot_fdr(
         The q-values of the PSMs.
     """
 
+    logger.info("y_test_proba")
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
 
+    logger.info("y_train_proba")
     y_train_proba = classifier.predict_proba(X_train)[:, 1]
 
+    logger.info("roc_curve 1")
     fpr_test, tpr_test, thresholds_test = sklearn.metrics.roc_curve(
         y_test, y_test_proba
     )
+    logger.info("roc_curve 2")
     fpr_train, tpr_train, thresholds_train = sklearn.metrics.roc_curve(
         y_train, y_train_proba
     )
 
+    logger.info("auc_test")
     auc_test = sklearn.metrics.auc(fpr_test, tpr_test)
+    logger.info("auc_train")
     auc_train = sklearn.metrics.auc(fpr_train, tpr_train)
 
-    logger.info(f"Test AUC: {auc_test:.3f}")
+    logger.info(f"Test AUC: {auc_test:.3f}")  # HERE
     logger.info(f"Train AUC: {auc_train:.3f}")
 
     auc_difference_percent = np.abs((auc_test - auc_train) / auc_train * 100)
