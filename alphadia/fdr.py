@@ -1,6 +1,8 @@
 # native imports
 import logging
 import os
+import pickle
+from datetime import datetime
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -109,12 +111,20 @@ def perform_fdr(
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+
     logger.info("train_test_split")
     X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
         X, y, test_size=0.2
     )
 
-    logger.info("classifier.fit")
+    with open(f"X_train_{timestamp}.pkl", "wb") as f:
+        pickle.dump(X_train, f)
+
+    with open(f"y_train_{timestamp}.pkl", "wb") as f:
+        pickle.dump(y_train, f)
+
+    logger.info(f"classifier.fit {timestamp}")
     classifier.fit(X_train, y_train)
 
     logger.info("pd.concat")
