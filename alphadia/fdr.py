@@ -124,6 +124,9 @@ def perform_fdr(
     with open(f"y_train_{timestamp}.pkl", "wb") as f:
         pickle.dump(y_train, f)
 
+    with open(f"classifier_{timestamp}.pkl", "wb") as f:
+        pickle.dump(classifier, f)
+
     logger.info(f"classifier.fit {timestamp}")
     classifier.fit(X_train, y_train)
 
