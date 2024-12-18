@@ -1103,7 +1103,7 @@ def _build_run_internal_df(
     ----------
 
     folder_path: str
-        Path (from the base directory of the output_folder attribute of the Plan class) to the directory containing the raw file and the managers
+        Path (from the base directory of the output_folder attribute of the SearchStep class) to the directory containing the raw file and the managers
 
 
     Returns
