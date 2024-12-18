@@ -3,12 +3,10 @@ version: 1
 
 # These values are typically filled via CLI parameters
 output_directory: null
-library: null
-raw_path_list:
-  - null
-fasta_list:
-  - null
-quant_dir: null
+library_path: null
+raw_paths: []
+fasta_paths: []
+quant_directory: null
 
 general:
   thread_count: 10
