@@ -16,8 +16,8 @@ def test_fasta_digest():
     tempdir = tempfile.gettempdir()
     step = search_step.SearchStep(
         tempdir,
-        fasta_path_list=[common_contaminants],
         config={"library_prediction": {"predict": True}},
+        cli_config={"fasta_paths": [common_contaminants]},
     )
 
     assert len(step.spectral_library.precursor_df) > 0
@@ -29,8 +29,8 @@ def test_fasta_digest():
     # predict existing library
     step = search_step.SearchStep(
         tempdir,
-        library_path=speclib_path,
         config={"library_prediction": {"predict": True}},
+        cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
@@ -38,8 +38,8 @@ def test_fasta_digest():
     # load existing library without predict
     step = search_step.SearchStep(
         tempdir,
-        library_path=speclib_path,
         config={"library_prediction": {"predict": False}},
+        cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
@@ -87,5 +87,5 @@ def test_custom_modifications():
         ]
     }
 
-    step = search_step.SearchStep(temp_directory, [], config=config)  # noqa F841
+    step = search_step.SearchStep(temp_directory, config=config)  # noqa F841
     assert "ThisModDoesNotExists@K" in MOD_DF["mod_name"].values

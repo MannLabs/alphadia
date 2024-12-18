@@ -67,9 +67,9 @@ class SearchStep:
         )
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
-        self.raw_path_list = self._config[ConfigKeys.RAW_PATH_LIST]
+        self.raw_path_list = self._config[ConfigKeys.RAW_PATHS]
         self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
-        self.fasta_path_list = self._config[ConfigKeys.FASTA_PATH_LIST]
+        self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
         self.spectral_library = None
 

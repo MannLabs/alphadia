@@ -250,10 +250,10 @@ def run(*args, **kwargs):
     reporting.init_logging(output_directory)
 
     cli_params_config = {
-        ConfigKeys.RAW_PATH_LIST: parse_raw_path_list(args, config),
+        ConfigKeys.RAW_PATHS: parse_raw_path_list(args, config),
         ConfigKeys.LIBRARY_PATH: args.library,
-        ConfigKeys.FASTA_PATH_LIST: args.fasta,
-        ConfigKeys.QUANT_DIR: args.quant_dir,
+        ConfigKeys.FASTA_PATHS: args.fasta,
+        ConfigKeys.QUANT_DIRECTORY: args.quant_dir,
     }
 
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
