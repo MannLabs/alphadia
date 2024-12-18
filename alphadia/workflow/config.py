@@ -34,6 +34,7 @@ import yaml
 logger = logging.getLogger()
 
 USER_DEFINED = "user defined"
+USER_DEFINED_CLI = "user defined (cli parameter)"
 MULTISTEP_SEARCH = "multistep search"
 
 

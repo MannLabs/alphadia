@@ -13,7 +13,12 @@ from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
-from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
+from alphadia.workflow.config import (
+    MULTISTEP_SEARCH,
+    USER_DEFINED,
+    USER_DEFINED_CLI,
+    Config,
+)
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -24,13 +29,10 @@ class SearchStep:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: list[str] | None = None,
-        library_path: str | None = None,
-        fasta_path_list: list[str] | None = None,
         config: dict | Config | None = None,
-        config_base_path: str | None = None,
+        cli_config: dict | None = None,
         extra_config: dict | None = None,
-        quant_path: str | None = None,
+        config_base_path: str | None = None,  # needed at all?
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -43,15 +45,6 @@ class SearchStep:
         output_folder : str
             output folder to save the results
 
-        raw_path_list : list
-            list of input file locations
-
-        library_path : str, optional
-            path to the spectral library file. If not provided, the library is built from fasta files
-
-        fasta_path_list : list, optional
-            list of fasta file locations to build the library from
-
         config_base_path : str, optional
             user-provided yaml file containing the default config.
 
@@ -61,34 +54,22 @@ class SearchStep:
         extra_config : dict, optional
             dict to update the final config. Used for multistep searches.
 
-        quant_path : str, optional
-            path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
-
         """
-
-        if config is None:
-            config = {}
-        if fasta_path_list is None:
-            fasta_path_list = []
-        if raw_path_list is None:
-            raw_path_list = []
 
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
         reporting.init_logging(self.output_folder)
 
-        self.raw_path_list = raw_path_list
-        self.library_path = library_path
-        self.fasta_path_list = fasta_path_list
-        self.quant_path = quant_path
+        self._config = self._init_config(
+            config, cli_config, extra_config, output_folder, config_base_path
+        )
+        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
+
+        self.raw_path_list = self._config[ConfigKeys.RAW_PATH_LIST]
+        self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
+        self.fasta_path_list = self._config[ConfigKeys.FASTA_PATH_LIST]
 
         self.spectral_library = None
-
-        self._config = self._init_config(
-            config, extra_config, output_folder, config_base_path
-        )
-
-        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
         self.init_alphabase()
         self.load_library()
@@ -99,8 +80,9 @@ class SearchStep:
 
     def _init_config(
         self,
-        user_config: dict | Config,
-        extra_config: dict,
+        user_config: dict | Config | None,
+        cli_config: dict | None,
+        extra_config: dict | None,
         output_folder: str,
         config_base_path: str | None,
     ):
@@ -118,15 +100,24 @@ class SearchStep:
         config.from_yaml(config_base_path)
 
         config_updates = []
-        # load update config from dict
-        if isinstance(user_config, dict):
-            user_config_update = Config(USER_DEFINED)
-            user_config_update.from_dict(user_config)
-            config_updates.append(user_config_update)
-        elif isinstance(user_config, Config):
-            config_updates.append(user_config)
-        else:
-            raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
+        if user_config is not None:
+            # load update config from dict
+            if isinstance(user_config, dict):
+                user_config_update = Config(USER_DEFINED)
+                user_config_update.from_dict(user_config)
+                config_updates.append(user_config_update)
+            elif isinstance(user_config, Config):
+                config_updates.append(user_config)
+            else:
+                raise ValueError(
+                    "'config' parameter must be of type 'dict' or 'Config'"
+                )
+
+        if cli_config is not None:
+            cli_config_update = Config(USER_DEFINED_CLI)
+            cli_config_update.from_dict(cli_config)
+
+            config_updates.append(cli_config_update)
 
         if extra_config is not None:
             extra_config_update = Config(MULTISTEP_SEARCH)
@@ -139,7 +130,6 @@ class SearchStep:
 
         if ConfigKeys.OUTPUT_DIRECTORY not in config:
             config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
-        # TODO need to update also raw_path_list, fasta_list, quant_dir, library in this way before dumping config to disk
 
         return config
 
@@ -344,7 +334,7 @@ class SearchStep:
         workflow = peptidecentric.PeptideCentricWorkflow(
             raw_name,
             self.config,
-            quant_path=self.quant_path,
+            quant_path=self.config["quant_dir"],
         )
 
         # check if the raw file is already processed
