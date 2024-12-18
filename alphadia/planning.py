@@ -149,7 +149,7 @@ class Plan:
         if "output" not in config:
             config["output"] = output_folder
 
-        config.to_yaml(os.path.join(output_folder, "full_config.yaml"))
+        config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
 
         return config
 
