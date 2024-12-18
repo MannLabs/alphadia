@@ -156,15 +156,14 @@ class SearchPlan:
                     self._library_step_output_dir
                 )
 
+            mbr_step_library_path = str(
+                self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+            )
+
             mbr_step_extra_config = (
                 self._multistep_config[MBR_STEP_NAME]
                 | optimized_values_config
-                | {
-                    ConfigKeys.LIBRARY_PATH: str(
-                        self._library_step_output_dir
-                        / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                    )
-                }
+                | {ConfigKeys.LIBRARY_PATH: mbr_step_library_path}
             )
             self.run_step(
                 self._output_dir,
