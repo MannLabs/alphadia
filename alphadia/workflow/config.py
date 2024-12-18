@@ -33,8 +33,9 @@ import yaml
 
 logger = logging.getLogger()
 
-USER_DEFINED = "user defined"
-USER_DEFINED_CLI = "user defined (cli parameter)"
+USER_DEFINED_CLI = "user defined (cli)"
+USER_DEFINED_FILE = "user defined (file)"
+USER_DEFINED_CLI_PARAM = "user defined (cli parameter)"
 MULTISTEP_SEARCH = "multistep search"
 
 
@@ -83,7 +84,17 @@ def print_w_style(
         # Else set style to new
         style = (
             "update"
-            if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
+            if any(
+                [
+                    s in string
+                    for s in [
+                        USER_DEFINED_CLI,
+                        USER_DEFINED_FILE,
+                        USER_DEFINED_CLI_PARAM,
+                        MULTISTEP_SEARCH,
+                    ]
+                ]
+            )
             else "default"
         )
 

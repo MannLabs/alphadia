@@ -24,18 +24,6 @@ general:
   save_library: True       # input library
   save_mbr_library: True   # output library
 
-# req:
-# have 1 schema with hr description (docs + optional FE)
-
-# req:
-#    "id": "transfer_step_enabled",
-#    "name": "Add 'transfer learning' step",
-#    "value": false,
-#    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
-#    "type": "boolean"
-#show in fe
-#=> show all in
-
 library_loading:
   rt_heuristic: 180
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
