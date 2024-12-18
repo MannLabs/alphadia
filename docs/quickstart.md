@@ -9,7 +9,10 @@ Make sure you have installed the GUI using the one-click installer. To verify yo
 
 ## 2. Test data
 
-For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral. Download the test samples and save them: [HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk), [RAW files].(https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
+For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral.
+Download the test samples and save them:
+[HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk),
+[RAW files](https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
 
 ## 3. Search settings
 
@@ -27,3 +30,9 @@ Select an output folder where the search progress and the final results should b
 
 ## 4. Run the search
 Click *Run Workflow* to start the search and see the progress.
+
+# Quickstart using CLI
+1. Clone the repository from GitHub
+2. Create a conda environment called `alphadia` and install AlphaDIA (either from `pip` or local, cf. [Installation](installation.md))
+3. `cd` into the root folder of the repository, then `cd test`
+4. `./run_e2e_tests.sh basic alphadia` will run a basic test after downloading the test data

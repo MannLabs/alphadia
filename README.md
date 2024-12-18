@@ -77,8 +77,13 @@ AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferr
 Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
-* **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+* **Windows:** Download the latest `alphadia-X.Y.Z-windows-amd64.exe` build and double click it to install. If you receive a warning during installation click *Run anyway*.
+* **MacOS:** Download the latest build suitable for your chip architecture
+(can be looked up by clicking on the Apple Symbol > *About this Mac* > *Chip* ("M1", "M2", "M3" -> `arm64`, "Intel" -> `x64`),
+`alphadia-X.Y.Z-macos-darwin-arm64.pkg` or `alphadia-X.Y.Z-macos-darwin-x64.pkg`. Open the parent folder of the downloaded file in Finder,
+right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+* **Linux:** Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
+
 
 As of now, **Linux** users need follow the steps for the
 [developer installation](docs/installation.md#developer-installation) in order to use the GUI.
@@ -122,7 +127,10 @@ Make sure you have installed the GUI using the one-click installer. To verify yo
 
 ### 2. Test data
 
-For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral. Download the test samples and save them: [HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk), [RAW files].(https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
+For the first search we will be using a spectral library to search 60SPD bulk HeLa samples on the Orbitrap Astral.
+Download the test samples and save them:
+[HeLa library](https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk),
+[RAW files](https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN)
 
 ### 3. Search settings
 
@@ -153,7 +161,10 @@ In case of issues, check out the following:
 ---
 ## Citations
 
-A manuscript has been submitted to bioRxiv.
+A manuscript has been submitted to bioRxiv:
+> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann
+> bioRxiv 2024.05.28.596182; doi: https://doi.org/10.1101/2024.05.28.596182
 
 ---
 ## How to contribute
