@@ -17,6 +17,13 @@ BASE_USER_CONFIG = {
     "some_user_config_key": "some_user_config_value",
 }
 
+BASE_CLI_PARAMS_CONFIG = {
+    "raw_path_list": ["/raw1"],
+    "library_path": "/user_provided_library_path",
+    "fasta_path_list": ["/fasta1"],
+    "quant_dir": "/user_provided_quant_path",
+}
+
 
 def get_search_plan(config):
     """Helper function to create a SearchPlan object with a given config."""
@@ -25,11 +32,8 @@ def get_search_plan(config):
     ):
         return SearchPlan(
             output_directory="/user_provided_output_path",
-            raw_path_list=["/raw1"],
-            library_path="/user_provided_library_path",
-            fasta_path_list=["/fasta1"],
             config=config,
-            quant_dir="/user_provided_quant_path",
+            cli_params_config=BASE_CLI_PARAMS_CONFIG,
         )
 
 
@@ -47,12 +51,9 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
     # could use `mock_plan.assert_has_calls([call(..)])` pattern here but it is harder to read in case of error
     assert mock_plan.call_args_list[0].kwargs == {
         "output_folder": "/user_provided_output_path",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG,
         "extra_config": {},
-        "quant_path": "/user_provided_quant_path",
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     mock_plan.return_value.run.assert_called_once_with()
@@ -66,12 +67,7 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps when all parameters are none or empty."""
 
     search_plan = SearchPlan(
-        output_directory="/user_provided_output_path",
-        raw_path_list=[],
-        library_path=None,
-        fasta_path_list=[],
-        config={},
-        quant_dir=None,
+        output_directory="/user_provided_output_path", config={}, cli_params_config={}
     )
 
     # when
@@ -82,12 +78,9 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     # could use `mock_plan.assert_has_calls([call(..)])` pattern here but it is harder to read in case of error
     assert mock_plan.call_args_list[0].kwargs == {
         "output_folder": "/user_provided_output_path",
-        "raw_path_list": [],
-        "library_path": None,
-        "fasta_path_list": [],
         "config": {},
         "extra_config": {},
-        "quant_path": None,
+        "cli_config": {},
     }
 
     mock_plan.return_value.run.assert_called_once_with()
@@ -120,20 +113,14 @@ def test_runs_plan_with_transfer_step(
     # transfer_step
     assert mock_plan.call_args_list[0].kwargs == {
         "output_folder": "/user_provided_output_path/transfer",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
-        "quant_path": None,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     # library_step
     assert mock_plan.call_args_list[1].kwargs == {
         "output_folder": "/user_provided_output_path",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
@@ -143,7 +130,7 @@ def test_runs_plan_with_transfer_step(
             },
         }
         | dynamic_config,
-        "quant_path": None,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -177,23 +164,19 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
     # library_step
     assert mock_plan.call_args_list[0].kwargs == {
         "output_folder": "/user_provided_output_path/library",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"],
-        "quant_path": None,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     # mbr_step
     assert mock_plan.call_args_list[1].kwargs == {
         "output_folder": "/user_provided_output_path",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_output_path/library/speclib.mbr.hdf",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
-        "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-        "quant_path": None,
+        "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
+        | dynamic_config
+        | {"library": "/user_provided_output_path/library/speclib.mbr.hdf"},
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -229,20 +212,14 @@ def test_runs_plan_with_transfer_and_mbr_steps(
     # transfer_step
     assert mock_plan.call_args_list[0].kwargs == {
         "output_folder": "/user_provided_output_path/transfer",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
-        "quant_path": None,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     # library_step
     assert mock_plan.call_args_list[1].kwargs == {
         "output_folder": "/user_provided_output_path/library",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_library_path",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
@@ -252,18 +229,19 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             },
         }
         | dynamic_config,
-        "quant_path": None,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     # mbr_step
     assert mock_plan.call_args_list[2].kwargs == {
         "output_folder": "/user_provided_output_path",
-        "raw_path_list": ["/raw1"],
-        "library_path": "/user_provided_output_path/library/speclib.mbr.hdf",
-        "fasta_path_list": ["/fasta1"],
         "config": BASE_USER_CONFIG | additional_user_config,
-        "extra_config": MOCK_MULTISTEP_CONFIG["mbr"] | dynamic_config,
-        "quant_path": None,
+        "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
+        | dynamic_config
+        | {
+            "library": "/user_provided_output_path/library/speclib.mbr.hdf",
+        },
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call(), call()])

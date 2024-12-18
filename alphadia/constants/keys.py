@@ -28,3 +28,7 @@ class ConfigKeys(metaclass=ConstantsClass):
     """String constants for accessing the config."""
 
     OUTPUT_DIRECTORY = "output_directory"
+    LIBRARY_PATH = "library"  # TODO rename to "library_path"
+    RAW_PATH_LIST = "raw_path_list"
+    FASTA_PATH_LIST = "fasta_path_list"
+    QUANT_DIR = "quant_dir"
