@@ -570,6 +570,7 @@ class Config:
         default_config = deepcopy(self.config)
         tracking_config = deepcopy(self.config)
         # this is a bit of a hack to initialize the tracking config
+        # we assume that the config that is updated is the default config
         update(deepcopy(self.config), default_config, tracking_config, "default")
 
         initial_config = deepcopy(self.config)
@@ -595,22 +596,19 @@ def update(
     Args:
         target_dict: The dictionary to be modified
         update_dict: The dictionary containing update values
-        tracking_dict: The dictionary containing the source of a value
+        tracking_dict: A dictionary with the same structure as target_dict, whose leaf values will be overwritten with experiment_name
         experiment_name: The name of the current experiment
 
     Notes:
         - Nested dictionaries are recursively updated
         - Only updates existing keys (no new keys added)
-        - Complex type lists (lists of dicts) are updated by matching 'name' field
-        - Simple type lists are overwritten
+        - All lists are overwritten
 
     Raises:
         ValueError in these cases:
         - a key is not found in the target_dict
         - the type of the update value does not match the type of the target value
-        - a complex type list does not contain a 'name' field for each item
         - an item is not found in the target_dict
-        - the type of an item in a complex type list does not match the type of the corresponding item in the update list
     """
     for key, update_value in update_dict.items():
         if key not in target_dict:
@@ -619,7 +617,14 @@ def update(
         target_value = target_dict[key]
         tracking_value = tracking_dict[key]
 
-        if not type(update_value) == type(target_value):
+        if (
+            target_value is not None
+            and type(update_value) != type(target_value)
+            and not (
+                isinstance(update_value, int | float)
+                and isinstance(target_value, int | float)
+            )
+        ):
             raise ValueError(
                 f"Type mismatch for key '{key}': {type(update_value)} != {type(target_value)}"
             )
@@ -646,7 +651,8 @@ def pretty_print_config(
 
     Args:
         config: The configuration dictionary to print
-        prefix: Current line prefix for proper indentation
+        default_config: The default configuration dictionary to print
+        tracking_config: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
     """
 
     _pretty_print(
@@ -661,21 +667,33 @@ def _pretty_print(
     tracking_config: dict,
     prefix: str = "",
 ):
+    """Recursively pretty print a configuration dictionary in a tree-like structure."""
     for i, (key, value) in enumerate(config.items()):
         is_last_item = i == len(config.items()) - 1
 
-        # Determine the current line's prefix
+        # determine the current line's prefix
         current_prefix = "└──" if is_last_item else "├──"
 
-        # Determine the next level's prefix
+        # determine the next level's prefix
         next_prefix = prefix + ("    " if is_last_item else "│   ")
 
-        default_config_value = default_config[key]
-        tracking_config_value = tracking_config[key]
+        try:
+            default_config_value = default_config[key]
+        except (KeyError, TypeError):
+            try:
+                default_config_value = default_config[i]
+            except KeyError:
+                # nested list case
+                default_config_value = "(added)"
+
+        try:
+            tracking_config_value = tracking_config[key]
+        except (KeyError, TypeError):
+            tracking_config_value = tracking_config
 
         if isinstance(value, dict):
             # Print dictionary key and continue with nested values
-            print(f"{prefix}{current_prefix}{key}")
+            logger.info(f"{prefix}{current_prefix}{key}")
             _pretty_print(
                 value,
                 default_config=default_config_value,
@@ -683,27 +701,50 @@ def _pretty_print(
                 prefix=next_prefix,
             )
         elif isinstance(value, list):
-            # Handle lists
-            print(f"{prefix}{current_prefix}{key}:")
+            logger.info(f"{prefix}{current_prefix}{key}:")
             for j, item in enumerate(value):
-                # For simple lists
-                try:
-                    print(
-                        f"{next_prefix}- {_pp(item, default_config_value[j], tracking_config_value)}"
+                # Handle nested lists
+                if isinstance(item, dict):
+                    next_prefix = prefix + ("    " if is_last_item else "│   ")
+
+                    _pretty_print(
+                        item,
+                        default_config=default_config_value[j],
+                        tracking_config=tracking_config_value,
+                        prefix=next_prefix,
                     )
-                except Exception:
-                    # in case something was added
-                    print(f"{next_prefix}- {_pp(item, None, tracking_config_value)}")
+
+                else:
+                    # For simple lists
+                    default_value = (
+                        default_config_value[j]
+                        if j < len(default_config_value)
+                        else "(added)"
+                    )
+
+                    logger.info(
+                        f"{next_prefix}- {_make_pretty(item, default_value, tracking_config_value)}"
+                    )
+
         else:
             # Print leaf node (key-value pair)
-            print(
-                f"{prefix}{current_prefix}{key}: {_pp(value, default_config_value, tracking_config_value)}"
+            logger.info(
+                f"{prefix}{current_prefix}{key}: {_make_pretty(value, default_config_value, tracking_config_value)}"
             )
 
 
-def _pp(actual_value, default_value, tracking_value):
+def _make_pretty(
+    actual_value: str | int | float,
+    default_value: str | int | float,
+    tracking_value: str,
+) -> str:
+    """Create a pretty string representation of a configuration value."""
     if default_value == actual_value:
         msg = f"{actual_value}"
     else:
-        msg = f"{actual_value} [{tracking_value}, default: {default_value}]"
+        style = "\x1b[32;20m"
+        reset = "\x1b[0m"
+        msg = (
+            f"{style}{actual_value} [{tracking_value}, default: {default_value}]{reset}"
+        )
     return msg

@@ -1,6 +1,11 @@
 # configuration for the extraction plan
 version: 1
 
+library: null
+output_directory: null
+raw_path_list: []
+output: null
+
 general:
   thread_count: 10
   # maximum number of threads or processes to use per raw file
@@ -29,6 +34,8 @@ library_prediction:
   precursor_len:
     - 7
     - 35
+    # min
+    # max
   precursor_charge:
     - 2
     - 4
@@ -55,6 +62,8 @@ library_prediction:
 # also used for decoy channels
 custom_modifications:
   # Dimethyl @K channel decoy
+#  - name: Dimethyl:d12@K
+#    composition: H(-2)2H(8)13C(2)
   Dimethyl:d12@K:
     composition: H(-2)2H(8)13C(2)
 
@@ -192,10 +201,11 @@ library_multiplexing:
   # for every channel, the library gets copied and the modifications are translated according to the mapping
   # the following example shows how to multiplex mTRAQ to three sample channels and a decoy channel
   multiplex_mapping: {}
-
-    #0:
-    #  mTRAQ@K: mTRAQ@K
-    #  mTRAQ@Any_N-term: mTRAQ@Any_N-term
+    # list, can be overwritten
+#    - channel_name: 0
+#      channel_modifications:
+#        mTRAQ@K: mTRAQ@K
+#        mTRAQ@Any_N-term: mTRAQ@Any_N-term
 
     #4:
     #  mTRAQ@K: mTRAQ:13C(3)15N(1)@K
@@ -372,6 +382,19 @@ transfer_learning:
 
   # instrument type encoded during training
   instrument: 'Lumos'
+
+
+# req:
+# have 1 schema with hr description (docs + optional FE)
+
+# req:
+#    "id": "transfer_step_enabled",
+#    "name": "Add 'transfer learning' step",
+#    "value": false,
+#    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+#    "type": "boolean"
+#show in fe
+#=> show all in
 
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
