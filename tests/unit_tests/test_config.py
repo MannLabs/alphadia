@@ -4,7 +4,7 @@ from io import StringIO
 import pytest
 import yaml
 
-from alphadia.workflow.config import Config, pretty_print_config
+from alphadia.workflow.config import Config
 
 default_config = """
 version: 1
@@ -415,25 +415,3 @@ def test_config_update_default_config():
     config_1.update([config_2], print_modifications=True)
 
     assert config_1.to_dict() == config_2.to_dict()
-
-
-def test_pretty_print():
-    """Test updating a config with a wrong type in a nested list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
-
-    config_2 = Config("first")
-    config_2.from_dict({"simple_value_int": 2, "simple_value_float": 4.0})
-
-    config_3 = Config("second")
-    config_3.from_dict(
-        {
-            "simple_value_float": 5.0,  # overwrites first
-            "simple_value_str": "six",  # overwrites default
-        }
-    )
-
-    original_config_1 = config_1.to_dict()
-    config_1.update([config_2, config_3], print_modifications=True)
-
-    pretty_print_config(original_config_1, default_config=config_1.to_dict())
