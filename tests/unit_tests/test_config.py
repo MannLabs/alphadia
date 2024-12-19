@@ -132,34 +132,17 @@ library_prediction.precursor_charge[0]	2	-	-
 library_prediction.precursor_charge[1]	4	-	-"""
 
 
-# def test_update_function():
-#     config_1 = Config("Experiment 1")
-#     config_1.config = yaml.safe_load(StringIO(config_1_yaml))
-#     config_2 = Config("Experiment 2")
-#     config_2.config = yaml.safe_load(StringIO(config_2_yaml))
-#     default = Config("default")
-#     default.config = yaml.safe_load(StringIO(default_config))
-#
-#     default.update([config_1, config_2])
-#
-#     assert default.config == yaml.safe_load(StringIO(target_yaml))
-#
-#
-# def test_get_modifications_table():
-#     config_1 = Config("Experiment 1")
-#     config_1.config = yaml.safe_load(StringIO(config_1_yaml))
-#     config_2 = Config("Experiment 2")
-#     config_2.config = yaml.safe_load(StringIO(config_2_yaml))
-#     default = Config("default")
-#     default.config = yaml.safe_load(StringIO(default_config))
-#
-#     table = get_update_table(default, [config_1, config_2])
-#     tsv = table.to_csv(sep="\t")
-#
-#     table = pd.read_csv(StringIO(tsv), sep="\t", index_col=0)
-#     target = pd.read_csv(StringIO(target_tsv), sep="\t", index_col=0)
-#
-#     pd.testing.assert_frame_equal(table, target)
+def test_update_function():
+    config_1 = Config("Experiment 1")
+    config_1.config = yaml.safe_load(StringIO(config_1_yaml))
+    config_2 = Config("Experiment 2")
+    config_2.config = yaml.safe_load(StringIO(config_2_yaml))
+    default = Config("default")
+    default.config = yaml.safe_load(StringIO(default_config))
+
+    default.update([config_1, config_2])
+
+    assert default.config == yaml.safe_load(StringIO(target_yaml))
 
 
 generic_default_config = """
@@ -242,6 +225,9 @@ def test_config_update_simple_two_files():
 
     # when
     config_1.update([config_2, config_3], print_modifications=True)
+
+    config_1.__repr__()
+    print("X")
 
     assert config_1.to_dict() == expected_generic_default_config_dict | {
         "simple_value_int": 2,
