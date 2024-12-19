@@ -22,9 +22,10 @@ In our analysis, we focus on discerning changes between the default configuratio
 - But we still define the source of the update to be the first experiment that triggered the change.
 """
 
-import copy
 import json
 import logging
+from collections import defaultdict
+from copy import deepcopy
 from typing import Any
 
 import numpy as np
@@ -567,26 +568,186 @@ class Config:
             Whether to print the modifications or not, either way the updated config will be printed.
         """
 
-        # The translated config contains the source of the modifications on leaf nodes
-        translated_config = translate_config(
-            copy.deepcopy(self.config), self.experiment_name
-        )
+        default_config = deepcopy(self.config)
 
-        if len(experiments) > 0:
-            translated_experiments = []
-            for config in experiments:
-                translated_experiments.append(
-                    translate_config(
-                        copy.deepcopy(config.config), config.experiment_name
-                    )
-                )
-
-            # Update the config with the experiments iteratively
-            translated_config = update_recursive(
-                {"key": "", "value": translated_config},
-                translated_experiments,
-                print_output=print_modifications,
+        initial_config = deepcopy(self.config)
+        for config in experiments:
+            update(
+                initial_config,
+                config.to_dict(),
             )
 
-        # Remove the source of modifications
-        self.config = translate_config_back(translated_config)
+        self.config = initial_config
+
+        pretty_print_config(self.config, default_config)
+
+
+def update(
+    target_dict: dict,
+    update_dict: dict,
+) -> None:
+    """
+    Recursively update target_dict with values from update_dict, following specific rules for different types.
+
+    Args:
+        target_dict: The dictionary to be modified
+        update_dict: The dictionary containing update values
+
+    Notes:
+        - Nested dictionaries are recursively updated
+        - Only updates existing keys (no new keys added)
+        - Complex type lists (lists of dicts) are updated by matching 'name' field
+        - Simple type lists are overwritten
+
+    Raises:
+        ValueError in these cases:
+        - a key is not found in the target_dict
+        - the type of the update value does not match the type of the target value
+        - a complex type list does not contain a 'name' field for each item
+        - an item is not found in the target_dict
+        - the type of an item in a complex type list does not match the type of the corresponding item in the update list
+    """
+    for key, update_value in update_dict.items():
+        if key not in target_dict:
+            raise ValueError(f"Key not found in target_dict: '{key}'")
+
+        target_value = target_dict[key]
+
+        if not type(update_value) == type(target_value):
+            raise ValueError(
+                f"Type mismatch for key '{key}': {type(update_value)} != {type(target_value)}"
+            )
+
+        if isinstance(target_value, dict):
+            update(target_value, update_value)
+
+        elif isinstance(target_value, list):
+            if target_value and isinstance(target_value[0], dict):
+                _update_nested_list(target_value, update_value)
+            else:
+                # For simple type lists, overwrite completely
+                target_dict[key] = update_value
+
+        # Handle simple values
+        else:
+            target_dict[key] = update_value
+
+
+def _update_nested_list(
+    target_value: list,
+    update_value: list,
+) -> None:
+    """Update a list of dictionaries (complex type list)."""
+    _check_all_have_name_attributes(target_value)
+    _check_all_have_name_attributes(update_value)
+    # Create a map of name to item for quick lookup
+    target_map = {item["name"]: item for item in target_value}
+    for update_item in update_value:
+        if not isinstance(update_item, dict):
+            raise ValueError(
+                f"Complex type list items must be dictionaries, found {type(update_item)} '{update_item}' (update_item)"
+            )
+
+        # add new item to list
+        if update_item["name"] not in target_map:
+            target_item = update_item.copy()
+            target_value.append(target_item)
+        else:
+            target_item = target_map[update_item["name"]]
+            # remove if "name" is the only tag
+            if len(update_item) == 1:
+                target_value.remove(target_item)
+            # update
+            else:
+                if not isinstance(target_item, dict):
+                    raise ValueError(
+                        f"Complex type list items must be dictionaries, found {type(target_item)} '{target_item}' (target_item)"
+                    )
+
+        update(target_item, update_item)
+
+
+def _check_all_have_name_attributes(values):
+    if any(["name" not in v for v in values]):
+        raise ValueError(
+            f"Complex type lists must contain a 'name' field for each item: {values}"
+        )
+
+
+def pretty_print_config(config: dict, default_config: dict) -> None:
+    """
+    Pretty print a configuration dictionary in a tree-like structure.
+
+    Args:
+        config: The configuration dictionary to print
+        prefix: Current line prefix for proper indentation
+    """
+
+    _pretty_print(config, default_config=default_config)
+
+
+def _pretty_print(
+    config: dict,
+    *,
+    default_config: dict,
+    prefix: str = "",
+):
+    for i, (key, value) in enumerate(config.items()):
+        is_last_item = i == len(config.items()) - 1
+
+        # Determine the current line's prefix
+        current_prefix = "└──" if is_last_item else "├──"
+
+        # Determine the next level's prefix
+        next_prefix = prefix + ("    " if is_last_item else "│   ")
+
+        try:
+            default_config_value = default_config[key]
+        except TypeError:
+            default_config_value = default_config[i]
+
+        if isinstance(value, dict):
+            # Print dictionary key and continue with nested values
+            print(f"{prefix}{current_prefix}{key}")
+            _pretty_print(
+                value,
+                default_config=default_config_value,
+                prefix=next_prefix,
+            )
+        elif isinstance(value, list):
+            # Handle lists
+            print(f"{prefix}{current_prefix}{key}:")
+            for j, item in enumerate(value):
+                if isinstance(item, dict):
+                    next_prefix = prefix + ("    " if is_last_item else "│   ")
+                    try:
+                        _pretty_print(
+                            item,
+                            default_config=default_config_value[j],
+                            prefix=next_prefix,
+                        )
+                    except Exception:
+                        # in case something was added
+                        _pretty_print(
+                            item,
+                            default_config=defaultdict(dict),
+                            prefix=next_prefix,
+                        )
+
+                else:
+                    # For simple lists
+                    try:
+                        print(f"{next_prefix}- {_pp(item, default_config_value[j])}")
+                    except Exception:
+                        print(f"{next_prefix}- {_pp(item, None)}")
+        else:
+            # Print leaf node (key-value pair)
+            print(f"{prefix}{current_prefix}{key}: {_pp(value, default_config_value)}")
+
+
+def _pp(actual_value, default_value):
+    if default_value == actual_value:
+        msg = f"{actual_value}"
+    else:
+        msg = f"{actual_value} [default: {default_value}]"
+    return msg
