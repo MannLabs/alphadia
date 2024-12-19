@@ -22,481 +22,17 @@ In our analysis, we focus on discerning changes between the default configuratio
 - But we still define the source of the update to be the first experiment that triggered the change.
 """
 
-import copy
 import json
 import logging
+from copy import deepcopy
 from typing import Any
 
-import numpy as np
-import pandas as pd
 import yaml
 
 logger = logging.getLogger()
 
 USER_DEFINED = "user defined"
 MULTISTEP_SEARCH = "multistep search"
-
-
-def get_tree_structure(last_item_arr: list[bool], update=False):
-    tree_structure = ""
-    for i in last_item_arr[:-1]:
-        if i:
-            tree_structure += "    "
-        else:
-            tree_structure += "│   "
-    if len(last_item_arr) > 0:
-        if last_item_arr[-1]:
-            tree_structure += "└──"
-        else:
-            tree_structure += "├──"
-    return tree_structure
-
-
-def print_w_style(
-    string: str, style: str = "auto", last_item_arr: list[bool] | None = None
-) -> None:
-    """
-    Print string with tree structure and uses ANSI color codes to color the string base on the style:
-    - update: green color
-    - new: green color but add +++ to the beginning
-    - default: no color
-    - old: red color
-
-    Parameters
-    ----------
-    string : str
-        String to be printed
-
-    style : str
-        Style of the string
-
-    last_item_arr : list[bool], optional
-        If the string is the last item in the list or dict, by default [False]
-
-    """
-    if last_item_arr is None:
-        last_item_arr = [False]
-    if style == "auto":
-        # Check what the config name in string inside the brackets ( )
-        # If the source is default, remove the brackets and set style to default
-        # Else set style to new
-        style = (
-            "new"
-            if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
-            else "default"
-        )
-
-    if style in ["update", "new"]:
-        # Green color
-        style = "\x1b[32;20m"
-        reset = "\x1b[0m"
-    else:
-        # no color
-        style = ""
-        reset = ""
-    # Print with tree structure using level and color
-
-    tree_structure = get_tree_structure(last_item_arr, update=style == "update")
-
-    logger.info(f"{tree_structure}{style}{string}{reset}")
-
-
-def print_recursively(
-    config: dict[str, Any] | list[Any],
-    level: int = 0,
-    style: str = "auto",
-    last_item: bool = False,
-    last_item_arr: list | None = None,
-) -> None:
-    """
-    Recursively print any config with tree structure and uses ANSI color codes to color the string based on the style.
-
-    Parameters
-    ----------
-    config : dict or list
-        Config data to be printed
-
-    level : int
-        Level of the config in the tree structure
-
-    style : str
-        Style of the config
-
-    last_item : bool, optional
-        If the config is the last item in the list or dict, by default False.
-
-    last_item_arr : TODO
-    """
-
-    if last_item_arr is None:
-        last_item_arr = []
-    if isinstance(config, tuple):
-        print_w_style(
-            f"{config[0]} ({config[1]})", style=style, last_item_arr=last_item_arr
-        )
-        return
-
-    if isinstance(config, list):
-        for i, value in enumerate(config):
-            is_last_item_list = i == len(config) - 1
-            print_recursively(
-                value, style=style, last_item_arr=last_item_arr + [is_last_item_list]
-            )
-        return
-
-    if isinstance(config, dict):
-        for key, value in config.items():
-            is_last_item_dict = key == list(config.keys())[-1]
-
-            if isinstance(value, tuple):
-                print_w_style(
-                    f"{key}: {value[0]} ({value[1]})",
-                    style=style,
-                    last_item_arr=last_item_arr + [is_last_item_dict],
-                )
-                continue
-
-            elif isinstance(value, list | dict):
-                print_w_style(
-                    f"{key}",
-                    style=style,
-                    last_item_arr=last_item_arr + [is_last_item_dict],
-                )
-                print_recursively(
-                    value,
-                    style=style,
-                    last_item_arr=last_item_arr + [is_last_item_dict],
-                )
-            else:
-                print_w_style(
-                    f"{key}: {value}",
-                    style=style,
-                    last_item_arr=last_item_arr + [is_last_item_dict],
-                )
-        return
-
-    print_w_style(f"{config}", style=style, last_item_arr=last_item_arr)
-
-
-def translate_config(
-    default_config: dict[str, Any] | list[Any], name: str
-) -> dict[str, Any] | list[Any]:
-    """
-    Takes as input a dictionary or list of dictianry that contains config values and a name of experiment
-    and changes every leaf value to a tuple (value, name)
-
-    Parameters
-    ----------
-    default_config : dict or list
-        Config data to be translated
-
-    name : str
-        Name of the experiment
-
-    Returns
-    -------
-    dict or list
-        Translated config data with leaf values as tuple (value, experiment name)
-    """
-    if not isinstance(default_config, dict) and not isinstance(default_config, list):
-        return (default_config, name)
-
-    if isinstance(default_config, dict):
-        for key, value in default_config.items():
-            if not isinstance(value, dict) and not isinstance(value, list):
-                default_config[key] = (value, name)
-            else:
-                default_config[key] = translate_config(value, name)
-    elif isinstance(default_config, list):
-        for i, value in enumerate(default_config):
-            if not isinstance(value, dict) and not isinstance(value, list):
-                default_config[i] = (value, name)
-            else:
-                default_config[i] = translate_config(value, name)
-    return default_config
-
-
-def translate_config_back(config: dict[str, Any] | list[Any]):
-    """
-    Takes as input a dictionary or list of dictionary that contains config values and changes every leaf value from a tuple (value, name) to value
-
-    Parameters
-    ----------
-    config : dict or list
-        Config data to be translated
-
-    Returns
-    -------
-    dict or list
-        Translated config data with leaf values as value only i.e original format
-    """
-    if (
-        not isinstance(config, dict)
-        and not isinstance(config, list)
-        and isinstance(config, tuple)
-    ):
-        return config
-
-    if isinstance(config, dict):
-        for key, value in config.items():
-            if isinstance(value, tuple):
-                config[key] = value[0]
-            else:
-                config[key] = translate_config_back(value)
-    elif isinstance(config, list):
-        for i, value in enumerate(config):
-            if isinstance(value, tuple):
-                config[i] = value[0]
-            else:
-                config[i] = translate_config_back(value)
-    return config
-
-
-def update_recursive(
-    config: dict[str, Any],
-    experiment_configs: list[dict[str, Any] | list[Any]],
-    level: int = 0,
-    print_output: bool = True,
-    is_leaf_node: bool = False,
-    last_item_arr: list | None = None,
-) -> dict[str, Any] | list[Any]:
-    """
-    Recursively update the default config with the experiments config
-    print the config in a tree structure using pipes and dashes and colors to indicate the changes
-
-    Parameters
-    ----------
-    default_config : dict
-        Default config data
-
-    experiment_config : dict or list
-        Experiment config data (updates)
-
-    level : int, optional
-        Level of the config in tree stucture, by default 0
-
-    print_output : bool, optional
-        Whether to print the modifications or not, by default True
-
-    is_leaf_node : bool, optional
-        Whether the config is a leaf node or not, by default False
-        This is used to determine the style of the config only does not affect the update process
-
-    last_item_arr: TODO
-    """
-    if last_item_arr is None:
-        last_item_arr = []
-    parent_key = config["key"]
-    default_config = config["value"]
-    # If the default config is a leaf node, then we can update it
-    if isinstance(default_config, tuple):
-        if print_output:
-            if parent_key is None:
-                print_w_style(
-                    f"{default_config[0]} ({default_config[1]})",
-                    style="auto",
-                    last_item_arr=last_item_arr,
-                )
-            else:
-                print_w_style(
-                    f"{parent_key}: {default_config[0]} ({default_config[1]})",
-                    style="auto",
-                    last_item_arr=last_item_arr,
-                )
-        # Find the latest update
-        new_value = default_config
-        for experiment_config in experiment_configs:
-            if default_config[0] != experiment_config[0]:
-                # Only update if the new value is "New" this is to have the source of information as the first experiment update to that value
-                new_value = (
-                    experiment_config
-                    if experiment_config[0] != new_value[0]
-                    else new_value
-                )  #
-        # If we have a new value, print it
-        if new_value != default_config and print_output:
-            if parent_key is None:
-                print_w_style(
-                    f"{new_value[0]} ({new_value[1]})",
-                    style="update",
-                    last_item_arr=last_item_arr,
-                )
-            else:
-                print_w_style(
-                    f"{parent_key}: {new_value[0]} ({new_value[1]})",
-                    style="update",
-                    last_item_arr=last_item_arr,
-                )
-        return new_value
-
-    # If the default config is a list, then we need to update each item in the list
-    if isinstance(default_config, list):
-        for i, default_value in enumerate(default_config):
-            is_last_item = i == len(default_config) - 1
-
-            if not isinstance(
-                default_value, tuple
-            ):  # If the default value is not a leaf node, print it's key on separate line
-                print_w_style(
-                    f"{i}", style="auto", last_item_arr=last_item_arr + [is_last_item]
-                )
-
-            # Collect potential updates for this item
-            potential_config_updates = []
-            for experiment_config in experiment_configs:
-                if i < len(experiment_config):
-                    potential_config_updates.append(experiment_config[i])
-
-            default_config[i] = update_recursive(
-                {"key": None, "value": default_value},
-                potential_config_updates,
-                level,
-                print_output,
-                is_last_item,
-                last_item_arr=last_item_arr + [is_last_item],
-            )
-        return default_config
-
-    all_keys = list(default_config.keys())
-    for experiment_config in experiment_configs:
-        all_keys += [key for key in experiment_config if key not in all_keys]
-
-    for key in all_keys:
-        style = "auto"
-        if (
-            key not in default_config
-        ):  # TODO either this is obsolete or the module docstring needs an update
-            style = "new"
-            for experiment_config in experiment_configs:
-                if key in experiment_config:
-                    default_config[key] = experiment_config[key]
-                    break
-
-        default_value = default_config[key]
-
-        is_last_item = key == all_keys[-1]
-
-        if not isinstance(
-            default_value, tuple
-        ):  # If the default value is not a leaf node, print it's key on separate line
-            print_w_style(
-                f"{key}",
-                style=style,
-                last_item_arr=last_item_arr + [is_last_item],
-            )
-
-        # Collect potential updates for this item
-        potential_config_updates = []
-        for experiment_config in experiment_configs:
-            if key in experiment_config:
-                potential_config_updates.append(experiment_config[key])
-
-        default_config[key] = update_recursive(
-            {"key": key, "value": default_value},
-            potential_config_updates,
-            level + 1,
-            print_output,
-            is_last_item,
-            last_item_arr=last_item_arr + [is_last_item],
-        )
-
-    return default_config
-
-
-def recursive_fill_table(
-    df: pd.DataFrame, experiment_name: str, parent_key: str, value: Any
-) -> None:
-    """
-    Recursively fill the table with the modifications happening to the config.
-    if the value is a dict or list then it will recursively call itself with the value as the new value
-    else it will check if the value is different from the last recorded value and if it is then it will add it to the table
-    if not then it will do nothing, so that for each key the last value on the y axis is the last value that key was set to.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Table of modifications
-
-    experiment_name : str
-        Name of the experiment
-
-    parent_key : str
-        Parent key of the value
-
-    value : Any
-        Value of the key
-    """
-    if isinstance(value, dict):
-        for key, value_ in value.items():
-            recursive_fill_table(df, experiment_name, parent_key + "." + key, value_)
-    elif isinstance(value, list):
-        for i, value_ in enumerate(value):
-            recursive_fill_table(
-                df, experiment_name, parent_key + "[" + str(i) + "]", value_
-            )
-    else:
-        # Check if t he value is different from the last recorded value
-        experiment_index = df.columns.get_loc(experiment_name)
-        key_idx = np.where(df.index == parent_key)[0]
-        if len(key_idx) == 0:
-            # If the key doesn't exist then add it
-            df.loc[parent_key, experiment_name] = value
-            return
-        else:
-            key_idx = key_idx[0]
-
-        while df.isnull().iloc[key_idx, experiment_index] and experiment_index >= 0:
-            experiment_index -= 1
-        last_recorded_value = df.iloc[key_idx, experiment_index]
-        if last_recorded_value != value:
-            df.loc[parent_key, experiment_name] = value
-
-
-def get_update_table(
-    default_config: "Config", configs: list["Config"]
-) -> "pd.DataFrame":
-    """
-    Returns a table of the modifications happening to the config
-    such that the rows are the keys and the columns are the experiments
-    levels of the config are represeneted by . in the keys so for example
-    the key
-        a:
-            b:
-                c:
-    would be represented as a.b.c
-
-    Parameters
-    ----------
-    default_config : Config
-        Default config
-
-    configs : list of Config
-        List of experiment configs
-
-    Returns
-    -------
-    df : pandas.DataFrame
-        Table of modifications
-    """
-
-    columns = [config.experiment_name for config in configs]
-
-    columns.insert(0, default_config.experiment_name)
-
-    df = pd.DataFrame(columns=columns)
-
-    # Add the default config to the modifications
-    recursive_fill_table(df, default_config.experiment_name, "", default_config.config)
-
-    for c in configs:
-        recursive_fill_table(df, c.experiment_name, "", c.config)
-
-    # Fill Nan with '-' to make it look nicer
-    df = df.fillna("-")
-    # remove the first dot from the index
-    df.index = df.index.str[1:]
-
-    return df
 
 
 class Config:
@@ -546,11 +82,7 @@ class Config:
         return key in self.config
 
     def __repr__(self) -> str:
-        if len(self.translated_config) > 0:
-            print_recursively(self.translated_config, 0, "auto")
-        else:
-            print_recursively(self.config, 0, "auto")
-        return ""
+        return str(self.config)
 
     def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
@@ -567,26 +99,184 @@ class Config:
             Whether to print the modifications or not, either way the updated config will be printed.
         """
 
-        # The translated config contains the source of the modifications on leaf nodes
-        translated_config = translate_config(
-            copy.deepcopy(self.config), self.experiment_name
-        )
+        default_config = deepcopy(self.config)
+        tracking_config = deepcopy(self.config)
+        # this is a bit of a hack to initialize the tracking config
+        # we assume that the config that is updated is the default config
+        update(deepcopy(self.config), default_config, tracking_config, "default")
 
-        if len(experiments) > 0:
-            translated_experiments = []
-            for config in experiments:
-                translated_experiments.append(
-                    translate_config(
-                        copy.deepcopy(config.config), config.experiment_name
-                    )
-                )
-
-            # Update the config with the experiments iteratively
-            translated_config = update_recursive(
-                {"key": "", "value": translated_config},
-                translated_experiments,
-                print_output=print_modifications,
+        initial_config = deepcopy(self.config)
+        for config in experiments:
+            update(
+                initial_config,
+                config.to_dict(),
+                tracking_config,
+                config.experiment_name,
             )
 
-        # Remove the source of modifications
-        self.config = translate_config_back(translated_config)
+        self.config = initial_config
+
+        pretty_print_config(self.config, default_config, tracking_config)
+
+
+def update(
+    target_dict: dict, update_dict: dict, tracking_dict: dict, experiment_name: str
+) -> None:
+    """
+    Recursively update target_dict with values from update_dict, following specific rules for different types.
+
+    Args:
+        target_dict: The dictionary to be modified
+        update_dict: The dictionary containing update values
+        tracking_dict: A dictionary with the same structure as target_dict, whose leaf values will be overwritten with experiment_name
+        experiment_name: The name of the current experiment
+
+    Notes:
+        - Nested dictionaries are recursively updated
+        - Only updates existing keys (no new keys added)
+        - All lists are overwritten
+
+    Raises:
+        ValueError in these cases:
+        - a key is not found in the target_dict
+        - the type of the update value does not match the type of the target value
+        - an item is not found in the target_dict
+    """
+    for key, update_value in update_dict.items():
+        if key not in target_dict:
+            raise ValueError(f"Key not found in target_dict: '{key}'")
+
+        target_value = target_dict[key]
+        tracking_value = tracking_dict[key]
+
+        if (
+            target_value is not None
+            and type(update_value) != type(target_value)
+            and not (
+                isinstance(update_value, int | float)
+                and isinstance(target_value, int | float)
+            )
+        ):
+            raise ValueError(
+                f"Type mismatch for key '{key}': {type(update_value)} != {type(target_value)}"
+            )
+
+        if isinstance(target_value, dict):
+            update(target_value, update_value, tracking_value, experiment_name)
+
+        elif isinstance(target_value, list):
+            # overwrite lists completely
+            target_dict[key] = update_value
+            tracking_dict[key] = experiment_name
+
+        # Handle simple values
+        else:
+            target_dict[key] = update_value
+            tracking_dict[key] = experiment_name
+
+
+def pretty_print_config(
+    config: dict, default_config: dict, tracking_config: dict
+) -> None:
+    """
+    Pretty print a configuration dictionary in a tree-like structure.
+
+    Args:
+        config: The configuration dictionary to print
+        default_config: The default configuration dictionary to print
+        tracking_config: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
+    """
+
+    _pretty_print(
+        config, default_config=default_config, tracking_config=tracking_config
+    )
+
+
+def _pretty_print(
+    config: dict,
+    *,
+    default_config: dict,
+    tracking_config: dict,
+    prefix: str = "",
+):
+    """Recursively pretty print a configuration dictionary in a tree-like structure."""
+    for i, (key, value) in enumerate(config.items()):
+        is_last_item = i == len(config.items()) - 1
+
+        # determine the current line's prefix
+        current_prefix = "└──" if is_last_item else "├──"
+
+        # determine the next level's prefix
+        next_prefix = prefix + ("    " if is_last_item else "│   ")
+
+        try:
+            default_config_value = default_config[key]
+        except (KeyError, TypeError):
+            try:
+                default_config_value = default_config[i]
+            except KeyError:
+                # nested list case
+                default_config_value = "(added)"
+
+        try:
+            tracking_config_value = tracking_config[key]
+        except (KeyError, TypeError):
+            tracking_config_value = tracking_config
+
+        if isinstance(value, dict):
+            # Print dictionary key and continue with nested values
+            logger.info(f"{prefix}{current_prefix}{key}")
+            _pretty_print(
+                value,
+                default_config=default_config_value,
+                tracking_config=tracking_config_value,
+                prefix=next_prefix,
+            )
+        elif isinstance(value, list):
+            logger.info(f"{prefix}{current_prefix}{key}:")
+            for j, item in enumerate(value):
+                # Handle nested lists
+                if isinstance(item, dict):
+                    next_prefix = prefix + ("    " if is_last_item else "│   ")
+
+                    _pretty_print(
+                        item,
+                        default_config=default_config_value[j],
+                        tracking_config=tracking_config_value,
+                        prefix=next_prefix,
+                    )
+
+                else:
+                    # For simple lists
+                    default_value = (
+                        default_config_value[j]
+                        if j < len(default_config_value)
+                        else "(added)"
+                    )
+
+                    logger.info(
+                        f"{next_prefix}- {_make_pretty(item, default_value, tracking_config_value)}"
+                    )
+
+        else:
+            # Print leaf node (key-value pair)
+            logger.info(
+                f"{prefix}{current_prefix}{key}: {_make_pretty(value, default_config_value, tracking_config_value)}"
+            )
+
+
+def _make_pretty(
+    actual_value: str | int | float,
+    default_value: str | int | float,
+    tracking_value: str,
+) -> str:
+    """Create a pretty string representation of a configuration value."""
+    if default_value == actual_value:
+        msg = f"{actual_value}"
+    else:
+        style = "\x1b[32;20m"
+        reset = "\x1b[0m"
+        msg = (
+            f"{style}{actual_value} [{tracking_value}, default: {default_value}]{reset}"
+        )
+    return msg
