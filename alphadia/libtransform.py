@@ -40,10 +40,10 @@ class ProcessingStep:
             return self.forward(*args)
         else:
             logger.critical(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
             raise ValueError(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
 
     def validate(self, *args: typing.Any) -> bool:

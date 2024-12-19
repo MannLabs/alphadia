@@ -33,7 +33,9 @@ import yaml
 
 logger = logging.getLogger()
 
-USER_DEFINED = "user defined"
+USER_DEFINED_CLI = "user defined (cli)"
+USER_DEFINED_FILE = "user defined (file)"
+USER_DEFINED_CLI_PARAM = "user defined (cli parameter)"
 MULTISTEP_SEARCH = "multistep search"
 
 
@@ -81,12 +83,22 @@ def print_w_style(
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
         style = (
-            "new"
-            if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
+            "update"
+            if any(
+                [
+                    s in string
+                    for s in [
+                        USER_DEFINED_CLI,
+                        USER_DEFINED_FILE,
+                        USER_DEFINED_CLI_PARAM,
+                        MULTISTEP_SEARCH,
+                    ]
+                ]
+            )
             else "default"
         )
 
-    if style in ["update", "new"]:
+    if style in ["update"]:
         # Green color
         style = "\x1b[32;20m"
         reset = "\x1b[0m"
@@ -131,9 +143,7 @@ def print_recursively(
     if last_item_arr is None:
         last_item_arr = []
     if isinstance(config, tuple):
-        print_w_style(
-            f"{config[0]} ({config[1]})", style=style, last_item_arr=last_item_arr
-        )
+        _print_tree_element(None, config, last_item_arr, style)
         return
 
     if isinstance(config, list):
@@ -149,10 +159,8 @@ def print_recursively(
             is_last_item_dict = key == list(config.keys())[-1]
 
             if isinstance(value, tuple):
-                print_w_style(
-                    f"{key}: {value[0]} ({value[1]})",
-                    style=style,
-                    last_item_arr=last_item_arr + [is_last_item_dict],
+                _print_tree_element(
+                    key, value, last_item_arr + [is_last_item_dict], style
                 )
                 continue
 
@@ -259,7 +267,7 @@ def update_recursive(
     print_output: bool = True,
     is_leaf_node: bool = False,
     last_item_arr: list | None = None,
-) -> dict[str, Any] | list[Any]:
+) -> dict[str, Any] | list[Any] | tuple[Any]:
     """
     Recursively update the default config with the experiments config
     print the config in a tree structure using pipes and dashes and colors to indicate the changes
@@ -288,21 +296,15 @@ def update_recursive(
         last_item_arr = []
     parent_key = config["key"]
     default_config = config["value"]
+
     # If the default config is a leaf node, then we can update it
     if isinstance(default_config, tuple):
         if print_output:
-            if parent_key is None:
-                print_w_style(
-                    f"{default_config[0]} ({default_config[1]})",
-                    style="auto",
-                    last_item_arr=last_item_arr,
-                )
-            else:
-                print_w_style(
-                    f"{parent_key}: {default_config[0]} ({default_config[1]})",
-                    style="auto",
-                    last_item_arr=last_item_arr,
-                )
+            _print_tree_element(parent_key, default_config, last_item_arr, "auto")
+
+        if not experiment_configs:
+            return default_config
+
         # Find the latest update
         new_value = default_config
         for experiment_config in experiment_configs:
@@ -312,27 +314,33 @@ def update_recursive(
                     experiment_config
                     if experiment_config[0] != new_value[0]
                     else new_value
-                )  #
+                )
         # If we have a new value, print it
         if new_value != default_config and print_output:
-            if parent_key is None:
-                print_w_style(
-                    f"{new_value[0]} ({new_value[1]})",
-                    style="update",
-                    last_item_arr=last_item_arr,
-                )
-            else:
-                print_w_style(
-                    f"{parent_key}: {new_value[0]} ({new_value[1]})",
-                    style="update",
-                    last_item_arr=last_item_arr,
-                )
+            _print_tree_element(parent_key, new_value, last_item_arr, "update")
+
         return new_value
 
-    # If the default config is a list, then we need to update each item in the list
+    # If the default config is a list, then we overwrite all items in the list. The latest experiment wins.
     if isinstance(default_config, list):
+        potential_config_updates = []
+        for experiment_config in experiment_configs:
+            if experiment_config:
+                # the last one determines the whole list
+                potential_config_updates = experiment_config
+
+        # in case of an update, bring the original list to the same dimension
+        deleted_items_for_printing = []
+        if potential_config_updates:
+            while len(default_config) < len(potential_config_updates):
+                default_config.append((None, "default"))
+            while len(default_config) > len(potential_config_updates):
+                deleted_items_for_printing.append(default_config.pop())
+
         for i, default_value in enumerate(default_config):
-            is_last_item = i == len(default_config) - 1
+            is_last_item = (
+                i == len(default_config) - 1 and not deleted_items_for_printing
+            )
 
             if not isinstance(
                 default_value, tuple
@@ -341,20 +349,29 @@ def update_recursive(
                     f"{i}", style="auto", last_item_arr=last_item_arr + [is_last_item]
                 )
 
-            # Collect potential updates for this item
-            potential_config_updates = []
-            for experiment_config in experiment_configs:
-                if i < len(experiment_config):
-                    potential_config_updates.append(experiment_config[i])
-
             default_config[i] = update_recursive(
                 {"key": None, "value": default_value},
-                potential_config_updates,
+                [] if not potential_config_updates else [potential_config_updates[i]],
                 level,
                 print_output,
                 is_last_item,
                 last_item_arr=last_item_arr + [is_last_item],
             )
+
+        for i, item in enumerate(deleted_items_for_printing):
+            is_last_item = i == len(deleted_items_for_printing) - 1
+
+            item_to_print = (item, "") if not isinstance(item, tuple) else item
+
+            # TODO this is ugly if the list elements are nontrivial, e.g. custom_modifications
+            _print_tree_element(
+                None,
+                item_to_print,
+                last_item_arr + [is_last_item],
+                "auto",
+                extra_msg="[deleted] ",
+            )
+
         return default_config
 
     all_keys = list(default_config.keys())
@@ -363,14 +380,10 @@ def update_recursive(
 
     for key in all_keys:
         style = "auto"
-        if (
-            key not in default_config
-        ):  # TODO either this is obsolete or the module docstring needs an update
-            style = "new"
-            for experiment_config in experiment_configs:
-                if key in experiment_config:
-                    default_config[key] = experiment_config[key]
-                    break
+        if key not in default_config:
+            raise ValueError(
+                f"Key not found in default config: {key}. Addition of new keys is not supported."
+            )
 
         default_value = default_config[key]
 
@@ -401,6 +414,26 @@ def update_recursive(
         )
 
     return default_config
+
+
+def _print_tree_element(
+    parent_key: str | None,
+    value_and_tag: tuple,
+    last_item_arr: list,
+    style: str,
+    extra_msg: str = "",
+) -> None:
+    """Print a tree element, include parent key if given."""
+    if parent_key is None:
+        text = f"{extra_msg}{value_and_tag[0]} ({value_and_tag[1]})"
+    else:
+        text = f"{extra_msg}{parent_key}: {value_and_tag[0]} ({value_and_tag[1]})"
+
+    print_w_style(
+        text,
+        style=style,
+        last_item_arr=last_item_arr,
+    )
 
 
 def recursive_fill_table(
