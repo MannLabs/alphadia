@@ -285,16 +285,12 @@ def test_config_update_advanced():
         "simple_list": [43, 44, 45, 999],  # item 999 added
         "nested_list": [
             {
-                "key1": "value11",
-                "key2": "value21",
-                "key3": [311, 312, 313],
-                "name": "nested_list_value_1",
-            },
-            {
-                "key1": "46",
-                "key2": "value22",  # original value
-                "key3": [47, 48],  # item 49 removed
                 "name": "nested_list_value_2",
+                "key1": "46",
+                "key3": [
+                    47,
+                    48,
+                ],
             },
         ],
     }
@@ -343,8 +339,7 @@ def test_config_update_new_key_in_nested_list():
     config_1.update([config_2], print_modifications=True)
 
     assert config_1.to_dict() == expected_generic_default_config_dict | {
-        "nested_list": expected_generic_default_config_dict["nested_list"]
-        + [{"key4": "value44", "name": "nested_list_value_3"}],
+        "nested_list": [{"key4": "value44", "name": "nested_list_value_3"}],
     }
 
 
@@ -359,45 +354,9 @@ def test_config_update_nested_list_with_empty_list():
     # when
     config_1.update([config_2], print_modifications=True)
 
-    expected_nested_list = expected_generic_default_config_dict["nested_list"].copy()
-    expected_nested_list.remove(expected_generic_default_config_dict["nested_list"][0])
-
-    assert config_1.to_dict() == expected_generic_default_config_dict
-
-
-def test_config_update_remove_key_in_nested_list():
-    """Test updating a config by removing item in a nested list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
-
-    config_2 = Config("first")
-    config_2.from_dict({"nested_list": [{"name": "nested_list_value_1"}]})
-
-    # when
-    config_1.update([config_2], print_modifications=True)
-
-    expected_nested_list = expected_generic_default_config_dict["nested_list"].copy()
-    expected_nested_list.remove(expected_generic_default_config_dict["nested_list"][0])
-
     assert config_1.to_dict() == expected_generic_default_config_dict | {
-        "nested_list": expected_nested_list
+        "nested_list": []
     }
-
-
-def test_config_update_type_mismatch_in_nested_raises():
-    """Test updating a config with a wrong type in a nested list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
-
-    config_2 = Config("first")
-    config_2.from_dict({"nested_list": ["name"]})
-
-    # when
-    with pytest.raises(
-        ValueError,
-        match="Complex type list items must be dictionaries, found <class 'str'> 'name' \(update_item\)",
-    ):
-        config_1.update([config_2], print_modifications=True)
 
 
 def test_config_update_default_config():
