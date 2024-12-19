@@ -24,7 +24,6 @@ In our analysis, we focus on discerning changes between the default configuratio
 
 import json
 import logging
-from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
@@ -629,66 +628,14 @@ def update(
             update(target_value, update_value, tracking_value, experiment_name)
 
         elif isinstance(target_value, list):
-            if target_value and isinstance(target_value[0], dict):
-                _update_nested_list(
-                    target_value, update_value, tracking_value, experiment_name
-                )
-            else:
-                # For simple type lists, overwrite completely
-                target_dict[key] = update_value
-                tracking_dict[key] = experiment_name
+            # overwrite lists completely
+            target_dict[key] = update_value
+            tracking_dict[key] = experiment_name
 
         # Handle simple values
         else:
             target_dict[key] = update_value
-            if key != "name":  # TODO remove with nested lists
-                tracking_dict[key] = experiment_name
-
-
-def _update_nested_list(
-    target_value: list, update_value: list, tracking_value: list, experiment_name: str
-) -> None:
-    """Update a list of dictionaries (complex type list)."""
-    _check_all_have_name_attributes(target_value)
-    _check_all_have_name_attributes(update_value)
-    # Create a map of name to item for quick lookup
-    target_map = {item["name"]: item for item in target_value}
-    tracking_map = {item["name"]: item for item in tracking_value}
-    for update_item in update_value:
-        if not isinstance(update_item, dict):
-            raise ValueError(
-                f"Complex type list items must be dictionaries, found {type(update_item)} '{update_item}' (update_item)"
-            )
-
-        # add new item to list
-        if update_item["name"] not in target_map:
-            target_item = update_item.copy()
-            target_value.append(target_item)
-
-            tracking_item = update_item.copy()
-            tracking_value.append(tracking_item)
-        else:
-            target_item = target_map[update_item["name"]]
-            tracking_item = tracking_map[update_item["name"]]
-            # remove if "name" is the only tag
-            if len(update_item) == 1:
-                target_value.remove(target_item)
-                tracking_value.remove(tracking_item)
-            # update
-            else:
-                if not isinstance(target_item, dict):
-                    raise ValueError(
-                        f"Complex type list items must be dictionaries, found {type(target_item)} '{target_item}' (target_item)"
-                    )
-
-        update(target_item, update_item, tracking_item, experiment_name)
-
-
-def _check_all_have_name_attributes(values):
-    if any(["name" not in v for v in values]):
-        raise ValueError(
-            f"Complex type lists must contain a 'name' field for each item: {values}"
-        )
+            tracking_dict[key] = experiment_name
 
 
 def pretty_print_config(
@@ -723,14 +670,8 @@ def _pretty_print(
         # Determine the next level's prefix
         next_prefix = prefix + ("    " if is_last_item else "│   ")
 
-        try:
-            default_config_value = default_config[key]
-        except TypeError:
-            default_config_value = default_config[i]
-        try:
-            tracking_config_value = tracking_config[key]
-        except TypeError:
-            tracking_config_value = tracking_config[i]
+        default_config_value = default_config[key]
+        tracking_config_value = tracking_config[key]
 
         if isinstance(value, dict):
             # Print dictionary key and continue with nested values
@@ -745,34 +686,14 @@ def _pretty_print(
             # Handle lists
             print(f"{prefix}{current_prefix}{key}:")
             for j, item in enumerate(value):
-                if isinstance(item, dict):
-                    next_prefix = prefix + ("    " if is_last_item else "│   ")
-                    try:
-                        _pretty_print(
-                            item,
-                            default_config=default_config_value[j],
-                            tracking_config=tracking_config_value[j],
-                            prefix=next_prefix,
-                        )
-                    except Exception:
-                        # in case something was added
-                        _pretty_print(
-                            item,
-                            default_config=defaultdict(dict),
-                            tracking_config=tracking_config_value[j],
-                            prefix=next_prefix,
-                        )
-                else:
-                    # For simple lists
-                    try:
-                        print(
-                            f"{next_prefix}- {_pp(item, default_config_value[j], tracking_config_value)}"
-                        )
-                    except Exception:
-                        # in case something was added
-                        print(
-                            f"{next_prefix}- {_pp(item, None, tracking_config_value)}"
-                        )
+                # For simple lists
+                try:
+                    print(
+                        f"{next_prefix}- {_pp(item, default_config_value[j], tracking_config_value)}"
+                    )
+                except Exception:
+                    # in case something was added
+                    print(f"{next_prefix}- {_pp(item, None, tracking_config_value)}")
         else:
             # Print leaf node (key-value pair)
             print(
