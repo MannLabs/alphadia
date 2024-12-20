@@ -134,7 +134,7 @@ class SearchStep:
             extra_config["output"] = output_folder
             config_updates.append(extra_config_update)
 
-        config.update(config_updates, print_modifications=True)
+        config.update(config_updates, do_print=True)
 
         if "output" not in config:
             config["output"] = output_folder
