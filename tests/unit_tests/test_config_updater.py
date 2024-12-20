@@ -15,7 +15,6 @@ general:
   reuse_quant: false
   astral_ms1: false
   log_level: 'INFO'
-  wsl: false
   mmap_detector_events: false
   use_gpu: true
 
@@ -90,7 +89,6 @@ general:
   reuse_quant: true
   astral_ms1: false
   log_level: INFO
-  wsl: false
   mmap_detector_events: false
   use_gpu: true
 library_loading:
@@ -116,7 +114,6 @@ general.reuse_calibration	False	True	-
 general.reuse_quant	False	True	-
 general.astral_ms1	False	-	-
 general.log_level	INFO	-	-
-general.wsl	False	-	-
 general.mmap_detector_events	False	-	-
 general.use_gpu	True	-	-
 library_loading.rt_heuristic	180	-	-
