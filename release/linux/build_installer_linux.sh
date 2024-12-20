@@ -10,7 +10,7 @@ rm -rf dist build *.egg-info
 rm -rf dist_pyinstaller build_pyinstaller
 
 python -m build
-pip install "dist/alphadia-1.9.1-py3-none-any.whl[stable]"
+pip install "dist/alphadia-1.9.2-py3-none-any.whl[stable]"
 
 if [ "${CPU_OR_GPU}" != "GPU" ]; then
     pip install torch -U --extra-index-url https://download.pytorch.org/whl/cpu
