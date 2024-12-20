@@ -60,29 +60,26 @@ expected_generic_default_config_dict = {
 
 def test_config_update_empty_list():
     """Test updating a config with an empty list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)))
 
     # when
     config_1.update([])
 
-    assert config_1.to_dict() == expected_generic_default_config_dict
+    assert config_1 == expected_generic_default_config_dict
 
 
 def test_config_update_simple_two_files():
     """Test updating a config with simple values from two files."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict({"simple_value_int": 2, "simple_value_float": 4.0})
+    config_2 = Config({"simple_value_int": 2, "simple_value_float": 4.0}, "first")
 
-    config_3 = Config("second")
-    config_3.from_dict(
+    config_3 = Config(
         {
             "simple_value_float": 5.0,  # overwrites first
             "simple_value_str": "six",  # overwrites default
-        }
+        },
+        "second",
     )
 
     # when
@@ -91,7 +88,7 @@ def test_config_update_simple_two_files():
     config_1.__repr__()
     print("X")
 
-    assert config_1.to_dict() == expected_generic_default_config_dict | {
+    assert config_1 == expected_generic_default_config_dict | {
         "simple_value_int": 2,
         "simple_value_float": 5.0,
         "simple_value_str": "six",
@@ -100,11 +97,9 @@ def test_config_update_simple_two_files():
 
 def test_config_update_advanced():
     """Test updating a config with nested values and lists"""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict(
+    config_2 = Config(
         {
             "nested_values": {"nested_value_2": 42},
             "simple_list": [43, 44, 45, 999],
@@ -119,13 +114,14 @@ def test_config_update_advanced():
                     ],
                 },
             ],
-        }
+        },
+        "first",
     )
 
     # when
     config_1.update([config_2], do_print=True)
 
-    assert config_1.to_dict() == expected_generic_default_config_dict | {
+    assert config_1 == expected_generic_default_config_dict | {
         "nested_values": {
             "nested_value_1": 1,  # original value
             "nested_value_2": 42,
@@ -146,11 +142,9 @@ def test_config_update_advanced():
 
 def test_config_update_advanced_add_nested_list_item():
     """Test updating a config with nested values and lists, with new list longer than old one."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict(
+    config_2 = Config(
         {
             "nested_values": {"nested_value_2": 42},
             "simple_list": [43, 44, 45, 999],
@@ -168,13 +162,14 @@ def test_config_update_advanced_add_nested_list_item():
                     "key1": "3",
                 },
             ],
-        }
+        },
+        "first",
     )
 
     # when
     config_1.update([config_2], do_print=True)
 
-    assert config_1.to_dict() == expected_generic_default_config_dict | {
+    assert config_1 == expected_generic_default_config_dict | {
         "nested_values": {
             "nested_value_1": 1,  # original value
             "nested_value_2": 42,
@@ -199,11 +194,9 @@ def test_config_update_advanced_add_nested_list_item():
 
 def test_config_update_new_key_raises():
     """Test updating a config with a new key."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict({"new_key": 0})
+    config_2 = Config({"new_key": 0}, "first")
 
     # when
     with pytest.raises(KeyAddedConfigError):
@@ -212,11 +205,9 @@ def test_config_update_new_key_raises():
 
 def test_config_update_type_mismatch_raises():
     """Test updating a config with a different type"""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict({"simple_value_int": "one"})
+    config_2 = Config({"simple_value_int": "one"}, "first")
 
     # when
     with pytest.raises(
@@ -227,36 +218,30 @@ def test_config_update_type_mismatch_raises():
 
 def test_config_update_new_key_in_nested_list():
     """Test updating a config with a new item in a nested list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict(
-        {"nested_list": [{"key4": "value44", "name": "nested_list_value_3"}]}
+    config_2 = Config(
+        {"nested_list": [{"key4": "value44", "name": "nested_list_value_3"}]}, "first"
     )
 
     # when
     config_1.update([config_2], do_print=True)
 
-    assert config_1.to_dict() == expected_generic_default_config_dict | {
+    assert config_1 == expected_generic_default_config_dict | {
         "nested_list": [{"key4": "value44", "name": "nested_list_value_3"}],
     }
 
 
 def test_config_update_nested_list_with_empty_list():
     """Test updating a config by giving an empty list."""
-    config_1 = Config("default")
-    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    config_2 = Config("first")
-    config_2.from_dict({"nested_list": []})
+    config_2 = Config({"nested_list": []}, "first")
 
     # when
     config_1.update([config_2], do_print=True)
 
-    assert config_1.to_dict() == expected_generic_default_config_dict | {
-        "nested_list": []
-    }
+    assert config_1 == expected_generic_default_config_dict | {"nested_list": []}
 
 
 def test_config_update_default_config():
@@ -265,12 +250,12 @@ def test_config_update_default_config():
     config_base_path = os.path.join(
         os.path.dirname(__file__), "..", "..", "alphadia", "constants", "default.yaml"
     )
-    config_1 = Config("default")
+    config_1 = Config(experiment_name="default")
     config_1.from_yaml(config_base_path)
 
-    config_2 = Config("also_default")
+    config_2 = Config(experiment_name="also_default")
     config_2.from_yaml(config_base_path)
 
     config_1.update([config_2], do_print=True)
 
-    assert config_1.to_dict() == config_2.to_dict()
+    assert config_1 == config_2

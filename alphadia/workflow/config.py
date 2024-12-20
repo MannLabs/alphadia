@@ -9,9 +9,8 @@ On demand, the current config can be visualized in a tree-like structure.
 
 import json
 import logging
-from collections import defaultdict
+from collections import UserDict, defaultdict
 from copy import deepcopy
-from typing import Any
 
 import yaml
 
@@ -25,54 +24,35 @@ USER_DEFINED_CLI_PARAM = "user defined (cli)"
 MULTISTEP_SEARCH = "multistep search"
 
 
-class Config:
-    """
-    Config class that can read from and write to yaml and json files
-    and can be used to update the config with experiment configs
-    and print the config with tree structure and uses ANSI color codes to color the string.
-    """
+class Config(UserDict):
+    """Dict-like config class that can read from and write to yaml and json files and allows updating with experiment configs."""
 
-    def __init__(self, experiment_name: str = "default") -> None:
+    def __init__(self, data: dict = None, experiment_name: str = DEFAULT) -> None:
+        # super class deliberately not called
+        self.data = {**data} if data is not None else {}
         self.experiment_name = experiment_name
-        self.config = {}
-        self.translated_config = {}
 
     def from_yaml(self, path: str) -> None:
         with open(path) as f:
-            self.config = yaml.safe_load(f)
+            self.data = yaml.safe_load(f)
 
     def from_json(self, path: str) -> None:
         with open(path) as f:
-            self.config = json.load(f)
+            self.data = json.load(f)
 
     def to_yaml(self, path: str) -> None:
         with open(path, "w") as f:
-            yaml.dump(self.config, f, sort_keys=False)
+            yaml.dump(self.data, f, sort_keys=False)
 
     def to_json(self, path: str) -> None:
         with open(path, "w") as f:
-            json.dump(self.config, f)
+            json.dump(self.data, f)
 
-    def from_dict(self, config: dict[str, Any]) -> None:
-        self.config = config
+    def __setitem__(self, key, item):
+        raise NotImplementedError("Use update() to update the config.")
 
-    def to_dict(self) -> dict[str, Any]:
-        return self.config
-
-    def get(self, key: str, default: Any = None) -> Any:
-        return self.config.get(key, default)
-
-    def __getitem__(self, key: str) -> Any:
-        return self.config[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.config[key] = value
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.config
-
-    def __repr__(self) -> str:
-        return str(self.config)
+    def __delitem__(self, key):
+        raise NotImplementedError("Use update() to update the config.")
 
     def update(self, experiments: list["Config"], do_print: bool = False):
         """
@@ -88,9 +68,13 @@ class Config:
         do_print : bool, optional
             Whether to print the modified config. Default is False.
         """
+        if isinstance(experiments, dict):
+            # need to resolve name clash with basic method unless we find a better name for 'our' update
+            super().update(experiments)
+            return
 
-        # we assume that self.config holds the default config
-        default_config = deepcopy(self.config)
+        # we assume that self.data holds the default config
+        default_config = deepcopy(self.data)
 
         # initialize the tracking config as infinitely nested dictionary to be able to map all changes
         def _recursive_defaultdict():
@@ -98,17 +82,17 @@ class Config:
 
         tracking_dict = defaultdict(_recursive_defaultdict)
 
-        current_config = deepcopy(self.config)
+        current_config = deepcopy(self.data)
         for experiment_config in experiments:
             logger.info(f"Updating config with '{experiment_config.experiment_name}'")
             _update(
                 current_config,
-                experiment_config.to_dict(),
+                experiment_config.data,
                 tracking_dict,
                 experiment_config.experiment_name,
             )
 
-        self.config = current_config
+        self.data = current_config
 
         if do_print:
             try:
