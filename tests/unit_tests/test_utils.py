@@ -106,7 +106,6 @@ def test_score_groups():
     )
 
 
-
 @pytest.fixture()
 def left_and_right_df():
     left_df = pd.DataFrame([{"idx": 1, "col_1": 0, "col_2": 0}])

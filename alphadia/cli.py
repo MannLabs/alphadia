@@ -11,11 +11,13 @@ import os
 import re
 import sys
 
+import matplotlib
 import yaml
 
 import alphadia
 from alphadia import utils
 from alphadia.exceptions import CustomError
+from alphadia.search_plan import SearchPlan
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
@@ -205,6 +207,7 @@ def run(*args, **kwargs):
 
     raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
     logger.progress(f"Searching {len(raw_path_list)} files:")
+
     for f in raw_path_list:
         logger.progress(f"  {os.path.basename(f)}")
 
@@ -225,24 +228,18 @@ def run(*args, **kwargs):
     if quant_dir is not None:
         logger.progress(f"Saving quantification output to {quant_dir=}")
 
+    # important to suppress matplotlib output
+    matplotlib.use("Agg")
+
     try:
-        import matplotlib
-
-        # important to suppress matplotlib output
-        matplotlib.use("Agg")
-
-        from alphadia.planning import Plan
-
-        plan = Plan(
+        SearchPlan(
             output_directory,
             raw_path_list=raw_path_list,
             library_path=library_path,
             fasta_path_list=fasta_path_list,
             config=user_config,
             quant_path=quant_dir,
-        )
-
-        plan.run()
+        ).run_plan()
 
     except Exception as e:
         if isinstance(e, CustomError):

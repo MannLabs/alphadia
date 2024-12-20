@@ -60,7 +60,7 @@ version = {attr = "alphadia.__version__"}
 alphadia = "alphadia.cli:run"
 
 [tool.ruff]
-extend-exclude = ["misc/.bumpversion.cfg", "tests"]
+extend-exclude = ["misc/.bumpversion.cfg"]
 
 [tool.ruff.lint]
 select =  [

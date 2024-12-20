@@ -28,12 +28,14 @@ from alphadia import libtransform, outputtransform
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
-from alphadia.workflow.config import Config
+from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
+
+SPECLIB_FILE_NAME = "speclib.hdf"
 
 logger = logging.getLogger()
 
 
-class Plan:
+class Plan:  # TODO rename -> SearchStep, planning.py -> search_step.py
     def __init__(
         self,
         output_folder: str,
@@ -42,6 +44,7 @@ class Plan:
         fasta_path_list: list[str] | None = None,
         config: dict | Config | None = None,
         config_base_path: str | None = None,
+        extra_config: dict | None = None,
         quant_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA Search.
@@ -64,15 +67,19 @@ class Plan:
             list of fasta file locations to build the library from
 
         config_base_path : str, optional
-            yaml file containing the default config.
+            user-provided yaml file containing the default config.
 
         config : dict, optional
-            dict to update the default config. Can be used for debugging purposes etc.
+            user-provided dict to update the default config. Can be used for debugging purposes etc.
+
+        extra_config : dict, optional
+            dict to update the final config. Used for multistep searches.
 
         quant_path : str, optional
             path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
 
         """
+
         if config is None:
             config = {}
         if fasta_path_list is None:
@@ -81,6 +88,9 @@ class Plan:
             raw_path_list = []
 
         self.output_folder = output_folder
+        os.makedirs(output_folder, exist_ok=True)
+        reporting.init_logging(self.output_folder)
+
         self.raw_path_list = raw_path_list
         self.library_path = library_path
         self.fasta_path_list = fasta_path_list
@@ -88,25 +98,19 @@ class Plan:
 
         self.spectral_library = None
 
-        # needs to be done before any logging:
-        reporting.init_logging(self.output_folder)
+        self._config = self._init_config(
+            config, extra_config, output_folder, config_base_path
+        )
 
-        self._print_logo()
-
-        self._print_environment()
-
-        self._config = self._init_config(config, output_folder, config_base_path)
-
-        level_to_set = self._config["general"]["log_level"]
-        level_code = logging.getLevelName(level_to_set)
-        logger.setLevel(level_code)
+        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
         self.init_alphabase()
         self.load_library()
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
-    def _print_logo(self) -> None:
+    @staticmethod
+    def print_logo() -> None:  # TODO move elsewhere
         """Print the alphadia logo and version."""
         logger.progress("          _      _         ___ ___   _   ")
         logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
@@ -119,6 +123,7 @@ class Plan:
     def _init_config(
         self,
         user_config: dict | Config,
+        extra_config: dict,
         output_folder: str,
         config_base_path: str | None,
     ) -> Config:
@@ -131,20 +136,29 @@ class Plan:
                 os.path.dirname(__file__), "constants", "default.yaml"
             )
 
-        logger.info(f"loading default config from {config_base_path}")
+        logger.info(f"loading config from {config_base_path}")
         config = Config()
         config.from_yaml(config_base_path)
 
+        config_updates = []
         # load update config from dict
         if isinstance(user_config, dict):
-            update_config = Config("user defined")
-            update_config.from_dict(user_config)
+            user_config_update = Config(USER_DEFINED)
+            user_config_update.from_dict(user_config)
+            config_updates.append(user_config_update)
         elif isinstance(user_config, Config):
-            update_config = user_config
+            config_updates.append(user_config)
         else:
             raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
 
-        config.update([update_config], print_modifications=True)
+        if extra_config is not None:
+            extra_config_update = Config(MULTISTEP_SEARCH)
+            extra_config_update.from_dict(extra_config)
+            # need to overwrite user-defined output folder here
+            extra_config["output"] = output_folder
+            config_updates.append(extra_config_update)
+
+        config.update(config_updates, print_modifications=True)
 
         if "output" not in config:
             config["output"] = output_folder
@@ -169,7 +183,8 @@ class Plan:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def _print_environment(self) -> None:
+    @staticmethod
+    def print_environment() -> None:  # TODO move elsewhere
         """Log information about the python environment."""
 
         logger.progress(f"hostname: {socket.gethostname()}")
@@ -285,7 +300,7 @@ class Plan:
             )
             spectral_library = multiplexing(spectral_library)
 
-        library_path = os.path.join(self.output_folder, "speclib.hdf")
+        library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
         logger.info(f"Saving library to {library_path}")
         spectral_library.save_hdf(library_path)
 
@@ -344,7 +359,7 @@ class Plan:
                 raise e
 
             finally:
-                if workflow.reporter:
+                if workflow and workflow.reporter:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
@@ -352,7 +367,7 @@ class Plan:
         try:
             base_spec_lib = SpecLibBase()
             base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+                os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
             )
 
             output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
@@ -415,7 +430,7 @@ class Plan:
     def _clean(self):
         if not self.config["general"]["save_library"]:
             try:
-                os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+                os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
                 logger.exception(f"Error deleting library: {e}")
 
