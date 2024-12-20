@@ -420,7 +420,7 @@ def create_workflow_instance():
 
     config = Config()
     config.from_yaml(config_base_path)
-    config["output_directory"] = tempfile.mkdtemp()
+    config.update([Config({"output_directory": tempfile.mkdtemp()})])
     workflow = peptidecentric.PeptideCentricWorkflow(
         "test",
         config,
