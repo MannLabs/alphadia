@@ -40,7 +40,7 @@ jobs:
       shell: bash -l {0}
       run: |
         conda install mono
-    - name: Perform pip installation with all stable dependencies
+    - name: Perform pip installation
       shell: bash -l {0}
       run: |
         cd misc
