@@ -31,11 +31,9 @@ library_prediction:
   variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
   max_var_mod_num: 2
   missed_cleavages: 1
-  precursor_len:
+  precursor_len: # TODO: make this min/max ?
     - 7
     - 35
-    # min
-    # max
   precursor_charge:
     - 2
     - 4
@@ -60,10 +58,11 @@ library_prediction:
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
-custom_modifications:
-  # Dimethyl @K channel decoy
+# TODO make this a list
 #  - name: Dimethyl:d12@K
 #    composition: H(-2)2H(8)13C(2)
+custom_modifications:
+  # Dimethyl @K channel decoy
   Dimethyl:d12@K:
     composition: H(-2)2H(8)13C(2)
 
@@ -200,12 +199,15 @@ library_multiplexing:
   # channels can be either a number or a string
   # for every channel, the library gets copied and the modifications are translated according to the mapping
   # the following example shows how to multiplex mTRAQ to three sample channels and a decoy channel
+  # TODO make this a list
+  #    - channel_name: 0
+  #      channel_modifications:
+  #        mTRAQ@K: mTRAQ@K
+  #        mTRAQ@Any_N-term: mTRAQ@Any_N-term
   multiplex_mapping: {}
-    # list, can be overwritten
-#    - channel_name: 0
-#      channel_modifications:
-#        mTRAQ@K: mTRAQ@K
-#        mTRAQ@Any_N-term: mTRAQ@Any_N-term
+    #0:
+    #  mTRAQ@K: mTRAQ@K
+    #  mTRAQ@Any_N-term: mTRAQ@Any_N-term
 
     #4:
     #  mTRAQ@K: mTRAQ:13C(3)15N(1)@K
@@ -384,23 +386,11 @@ transfer_learning:
   instrument: 'Lumos'
 
 
-# req:
-# have 1 schema with hr description (docs + optional FE)
-
-# req:
-#    "id": "transfer_step_enabled",
-#    "name": "Add 'transfer learning' step",
-#    "value": false,
-#    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
-#    "type": "boolean"
-#show in fe
-#=> show all in
-
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
-calibration_manager:
+calibration_manager: # TODO move to a separate file or hard-code
   - name: fragment
     estimators:
       - name: mz
