@@ -342,7 +342,7 @@ class SearchStep:
         workflow = peptidecentric.PeptideCentricWorkflow(
             raw_name,
             self.config,
-            quant_path=self.config["quant_dir"],
+            quant_path=self.config["quant_directory"],
         )
 
         # check if the raw file is already processed

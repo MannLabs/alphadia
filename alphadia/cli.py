@@ -195,7 +195,7 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     raw_path_list : list
         List of raw files.
     """
-    config_raw_path_list = config.get("raw_path_list", [])
+    config_raw_path_list = config.get("raw_paths", [])
     raw_path_list = (
         utils.windows_to_wsl(config_raw_path_list) if args.wsl else config_raw_path_list
     )
