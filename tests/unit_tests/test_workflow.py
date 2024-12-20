@@ -307,7 +307,7 @@ def test_workflow_base():
             with open(config_path) as f:
                 config = yaml.safe_load(f)
 
-            config["output"] = tempfile.gettempdir()
+            config["output_directory"] = tempfile.gettempdir()
 
             workflow_name = Path(file).stem
 
@@ -317,10 +317,10 @@ def test_workflow_base():
             )
             my_workflow.load(file, pd.DataFrame({}))
 
-            assert my_workflow.config["output"] == config["output"]
+            assert my_workflow.config["output_directory"] == config["output_directory"]
             assert my_workflow.instance_name == workflow_name
             assert my_workflow.parent_path == os.path.join(
-                config["output"], base.QUANT_FOLDER_NAME
+                config["output_directory"], base.QUANT_FOLDER_NAME
             )
             assert my_workflow.path == os.path.join(
                 my_workflow.parent_path, workflow_name
@@ -420,7 +420,7 @@ def create_workflow_instance():
 
     config = Config()
     config.from_yaml(config_base_path)
-    config["output"] = tempfile.mkdtemp()
+    config["output_directory"] = tempfile.mkdtemp()
     workflow = peptidecentric.PeptideCentricWorkflow(
         "test",
         config,

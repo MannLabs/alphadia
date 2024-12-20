@@ -58,7 +58,7 @@ safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")
 safe_add_key(config, "library_prediction", "predict", False)
 
 # remove any fasta if one is present in the config file
-config.pop("fasta_list", None)
+config.pop("fasta_paths", None)
 
 # determine chunk size: division of infile rowcount and number of nodes
 chunk_size = int(np.ceil(infile.shape[0] / int(args.nnodes)))
@@ -79,7 +79,7 @@ for i in range(0, max_tasks):
 
     # save current chunk indices into chunk-yaml as raw files
     safe_add_key(
-        current_config, None, "raw_path_list", list(all_filepaths[start_idx:end_idx])
+        current_config, None, "raw_paths", list(all_filepaths[start_idx:end_idx])
     )
 
     # create folder for current chunk in target directory. Don't create the folder if it already exists.
@@ -99,7 +99,7 @@ for i in range(0, max_tasks):
         sys.exit(1)
 
     # set library path in config
-    safe_add_key(current_config, None, "library", lib_source)
+    safe_add_key(current_config, None, "library_path", lib_source)
 
     # set chunk folder as output_directory in the config
     safe_add_key(current_config, None, "output_directory", "./")

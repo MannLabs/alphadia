@@ -17,8 +17,8 @@ def test_fasta_digest():
     tempdir = tempfile.gettempdir()
     step = search_step.SearchStep(
         tempdir,
-        fasta_path_list=[common_contaminants],
         config={"library_prediction": {"predict": True}},
+        cli_config={"fasta_paths": [common_contaminants]},
     )
 
     assert len(step.spectral_library.precursor_df) > 0
@@ -30,8 +30,8 @@ def test_fasta_digest():
     # predict existing library
     step = search_step.SearchStep(
         tempdir,
-        library_path=speclib_path,
         config={"library_prediction": {"predict": True}},
+        cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
@@ -39,8 +39,8 @@ def test_fasta_digest():
     # load existing library without predict
     step = search_step.SearchStep(
         tempdir,
-        library_path=speclib_path,
         config={"library_prediction": {"predict": False}},
+        cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
@@ -68,10 +68,13 @@ def test_library_loading():
     for test_dict in test_cases:
         print("Testing {}".format(test_dict["name"]))
 
+        # TODO this is not a unit test
         test_data_location = DataShareDownloader(
             test_dict["url"], temp_directory
         ).download()
-        step = search_step.SearchStep(temp_directory, library_path=test_data_location)
+        step = search_step.SearchStep(
+            temp_directory, {"library_path": test_data_location}
+        )
         assert len(step.spectral_library.precursor_df) > 0
         assert len(step.spectral_library.fragment_df) > 0
 
@@ -81,12 +84,13 @@ def test_custom_modifications():
     temp_directory = tempfile.gettempdir()
 
     config = {
-        "custom_modifications": {
-            "ThisModDoesNotExists@K": {
+        "custom_modifications": [
+            {
+                "name": "ThisModDoesNotExists@K",
                 "composition": "H(10)",
             },
-        }
+        ]
     }
 
-    step = search_step.SearchStep(temp_directory, [], config=config)  # noqa F841
+    step = search_step.SearchStep(temp_directory, config=config)  # noqa F841
     assert "ThisModDoesNotExists@K" in MOD_DF["mod_name"].values

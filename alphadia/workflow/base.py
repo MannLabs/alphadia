@@ -5,6 +5,8 @@ import os
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.constants.keys import ConfigKeys
+
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow import manager, reporting
@@ -52,7 +54,7 @@ class WorkflowBase:
         """
         self._instance_name: str = instance_name
         self._parent_path: str = quant_path or os.path.join(
-            config["output"], QUANT_FOLDER_NAME
+            config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
         logger.info(f"Saving quantification results to {self._parent_path}")
 

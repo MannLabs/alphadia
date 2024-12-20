@@ -39,17 +39,17 @@ with open(os.path.join(args.input_directory, args.config_filename)) as file:
 # if library and fasta are set, predicting will result in repredicted & annotated library
 # add fasta_list to config
 _new_fasta_list = [args.fasta_path] if args.fasta_path else []
-safe_add_key(config, None, "fasta_list", _new_fasta_list)
+safe_add_key(config, None, "fasta_paths", _new_fasta_list)
 
 # add library path to config
 _new_library = args.library_path if args.library_path else None
-safe_add_key(config, None, "library", _new_library)
+safe_add_key(config, None, "library_path", _new_library)
 
 # set library prediction to True
 safe_add_key(config, "library_prediction", "predict", True)
 
 # remove rawfiles for prediction step in case some are set
-config.pop("raw_path_list", None)
+config.pop("raw_paths", None)
 
 # set output directory for predicted spectral library
 safe_add_key(config, None, "output_directory", os.path.join(args.target_directory))
