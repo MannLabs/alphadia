@@ -1,29 +1,15 @@
-"""
-This module is responsible for a reporting feature to allow updating the default configuration
-using a list of experiment configurations in an interactive way by visualizing to the user the modifications/updates
-that will be applied to the default configuration by every experiment configuration in the list.
+"""This module is responsible for creating and storing the configuration.
 
-Experiment Configuration Update Process
+It allows updating the default configuration with one or more experiment configurations.
+The order of experiments holds significance, with configurations later in the sequence overwriting previous values.
+Lists are always overwritten.
 
-In our analysis, we focus on discerning changes between the default configuration and all experiments, rather than within individual experiments. To achieve this, we adopt the following approach:
-- Assuming that the default config will always have all possible config keys and no new config keys will be introduced by the experiments configs at any level of the config. i.e Experiment configs only update values.
-
-1. Loop over default config:
-   - We will recursively loop over all keys in the default config and look for updates in experiments configs, if found update the value and store in a new translated form.
-
-2. Maintaining Source Information:
-   - To retain the source of changes or modifications, we employ a special representation of the regular config.
-   - Each leaf node in the config is transformed into a tuple format: `((value, source experiment name))`.
-   - This allows users to trace the origin of a particular value, indicating which experiment triggered the change.
-   - See translate_config() and translate_config_back() for more details.
-
-**Note:**
-- The order of experiments holds significance, with configurations later in the sequence taking precedence in terms of their impact on changes.
-- But we still define the source of the update to be the first experiment that triggered the change.
+On demand, the current config can be visualized in a tree-like structure.
 """
 
 import json
 import logging
+from collections import defaultdict
 from copy import deepcopy
 from typing import Any
 
@@ -31,6 +17,7 @@ import yaml
 
 logger = logging.getLogger()
 
+DEFAULT = "default"
 USER_DEFINED = "user defined"
 MULTISTEP_SEARCH = "multistep search"
 
@@ -72,19 +59,7 @@ class Config:
     def get(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)
 
-    def __getitem__(self, key: str) -> Any:
-        return self.config[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.config[key] = value
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.config
-
-    def __repr__(self) -> str:
-        return str(self.config)
-
-    def update(self, experiments: list["Config"], print_modifications: bool = True):
+    def update(self, experiments: list["Config"], do_print: bool = False):
         """
         Updates the config with the experiment configs, and allow for multiple experiment configs to be added.
 
@@ -95,66 +70,80 @@ class Config:
         experiments : list of configs
             List of experiment configs
 
-        print_modifications : bool, optional
-            Whether to print the modifications or not, either way the updated config will be printed.
+        do_print : bool, optional
+            Whether to print the modified config. Default is False.
         """
 
+        # we assume that self.config holds the default config
         default_config = deepcopy(self.config)
-        tracking_config = deepcopy(self.config)
-        # this is a bit of a hack to initialize the tracking config
-        # we assume that the config that is updated is the default config
-        update(deepcopy(self.config), default_config, tracking_config, "default")
 
-        initial_config = deepcopy(self.config)
-        for config in experiments:
+        # initialize the tracking config as infinitely nested dictionary to be able to map all changes
+        def _recursive_defaultdict():
+            return defaultdict(_recursive_defaultdict)
+
+        tracking_config = defaultdict(_recursive_defaultdict)
+
+        current_config = deepcopy(self.config)
+        for experiment_config in experiments:
             update(
-                initial_config,
-                config.to_dict(),
+                current_config,
+                experiment_config.to_dict(),
                 tracking_config,
-                config.experiment_name,
+                experiment_config.experiment_name,
             )
 
-        self.config = initial_config
+        self.config = current_config
 
-        pretty_print_config(self.config, default_config, tracking_config)
+        if do_print:
+            try:
+                pretty_print_config(self.config, default_config, tracking_config)
+            except Exception as e:
+                logger.warning(f"Could not print config: {e}")
+                logger.info(f"{(yaml.dump(self.config))}")
 
 
 def update(
-    target_dict: dict, update_dict: dict, tracking_dict: dict, experiment_name: str
+    target_config: dict,
+    update_config: dict,
+    tracking_config: dict,
+    experiment_name: str,
 ) -> None:
     """
-    Recursively update target_dict with values from update_dict, following specific rules for different types.
+    Recursively update target_dict in-place with values from update_dict, following specific rules for different types.
+
+    For each value that gets updated, the corresponding value in tracking_dict is updated with experiment_name.
 
     Args:
-        target_dict: The dictionary to be modified
-        update_dict: The dictionary containing update values
-        tracking_dict: A dictionary with the same structure as target_dict, whose leaf values will be overwritten with experiment_name
+        target_config: The config dictionary to be modified
+        update_config: The config dictionary containing update values
+        tracking_config: A dictionary with the same structure as target_config.
+            If a value target_config gets overwritten, the same value in tracking_config will be overwritten with `experiment_name`.
         experiment_name: The name of the current experiment
 
     Notes:
         - Nested dictionaries are recursively updated
-        - Only updates existing keys (no new keys added)
-        - All lists are overwritten
+        - Only updates existing keys (adding new keys not allowed)
+        - lists are always overwritten
 
     Raises:
         ValueError in these cases:
-        - a key is not found in the target_dict
+        - a key is not found in the target_config
         - the type of the update value does not match the type of the target value
-        - an item is not found in the target_dict
+        - an item is not found in the target_config
     """
-    for key, update_value in update_dict.items():
-        if key not in target_dict:
-            raise ValueError(f"Key not found in target_dict: '{key}'")
+    for key, update_value in update_config.items():
+        if key not in target_config:
+            raise ValueError(f"Key not found in target_config: '{key}'")
 
-        target_value = target_dict[key]
-        tracking_value = tracking_dict[key]
+        target_value = target_config[key]
+        tracking_value = tracking_config[key]
 
         if (
             target_value is not None
-            and type(update_value) != type(target_value)
+            and type(target_value) != type(update_value)
             and not (
-                isinstance(update_value, int | float)
-                and isinstance(target_value, int | float)
+                isinstance(target_value, int | float)
+                and isinstance(update_value, int | float)
             )
         ):
             raise ValueError(
@@ -166,13 +155,13 @@ def update(
 
         elif isinstance(target_value, list):
             # overwrite lists completely
-            target_dict[key] = update_value
-            tracking_dict[key] = experiment_name
+            target_config[key] = update_value
+            tracking_config[key] = experiment_name
 
-        # Handle simple values
+        # handle simple values
         else:
-            target_dict[key] = update_value
-            tracking_dict[key] = experiment_name
+            target_config[key] = update_value
+            tracking_config[key] = experiment_name
 
 
 def pretty_print_config(
@@ -195,8 +184,8 @@ def pretty_print_config(
 def _pretty_print(
     config: dict,
     *,
-    default_config: dict,
-    tracking_config: dict,
+    default_config: dict | list | None,
+    tracking_config: dict | str,
     prefix: str = "",
 ):
     """Recursively pretty print a configuration dictionary in a tree-like structure."""
@@ -209,22 +198,27 @@ def _pretty_print(
         # determine the next level's prefix
         next_prefix = prefix + ("    " if is_last_item else "│   ")
 
-        try:
-            default_config_value = default_config[key]
-        except (KeyError, TypeError):
+        if default_config is None:
+            # in case something was added
+            default_config_value = None
+        elif isinstance(default_config, dict):
             try:
-                default_config_value = default_config[i]
+                default_config_value = default_config[key]
             except KeyError:
-                # nested list case
-                default_config_value = "(added)"
+                # in case a key was added
+                default_config_value = None
+        else:
+            # we can assume it's a list here, as simple types are printed right away
+            default_config_value = default_config[i]
 
-        try:
-            tracking_config_value = tracking_config[key]
-        except (KeyError, TypeError):
+        if isinstance(tracking_config, str):
+            # we have a leaf node (e.g. "default")
             tracking_config_value = tracking_config
+        else:
+            # tracking configs values are either dict or str (not lists: those are overwritten by experiment_name)
+            tracking_config_value = tracking_config[key]
 
         if isinstance(value, dict):
-            # Print dictionary key and continue with nested values
             logger.info(f"{prefix}{current_prefix}{key}")
             _pretty_print(
                 value,
@@ -234,49 +228,63 @@ def _pretty_print(
             )
         elif isinstance(value, list):
             logger.info(f"{prefix}{current_prefix}{key}:")
-            for j, item in enumerate(value):
-                # Handle nested lists
-                if isinstance(item, dict):
-                    next_prefix = prefix + ("    " if is_last_item else "│   ")
+            for j, value_ in enumerate(value):
+                default_value = (
+                    default_config_value[j]
+                    if default_config_value is not None
+                    and j < len(default_config_value)
+                    else None
+                )
 
+                # complex lists
+                if isinstance(value_, dict):
+                    next_prefix = prefix + ("    " if is_last_item else "│   ")
                     _pretty_print(
-                        item,
-                        default_config=default_config_value[j],
+                        value_,
+                        default_config=default_value,
                         tracking_config=tracking_config_value,
                         prefix=next_prefix,
                     )
 
+                # simple lists
                 else:
-                    # For simple lists
-                    default_value = (
-                        default_config_value[j]
-                        if j < len(default_config_value)
-                        else "(added)"
+                    color_on, color_off = _get_color_tokens(
+                        value_, default_config_value
                     )
-
                     logger.info(
-                        f"{next_prefix}- {_make_pretty(item, default_value, tracking_config_value)}"
+                        f"{next_prefix}{color_on}- {_expand(value_, default_value, tracking_config_value)}{color_off}"
                     )
 
+        # simple value
         else:
-            # Print leaf node (key-value pair)
+            color_on, color_off = _get_color_tokens(value, default_config_value)
             logger.info(
-                f"{prefix}{current_prefix}{key}: {_make_pretty(value, default_config_value, tracking_config_value)}"
+                f"{prefix}{color_on}{current_prefix}{key}: {_expand(value, default_config_value, tracking_config_value)}{color_off}"
             )
 
 
-def _make_pretty(
+def _get_color_tokens(
+    actual_value: str | int | float,
+    default_value: str | int | float,
+) -> tuple[str, str]:
+    """Get color on/off tokens if values differ, else empty strings."""
+
+    if default_value != actual_value:
+        style = "\x1b[32;20m"
+        reset = "\x1b[0m"
+        return style, reset
+    return "", ""
+
+
+def _expand(
     actual_value: str | int | float,
     default_value: str | int | float,
     tracking_value: str,
 ) -> str:
-    """Create a pretty string representation of a configuration value."""
-    if default_value == actual_value:
-        msg = f"{actual_value}"
-    else:
-        style = "\x1b[32;20m"
-        reset = "\x1b[0m"
-        msg = (
-            f"{style}{actual_value} [{tracking_value}, default: {default_value}]{reset}"
-        )
+    """Create an expanded string representation of a configuration value in case it differs from the default."""
+    msg = str(actual_value)
+
+    if default_value != actual_value:
+        return f"{msg} [{tracking_value}, default: {default_value}]"
+
     return msg

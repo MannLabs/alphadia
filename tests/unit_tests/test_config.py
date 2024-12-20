@@ -6,145 +6,6 @@ import yaml
 
 from alphadia.workflow.config import Config
 
-default_config = """
-version: 1
-
-general:
-  thread_count: 10
-  # maximum number of threads or processes to use per raw file
-  reuse_calibration: false
-  reuse_quant: false
-  astral_ms1: false
-  log_level: 'INFO'
-  wsl: false
-  mmap_detector_events: false
-  use_gpu: true
-
-library_loading:
-  rt_heuristic: 180
-  # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
-
-library_prediction:
-  predict: False
-  enzyme: trypsin
-  fixed_modifications: 'Carbamidomethyl@C'
-  variable_modifications: 'Oxidation@M'
-  missed_cleavages: 1
-  precursor_len:
-    - 7
-    - 35
-  precursor_charge:
-    - 2
-    - 4
-  """
-
-
-config_1_yaml = """
-general:
-  thread_count: 10
-  reuse_calibration: true
-  reuse_quant: true
-  use_gpu: true
-  astral_ms1: false
-  log_level: INFO
-library_prediction:
-  predict: false
-  enzyme: trypsin
-  fixed_modifications: Carbamidomethyl@C
-  missed_cleavages: 2
-  precursor_len:
-    - 7
-    - 6
-  precursor_charge:
-    - 2
-    - 4
-"""
-
-
-config_2_yaml = """
-version: 3
-general:
-  thread_count: 10
-  reuse_calibration: true
-  reuse_quant: true
-  use_gpu: true
-  astral_ms1: false
-  log_level: INFO
-library_prediction:
-  predict: false
-  enzyme: trypsin
-  fixed_modifications: Carbamidomethyl@C
-  missed_cleavages: 2
-  precursor_len:
-    - 2
-    - 12
-  precursor_charge:
-    - 2
-    - 4
-"""
-
-target_yaml = """
-version: 3
-general:
-  thread_count: 10
-  reuse_calibration: true
-  reuse_quant: true
-  astral_ms1: false
-  log_level: INFO
-  wsl: false
-  mmap_detector_events: false
-  use_gpu: true
-library_loading:
-  rt_heuristic: 180
-library_prediction:
-  predict: false
-  enzyme: trypsin
-  fixed_modifications: Carbamidomethyl@C
-  variable_modifications: Oxidation@M
-  missed_cleavages: 2
-  precursor_len:
-  - 2
-  - 12
-  precursor_charge:
-  - 2
-  - 4
-"""
-
-target_tsv = """	default	Experiment 1	Experiment 2
-version	1	-	3
-general.thread_count	10	-	-
-general.reuse_calibration	False	True	-
-general.reuse_quant	False	True	-
-general.astral_ms1	False	-	-
-general.log_level	INFO	-	-
-general.wsl	False	-	-
-general.mmap_detector_events	False	-	-
-general.use_gpu	True	-	-
-library_loading.rt_heuristic	180	-	-
-library_prediction.predict	False	-	-
-library_prediction.enzyme	trypsin	-	-
-library_prediction.fixed_modifications	Carbamidomethyl@C	-	-
-library_prediction.variable_modifications	Oxidation@M	-	-
-library_prediction.missed_cleavages	1	2	-
-library_prediction.precursor_len[0]	7	-	2
-library_prediction.precursor_len[1]	35	6	12
-library_prediction.precursor_charge[0]	2	-	-
-library_prediction.precursor_charge[1]	4	-	-"""
-
-
-def test_update_function():
-    config_1 = Config("Experiment 1")
-    config_1.config = yaml.safe_load(StringIO(config_1_yaml))
-    config_2 = Config("Experiment 2")
-    config_2.config = yaml.safe_load(StringIO(config_2_yaml))
-    default = Config("default")
-    default.config = yaml.safe_load(StringIO(default_config))
-
-    default.update([config_1, config_2])
-
-    assert default.config == yaml.safe_load(StringIO(target_yaml))
-
-
 generic_default_config = """
     simple_value_int: 1
     simple_value_float: 2.0
@@ -224,7 +85,7 @@ def test_config_update_simple_two_files():
     )
 
     # when
-    config_1.update([config_2, config_3], print_modifications=True)
+    config_1.update([config_2, config_3], do_print=True)
 
     config_1.__repr__()
     print("X")
@@ -261,7 +122,7 @@ def test_config_update_advanced():
     )
 
     # when
-    config_1.update([config_2], print_modifications=True)
+    config_1.update([config_2], do_print=True)
 
     assert config_1.to_dict() == expected_generic_default_config_dict | {
         "nested_values": {
@@ -282,6 +143,59 @@ def test_config_update_advanced():
     }
 
 
+def test_config_update_advanced_add_nested_list_item():
+    """Test updating a config with nested values and lists, with new list longer than old one."""
+    config_1 = Config("default")
+    config_1.from_dict(yaml.safe_load(StringIO(generic_default_config)))
+
+    config_2 = Config("first")
+    config_2.from_dict(
+        {
+            "nested_values": {"nested_value_2": 42},
+            "simple_list": [43, 44, 45, 999],
+            "nested_list": [
+                {
+                    "name": "nested_list_value_1",
+                    "key1": "1",
+                },
+                {
+                    "name": "nested_list_value_2",
+                    "key1": "2",
+                },
+                {
+                    "name": "nested_list_value_3",
+                    "key1": "3",
+                },
+            ],
+        }
+    )
+
+    # when
+    config_1.update([config_2], do_print=True)
+
+    assert config_1.to_dict() == expected_generic_default_config_dict | {
+        "nested_values": {
+            "nested_value_1": 1,  # original value
+            "nested_value_2": 42,
+        },
+        "simple_list": [43, 44, 45, 999],  # item 999 added
+        "nested_list": [
+            {
+                "name": "nested_list_value_1",
+                "key1": "1",
+            },
+            {
+                "name": "nested_list_value_2",
+                "key1": "2",
+            },
+            {
+                "name": "nested_list_value_3",
+                "key1": "3",
+            },
+        ],
+    }
+
+
 def test_config_update_new_key_raises():
     """Test updating a config with a new key."""
     config_1 = Config("default")
@@ -291,8 +205,8 @@ def test_config_update_new_key_raises():
     config_2.from_dict({"new_key": 0})
 
     # when
-    with pytest.raises(ValueError, match="Key not found in target_dict: 'new_key'"):
-        config_1.update([config_2], print_modifications=True)
+    with pytest.raises(ValueError, match="Key not found in target_config: 'new_key'"):
+        config_1.update([config_2], do_print=True)
 
 
 def test_config_update_type_mismatch_raises():
@@ -308,7 +222,7 @@ def test_config_update_type_mismatch_raises():
         ValueError,
         match="Type mismatch for key 'simple_value_int': <class 'str'> != <class 'int'>",
     ):
-        config_1.update([config_2], print_modifications=True)
+        config_1.update([config_2], do_print=True)
 
 
 def test_config_update_new_key_in_nested_list():
@@ -322,7 +236,7 @@ def test_config_update_new_key_in_nested_list():
     )
 
     # when
-    config_1.update([config_2], print_modifications=True)
+    config_1.update([config_2], do_print=True)
 
     assert config_1.to_dict() == expected_generic_default_config_dict | {
         "nested_list": [{"key4": "value44", "name": "nested_list_value_3"}],
@@ -338,7 +252,7 @@ def test_config_update_nested_list_with_empty_list():
     config_2.from_dict({"nested_list": []})
 
     # when
-    config_1.update([config_2], print_modifications=True)
+    config_1.update([config_2], do_print=True)
 
     assert config_1.to_dict() == expected_generic_default_config_dict | {
         "nested_list": []
@@ -357,6 +271,6 @@ def test_config_update_default_config():
     config_2 = Config("also_default")
     config_2.from_yaml(config_base_path)
 
-    config_1.update([config_2], print_modifications=True)
+    config_1.update([config_2], do_print=True)
 
     assert config_1.to_dict() == config_2.to_dict()
