@@ -95,7 +95,7 @@ class SearchStep:
 
         config_updates = []
 
-        if user_config is not None:
+        if user_config:
             logger.info("loading additional config provided via CLI")
             # load update config from dict
             if isinstance(user_config, dict):
@@ -108,7 +108,7 @@ class SearchStep:
                     "'config' parameter must be of type 'dict' or 'Config'"
                 )
 
-        if cli_config is not None:
+        if cli_config:
             logger.info("loading additional config provided via CLI parameters")
             cli_config_update = Config(
                 cli_config, experiment_name=USER_DEFINED_CLI_PARAM
@@ -116,7 +116,7 @@ class SearchStep:
             config_updates.append(cli_config_update)
 
         # this needs to be last
-        if extra_config is not None:
+        if extra_config:
             extra_config_update = Config(extra_config, experiment_name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
             extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
