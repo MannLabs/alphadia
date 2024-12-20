@@ -26,9 +26,9 @@ class YamlKeys:
     TEST_CASES = "test_cases"
     NAME = "name"
     CONFIG = "config"
-    LIBRARY = "library"
-    FASTA = "fasta"
-    RAW_DATA = "raw_data"
+    LIBRARY = "library_path"
+    FASTA = "fasta_paths"
+    RAW_DATA = "raw_paths"
     SOURCE_URL = "source_url"
 
 
