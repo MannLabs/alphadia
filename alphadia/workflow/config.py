@@ -19,7 +19,7 @@ logger = logging.getLogger()
 
 DEFAULT = "default"
 USER_DEFINED = "user defined"
-USER_DEFINED_CLI = "user defined (cli parameter)"
+USER_DEFINED_CLI_PARAM = "user defined (cli)"
 MULTISTEP_SEARCH = "multistep search"
 
 

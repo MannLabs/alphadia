@@ -15,7 +15,7 @@ from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
     MULTISTEP_SEARCH,
-    USER_DEFINED_CLI,
+    USER_DEFINED,
     USER_DEFINED_CLI_PARAM,
     Config,
 )
@@ -100,7 +100,7 @@ class SearchStep:
         config_updates = []
         if config_base_path is not None:
             logger.info(f"loading additional config from {config_base_path}")
-            user_config_from_file = Config(USER_DEFINED_CLI)
+            user_config_from_file = Config(USER_DEFINED)
             user_config_from_file.from_yaml(default_config_path)
             config_updates.append(user_config_from_file)
 
@@ -108,7 +108,7 @@ class SearchStep:
             logger.info("loading additional config provided via CLI")
             # load update config from dict
             if isinstance(user_config, dict):
-                user_config_update = Config(USER_DEFINED_CLI)
+                user_config_update = Config(USER_DEFINED)
                 user_config_update.from_dict(user_config)
                 config_updates.append(user_config_update)
             elif isinstance(user_config, Config):
