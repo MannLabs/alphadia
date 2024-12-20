@@ -59,6 +59,18 @@ class Config:
     def get(self, key: str, default: Any = None) -> Any:
         return self.config.get(key, default)
 
+    def __getitem__(self, key: str) -> Any:
+        return self.config[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.config[key] = value
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.config
+
+    def __repr__(self) -> str:
+        return str(self.config)
+
     def update(self, experiments: list["Config"], do_print: bool = False):
         """
         Updates the config with the experiment configs, and allow for multiple experiment configs to be added.
