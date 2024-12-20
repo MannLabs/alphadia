@@ -1,5 +1,5 @@
 # reusable workflow to run tests on different installation types and OS
-name: Run unit tests on ${{ inputs.os }}
+name: Run unit tests
 
 on:
   workflow_call:
