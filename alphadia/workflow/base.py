@@ -111,7 +111,6 @@ class WorkflowBase:
 
         # initialize the calibration manager
         self._calibration_manager = manager.CalibrationManager(
-            self.config["calibration_manager"],
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
             reporter=self.reporter,

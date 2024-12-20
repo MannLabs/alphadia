@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -48,7 +49,7 @@ def test_base_manager_load():
     os.remove(my_base_manager.path)
 
 
-TEST_CONFIG = [
+TEST_CALIBRATION_MANAGER_CONFIG = [
     {
         "name": "precursor",
         "estimators": [
@@ -90,9 +91,13 @@ TEST_CONFIG = [
 def test_calibration_manager_init():
     # initialize the calibration manager
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
@@ -158,9 +163,13 @@ def calibration_testdata():
 
 def test_calibration_manager_fit_predict():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     test_df = calibration_testdata()
 
@@ -182,9 +191,13 @@ def test_calibration_manager_fit_predict():
 
 def test_calibration_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)
@@ -195,9 +208,13 @@ def test_calibration_manager_save_load():
 
     calibration_manager.save()
 
-    calibration_manager_loaded = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=True
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager_loaded = manager.CalibrationManager(
+            path=temp_path, load_from_file=True
+        )
     assert calibration_manager_loaded.is_fitted is True
     assert calibration_manager_loaded.is_loaded_from_file is True
 
@@ -433,7 +450,6 @@ def create_workflow_instance():
         ]
     )
     workflow._calibration_manager = manager.CalibrationManager(
-        workflow.config["calibration_manager"],
         path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         reporter=workflow.reporter,
