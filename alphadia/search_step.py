@@ -99,9 +99,7 @@ class SearchStep:
             logger.info("loading additional config provided via CLI")
             # load update config from dict
             if isinstance(user_config, dict):
-                user_config_update = Config(
-                    dict=user_config, experiment_name=USER_DEFINED
-                )
+                user_config_update = Config(user_config, experiment_name=USER_DEFINED)
                 config_updates.append(user_config_update)
             elif isinstance(user_config, Config):
                 config_updates.append(user_config)
