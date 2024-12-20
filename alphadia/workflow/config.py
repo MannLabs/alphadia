@@ -29,7 +29,9 @@ class Config(UserDict):
 
     def __init__(self, data: dict = None, experiment_name: str = DEFAULT) -> None:
         # super class deliberately not called
-        self.data = {**data} if data is not None else {}
+        self.data = (
+            {**data} if data is not None else {}
+        )  # this needs to be called 'data' as we inherit from UserDict
         self.experiment_name = experiment_name
 
     def from_yaml(self, path: str) -> None:
