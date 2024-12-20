@@ -382,58 +382,6 @@ transfer_learning:
   instrument: 'Lumos'
 
 
-# configuration for the calibration manager
-# the config has to start with the calibration keyword and consists of a list of calibration groups.
-# each group consists of datapoints which have multiple properties.
-# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
-calibration_manager: # TODO move to a separate file or hard-code
-  - name: fragment
-    estimators:
-      - name: mz
-        model: LOESSRegression
-        model_args:
-          n_kernels: 2
-        input_columns:
-          - mz_library
-        target_columns:
-          - mz_observed
-        output_columns:
-          - mz_calibrated
-        transform_deviation: 1e6
-  - name: precursor
-    estimators:
-        - name: mz
-          model: LOESSRegression
-          model_args:
-            n_kernels: 2
-          input_columns:
-            - mz_library
-          target_columns:
-            - mz_observed
-          output_columns:
-            - mz_calibrated
-          transform_deviation: 1e6
-        - name: rt
-          model: LOESSRegression
-          model_args:
-            n_kernels: 6
-          input_columns:
-            - rt_library
-          target_columns:
-            - rt_observed
-          output_columns:
-            - rt_calibrated
-        - name: mobility
-          model: LOESSRegression
-          model_args:
-            n_kernels: 2
-          input_columns:
-            - mobility_library
-          target_columns:
-            - mobility_observed
-          output_columns:
-            - mobility_calibrated
-
 # scope of default yaml should be one search step
 multistep_search:
   transfer_step_enabled: False
