@@ -1,5 +1,5 @@
 # reusable workflow to run tests on different installation types and OS
-name: run-tests
+name: Run unit tests on ${{ inputs.os }}
 
 on:
   workflow_call:
@@ -17,7 +17,8 @@ on:
         required: true
         type: string
 jobs:
-  run-unit-tests-stable-ubuntu:
+  run-unit-tests:
+    name: Unit tests [${{ inputs.os }}]
     runs-on: ${{ inputs.os }}
     steps:
     - uses: actions/checkout@v4
@@ -35,7 +36,7 @@ jobs:
       shell: bash -l {0}
       run: conda info
     - name: Install mono
-      if: ${{ runner.os != 'windows-latest' }}
+      if: ${{ inputs.os != 'windows-latest' }}
       shell: bash -l {0}
       run: |
         conda install mono
@@ -43,9 +44,9 @@ jobs:
       shell: bash -l {0}
       run: |
         cd misc
-        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ runner.os != 'windows-latest' }}
+        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ inputs.os != 'windows-latest' }}
     - name: Run tests
       shell: bash -l {0}
       run: |
         cd tests
-        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ runner.os != 'windows-latest' }}
+        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ inputs.os != 'windows-latest' }}
