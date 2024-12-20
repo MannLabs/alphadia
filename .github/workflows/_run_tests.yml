@@ -36,7 +36,7 @@ jobs:
       shell: bash -l {0}
       run: conda info
     - name: Install mono
-      if: ${{ contains(inputs.os, 'windows') == 'false' }}
+      if: ${{ !contains(inputs.os, 'windows') }}
       shell: bash -l {0}
       run: |
         conda install mono
@@ -44,9 +44,9 @@ jobs:
       shell: bash -l {0}
       run: |
         cd misc
-        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ contains(inputs.os, 'windows') == 'false' }}
+        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ !contains(inputs.os, 'windows') }}
     - name: Run tests
       shell: bash -l {0}
       run: |
         cd tests
-        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ contains(inputs.os, 'windows') == 'false' }}
+        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ !contains(inputs.os, 'windows') }}
