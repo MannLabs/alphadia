@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         # test case name as defined in e2e_test_cases.yaml
-        test_case: ["multistep"]
+        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
