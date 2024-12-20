@@ -5,7 +5,7 @@ import pytest
 from alphabase.constants import _const
 from alphabase.constants.modification import MOD_DF
 
-from alphadia import planning
+from alphadia import search_step
 from alphadia.test_data_downloader import DataShareDownloader
 
 
@@ -14,35 +14,35 @@ def test_fasta_digest():
     # digest & predict new library
     common_contaminants = os.path.join(_const.CONST_FILE_FOLDER, "contaminants.fasta")
     tempdir = tempfile.gettempdir()
-    plan = planning.Plan(
+    step = search_step.SearchStep(
         tempdir,
         fasta_path_list=[common_contaminants],
         config={"library_prediction": {"predict": True}},
     )
 
-    assert len(plan.spectral_library.precursor_df) > 0
-    assert len(plan.spectral_library.fragment_df) > 0
+    assert len(step.spectral_library.precursor_df) > 0
+    assert len(step.spectral_library.fragment_df) > 0
 
     speclib_path = os.path.join(tempdir, "speclib.hdf")
     assert os.path.exists(speclib_path)
 
     # predict existing library
-    plan = planning.Plan(
+    step = search_step.SearchStep(
         tempdir,
         library_path=speclib_path,
         config={"library_prediction": {"predict": True}},
     )
-    assert len(plan.spectral_library.precursor_df) > 0
-    assert len(plan.spectral_library.fragment_df) > 0
+    assert len(step.spectral_library.precursor_df) > 0
+    assert len(step.spectral_library.fragment_df) > 0
 
     # load existing library without predict
-    plan = planning.Plan(
+    step = search_step.SearchStep(
         tempdir,
         library_path=speclib_path,
         config={"library_prediction": {"predict": False}},
     )
-    assert len(plan.spectral_library.precursor_df) > 0
-    assert len(plan.spectral_library.fragment_df) > 0
+    assert len(step.spectral_library.precursor_df) > 0
+    assert len(step.spectral_library.fragment_df) > 0
 
 
 @pytest.mark.slow()
@@ -70,9 +70,9 @@ def test_library_loading():
         test_data_location = DataShareDownloader(
             test_dict["url"], temp_directory
         ).download()
-        plan = planning.Plan(temp_directory, library_path=test_data_location)
-        assert len(plan.spectral_library.precursor_df) > 0
-        assert len(plan.spectral_library.fragment_df) > 0
+        step = search_step.SearchStep(temp_directory, library_path=test_data_location)
+        assert len(step.spectral_library.precursor_df) > 0
+        assert len(step.spectral_library.fragment_df) > 0
 
 
 def test_custom_modifications():
@@ -86,5 +86,5 @@ def test_custom_modifications():
         }
     }
 
-    plan = planning.Plan(temp_directory, [], config=config)  # noqa F841
+    step = search_step.SearchStep(temp_directory, [], config=config)  # noqa F841
     assert "ThisModDoesNotExists@K" in MOD_DF["mod_name"].values

@@ -1,9 +1,9 @@
-planning
+search_step
 ========
 
-The planning module organizes the search schedule for searching multiple files.
+The search_step module organizes the search schedule for searching multiple files.
 
-.. automodule:: alphadia.planning
+.. automodule:: alphadia.search_step
    :members:
    :undoc-members:
    :show-inheritance:

@@ -4,7 +4,7 @@ INSTALL_TYPE=$1 # stable, loose, etc..
 ENV_NAME=${2:-alphadia}
 PYTHON_VERSION=${3:-3.11}
 
-conda create -n $ENV_NAME python=$PYTHON_VERSION -y
+conda create -n $ENV_NAME python=$PYTHON_VERSION mono -y
 
 if [ "$INSTALL_TYPE" = "loose" ]; then
   INSTALL_STRING=""

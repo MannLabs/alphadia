@@ -34,7 +34,7 @@ def get_search_plan(config):
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
-@patch("alphadia.search_plan.Plan")
+@patch("alphadia.search_plan.SearchStep")
 def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps."""
     search_plan = get_search_plan(BASE_USER_CONFIG)
@@ -59,7 +59,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
-@patch("alphadia.search_plan.Plan")
+@patch("alphadia.search_plan.SearchStep")
 def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     mock_plan, mock_init_logging
 ):
@@ -94,7 +94,7 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
-@patch("alphadia.search_plan.Plan")
+@patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_transfer_step(
     mock_get_dyn_config, mock_plan, mock_init_logging
@@ -153,7 +153,7 @@ def test_runs_plan_with_transfer_step(
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
-@patch("alphadia.search_plan.Plan")
+@patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly with the mbr step enabled."""
@@ -203,7 +203,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
-@patch("alphadia.search_plan.Plan")
+@patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
 def test_runs_plan_with_transfer_and_mbr_steps(
     mock_get_dyn_config, mock_plan, mock_init_logging
