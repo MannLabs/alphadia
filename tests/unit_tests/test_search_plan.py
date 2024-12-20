@@ -18,10 +18,10 @@ BASE_USER_CONFIG = {
 }
 
 BASE_CLI_PARAMS_CONFIG = {
-    "raw_path_list": ["/raw1"],
+    "raw_paths": ["/raw1"],
     "library_path": "/user_provided_library_path",
-    "fasta_path_list": ["/fasta1"],
-    "quant_dir": "/user_provided_quant_path",
+    "fasta_paths": ["/fasta1"],
+    "quant_directory": "/user_provided_quant_path",
 }
 
 
@@ -175,7 +175,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
         | dynamic_config
-        | {"library": "/user_provided_output_path/library/speclib.mbr.hdf"},
+        | {"library_path": "/user_provided_output_path/library/speclib.mbr.hdf"},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
 
@@ -239,7 +239,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
         | dynamic_config
         | {
-            "library": "/user_provided_output_path/library/speclib.mbr.hdf",
+            "library_path": "/user_provided_output_path/library/speclib.mbr.hdf",
         },
         "cli_config": BASE_CLI_PARAMS_CONFIG,
     }
