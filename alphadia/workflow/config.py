@@ -93,14 +93,14 @@ class Config:
         def _recursive_defaultdict():
             return defaultdict(_recursive_defaultdict)
 
-        tracking_config = defaultdict(_recursive_defaultdict)
+        tracking_dict = defaultdict(_recursive_defaultdict)
 
         current_config = deepcopy(self.config)
         for experiment_config in experiments:
             _update(
                 current_config,
                 experiment_config.to_dict(),
-                tracking_config,
+                tracking_dict,
                 experiment_config.experiment_name,
             )
 
@@ -108,33 +108,31 @@ class Config:
 
         if do_print:
             try:
-                self._pretty_print(self.config, default_config, tracking_config)
+                self._pretty_print(current_config, default_config, tracking_dict)
             except Exception as e:
                 logger.warning(f"Could not print config: {e}")
-                logger.info(f"{(yaml.dump(self.config))}")
+                logger.info(f"{(yaml.dump(current_config))}")
 
     @staticmethod
-    def _pretty_print(
-        config: dict, default_config: dict, tracking_config: dict
-    ) -> None:
+    def _pretty_print(config: dict, default_config: dict, tracking_dict: dict) -> None:
         """
         Pretty print a configuration dictionary in a tree-like structure.
 
         Args:
             config: The configuration dictionary to print
             default_config: The default configuration dictionary to print
-            tracking_config: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
+            tracking_dict: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
         """
 
         _pretty_print(
-            config, default_config=default_config, tracking_config=tracking_config
+            config, default_config=default_config, tracking_dict=tracking_dict
         )
 
 
 def _update(
     target_config: dict,
     update_config: dict,
-    tracking_config: dict,
+    tracking_dict: dict,
     experiment_name: str,
 ) -> None:
     """
@@ -145,8 +143,8 @@ def _update(
     Args:
         target_config: The config dictionary to be modified
         update_config: The config dictionary containing update values
-        tracking_config: A dictionary with the same structure as target_config.
-            If a value target_config gets overwritten, the same value in tracking_config will be overwritten with `experiment_name`.
+        tracking_dict: A dictionary of nested dictionaries.
+            If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `experiment_name`.
         experiment_name: The name of the current experiment
 
     Notes:
@@ -165,7 +163,7 @@ def _update(
             raise ValueError(f"Key not found in target_config: '{key}'")
 
         target_value = target_config[key]
-        tracking_value = tracking_config[key]
+        tracking_value = tracking_dict[key]
 
         if (
             target_value is not None
@@ -185,19 +183,19 @@ def _update(
         elif isinstance(target_value, list):
             # overwrite lists completely
             target_config[key] = update_value
-            tracking_config[key] = experiment_name
+            tracking_dict[key] = experiment_name
 
         # handle simple values
         else:
             target_config[key] = update_value
-            tracking_config[key] = experiment_name
+            tracking_dict[key] = experiment_name
 
 
 def _pretty_print(
     config: dict,
     *,
     default_config: dict | list | None,
-    tracking_config: dict | str,
+    tracking_dict: dict | str,
     prefix: str = "",
 ):
     """Recursively pretty print a configuration dictionary in a tree-like structure."""
@@ -223,19 +221,19 @@ def _pretty_print(
             # we can assume it's a list here, as simple types are printed right away
             default_config_value = default_config[i]
 
-        if isinstance(tracking_config, str):
+        if isinstance(tracking_dict, str):
             # we have a leaf node (e.g. "default")
-            tracking_config_value = tracking_config
+            tracking_dict_value = tracking_dict
         else:
             # tracking configs values are either dict or str (not lists: those are overwritten by experiment_name)
-            tracking_config_value = tracking_config[key]
+            tracking_dict_value = tracking_dict[key]
 
         if isinstance(value, dict):
             logger.info(f"{prefix}{current_prefix}{key}")
             _pretty_print(
                 value,
                 default_config=default_config_value,
-                tracking_config=tracking_config_value,
+                tracking_dict=tracking_dict_value,
                 prefix=next_prefix,
             )
         elif isinstance(value, list):
@@ -254,7 +252,7 @@ def _pretty_print(
                     _pretty_print(
                         value_,
                         default_config=default_value,
-                        tracking_config=tracking_config_value,
+                        tracking_dict=tracking_dict_value,
                         prefix=next_prefix,
                     )
 
@@ -264,14 +262,14 @@ def _pretty_print(
                         value_, default_config_value
                     )
                     logger.info(
-                        f"{next_prefix}{color_on}- {_expand(value_, default_value, tracking_config_value)}{color_off}"
+                        f"{next_prefix}{color_on}- {_expand(value_, default_value, tracking_dict_value)}{color_off}"
                     )
 
         # simple value
         else:
             color_on, color_off = _get_color_tokens(value, default_config_value)
             logger.info(
-                f"{prefix}{color_on}{current_prefix}{key}: {_expand(value, default_config_value, tracking_config_value)}{color_off}"
+                f"{prefix}{color_on}{current_prefix}{key}: {_expand(value, default_config_value, tracking_dict_value)}{color_off}"
             )
 
 
