@@ -101,11 +101,14 @@ def test_multiplex_library():
     test_lib.calc_precursor_mz()
     test_lib.calc_fragment_mz_df()
 
-    test_multiplex_mapping = {
-        0: {"mTRAQ@K": "mTRAQ@K"},
-        "magic_chanel": {"mTRAQ@K": "mTRAQ:13C(3)15N(1)@K"},
-        1337: {"mTRAQ@K": "mTRAQ:13C(6)15N(2)@K"},
-    }
+    test_multiplex_mapping = [
+        {"channel_name": 0, "modifications": {"mTRAQ@K": "mTRAQ@K"}},
+        {
+            "channel_name": "magic_channel",
+            "modifications": {"mTRAQ@K": "mTRAQ:13C(3)15N(1)@K"},
+        },
+        {"channel_name": 1337, "modifications": {"mTRAQ@K": "mTRAQ:13C(6)15N(2)@K"}},
+    ]
 
     # when
     multiplexer = libtransform.MultiplexLibrary(test_multiplex_mapping)
@@ -116,7 +119,7 @@ def test_multiplex_library():
     assert result_lib.precursor_df["charge"].nunique() == 2
     assert result_lib.precursor_df["frag_stop_idx"].nunique() == 6
 
-    for channel in [0, 1337, "magic_chanel"]:
+    for channel in [0, 1337, "magic_channel"]:
         assert (
             result_lib.precursor_df[
                 result_lib.precursor_df["channel"] == channel
