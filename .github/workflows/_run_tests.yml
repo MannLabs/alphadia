@@ -35,17 +35,17 @@ jobs:
       shell: bash -l {0}
       run: conda info
     - name: Install mono
+      if: ${{ runner.os != 'windows-latest' }}
       shell: bash -l {0}
       run: |
         conda install mono
-
     - name: Perform pip installation with all stable dependencies
       shell: bash -l {0}
       run: |
         cd misc
-        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }}
+        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ runner.os != 'windows-latest' }}
     - name: Run tests
       shell: bash -l {0}
       run: |
         cd tests
-        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }}
+        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ runner.os != 'windows-latest' }}
