@@ -9,6 +9,7 @@ import numpy as np
 # third party imports
 import pandas as pd
 import sklearn
+import torch
 
 # alphadia imports
 # alpha family imports
@@ -113,7 +114,17 @@ def perform_fdr(
         X, y, test_size=0.2
     )
 
+    # the classifier does not scale above 2 threads also for large problems
+    num_threads = torch.get_num_threads()
+    if num_threads > 1:
+        torch.set_num_threads(2)
+        logger.info("Setting torch num_threads to 2 for FDR classification task")
+
     classifier.fit(X_train, y_train)
+
+    if num_threads != torch.get_num_threads():
+        logger.info(f"Resetting torch num_threads to {num_threads}")
+        torch.set_num_threads(num_threads)
 
     psm_df = pd.concat([df_target, df_decoy])
 
