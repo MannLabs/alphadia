@@ -97,7 +97,7 @@ class Config:
 
         current_config = deepcopy(self.config)
         for experiment_config in experiments:
-            update(
+            _update(
                 current_config,
                 experiment_config.to_dict(),
                 tracking_config,
@@ -108,13 +108,30 @@ class Config:
 
         if do_print:
             try:
-                pretty_print_config(self.config, default_config, tracking_config)
+                self._pretty_print(self.config, default_config, tracking_config)
             except Exception as e:
                 logger.warning(f"Could not print config: {e}")
                 logger.info(f"{(yaml.dump(self.config))}")
 
+    @staticmethod
+    def _pretty_print(
+        config: dict, default_config: dict, tracking_config: dict
+    ) -> None:
+        """
+        Pretty print a configuration dictionary in a tree-like structure.
 
-def update(
+        Args:
+            config: The configuration dictionary to print
+            default_config: The default configuration dictionary to print
+            tracking_config: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
+        """
+
+        _pretty_print(
+            config, default_config=default_config, tracking_config=tracking_config
+        )
+
+
+def _update(
     target_config: dict,
     update_config: dict,
     tracking_config: dict,
@@ -163,7 +180,7 @@ def update(
             )
 
         if isinstance(target_value, dict):
-            update(target_value, update_value, tracking_value, experiment_name)
+            _update(target_value, update_value, tracking_value, experiment_name)
 
         elif isinstance(target_value, list):
             # overwrite lists completely
@@ -174,23 +191,6 @@ def update(
         else:
             target_config[key] = update_value
             tracking_config[key] = experiment_name
-
-
-def pretty_print_config(
-    config: dict, default_config: dict, tracking_config: dict
-) -> None:
-    """
-    Pretty print a configuration dictionary in a tree-like structure.
-
-    Args:
-        config: The configuration dictionary to print
-        default_config: The default configuration dictionary to print
-        tracking_config: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
-    """
-
-    _pretty_print(
-        config, default_config=default_config, tracking_config=tracking_config
-    )
 
 
 def _pretty_print(
