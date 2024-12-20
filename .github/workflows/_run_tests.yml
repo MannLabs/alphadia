@@ -34,6 +34,11 @@ jobs:
     - name: Conda info
       shell: bash -l {0}
       run: conda info
+    - name: Install mono
+      shell: bash -l {0}
+      run: |
+        conda install mono
+
     - name: Perform pip installation with all stable dependencies
       shell: bash -l {0}
       run: |
