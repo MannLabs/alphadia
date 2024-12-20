@@ -249,11 +249,17 @@ def run(*args, **kwargs):
         return
     reporting.init_logging(output_directory)
 
+    # TODO revisit the multiple sources of raw files (cli, config, regex, ...)
+    raw_path_list = parse_raw_path_list(args, config)
     cli_params_config = {
-        ConfigKeys.RAW_PATHS: parse_raw_path_list(args, config),
-        ConfigKeys.LIBRARY_PATH: args.library,
-        ConfigKeys.FASTA_PATHS: args.fasta,
-        ConfigKeys.QUANT_DIRECTORY: args.quant_dir,
+        **({ConfigKeys.RAW_PATHS: raw_path_list} if raw_path_list else {}),
+        **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
+        **({ConfigKeys.FASTA_PATHS: args.library} if args.fasta else {}),
+        **(
+            {ConfigKeys.QUANT_DIRECTORY: args.library}
+            if args.quant_dir is not None
+            else {}
+        ),
     }
 
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
@@ -278,5 +284,5 @@ def run(*args, **kwargs):
 
 
 # uncomment for debugging:
-# if __name__ == "__main__":
-#     run()
+if __name__ == "__main__":
+    run()
