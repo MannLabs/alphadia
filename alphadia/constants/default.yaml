@@ -60,9 +60,6 @@ library_prediction:
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
-# TODO make this a list
-#  - name: Dimethyl:d12@K
-#    composition: H(-2)2H(8)13C(2)
 custom_modifications:
   # Dimethyl @K channel decoy
   - name: Dimethyl:d12@K
@@ -129,9 +126,6 @@ calibration:
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
   max_skips: 1
-
-  # TODO: remove this parameter
-  final_full_calibration: False
 
   # TODO: remove this parameter
   norm_rt_mode: 'linear'
@@ -201,27 +195,27 @@ library_multiplexing:
   # channels can be either a number or a string
   # for every channel, the library gets copied and the modifications are translated according to the mapping
   # the following example shows how to multiplex mTRAQ to three sample channels and a decoy channel
-  # TODO make this a list
-  #    - channel_name: 0
-  #      channel_modifications:
-  #        mTRAQ@K: mTRAQ@K
-  #        mTRAQ@Any_N-term: mTRAQ@Any_N-term
-  multiplex_mapping: {}
-    #0:
-    #  mTRAQ@K: mTRAQ@K
-    #  mTRAQ@Any_N-term: mTRAQ@Any_N-term
+  multiplex_mapping: []
+#    - channel_name: 0
+#      modifications:
+#        mTRAQ@K: mTRAQ@K
+#        mTRAQ@Any_N-term: mTRAQ@Any_N-term
+#
+#    - channel_name: 4
+#      modifications:
+#        mTRAQ@K: mTRAQ:13C(3)15N(1)@K
+#        mTRAQ@Any_N-term: mTRAQ:13C(3)15N(1)@Any_N-term
+#
+#    - channel_name: 8
+#      modifications:
+#        mTRAQ@K: mTRAQ:13C(6)15N(2)@K
+#        mTRAQ@Any_N-term: mTRAQ:13C(6)15N(2)@Any_N-term
+#
+#    - channel_name: 12
+#      modifications:
+#        mTRAQ@K: mTRAQ:d12@K
+#        mTRAQ@Any_N-term: mTRAQ:d12@Any_N-term
 
-    #4:
-    #  mTRAQ@K: mTRAQ:13C(3)15N(1)@K
-    #  mTRAQ@Any_N-term: mTRAQ:13C(3)15N(1)@Any_N-term
-
-    #8:
-    #  mTRAQ@K: mTRAQ:13C(6)15N(2)@K
-    #  mTRAQ@Any_N-term: mTRAQ:13C(6)15N(2)@Any_N-term
-
-    #12:
-    #  mTRAQ@K: mTRAQ:d12@K
-    #  mTRAQ@Any_N-term: mTRAQ:d12@Any_N-term
 
 
 
@@ -387,58 +381,6 @@ transfer_learning:
   # instrument type encoded during training
   instrument: 'Lumos'
 
-
-# configuration for the calibration manager
-# the config has to start with the calibration keyword and consists of a list of calibration groups.
-# each group consists of datapoints which have multiple properties.
-# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
-calibration_manager: # TODO move to a separate file or hard-code
-  - name: fragment
-    estimators:
-      - name: mz
-        model: LOESSRegression
-        model_args:
-          n_kernels: 2
-        input_columns:
-          - mz_library
-        target_columns:
-          - mz_observed
-        output_columns:
-          - mz_calibrated
-        transform_deviation: 1e6
-  - name: precursor
-    estimators:
-        - name: mz
-          model: LOESSRegression
-          model_args:
-            n_kernels: 2
-          input_columns:
-            - mz_library
-          target_columns:
-            - mz_observed
-          output_columns:
-            - mz_calibrated
-          transform_deviation: 1e6
-        - name: rt
-          model: LOESSRegression
-          model_args:
-            n_kernels: 6
-          input_columns:
-            - rt_library
-          target_columns:
-            - rt_observed
-          output_columns:
-            - rt_calibrated
-        - name: mobility
-          model: LOESSRegression
-          model_args:
-            n_kernels: 2
-          input_columns:
-            - mobility_library
-          target_columns:
-            - mobility_observed
-          output_columns:
-            - mobility_calibrated
 
 # scope of default yaml should be one search step
 multistep_search:
