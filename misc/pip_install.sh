@@ -3,8 +3,13 @@ set -e -u
 INSTALL_TYPE=$1 # stable, loose, etc..
 ENV_NAME=${2:-alphadia}
 PYTHON_VERSION=${3:-3.11}
+INSTALL_MONO=${4:-false}
 
-conda create -n $ENV_NAME python=$PYTHON_VERSION -y
+if [ "$INSTALL_MONO" = "true" ]; then
+  conda create -n $ENV_NAME python=$PYTHON_VERSION mono -y
+else
+  conda create -n $ENV_NAME python=$PYTHON_VERSION -y
+fi
 
 if [ "$INSTALL_TYPE" = "loose" ]; then
   INSTALL_STRING=""
