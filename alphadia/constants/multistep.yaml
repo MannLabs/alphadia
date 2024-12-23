@@ -12,7 +12,7 @@ transfer:
     enabled: True
 
   # override settings that could have been set by the user:
-  quant_dir: null
+  quant_directory: null
   general:
     save_library: False
     reuse_quant: False
@@ -24,7 +24,7 @@ library:
 #    predict: True
 
   # override settings that could have been set by the user:
-  quant_dir: null
+  quant_directory: null
   general:
     save_library: False
     reuse_quant: False
@@ -39,7 +39,7 @@ mbr:
   search:
     target_num_candidates: 5
   # override settings that could have been set by the user:
-  quant_dir: null
+  quant_directory: null
   general:
     reuse_quant: False
   library_prediction:
