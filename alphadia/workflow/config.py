@@ -15,6 +15,8 @@ from typing import Any
 
 import yaml
 
+from alphadia.exceptions import KeyAddedConfigError, TypeMismatchConfigError
+
 logger = logging.getLogger()
 
 DEFAULT = "default"
@@ -98,6 +100,7 @@ class Config:
 
         current_config = deepcopy(self.config)
         for experiment_config in experiments:
+            logger.info(f"Updating config with '{experiment_config.experiment_name}'")
             _update(
                 current_config,
                 experiment_config.to_dict(),
@@ -154,14 +157,12 @@ def _update(
         - lists are always overwritten
 
     Raises:
-        ValueError in these cases:
-        - a key is not found in the target_config
-        - the type of the update value does not match the type of the target value
-        - an item is not found in the target_config
+        - KeyAddedConfigError: a key is not found in the target_config
+        - ValueTypeMismatchConfigError: the type of the update value does not match the type of the target value
     """
     for key, update_value in update_config.items():
         if key not in target_config:
-            raise ValueError(f"Key not found in target_config: '{key}'")
+            raise KeyAddedConfigError(key, experiment_name)
 
         target_value = target_config[key]
         tracking_value = tracking_dict[key]
@@ -174,8 +175,8 @@ def _update(
                 and isinstance(update_value, int | float)
             )
         ):
-            raise ValueError(
-                f"Type mismatch for key '{key}': {type(update_value)} != {type(target_value)}"
+            raise TypeMismatchConfigError(
+                key, experiment_name, f"{type(update_value)} != {type(target_value)}"
             )
 
         if isinstance(target_value, dict):

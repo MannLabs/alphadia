@@ -20,6 +20,9 @@ class CustomError(Exception):
     def detail_msg(self):
         return self._detail_msg
 
+    def __str__(self):
+        return f"{self._error_code}: {self._msg} {self._detail_msg}"
+
 
 class BusinessError(CustomError):
     """Custom error class for 'business' errors.
@@ -59,3 +62,33 @@ class NotDiaDataError(BusinessError):
     _error_code = "NOT_DIA_DATA"
 
     _msg = "Could not find cycle shape. Please check if this is a valid DIA data set."
+
+
+class ConfigError(BusinessError):
+    """Raise when something is wrong with the provided configuration."""
+
+    _error_code = "CONFIG_ERROR"
+
+    _msg = "Malformed configuration file(s)."
+    _key = ""
+    _config_name = ""
+
+    def __init__(self, key: str, config_name: str):
+        self._key = key
+        self._config_name = config_name
+
+
+class KeyAddedConfigError(ConfigError):
+    """Raise when a key is added to a config."""
+
+    def __init__(self, key: str, config_name: str):
+        super().__init__(key, config_name)
+        self._detail_msg = f"Adding keys is not supported: key='{self._key}', configuration='{self._config_name}'"
+
+
+class TypeMismatchConfigError(ConfigError):
+    """Raise when the type of a value does not match the default type."""
+
+    def __init__(self, key: str, config_name: str, extra_msg: str):
+        super().__init__(key, config_name)
+        self._detail_msg = f"Type mismatch for key: key='{self._key}', configuration='{self._config_name}', types='{extra_msg}'"

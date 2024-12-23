@@ -4,6 +4,7 @@ from io import StringIO
 import pytest
 import yaml
 
+from alphadia.exceptions import KeyAddedConfigError, TypeMismatchConfigError
 from alphadia.workflow.config import Config
 
 generic_default_config = """
@@ -205,7 +206,7 @@ def test_config_update_new_key_raises():
     config_2.from_dict({"new_key": 0})
 
     # when
-    with pytest.raises(ValueError, match="Key not found in target_config: 'new_key'"):
+    with pytest.raises(KeyAddedConfigError):
         config_1.update([config_2], do_print=True)
 
 
@@ -219,8 +220,7 @@ def test_config_update_type_mismatch_raises():
 
     # when
     with pytest.raises(
-        ValueError,
-        match="Type mismatch for key 'simple_value_int': <class 'str'> != <class 'int'>",
+        TypeMismatchConfigError,
     ):
         config_1.update([config_2], do_print=True)
 
