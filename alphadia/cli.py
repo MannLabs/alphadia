@@ -23,8 +23,11 @@ from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 
+epilog = "Parameters passed via CLI will overwrite parameters from config file (except for  '--file': will be merged)."
 
-parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
+parser = argparse.ArgumentParser(
+    description="Search DIA experiments with alphaDIA", epilog=epilog
+)
 parser.add_argument(
     "--version",
     "-v",
@@ -33,17 +36,19 @@ parser.add_argument(
 )
 parser.add_argument(
     "--output",
+    "--output-directory",
     "-o",
     type=str,
-    help="Output directory",
+    help="Output directory.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--file",
+    "--raw-path",
     "-f",
     type=str,
-    help="Raw data input files.",
+    help="Path to raw data input file. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -59,21 +64,23 @@ parser.add_argument(
     "--regex",
     "-r",
     type=str,
-    help="Regex to match raw files in directory.",
+    help="Regex to match raw files in 'directory'.",
     nargs="?",
     default=".*",
 )
 parser.add_argument(
     "--library",
+    "--library-path",
     "-l",
     type=str,
-    help="Spectral library.",
+    help="Path to spectral library file.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--fasta",
-    help="Fasta file(s) used to generate or annotate the spectral library.",
+    "--fasta-path",
+    help="Path to fasta file used to generate or annotate the spectral library. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -81,7 +88,7 @@ parser.add_argument(
     "--config",
     "-c",
     type=str,
-    help="Config yaml which will be used to update the default config.",
+    help="Path to config yaml file which will be used to update the default config.",
     nargs="?",
     default=None,
 )
@@ -94,14 +101,15 @@ parser.add_argument(
 parser.add_argument(
     "--config-dict",
     type=str,
-    help="Python Dict which will be used to update the default config.",
+    help="Python dictionary which will be used to update the default config.",
     nargs="?",
     default="{}",
 )
 parser.add_argument(
-    "--quant-dir",
+    "--quant-dir",  # TODO deprecate
+    "--quant-directory",
     type=str,
-    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search",
+    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search.",
     nargs="?",
     default=None,
 )
