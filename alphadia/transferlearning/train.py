@@ -3,10 +3,9 @@ import logging
 import numpy as np
 import pandas as pd
 import torch
-from alphabase.peptide.fragment import remove_unused_fragments
+from alphabase.peptide.fragment import get_charged_frag_types, remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
-from alphabase.peptide.fragment import get_charged_frag_types
 from peptdeep.model.charge import ChargeModelForModAASeq
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
@@ -220,7 +219,7 @@ class FinetuneManager(ModelManager):
         nce: float = 25,
         instrument: str = "Lumos",
         fragment_types: list[str] | None = None,
-        max_charge: int|None = None,
+        max_charge: int | None = None,
     ):
         self._test_interval = test_interval
         self._train_fraction = train_fraction
@@ -235,7 +234,11 @@ class FinetuneManager(ModelManager):
 
         self.device = device
         self.early_stopping = EarlyStopping(patience=(lr_patience // test_interval) * 4)
-        self.charged_frag_types = get_charged_frag_types(fragment_types, max_charge) if fragment_types else None
+        self.charged_frag_types = (
+            get_charged_frag_types(fragment_types, max_charge)
+            if fragment_types
+            else None
+        )
         assert (
             self._train_fraction + self._validation_fraction + self._test_fraction
             <= 1.0
