@@ -421,6 +421,8 @@ class SearchPlanOutput:
             max_lr=self.config["transfer_learning"]["max_lr"],
             nce=self.config["transfer_learning"]["nce"],
             instrument=self.config["transfer_learning"]["instrument"],
+            fragment_types=self.config["transfer_library"]["fragment_types"],
+            max_charge=self.config["transfer_library"]["max_charge"],
         )
         rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
         charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)

@@ -320,7 +320,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         device = utils.get_torch_device(self.use_gpu)
 
-        model_mgr = ModelManager(device=device)
+        model_mgr = ModelManager(device=device ,charged_frag_types = charged_frag_types)
 
         # will load other model than default generic
         if self.peptdeep_model_type:
