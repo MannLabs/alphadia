@@ -10,7 +10,7 @@ import directlfq.protein_intensity_estimation as lfqprot_estimation
 import directlfq.utils as lfqutils
 import numpy as np
 import pandas as pd
-from alphabase.peptide import precursor
+from alphabase.peptide import fragment, precursor
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 from sklearn.model_selection import train_test_split
@@ -481,8 +481,16 @@ class SearchPlanOutput:
             ],
         )
         accumulationBroadcaster = AccumulationBroadcaster(
-            folder_list, number_of_processes
+            folder_list=folder_list,
+            number_of_processes=number_of_processes,
+            processing_kwargs={
+                "charged_frag_types": fragment.get_charged_frag_types(
+                    self.config["transfer_library"]["fragment_types"].split(";"),
+                    self.config["transfer_library"]["max_charge"],
+                )
+            },
         )
+
         accumulationBroadcaster.subscribe(transferAccumulator)
         accumulationBroadcaster.run()
         logger.info(

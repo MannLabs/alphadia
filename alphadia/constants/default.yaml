@@ -312,7 +312,9 @@ transfer_library:
   # if true, the library is created for transfer learning
   enabled: False
 
-  # semicolon separated list of fragment types to include in the library. possible values are 'a', 'b', 'c', 'x', 'y', 'z'
+  # semicolon separated list of fragment types to include in the library. possible values are
+  # 'a', 'b', 'c', 'x', 'y', 'z'
+  # 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'b_modloss', 'y_modloss', 'c_lossH', 'z_addH'
   fragment_types: 'b;y'
 
   # maximum charge for fragments
