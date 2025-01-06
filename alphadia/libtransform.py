@@ -286,7 +286,7 @@ class PeptDeepPrediction(ProcessingStep):
             Default is None, which means the peptdeep default model ("generic") is being used.
             Possible values are ['generic','phospho','digly']
 
-        fragment_types : List[str], optional
+        fragment_types : list[str], optional
             Fragment types to predict. Default is ["b", "y"].
 
         max_fragment_charge : int, optional

@@ -217,7 +217,7 @@ class SearchStep:
                 mp_process_num=thread_count,
                 peptdeep_model_path=prediction_config["peptdeep_model_path"],
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
-                fragment_types=prediction_config["fragment_types"].split(";"),
+                fragment_types=prediction_config["fragment_types"],
                 max_fragment_charge=prediction_config["max_fragment_charge"],
             )
 
