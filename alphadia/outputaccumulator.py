@@ -517,8 +517,8 @@ def ms2_quality_control(
         # use the precursor for MS2 learning if the median correlation is above the cutoff
         use_for_ms2[i] = median_correlation > precursor_correlation_cutoff
 
-        # Fix: Use loc to modify the original DataFrame instead of the view
-        spec_lib_base.fragment_intensity_df.loc[start_idx:stop_idx] = (
+        # Fix: Use iloc to modify the original DataFrame instead of the view
+        spec_lib_base.fragment_intensity_df.iloc[start_idx:stop_idx] = (
             fragment_intensity_view.values
             * (
                 fragment_correlation_view
