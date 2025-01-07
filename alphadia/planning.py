@@ -202,6 +202,10 @@ class Plan:
 
             modification.add_new_modifications(self.config["custom_modifications"])
 
+            from peptdeep.settings import update_all_mod_features
+
+            update_all_mod_features()
+
     def load_library(self):
         """
         Load or build spectral library as configured.
