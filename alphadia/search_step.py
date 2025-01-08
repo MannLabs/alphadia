@@ -83,7 +83,7 @@ class SearchStep:
         cli_config: dict | None,
         extra_config: dict | None,
         output_folder: str,
-    ):
+    ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
         default_config_path = os.path.join(

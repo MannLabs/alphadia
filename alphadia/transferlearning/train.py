@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
+from alphabase.peptide.precursor import refine_precursor_df
 from peptdeep.model.charge import ChargeModelForModAASeq
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
@@ -564,13 +565,14 @@ class FinetuneManager(ModelManager):
         test_intensity_df = test_intensity_df[0]
 
         # Prepare order for peptdeep prediction
-
+        val_psm_df = refine_precursor_df(val_psm_df)
         reordered_val_psm_df = self._reset_frag_idx(val_psm_df)
         reordered_val_intensity_df = self._order_intensities(
             reordered_precursor_df=reordered_val_psm_df,
             unordered_precursor_df=val_psm_df,
             unordered_frag_df=val_intensity_df,
         )
+        test_psm_df = refine_precursor_df(test_psm_df)
         reordered_test_psm_df = self._reset_frag_idx(test_psm_df)
         reordered_test_intensity_df = self._order_intensities(
             reordered_precursor_df=reordered_test_psm_df,

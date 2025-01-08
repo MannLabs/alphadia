@@ -13,8 +13,8 @@ class ConstantsClass(type):
         ]
 
 
-class OutputKeys(metaclass=ConstantsClass):
-    """String constants for reading and writing output columns."""
+class StatOutputKeys(metaclass=ConstantsClass):
+    """String constants for reading and writing output columns for the `stat` file."""
 
     # optimization
     OPTIMIZATION_PREFIX = "optimization."
