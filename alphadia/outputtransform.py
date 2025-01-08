@@ -19,7 +19,7 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
-from alphadia.constants.keys import OutputKeys
+from alphadia.constants.keys import StatOutputKeys
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
@@ -909,7 +909,11 @@ class SearchPlanOutput:
 
         if self.config["general"]["save_mbr_library"]:
             logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(os.path.join(self.output_folder, "speclib.mbr.hdf"))
+            mbr_spec_lib.save_hdf(
+                os.path.join(
+                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+                )
+            )
 
         return mbr_spec_lib
 
@@ -977,22 +981,28 @@ def _build_run_stat_df(
             optimization_manager = manager.OptimizationManager(
                 path=optimization_manager_path
             )
-            optimization_stats[OutputKeys.MS2_ERROR] = optimization_manager.ms2_error
-            optimization_stats[OutputKeys.MS1_ERROR] = optimization_manager.ms1_error
-            optimization_stats[OutputKeys.RT_ERROR] = optimization_manager.rt_error
-            optimization_stats[OutputKeys.MOBILITY_ERROR] = (
+            optimization_stats[StatOutputKeys.MS2_ERROR] = (
+                optimization_manager.ms2_error
+            )
+            optimization_stats[StatOutputKeys.MS1_ERROR] = (
+                optimization_manager.ms1_error
+            )
+            optimization_stats[StatOutputKeys.RT_ERROR] = optimization_manager.rt_error
+            optimization_stats[StatOutputKeys.MOBILITY_ERROR] = (
                 optimization_manager.mobility_error
             )
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
 
         for key in [
-            OutputKeys.MS2_ERROR,
-            OutputKeys.MS1_ERROR,
-            OutputKeys.RT_ERROR,
-            OutputKeys.MOBILITY_ERROR,
+            StatOutputKeys.MS2_ERROR,
+            StatOutputKeys.MS1_ERROR,
+            StatOutputKeys.RT_ERROR,
+            StatOutputKeys.MOBILITY_ERROR,
         ]:
-            stats[f"{OutputKeys.OPTIMIZATION_PREFIX}{key}"] = optimization_stats[key]
+            stats[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{key}"] = optimization_stats[
+                key
+            ]
 
         # collect calibration stats
         calibration_stats = defaultdict(lambda: np.nan)

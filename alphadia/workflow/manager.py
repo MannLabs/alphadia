@@ -101,7 +101,12 @@ class BaseManager:
 
     def load(self):
         """Load the state from pickle file."""
-        if self.path is None or not os.path.exists(self.path):
+        if self.path is None:
+            self.reporter.log_string(
+                f"{self.__class__.__name__} not loaded from disk.",
+            )
+            return
+        elif not os.path.exists(self.path):
             self.reporter.log_string(
                 f"{self.__class__.__name__} not found at: {self.path}",
                 verbosity="warning",
