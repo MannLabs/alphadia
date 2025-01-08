@@ -1,7 +1,6 @@
 import logging
 import math
 import platform
-import re
 from ctypes import Structure, c_double
 
 import numba as nb
@@ -72,81 +71,6 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
     # the last 8 bits are used to distinguish between different charges of the same precursor
     # this is necessary because I forgot to save the charge in the frag.tsv file :D
     return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
-
-
-def wsl_to_windows(
-    path: str | list | tuple,
-) -> str | list | tuple:
-    """Converts a WSL path to a Windows path.
-
-    Parameters
-    ----------
-    path : str, list, tuple
-        WSL path.
-
-    Returns
-    -------
-    str, list, tuple
-        Windows path.
-
-    """
-
-    if path is None:
-        return None
-
-    if isinstance(path, str):
-        disk_match = re.search(r"^/mnt/[a-z]", path)
-
-        if len(disk_match.group()) == 0:
-            raise ValueError(
-                "Could not find disk in path during wsl to windows conversion"
-            )
-
-        disk_letter = disk_match.group()[5].upper()
-
-        return re.sub(r"^/mnt/[a-z]", f"{disk_letter}:", path).replace("/", "\\")
-
-    elif isinstance(path, list | tuple):
-        return [wsl_to_windows(p) for p in path]
-    else:
-        raise ValueError(f"Unsupported type {type(path)}")
-
-
-def windows_to_wsl(
-    path: str | list | tuple,
-) -> str | list | tuple:
-    """Converts a Windows path to a WSL path.
-
-    Parameters
-    ----------
-    path : str, list, tuple
-        Windows path.
-
-    Returns
-    -------
-    str, list, tuple
-        WSL path.
-
-    """
-    if path is None:
-        return None
-
-    if isinstance(path, str):
-        disk_match = re.search(r"^[A-Z]:", path)
-
-        if len(disk_match.group()) == 0:
-            raise ValueError(
-                "Could not find disk in path during windows to wsl conversion"
-            )
-
-        disk_letter = disk_match.group()[0].lower()
-
-        return re.sub(r"^[A-Z]:", f"/mnt/{disk_letter}", path.replace("\\", "/"))
-
-    elif isinstance(path, list | tuple):
-        return [windows_to_wsl(p) for p in path]
-    else:
-        raise ValueError(f"Unsupported type {type(path)}")
 
 
 def recursive_update(full_dict: dict, update_dict: dict):

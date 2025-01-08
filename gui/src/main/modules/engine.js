@@ -154,7 +154,7 @@ function hasPython(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
             execPATH("conda run -n " + envName + " python -c \"print(__import__('sys').version)\"" , condaPath, (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
+                if (err) {console.log(err); reject("Python not found in conda environment " + envName); return;}
                 resolve(stdout.trim().split(" ")[0])
             })
         } catch (err) {
@@ -168,7 +168,7 @@ function hasAlphaDIA(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
             execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("alphaDIA not found within WSL"); return;}
+                if (err) {console.log(err); reject("AlphaDIA not found in conda environment " + envName); return;}
                 resolve(stdout.trim())
             }
         )} catch (err) {
@@ -470,175 +470,6 @@ class BundledExecutionEngine extends BaseExecutionEngine {
 
 }
 
-function hasWSL(){
-    return new Promise((resolve, reject) => {
-        exec("wsl --list", () => {}).on("exit", (code) => {
-            if (code == 0){
-                resolve()
-            } else {
-                reject("WSL not found")
-            }
-        })
-    })
-}
-
-function hasWSLConda(){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda info --json\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Conda not found within WSL"); return;}
-            const info = JSON.parse(stdout);
-            resolve(info['conda_version'])
-        })
-    })
-}
-
-function hasWSLCondaEnv(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + "\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
-            resolve()
-        })
-    })
-}
-
-function hasWSLAlphaPython(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + " && python -c \\\"print(__import__('sys').version)\\\"\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Python not found in environment " + envName + " within WSL"); return;}
-            resolve(stdout.trim().split(" ")[0])
-        })
-    })
-}
-
-function hasWSLAlphaDIA(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + " && alphadia --version\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("alphaDIA not found within WSL"); return;}
-            resolve(stdout.trim())
-        })
-    })
-}
-
-class WSLExecutionEngine extends BaseExecutionEngine {
-
-    name = "WSLExecutionEngine"
-    description = "Windows subsystem for Linux (WSL) is being used to run alphaDIA. Recommended execution engine for Windows users."
-    valid_plattforms = [
-        "win32"
-    ]
-
-    checkAvailability(){
-        return new Promise((resolve, reject) => {
-
-            if (this.valid_plattforms.indexOf(process.platform) == -1){
-                this.available = false
-                this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
-                resolve(this)
-            }
-
-            // check the status code of the command "wsl --list"
-
-            return hasWSL().then(
-                hasWSLConda
-            ).then((conda_version) => {
-                this.versions.push({"name": "conda", "version": conda_version})
-            }).then(() => {
-                return hasWSLCondaEnv(this.config.envName)
-            }).then(() => {
-                return hasWSLAlphaPython(this.config.envName)
-            }).then((python_version) => {
-                this.versions.push({"name": "python", "version": python_version})
-            }).then(() => {
-                return hasWSLAlphaDIA(this.config.envName)
-            }).then((alphadia_version) => {
-                this.versions.push({"name": "alphadia", "version": alphadia_version})
-            }).then(() => {
-                this.available = true
-            }).catch((err) => {
-                this.available = false
-                this.error = err
-            }).finally(() => {
-                console.log(this.constructor.name + " status")
-                console.log(this)
-                resolve(this)
-            })
-        })
-    }
-
-    saveWorkflow(workflow){
-        return new Promise((resolve, reject) => {
-            const workflowFolder = workflow.output_directory.path
-            const config = workflowToConfig(workflow)
-            if (!fs.existsSync(workflowFolder)) {
-                reject("Output folder " + workflowFolder + " does not exist.")
-            }
-            const configPath = path.join(workflowFolder, "config.yaml")
-            // save config.yaml in workflow folder
-            writeYamlFile.sync(configPath, config, {lineWidth: -1})
-            resolve()
-        })
-    }
-
-    startWorkflow(workflow){
-        return this.saveWorkflow(workflow).then(() => {
-
-            let run = {
-                engine: this.constructor.name,
-                name: workflow.name,
-                path: workflow.output_directory.path,
-                std: [],
-                pid: null,
-                code: -1,
-                process : null,
-                activePromise: null,
-            }
-
-            const winOutputPath = path.join(workflow.output_directory.path, "config.yaml")
-            const wslOutputPath = "/mnt/" + winOutputPath.replace(/\\/g, "/").replace(":", "").toLowerCase()
-
-            run.process = spawn("wsl", ["bash",
-                                        "-ic",
-                                        "\"conda run -n " + this.config.envName + " --no-capture-output alphadia -w --config " + wslOutputPath + "\""], { shell: true });
-            run.pid = run.process.pid
-
-            const stdoutTransform = lineBreakTransform();
-            run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
-                run.std.push(data.toString())
-            });
-
-            const stderrTransform = lineBreakTransform();
-            run.process.stderr.pipe(stderrTransform).on('data', (data) => {
-                run.std.push(data.toString())
-            });
-
-            run.activePromise = new Promise((resolve, reject) => {
-                run.process.on('close', (code) => {
-                    run.process = null
-                    run.code = code
-                    resolve(code);
-                });
-            })
-
-            console.log(run)
-
-            return run
-        }).catch((err) => {
-            console.log(err)
-            dialog.showMessageBox(
-            BrowserWindow.getFocusedWindow(),
-                {
-                type: 'error',
-                title: 'Error while starting workflow',
-                message: `Could not start workflow. ${err}`,
-            }).catch((err) => {
-                console.log(err)
-            })
-        })
-    }
-
-
-
-}
 
 class ExecutionManager {
 
@@ -654,7 +485,6 @@ class ExecutionManager {
         this.executionEngines = [
             new CMDExecutionEngine(profile.config.CMDExecutionEngine || {}),
             new BundledExecutionEngine(profile.config.BundledExecutionEngine || {}),
-            new WSLExecutionEngine(profile.config.WSLExecutionEngine || {}),
         ]
 
         // invoke checkAvailability() for all execution engines

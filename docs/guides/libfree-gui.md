@@ -10,7 +10,7 @@ Also ensure the right execution engine has been selected and your version is up 
 
 ## 2. Project Structure
 We will be performing two DIA searches: a first search for library generation and a second search for joined quantification. To accommodate this, we prepare the project directory to have a `first_pass` and a `second_pass` folder. You can change the project path in the `Output Files` tab
-<img src="../_static/images/libfree-gui/folder_structure.png" width="100%" height="auto">
+<img src="../_static/images/libfree-gui/initial_folders.png" width="100%" height="auto">
 
 ## 3. First search
 To set up the first search:
