@@ -156,7 +156,7 @@ def _get_raw_path_list_from_args_and_config(
     raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
     raw_path_list += args.file
 
-    if (config_directory := config.get(ConfigKeys.OUTPUT_DIRECTORY)) is not None:
+    if (config_directory := config.get("directory")) is not None:
         raw_path_list += [
             os.path.join(config_directory, f) for f in os.listdir(config_directory)
         ]
