@@ -13,7 +13,6 @@ general:
   reuse_quant: false
   astral_ms1: false
   log_level: 'INFO'
-  wsl: false
   mmap_detector_events: false
   use_gpu: true
   # whether to save the libraries to the output directory
