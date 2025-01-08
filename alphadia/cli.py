@@ -153,7 +153,7 @@ def _get_raw_path_list_from_args_and_config(
         list: A list of file paths that match the specified regex pattern.
     """
 
-    raw_path_list = config.get("raw_path_list", [])
+    raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
     raw_path_list += args.file
 
     if (config_directory := config.get(ConfigKeys.OUTPUT_DIRECTORY)) is not None:
@@ -175,17 +175,6 @@ def _get_raw_path_list_from_args_and_config(
     print(f"Removed {len_before - len_after} of {len_before} files.")
 
     return raw_path_list
-
-
-def _get_fasta_list_from_args_and_config(
-    args: argparse.Namespace, config: dict
-) -> list:
-    """Parse fasta file list from command line arguments and config file, merging them if both are given."""
-
-    fasta_path_list = config.get("fasta_list", [])
-    fasta_path_list += args.fasta
-
-    return fasta_path_list
 
 
 def run(*args, **kwargs):
@@ -214,9 +203,9 @@ def run(*args, **kwargs):
     reporting.init_logging(output_directory)
 
     # TODO revisit the multiple sources of raw files (cli, config, regex, ...)
-    raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
+    raw_paths = _get_raw_path_list_from_args_and_config(args, user_config)
     cli_params_config = {
-        **({ConfigKeys.RAW_PATHS: raw_path_list} if raw_path_list else {}),
+        **({ConfigKeys.RAW_PATHS: raw_paths} if raw_paths else {}),
         **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
         **({ConfigKeys.FASTA_PATHS: args.library} if args.fasta else {}),
         **(
@@ -248,5 +237,5 @@ def run(*args, **kwargs):
 
 
 # uncomment for debugging:
-if __name__ == "__main__":
-    run()
+# if __name__ == "__main__":
+#     run()
