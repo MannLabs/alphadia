@@ -11,17 +11,23 @@ import os
 import re
 import sys
 
+import matplotlib
 import yaml
 
 import alphadia
 from alphadia import utils
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
+from alphadia.search_plan import SearchPlan
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 
+epilog = "Parameters passed via CLI will overwrite parameters from config file (except for  '--file': will be merged)."
 
-parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
+parser = argparse.ArgumentParser(
+    description="Search DIA experiments with alphaDIA", epilog=epilog
+)
 parser.add_argument(
     "--version",
     "-v",
@@ -30,17 +36,19 @@ parser.add_argument(
 )
 parser.add_argument(
     "--output",
+    "--output-directory",
     "-o",
     type=str,
-    help="Output directory",
+    help="Output directory.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--file",
+    "--raw-path",
     "-f",
     type=str,
-    help="Raw data input files.",
+    help="Path to raw data input file. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -56,21 +64,23 @@ parser.add_argument(
     "--regex",
     "-r",
     type=str,
-    help="Regex to match raw files in directory.",
+    help="Regex to match raw files in 'directory'.",
     nargs="?",
     default=".*",
 )
 parser.add_argument(
     "--library",
+    "--library-path",
     "-l",
     type=str,
-    help="Spectral library.",
+    help="Path to spectral library file.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--fasta",
-    help="Fasta file(s) used to generate or annotate the spectral library.",
+    "--fasta-path",
+    help="Path to fasta file used to generate or annotate the spectral library. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -78,21 +88,22 @@ parser.add_argument(
     "--config",
     "-c",
     type=str,
-    help="Config yaml which will be used to update the default config.",
+    help="Path to config yaml file which will be used to update the default config.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--config-dict",
     type=str,
-    help="Python Dict which will be used to update the default config.",
+    help="Python dictionary which will be used to update the default config.",
     nargs="?",
     default="{}",
 )
 parser.add_argument(
-    "--quant-dir",
+    "--quant-dir",  # TODO deprecate
+    "--quant-directory",
     type=str,
-    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search",
+    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search.",
     nargs="?",
     default=None,
 )
@@ -132,17 +143,21 @@ def _get_raw_path_list_from_args_and_config(
     arguments, including files from specified directories. It filters the resulting
     list of file paths using a regular expression provided in the arguments.
 
-    Args:
-        args (argparse.Namespace): Command-line arguments containing file and directory
-            paths, as well as a regex pattern for filtering.
-        config (dict): Configuration dictionary that may include a list of raw paths
-            and a directory to search for files.
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing file and directory
+        paths, as well as a regex pattern for filtering.
+    config : dict
+        Configuration dictionary that may include a list of raw paths
+        and a directory to search for files.
 
-    Returns:
-        list: A list of file paths that match the specified regex pattern.
+    Returns
+    -------
+        list: a list of file paths that match the specified regex pattern.
     """
 
-    raw_path_list = config.get("raw_path_list", [])
+    raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
     raw_path_list += args.file
 
     if (config_directory := config.get("directory")) is not None:
@@ -166,17 +181,6 @@ def _get_raw_path_list_from_args_and_config(
     return raw_path_list
 
 
-def _get_fasta_list_from_args_and_config(
-    args: argparse.Namespace, config: dict
-) -> list:
-    """Parse fasta file list from command line arguments and config file, merging them if both are given."""
-
-    fasta_path_list = config.get("fasta_list", [])
-    fasta_path_list += args.fasta
-
-    return fasta_path_list
-
-
 def run(*args, **kwargs):
     # parse command line arguments
     args, unknown = parser.parse_known_args()
@@ -197,52 +201,31 @@ def run(*args, **kwargs):
     )
     if output_directory is None:
         parser.print_help()
-        print("No output directory specified.")
+
+        print("No output directory specified. Please do so via CL-argument or config.")
         return
-
     reporting.init_logging(output_directory)
-    logger.progress(f"Saving output to: {output_directory}")
 
-    raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
-    logger.progress(f"Searching {len(raw_path_list)} files:")
-    for f in raw_path_list:
-        logger.progress(f"  {os.path.basename(f)}")
-
-    library_path = _get_from_args_or_config(
-        args, user_config, args_key="library", config_key="library"
-    )
-    logger.progress(f"Using library: {library_path}")
-
-    fasta_path_list = _get_fasta_list_from_args_and_config(args, user_config)
-    logger.progress(f"Using {len(fasta_path_list)} fasta files:")
-    for f in fasta_path_list:
-        logger.progress(f"  {f}")
+    # TODO revisit the multiple sources of raw files (cli, config, regex, ...)
+    raw_paths = _get_raw_path_list_from_args_and_config(args, user_config)
+    cli_params_config = {
+        **({ConfigKeys.RAW_PATHS: raw_paths} if raw_paths else {}),
+        **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
+        **({ConfigKeys.FASTA_PATHS: args.library} if args.fasta else {}),
+        **(
+            {ConfigKeys.QUANT_DIRECTORY: args.library}
+            if args.quant_dir is not None
+            else {}
+        ),
+    }
 
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
-    quant_dir = _get_from_args_or_config(
-        args, user_config, args_key="quant_dir", config_key="quant_dir"
-    )
-    if quant_dir is not None:
-        logger.progress(f"Saving quantification output to {quant_dir=}")
+
+    # important to suppress matplotlib output
+    matplotlib.use("Agg")
 
     try:
-        import matplotlib
-
-        # important to suppress matplotlib output
-        matplotlib.use("Agg")
-
-        from alphadia.planning import Plan
-
-        plan = Plan(
-            output_directory,
-            raw_path_list=raw_path_list,
-            library_path=library_path,
-            fasta_path_list=fasta_path_list,
-            config=user_config,
-            quant_path=quant_dir,
-        )
-
-        plan.run()
+        SearchPlan(output_directory, user_config, cli_params_config).run_plan()
 
     except Exception as e:
         if isinstance(e, CustomError):

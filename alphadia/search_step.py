@@ -1,50 +1,40 @@
-# native imports
 import logging
 import os
-import socket
 from collections.abc import Generator
-from datetime import datetime
-from importlib import metadata
 from pathlib import Path
 
-import alphabase
-import alpharaw
-import alphatims
-import directlfq
-import peptdeep
-
-# third party imports
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
-
-# alpha family imports
 from alphabase.spectral_library.flat import SpecLibFlat
 
-import alphadia
-
-# alphadia imports
 from alphadia import libtransform, outputtransform
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
-from alphadia.workflow.config import Config
+from alphadia.workflow.config import (
+    MULTISTEP_SEARCH,
+    USER_DEFINED,
+    USER_DEFINED_CLI_PARAM,
+    Config,
+)
+
+SPECLIB_FILE_NAME = "speclib.hdf"
 
 logger = logging.getLogger()
 
 
-class Plan:
+class SearchStep:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: list[str] | None = None,
-        library_path: str | None = None,
-        fasta_path_list: list[str] | None = None,
         config: dict | Config | None = None,
-        config_base_path: str | None = None,
-        quant_path: str | None = None,
+        cli_config: dict | None = None,
+        extra_config: dict | None = None,
     ) -> None:
-        """Highest level class to plan a DIA Search.
+        """Highest level class to plan a DIA search step.
+
         Owns the input file list, speclib and the config.
         Performs required manipulation of the spectral library like transforming RT scales and adding columns.
 
@@ -54,100 +44,88 @@ class Plan:
         output_folder : str
             output folder to save the results
 
-        raw_path_list : list
-            list of input file locations
-
-        library_path : str, optional
-            path to the spectral library file. If not provided, the library is built from fasta files
-
-        fasta_path_list : list, optional
-            list of fasta file locations to build the library from
-
-        config_base_path : str, optional
-            yaml file containing the default config.
-
         config : dict, optional
-            dict to update the default config. Can be used for debugging purposes etc.
+            values to update the default config. Overrides values in `default.yaml`.
 
-        quant_path : str, optional
-            path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
+        cli_config : dict, optional
+            additional config values (parameters from the command line). Overrides values in `config`.
+
+        extra_config : dict, optional
+            additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
         """
-        if config is None:
-            config = {}
-        if fasta_path_list is None:
-            fasta_path_list = []
-        if raw_path_list is None:
-            raw_path_list = []
 
         self.output_folder = output_folder
-        self.raw_path_list = raw_path_list
-        self.library_path = library_path
-        self.fasta_path_list = fasta_path_list
-        self.quant_path = quant_path
-
-        self.spectral_library = None
-
-        # needs to be done before any logging:
+        os.makedirs(output_folder, exist_ok=True)
         reporting.init_logging(self.output_folder)
 
-        self._print_logo()
+        self._config = self._init_config(
+            config, cli_config, extra_config, output_folder
+        )
+        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
-        self._print_environment()
+        self.raw_path_list = self._config[ConfigKeys.RAW_PATHS]
+        self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
+        self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
-        self._config = self._init_config(config, output_folder, config_base_path)
-
-        level_to_set = self._config["general"]["log_level"]
-        level_code = logging.getLevelName(level_to_set)
-        logger.setLevel(level_code)
+        self.spectral_library = None
 
         self.init_alphabase()
         self.load_library()
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
-    def _print_logo(self) -> None:
-        """Print the alphadia logo and version."""
-        logger.progress("          _      _         ___ ___   _   ")
-        logger.progress(r"     __ _| |_ __| |_  __ _|   \_ _| /_\  ")
-        logger.progress("    / _` | | '_ \\ ' \\/ _` | |) | | / _ \\ ")
-        logger.progress("    \\__,_|_| .__/_||_\\__,_|___/___/_/ \\_\\")
-        logger.progress("           |_|                           ")
-        logger.progress("")
-        logger.progress(f"version: {alphadia.__version__}")
+        self._log_inputs()
 
+    @staticmethod
     def _init_config(
-        self,
-        user_config: dict | Config,
+        user_config: dict | Config | None,
+        cli_config: dict | None,
+        extra_config: dict | None,
         output_folder: str,
-        config_base_path: str | None,
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
-        # default config path is not defined in the function definition to account for different path separators on different OS
-        if config_base_path is None:
-            # default yaml config location under /misc/config/config.yaml
-            config_base_path = os.path.join(
-                os.path.dirname(__file__), "constants", "default.yaml"
-            )
-
-        logger.info(f"loading default config from {config_base_path}")
+        default_config_path = os.path.join(
+            os.path.dirname(__file__), "constants", "default.yaml"
+        )
+        logger.info(f"loading config from {default_config_path}")
         config = Config()
-        config.from_yaml(config_base_path)
+        config.from_yaml(default_config_path)
 
-        # load update config from dict
-        if isinstance(user_config, dict):
-            update_config = Config("user defined")
-            update_config.from_dict(user_config)
-        elif isinstance(user_config, Config):
-            update_config = user_config
-        else:
-            raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
+        config_updates = []
 
-        config.update([update_config], print_modifications=True)
+        if user_config is not None:
+            logger.info("loading additional config provided via CLI")
+            # load update config from dict
+            if isinstance(user_config, dict):
+                user_config_update = Config(user_config, name=USER_DEFINED)
+                config_updates.append(user_config_update)
+            elif isinstance(user_config, Config):
+                config_updates.append(user_config)
+            else:
+                raise ValueError(
+                    "'config' parameter must be of type 'dict' or 'Config'"
+                )
 
-        if "output" not in config:
-            config["output"] = output_folder
+        if cli_config is not None:
+            logger.info("loading additional config provided via CLI parameters")
+            cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
+            config_updates.append(cli_config_update)
+
+        # this needs to be last
+        if extra_config is not None:
+            extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
+            # need to overwrite user-defined output folder here to have correct value in config dump
+            extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+            config_updates.append(extra_config_update)
+
+        config.update(config_updates, do_print=True)
+
+        if ConfigKeys.OUTPUT_DIRECTORY not in config:
+            config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+
+        config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
 
         return config
 
@@ -169,38 +147,17 @@ class Plan:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def _print_environment(self) -> None:
-        """Log information about the python environment."""
-
-        logger.progress(f"hostname: {socket.gethostname()}")
-        now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
-        logger.progress(f"date: {now}")
-
-        logger.progress("================ AlphaX Environment ===============")
-        logger.progress(f"{'alphatims':<15} : {alphatims.__version__:}")
-        logger.progress(f"{'alpharaw':<15} : {alpharaw.__version__}")
-        logger.progress(f"{'alphabase':<15} : {alphabase.__version__}")
-        logger.progress(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
-        logger.progress(f"{'directlfq':<15} : {directlfq.__version__}")
-        logger.progress("===================================================")
-
-        logger.progress("================= Pip Environment =================")
-        pip_env = [
-            f"{dist.metadata['Name']}=={dist.version}"
-            for dist in metadata.distributions()
-        ]
-        logger.progress(" ".join(pip_env))
-        logger.progress("===================================================")
-
     def init_alphabase(self):
         """Init alphabase by registering custom modifications."""
 
-        # register custom modifications
-        if "custom_modifications" in self.config:
-            n_modifications = len(self.config["custom_modifications"])
-            logging.info(f"Registering {n_modifications} custom modifications")
+        new_modifications = {}
+        for mod in self.config["custom_modifications"]:
+            new_modifications[mod["name"]] = {"composition": mod["composition"]}
 
-            modification.add_new_modifications(self.config["custom_modifications"])
+        if new_modifications:
+            logging.info(f"Registering {len(new_modifications)} custom modifications")
+
+            modification.add_new_modifications(new_modifications)
 
     def load_library(self):
         """
@@ -219,27 +176,27 @@ class Plan:
 
         prediction_config = self.config["library_prediction"]
 
-        fasta_digest = libtransform.FastaDigest(
-            enzyme=prediction_config["enzyme"],
-            fixed_modifications=_parse_modifications(
-                prediction_config["fixed_modifications"]
-            ),
-            variable_modifications=_parse_modifications(
-                prediction_config["variable_modifications"]
-            ),
-            max_var_mod_num=prediction_config["max_var_mod_num"],
-            missed_cleavages=prediction_config["missed_cleavages"],
-            precursor_len=prediction_config["precursor_len"],
-            precursor_charge=prediction_config["precursor_charge"],
-            precursor_mz=prediction_config["precursor_mz"],
-        )
-
-        if self.library_path is None and prediction_config["predict"]:
-            logger.progress("No library provided. Building library from fasta files.")
-            spectral_library = fasta_digest(self.fasta_path_list)
-        elif self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["predict"]:
             logger.error("No library provided and prediction disabled.")
             return
+        elif self.library_path is None and prediction_config["predict"]:
+            logger.progress("No library provided. Building library from fasta files.")
+
+            fasta_digest = libtransform.FastaDigest(
+                enzyme=prediction_config["enzyme"],
+                fixed_modifications=_parse_modifications(
+                    prediction_config["fixed_modifications"]
+                ),
+                variable_modifications=_parse_modifications(
+                    prediction_config["variable_modifications"]
+                ),
+                max_var_mod_num=prediction_config["max_var_mod_num"],
+                missed_cleavages=prediction_config["missed_cleavages"],
+                precursor_len=prediction_config["precursor_len"],
+                precursor_charge=prediction_config["precursor_charge"],
+                precursor_mz=prediction_config["precursor_mz"],
+            )
+            spectral_library = fasta_digest(self.fasta_path_list)
         else:
             spectral_library = dynamic_loader(self.library_path)
 
@@ -285,7 +242,7 @@ class Plan:
             )
             spectral_library = multiplexing(spectral_library)
 
-        library_path = os.path.join(self.output_folder, "speclib.hdf")
+        library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
         logger.info(f"Saving library to {library_path}")
         spectral_library.save_hdf(library_path)
 
@@ -335,16 +292,14 @@ class Plan:
                 workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
 
-            except CustomError as e:
-                _log_exception_event(e, raw_name, workflow)
-                continue
-
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
+                if isinstance(e, CustomError):
+                    continue
                 raise e
 
             finally:
-                if workflow.reporter:
+                if workflow and workflow.reporter:
                     workflow.reporter.log_string(f"Finished workflow for {raw_name}")
                     workflow.reporter.context.__exit__(None, None, None)
                 del workflow
@@ -352,7 +307,7 @@ class Plan:
         try:
             base_spec_lib = SpecLibBase()
             base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, "speclib.hdf"), load_mod_seq=True
+                os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
             )
 
             output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
@@ -373,7 +328,7 @@ class Plan:
         workflow = peptidecentric.PeptideCentricWorkflow(
             raw_name,
             self.config,
-            quant_path=self.quant_path,
+            quant_path=self.config["quant_directory"],
         )
 
         # check if the raw file is already processed
@@ -415,9 +370,23 @@ class Plan:
     def _clean(self):
         if not self.config["general"]["save_library"]:
             try:
-                os.remove(os.path.join(self.output_folder, "speclib.hdf"))
+                os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
                 logger.exception(f"Error deleting library: {e}")
+
+    def _log_inputs(self):
+        """Log all relevant inputs."""
+
+        logger.info(f"Searching {len(self.raw_path_list)} files:")
+        for f in self.raw_path_list:
+            logger.info(f"  {os.path.basename(f)}")
+
+        logger.info(f"Using {len(self.fasta_path_list)} fasta files:")
+        for f in self.fasta_path_list:
+            logger.info(f"  {f}")
+
+        logger.info(f"Using library: {self.library_path}")
+        logger.info(f"Saving output to: {self.output_folder}")
 
 
 def _log_exception_event(
