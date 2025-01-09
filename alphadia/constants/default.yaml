@@ -30,7 +30,8 @@ library_prediction:
   variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
   max_var_mod_num: 2
   missed_cleavages: 1
-  precursor_len: # TODO: make this min/max ?
+  # using tuples here as it makes interaction with the GUI easier
+  precursor_len:
     - 7
     - 35
   precursor_charge:
