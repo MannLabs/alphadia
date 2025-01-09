@@ -32,7 +32,6 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
-        config_base_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -46,7 +45,7 @@ class SearchStep:
             output folder to save the results
 
         config : dict, optional
-            values to update the default config. Overrides values in `default.yaml` and `config_base_path`.
+            values to update the default config. Overrides values in `default.yaml`.
 
         cli_config : dict, optional
             additional config values (parameters from the command line). Overrides values in `config`.
@@ -54,8 +53,6 @@ class SearchStep:
         extra_config : dict, optional
             additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
-        config_base_path : str, optional
-            absolute path to yaml file containing additional config values. Overrides values in `default.yaml`.
         """
 
         self.output_folder = output_folder
@@ -63,7 +60,7 @@ class SearchStep:
         reporting.init_logging(self.output_folder)
 
         self._config = self._init_config(
-            config, cli_config, extra_config, output_folder, config_base_path
+            config, cli_config, extra_config, output_folder
         )
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
@@ -86,7 +83,6 @@ class SearchStep:
         cli_config: dict | None,
         extra_config: dict | None,
         output_folder: str,
-        config_base_path: str | None,
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
@@ -98,18 +94,12 @@ class SearchStep:
         config.from_yaml(default_config_path)
 
         config_updates = []
-        if config_base_path is not None:
-            logger.info(f"loading additional config from {config_base_path}")
-            user_config_from_file = Config(USER_DEFINED)
-            user_config_from_file.from_yaml(default_config_path)
-            config_updates.append(user_config_from_file)
 
         if user_config is not None:
             logger.info("loading additional config provided via CLI")
             # load update config from dict
             if isinstance(user_config, dict):
-                user_config_update = Config(USER_DEFINED)
-                user_config_update.from_dict(user_config)
+                user_config_update = Config(user_config, name=USER_DEFINED)
                 config_updates.append(user_config_update)
             elif isinstance(user_config, Config):
                 config_updates.append(user_config)
@@ -120,14 +110,12 @@ class SearchStep:
 
         if cli_config is not None:
             logger.info("loading additional config provided via CLI parameters")
-            cli_config_update = Config(USER_DEFINED_CLI_PARAM)
-            cli_config_update.from_dict(cli_config)
+            cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
         # this needs to be last
         if extra_config is not None:
-            extra_config_update = Config(MULTISTEP_SEARCH)
-            extra_config_update.from_dict(extra_config)
+            extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
             extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
             config_updates.append(extra_config_update)
@@ -304,12 +292,10 @@ class SearchStep:
                 workflow = self._process_raw_file(dia_path, raw_name, speclib)
                 workflow_folder_list.append(workflow.path)
 
-            except CustomError as e:
-                _log_exception_event(e, raw_name, workflow)
-                continue
-
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
+                if isinstance(e, CustomError):
+                    continue
                 raise e
 
             finally:
