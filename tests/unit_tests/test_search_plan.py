@@ -110,7 +110,7 @@ def test_runs_plan_with_transfer_step(
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with(str(Path("/user_provided_output_path")))
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     # transfer_step
     assert mock_plan.call_args_list[0].kwargs == {
@@ -161,7 +161,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
     # when
     search_plan.run_plan()
 
-    mock_init_logging.assert_called_once_with(str(Path("/user_provided_output_path")))
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
     # library_step
     assert mock_plan.call_args_list[0].kwargs == {
