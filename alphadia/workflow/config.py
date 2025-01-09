@@ -122,11 +122,15 @@ class Config:
         """
         Pretty print a configuration dictionary in a tree-like structure.
 
-        Args:
-            config: The configuration dictionary to print
-            default_config: The default configuration dictionary to print
-            tracking_dict: A dictionary with the same structure as config, whose leaf values contain the
-              name of the config object that last updated the value
+        Parameters
+        ----------
+        config:
+            The configuration dictionary to print
+        default_config:
+            The default configuration dictionary to print
+        tracking_dict:
+            A dictionary with the same structure as config, whose leaf values contain the
+            name of the config object that last updated the value
         """
 
         _pretty_print(
@@ -145,23 +149,30 @@ def _update(
 
     For each value that gets updated, the corresponding value in tracking_dict is updated with config_name.
 
-    Args:
-        target_config: The config dictionary to be modified
-        update_config: The config dictionary containing update values
-        tracking_dict: A dictionary of nested dictionaries.
-            If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `config_name`.
-        config_name: The name of the current config object
+    Parameters
+    ----------
+    target_config:
+        The config dictionary to be modified
+    update_config:
+        The config dictionary containing update values
+    tracking_dict:
+        A dictionary of nested dictionaries.
+        If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `config_name`.
+    config_name:
+        The name of the current config object
 
-    Notes:
-        - Nested dictionaries are recursively updated
-        - Only updates existing keys (adding new keys not allowed)
-        - lists are always overwritten
+    Notes
+    -----
+    - Nested dictionaries are recursively updated
+    - Only updates existing keys (adding new keys not allowed)
+    - lists are always overwritten
 
-    Raises:
-        ValueError in these cases:
-        - a key is not found in the target_config
-        - the type of the update value does not match the type of the target value
-        - an item is not found in the target_config
+    Raises
+    ------
+    ValueError in these cases:
+    - a key is not found in the target_config
+    - the type of the update value does not match the type of the target value
+    - an item is not found in the target_config
     """
     for key, update_value in update_config.items():
         if key not in target_config:
