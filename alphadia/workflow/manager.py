@@ -665,7 +665,6 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["channel"] == decoy_channel].copy(),
                         competetive=competetive,
                         group_channels=False,
-                        reuse_fragments=True,
                         figure_path=self.figure_path,
                     )
                 )
