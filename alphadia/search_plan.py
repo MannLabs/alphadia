@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from alphadia.constants.keys import StatOutputKeys
+from alphadia.constants.keys import ConfigKeys, StatOutputKeys
 from alphadia.outputtransform import (
     SearchPlanOutput,
 )
@@ -34,11 +34,8 @@ class SearchPlan:
     def __init__(
         self,
         output_directory: str,
-        raw_path_list: list[str],
-        library_path: str | None,
-        fasta_path_list: list[str],
-        config: dict,
-        quant_dir: str | None,
+        config: dict | None = None,
+        cli_params_config: dict | None = None,
     ):
         """Initialize search plan.
 
@@ -48,40 +45,27 @@ class SearchPlan:
 
         Parameters
         ----------
-        config:
-            User configuration.
         output_directory:
             Output directory.
-        library_path:
-            Library path.
-        fasta_path_list:
-            List of fasta paths.
-        quant_dir:
-            Quantification directory holding previous results.
-        raw_path_list
-            List of raw paths.
+        config:
+            Configuration provided by user (loaded from file and/or dictionary)
+        cli_params_config
+            config-like dictionary of parameters directly provided by CLI
         """
-
-        self._user_config: dict = config
-        self._output_dir: Path = Path(output_directory)
         reporting.init_logging(output_directory)
 
-        self._library_path: Path | None = (
-            None if library_path is None else Path(library_path)
+        self._output_dir: Path = Path(output_directory)
+        self._user_config: dict = config if config is not None else {}
+        self._cli_params_config: dict = (
+            cli_params_config if cli_params_config is not None else {}
         )
-        self._fasta_path_list: list[str] = fasta_path_list
-        self._raw_path_list: list[str] = raw_path_list
 
         # these are the default paths if the library step is the only one
         self._library_step_output_dir: Path = self._output_dir
-        self._library_quant_dir: Path | None = (
-            None if quant_dir is None else Path(quant_dir)
-        )
 
         # multistep search:
         self._multistep_config: dict | None = None
         self._transfer_step_output_dir: Path | None = None
-        self._mbr_step_library_path: Path | None = None
 
         multistep_search_config = self._user_config.get("multistep_search", {})
         self._transfer_step_enabled = multistep_search_config.get(
@@ -107,16 +91,11 @@ class SearchPlan:
 
         # in case transfer step is enabled, we need to adjust the library step settings
         if self._transfer_step_enabled:
-            self._library_quant_dir = None
             self._transfer_step_output_dir = self._output_dir / TRANSFER_STEP_NAME
 
         # in case mbr step is enabled, we need to adjust the library step settings
         if self._mbr_step_enabled:
-            self._library_quant_dir = None
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
-            self._mbr_step_library_path = (
-                self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-            )
 
     def run_plan(self):
         """Run the search plan.
@@ -126,8 +105,6 @@ class SearchPlan:
         """
         print_logo()
         print_environment()
-
-        # TODO add some logging here on the directories (if they are not logged elsewhere)
 
         extra_config_for_library_step = (
             self._multistep_config[LIBRARY_STEP_NAME]
@@ -142,7 +119,6 @@ class SearchPlan:
             # output: DL model
             self.run_step(
                 self._transfer_step_output_dir,
-                self._library_path,
                 self._multistep_config[TRANSFER_STEP_NAME],
             )
 
@@ -170,9 +146,7 @@ class SearchPlan:
         logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
         self.run_step(
             self._library_step_output_dir,
-            self._library_path,
             extra_config_for_library_step,
-            self._library_quant_dir,
         )
 
         if self._mbr_step_enabled:
@@ -183,31 +157,31 @@ class SearchPlan:
                     self._library_step_output_dir
                 )
 
+            mbr_step_library_path = str(
+                self._library_step_output_dir / f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+            )
+
             mbr_step_extra_config = (
-                self._multistep_config[MBR_STEP_NAME] | optimized_values_config
+                self._multistep_config[MBR_STEP_NAME]
+                | optimized_values_config
+                | {ConfigKeys.LIBRARY_PATH: mbr_step_library_path}
             )
             self.run_step(
                 self._output_dir,
-                self._mbr_step_library_path,
                 mbr_step_extra_config,
             )
 
     def run_step(
         self,
         output_directory: Path,
-        library_path: Path | None,
         extra_config: dict,
-        quant_dir: Path | None = None,
     ) -> None:
         """Run a single step of the search plan."""
         step = SearchStep(
             output_folder=str(output_directory),
-            raw_path_list=self._raw_path_list,
-            library_path=None if library_path is None else str(library_path),
-            fasta_path_list=self._fasta_path_list,
             config=self._user_config,
+            cli_config=self._cli_params_config,
             extra_config=extra_config,
-            quant_path=None if quant_dir is None else str(quant_dir),
         )
         step.run()
 

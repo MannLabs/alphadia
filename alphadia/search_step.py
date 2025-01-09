@@ -9,10 +9,16 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
-from alphadia.workflow.config import MULTISTEP_SEARCH, USER_DEFINED, Config
+from alphadia.workflow.config import (
+    MULTISTEP_SEARCH,
+    USER_DEFINED,
+    USER_DEFINED_CLI_PARAM,
+    Config,
+)
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -23,13 +29,10 @@ class SearchStep:
     def __init__(
         self,
         output_folder: str,
-        raw_path_list: list[str] | None = None,
-        library_path: str | None = None,
-        fasta_path_list: list[str] | None = None,
         config: dict | Config | None = None,
-        config_base_path: str | None = None,
+        cli_config: dict | None = None,
         extra_config: dict | None = None,
-        quant_path: str | None = None,
+        config_base_path: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -42,52 +45,33 @@ class SearchStep:
         output_folder : str
             output folder to save the results
 
-        raw_path_list : list
-            list of input file locations
-
-        library_path : str, optional
-            path to the spectral library file. If not provided, the library is built from fasta files
-
-        fasta_path_list : list, optional
-            list of fasta file locations to build the library from
-
-        config_base_path : str, optional
-            user-provided yaml file containing the default config.
-
         config : dict, optional
-            user-provided dict to update the default config. Can be used for debugging purposes etc.
+            values to update the default config. Overrides values in `default.yaml` and `config_base_path`.
+
+        cli_config : dict, optional
+            additional config values (parameters from the command line). Overrides values in `config`.
 
         extra_config : dict, optional
-            dict to update the final config. Used for multistep searches.
+            additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
-        quant_path : str, optional
-            path to directory to save the quantification results (psm & frag parquet files). If not provided, the results are saved in the usual workflow folder
-
+        config_base_path : str, optional
+            absolute path to yaml file containing additional config values. Overrides values in `default.yaml`.
         """
-
-        if config is None:
-            config = {}
-        if fasta_path_list is None:
-            fasta_path_list = []
-        if raw_path_list is None:
-            raw_path_list = []
 
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
         reporting.init_logging(self.output_folder)
 
-        self.raw_path_list = raw_path_list
-        self.library_path = library_path
-        self.fasta_path_list = fasta_path_list
-        self.quant_path = quant_path
+        self._config = self._init_config(
+            config, cli_config, extra_config, output_folder, config_base_path
+        )
+        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
+
+        self.raw_path_list = self._config[ConfigKeys.RAW_PATHS]
+        self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
+        self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
         self.spectral_library = None
-
-        self._config = self._init_config(
-            config, extra_config, output_folder, config_base_path
-        )
-
-        logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
         self.init_alphabase()
         self.load_library()
@@ -96,48 +80,64 @@ class SearchStep:
 
         self._log_inputs()
 
+    @staticmethod
     def _init_config(
-        self,
-        user_config: dict | Config,
-        extra_config: dict,
+        user_config: dict | Config | None,
+        cli_config: dict | None,
+        extra_config: dict | None,
         output_folder: str,
         config_base_path: str | None,
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
-        # default config path is not defined in the function definition to account for different path separators on different OS
-        if config_base_path is None:
-            # default yaml config location under /misc/config/config.yaml
-            config_base_path = os.path.join(
-                os.path.dirname(__file__), "constants", "default.yaml"
-            )
-
-        logger.info(f"loading config from {config_base_path}")
+        default_config_path = os.path.join(
+            os.path.dirname(__file__), "constants", "default.yaml"
+        )
+        logger.info(f"loading config from {default_config_path}")
         config = Config()
-        config.from_yaml(config_base_path)
+        config.from_yaml(default_config_path)
 
         config_updates = []
-        # load update config from dict
-        if isinstance(user_config, dict):
-            user_config_update = Config(USER_DEFINED)
-            user_config_update.from_dict(user_config)
-            config_updates.append(user_config_update)
-        elif isinstance(user_config, Config):
-            config_updates.append(user_config)
-        else:
-            raise ValueError("'config' parameter must be of type 'dict' or 'Config'")
+        if config_base_path is not None:
+            logger.info(f"loading additional config from {config_base_path}")
+            user_config_from_file = Config(USER_DEFINED)
+            user_config_from_file.from_yaml(default_config_path)
+            config_updates.append(user_config_from_file)
 
+        if user_config is not None:
+            logger.info("loading additional config provided via CLI")
+            # load update config from dict
+            if isinstance(user_config, dict):
+                user_config_update = Config(USER_DEFINED)
+                user_config_update.from_dict(user_config)
+                config_updates.append(user_config_update)
+            elif isinstance(user_config, Config):
+                config_updates.append(user_config)
+            else:
+                raise ValueError(
+                    "'config' parameter must be of type 'dict' or 'Config'"
+                )
+
+        if cli_config is not None:
+            logger.info("loading additional config provided via CLI parameters")
+            cli_config_update = Config(USER_DEFINED_CLI_PARAM)
+            cli_config_update.from_dict(cli_config)
+            config_updates.append(cli_config_update)
+
+        # this needs to be last
         if extra_config is not None:
             extra_config_update = Config(MULTISTEP_SEARCH)
             extra_config_update.from_dict(extra_config)
-            # need to overwrite user-defined output folder here
-            extra_config["output"] = output_folder
+            # need to overwrite user-defined output folder here to have correct value in config dump
+            extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
             config_updates.append(extra_config_update)
 
         config.update(config_updates, do_print=True)
 
-        if "output" not in config:
-            config["output"] = output_folder
+        if ConfigKeys.OUTPUT_DIRECTORY not in config:
+            config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+
+        config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
 
         return config
 
@@ -162,12 +162,14 @@ class SearchStep:
     def init_alphabase(self):
         """Init alphabase by registering custom modifications."""
 
-        # register custom modifications
-        if "custom_modifications" in self.config:
-            n_modifications = len(self.config["custom_modifications"])
-            logging.info(f"Registering {n_modifications} custom modifications")
+        new_modifications = {}
+        for mod in self.config["custom_modifications"]:
+            new_modifications[mod["name"]] = {"composition": mod["composition"]}
 
-            modification.add_new_modifications(self.config["custom_modifications"])
+        if new_modifications:
+            logging.info(f"Registering {len(new_modifications)} custom modifications")
+
+            modification.add_new_modifications(new_modifications)
 
     def load_library(self):
         """
@@ -340,7 +342,7 @@ class SearchStep:
         workflow = peptidecentric.PeptideCentricWorkflow(
             raw_name,
             self.config,
-            quant_path=self.quant_path,
+            quant_path=self.config["quant_directory"],
         )
 
         # check if the raw file is already processed

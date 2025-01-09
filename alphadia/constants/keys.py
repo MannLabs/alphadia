@@ -22,3 +22,13 @@ class StatOutputKeys(metaclass=ConstantsClass):
     MS2_ERROR = "ms2_error"
     RT_ERROR = "rt_error"
     MOBILITY_ERROR = "mobility_error"
+
+
+class ConfigKeys(metaclass=ConstantsClass):
+    """String constants for accessing the config."""
+
+    OUTPUT_DIRECTORY = "output_directory"
+    LIBRARY_PATH = "library_path"
+    RAW_PATHS = "raw_paths"
+    FASTA_PATHS = "fasta_paths"
+    QUANT_DIRECTORY = "quant_directory"
