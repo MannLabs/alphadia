@@ -250,10 +250,10 @@ def test_config_update_default_config():
     config_base_path = os.path.join(
         os.path.dirname(__file__), "..", "..", "alphadia", "constants", "default.yaml"
     )
-    config_1 = Config(experiment_name="default")
+    config_1 = Config(name="default")
     config_1.from_yaml(config_base_path)
 
-    config_2 = Config(experiment_name="also_default")
+    config_2 = Config(name="also_default")
     config_2.from_yaml(config_base_path)
 
     config_1.update([config_2], do_print=True)

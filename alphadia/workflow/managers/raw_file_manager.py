@@ -51,16 +51,6 @@ class RawFileManager(BaseManager):
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
-        is_wsl = self._config["general"]["wsl"]
-        if is_wsl:
-            # copy file to /tmp # TODO check if WSL support can be dropped
-            import shutil
-
-            tmp_path = "/tmp"
-            tmp_dia_data_path = os.path.join(tmp_path, os.path.basename(dia_data_path))
-            shutil.copyfile(dia_data_path, tmp_dia_data_path)
-            dia_data_path = tmp_dia_data_path
-
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
             dia_data = bruker.TimsTOFTranspose(
@@ -109,10 +99,6 @@ class RawFileManager(BaseManager):
             )
 
         self.reporter.log_metric("raw_data_type", raw_data_type)
-
-        # remove tmp file if wsl
-        if is_wsl:
-            os.remove(tmp_dia_data_path)
 
         self._calc_stats(dia_data)
 

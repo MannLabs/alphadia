@@ -1,13 +1,14 @@
 """Search plan for single- and multistep search."""
 
 import os
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import yaml
 
-from alphadia.constants.keys import ConfigKeys, OutputKeys
+from alphadia.constants.keys import ConfigKeys, StatOutputKeys
 from alphadia.outputtransform import (
     SearchPlanOutput,
 )
@@ -192,10 +193,10 @@ class SearchPlan:
             output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
         )
         target_ms1_tolerance = np.nanmedian(
-            df[f"{OutputKeys.OPTIMIZATION_PREFIX}{OutputKeys.MS1_ERROR}"]
+            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS1_ERROR}"]
         )
         target_ms2_tolerance = np.nanmedian(
-            df[f"{OutputKeys.OPTIMIZATION_PREFIX}{OutputKeys.MS2_ERROR}"]
+            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS2_ERROR}"]
         )
 
         if np.isnan(target_ms1_tolerance) and np.isnan(target_ms2_tolerance):
@@ -204,7 +205,7 @@ class SearchPlan:
             )
             return {}
 
-        extra_config = {"search": {}}
+        extra_config = defaultdict(dict)
 
         if not np.isnan(target_ms1_tolerance):
             extra_config["search"]["target_ms1_tolerance"] = target_ms1_tolerance
@@ -217,4 +218,4 @@ class SearchPlan:
         # - target_mobility_tolerance and target_rt_tolerance should be reoptimized with the lib resulting from transfer learning step
 
         logger.info(f"Extracted extra_config from previous step: {extra_config}")
-        return extra_config
+        return dict(extra_config)
