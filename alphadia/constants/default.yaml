@@ -423,3 +423,8 @@ calibration_manager:
             - mobility_observed
           output_columns:
             - mobility_calibrated
+
+# scope of default yaml should be one search step
+multistep_search:
+  transfer_step_enabled: False
+  mbr_step_enabled: False

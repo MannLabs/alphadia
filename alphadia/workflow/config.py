@@ -33,6 +33,9 @@ import yaml
 
 logger = logging.getLogger()
 
+USER_DEFINED = "user defined"
+MULTISTEP_SEARCH = "multistep search"
+
 
 def get_tree_structure(last_item_arr: list[bool], update=False):
     tree_structure = ""
@@ -77,17 +80,17 @@ def print_w_style(
         # Check what the config name in string inside the brackets ( )
         # If the source is default, remove the brackets and set style to default
         # Else set style to new
-        style = "new" if "user defined" in string else "default"
+        style = (
+            "new"
+            if any([s in string for s in [USER_DEFINED, MULTISTEP_SEARCH]])
+            else "default"
+        )
 
-    if style == "update":
+    if style in ["update", "new"]:
         # Green color
         style = "\x1b[32;20m"
         reset = "\x1b[0m"
-    elif style == "new":
-        # green color
-        style = "\x1b[32;20m"
-        reset = "\x1b[0m"
-    elif style == "default":
+    else:
         # no color
         style = ""
         reset = ""
@@ -360,7 +363,9 @@ def update_recursive(
 
     for key in all_keys:
         style = "auto"
-        if key not in default_config:
+        if (
+            key not in default_config
+        ):  # TODO either this is obsolete or the module docstring needs an update
             style = "new"
             for experiment_config in experiment_configs:
                 if key in experiment_config:
@@ -549,8 +554,9 @@ class Config:
 
     def update(self, experiments: list["Config"], print_modifications: bool = True):
         """
-        Updates the config with the experiment configs,
-        and allow for multiple experiment configs to be added.
+        Updates the config with the experiment configs, and allow for multiple experiment configs to be added.
+
+        The order of experiments holds significance, with configurations later in the sequence taking precedence in terms of their impact on changes.
 
         Parameters
         ----------
@@ -558,9 +564,7 @@ class Config:
             List of experiment configs
 
         print_modifications : bool, optional
-            Whether to print the modifications or not, either way the updated config will be printed. When set to True,
-            the modifications will be first printed to show old, updated, new values where as the updated config
-            contains updated and unmodifed values.
+            Whether to print the modifications or not, either way the updated config will be printed.
         """
 
         # The translated config contains the source of the modifications on leaf nodes

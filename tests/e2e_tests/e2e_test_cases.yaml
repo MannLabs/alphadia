@@ -34,6 +34,34 @@ test_cases:
     metrics:
       - BasicStats
 
+  - name: multistep
+    config:
+      search_initial:
+        initial_num_candidates: 1
+        initial_rt_tolerance: 300
+      search:
+        target_num_candidates: 1
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 100
+      calibration:
+        batch_size: 1000
+      transfer_learning:
+        epochs: 5  # this is to speed the test up a little
+      library_prediction:
+        predict: True
+      multistep_search:
+        transfer_step_enabled: True
+        mbr_step_enabled: True
+    # dimethyl data (from tutorial)
+    fasta:
+      - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2F&files=2024_01_12_human.fasta
+    raw_data:
+      - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2Fraw_data&files=20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
+      - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2Fraw_data&files=20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
+      - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2Fraw_data&files=20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
+    metrics:
+      - BasicStats
 
   - name: synchropasef
     config:

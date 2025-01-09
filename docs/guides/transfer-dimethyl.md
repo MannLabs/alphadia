@@ -1,5 +1,10 @@
 # DIA Transfer Learning for Dimethyl Labeled Samples
-**This tutorial was created using alphaDIA 1.8.1 - please be aware that there might be changes in your version.**
+
+**This tutorial was created using AlphaDIA 1.8.1 - please be aware that there might be changes in your version.**
+
+Note: from AlphaDIA 1.10.0, the multistep workflow is supported directly via GUI (and CLI), without the need for
+multiple starts of AlphaDIA. Working through this tutorial is still valuable, as it provides some insights and
+intuition about the process. See section [Integrated multistep workflow](#integrated-multistep-workflow) below for details.
 
 ## 1. Prerequisites
 Make sure that you have a machine with at least 64 gigabytes of memory.
@@ -127,3 +132,24 @@ Altough the different parameters do not allow for fair comparison of absolut num
 |   20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3  |   39145                  |   58433               |   67846                |
 |   20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2  |   38212                  |   57357               |   68099                |
 |   20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1  |   40113                  |   58840               |   67861                |
+
+
+# Integrated multistep workflow
+The multistep workflow described by the above tutorial is supported directly via GUI (and CLI), without the need for
+multiple starts of AlphaDIA.
+
+In the GUI, locate the "Multi-step Search" section and activate "Add 'transfer learning' step"
+and/or "Add 'second search' step". Set the rest of parameters as desired and start the search.
+
+This will orchestrate the individual search steps by transferring the data between the steps
+and by setting the configuration parameters that are specific to each step. Any other parameter set via GUI (e.g. `thread_count`)
+will apply to all steps. Here, the exceptions are `MS1 Tolerance` and `MS2 Tolerance`, which will be overwritten with
+optimal values determined in the first step. The intermediate results are stored in subfolders `tranfer` and `library`, respectively.
+As usual, you will find the final results in the root of the project folder.
+
+If you use the CLI, add the following to your `config.yaml` to enable the multistep search:
+```yaml
+multistep_search:
+  transfer_step_enabled: True
+  mbr_step_enabled: True
+```
