@@ -28,11 +28,11 @@ class Config(UserDict):
     """Dict-like config class that can read from and write to yaml and json files and allows updating with other config objects."""
 
     def __init__(self, data: dict = None, name: str = DEFAULT) -> None:
-        # super class deliberately not called
+        # super class deliberately not called as this calls "update" (which we overwrite)
         self.data = (
             {**data} if data is not None else {}
         )  # this needs to be called 'data' as we inherit from UserDict
-        self.experiment_name = name
+        self.name = name
 
     def from_yaml(self, path: str) -> None:
         with open(path) as f:
@@ -74,11 +74,6 @@ class Config(UserDict):
         do_print : bool, optional
             Whether to print the modified config. Default is False.
         """
-        if isinstance(experiments, dict):
-            # need to resolve name clash with basic method unless we find a better name for 'our' update
-            super().update(experiments)
-            return
-
         # we assume that self.data holds the default config
         default_config = deepcopy(self.data)
 
@@ -87,7 +82,6 @@ class Config(UserDict):
             return defaultdict(_recursive_defaultdict)
 
         tracking_dict = defaultdict(_recursive_defaultdict)
-
 
         current_config = deepcopy(self.data)
         for config in configs:
