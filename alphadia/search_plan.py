@@ -1,6 +1,7 @@
 """Search plan for single- and multistep search."""
 
 import os
+from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
@@ -204,7 +205,7 @@ class SearchPlan:
             )
             return {}
 
-        extra_config = {"search": {}}
+        extra_config = defaultdict(dict)
 
         if not np.isnan(target_ms1_tolerance):
             extra_config["search"]["target_ms1_tolerance"] = target_ms1_tolerance
@@ -217,4 +218,4 @@ class SearchPlan:
         # - target_mobility_tolerance and target_rt_tolerance should be reoptimized with the lib resulting from transfer learning step
 
         logger.info(f"Extracted extra_config from previous step: {extra_config}")
-        return extra_config
+        return dict(extra_config)

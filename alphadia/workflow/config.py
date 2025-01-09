@@ -1,8 +1,8 @@
 """This module is responsible for creating and storing the configuration.
 
-It allows updating the default configuration with one or more experiment configurations.
-The order of experiments holds significance, with configurations later in the sequence overwriting previous values.
-Lists are always overwritten.
+It allows updating the default configuration with one or more other configuration objects.
+The order of configs holds significance, with configurations later in the sequence overwriting previous values.
+Lists are always overwritten completely.
 
 On demand, the current config can be visualized in a tree-like structure.
 """
@@ -26,14 +26,14 @@ MULTISTEP_SEARCH = "multistep search"
 
 
 class Config:
-    """
-    Config class that can read from and write to yaml and json files
-    and can be used to update the config with experiment configs
-    and print the config with tree structure and uses ANSI color codes to color the string.
+    """Class holding a configuration.
+
+    Can read from and write to yaml and json files.
+    Can be used to update the config with other config objects, and print the config in a tree structure.
     """
 
-    def __init__(self, experiment_name: str = "default") -> None:
-        self.experiment_name = experiment_name
+    def __init__(self, name: str = "default") -> None:
+        self.name = name
         self.config = {}
         self.translated_config = {}
 
@@ -74,16 +74,20 @@ class Config:
     def __repr__(self) -> str:
         return str(self.config)
 
-    def update(self, experiments: list["Config"], do_print: bool = False):
+    def update(self, configs: list["Config"], do_print: bool = False):
         """
-        Updates the config with the experiment configs, and allow for multiple experiment configs to be added.
+        Updates the config with one or more other config objects.
 
-        The order of experiments holds significance, with configurations later in the sequence taking precedence in terms of their impact on changes.
+        The order of configs holds significance, with configurations later in the sequence
+        taking precedence in terms of their impact on changes.
+
+        All changes to the default config are tracked and stored in a separate dictionary to enable
+        convenient visualization of the changes.
 
         Parameters
         ----------
-        experiments : list of configs
-            List of experiment configs
+        configs : list of configs
+            List of config objects to update the current config with. The order of the configs is important (last one wins).
 
         do_print : bool, optional
             Whether to print the modified config. Default is False.
@@ -92,20 +96,22 @@ class Config:
         # we assume that self.config holds the default config
         default_config = deepcopy(self.config)
 
-        # initialize the tracking config as infinitely nested dictionary to be able to map all changes
         def _recursive_defaultdict():
+            """Allow initialization of an infinitely nested dictionary to be able to map arbitrary structures."""
             return defaultdict(_recursive_defaultdict)
 
         tracking_dict = defaultdict(_recursive_defaultdict)
 
         current_config = deepcopy(self.config)
-        for experiment_config in experiments:
-            logger.info(f"Updating config with '{experiment_config.experiment_name}'")
+
+        for config in configs:
+            logger.info(f"Updating config with '{config.name}'")
+
             _update(
                 current_config,
-                experiment_config.to_dict(),
+                config.to_dict(),
                 tracking_dict,
-                experiment_config.experiment_name,
+                config.name,
             )
 
         self.config = current_config
@@ -122,10 +128,15 @@ class Config:
         """
         Pretty print a configuration dictionary in a tree-like structure.
 
-        Args:
-            config: The configuration dictionary to print
-            default_config: The default configuration dictionary to print
-            tracking_dict: A dictionary with the same structure as config, whose leaf values contain the experiment name that last updated the value
+        Parameters
+        ----------
+        config:
+            The configuration dictionary to print
+        default_config:
+            The default configuration dictionary to print
+        tracking_dict:
+            A dictionary with the same structure as config, whose leaf values contain the
+            name of the config object that last updated the value
         """
 
         _pretty_print(
@@ -137,28 +148,35 @@ def _update(
     target_config: dict,
     update_config: dict,
     tracking_dict: dict,
-    experiment_name: str,
+    config_name: str,
 ) -> None:
     """
     Recursively update target_dict in-place with values from update_dict, following specific rules for different types.
 
-    For each value that gets updated, the corresponding value in tracking_dict is updated with experiment_name.
+    For each value that gets updated, the corresponding value in tracking_dict is updated with config_name.
 
-    Args:
-        target_config: The config dictionary to be modified
-        update_config: The config dictionary containing update values
-        tracking_dict: A dictionary of nested dictionaries.
-            If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `experiment_name`.
-        experiment_name: The name of the current experiment
+    Parameters
+    ----------
+    target_config:
+        The config dictionary to be modified
+    update_config:
+        The config dictionary containing update values
+    tracking_dict:
+        A dictionary of nested dictionaries.
+        If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `config_name`.
+    config_name:
+        The name of the current config object
 
-    Notes:
-        - Nested dictionaries are recursively updated
-        - Only updates existing keys (adding new keys not allowed)
-        - lists are always overwritten
+    Notes
+    -----
+    - Nested dictionaries are recursively updated
+    - Only updates existing keys (adding new keys not allowed)
+    - lists are always overwritten
 
-    Raises:
-        - KeyAddedConfigError: a key is not found in the target_config
-        - ValueTypeMismatchConfigError: the type of the update value does not match the type of the target value
+    Raises
+    ------
+    - KeyAddedConfigError: a key is not found in the target_config
+    - ValueTypeMismatchConfigError: the type of the update value does not match the type of the target value
     """
     for key, update_value in update_config.items():
         if key not in target_config:
@@ -180,17 +198,17 @@ def _update(
             )
 
         if isinstance(target_value, dict):
-            _update(target_value, update_value, tracking_value, experiment_name)
+            _update(target_value, update_value, tracking_value, config_name)
 
         elif isinstance(target_value, list):
             # overwrite lists completely
             target_config[key] = update_value
-            tracking_dict[key] = experiment_name
+            tracking_dict[key] = config_name
 
         # handle simple values
         else:
             target_config[key] = update_value
-            tracking_dict[key] = experiment_name
+            tracking_dict[key] = config_name
 
 
 def _pretty_print(
@@ -227,7 +245,7 @@ def _pretty_print(
             # we have a leaf node (e.g. "default")
             tracking_dict_value = tracking_dict
         else:
-            # tracking configs values are either dict or str (not lists: those are overwritten by experiment_name)
+            # tracking values are either dict or str (not lists: those are overwritten by config_name)
             tracking_dict_value = tracking_dict[key]
 
         if isinstance(value, dict):

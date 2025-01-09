@@ -143,14 +143,18 @@ def _get_raw_path_list_from_args_and_config(
     arguments, including files from specified directories. It filters the resulting
     list of file paths using a regular expression provided in the arguments.
 
-    Args:
-        args (argparse.Namespace): Command-line arguments containing file and directory
-            paths, as well as a regex pattern for filtering.
-        config (dict): Configuration dictionary that may include a list of raw paths
-            and a directory to search for files.
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Command-line arguments containing file and directory
+        paths, as well as a regex pattern for filtering.
+    config : dict
+        Configuration dictionary that may include a list of raw paths
+        and a directory to search for files.
 
-    Returns:
-        list: A list of file paths that match the specified regex pattern.
+    Returns
+    -------
+        list: a list of file paths that match the specified regex pattern.
     """
 
     raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
