@@ -79,11 +79,11 @@ class ConfigError(BusinessError):
 
 
 class KeyAddedConfigError(ConfigError):
-    """Raise when a key is added to a config."""
+    """Raise when a key should be added to a config."""
 
     def __init__(self, key: str, config_name: str):
         super().__init__(key, config_name)
-        self._detail_msg = f"Adding keys is not supported: key='{self._key}', configuration='{self._config_name}'"
+        self._detail_msg = f"Defining new keys is not allowed when updating a config: key='{self._key}', config_name='{self._config_name}'"
 
 
 class TypeMismatchConfigError(ConfigError):
@@ -91,4 +91,4 @@ class TypeMismatchConfigError(ConfigError):
 
     def __init__(self, key: str, config_name: str, extra_msg: str):
         super().__init__(key, config_name)
-        self._detail_msg = f"Type mismatch for key: key='{self._key}', configuration='{self._config_name}', types='{extra_msg}'"
+        self._detail_msg = f"Types of values must match default config: key='{self._key}', config_name='{self._config_name}', types='{extra_msg}'"
