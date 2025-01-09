@@ -26,6 +26,58 @@ logger = logging.getLogger()
 
 # TODO move all managers to dedicated modules
 
+# configuration for the calibration manager
+# the config has to start with the calibration keyword and consists of a list of calibration groups.
+# each group consists of datapoints which have multiple properties.
+# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
+# TODO simplify this structure and the config loading
+CALIBRATION_MANAGER_CONFIG = [
+    {
+        "estimators": [
+            {
+                "input_columns": ["mz_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mz",
+                "output_columns": ["mz_calibrated"],
+                "target_columns": ["mz_observed"],
+                "transform_deviation": "1e6",
+            }
+        ],
+        "name": "fragment",
+    },
+    {
+        "estimators": [
+            {
+                "input_columns": ["mz_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mz",
+                "output_columns": ["mz_calibrated"],
+                "target_columns": ["mz_observed"],
+                "transform_deviation": "1e6",
+            },
+            {
+                "input_columns": ["rt_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 6},
+                "name": "rt",
+                "output_columns": ["rt_calibrated"],
+                "target_columns": ["rt_observed"],
+            },
+            {
+                "input_columns": ["mobility_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mobility",
+                "output_columns": ["mobility_calibrated"],
+                "target_columns": ["mobility_observed"],
+            },
+        ],
+        "name": "precursor",
+    },
+]
+
 
 class BaseManager:
     def __init__(
@@ -156,7 +208,6 @@ class BaseManager:
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        config: None | dict = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
@@ -167,10 +218,6 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-
-        config : typing.Union[None, dict], default=None
-            Calibration config dict. If None, the default config is used.
-
         path : str, default=None
             Path where the current parameter set is saved to and loaded from.
 
@@ -186,7 +233,7 @@ class CalibrationManager(BaseManager):
 
         if not self.is_loaded_from_file:
             self.estimator_groups = []
-            self.load_config(config)
+            self.load_config(CALIBRATION_MANAGER_CONFIG)
 
     @property
     def estimator_groups(self):
