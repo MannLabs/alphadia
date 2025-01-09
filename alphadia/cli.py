@@ -201,32 +201,18 @@ def run(*args, **kwargs):
         parser.print_help()
         print("No output directory specified.")
         return
-
     reporting.init_logging(output_directory)
-    logger.progress(f"Saving output to: {output_directory}")
 
-    raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
-    logger.progress(f"Searching {len(raw_path_list)} files:")
-
-    for f in raw_path_list:
-        logger.progress(f"  {os.path.basename(f)}")
-
-    library_path = _get_from_args_or_config(
-        args, user_config, args_key="library", config_key="library"
-    )
-    logger.progress(f"Using library: {library_path}")
-
-    fasta_path_list = _get_fasta_list_from_args_and_config(args, user_config)
-    logger.progress(f"Using {len(fasta_path_list)} fasta files:")
-    for f in fasta_path_list:
-        logger.progress(f"  {f}")
-
-    # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
     quant_dir = _get_from_args_or_config(
         args, user_config, args_key="quant_dir", config_key="quant_dir"
     )
-    if quant_dir is not None:
-        logger.progress(f"Saving quantification output to {quant_dir=}")
+    raw_path_list = _get_raw_path_list_from_args_and_config(args, user_config)
+    library_path = _get_from_args_or_config(
+        args, user_config, args_key="library", config_key="library"
+    )
+    fasta_path_list = _get_fasta_list_from_args_and_config(args, user_config)
+
+    # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
 
     # important to suppress matplotlib output
     matplotlib.use("Agg")
