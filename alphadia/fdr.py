@@ -30,7 +30,7 @@ def perform_fdr(
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    **kwargs,
+    max_num_threads: int = 2,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -69,6 +69,9 @@ def perform_fdr(
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
+
+    max_num_threads : int, default=2
+        The number of threads to use for the classifier. Currently it does not scale above 2 threads also for large problems.
 
     Returns
     -------
@@ -114,15 +117,18 @@ def perform_fdr(
         X, y, test_size=0.2
     )
 
-    # the classifier does not scale above 2 threads also for large problems
+    is_num_threads_changed = False
     num_threads = torch.get_num_threads()
-    if num_threads > 1:
-        torch.set_num_threads(2)
-        logger.info("Setting torch num_threads to 2 for FDR classification task")
+    if num_threads > max_num_threads:
+        torch.set_num_threads(max_num_threads)
+        is_num_threads_changed = True
+        logger.info(
+            f"Setting torch num_threads to {max_num_threads} for FDR classification task"
+        )
 
     classifier.fit(X_train, y_train)
 
-    if num_threads != torch.get_num_threads():
+    if is_num_threads_changed:
         logger.info(f"Resetting torch num_threads to {num_threads}")
         torch.set_num_threads(num_threads)
 
