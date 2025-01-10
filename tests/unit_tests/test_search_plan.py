@@ -25,6 +25,11 @@ BASE_CLI_PARAMS_CONFIG = {
 }
 
 
+def _convert_path(path_str: str) -> str:
+    """Conversion to and back from Path necessary for Windows compatibility."""
+    return str(Path(path_str))
+
+
 def get_search_plan(config):
     """Helper function to create a SearchPlan object with a given config."""
     with patch(
@@ -50,9 +55,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
 
     # could use `mock_plan.assert_has_calls([call(..)])` pattern here but it is harder to read in case of error
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": str(
-            Path("/user_provided_output_path")
-        ),  # conversion to and from Path necessary for windows compatibility
+        "output_folder": str(Path("/user_provided_output_path")),
         "config": BASE_USER_CONFIG,
         "extra_config": {},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
@@ -79,7 +82,7 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
 
     # could use `mock_plan.assert_has_calls([call(..)])` pattern here but it is harder to read in case of error
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path")),
+        "output_folder": _convert_path("/user_provided_output_path"),
         "config": {},
         "extra_config": {},
         "cli_config": {},
@@ -114,7 +117,7 @@ def test_runs_plan_with_transfer_step(
 
     # transfer_step
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path/transfer")),
+        "output_folder": _convert_path("/user_provided_output_path/transfer"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
@@ -122,12 +125,14 @@ def test_runs_plan_with_transfer_step(
 
     # library_step
     assert mock_plan.call_args_list[1].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path")),
+        "output_folder": _convert_path("/user_provided_output_path"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
             "library_prediction": {
-                "peptdeep_model_path": "/user_provided_output_path/transfer/peptdeep.transfer",
+                "peptdeep_model_path": _convert_path(
+                    "/user_provided_output_path/transfer/peptdeep.transfer"
+                ),
                 "predict": True,
             },
         }
@@ -165,7 +170,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
 
     # library_step
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path/library")),
+        "output_folder": _convert_path("/user_provided_output_path/library"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
@@ -173,7 +178,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
 
     # mbr_step
     assert mock_plan.call_args_list[1].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path")),
+        "output_folder": _convert_path("/user_provided_output_path"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
         | dynamic_config
@@ -217,7 +222,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     # transfer_step
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path/transfer")),
+        "output_folder": _convert_path("/user_provided_output_path/transfer"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
@@ -225,7 +230,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     # library_step
     assert mock_plan.call_args_list[1].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path/library")),
+        "output_folder": _convert_path("/user_provided_output_path/library"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"]
         | {
@@ -242,7 +247,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     # mbr_step
     assert mock_plan.call_args_list[2].kwargs == {
-        "output_folder": str(Path("/user_provided_output_path")),
+        "output_folder": _convert_path("/user_provided_output_path"),
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
         | dynamic_config
