@@ -53,10 +53,10 @@ class WorkflowBase:
 
         """
         self._instance_name: str = instance_name
-        self._parent_path: str = quant_path or os.path.join(
+        self._quant_path: str = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
-        logger.info(f"Saving quantification results to {self._parent_path}")
+        logger.info(f"Saving quantification results to {self._quant_path}")
 
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
@@ -68,9 +68,9 @@ class WorkflowBase:
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
 
-        if not os.path.exists(self.parent_path):
-            logger.info(f"Creating parent folder for workflows at {self.parent_path}")
-            os.makedirs(self.parent_path)
+        if not os.path.exists(self._quant_path):
+            logger.info(f"Creating parent folder for workflows at {self._quant_path}")
+            os.makedirs(self._quant_path)
 
         if not os.path.exists(self.path):
             logger.info(
@@ -143,14 +143,14 @@ class WorkflowBase:
         return self._instance_name
 
     @property
-    def parent_path(self) -> str:
+    def quant_path(self) -> str:
         """Path where the workflow folder will be created"""
-        return self._parent_path
+        return self._quant_path
 
     @property
     def path(self) -> str:
         """Path to the workflow folder"""
-        return os.path.join(self.parent_path, self.instance_name)
+        return os.path.join(self._quant_path, self.instance_name)
 
     @property
     def config(self) -> Config:
