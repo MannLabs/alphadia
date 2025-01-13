@@ -5,7 +5,7 @@ jupyter_contrib_nbextensions
 pyinstaller
 
 twine
-bumpversion
+bump-my-version
 pipdeptree
 ipykernel
 psutil
