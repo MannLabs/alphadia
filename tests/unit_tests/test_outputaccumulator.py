@@ -137,7 +137,6 @@ def test_complete_output_accumulation():
         == number_of_unique_precursors
     ), f"{len(np.unique(built_lib.precursor_df['precursor_idx']))} != {number_of_unique_precursors}"
 
-    shutil.rmtree(temp_folder)
 
 
 def test_selection_of_precursors():
@@ -179,7 +178,6 @@ def test_selection_of_precursors():
             f"{selected_probas} != {target_kept_probas}",
         )
 
-    shutil.rmtree(temp_folder)
 
 
 def test_keep_top_constraint():
@@ -211,7 +209,6 @@ def test_keep_top_constraint():
             <= keep_top
         ), f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
 
-    shutil.rmtree(temp_folder)
 
 
 def test_default_column_assignment():
@@ -269,7 +266,6 @@ def test_non_nan_fragments():
     # Then: The fragment dataframe should have no nan values
     assert not built_lib.fragment_intensity_df.isnull().values.any(), "There are nan values in the fragment dataframe"
 
-    shutil.rmtree(temp_folder)
 
 def test_use_for_ms2():
     """
@@ -287,6 +283,7 @@ def test_use_for_ms2():
     flat_spec_lib = SpecLibFlat()
     flat_spec_lib._precursor_df = psm_flat_df
     flat_spec_lib._fragment_df = fragment_flat_df
+    # TODO: to_SpecLibBase will be deprecated and this should be adapted to use to_speclib_base
     spec_lib = flat_spec_lib.to_SpecLibBase()
     fragment_correlation_base_df = mock_fragment_correlation_df(spec_lib.fragment_intensity_df)
     spec_lib._fragment_correlation_df = fragment_correlation_base_df
