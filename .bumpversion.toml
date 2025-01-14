@@ -32,6 +32,7 @@ pre_commit_hooks = []
 post_commit_hooks = []
 
 [tool.bumpversion.parts.pre_l]
+# 'final' is just a dummy, but required to have the versioning compatible with the reusable alphashared workflow
 values = ["dev", "final"]
 optional_value = "final"
 
