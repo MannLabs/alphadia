@@ -9,6 +9,7 @@ import numpy as np
 # third party imports
 import pandas as pd
 import sklearn
+import torch
 
 # alphadia imports
 # alpha family imports
@@ -22,14 +23,15 @@ def perform_fdr(
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
-    competetive: bool = False,
+    *,
+    competetive: bool = False,  # TODO: fix typo (also in config)
     group_channels: bool = True,
     figure_path: str | None = None,
     neptune_run=None,
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    **kwargs,
+    max_num_threads: int = 2,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -60,14 +62,17 @@ def perform_fdr(
     neptune_run : neptune.run.Run, default=None
         The neptune run to log the FDR plot to
 
-    reuse_fragments : bool, default=True
-        Whether to reuse fragments for different precursors
+    df_fragments : pd.DataFrame, default=None
+        The fragment dataframe.
 
     dia_cycle : np.ndarray, default=None
-        The DIA cycle as provided by alphatims
+        The DIA cycle as provided by alphatims. Required if df_fragments is provided.
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
+
+    max_num_threads : int, default=2
+        The number of threads to use for the classifier. Currently, it does not scale above 2 threads also for large problems.
 
     Returns
     -------
@@ -113,7 +118,20 @@ def perform_fdr(
         X, y, test_size=0.2
     )
 
+    is_num_threads_changed = False
+    num_threads = torch.get_num_threads()
+    if num_threads > max_num_threads:
+        torch.set_num_threads(max_num_threads)
+        is_num_threads_changed = True
+        logger.info(
+            f"Setting torch num_threads to {max_num_threads} for FDR classification task"
+        )
+
     classifier.fit(X_train, y_train)
+
+    if is_num_threads_changed:
+        logger.info(f"Resetting torch num_threads to {num_threads}")
+        torch.set_num_threads(num_threads)
 
     psm_df = pd.concat([df_target, df_decoy])
 
@@ -144,7 +162,7 @@ def perform_fdr(
         if df_fragments is not None:
             if dia_cycle is None:
                 raise ValueError(
-                    "dia_cycle must be provided if reuse_fragments is False"
+                    "dia_cycle must be provided if df_fragments is provided"
                 )
             fragment_competition = fragcomp.FragmentCompetition()
             psm_df = fragment_competition(
