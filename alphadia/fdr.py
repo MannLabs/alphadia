@@ -10,6 +10,8 @@ import numpy as np
 import pandas as pd
 import sklearn
 
+import alphadia.fdrexperimental as fdrx
+
 # alphadia imports
 # alpha family imports
 from alphadia import fragcomp
@@ -165,6 +167,23 @@ def perform_fdr(
         neptune_run=neptune_run,
     )
 
+    return psm_df
+
+
+def perform_fdr_new(
+    classifier: fdrx.Classifier,
+    available_columns: list[str],
+    df: pd.DataFrame,
+    group_columns,
+    **kwargs,
+):
+    df.dropna(subset=available_columns, inplace=True)
+    psm_df = classifier.fit_predict(
+        df,
+        available_columns + ["score"],
+        "decoy",
+        group_columns,
+    )
     return psm_df
 
 

@@ -225,6 +225,7 @@ fdr:
   keep_decoys: false
   channel_wise_fdr: false
   inference_strategy: "heuristic"
+  enable_two_step_classifier: false
 
 search_output:
   peptide_level_lfq: false
