@@ -7,11 +7,134 @@ from copy import deepcopy
 # alpha family imports
 # third party imports
 import numpy as np
+import pandas as pd
+import sklearn
 import torch
 from sklearn import model_selection
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
+
+# from alphadia.fdr import get_q_values, keep_best
+
+
+
+def fdr_to_q_values(fdr_values: np.ndarray):
+    """Converts FDR values to q-values.
+    Takes a ascending sorted array of FDR values and converts them to q-values.
+    for every element the lowest FDR where it would be accepted is used as q-value.
+
+    Parameters
+    ----------
+    fdr_values : np.ndarray
+        The FDR values to convert.
+
+    Returns
+    -------
+    np.ndarray
+        The q-values.
+    """
+    fdr_values_flipped = np.flip(fdr_values)
+    q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
+    q_vals = np.flip(q_values_flipped)
+    return q_vals
+
+
+def q_values(
+    scores: np.ndarray,
+    decoy_labels: np.ndarray,
+    # score_column : str = 'proba',
+    # decoy_column : str = '_decoy',
+    # qval_column : str = 'qval'
+):
+    """Calculates q-values for a dataframe containing PSMs.
+
+    Parameters
+    ----------
+
+    _df : pd.DataFrame
+        The dataframe containing the PSMs.
+
+    score_column : str, default='proba'
+        The name of the column containing the score to use for the selection.
+        Ascending sorted values are expected.
+
+    decoy_column : str, default='_decoy'
+        The name of the column containing the decoy information.
+        Decoys are expected to be 1 and targets 0.
+
+    qval_column : str, default='qval'
+        The name of the column to store the q-values in.
+
+    Returns
+    -------
+
+    pd.DataFrame
+        The dataframe containing the q-values in column qval.
+
+    """
+
+    decoy_labels = decoy_labels[scores.argsort()]
+    target_values = 1 - decoy_labels
+    decoy_cumsum = np.cumsum(decoy_labels)
+    target_cumsum = np.cumsum(target_values)
+    fdr_values = decoy_cumsum / target_cumsum
+    return fdr_to_q_values(fdr_values)
+
+
+def get_q_values(
+    _df: pd.DataFrame,
+    score_column: str = "proba",
+    decoy_column: str = "_decoy",
+    qval_column: str = "qval",
+):
+    """Calculates q-values for a dataframe containing PSMs.
+
+    Parameters
+    ----------
+
+    _df : pd.DataFrame
+        The dataframe containing the PSMs.
+
+    score_column : str, default='proba'
+        The name of the column containing the score to use for the selection.
+        Ascending sorted values are expected.
+
+    decoy_column : str, default='_decoy'
+        The name of the column containing the decoy information.
+        Decoys are expected to be 1 and targets 0.
+
+    qval_column : str, default='qval'
+        The name of the column to store the q-values in.
+
+    Returns
+    -------
+
+    pd.DataFrame
+        The dataframe containing the q-values in column qval.
+
+    """
+    _df = _df.sort_values([score_column, score_column], ascending=True)
+    target_values = 1 - _df[decoy_column].values
+    decoy_cumsum = np.cumsum(_df[decoy_column].values)
+    target_cumsum = np.cumsum(target_values)
+    fdr_values = decoy_cumsum / target_cumsum
+    _df[qval_column] = fdr_to_q_values(fdr_values)
+    return _df
+
+
+
+
+def apply_absolute_transformations(df: pd.DataFrame) -> pd.DataFrame:
+    df_transformed = df.copy()
+    df_transformed["delta_rt"] = np.abs(df_transformed["delta_rt"])
+    df_transformed["top_3_ms2_mass_error"] = np.abs(df_transformed["top_3_ms2_mass_error"])
+    df_transformed["mean_ms2_mass_error"] = np.abs(df_transformed["mean_ms2_mass_error"])
+
+    return df_transformed
+
 
 
 class Classifier(ABC):
@@ -105,6 +228,365 @@ class Classifier(ABC):
             State dict of the classifier.
 
         """
+
+
+class TwoStepClassifier(Classifier):
+    def __init__(
+        self,
+        first_classifier: Classifier,
+        second_classifier: Classifier,
+        train_on_top_n: int = 1,
+        first_fdr: float = 0.6,
+        second_fdr: float = 0.01,
+        **kwargs,
+    ):
+        super().__init__()
+        self.first_classifier = first_classifier
+        self.second_classifier = second_classifier
+        self.first_fdr = first_fdr
+        self.second_fdr = second_fdr
+        
+        self.train_on_top_n = train_on_top_n
+         
+    def fit_predict(
+        self, 
+        df_: pd.DataFrame, 
+        x_cols: list[str], 
+        y_col: str, 
+        group_columns: list[str] | None = None
+    ) -> pd.DataFrame:
+        """
+        Return dataframe including only the found precursors.
+        """
+        df = df_.copy()
+        df = apply_absolute_transformations(df)
+        
+        if self.first_classifier.fitted:
+            df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+            df_subset = get_entries_below_fdr(df, self.first_fdr, group_columns, remove_decoys=False)
+            print(f"After q-val extraction, after LinClassifier (first_fdr={self.first_fdr}): {df_subset.shape}")
+            
+            self.second_classifier.batch_size = 500
+            self.second_classifier.epochs = 50
+            
+            self.second_classifier.fit(df_subset[x_cols].to_numpy(), df_subset[y_col].to_numpy())
+            df_subset["proba"] = self.second_classifier.predict_proba(df_subset[x_cols].to_numpy())[:, 1]
+            
+        else:
+            df_train = df[df["rank"] < self.train_on_top_n]
+            self.second_classifier.fit(
+                df_train[x_cols].to_numpy(),
+                df_train[y_col].to_numpy(),
+            )
+            
+            df_subset = df
+            x_subset = df_subset[x_cols].to_numpy()
+            df_subset["proba"] = self.second_classifier.predict_proba(x_subset)[:, 1]
+            
+        df_subset = get_entries_below_fdr(df_subset, self.second_fdr, group_columns)  # , remove_decoys=True)
+        print(f"After q-val extraction, after NN (second_fdr={self.second_fdr}): {df_subset.shape}")
+        
+        df_subset_2 = get_target_decoy_partners(df_subset, df_)
+        df_targets = df_subset_2[df_subset_2["decoy"] == 0]
+        
+        self._update_classifier(
+            self.first_classifier,
+            df_subset_2,
+            x_cols,
+            y_col,
+            self.first_fdr,
+            group_columns,
+        )
+    
+        return df_targets
+        
+    @classmethod
+    def _update_classifier(cls, classifier, df_, x_cols, y_col, fdr, group_columns) -> None:
+        
+        X = df_[x_cols]
+        y = df_[y_col]
+        df = df_.copy()
+        if hasattr(classifier, "fitted") and classifier.fitted:
+            df["proba"] = classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+            df_targets = get_entries_below_fdr(df, fdr, group_columns)
+            previous_n_precursors = len(df_targets)
+            saved_state_dict = classifier.to_state_dict()
+        else:
+            previous_n_precursors = -1
+
+        classifier.fit(X, y)
+        classifier._fitted = True
+        
+        df["proba"] = classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+        df_targets = get_entries_below_fdr(df, fdr, group_columns)
+    
+        current_n_precursors = len(df_targets)
+        if previous_n_precursors > current_n_precursors:
+            print("Reverting linear classifier to the previous version, as the new one performed worse.")
+            classifier.from_state_dict(saved_state_dict)        
+
+
+    @property 
+    def fitted(self) -> bool:
+        """Return whether both classifiers have been fitted."""
+        return self.second_classifier.fitted
+
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit both classifiers sequentially.
+        
+        Parameters
+        ----------
+        x : np.ndarray
+            Training data
+        y : np.ndarray 
+            Target values
+        """
+        # First classifier fit
+        # self.first_classifier.fit(x, y)
+        
+        # # Get predictions from first classifier
+        # probs = self.first_classifier.predict_proba(x)[:, 1]
+        
+        # # Filter data based on first FDR threshold
+        # mask = probs >= (1 - self.first_fdr)
+        # x_filtered = x[mask]
+        # y_filtered = y[mask]
+        
+        # # Fit second classifier on filtered data
+        # self.second_classifier.fit(x_filtered, y_filtered)
+        pass
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict class labels using both classifiers.
+        
+        Parameters
+        ----------
+        x : np.ndarray
+            Input data
+            
+        Returns
+        -------
+        np.ndarray
+            Predicted class labels
+        """
+        return np.argmax(self.predict_proba(x), axis=1)
+
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict class probabilities using both classifiers.
+        
+        Parameters
+        ----------
+        x : np.ndarray
+            Input data
+            
+        Returns
+        -------
+        np.ndarray
+            Predicted class probabilities
+        """
+        pass
+
+
+    def to_state_dict(self) -> dict:
+        """Save classifier state.
+        
+        Returns
+        -------
+        dict
+            State dictionary containing both classifiers
+        """
+        return {
+            "first_classifier": self.first_classifier.to_state_dict(),
+            "second_classifier": self.second_classifier.to_state_dict(),
+            "first_fdr": self.first_fdr,
+            "second_fdr": self.second_fdr,
+            "train_on_top_n": self.train_on_top_n
+        }
+
+    def from_state_dict(self, state_dict: dict) -> None:
+        """Load classifier state.
+        
+        Parameters
+        ----------
+        state_dict : dict
+            State dictionary containing both classifiers
+        """
+        self.first_classifier.from_state_dict(state_dict["first_classifier"])
+        self.second_classifier.from_state_dict(state_dict["second_classifier"])
+        self.first_fdr = state_dict["first_fdr"]
+        self.second_fdr = state_dict["second_fdr"] 
+        self.train_on_top_n = state_dict["train_on_top_n"]
+    
+def get_entries_below_fdr(df, fdr, group_columns, remove_decoys: bool = True):
+    df.sort_values("proba", ascending=True, inplace=True)
+    df = keep_best(df, group_columns=group_columns)        
+    df = get_q_values(df, "proba", "decoy")
+
+    df_subset = df[df["qval"] < fdr]
+    if remove_decoys:
+        df_subset = df_subset[df_subset["decoy"] == 0]
+    return df_subset
+
+    
+def get_target_decoy_partners(df_sub, df_all):
+    group_by = ["rank", "elution_group_idx"]
+    valid_tuples = df_sub[group_by]
+    matching_rows = df_all.merge(valid_tuples, on=group_by, how="inner")
+    
+    return matching_rows
+
+
+def keep_best(
+    df: pd.DataFrame,
+    score_column: str = "proba",
+    group_columns: list[str] | None = None,
+):
+    """Keep the best PSM for each group of PSMs with the same precursor_idx.
+    This function is used to select the best candidate PSM for each precursor.
+    if the group_columns is set to ['channel', 'elution_group_idx'] then its used for target decoy competition.
+
+    Parameters
+    ----------
+
+    df : pd.DataFrame
+        The dataframe containing the PSMs.
+
+    score_column : str
+        The name of the column containing the score to use for the selection.
+
+    group_columns : list[str], default=['channel', 'precursor_idx']
+        The columns to use for the grouping.
+
+    Returns
+    -------
+
+    pd.DataFrame
+        The dataframe containing the best PSM for each group.
+    """
+    if group_columns is None:
+        group_columns = ["channel", "precursor_idx"]
+    temp_df = df.reset_index(drop=True)
+    temp_df = temp_df.sort_values(score_column, ascending=True)
+    temp_df = temp_df.groupby(group_columns).head(1)
+    temp_df = temp_df.sort_index().reset_index(drop=True)
+    return temp_df
+
+class LogisticRegressionClassifier(Classifier):
+    def __init__(self) -> None:
+        """Linear classifier using a logistic regression model."""
+        self.scaler = StandardScaler()
+        self.model = LogisticRegression()
+        self._fitted = False
+
+    @property
+    def fitted(self) -> bool:
+        return self._fitted
+    
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
+        """Fit the classifier to the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Training data of shape (n_samples, n_features).
+
+        y : np.array, dtype=int
+            Target values of shape (n_samples,) or (n_samples, n_classes).
+
+        """
+        x_scaled = self.scaler.fit_transform(x)
+        self.model.fit(x_scaled, y)
+        self._fitted = True
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+
+        y : np.array, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        x_scaled = self.scaler.transform(x)
+        return self.model.predict(x_scaled)
+    
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
+        """Predict the class probabilities of the data.
+
+        Parameters
+        ----------
+
+        x : np.array, dtype=float
+            Data of shape (n_samples, n_features).
+
+        Returns
+        -------
+
+        y : np.array, dtype=float
+            Predicted class probabilities of shape (n_samples, n_classes).
+
+        """
+        x_scaled = self.scaler.transform(x)
+        return self.model.predict_proba(x_scaled)
+       
+    def to_state_dict(self) -> dict:
+        """Save the state of the classifier as a dictionary.
+
+        Returns
+        -------
+
+        dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+        state_dict = {"_fitted": self._fitted}
+
+        if self._fitted:
+            state_dict.update({
+                'scaler_mean': self.scaler.mean_,
+                'scaler_var': self.scaler.var_,
+                'scaler_scale': self.scaler.scale_,
+                'scaler_n_samples_seen': self.scaler.n_samples_seen_,
+                'model_coef': self.model.coef_,
+                'model_intercept': self.model.intercept_,
+                'model_classes': self.model.classes_,
+                'is_fitted': self._fitted
+            })
+
+        return state_dict
+
+    def from_state_dict(self, state_dict: dict):
+        """Load the state of the classifier from a dictionary.
+
+        Parameters
+        ----------
+
+        dict : dict
+            Dictionary containing the state of the classifier.
+
+        """
+        self._fitted = state_dict["_fitted"]
+        
+        if self.fitted:
+            self.scaler = StandardScaler()
+            self.scaler.mean_ = np.array(state_dict['scaler_mean'])
+            self.scaler.var_ = np.array(state_dict['scaler_var'])
+            self.scaler.scale_ = np.array(state_dict['scaler_scale'])
+            self.scaler.n_samples_seen_ = np.array(state_dict['scaler_n_samples_seen'])
+            
+            self.model = LogisticRegression()
+            self.model.coef_ = np.array(state_dict['model_coef'])
+            self.model.intercept_ = np.array(state_dict['model_intercept'])
+            self.model.classes_ = np.array(state_dict['model_classes'])
+
 
 
 class BinaryClassifier(Classifier):
@@ -1228,6 +1710,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
+
 
 
 class FeedForwardNN(nn.Module):
