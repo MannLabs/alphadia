@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   run-unit-tests-stable:
-    name: Test stable pip installation on 3 OS
+    name: Test 'stable' on ${{ matrix.os }}
     strategy:
       matrix:
         os:  [ubuntu-latest, macos-13, windows-latest]
@@ -34,7 +34,7 @@ jobs:
       test-script: ./run_unit_tests.sh
 
   run-unit-tests-loose:
-    name: Test loose pip installation on 3 OS
+    name: Test 'loose' on ${{ matrix.os }}
     strategy:
       matrix:
         os: [ ubuntu-latest, macos-13, windows-latest ]
