@@ -624,7 +624,7 @@ class FDRManager(BaseManager):
 
         classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
-            if not self.two_step_classifier:
+            if not self.enable_two_step_classifier:
                 psm_df = fdr.perform_fdr(
                     classifier,
                     available_columns,
