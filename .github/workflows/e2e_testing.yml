@@ -6,12 +6,11 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-
-inputs:
-  test_case:
-    description: 'Test case to run (see e2e_test_cases.yaml for available cases), "all" to run all test cases.'
-    required: false
-    default: 'all'
+    inputs:
+      test_case:
+        description: 'Test case to run (see e2e_test_cases.yaml for available cases), "all" to run all test cases.'
+        required: false
+        default: 'all'
 
 jobs:
   end2end_testing:
