@@ -9,5 +9,5 @@ $WHL_NAME = (Get-ChildItem -Path "dist" -Filter "*.whl").Name
 pip install "dist/$WHL_NAME[stable]"
 
 # Creating the stand-alone pyinstaller folder
-pip install tbb==2021.13.1  # TODO check if this is necessary
+# pip install tbb==2021.13.1  # TODO check if this is necessary
 pyinstaller release/pyinstaller/alphadia.spec --distpath dist_pyinstaller --workpath build_pyinstaller -y
