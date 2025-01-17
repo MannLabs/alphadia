@@ -2,7 +2,7 @@ on:
   pull_request:
     types: [ labeled ]
   push:
-    branches: [ main, development ]
+    branches: [ main ]
   workflow_dispatch:
 
 name: FDR performance test
@@ -31,11 +31,11 @@ jobs:
       - name: Conda info
         shell: bash -l {0}
         run: conda info
-      - name: Pip installation with all loose dependencies
+      - name: Pip installation (stable)
         shell: bash -l {0}
         run: |
           cd misc
-          . ./pip_install.sh stable,test
+          . ./pip_install.sh stable,tests alphadia True
       - name: Run legacy classifier
         env: # Or as an environment variable
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
