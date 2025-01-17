@@ -2,7 +2,7 @@ on:
   pull_request:
     types: [ labeled ]
   push:
-    branches: [ main, development ]
+    branches: [ main ]
   workflow_dispatch:
 
 name: End to end testing
