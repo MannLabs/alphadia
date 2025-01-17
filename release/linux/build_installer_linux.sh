@@ -9,6 +9,7 @@ CPU_OR_GPU=${1:-CPU}
 
 rm -rf dist_pyinstaller build_pyinstaller
 
+
 WHL_NAME=$(cd dist && ls ./*.whl && cd ..)
 pip install "dist/${WHL_NAME}[stable]"
 

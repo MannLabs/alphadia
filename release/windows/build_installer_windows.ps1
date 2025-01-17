@@ -5,6 +5,7 @@
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./build_pyinstaller
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue ./dist_pyinstaller
 
+
 $WHL_NAME = (Get-ChildItem -Path "dist" -Filter "*.whl").Name
 pip install "dist/$WHL_NAME[stable]"
 
