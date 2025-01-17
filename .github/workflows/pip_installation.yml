@@ -30,7 +30,7 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,test
+      install-script: ./pip_install.sh stable,tests
       test-script: ./run_unit_tests.sh
 
   run-unit-tests-loose:
