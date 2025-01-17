@@ -854,7 +854,7 @@ class SearchPlanOutput:
                 if save_fragments:
                     logger.info(f"Writing fragment quantity matrix to disk, filtered on {level_name}")
                     write_df(
-                        lfq_df,
+                        group_intensity_df,
                         os.path.join(self.output_folder, f"fragment_{level_name}filt.matrix"),
                         file_format=self.config["search_output"]["file_format"],
                     )
