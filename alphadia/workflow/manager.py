@@ -516,7 +516,23 @@ class OptimizationManager(BaseManager):
         return self.predict()
 
 
-def get_group_columns(competetive, group_channels):
+def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
+    """
+    Determine the group columns based on competitiveness and channel grouping.
+
+    competitive : bool
+        If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
+    group_channels : bool
+        If True and 'competitive' is also True, further groups candidates by 'channel'.
+
+    Returns
+    -------
+    list
+        A list of column names to be used for grouping in the analysis. If competitive, this could be either
+        ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
+        If not competitive, the list will always be ['precursor_idx'].
+
+    """
     if competetive:
         group_columns = (
             ["elution_group_idx", "channel"]
