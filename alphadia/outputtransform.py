@@ -786,28 +786,33 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
-        group_configs = [
+        quantlevel_configs = [ #quantgroup configs are: quantlevel, level_name, should_process, save_fragments
             (
                 "mod_seq_hash",
                 "peptide",
                 self.config["search_output"]["peptide_level_lfq"],
+                False
             ),
             (
                 "mod_seq_charge_hash",
                 "precursor",
                 self.config["search_output"]["precursor_level_lfq"],
+                self.config["search_output"]["fragment_quant_matrix"] #if we write out the fragment quantities, then with precursor-level filtering
             ),
-            ("pg", "pg", True),  # Always process protein group level
+            ("pg", 
+             "pg", 
+             True, 
+             False),  # Always process protein group level
         ]
 
         lfq_results = {}
 
-        for group, group_nice, should_process in group_configs:
+        for quantlevel, level_name, should_process, save_fragments in quantlevel_configs:
             if not should_process:
                 continue
 
             logger.progress(
-                f"Performing label free quantification on the {group_nice} level"
+                f"Performing label free quantification on the {level_name} level"
             )
 
             group_intensity_df, _ = qb.filter_frag_df(
@@ -815,14 +820,14 @@ class SearchPlanOutput:
                 quality_df,
                 top_n=self.config["search_output"]["min_k_fragments"],
                 min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=group,
+                group_column=quantlevel,
             )
 
             if len(group_intensity_df) == 0:
                 logger.warning(
-                    f"No fragments found for {group_nice}, skipping label-free quantification"
+                    f"No fragments found for {level_name}, skipping label-free quantification"
                 )
-                lfq_results[group_nice] = pd.DataFrame()
+                lfq_results[level_name] = pd.DataFrame()
                 continue
 
             lfq_df = qb.lfq(
@@ -834,18 +839,25 @@ class SearchPlanOutput:
                     "num_samples_quadratic"
                 ],
                 normalize=self.config["search_output"]["normalize_lfq"],
-                group_column=group,
+                group_column=quantlevel,
             )
 
-            lfq_results[group_nice] = lfq_df
+            lfq_results[level_name] = lfq_df
 
             if save:
-                logger.info(f"Writing {group_nice} output to disk")
+                logger.info(f"Writing {level_name} output to disk")
                 write_df(
                     lfq_df,
-                    os.path.join(self.output_folder, f"{group_nice}.matrix"),
+                    os.path.join(self.output_folder, f"{level_name}.matrix"),
                     file_format=self.config["search_output"]["file_format"],
                 )
+                if save_fragments:
+                    logger.info(f"Writing fragment quantity matrix to disk, filtered on {level_name}")
+                    write_df(
+                        lfq_df,
+                        os.path.join(self.output_folder, f"fragment_{level_name}filt.matrix"),
+                        file_format=self.config["search_output"]["file_format"],
+                    )
 
         # Use protein group (pg) results for merging with psm_df
         pg_lfq_df = lfq_results.get("pg", pd.DataFrame())
