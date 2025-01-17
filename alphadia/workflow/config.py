@@ -14,6 +14,7 @@ from copy import deepcopy
 
 import yaml
 
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import KeyAddedConfigError, TypeMismatchConfigError
 
 logger = logging.getLogger()
@@ -51,7 +52,9 @@ class Config(UserDict):
             json.dump(self.data, f)
 
     def __setitem__(self, key, item):
-        raise NotImplementedError("Use update() to update the config.")
+        if key != ConfigKeys.OUTPUT_DIRECTORY:
+            raise NotImplementedError("Use update() to update the config.")
+        return super().__setitem__(key, item)
 
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
