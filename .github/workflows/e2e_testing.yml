@@ -1,3 +1,5 @@
+name: End to end testing
+
 on:
   pull_request:
     types: [ labeled ]
@@ -5,7 +7,11 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-name: End to end testing
+inputs:
+  test_case:
+    description: 'Test case to run (see e2e_test_cases.yaml for available cases), "all" to run all test cases.'
+    required: false
+    default: 'all'
 
 jobs:
   end2end_testing:
@@ -28,23 +34,24 @@ jobs:
       TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
     steps:
       - uses: actions/checkout@v4
-      - name: Conda info
-        shell: bash -el {0}
-        run: conda info
+        if: ${{ inputs.test_case == 'all' || matrix.test_case == inputs.test_case }}
       - name: Pip installation with stable dependencies
         id: pip_installation
+        if: ${{ inputs.test_case == 'all' || matrix.test_case == inputs.test_case }}
         shell: bash -el {0}
         run: |
+          conda info
           cd misc
           . ./pip_install.sh stable $RUN_NAME
       - name: Run e2e tests
+        if: ${{ inputs.test_case == 'all' || matrix.test_case == inputs.test_case }}
         shell: bash -el {0}
         run: |
           cd tests
            . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
       - name: Cleanup
         if: always()
-        shell: bash -el {0}
+        shell: bash -l {0}
         run: |
           conda remove -n $RUN_NAME --all -y
       - name: Delete Caches on Error
