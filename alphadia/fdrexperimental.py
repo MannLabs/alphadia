@@ -16,7 +16,7 @@ from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
-from alphadia.fdr_utils import get_q_values, keep_best
+from alphadia.fdr import get_q_values, keep_best
 
 
 def apply_absolute_transformations(df: pd.DataFrame) -> pd.DataFrame:
@@ -125,7 +125,7 @@ class Classifier(ABC):
         """
 
 
-class TwoStepClassifier(Classifier):
+class TwoStepClassifier:
     def __init__(
         self,
         first_classifier: Classifier,
@@ -147,22 +147,22 @@ class TwoStepClassifier(Classifier):
         self,
         df_: pd.DataFrame,
         x_cols: list[str],
-        y_col: str,
+        y_col: str = "decoy",
         group_columns: list[str] | None = None,
     ) -> pd.DataFrame:
         """
         Return dataframe including only the found precursors.
         """
         df = df_.copy()
+        df.dropna(subset=x_cols, inplace=True)
         df = apply_absolute_transformations(df)
-
         if self.first_classifier.fitted:
             df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[
                 :, 1
             ]
             df_subset = get_entries_below_fdr(
                 df, self.first_fdr, group_columns, remove_decoys=False
-            )
+            )  # TODO
             print(
                 f"After q-val extraction, after LinClassifier (first_fdr={self.first_fdr}): {df_subset.shape}"
             )
@@ -180,8 +180,8 @@ class TwoStepClassifier(Classifier):
         else:
             df_train = df[df["rank"] < self.train_on_top_n]
             self.second_classifier.fit(
-                df_train[x_cols].to_numpy(),
-                df_train[y_col].to_numpy(),
+                df_train[x_cols].to_numpy().astype(np.float32),
+                df_train[y_col].to_numpy().astype(np.float32),
             )
 
             df_subset = df
@@ -189,15 +189,16 @@ class TwoStepClassifier(Classifier):
             df_subset["proba"] = self.second_classifier.predict_proba(x_subset)[:, 1]
 
         df_subset = get_entries_below_fdr(
-            df_subset, self.second_fdr, group_columns
-        )  # , remove_decoys=True)
-        print(
-            f"After q-val extraction, after NN (second_fdr={self.second_fdr}): {df_subset.shape}"
+            df_subset, self.second_fdr, group_columns, remove_decoys=False
         )
+        # print(
+        #     f"After q-val extraction, after NN (second_fdr={self.second_fdr}): {df_subset.shape}"
+        # )
+        df_targets = df_subset[
+            df_subset["decoy"] == 0
+        ]  # TODO df_targets does not have q values now.
 
-        df_subset_2 = get_target_decoy_partners(df_subset, df_)
-        df_targets = df_subset_2[df_subset_2["decoy"] == 0]
-
+        df_subset_2 = get_target_decoy_partners(df_subset, df)
         self._update_classifier(
             self.first_classifier,
             df_subset_2,
@@ -211,13 +212,12 @@ class TwoStepClassifier(Classifier):
 
     @classmethod
     def _update_classifier(
-        cls, classifier, df_, x_cols, y_col, fdr, group_columns
+        cls, classifier, df, x_cols, y_col, fdr, group_columns
     ) -> None:
-        X = df_[x_cols]
-        y = df_[y_col]
-        df = df_.copy()
+        X = df[x_cols].to_numpy()
+        y = df[y_col].to_numpy()
         if hasattr(classifier, "fitted") and classifier.fitted:
-            df["proba"] = classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+            df["proba"] = classifier.predict_proba(X)[:, 1]
             df_targets = get_entries_below_fdr(df, fdr, group_columns)
             previous_n_precursors = len(df_targets)
             saved_state_dict = classifier.to_state_dict()
@@ -227,7 +227,7 @@ class TwoStepClassifier(Classifier):
         classifier.fit(X, y)
         classifier._fitted = True
 
-        df["proba"] = classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+        df["proba"] = classifier.predict_proba(X)[:, 1]
         df_targets = get_entries_below_fdr(df, fdr, group_columns)
 
         current_n_precursors = len(df_targets)
@@ -241,61 +241,6 @@ class TwoStepClassifier(Classifier):
     def fitted(self) -> bool:
         """Return whether both classifiers have been fitted."""
         return self.second_classifier.fitted
-
-    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
-        """Fit both classifiers sequentially.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Training data
-        y : np.ndarray
-            Target values
-        """
-        # First classifier fit
-        # self.first_classifier.fit(x, y)
-
-        # # Get predictions from first classifier
-        # probs = self.first_classifier.predict_proba(x)[:, 1]
-
-        # # Filter data based on first FDR threshold
-        # mask = probs >= (1 - self.first_fdr)
-        # x_filtered = x[mask]
-        # y_filtered = y[mask]
-
-        # # Fit second classifier on filtered data
-        # self.second_classifier.fit(x_filtered, y_filtered)
-        pass
-
-    def predict(self, x: np.ndarray) -> np.ndarray:
-        """Predict class labels using both classifiers.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Input data
-
-        Returns
-        -------
-        np.ndarray
-            Predicted class labels
-        """
-        return np.argmax(self.predict_proba(x), axis=1)
-
-    def predict_proba(self, x: np.ndarray) -> np.ndarray:
-        """Predict class probabilities using both classifiers.
-
-        Parameters
-        ----------
-        x : np.ndarray
-            Input data
-
-        Returns
-        -------
-        np.ndarray
-            Predicted class probabilities
-        """
-        pass
 
     def to_state_dict(self) -> dict:
         """Save classifier state.
@@ -336,6 +281,11 @@ def get_entries_below_fdr(df, fdr, group_columns, remove_decoys: bool = True):
     df_subset = df[df["qval"] < fdr]
     if remove_decoys:
         df_subset = df_subset[df_subset["decoy"] == 0]
+
+    if len(df_subset) == 0:
+        df = df[df["decoy"] == 0]
+        df_subset = df.loc[df["qval"].idxmin()]
+
     return df_subset
 
 
@@ -1486,6 +1436,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 x_train_batch = x_train[batch_start:batch_stop]
                 y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)
+
                 loss_value = loss(y_pred, y_train_batch)
 
                 self.network.zero_grad()

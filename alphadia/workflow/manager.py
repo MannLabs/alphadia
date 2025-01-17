@@ -1,4 +1,5 @@
 # native imports
+import contextlib
 import logging
 import os
 import pickle
@@ -17,6 +18,7 @@ import xxhash
 
 # alphadia imports
 import alphadia
+import alphadia.fdrexperimental as fdrx
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.workflow import reporting
@@ -554,7 +556,9 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
-            self.enable_two_step_classifier = enable_two_step_classifier
+            self.enable_two_step_classifier = isinstance(
+                classifier_base, fdrx.TwoStepClassifier
+            )
 
         self._current_version = -1
         self.load_classifier_store()
@@ -638,8 +642,11 @@ class FDRManager(BaseManager):
                 )
             else:
                 group_columns = get_group_columns(competetive, group_channels=True)
-                psm_df = fdr.perform_fdr_new(
-                    classifier, available_columns, features_df, group_columns
+
+                psm_df = classifier.fit_predict(
+                    features_df,
+                    available_columns + ["score"],
+                    group_columns=group_columns,
                 )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -743,7 +750,8 @@ class FDRManager(BaseManager):
 
                 if classifier_hash not in self.classifier_store:
                     classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(torch.load(os.path.join(path, file)))
+                    with contextlib.suppress(Exception):
+                        classifier.from_state_dict(torch.load(os.path.join(path, file)))
                     self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
