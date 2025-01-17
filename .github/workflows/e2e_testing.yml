@@ -3,8 +3,10 @@ name: End to end testing
 on:
   pull_request:
     types: [ labeled ]
-  push:
-    branches: [ main ]
+#  push:
+#    branches: [ main ]
+  schedule:
+    - cron: "0 0 0 * * *"   # daily on 12:00 AM
   workflow_dispatch:
     inputs:
       test_case:
