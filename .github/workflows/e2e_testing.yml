@@ -41,6 +41,7 @@ jobs:
             echo "commitish_to_test=[\"${{ github.event.inputs.commitish_to_test }}\"]" >> $GITHUB_OUTPUT
           else
             echo "commitish_to_test=main" >> $GITHUB_OUTPUT
+          fi
 
   end2end_tests:
     name: End to end tests
