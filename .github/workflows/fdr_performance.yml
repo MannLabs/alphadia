@@ -19,8 +19,8 @@ jobs:
     env: # Or as an environment variable
       NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
         with:
           auto-update-conda: true
           python-version: 3.11
@@ -35,7 +35,7 @@ jobs:
         shell: bash -l {0}
         run: |
           cd misc
-          . ./pip_install.sh stable,tests alphadia True
+          . ./pip_install.sh stable,tests alphadia 3.11 True
       - name: Run legacy classifier
         env: # Or as an environment variable
           NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_FDR_TOKEN }}
