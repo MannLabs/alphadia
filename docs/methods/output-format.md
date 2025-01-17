@@ -71,8 +71,17 @@ TODO
 ## `internal.tsv`
 TODO
 
-## `speclib.mbr.hdf `
-TODO
+## `speclib*.hdf `
+`speclib.hdf` is the input library which was used for the search. This can be the fully predicted library generated from
+fasta or a library which was loaded from hdf or tsv. The file may be reannotated, re-predicted etc. so it's
+not necessarily identical to the library provided as input.
+
+`speclib.mbr.hdf` is the output library containing all precursors identified in the sample.
+If a two-step search with MBR is done, this will be the input library to the second search step.
+
+`speclib.transfer.hdf` is the training data for the transfer learning. The precursors should be similar to
+`speclib.mbr.hdf` but it will contain all requested fragment types and observed mzs and intensities rather than
+predicted ones.
 
 ## `quant folder`
 TODO

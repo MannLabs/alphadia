@@ -3,6 +3,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -48,7 +49,7 @@ def test_base_manager_load():
     os.remove(my_base_manager.path)
 
 
-TEST_CONFIG = [
+TEST_CALIBRATION_MANAGER_CONFIG = [
     {
         "name": "precursor",
         "estimators": [
@@ -90,9 +91,13 @@ TEST_CONFIG = [
 def test_calibration_manager_init():
     # initialize the calibration manager
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
@@ -158,9 +163,13 @@ def calibration_testdata():
 
 def test_calibration_manager_fit_predict():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     test_df = calibration_testdata()
 
@@ -182,9 +191,13 @@ def test_calibration_manager_fit_predict():
 
 def test_calibration_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
-    calibration_manager = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=False
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager = manager.CalibrationManager(
+            path=temp_path, load_from_file=False
+        )
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)
@@ -195,9 +208,13 @@ def test_calibration_manager_save_load():
 
     calibration_manager.save()
 
-    calibration_manager_loaded = manager.CalibrationManager(
-        TEST_CONFIG, path=temp_path, load_from_file=True
-    )
+    with patch(
+        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        TEST_CALIBRATION_MANAGER_CONFIG,
+    ):
+        calibration_manager_loaded = manager.CalibrationManager(
+            path=temp_path, load_from_file=True
+        )
     assert calibration_manager_loaded.is_fitted is True
     assert calibration_manager_loaded.is_loaded_from_file is True
 
@@ -307,7 +324,7 @@ def test_workflow_base():
             with open(config_path) as f:
                 config = yaml.safe_load(f)
 
-            config["output"] = tempfile.gettempdir()
+            config["output_directory"] = tempfile.gettempdir()
 
             workflow_name = Path(file).stem
 
@@ -317,13 +334,13 @@ def test_workflow_base():
             )
             my_workflow.load(file, pd.DataFrame({}))
 
-            assert my_workflow.config["output"] == config["output"]
+            assert my_workflow.config["output_directory"] == config["output_directory"]
             assert my_workflow.instance_name == workflow_name
-            assert my_workflow.parent_path == os.path.join(
-                config["output"], base.QUANT_FOLDER_NAME
+            assert my_workflow.quant_path == os.path.join(
+                config["output_directory"], base.QUANT_FOLDER_NAME
             )
             assert my_workflow.path == os.path.join(
-                my_workflow.parent_path, workflow_name
+                my_workflow.quant_path, workflow_name
             )
 
             assert os.path.exists(my_workflow.path)
@@ -338,7 +355,7 @@ def test_workflow_base():
 
             # os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
             # os.rmdir(os.path.join(my_workflow.path))
-            shutil.rmtree(os.path.join(my_workflow.parent_path))
+            shutil.rmtree(os.path.join(my_workflow.quant_path))
 
 
 FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
@@ -420,7 +437,7 @@ def create_workflow_instance():
 
     config = Config()
     config.from_yaml(config_base_path)
-    config["output"] = tempfile.mkdtemp()
+    config.update([Config({"output_directory": tempfile.mkdtemp()})])
     workflow = peptidecentric.PeptideCentricWorkflow(
         "test",
         config,
@@ -433,7 +450,6 @@ def create_workflow_instance():
         ]
     )
     workflow._calibration_manager = manager.CalibrationManager(
-        workflow.config["calibration_manager"],
         path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         reporter=workflow.reporter,

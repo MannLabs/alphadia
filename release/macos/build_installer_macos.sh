@@ -3,16 +3,14 @@ set -e -u
 
 # Build the installer for MacOS.
 # This script needs to be run from the root of the repository.
+# Prerequisites: wheel has been build, e.g. using build_wheel.sh
 
-rm -rf dist build *.egg-info
 rm -rf dist_pyinstaller build_pyinstaller
 
-export EAGER_IMPORT=true  # TODO check if this can be removed with newset peptdeep version w/out transformer dependenc
+export EAGER_IMPORT=true  # TODO check if this can be removed with newest peptdeep version w/out transformer dependency
 
-python -m build
 
-# substitute X.Y.Z-devN with X.Y.Z.devN
-WHL_NAME=$(echo "alphadia-1.9.2-py3-none-any.whl" | sed 's/\([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)-dev\([0-9][0-9]*\)/\1.dev\2/g')
+WHL_NAME=$(cd dist && ls ./*.whl && cd ..)
 pip install "dist/${WHL_NAME}[stable]"
 
 # Creating the stand-alone pyinstaller folder
