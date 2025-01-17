@@ -40,10 +40,10 @@ class ProcessingStep:
             return self.forward(*args)
         else:
             logger.critical(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
             raise ValueError(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
 
     def validate(self, *args: typing.Any) -> bool:
@@ -617,11 +617,19 @@ class RTNormalization(ProcessingStep):
 
 
 class MultiplexLibrary(ProcessingStep):
-    def __init__(self, multiplex_mapping: dict, input_channel: str | int | None = None):
+    def __init__(self, multiplex_mapping: list, input_channel: str | int | None = None):
         """Initialize the MultiplexLibrary step."""
 
-        self._multiplex_mapping = multiplex_mapping
+        self._multiplex_mapping = self._create_multiplex_mapping(multiplex_mapping)
         self._input_channel = input_channel
+
+    @staticmethod
+    def _create_multiplex_mapping(multiplex_mapping: list) -> dict:
+        """Create a dictionary from the multiplex mapping list."""
+        mapping = {}
+        for list_item in multiplex_mapping:
+            mapping[list_item["channel_name"]] = list_item["modifications"]
+        return mapping
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""

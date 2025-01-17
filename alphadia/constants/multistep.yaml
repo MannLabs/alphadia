@@ -1,0 +1,50 @@
+# configuration for multistep search
+# for each of the three steps, the configuration values defined here override the default values and the values defined by the user
+
+# future : default.yaml -> user.yaml -> multistep_user.yaml -> multistep.yaml
+
+transfer:
+#  library_prediction:  # should be done in 99% of cases
+#      predict: True
+  transfer_library:
+    enabled: True
+  transfer_learning:
+    enabled: True
+
+  # override settings that could have been set by the user:
+  quant_directory: null
+  general:
+    save_library: False
+    reuse_quant: False
+  # TODO: think about enforcing optimization of rt here
+
+library:
+# the step following TL needs to have this. It will be forced to true only (by code) if transfer step was done before
+#  library_prediction:
+#    predict: True
+
+  # override settings that could have been set by the user:
+  quant_directory: null
+  general:
+    save_library: False
+    reuse_quant: False
+  transfer_library:
+    enabled: False
+  transfer_learning:
+    enabled: False
+
+mbr:
+  fdr:
+    inference_strategy: library
+  search:
+    target_num_candidates: 5
+  # override settings that could have been set by the user:
+  quant_directory: null
+  general:
+    reuse_quant: False
+  library_prediction:
+    predict: False
+  transfer_library:
+    enabled: False
+  transfer_learning:
+    enabled: False

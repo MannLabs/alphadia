@@ -13,12 +13,15 @@ from alphadia.workflow import reporting
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_logging():
+    reporting.__is_initiated__ = False
+
     tempfolder = random_tempfolder()
 
     if os.path.exists(os.path.join(tempfolder, "log.txt")):
         os.remove(os.path.join(tempfolder, "log.txt"))
 
     reporting.init_logging(tempfolder)
+
     python_logger = logging.getLogger()
     python_logger.progress("test")
     python_logger.info("test")
@@ -36,6 +39,8 @@ def test_logging():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_backend():
+    reporting.__is_initiated__ = False
+
     backend = reporting.Backend()
     backend.log_event("start_extraction", None)
     backend.log_metric("accuracy", 0.9)
@@ -48,6 +53,8 @@ test_backend()
 
 
 def test_figure_backend():
+    reporting.__is_initiated__ = False
+
     tempfolder = random_tempfolder()
 
     figure_backend = reporting.FigureBackend(path=tempfolder)
@@ -69,6 +76,8 @@ test_figure_backend()
 
 
 def test_jsonl_backend():
+    reporting.__is_initiated__ = False
+
     tempfolder = random_tempfolder()
 
     with reporting.JSONLBackend(path=tempfolder) as jsonl_backend:
@@ -86,6 +95,8 @@ def test_jsonl_backend():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_log_backend():
+    reporting.__is_initiated__ = False
+
     tempfolder = random_tempfolder()
 
     if os.path.exists(os.path.join(tempfolder, "log.txt")):
@@ -107,6 +118,8 @@ def test_log_backend():
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
 def test_pipeline():
+    reporting.__is_initiated__ = False
+
     tempfolder = random_tempfolder()
 
     pipeline = reporting.Pipeline(

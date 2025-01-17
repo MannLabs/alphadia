@@ -26,9 +26,9 @@ class YamlKeys:
     TEST_CASES = "test_cases"
     NAME = "name"
     CONFIG = "config"
-    LIBRARY = "library"
-    FASTA = "fasta"
-    RAW_DATA = "raw_data"
+    LIBRARY = "library_path"
+    FASTA = "fasta_paths"
+    RAW_DATA = "raw_paths"
     SOURCE_URL = "source_url"
 
 
@@ -55,18 +55,18 @@ def _create_config_file(
     """Create the config file from paths to the input files and optional extra_config."""
 
     config_to_write = {
-        "raw_path_list": downloaded_files[YamlKeys.RAW_DATA],
+        "raw_paths": downloaded_files[YamlKeys.RAW_DATA],
         "output_directory": os.path.join(target_path, OUTPUT_DIR_NAME),
     } | extra_config
 
     if YamlKeys.LIBRARY in downloaded_files:
         config_to_write = config_to_write | {
-            "library": downloaded_files[YamlKeys.LIBRARY][0]
+            "library_path": downloaded_files[YamlKeys.LIBRARY][0]
         }
 
     if YamlKeys.FASTA in downloaded_files:
         config_to_write = config_to_write | {
-            "fasta_list": downloaded_files[YamlKeys.FASTA]
+            "fasta_paths": downloaded_files[YamlKeys.FASTA]
         }
 
     config_target_path = os.path.join(target_path, DEFAULT_CONFIG_FILE_NAME)
