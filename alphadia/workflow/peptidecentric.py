@@ -97,13 +97,13 @@ feature_columns = [
 
 def get_classifier_base(enable_two_step_classifier: bool = False):
     nn_classifier = fdrx.BinaryClassifierLegacyNewBatching(
-        test_size=0.001, 
-        batch_size=5000, 
-        learning_rate=0.001, 
+        test_size=0.001,
+        batch_size=5000,
+        learning_rate=0.001,
         epochs=10,
         experimental_hyperparameter_tuning=True,
     )
-    
+
     if enable_two_step_classifier:
         return fdrx.TwoStepClassifier(
             first_classifier=fdrx.LogisticRegressionClassifier(),
