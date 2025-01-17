@@ -786,7 +786,7 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
-        quantlevel_configs = [ #quantgroup configs are: quantlevel, level_name, should_process, save_fragments
+        quantlevel_configs = [ #the configs specified here are: quantlevel, level_name, should_process, save_fragments
             (
                 "mod_seq_hash",
                 "peptide",
