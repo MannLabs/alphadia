@@ -1179,7 +1179,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 x_train_batch = x_train[batch_start:batch_stop]
                 y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)
-
                 loss_value = loss(y_pred, y_train_batch)
 
                 self.network.zero_grad()

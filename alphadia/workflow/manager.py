@@ -20,7 +20,7 @@ import xxhash
 import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
-from alphadia.fdr_analysis.models import TwoStepClassifier
+from alphadia.fdrx.models import TwoStepClassifier
 from alphadia.workflow import reporting
 from alphadia.workflow.config import Config
 

@@ -15,7 +15,7 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
-from alphadia.fdr_analysis.models import LogisticRegressionClassifier, TwoStepClassifier
+from alphadia.fdrx.models import LogisticRegressionClassifier, TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
