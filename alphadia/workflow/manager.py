@@ -18,9 +18,9 @@ import xxhash
 
 # alphadia imports
 import alphadia
-import alphadia.fdrexperimental as fdrx
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
+from alphadia.fdr_analysis.models import TwoStepClassifier
 from alphadia.workflow import reporting
 from alphadia.workflow.config import Config
 
@@ -629,7 +629,7 @@ class FDRManager(BaseManager):
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
             self.enable_two_step_classifier = isinstance(
-                classifier_base, fdrx.TwoStepClassifier
+                classifier_base, TwoStepClassifier
             )
 
         self._current_version = -1

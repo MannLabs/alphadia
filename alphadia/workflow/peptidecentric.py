@@ -15,6 +15,7 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.fdr_analysis.models import LogisticRegressionClassifier, TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
@@ -105,8 +106,8 @@ def get_classifier_base(enable_two_step_classifier: bool = False):
     )
 
     if enable_two_step_classifier:
-        return fdrx.TwoStepClassifier(
-            first_classifier=fdrx.LogisticRegressionClassifier(),
+        return TwoStepClassifier(
+            first_classifier=LogisticRegressionClassifier(),
             second_classifier=nn_classifier,
         )
     else:
