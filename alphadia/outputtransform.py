@@ -786,28 +786,32 @@ class SearchPlanOutput:
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
-        quantlevel_configs = [ #the configs specified here are: quantlevel, level_name, should_process, save_fragments
-        (
+        quantlevel_configs = [  # the configs specified here are: quantlevel, level_name, should_process, save_fragments
+            (
                 "mod_seq_charge_hash",
                 "precursor",
                 self.config["search_output"]["precursor_level_lfq"],
-                self.config["search_output"]["fragment_quant_matrix"] #if we write out the fragment quantities, then with precursor-level filtering
+                self.config["search_output"][
+                    "fragment_quant_matrix"
+                ],  # if we write out the fragment quantities, then with precursor-level filtering
             ),
             (
                 "mod_seq_hash",
                 "peptide",
                 self.config["search_output"]["peptide_level_lfq"],
-                False
+                False,
             ),
-            ("pg", 
-             "pg", 
-             True, 
-             False),  # Always process protein group level
+            ("pg", "pg", True, False),  # Always process protein group level
         ]
 
         lfq_results = {}
 
-        for quantlevel, level_name, should_process, save_fragments in quantlevel_configs:
+        for (
+            quantlevel,
+            level_name,
+            should_process,
+            save_fragments,
+        ) in quantlevel_configs:
             if not should_process:
                 continue
 
@@ -852,10 +856,14 @@ class SearchPlanOutput:
                     file_format=self.config["search_output"]["file_format"],
                 )
                 if save_fragments:
-                    logger.info(f"Writing fragment quantity matrix to disk, filtered on {level_name}")
+                    logger.info(
+                        f"Writing fragment quantity matrix to disk, filtered on {level_name}"
+                    )
                     write_df(
                         group_intensity_df,
-                        os.path.join(self.output_folder, f"fragment_{level_name}filt.matrix"),
+                        os.path.join(
+                            self.output_folder, f"fragment_{level_name}filt.matrix"
+                        ),
                         file_format=self.config["search_output"]["file_format"],
                     )
 
