@@ -237,6 +237,7 @@ fdr:
 search_output:
   peptide_level_lfq: false
   precursor_level_lfq: false
+  fragment_quant_matrix: false
   min_k_fragments: 12
   min_correlation: 0.9
   num_samples_quadratic: 50
