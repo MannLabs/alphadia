@@ -2,8 +2,10 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 from sklearn.linear_model import LogisticRegression
 
+from alphadia.fdrexperimental import get_scaled_training_params
 from alphadia.fdrx.base import TargetDecoyFDR
 
 
@@ -45,3 +47,31 @@ def test_target_decoy_fdr(mock_show):
     assert all([col in df.columns for col in ["decoy_proba", "qval", "pep"]])
     assert np.all(df[["decoy_proba", "qval", "pep"]].values >= 0)
     assert np.all(df[["decoy_proba", "qval", "pep"]].values <= 1)
+
+
+@pytest.mark.parametrize(
+    "n_samples,expected_batch,expected_lr",
+    [
+        # Large dataset case (≥1M samples)
+        (1_000_000, 1024, 0.001),
+        (2_000_000, 1024, 0.001),
+        # Mid-size dataset cases
+        (500_000, 512, 0.001 * np.sqrt(512 / 1024)),  # 50% of max
+        (250_000, 256, 0.001 * np.sqrt(256 / 1024)),  # 25% of max
+        # Small dataset cases
+        (50_000, 64, 0.001 * np.sqrt(64 / 1024)),  # Should hit min batch size
+        (1_000, 64, 0.001 * np.sqrt(64 / 1024)),  # Should hit min batch size
+    ],
+)
+def test_get_scaled_training_params(n_samples, expected_batch, expected_lr):
+    # Create dummy dataframe with specified number of samples
+    df = pd.DataFrame({"col1": range(n_samples)})
+
+    # Get scaled parameters
+    batch_size, learning_rate = get_scaled_training_params(df)
+
+    # Check batch size matches expected
+    assert batch_size == expected_batch
+
+    # Check learning rate matches expected (within floating point precision)
+    assert np.isclose(learning_rate, expected_lr, rtol=1e-10)

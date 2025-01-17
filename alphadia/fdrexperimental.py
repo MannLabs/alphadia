@@ -1313,6 +1313,42 @@ class BinaryClassifierLegacy(Classifier):
         return self.network(torch.Tensor(x)).detach().numpy()
 
 
+def get_scaled_training_params(df, base_lr=0.001, max_batch=1024, min_batch=64):
+    """
+    Scale batch size and learning rate based on dataframe size using square root relationship.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe
+    base_lr : float, optional
+        Base learning rate for 1024 batch size, defaults to 0.01
+    max_batch : int, optional
+        Maximum batch size (1024 for >= 1M samples), defaults to 1024
+    min_batch : int, optional
+        Minimum batch size, defaults to 32
+
+    Returns
+    -------
+    tuple(int, float)
+        (batch_size, learning_rate)
+    """
+    n_samples = len(df)
+
+    # For >= 1M samples, use max batch size
+    if n_samples >= 1_000_000:
+        return max_batch, base_lr
+
+    # Calculate scaled batch size (linear scaling between min and max)
+    batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
+
+    # Scale learning rate using square root relationship
+    # sqrt(batch_size) / sqrt(max_batch) = scaled_lr / base_lr
+    learning_rate = base_lr * np.sqrt(batch_size / max_batch)
+
+    return batch_size, learning_rate
+
+
 class BinaryClassifierLegacyNewBatching(Classifier):
     def __init__(
         self,
@@ -1326,6 +1362,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        experimental_hyperparameter_tuning: bool = False,
         **kwargs,
     ):
         """Binary Classifier using a feed forward neural network.
@@ -1363,6 +1400,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
+        experimental_hyperparameter_tuning: bool, default=False
+            Whether to use experimental hyperparameter tuning.
+
         """
         if layers is None:
             layers = [100, 50, 20, 5]
@@ -1376,6 +1416,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
+        self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
         self.network = None
         self.optimizer = None
@@ -1474,6 +1515,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
+        if self.experimental_hyperparameter_tuning:
+            self.batch_size, self.learning_rate = get_scaled_training_params(x)
+            logger.info(
+                f"Estimating optimal hyperparameters - "
+                f"samples: {len(x):,}, "
+                f"batch_size: {self.batch_size:,}, "
+                f"learning_rate: {self.learning_rate:.2e}"
+            )
 
         force_reinit = False
 

@@ -11,17 +11,23 @@ import os
 import re
 import sys
 
+import matplotlib
 import yaml
 
 import alphadia
 from alphadia import utils
+from alphadia.constants.keys import ConfigKeys
 from alphadia.exceptions import CustomError
+from alphadia.search_plan import SearchPlan
 from alphadia.workflow import reporting
 
 logger = logging.getLogger()
 
+epilog = "Parameters passed via CLI will overwrite parameters from config file (except for  '--file': will be merged)."
 
-parser = argparse.ArgumentParser(description="Search DIA experiments with alphaDIA")
+parser = argparse.ArgumentParser(
+    description="Search DIA experiments with alphaDIA", epilog=epilog
+)
 parser.add_argument(
     "--version",
     "-v",
@@ -30,17 +36,19 @@ parser.add_argument(
 )
 parser.add_argument(
     "--output",
+    "--output-directory",
     "-o",
     type=str,
-    help="Output directory",
+    help="Output directory.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--file",
+    "--raw-path",
     "-f",
     type=str,
-    help="Raw data input files.",
+    help="Path to raw data input file. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -56,21 +64,23 @@ parser.add_argument(
     "--regex",
     "-r",
     type=str,
-    help="Regex to match raw files in directory.",
+    help="Regex to match raw files in 'directory'.",
     nargs="?",
     default=".*",
 )
 parser.add_argument(
     "--library",
+    "--library-path",
     "-l",
     type=str,
-    help="Spectral library.",
+    help="Path to spectral library file.",
     nargs="?",
     default=None,
 )
 parser.add_argument(
     "--fasta",
-    help="Fasta file(s) used to generate or annotate the spectral library.",
+    "--fasta-path",
+    help="Path to fasta file used to generate or annotate the spectral library. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -78,49 +88,29 @@ parser.add_argument(
     "--config",
     "-c",
     type=str,
-    help="Config yaml which will be used to update the default config.",
+    help="Path to config yaml file which will be used to update the default config.",
     nargs="?",
     default=None,
-)
-parser.add_argument(
-    "--wsl",
-    "-w",
-    action="store_true",
-    help="Set if running on Windows Subsystem for Linux.",
 )
 parser.add_argument(
     "--config-dict",
     type=str,
-    help="Python Dict which will be used to update the default config.",
+    help="Python dictionary which will be used to update the default config.",
     nargs="?",
     default="{}",
 )
 parser.add_argument(
-    "--quant-dir",
+    "--quant-dir",  # TODO deprecate
+    "--quant-directory",
     type=str,
-    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search",
+    help="Directory to save the quantification results (psm & frag parquet files) to be reused in a distributed search.",
     nargs="?",
     default=None,
 )
 
 
-def parse_config(args: argparse.Namespace) -> dict:
-    """Parse config file and config update JSON string.
-    1. Load config file if specified.
-    2. Update config with config update JSON string.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    Returns
-    -------
-
-    config : dict
-        Updated config dictionary.
-    """
+def _get_config_from_args(args: argparse.Namespace) -> dict:
+    """Parse config file from `args.config` if given and update with optional JSON string `args.config_dict`."""
 
     config = {}
     if args.config is not None:
@@ -135,113 +125,47 @@ def parse_config(args: argparse.Namespace) -> dict:
     return config
 
 
-def parse_output_directory(args: argparse.Namespace, config: dict) -> str:
-    """Parse output directory.
-    1. Use output directory from config file if specified.
-    2. Use output directory from command line if specified.
+def _get_from_args_or_config(
+    args: argparse.Namespace, config: dict, *, args_key: str, config_key: str
+) -> str:
+    """Get a value from command line arguments (key: `args_key`) or config file (key: `config_key`), the former taking precedence."""
+    value_from_args = args.__dict__.get(args_key)
+    return value_from_args if value_from_args is not None else config.get(config_key)
+
+
+def _get_raw_path_list_from_args_and_config(
+    args: argparse.Namespace, config: dict
+) -> list:
+    """
+    Generate a list of raw file paths based on command-line arguments and configuration.
+
+    This function combines file paths specified in the configuration and command-line
+    arguments, including files from specified directories. It filters the resulting
+    list of file paths using a regular expression provided in the arguments.
 
     Parameters
     ----------
-
     args : argparse.Namespace
-        Command line arguments.
-
+        Command-line arguments containing file and directory
+        paths, as well as a regex pattern for filtering.
     config : dict
-        Config dictionary.
+        Configuration dictionary that may include a list of raw paths
+        and a directory to search for files.
 
     Returns
     -------
-
-    output_directory : str
-        Output directory.
+        list: a list of file paths that match the specified regex pattern.
     """
 
-    output_directory = None
-    if "output_directory" in config:
-        output_directory = (
-            utils.windows_to_wsl(config["output_directory"])
-            if args.wsl
-            else config["output_directory"]
-        )
+    raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
+    raw_path_list += args.file
 
-    if args.output is not None:
-        output_directory = (
-            utils.windows_to_wsl(args.output) if args.wsl else args.output
-        )
+    if (config_directory := config.get("directory")) is not None:
+        raw_path_list += [
+            os.path.join(config_directory, f) for f in os.listdir(config_directory)
+        ]
 
-    return output_directory
-
-
-def parse_quant_dir(args: argparse.Namespace, config: dict) -> str:
-    """Parse custom quant path.
-    1. Use custom quant path from config file if specified.
-    2. Use custom quant path from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    quant_dir : str
-        path to quant directory.
-    """
-
-    quant_dir = None
-    if "quant_dir" in config:
-        quant_dir = (
-            utils.windows_to_wsl(config["quant_dir"])
-            if args.wsl
-            else config["quant_dir"]
-        )
-
-    if args.quant_dir is not None:
-        quant_dir = utils.windows_to_wsl(args.quant_dir) if args.wsl else args.quant_dir
-
-    return quant_dir
-
-
-def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
-    """Parse raw file list.
-    1. Use raw file list from config file if specified.
-    2. Use raw file list from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    raw_path_list : list
-        List of raw files.
-    """
-    config_raw_path_list = config.get("raw_path_list", [])
-    raw_path_list = (
-        utils.windows_to_wsl(config_raw_path_list) if args.wsl else config_raw_path_list
-    )
-    raw_path_list += utils.windows_to_wsl(args.file) if args.wsl else args.file
-
-    config_directory = config.get("directory")
-    directory = utils.windows_to_wsl(config_directory) if args.wsl else config_directory
-    if directory is not None:
-        raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
-
-    directory_list = (
-        utils.windows_to_wsl(args.directory) if args.wsl else args.directory
-    )
-    for directory in directory_list:
+    for directory in args.directory:
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
     # filter raw files by regex
@@ -257,71 +181,6 @@ def parse_raw_path_list(args: argparse.Namespace, config: dict) -> list:
     return raw_path_list
 
 
-def parse_library(args: argparse.Namespace, config: dict) -> str:
-    """Parse spectral library.
-    1. Use spectral library from config file if specified.
-    2. Use spectral library from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    library : str
-        Spectral library.
-    """
-
-    library = None
-    if "library" in config:
-        library = (
-            utils.windows_to_wsl(config["library"]) if args.wsl else config["library"]
-        )
-
-    if args.library is not None:
-        library = utils.windows_to_wsl(args.library) if args.wsl else args.library
-
-    return library
-
-
-def parse_fasta(args: argparse.Namespace, config: dict) -> list:
-    """Parse fasta file list.
-    1. Use fasta file list from config file if specified.
-    2. Use fasta file list from command line if specified.
-
-    Parameters
-    ----------
-
-    args : argparse.Namespace
-        Command line arguments.
-
-    config : dict
-        Config dictionary.
-
-    Returns
-    -------
-
-    fasta_path_list : list
-        List of fasta files.
-    """
-
-    config_fasta_path_list = config.get("fasta_list", [])
-    fasta_path_list = (
-        utils.windows_to_wsl(config_fasta_path_list)
-        if args.wsl
-        else config_fasta_path_list
-    )
-    fasta_path_list += utils.windows_to_wsl(args.fasta) if args.wsl else args.fasta
-
-    return fasta_path_list
-
-
 def run(*args, **kwargs):
     # parse command line arguments
     args, unknown = parser.parse_known_args()
@@ -335,57 +194,38 @@ def run(*args, **kwargs):
         print(f"{alphadia.__version__}")
         return
 
-    config = parse_config(args)
+    user_config = _get_config_from_args(args)
 
-    output_directory = parse_output_directory(args, config)
+    output_directory = _get_from_args_or_config(
+        args, user_config, args_key="output", config_key="output_directory"
+    )
     if output_directory is None:
-        # print help message if no output directory specified
         parser.print_help()
 
-        print("No output directory specified.")
+        print("No output directory specified. Please do so via CL-argument or config.")
         return
-
-    quant_dir = parse_quant_dir(args, config)
-
     reporting.init_logging(output_directory)
-    raw_path_list = parse_raw_path_list(args, config)
 
-    library_path = parse_library(args, config)
-    fasta_path_list = parse_fasta(args, config)
-
-    logger.progress(f"Searching {len(raw_path_list)} files:")
-    for f in raw_path_list:
-        logger.progress(f"  {os.path.basename(f)}")
-
-    logger.progress(f"Using library: {library_path}")
-
-    logger.progress(f"Using {len(fasta_path_list)} fasta files:")
-    for f in fasta_path_list:
-        logger.progress(f"  {f}")
+    # TODO revisit the multiple sources of raw files (cli, config, regex, ...)
+    raw_paths = _get_raw_path_list_from_args_and_config(args, user_config)
+    cli_params_config = {
+        **({ConfigKeys.RAW_PATHS: raw_paths} if raw_paths else {}),
+        **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
+        **({ConfigKeys.FASTA_PATHS: args.library} if args.fasta else {}),
+        **(
+            {ConfigKeys.QUANT_DIRECTORY: args.library}
+            if args.quant_dir is not None
+            else {}
+        ),
+    }
 
     # TODO rename all output_directory, output_folder => output_path, quant_dir->quant_path (except cli parameter)
-    logger.progress(f"Saving output to: {output_directory}")
-    if quant_dir is not None:
-        logger.progress(f"Saving quantification output to {quant_dir=}")
+
+    # important to suppress matplotlib output
+    matplotlib.use("Agg")
 
     try:
-        import matplotlib
-
-        # important to suppress matplotlib output
-        matplotlib.use("Agg")
-
-        from alphadia.planning import Plan
-
-        plan = Plan(
-            output_directory,
-            raw_path_list=raw_path_list,
-            library_path=library_path,
-            fasta_path_list=fasta_path_list,
-            config=config,
-            quant_path=quant_dir,
-        )
-
-        plan.run()
+        SearchPlan(output_directory, user_config, cli_params_config).run_plan()
 
     except Exception as e:
         if isinstance(e, CustomError):

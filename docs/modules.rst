@@ -12,7 +12,7 @@ Modules
     alphadia/grouping
     alphadia/libtransform
     alphadia/outputtransform
-    alphadia/planning
+    alphadia/search_step
     alphadia/plexscoring
     alphadia/quadrupole
     alphadia/utils
