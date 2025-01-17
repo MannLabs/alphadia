@@ -17,7 +17,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
-from alphadia import fdr_utils, grouping, libtransform, utils
+from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.outputaccumulator import (
@@ -1162,7 +1162,7 @@ def perform_protein_fdr(psm_df):
     protein_features["proba"] = clf.predict_proba(scaler.transform(X))[:, 1]
     protein_features = pd.DataFrame(protein_features)
 
-    protein_features = fdr_utils.get_q_values(
+    protein_features = fdr.get_q_values(
         protein_features,
         score_column="proba",
         decoy_column="decoy",
@@ -1178,9 +1178,7 @@ def perform_protein_fdr(psm_df):
 
     protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
 
-    fdr_utils.plot_fdr(
-        X_train, X_test, y_train, y_test, clf, protein_features["pg_qval"]
-    )
+    fdr.plot_fdr(X_train, X_test, y_train, y_test, clf, protein_features["pg_qval"])
 
     return pd.concat(
         [

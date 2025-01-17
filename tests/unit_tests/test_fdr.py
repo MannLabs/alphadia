@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 import torch
 
-from alphadia import fdr_utils
+from alphadia import fdr
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager
 
@@ -68,14 +68,14 @@ def test_keep_best():
         }
     )
 
-    best_df = fdr_utils.keep_best(
+    best_df = fdr.keep_best(
         test_df, score_column="proba", group_columns=["precursor_idx"]
     )
 
     assert best_df.shape[0] == 3
     assert np.allclose(best_df["proba"].values, np.array([0.1, 0.4, 0.7]))
 
-    best_df = fdr_utils.keep_best(
+    best_df = fdr.keep_best(
         test_df, score_column="proba", group_columns=["channel", "precursor_idx"]
     )
 
@@ -94,7 +94,7 @@ def test_keep_best_2():
         }
     )
 
-    result_df = fdr_utils.keep_best(test_df, group_columns=["channel", "elution_group_idx"])
+    result_df = fdr.keep_best(test_df, group_columns=["channel", "elution_group_idx"])
     pd.testing.assert_frame_equal(result_df, test_df)
 
     test_df = pd.DataFrame(
@@ -104,7 +104,7 @@ def test_keep_best_2():
             "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.1, 0.2, 0.3],
         }
     )
-    result_df = fdr_utils.keep_best(test_df, group_columns=["channel", "elution_group_idx"])
+    result_df = fdr.keep_best(test_df, group_columns=["channel", "elution_group_idx"])
     result_expected = pd.DataFrame(
         {
             "channel": [0, 0, 4, 4, 8, 8],
@@ -121,7 +121,7 @@ def test_keep_best_2():
             "proba": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.1, 0.2, 0.3],
         }
     )
-    result_df = fdr_utils.keep_best(test_df, group_columns=["channel", "precursor_idx"])
+    result_df = fdr.keep_best(test_df, group_columns=["channel", "precursor_idx"])
     result_expected = pd.DataFrame(
         {
             "channel": [0, 0, 4, 4, 8, 8],
@@ -135,7 +135,7 @@ def test_keep_best_2():
 def test_fdr_to_q_values():
     test_fdr = np.array([0.2, 0.1, 0.05, 0.3, 0.26, 0.25, 0.5])
 
-    test_q_values = fdr_utils.fdr_to_q_values(test_fdr)
+    test_q_values = fdr.fdr_to_q_values(test_fdr)
 
     assert np.allclose(
         test_q_values, np.array([0.05, 0.05, 0.05, 0.25, 0.25, 0.25, 0.5])
@@ -151,7 +151,7 @@ def test_get_q_values():
         }
     )
 
-    test_df = fdr_utils.get_q_values(test_df, "proba", "_decoy")
+    test_df = fdr.get_q_values(test_df, "proba", "_decoy")
 
     assert np.allclose(
         test_df["qval"].values,
