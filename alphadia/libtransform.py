@@ -131,6 +131,10 @@ class DynamicLoader(ProcessingStep):
         else:
             raise ValueError(f"File type {file_type} not supported")
 
+        # TODO: this is a hack to get the charged_frag_types from the fragment_mz_df
+        # this should be fixed ASAP in alphabase
+        library.charged_frag_types = library.fragment_mz_df.columns.tolist()
+
         return library
 
 
