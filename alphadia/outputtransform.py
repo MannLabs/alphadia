@@ -787,17 +787,17 @@ class SearchPlanOutput:
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
         quantlevel_configs = [ #the configs specified here are: quantlevel, level_name, should_process, save_fragments
+        (
+                "mod_seq_charge_hash",
+                "precursor",
+                self.config["search_output"]["precursor_level_lfq"],
+                self.config["search_output"]["fragment_quant_matrix"] #if we write out the fragment quantities, then with precursor-level filtering
+            ),
             (
                 "mod_seq_hash",
                 "peptide",
                 self.config["search_output"]["peptide_level_lfq"],
                 False
-            ),
-            (
-                "mod_seq_charge_hash",
-                "precursor",
-                self.config["search_output"]["precursor_level_lfq"],
-                self.config["search_output"]["fragment_quant_matrix"] #if we write out the fragment quantities, then with precursor-level filtering
             ),
             ("pg", 
              "pg", 
