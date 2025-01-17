@@ -182,7 +182,7 @@ class TwoStepClassifier:
 
     def fit_predict(
         self,
-        df_: pd.DataFrame,
+        df: pd.DataFrame,
         x_cols: list[str],
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
@@ -192,7 +192,7 @@ class TwoStepClassifier:
 
         Parameters
         ----------
-        df_ : pd.DataFrame
+        df : pd.DataFrame
             The input DataFrame from which predictions are to be made.
         x_cols : list[str]
             List of column names representing the features to be used for prediction.
@@ -207,14 +207,12 @@ class TwoStepClassifier:
             A DataFrame containing only the predicted precursors.
 
         """
-        df = df_.copy()
         df.dropna(subset=x_cols, inplace=True)
         df = apply_absolute_transformations(df)
 
         if self.first_classifier.fitted:
             X = df[x_cols].to_numpy()
             df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
-
             df_subset = get_entries_below_fdr(
                 df, self.first_fdr_cutoff, group_columns, remove_decoys=False
             )
@@ -222,72 +220,76 @@ class TwoStepClassifier:
             self.second_classifier.batch_size = 500
             self.second_classifier.epochs = 50
 
-            self.second_classifier.fit(
-                df_subset[x_cols].to_numpy(), df_subset[y_col].to_numpy()
-            )
-            df_subset["proba"] = self.second_classifier.predict_proba(
-                df_subset[x_cols].to_numpy()
-            )[:, 1]
+            df_train = df_subset
+            df_predict = df_subset
 
         else:
             df_train = df[df["rank"] < self.train_on_top_n]
-            self.second_classifier.fit(
-                df_train[x_cols].to_numpy().astype(np.float32),
-                df_train[y_col].to_numpy().astype(np.float32),
-            )
+            df_predict = df
 
-            df_subset = df
-            x_subset = df_subset[x_cols].to_numpy()
-            df_subset["proba"] = self.second_classifier.predict_proba(x_subset)[:, 1]
-
-        df_subset = get_entries_below_fdr(
-            df_subset, self.second_fdr_cutoff, group_columns, remove_decoys=False
+        self.second_classifier.fit(
+            df_train[x_cols].to_numpy().astype(np.float32),
+            df_train[y_col].to_numpy().astype(np.float32),
         )
-        # print(
-        #     f"After q-val extraction, after NN (second_fdr={self.second_fdr_cutoff}): {df_subset.shape}"
-        # )
-        df_targets = df_subset[
-            df_subset["decoy"] == 0
-        ]  # TODO df_targets does not have q values now.
 
-        df_subset_2 = get_target_decoy_partners(df_subset, df)
-        self._update_classifier(
-            self.first_classifier,
-            df_subset_2,
-            x_cols,
-            y_col,
-            self.first_fdr_cutoff,
-            group_columns,
+        df_predict["proba"] = self.second_classifier.predict_proba(
+            df_predict[x_cols].to_numpy()
+        )[:, 1]
+        df_predict = get_entries_below_fdr(
+            df_predict, self.second_fdr_cutoff, group_columns, remove_decoys=False
+        )
+        df_targets = df_predict[df_predict["decoy"] == 0]
+
+        self.update_first_classifier(
+            df=get_target_decoy_partners(df_predict, df),
+            x_cols=x_cols,
+            y_col=y_col,
+            group_columns=group_columns,
         )
 
         return df_targets
 
-    @classmethod
-    def _update_classifier(
-        cls, classifier, df, x_cols, y_col, fdr, group_columns
+    def update_first_classifier(
+        self,
+        df: pd.DataFrame,
+        x_cols: list[str],
+        y_col: str,
+        group_columns: list[str],
     ) -> None:
+        """
+        Update the first classifier only if it improves upon the previous version or if it has not been previously fitted.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            DataFrame containing the features and target.
+        x_cols : list[str]
+            List of column names representing the features.
+        y_col : str
+            Name of the column representing the target variable.
+        group_columns : list[str]
+            Columns used to group data for FDR calculation.
+
+        """
         X = df[x_cols].to_numpy()
         y = df[y_col].to_numpy()
-        if hasattr(classifier, "fitted") and classifier.fitted:
-            df["proba"] = classifier.predict_proba(X)[:, 1]
-            df_targets = get_entries_below_fdr(df, fdr, group_columns)
+
+        previous_n_precursors = -1
+
+        if self.first_classifier.fitted:
+            df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
+            df_targets = get_entries_below_fdr(df, self.first_fdr_cutoff, group_columns)
             previous_n_precursors = len(df_targets)
-            saved_state_dict = classifier.to_state_dict()
-        else:
-            previous_n_precursors = -1
+            previous_state_dict = self.first_classifier.to_state_dict()
 
-        classifier.fit(X, y)
-        classifier._fitted = True
+        self.first_classifier.fit(X, y)
 
-        df["proba"] = classifier.predict_proba(X)[:, 1]
-        df_targets = get_entries_below_fdr(df, fdr, group_columns)
-
+        df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
+        df_targets = get_entries_below_fdr(df, self.first_fdr_cutoff, group_columns)
         current_n_precursors = len(df_targets)
+
         if previous_n_precursors > current_n_precursors:
-            print(
-                "Reverting linear classifier to the previous version, as the new one performed worse."
-            )
-            classifier.from_state_dict(saved_state_dict)
+            self.first_classifier.from_state_dict(previous_state_dict)
 
     @property
     def fitted(self) -> bool:
