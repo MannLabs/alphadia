@@ -49,7 +49,7 @@ jobs:
       TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
     steps:
       - uses: actions/checkout@v4
-      - name: Pip installation with stable dependencies
+      - name: Pip installation (stable)
         id: pip_installation
         shell: bash -el {0}
         run: |
