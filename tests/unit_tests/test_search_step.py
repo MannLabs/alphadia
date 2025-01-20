@@ -101,8 +101,12 @@ def test_custom_modifications():
 @patch("alphadia.search_step.SearchStep._load_default_config")
 def test_initializes_with_default_config(mock_load_default_config):
     """Test that the config is initialized with default values."""
-    config = Config({"key1": "value1", "key2": "value2"}, "default")
-    mock_load_default_config.return_value = deepcopy(config)
+    config = Config(
+        {"key1": "value1", "key2": "value2"}, "default"
+    )  # not using a mock here as working with the real object is much simpler
+    mock_load_default_config.return_value = deepcopy(
+        config
+    )  # copy required here as we want to compare changes to a mutable object below
 
     # when
     result = SearchStep._init_config(None, None, None, "/output")
