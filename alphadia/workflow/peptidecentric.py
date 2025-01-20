@@ -96,7 +96,25 @@ feature_columns = [
 ]
 
 
-def get_classifier_base(enable_two_step_classifier: bool = False):
+def get_classifier_base(
+    enable_two_step_classifier: bool = False, fdr_cutoff: float = 0.01
+):
+    """Creates and returns a classifier base instance.
+
+    Parameters
+    ----------
+    enable_two_step_classifier : bool, optional
+        If True, uses logistic regression + neural network.
+        If False (default), uses only neural network.
+    fdr_cutoff : float, optional
+        The FDR cutoff threshold used by the second classifier when two-step
+        classification is enabled. Default is 0.01.
+
+    Returns
+    -------
+    BinaryClassifierLegacyNewBatching | TwoStepClassifier
+        Neural network or two-step classifier based on enable_two_step_classifier.
+    """
     nn_classifier = fdrx.BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
@@ -109,6 +127,7 @@ def get_classifier_base(enable_two_step_classifier: bool = False):
         return TwoStepClassifier(
             first_classifier=LogisticRegressionClassifier(),
             second_classifier=nn_classifier,
+            second_fdr_cutoff=fdr_cutoff,
         )
     else:
         return nn_classifier
@@ -149,7 +168,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.fdr_manager = manager.FDRManager(
             feature_columns=feature_columns,
             classifier_base=get_classifier_base(
-                self.config["fdr"]["enable_two_step_classifier"]
+                self.config["fdr"]["enable_two_step_classifier"],
+                self.config["fdr"]["fdr"],
             ),
         )
 

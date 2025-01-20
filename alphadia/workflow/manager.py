@@ -607,7 +607,6 @@ class FDRManager(BaseManager):
         classifier_base,
         path: None | str = None,
         load_from_file: bool = True,
-        enable_two_step_classifier: bool = False,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
@@ -767,6 +766,7 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
+        # n_precursor = len(psm_df[psm_df["qval"] <= 0.01])
 
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)

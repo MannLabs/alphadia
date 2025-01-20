@@ -14,9 +14,10 @@ class TwoStepClassifier:
         self,
         first_classifier: Classifier,
         second_classifier: Classifier,
-        train_on_top_n: int = 1,
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
+        min_precursors_for_update: int = 5000,
+        train_on_top_n: int = 1,
     ):
         """
         A two-step classifier, designed to refine classification results by applying a stricter second-stage classification after an initial filtering stage.
@@ -27,12 +28,12 @@ class TwoStepClassifier:
             The first classifier used to initially filter the data.
         second_classifier : Classifier
             The second classifier used to further refine or confirm the classification based on the output from the first classifier.
-        train_on_top_n : int, default=1
-            The number of top candidates that are considered for training of the second classifier.
         first_fdr_cutoff : float, default=0.6
             The fdr threshold for the first classifier, determining how selective the first classification step is.
         second_fdr_cutoff : float, default=0.01
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
+        min_precursors_for_update : int, default=5000
+            The minimum number of precursors required to update the first classifier.
 
         """
         self.first_classifier = first_classifier
@@ -40,6 +41,7 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = first_fdr_cutoff
         self.second_fdr_cutoff = second_fdr_cutoff
 
+        self.min_precursors_for_update = min_precursors_for_update
         self.train_on_top_n = train_on_top_n
 
     def fit_predict(
@@ -48,89 +50,133 @@ class TwoStepClassifier:
         x_cols: list[str],
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
+        max_iterations: int = 5,
     ) -> pd.DataFrame:
         """
-        Train the two-step classifier and predict resulting precursors, returning a DataFrame of only the predicted precursors.
+        Train the two-step classifier and predict precursors using an iterative approach:
+        1. First iteration: Train neural network on top-n candidates.
+        2. Update linear classifier if enough high-confidence predictions are found, else break.
+        3. Subsequent iterations: Use linear classifier to filter data, then refine with neural network.
 
         Parameters
         ----------
         df : pd.DataFrame
-            The input DataFrame from which predictions are to be made.
+            Input DataFrame containing features and target variable
         x_cols : list[str]
-            List of column names representing the features to be used for prediction.
+            Feature column names
         y_col : str, optional
-            The name of the column that denotes the target variable, by default 'decoy'.
+            Target variable column name, defaults to 'decoy'
         group_columns : list[str] | None, optional
-            List of column names to group by for fdr calculations;. If None, fdr calculations will not be grouped.
+            Columns to group by for FDR calculations
+        max_iterations : int
+            Maximum number of refinement iterations
 
         Returns
         -------
         pd.DataFrame
-            A DataFrame containing only the predicted precursors.
+            DataFrame containing predictions and q-values
 
         """
-        df.dropna(subset=x_cols, inplace=True)
-        df = apply_absolute_transformations(df)
+        df = self.preprocess_data(df, x_cols)
+        best_result = None
+        best_precursor_count = -1
 
-        if self.first_classifier.fitted:
-            X = df[x_cols].to_numpy()
-            df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
-            df_subset = get_entries_below_fdr(
-                df, self.first_fdr_cutoff, group_columns, remove_decoys=False
+        for i in range(max_iterations):
+            if self.first_classifier.fitted and i > 0:
+                df_train, df_predict = self.apply_filtering_with_first_classifier(
+                    df, x_cols, group_columns
+                )
+                self.second_classifier.epochs = 50
+            else:
+                df_train = df[df["rank"] < self.train_on_top_n]
+                df_predict = df
+                self.second_classifier.epochs = 10
+
+            predictions = self.train_and_apply_second_classifier(
+                df_train, df_predict, x_cols, y_col, group_columns
             )
 
-            self.second_classifier.epochs = 50
+            # Filter results and check for improvement
+            df_filtered = filter_for_qval(predictions, self.second_fdr_cutoff)
+            current_target_count = len(df_filtered[df_filtered["decoy"] == 0])
 
-            df_train = df_subset
-            df_predict = df_subset
+            if current_target_count < best_precursor_count:
+                logger.info(
+                    f"Stop training after iteration {i}, "
+                    f"due to decreasing target count ({current_target_count} < {best_precursor_count})"
+                )
+                return best_result
 
-        else:
-            df_train = df[df["rank"] < self.train_on_top_n]
-            df_predict = df
+            best_precursor_count = current_target_count
+            best_result = predictions
 
+            # Update first classifier if enough confident predictions
+            if current_target_count > self.min_precursors_for_update:
+                self.update_first_classifier(
+                    df_filtered, df, x_cols, y_col, group_columns
+                )
+            else:
+                break
+
+        return best_result
+
+    def preprocess_data(self, df: pd.DataFrame, x_cols: list[str]) -> pd.DataFrame:
+        """
+        Prepare data by removing NaN values and applying absolute transformations.
+        """
+        df.dropna(subset=x_cols, inplace=True)
+        return apply_absolute_transformations(df)
+
+    def apply_filtering_with_first_classifier(
+        self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """
+        Apply first classifier to filter data for the training of the second classifier.
+        """
+        df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
+
+        filtered_df = get_entries_below_fdr(
+            df, self.first_fdr_cutoff, group_columns, remove_decoys=False
+        )
+
+        return filtered_df, filtered_df
+
+    def train_and_apply_second_classifier(
+        self,
+        train_df: pd.DataFrame,
+        predict_df: pd.DataFrame,
+        x_cols: list[str],
+        y_col: str,
+        group_columns: list[str],
+    ) -> pd.DataFrame:
+        """
+        Train second_classifeir and apply it to get predictions.
+        """
         self.second_classifier.fit(
-            df_train[x_cols].to_numpy().astype(np.float32),
-            df_train[y_col].to_numpy().astype(np.float32),
-        )
-        X = df_predict[x_cols].to_numpy()
-        df_predict["proba"] = self.second_classifier.predict_proba(X)[:, 1]
-        df_predict = get_entries_below_fdr(
-            df_predict, self.second_fdr_cutoff, group_columns, remove_decoys=False
+            train_df[x_cols].to_numpy().astype(np.float32),
+            train_df[y_col].to_numpy().astype(np.float32),
         )
 
-        df_targets = df_predict[df_predict["decoy"] == 0]
+        X = predict_df[x_cols].to_numpy()
+        predict_df["proba"] = self.second_classifier.predict_proba(X)[:, 1]
 
-        self.update_first_classifier(
-            df=get_target_decoy_partners(df_predict, df),
-            x_cols=x_cols,
-            y_col=y_col,
-            group_columns=group_columns,
-        )
-
-        return df_targets
+        return compute_q_values(predict_df, group_columns)
 
     def update_first_classifier(
         self,
-        df: pd.DataFrame,
+        subset_df: pd.DataFrame,
+        full_df: pd.DataFrame,
         x_cols: list[str],
         y_col: str,
         group_columns: list[str],
     ) -> None:
         """
-        Update the first classifier only if it improves upon the previous version or if it has not been previously fitted.
-
-        Parameters
-        ----------
-        df : pd.DataFrame
-            DataFrame containing the features and target.
-        x_cols : list[str]
-            List of column names representing the features.
-        y_col : str
-            Name of the column representing the target variable.
-        group_columns : list[str]
-            Columns used to group data for FDR calculation.
-
+        Update first classifier by finding and using target/decoy pairs. First extracts the corresponding
+        target/decoy partners from the full dataset for each entry in the subset, then uses these
+        pairs to retrain the classifier.
         """
+        df = get_target_decoy_partners(subset_df, full_df)
+
         X = df[x_cols].to_numpy()
         y = df[y_col].to_numpy()
 
@@ -149,7 +195,13 @@ class TwoStepClassifier:
         current_n_precursors = len(df_targets)
 
         if previous_n_precursors > current_n_precursors:
+            logger.info(
+                f"Reverted the first classifier back to the previous version "
+                f"(prev: {previous_n_precursors}, curr: {current_n_precursors})"
+            )
             self.first_classifier.from_state_dict(previous_state_dict)
+        else:
+            logger.info("Fitted the second classifier")
 
     @property
     def fitted(self) -> bool:
@@ -185,6 +237,22 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = state_dict["first_fdr_cutoff"]
         self.second_fdr_cutoff = state_dict["second_fdr_cutoff"]
         self.train_on_top_n = state_dict["train_on_top_n"]
+
+
+def compute_q_values(df: pd.DataFrame, group_columns: list[str]):
+    df.sort_values("proba", ascending=True, inplace=True)
+    df = keep_best(df, group_columns=group_columns)
+    return get_q_values(df, "proba", "decoy")
+
+
+def filter_for_qval(df: pd.DataFrame, fdr_cutoff: float):
+    df_filtered = df[df["qval"] < fdr_cutoff]
+
+    if len(df_filtered) == 0:
+        df_targets = df[df["decoy"] == 0]
+        df_filtered = df_targets.loc[[df_targets["qval"].idxmin()]]
+
+    return df_filtered
 
 
 def get_entries_below_fdr(
