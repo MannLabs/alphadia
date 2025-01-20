@@ -117,7 +117,7 @@ class SearchStep:
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
-            extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+            extra_config_update[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
             config_updates.append(extra_config_update)
 
         config.update(config_updates, do_print=True)
