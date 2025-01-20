@@ -6,7 +6,7 @@ on:
 #  push:
 #    branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"   # daily on 12:00 AM
+    cron: "0 10 * * *"   # daily at midnight
   workflow_dispatch:
     inputs:
       test_case:
@@ -21,7 +21,7 @@ on:
 jobs:
   parse_inputs:
     runs-on: ubuntu-latest
-    if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     outputs:
       test_cases: ${{ steps.parse-test-cases.outputs.test_cases }}
       commitish_to_test: ${{ steps.parse-commitish-to-test.outputs.commitish_to_test }}
