@@ -37,168 +37,124 @@ from tqdm import tqdm
 logger = logging.getLogger()
 
 
-class SpecLibFlatFromOutput(SpecLibFlat):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+def process_folder(
+    folder: str,
+    mandatory_precursor_columns: list[str] | None = None,
+    optional_precursor_columns: list[str] | None = None,
+    charged_frag_types: list[str] | None = None,
+) -> SpecLibFlat:
+    """
+    Parse an output folder and return a SpecLibFlat object containing the precursor and fragment data.
 
-    def _calculate_fragment_position(self):
-        """
-        Calculate the position of the fragments based on the type and number of the fragment.
-        """
-        # Fragtypes from ascii to char
-        available_frag_types = self._fragment_df["type"].unique()
-        self.frag_types_as_char = {i: chr(i) for i in available_frag_types}
+    Parameters
+    ----------
+    folder : str
+        The output folder to be parsed.
+    mandatory_precursor_columns : list[str], optional
+        The columns to be selected from the precursor dataframe
+    optional_precursor_columns : list[str], optional
+        Additional optional columns to include if present
 
-        mapped_frag_types = self._fragment_df["type"].map(self.frag_types_as_char)
-        a_b_c_fragments = mapped_frag_types.isin(["a", "b", "c"])
-        x_y_z_fragments = mapped_frag_types.isin(["x", "y", "z"])
+    Returns
+    -------
+    SpecLibFlat
+        A spectral library object containing the parsed data
+    """
+    speclib = SpecLibFlat()
 
-        precursor_idx_to_nAA = (
-            self._precursor_df[["precursor_idx", "nAA"]]
-            .set_index("precursor_idx")
-            .to_dict()["nAA"]
-        )
-        # For X,Y,Z frags calculate the position as being the nAA of the precursor - number of the fragment
-        x_y_z_number = (
-            self._fragment_df.loc[x_y_z_fragments, "precursor_idx"].map(
-                precursor_idx_to_nAA
-            )
-            - self._fragment_df.loc[x_y_z_fragments, "number"]
-        )
-        self._fragment_df.loc[x_y_z_fragments, "position"] = x_y_z_number - 1
-
-        # For A,B,C frags calculate the position as being the number of the fragment
-        self._fragment_df.loc[a_b_c_fragments, "position"] = (
-            self._fragment_df.loc[a_b_c_fragments, "number"] - 1
-        )
-
-        # Change position to int
-        self._fragment_df["position"] = self._fragment_df["position"].astype(int)
-
-    def parse_output_folder(
-        self,
-        folder: str,
-        mandatory_precursor_columns: list[str] | None = None,
-        optional_precursor_columns: list[str] | None = None,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Parse the output folder to get a precursor and fragment dataframe in the flat format.
-
-        Parameters
-        ----------
-        folder : str
-            The output folder to be parsed.
-        mandatory_precursor_columns : list, optional
-            The columns to be selected from the precursor dataframe, by default ['precursor_idx', 'sequence', 'flat_frag_start_idx', 'flat_frag_stop_idx', 'charge', 'rt_library', 'mobility_library', 'mz_library', 'proteins', 'genes', 'mods', 'mod_sites', 'proba']
-
-        Returns
-        -------
-        pd.DataFrame
-            The precursor dataframe.
-        pd.DataFrame
-            The fragment dataframe.
-
-
-        """
-        if mandatory_precursor_columns is None:
-            mandatory_precursor_columns = [
-                "precursor_idx",
-                "sequence",
-                "flat_frag_start_idx",
-                "flat_frag_stop_idx",
-                "charge",
-                "rt_library",
-                "rt_observed",
-                "mobility_library",
-                "mobility_observed",
-                "mz_library",
-                "mz_observed",
-                "proteins",
-                "genes",
-                "mods",
-                "mod_sites",
-                "proba",
-                "decoy",
-            ]
-
-        if optional_precursor_columns is None:
-            optional_precursor_columns = [
-                "rt_calibrated",
-                "mz_calibrated",
-            ]
-
-        psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
-        frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
-
-        if not set(mandatory_precursor_columns).issubset(psm_df.columns):
-            raise ValueError(
-                f"mandatory_precursor_columns must be a subset of psm_df.columns didnt find {set(mandatory_precursor_columns) - set(psm_df.columns)}"
-            )
-
-        available_columns = sorted(
-            list(
-                set(mandatory_precursor_columns)
-                | (set(optional_precursor_columns) & set(psm_df.columns))
-            )
-        )
-        psm_df = psm_df[available_columns]
-
-        # get foldername of the output folder
-        foldername = os.path.basename(folder)
-        psm_df["raw_name"] = foldername
-
-        # remove decoy precursors
-        # assert that  decoy is int
-        psm_df["decoy"] = psm_df["decoy"].astype(int)
-        psm_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
-
-        self._precursor_df = pd.DataFrame()
-        for col in psm_df.columns:
-            self._precursor_df[col] = psm_df[col]
-
-        # self._precursor_df.set_index('precursor_idx', inplace=True)
-        # Change the data type of the mods column to string
-        self._precursor_df["mods"] = self._precursor_df["mods"].astype(str)
-
-        self._precursor_df["mod_sites"] = self._precursor_df["mod_sites"].astype(str)
-
-        # Replace nan with empty string
-        self._precursor_df["mods"] = self._precursor_df["mods"].replace("nan", "")
-        self._precursor_df["mod_sites"] = self._precursor_df["mod_sites"].replace(
-            "nan", ""
-        )
-
-        self.calc_precursor_mz()
-
-        for col in ["rt", "mz", "mobility"]:
-            if f"{col}_observed" in psm_df.columns:
-                values = psm_df[f"{col}_observed"]
-            elif "{col}_calibrated" in psm_df.columns:
-                values = psm_df["{col}_calibrated"]
-            else:
-                values = psm_df[f"{col}_library"]
-            self._precursor_df[col] = values
-
-        # ----------------- Fragment -----------------
-        # Filer fragments that are not used in the precursors
-        frag_df = frag_df[
-            frag_df["precursor_idx"].isin(self._precursor_df["precursor_idx"])
+    if mandatory_precursor_columns is None:
+        mandatory_precursor_columns = [
+            "precursor_idx",
+            "sequence",
+            "flat_frag_start_idx",
+            "flat_frag_stop_idx",
+            "charge",
+            "rt_library",
+            "rt_observed",
+            "mobility_library",
+            "mobility_observed",
+            "mz_library",
+            "mz_observed",
+            "proteins",
+            "genes",
+            "mods",
+            "mod_sites",
+            "proba",
+            "decoy",
         ]
-        self._fragment_df = frag_df[
-            ["mz", "intensity", "precursor_idx", "frag_idx", "correlation"]
-        ].copy()
 
-        for col in ["number", "type", "charge"]:
-            if col in self.custom_fragment_df_columns:
-                self._fragment_df.loc[:, col] = frag_df.loc[:, col]
+    if optional_precursor_columns is None:
+        optional_precursor_columns = [
+            "rt_calibrated",
+            "mz_calibrated",
+        ]
 
-        if "position" in self.custom_fragment_df_columns:
-            if "position" in frag_df.columns:
-                self._fragment_df.loc[:, "position"] = frag_df.loc[:, "position"]
-            else:
-                self._calculate_fragment_position()
+    psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
+    frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
 
-        return self._precursor_df, self._fragment_df
+    if not set(mandatory_precursor_columns).issubset(psm_df.columns):
+        raise ValueError(
+            f"mandatory_precursor_columns must be a subset of psm_df.columns didnt find {set(mandatory_precursor_columns) - set(psm_df.columns)}"
+        )
+
+    available_columns = sorted(
+        list(
+            set(mandatory_precursor_columns)
+            | (set(optional_precursor_columns) & set(psm_df.columns))
+        )
+    )
+    psm_df = psm_df[available_columns]
+
+    foldername = os.path.basename(folder)
+    psm_df["raw_name"] = foldername
+
+    psm_df["decoy"] = psm_df["decoy"].astype(int)
+    psm_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
+
+    speclib._precursor_df = pd.DataFrame()
+    for col in psm_df.columns:
+        speclib._precursor_df[col] = psm_df[col]
+
+    speclib._precursor_df["mods"] = speclib._precursor_df["mods"].astype(str)
+    speclib._precursor_df["mod_sites"] = speclib._precursor_df["mod_sites"].astype(str)
+    speclib._precursor_df["mods"] = speclib._precursor_df["mods"].replace("nan", "")
+    speclib._precursor_df["mod_sites"] = speclib._precursor_df["mod_sites"].replace(
+        "nan", ""
+    )
+
+    speclib.calc_precursor_mz()
+
+    for col in ["rt", "mz", "mobility"]:
+        if f"{col}_observed" in psm_df.columns:
+            values = psm_df[f"{col}_observed"]
+        elif "{col}_calibrated" in psm_df.columns:
+            values = psm_df["{col}_calibrated"]
+        else:
+            values = psm_df[f"{col}_library"]
+        speclib._precursor_df[col] = values
+
+    frag_df = frag_df[
+        frag_df["precursor_idx"].isin(speclib._precursor_df["precursor_idx"])
+    ]
+    speclib._fragment_df = frag_df[
+        [
+            "mz",
+            "intensity",
+            "precursor_idx",
+            "frag_idx",
+            "correlation",
+            "number",
+            "type",
+            "charge",
+            "loss_type",
+            "position",
+        ]
+    ].copy()
+
+    return speclib.to_speclib_base(
+        charged_frag_types=charged_frag_types,
+        additional_columns=["intensity", "correlation"],
+    )
 
 
 class BaseAccumulator:
@@ -226,34 +182,6 @@ class BaseAccumulator:
         raise NotImplementedError("Subclasses must implement the post_process method")
 
 
-def process_folder(folder):
-    """
-    Process a folder and return the speclibase object.
-    It does so by parsing the output folderto get SpecLibFlat object and then converting it to SpecLibBase object.
-    And for now it assumes that the loss_type is 0 for all the fragments.
-
-    Parameters
-    ----------
-    folder : str
-        The folder to be processed.
-
-    Returns
-    -------
-    SpecLibBase
-        The SpecLibBase object obtained from the output folder.
-    """
-    speclibflat_object = SpecLibFlatFromOutput()
-    psm, frag_df = speclibflat_object.parse_output_folder(folder)
-    speclibflat_object._fragment_df["loss_type"] = 0
-    speclibase = speclibflat_object.to_SpecLibBase()
-    # sort columns
-    for dense_df_name in speclibase.available_dense_fragment_dfs():
-        df = getattr(speclibase, dense_df_name)
-        setattr(speclibase, dense_df_name, df[df.columns.sort_values()])
-
-    return speclibase
-
-
 def error_callback(e):
     logger.error(e, exc_info=True)
 
@@ -264,11 +192,14 @@ class AccumulationBroadcaster:
     And broadcasts the output of each folder to the subscribers.
     """
 
-    def __init__(self, folders: list, number_of_processes: int):
-        self._folders = folders
+    def __init__(
+        self, folder_list: list, number_of_processes: int, processing_kwargs: dict
+    ):
+        self._folder_list = folder_list
         self._number_of_processes = number_of_processes
         self._subscribers = []
         self._lock = threading.Lock()  # Lock to prevent two processes trying to update the same subscriber at the same time
+        self._processing_kwargs = processing_kwargs
 
     def subscribe(self, subscriber: BaseAccumulator):
         self._subscribers.append(subscriber)
@@ -290,10 +221,11 @@ class AccumulationBroadcaster:
 
     def run(self):
         with multiprocessing.Pool(processes=self._number_of_processes) as pool:
-            for folder in self._folders:
+            for folder in self._folder_list:
                 _ = pool.apply_async(
                     process_folder,
                     (folder,),
+                    self._processing_kwargs,
                     callback=self._broadcast,
                     error_callback=error_callback,
                 )
