@@ -1,22 +1,56 @@
+name: End to end testing
+
 on:
   pull_request:
     types: [ labeled ]
-  push:
-    branches: [ main, development ]
+#  push:
+#    branches: [ main ]
+  schedule:
+    - cron: "0 0 * * *"   # daily on 12:00 AM
   workflow_dispatch:
-
-name: End to end testing
+    inputs:
+      test_case:
+        description: 'Test case to run (see e2e_test_cases.yaml for available cases), "all" to run all test cases.'
+        required: false
+        default: 'all'
+      commitish_to_test:
+        type: string
+        description: 'Enter commit hash or branch to test (default: main).'
+        default: "main"
 
 jobs:
-  end2end_testing:
-    name: End to end test
-    runs-on: self-hosted
+  parse_inputs:
+    runs-on: ubuntu-latest
     if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    outputs:
+      test_cases: ${{ steps.parse-test-cases.outputs.test_cases }}
+      commitish_to_test: ${{ steps.parse-commitish-to-test.outputs.commitish_to_test }}
+    steps:
+      - id: parse-test-cases
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.test_case }}" != "all" ]; then
+            echo "test_cases=[\"${{ github.event.inputs.test_case }}\"]" >> $GITHUB_OUTPUT
+          else
+            # NEW TEST CASES ARE ADDED HERE:
+            echo 'test_cases=["basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]' >> $GITHUB_OUTPUT
+          fi
+
+      - id: parse-commitish-to-test
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "commitish_to_test=[\"${{ github.event.inputs.commitish_to_test }}\"]" >> $GITHUB_OUTPUT
+          else
+            echo "commitish_to_test=main" >> $GITHUB_OUTPUT
+          fi
+
+  end2end_tests:
+    name: End to end tests
+    needs: parse_inputs
+    runs-on: self-hosted
     strategy:
       fail-fast: false
       matrix:
-        # test case name as defined in e2e_test_cases.yaml
-        test_case: [ "basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]
+        test_case: ${{ fromJson(needs.parse_inputs.outputs.test_cases) }}
     env:
       RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
@@ -28,23 +62,23 @@ jobs:
       TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
     steps:
       - uses: actions/checkout@v4
-      - name: Conda info
-        shell: bash -el {0}
-        run: conda info
-      - name: Pip installation with stable dependencies
+        with:
+          ref: ${{ needs.parse_inputs.outputs.commitish_to_test }}
+      - name: Pip installation (stable)
         id: pip_installation
         shell: bash -el {0}
         run: |
+          conda info
           cd misc
           . ./pip_install.sh stable $RUN_NAME
       - name: Run e2e tests
         shell: bash -el {0}
         run: |
           cd tests
-           . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
+          . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
       - name: Cleanup
         if: always()
-        shell: bash -el {0}
+        shell: bash -l {0}
         run: |
           conda remove -n $RUN_NAME --all -y
       - name: Delete Caches on Error

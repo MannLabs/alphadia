@@ -69,18 +69,14 @@ See also the [developer guide](developer_guide.md) for more information on how t
 
 ### 1. Setting up the repository
 
-Navigate to a folder where you would like to install alphaDIA and
- download the alphaDIA repository. This creates a subfolder `alphadia` in your current directory
+Navigate to a folder where you would like to set up the repository and execute
 ```bash
-cd ~/work/search_engines
-git clone git@github.com:MannLabs/alphadia.git
-cd alphadia
+git clone git@github.com:MannLabs/alphadia.git && cd alphadia
 ```
 
-Optionally, to get the latest features, switch to the `development` branch and pull the most recent version
+Optionally, get the code version of the latest tag (corresponding to the latest (pre)release):
 ```bash
-git switch development
-git pull
+git fetch --tags && git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
 ```
 
 ### 2. Installation: backend

@@ -122,7 +122,7 @@ class SearchStep:
 
         config.update(config_updates, do_print=True)
 
-        if ConfigKeys.OUTPUT_DIRECTORY not in config:
+        if config.get(ConfigKeys.OUTPUT_DIRECTORY, None) is None:
             config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
 
         config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
