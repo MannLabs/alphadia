@@ -199,12 +199,21 @@ def test_updates_with_extra_config_overwrite_output_path(
     assert result == {"key1": "value1b", "output_directory": "/extra_output"}
 
 
+@pytest.mark.parametrize(
+    ("config1", "config2", "config3"),
+    [
+        ("not_dict_nor_config_object", None, None),
+        (None, "not_dict_nor_config_object", None),
+        (None, None, "not_dict_nor_config_object"),
+    ],
+)
 @patch("alphadia.search_step.SearchStep._load_default_config")
-def test_raises_value_error_for_invalid_user_config(
-    mock_load_default_config,
+def test_raises_value_error_for_invalid_config(
+    mock_load_default_config, config1, config2, config3
 ):
+    """Test that a TypeError is raised if the config is not a dict or Config object."""
     mock_load_default_config.return_value = MagicMock(spec=Config)
 
     with pytest.raises(TypeError, match="'str' object is not a mapping"):
         # when
-        SearchStep._init_config("not_a_dict_nor_config_object", None, None, "/output")
+        SearchStep._init_config(config1, config2, config3, "/output")
