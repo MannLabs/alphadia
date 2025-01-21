@@ -56,15 +56,14 @@ def test_get_target_decoy_partners_correct_extraction(setup_data):
     assert Counter(result_df['peptide']) == Counter(['pepA', 'pepB', 'pepD'])
 
 
-def test_handling_nonexistent_partners_in_get_target_decoy_partners_(setup_data):
+def test_handling_nonexistent_partners_in_get_target_decoy_partners(setup_data):
     reference_df, full_df = setup_data
 
     reference_df.loc[1] = [0, 3, 104]
     result_df = get_target_decoy_partners(reference_df, full_df)
 
-    assert len(result_df) == 3
-    assert not result_df[(result_df['rank'] == 3) & (result_df['elution_group_idx'] == 104)].empty == True
-
+    assert len(result_df) == 2
+    assert result_df[(result_df['rank'] == 3) & (result_df['elution_group_idx'] == 104)].empty == True
 
 
 @pytest.mark.parametrize(
