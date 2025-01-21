@@ -55,8 +55,8 @@ class TwoStepClassifier:
         """
         Train the two-step classifier and predict precursors using an iterative approach:
         1. First iteration: Train neural network on top-n candidates.
-        2. Update linear classifier if enough high-confidence predictions are found, else break.
-        3. Subsequent iterations: Use linear classifier to filter data, then refine with neural network.
+        2. Subsequent iterations: Use linear classifier to filter data, then refine with neural network.
+        3. Update linear classifier if enough high-confidence predictions are found, else break.
 
         Parameters
         ----------
@@ -97,7 +97,7 @@ class TwoStepClassifier:
             )
 
             # Filter results and check for improvement
-            df_filtered = filter_for_qval(predictions, self.second_fdr_cutoff)
+            df_filtered = filter_by_qval(predictions, self.second_fdr_cutoff)
             current_target_count = len(df_filtered[df_filtered["decoy"] == 0])
 
             if current_target_count < best_precursor_count:
@@ -135,7 +135,7 @@ class TwoStepClassifier:
         """
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
 
-        filtered_df = get_entries_below_fdr(
+        filtered_df = compute_and_filter_q_values(
             df, self.first_fdr_cutoff, group_columns, remove_decoys=False
         )
 
@@ -184,14 +184,18 @@ class TwoStepClassifier:
 
         if self.first_classifier.fitted:
             df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
-            df_targets = get_entries_below_fdr(df, self.first_fdr_cutoff, group_columns)
+            df_targets = compute_and_filter_q_values(
+                df, self.first_fdr_cutoff, group_columns
+            )
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
         self.first_classifier.fit(X, y)
 
         df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
-        df_targets = get_entries_below_fdr(df, self.first_fdr_cutoff, group_columns)
+        df_targets = compute_and_filter_q_values(
+            df, self.first_fdr_cutoff, group_columns
+        )
         current_n_precursors = len(df_targets)
 
         if previous_n_precursors > current_n_precursors:
@@ -239,13 +243,22 @@ class TwoStepClassifier:
         self.train_on_top_n = state_dict["train_on_top_n"]
 
 
-def compute_q_values(df: pd.DataFrame, group_columns: list[str]):
+def compute_q_values(
+    df: pd.DataFrame, group_columns: list[str] | None = None
+) -> pd.DataFrame:
+    """
+    Compute q-values for each entry after keeping only best entries per group.
+    """
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)
     return get_q_values(df, "proba", "decoy")
 
 
-def filter_for_qval(df: pd.DataFrame, fdr_cutoff: float):
+def filter_by_qval(df: pd.DataFrame, fdr_cutoff: float) -> pd.DataFrame:
+    """
+    Filter dataframe by q-value threshold. If no entries pass the threshold,
+    return the single target entry with lowest q-value.
+    """
     df_filtered = df[df["qval"] < fdr_cutoff]
 
     if len(df_filtered) == 0:
@@ -255,50 +268,27 @@ def filter_for_qval(df: pd.DataFrame, fdr_cutoff: float):
     return df_filtered
 
 
-def get_entries_below_fdr(
-    df: pd.DataFrame, fdr: float, group_columns: list[str], remove_decoys: bool = True
+def compute_and_filter_q_values(
+    df: pd.DataFrame,
+    fdr: float,
+    group_columns: list[str] | None = None,
+    remove_decoys: bool = True,
 ) -> pd.DataFrame:
     """
     Returns entries in the DataFrame based on the FDR threshold and optionally removes decoy entries.
     If no entries are found below the FDR threshold after filtering, returns the single best entry based on the q-value.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        The input DataFrame containing the columns 'proba', 'decoy', and any specified group columns.
-    fdr : float
-        The false discovery rate threshold for filtering entries.
-    group_columns : list
-        List of columns to group by when determining the best entries per group.
-    remove_decoys : bool, optional
-        Specifies whether decoy entries should be removed from the final result. Defaults to True.
-
-    Returns
-    -------
-    pd.DataFrame
-        A DataFrame containing entries below the specified FDR threshold, optionally excluding decoys.
     """
-    df.sort_values("proba", ascending=True, inplace=True)
-    df = keep_best(df, group_columns=group_columns)
-    df = get_q_values(df, "proba", "decoy")
-
-    df_subset = df[df["qval"] < fdr]
+    df = compute_q_values(df, group_columns)
     if remove_decoys:
-        df_subset = df_subset[df_subset["decoy"] == 0]
-
-    # Handle case where no entries are below the FDR threshold
-    if len(df_subset) == 0:
         df = df[df["decoy"] == 0]
-        df_subset = df.loc[[df["qval"].idxmin()]]
-
-    return df_subset
+    return filter_by_qval(df, fdr)
 
 
 def get_target_decoy_partners(
     reference_df: pd.DataFrame, full_df: pd.DataFrame, group_by: list[str] | None = None
 ) -> pd.DataFrame:
     """
-    Identifies and returns the corresponding target and decoy wartner rows in full_df given the subset reference_df/
+    Identifies and returns the corresponding target and decoy partner rows in full_df given the subset reference_df.
     This function is typically used to find target-decoy partners based on certain criteria like rank and elution group index.
 
     Parameters
