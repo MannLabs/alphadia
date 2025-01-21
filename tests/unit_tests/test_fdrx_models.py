@@ -25,22 +25,22 @@ def test_apply_absolute_transformations():
 
 @pytest.fixture
 def setup_data():
-    
+
     reference_df = pd.DataFrame({
-        'decoy': [0, 1], 
+        'decoy': [0, 1],
         'rank': [1, 0],
         'elution_group_idx': [100, 101]
     })
-    
+
     full_df = pd.DataFrame({
-        'decoy':             [  0,   0,   1,   1,   0], 
+        'decoy':             [  0,   0,   1,   1,   0],
         'rank':              [  1,   0,   2,   1,   2],
         'elution_group_idx': [100, 101, 102, 100, 102],
         'intensity':         [200, 150, 120, 130,  95],
         'peptide':          ['pepA', 'pepB', 'pepC', 'pepD', 'pepE']
-        
+
     })
-    
+
     return reference_df, full_df
 
 
@@ -48,22 +48,22 @@ def test_get_target_decoy_partners_correct_extraction(setup_data):
     reference_df, full_df = setup_data
     group_columns = ['elution_group_idx', 'rank']
     result_df = get_target_decoy_partners(reference_df, full_df, group_by=group_columns)
-    
+
     assert len(result_df) == 3  # should match rows with ("rank", "elution_group_idx")=(1,100) and (2,101)
     assert all(col in result_df.columns for col in full_df.columns)
-    
+
     assert Counter(result_df['decoy']) == Counter([0, 0, 1])
     assert Counter(result_df['peptide']) == Counter(['pepA', 'pepB', 'pepD'])
 
 
 def test_handling_nonexistent_partners_in_get_target_decoy_partners_(setup_data):
     reference_df, full_df = setup_data
-    
+
     reference_df.loc[1] = [0, 3, 104]
     result_df = get_target_decoy_partners(reference_df, full_df)
-        
+
     assert len(result_df) == 3
-    assert not result_df[(result_df['rank'] == 3) & (result_df['elution_group_idx'] == 104)].empty == True 
+    assert not result_df[(result_df['rank'] == 3) & (result_df['elution_group_idx'] == 104)].empty == True
 
 
 
