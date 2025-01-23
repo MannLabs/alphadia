@@ -211,7 +211,7 @@ def run(*args, **kwargs):
     cli_params_config = {
         **({ConfigKeys.RAW_PATHS: raw_paths} if raw_paths else {}),
         **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
-        **({ConfigKeys.FASTA_PATHS: args.library} if args.fasta else {}),
+        **({ConfigKeys.FASTA_PATHS: args.fasta} if args.fasta else {}),
         **(
             {ConfigKeys.QUANT_DIRECTORY: args.library}
             if args.quant_dir is not None
