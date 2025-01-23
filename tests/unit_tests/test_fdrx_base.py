@@ -59,7 +59,7 @@ def test_target_decoy_fdr(mock_show):
         (500_000, 2048, 0.001 * np.sqrt(2048 / 4096)),  # 50% of max
         (250_000, 1024, 0.001 * np.sqrt(1024 / 4096)),  # 25% of max
         # Small dataset cases
-        (50_000, 128, 0.001 * np.sqrt(128 / 4096)),  # Should hit min batch size
+        (25_000, 128, 0.001 * np.sqrt(128 / 4096)),  # Should hit min batch size
         (1_000, 128, 0.001 * np.sqrt(128 / 4096)),  # Should hit min batch size
     ],
 )
