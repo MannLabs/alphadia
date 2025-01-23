@@ -1,3 +1,3 @@
 #!python
 
-__version__ = "1.9.3-dev0"
+__version__ = "1.9.3-dev1"
