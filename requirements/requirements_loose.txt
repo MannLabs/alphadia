@@ -4,7 +4,7 @@ numba
 argparse
 alpharaw>=0.3.1  # test: tolerate_version
 alphatims
-alphabase>=1.4.0 # test: tolerate_version
+alphabase>=1.4.0,<1.5.0 # test: tolerate_version
 peptdeep>=1.3.0 # test: tolerate_version
 dask==2024.11.2 # test: tolerate_version
 progressbar
