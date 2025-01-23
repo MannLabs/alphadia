@@ -234,6 +234,7 @@ fdr:
   channel_wise_fdr: false
   inference_strategy: "heuristic"
   enable_two_step_classifier: false
+  enable_nn_hyperparameter_tuning: false
 
 search_output:
   peptide_level_lfq: false

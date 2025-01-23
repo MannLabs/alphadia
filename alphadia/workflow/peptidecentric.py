@@ -97,7 +97,9 @@ feature_columns = [
 
 
 def get_classifier_base(
-    enable_two_step_classifier: bool = False, fdr_cutoff: float = 0.01
+    enable_two_step_classifier: bool = False,
+    enable_nn_hyperparameter_tuning: bool = False,
+    fdr_cutoff: float = 0.01,
 ):
     """Creates and returns a classifier base instance.
 
@@ -106,6 +108,11 @@ def get_classifier_base(
     enable_two_step_classifier : bool, optional
         If True, uses logistic regression + neural network.
         If False (default), uses only neural network.
+
+    enable_nn_hyperparameter_tuning: bool, optional
+        If True, uses hyperparameter tuning for the neural network.
+        If False (default), uses default hyperparameters for the neural network.
+
     fdr_cutoff : float, optional
         The FDR cutoff threshold used by the second classifier when two-step
         classification is enabled. Default is 0.01.
@@ -120,7 +127,7 @@ def get_classifier_base(
         batch_size=5000,
         learning_rate=0.001,
         epochs=10,
-        experimental_hyperparameter_tuning=True,
+        experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
     )
 
     if enable_two_step_classifier:
@@ -168,8 +175,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.fdr_manager = manager.FDRManager(
             feature_columns=feature_columns,
             classifier_base=get_classifier_base(
-                self.config["fdr"]["enable_two_step_classifier"],
-                self.config["fdr"]["fdr"],
+                enable_two_step_classifier=self.config["fdr"][
+                    "enable_two_step_classifier"
+                ],
+                enable_nn_hyperparameter_tuning=self.config["fdr"][
+                    "enable_nn_hyperparameter_tuning"
+                ],
+                fdr_cutoff=self.config["fdr"]["fdr"],
             ),
         )
 
