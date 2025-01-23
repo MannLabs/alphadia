@@ -213,7 +213,7 @@ def run(*args, **kwargs):
         **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
         **({ConfigKeys.FASTA_PATHS: args.fasta} if args.fasta else {}),
         **(
-            {ConfigKeys.QUANT_DIRECTORY: args.library}
+            {ConfigKeys.QUANT_DIRECTORY: args.quant_dir}
             if args.quant_dir is not None
             else {}
         ),
