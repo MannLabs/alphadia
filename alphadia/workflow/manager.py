@@ -19,6 +19,7 @@ import xxhash
 import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.workflow import reporting
 from alphadia.workflow.config import Config
 
@@ -570,6 +571,34 @@ class OptimizationManager(BaseManager):
         return self.predict()
 
 
+def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
+    """
+    Determine the group columns based on competitiveness and channel grouping.
+
+    competitive : bool
+        If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
+    group_channels : bool
+        If True and 'competitive' is also True, further groups candidates by 'channel'.
+
+    Returns
+    -------
+    list
+        A list of column names to be used for grouping in the analysis. If competitive, this could be either
+        ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
+        If not competitive, the list will always be ['precursor_idx'].
+
+    """
+    if competetive:
+        group_columns = (
+            ["elution_group_idx", "channel"]
+            if group_channels
+            else ["elution_group_idx"]
+        )
+    else:
+        group_columns = ["precursor_idx"]
+    return group_columns
+
+
 class FDRManager(BaseManager):
     def __init__(
         self,
@@ -597,6 +626,8 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
+            self.is_two_step_classifier = isinstance(classifier_base, TwoStepClassifier)
+
         self._current_version = -1
         self.load_classifier_store()
 
@@ -665,17 +696,27 @@ class FDRManager(BaseManager):
 
         classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
-            psm_df = fdr.perform_fdr(
-                classifier,
-                available_columns,
-                features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == 1].copy(),
-                competetive=competetive,
-                group_channels=True,
-                df_fragments=df_fragments,
-                dia_cycle=dia_cycle,
-                figure_path=self.figure_path,
-            )
+            if not self.is_two_step_classifier:
+                psm_df = fdr.perform_fdr(
+                    classifier,
+                    available_columns,
+                    features_df[features_df["decoy"] == 0].copy(),
+                    features_df[features_df["decoy"] == 1].copy(),
+                    competetive=competetive,
+                    group_channels=True,
+                    df_fragments=df_fragments,
+                    dia_cycle=dia_cycle,
+                    figure_path=self.figure_path,
+                )
+            else:
+                group_columns = get_group_columns(competetive, group_channels=True)
+
+                psm_df = classifier.fit_predict(
+                    features_df,
+                    available_columns + ["score"],
+                    group_columns=group_columns,
+                )
+
         elif decoy_strategy == "precursor_channel_wise":
             channels = features_df["channel"].unique()
             psm_df_list = []
@@ -770,14 +811,17 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        for file in os.listdir(path):
-            if file.endswith(".pth"):
-                classifier_hash = file.split(".")[0]
+        if (
+            not self.is_two_step_classifier
+        ):  # TODO add pretrained model for TwoStepClassifier
+            for file in os.listdir(path):
+                if file.endswith(".pth"):
+                    classifier_hash = file.split(".")[0]
 
-                if classifier_hash not in self.classifier_store:
-                    classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(torch.load(os.path.join(path, file)))
-                    self.classifier_store[classifier_hash].append(classifier)
+                    if classifier_hash not in self.classifier_store:
+                        classifier = deepcopy(self.classifier_base)
+                        classifier.from_state_dict(torch.load(os.path.join(path, file)))
+                        self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.

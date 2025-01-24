@@ -15,6 +15,8 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
@@ -94,13 +96,42 @@ feature_columns = [
     "mean_overlapping_mass_error",
 ]
 
-classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
-    test_size=0.001,
-    batch_size=5000,
-    learning_rate=0.001,
-    epochs=10,
-    experimental_hyperparameter_tuning=True,
-)
+
+def get_classifier_base(
+    enable_two_step_classifier: bool = False, fdr_cutoff: float = 0.01
+):
+    """Creates and returns a classifier base instance.
+
+    Parameters
+    ----------
+    enable_two_step_classifier : bool, optional
+        If True, uses logistic regression + neural network.
+        If False (default), uses only neural network.
+    fdr_cutoff : float, optional
+        The FDR cutoff threshold used by the second classifier when two-step
+        classification is enabled. Default is 0.01.
+
+    Returns
+    -------
+    BinaryClassifierLegacyNewBatching | TwoStepClassifier
+        Neural network or two-step classifier based on enable_two_step_classifier.
+    """
+    nn_classifier = fdrx.BinaryClassifierLegacyNewBatching(
+        test_size=0.001,
+        batch_size=5000,
+        learning_rate=0.001,
+        epochs=10,
+        experimental_hyperparameter_tuning=True,
+    )
+
+    if enable_two_step_classifier:
+        return TwoStepClassifier(
+            first_classifier=LogisticRegressionClassifier(),
+            second_classifier=nn_classifier,
+            second_fdr_cutoff=fdr_cutoff,
+        )
+    else:
+        return nn_classifier
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
@@ -137,7 +168,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def init_fdr_manager(self):
         self.fdr_manager = manager.FDRManager(
             feature_columns=feature_columns,
-            classifier_base=classifier_base,
+            classifier_base=get_classifier_base(
+                self.config["fdr"]["enable_two_step_classifier"],
+                self.config["fdr"]["fdr"],
+            ),
         )
 
     def init_spectral_library(self):
