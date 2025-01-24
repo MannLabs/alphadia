@@ -14,7 +14,7 @@ logger = logging.getLogger()
 class TwoStepClassifier:
     """A two-step classifier, designed to refine classification results by applying a stricter second-stage classification after an initial filtering stage."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913 Too many arguments in function definition (> 5)
         self,
         first_classifier: Classifier,
         second_classifier: Classifier,
