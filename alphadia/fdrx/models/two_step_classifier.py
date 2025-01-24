@@ -164,7 +164,7 @@ class TwoStepClassifier:
             train_df[y_col].to_numpy().astype(np.float32),
         )
 
-        x = predict_df[x_cols].to_numpy()
+        x = predict_df[x_cols].to_numpy().astype(np.float32)
         predict_df["proba"] = self.second_classifier.predict_proba(x)[:, 1]
 
         return compute_q_values(predict_df, group_columns)
