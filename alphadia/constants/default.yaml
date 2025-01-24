@@ -49,7 +49,9 @@ library_prediction:
 
   # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
   # Supported types are: a, b, c, x, y, z, b_modloss, y_modloss, b_H2O, y_H2O, b_NH3, y_NH3, c_lossH, z_addH
-  fragment_types: ['b', 'y']
+  fragment_types:
+    - 'b'
+    - 'y'
 
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
