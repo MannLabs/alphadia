@@ -72,14 +72,14 @@
             "parameters": [
                 {
                     "id": "transfer_step_enabled",
-                    "name": "Transfer Learning Step",
+                    "name": "Transfer Learning Step (Experimental)",
                     "value": false,
                     "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
                 },
                 {
                     "id": "mbr_step_enabled",
-                    "name": "MBR Search Step",
+                    "name": "MBR Search Step (Experimental)",
                     "value": false,
                     "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
