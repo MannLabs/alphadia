@@ -15,7 +15,8 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
-from alphadia.fdrx.models import LogisticRegressionClassifier, TwoStepClassifier
+from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
@@ -1175,7 +1176,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        fragment_types = self.config["transfer_library"]["fragment_types"].split(";")
+        fragment_types = self.config["transfer_library"]["fragment_types"]
         max_charge = self.config["transfer_library"]["max_charge"]
 
         self.reporter.log_string(

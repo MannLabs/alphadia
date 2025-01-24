@@ -1,5 +1,4 @@
 # native imports
-import contextlib
 import logging
 import os
 import pickle
@@ -20,7 +19,7 @@ import xxhash
 import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
-from alphadia.fdrx.models import TwoStepClassifier
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.workflow import reporting
 from alphadia.workflow.config import Config
 
@@ -627,9 +626,7 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
-            self.enable_two_step_classifier = isinstance(
-                classifier_base, TwoStepClassifier
-            )
+            self.is_two_step_classifier = isinstance(classifier_base, TwoStepClassifier)
 
         self._current_version = -1
         self.load_classifier_store()
@@ -699,7 +696,7 @@ class FDRManager(BaseManager):
 
         classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
-            if not self.enable_two_step_classifier:
+            if not self.is_two_step_classifier:
                 psm_df = fdr.perform_fdr(
                     classifier,
                     available_columns,
@@ -766,7 +763,6 @@ class FDRManager(BaseManager):
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
         self.is_fitted = True
-        # n_precursor = len(psm_df[psm_df["qval"] <= 0.01])
 
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
@@ -815,15 +811,17 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        for file in os.listdir(path):
-            if file.endswith(".pth"):
-                classifier_hash = file.split(".")[0]
+        if (
+            not self.is_two_step_classifier
+        ):  # TODO add pretrained model for TwoStepClassifier
+            for file in os.listdir(path):
+                if file.endswith(".pth"):
+                    classifier_hash = file.split(".")[0]
 
-                if classifier_hash not in self.classifier_store:
-                    classifier = deepcopy(self.classifier_base)
-                    with contextlib.suppress(Exception):
+                    if classifier_hash not in self.classifier_store:
+                        classifier = deepcopy(self.classifier_base)
                         classifier.from_state_dict(torch.load(os.path.join(path, file)))
-                    self.classifier_store[classifier_hash].append(classifier)
+                        self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.

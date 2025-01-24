@@ -63,9 +63,6 @@ version = {attr = "alphadia.__version__"}
 [project.scripts]
 alphadia = "alphadia.cli:run"
 
-[tool.ruff]
-extend-exclude = ["tests"]
-
 
 [tool.ruff.lint]
 select =  [
@@ -81,39 +78,10 @@ select =  [
     "SIM",
     # isort
     "I",
-    #"ALL"
 ]
 
 ignore = [
-    "D",
-    "ANN",
-    "SLF001", # Private member accessed TODO this needs to be fixed in alphabase
-
     "E501",  # Line too long  (ruff wraps code, but not docstrings)
     "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
-    "B905",  # This causes problems in numba code: `zip()` without an explicit `strict=` parameter
-    "COM812", #may cause conflicts when used with the formatter
-    "ISC001", #may cause conflicts when used with the formatter
-    "D211", # no-blank-line-before-class
-    "D213", # multi-line-summary-second-line
-    "S101", # Use of `assert` detected
-    "INP001", # implicit namespace package.
-    "ERA001", # Found commented-out code
-    "D203", # 1 blank line required before class docstring
-    "TD002", "TD003", "FIX002",  # things around TO-DO
-    "PT011", #pytest.raises(ValueError) is too broad
-    "G004", "EM102", # Logging statement uses f-string
-    "TRY003", # Avoid specifying long messages outside the exception class
-    "ANN101", # Missing type annotation for `self` in method
-    "ANN102", # Missing type annotation for `cls` in classmethod
-    "ANN002", # Missing type annotation for `*args`
-    "ANN003", # Missing type annotation for `**kwargs
-    "FA102", # Missing `from __future__ import annotations
-    "EM101", # Exception must not use a string literal, assign to variable first
-    "D104", # Missing docstring in public package
-    "ANN204", # Missing return type annotation for special method `__init__`
-    "D401", # First line of docstring should be in imperative mood
-    "B023", # Function definition does not bind loop variable
-    "PD901", # Avoid using the generic variable name `df` for DataFrames"
-    "TCH003", # Move standard library import into a type-checking block
+    "B905"  # This causes problems in numba code: `zip()` without an explicit `strict=` parameter
 ]

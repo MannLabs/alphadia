@@ -59,6 +59,9 @@ class Config(UserDict):
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
 
+    def copy(self):
+        raise NotImplementedError("Use deepcopy() to copy the config.")
+
     def update(self, configs: list["Config"], do_print: bool = False):
         """
         Updates the config with one or more other config objects.

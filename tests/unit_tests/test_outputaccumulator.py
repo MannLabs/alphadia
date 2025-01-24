@@ -53,7 +53,7 @@ def prepare_input_data():
         },
         "transfer_library": {
             "enabled": True,
-            "fragment_types": "b;y",
+            "fragment_types": ["b", "y"],
             "max_charge": 2,
             "top_k_samples": 3,
             "norm_delta_max": True,
