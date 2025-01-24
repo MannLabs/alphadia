@@ -63,7 +63,7 @@ def ion_hash(precursor_idx, number, type, charge):
 
 
 @nb.njit
-def extended_ion_hash(precursor_idx, rank, number, type, charge):
+def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unused?
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
     # the number is the next 8 bits
@@ -73,7 +73,9 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
     return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
 
 
-def recursive_update(full_dict: dict, update_dict: dict):
+def recursive_update(
+    full_dict: dict, update_dict: dict
+):  # TODO merge with Config._update
     """recursively update a dict with a second dict. The dict is updated inplace.
 
     Parameters
@@ -99,12 +101,12 @@ def recursive_update(full_dict: dict, update_dict: dict):
             full_dict[key] = value
 
 
-def normal(x, mu, sigma):
+def normal(x, mu, sigma):  # TODO: unused?
     """ """
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-np.power((x - mu) / sigma, 2) / 2)
 
 
-def plt_limits(mobility_limits, dia_cycle_limits):
+def plt_limits(mobility_limits, dia_cycle_limits):  # TODO: unused?
     mobility_len = mobility_limits[1] - mobility_limits[0]
     dia_cycle_len = dia_cycle_limits[1] - dia_cycle_limits[0]
 
@@ -202,7 +204,7 @@ def amean0(array):
 
 
 @nb.njit()
-def astd0(array):
+def astd0(array):  # TODO: unused?
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
         out[i] = np.std(array[:, i])
@@ -248,11 +250,11 @@ def mass_range(mz_list, ppm_tolerance):
     return out_mz
 
 
-def function_call(q):
+def function_call(q):  # TODO: unused?
     q.put("X" * 1000000)
 
 
-def modify(n, x, s, A):
+def modify(n, x, s, A):  # TODO: unused?
     n.value **= 2
     x.value **= 2
     s.value = s.value.upper()
@@ -261,7 +263,7 @@ def modify(n, x, s, A):
         a.y **= 2
 
 
-class Point(Structure):
+class Point(Structure):  # TODO: unused?
     _fields_ = [("x", c_double), ("y", c_double)]
 
 
@@ -315,7 +317,7 @@ def make_slice_2d(start_stop):
 
 
 @nb.njit
-def fourier_filter(dense_stack, kernel):
+def fourier_filter(dense_stack, kernel):  # TODO: unused?
     """Numba helper function to apply a gaussian filter to a dense stack.
     The filter is applied as convolution wrapping around the edges, calculated in fourier space.
 
@@ -512,7 +514,7 @@ def calculate_score_groups(
 
 
 @nb.njit()
-def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):
+def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):  # TODO: unused?
     mask = np.sum((profile >= tresh).astype(np.int8), axis=0) == profile.shape[0]
 
     output = np.zeros(profile.shape, dtype=np.float32)
