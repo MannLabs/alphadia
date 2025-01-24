@@ -945,6 +945,8 @@ def get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128)
 
 
 class BinaryClassifierLegacyNewBatching(Classifier):
+    max_num_threads = 2
+
     def __init__(
         self,
         input_dim: int = 10,
@@ -1016,6 +1018,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network = None
         self.optimizer = None
         self._fitted = False
+        self.is_num_threads_changed = False
+        self.num_threads = torch.get_num_threads()
 
         self.metrics = {
             "epoch": [],
@@ -1040,6 +1044,21 @@ class BinaryClassifierLegacyNewBatching(Classifier):
     @metrics.setter
     def metrics(self, metrics):
         self._metrics = metrics
+
+    def restrict_torch_num_threads(self):
+        self.is_num_threads_changed = False
+        self.num_threads = torch.get_num_threads()
+        if self.num_threads > self.max_num_threads:
+            torch.set_num_threads(self.max_num_threads)
+            self.is_num_threads_changed = True
+            logger.info(
+                f"Setting torch num_threads to {self.max_num_threads} for FDR classification task"
+            )
+
+    def reset_torch_num_threads(self):
+        if self.is_num_threads_changed:
+            logger.info(f"Resetting torch num_threads to {self.num_threads}")
+            torch.set_num_threads(self.num_threads)
 
     def to_state_dict(self):
         """Save the state of the classifier as a dictionary.
@@ -1118,6 +1137,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 f"batch_size: {self.batch_size:,}, "
                 f"learning_rate: {self.learning_rate:.2e}"
             )
+
+        self.restrict_torch_num_threads()
 
         force_reinit = False
 
@@ -1220,6 +1241,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         self._fitted = True
 
+        self.reset_torch_num_threads()
+
     def predict(self, x):
         """Predict the class of the data.
 
@@ -1246,9 +1269,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        self.restrict_torch_num_threads()
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+        y = np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
+        self.reset_torch_num_threads()
+        return y
 
     def predict_proba(self, x: np.ndarray):
         """Predict the class probabilities of the data.
@@ -1277,9 +1303,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        self.restrict_torch_num_threads()
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        return self.network(torch.Tensor(x)).detach().numpy()
+        y = self.network(torch.Tensor(x)).detach().numpy()
+        self.reset_torch_num_threads()
+        return y
 
 
 class FeedForwardNN(nn.Module):
