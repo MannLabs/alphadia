@@ -239,8 +239,9 @@ fdr:
   channel_wise_fdr: false
   inference_strategy: "heuristic"
   # (Experimental)
-  # uses a two-step classifier consisting of a logistic regression and a neural network
+  # uses a two-step classifier consisting of a logistic regression and a neural network, with a default maximum of 5 iterations per fitting call
   enable_two_step_classifier: false
+  two_step_classifier_max_iterations: 5
   # (Experimental)
   # Optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: false
