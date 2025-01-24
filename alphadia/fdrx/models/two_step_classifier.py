@@ -77,13 +77,13 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
-        df = self.preprocess_data(df, x_cols)
+        df = self._preprocess_data(df, x_cols)
         best_result = None
         best_precursor_count = -1
 
         for i in range(max_iterations):
             if self.first_classifier.fitted and i > 0:
-                df_train, df_predict = self.apply_filtering_with_first_classifier(
+                df_train, df_predict = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
                 self.second_classifier.epochs = 50
@@ -92,7 +92,7 @@ class TwoStepClassifier:
                 df_predict = df
                 self.second_classifier.epochs = 10
 
-            predictions = self.train_and_apply_second_classifier(
+            predictions = self._train_and_apply_second_classifier(
                 df_train, df_predict, x_cols, y_col, group_columns
             )
 
@@ -102,8 +102,8 @@ class TwoStepClassifier:
 
             if current_target_count < best_precursor_count:
                 logger.info(
-                    f"Stop training after iteration {i}, "
-                    f"due to decreasing target count ({current_target_count} < {best_precursor_count})"
+                    f"Stopping training after iteration {i}, "
+                    f"due to decreased target count ({current_target_count} < {best_precursor_count})"
                 )
                 return best_result
 
@@ -112,22 +112,29 @@ class TwoStepClassifier:
 
             # Update first classifier if enough confident predictions
             if current_target_count > self.min_precursors_for_update:
-                self.update_first_classifier(
+                self._update_first_classifier(
                     df_filtered, df, x_cols, y_col, group_columns
                 )
             else:
+                logger.info(
+                    f"Stopping fitting after {i+1} / {max_iterations} iterations due to insufficient detected precursors to update the first classifier."
+                )
                 break
+        else:
+            logger.info(
+                f"Stopping fitting after reaching the maximum number of iterations: {max_iterations} / {max_iterations}."
+            )
 
         return best_result
 
-    def preprocess_data(self, df: pd.DataFrame, x_cols: list[str]) -> pd.DataFrame:
+    def _preprocess_data(self, df: pd.DataFrame, x_cols: list[str]) -> pd.DataFrame:
         """
         Prepare data by removing NaN values and applying absolute transformations.
         """
         df.dropna(subset=x_cols, inplace=True)
         return apply_absolute_transformations(df)
 
-    def apply_filtering_with_first_classifier(
+    def _apply_filtering_with_first_classifier(
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """
@@ -141,7 +148,7 @@ class TwoStepClassifier:
 
         return filtered_df, filtered_df
 
-    def train_and_apply_second_classifier(
+    def _train_and_apply_second_classifier(
         self,
         train_df: pd.DataFrame,
         predict_df: pd.DataFrame,
@@ -150,19 +157,19 @@ class TwoStepClassifier:
         group_columns: list[str],
     ) -> pd.DataFrame:
         """
-        Train second_classifeir and apply it to get predictions.
+        Train second_classifier and apply it to get predictions.
         """
         self.second_classifier.fit(
             train_df[x_cols].to_numpy().astype(np.float32),
             train_df[y_col].to_numpy().astype(np.float32),
         )
 
-        X = predict_df[x_cols].to_numpy()
-        predict_df["proba"] = self.second_classifier.predict_proba(X)[:, 1]
+        x = predict_df[x_cols].to_numpy()
+        predict_df["proba"] = self.second_classifier.predict_proba(x)[:, 1]
 
         return compute_q_values(predict_df, group_columns)
 
-    def update_first_classifier(
+    def _update_first_classifier(
         self,
         subset_df: pd.DataFrame,
         full_df: pd.DataFrame,
@@ -177,22 +184,22 @@ class TwoStepClassifier:
         """
         df = get_target_decoy_partners(subset_df, full_df)
 
-        X = df[x_cols].to_numpy()
+        x = df[x_cols].to_numpy()
         y = df[y_col].to_numpy()
 
         previous_n_precursors = -1
 
         if self.first_classifier.fitted:
-            df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
+            df["proba"] = self.first_classifier.predict_proba(x)[:, 1]
             df_targets = compute_and_filter_q_values(
                 df, self.first_fdr_cutoff, group_columns
             )
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
-        self.first_classifier.fit(X, y)
+        self.first_classifier.fit(x, y)
 
-        df["proba"] = self.first_classifier.predict_proba(X)[:, 1]
+        df["proba"] = self.first_classifier.predict_proba(x)[:, 1]
         df_targets = compute_and_filter_q_values(
             df, self.first_fdr_cutoff, group_columns
         )
