@@ -38,7 +38,7 @@ class TwoStepClassifier:
         max_iterations : int
             Maximum number of refinement iterations during training.
         train_on_top_n : int
-            Use candidates up to this rank for training.
+            Use candidates up to this rank for training. During inference, all ranks are used.
 
         """
         self.first_classifier = first_classifier
