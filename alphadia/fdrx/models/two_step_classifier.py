@@ -41,8 +41,8 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = first_fdr_cutoff
         self.second_fdr_cutoff = second_fdr_cutoff
 
-        self.min_precursors_for_update = min_precursors_for_update
-        self.train_on_top_n = train_on_top_n
+        self._min_precursors_for_update = min_precursors_for_update
+        self._train_on_top_n = train_on_top_n
 
     def fit_predict(
         self,
@@ -88,7 +88,7 @@ class TwoStepClassifier:
                 )
                 self.second_classifier.epochs = 50
             else:
-                df_train = df[df["rank"] < self.train_on_top_n]
+                df_train = df[df["rank"] < self._train_on_top_n]
                 df_predict = df
                 self.second_classifier.epochs = 10
 
@@ -111,7 +111,7 @@ class TwoStepClassifier:
             best_result = predictions
 
             # Update first classifier if enough confident predictions
-            if current_target_count > self.min_precursors_for_update:
+            if current_target_count > self._min_precursors_for_update:
                 self._update_first_classifier(
                     df_filtered, df, x_cols, y_col, group_columns
                 )
@@ -232,7 +232,7 @@ class TwoStepClassifier:
             "second_classifier": self.second_classifier.to_state_dict(),
             "first_fdr_cutoff": self.first_fdr_cutoff,
             "second_fdr_cutoff": self.second_fdr_cutoff,
-            "train_on_top_n": self.train_on_top_n,
+            "train_on_top_n": self._train_on_top_n,
         }
 
     def from_state_dict(self, state_dict: dict) -> None:
@@ -247,7 +247,7 @@ class TwoStepClassifier:
         self.second_classifier.from_state_dict(state_dict["second_classifier"])
         self.first_fdr_cutoff = state_dict["first_fdr_cutoff"]
         self.second_fdr_cutoff = state_dict["second_fdr_cutoff"]
-        self.train_on_top_n = state_dict["train_on_top_n"]
+        self._train_on_top_n = state_dict["train_on_top_n"]
 
 
 def compute_q_values(

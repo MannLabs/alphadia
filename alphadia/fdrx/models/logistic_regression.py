@@ -115,7 +115,7 @@ class LogisticRegressionClassifier(Classifier):
         """
         self._fitted = state_dict["_fitted"]
 
-        if self.fitted:
+        if self._fitted:
             self.scaler = StandardScaler()
             self.scaler.mean_ = np.array(state_dict["scaler_mean"])
             self.scaler.var_ = np.array(state_dict["scaler_var"])
