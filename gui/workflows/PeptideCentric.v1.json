@@ -411,6 +411,13 @@
                     "type": "boolean"
                 },
                 {
+                    "id": "two_step_classifier_max_iterations",
+                    "name": "Two Step Classifier Max Iterations",
+                    "value": 5,
+                    "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
+                    "type": "integer"
+                },
+                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "value": false,

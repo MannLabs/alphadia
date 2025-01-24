@@ -234,6 +234,7 @@ fdr:
   channel_wise_fdr: false
   inference_strategy: "heuristic"
   enable_two_step_classifier: false
+  two_step_classifier_max_iterations: 5
   enable_nn_hyperparameter_tuning: false
 
 search_output:

@@ -17,6 +17,7 @@ class TwoStepClassifier:
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
         min_precursors_for_update: int = 5000,
+        max_iterations: int = 5,
         train_on_top_n: int = 1,
     ):
         """
@@ -34,6 +35,10 @@ class TwoStepClassifier:
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
         min_precursors_for_update : int, default=5000
             The minimum number of precursors required to update the first classifier.
+        max_iterations : int
+            Maximum number of refinement iterations during training.
+        train_on_top_n : int
+            Use candidates up to this rank for training.
 
         """
         self.first_classifier = first_classifier
@@ -42,6 +47,7 @@ class TwoStepClassifier:
         self.second_fdr_cutoff = second_fdr_cutoff
 
         self.min_precursors_for_update = min_precursors_for_update
+        self._max_iterations = max_iterations
         self.train_on_top_n = train_on_top_n
 
     def fit_predict(
@@ -50,7 +56,6 @@ class TwoStepClassifier:
         x_cols: list[str],
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
-        max_iterations: int = 5,
     ) -> pd.DataFrame:
         """
         Train the two-step classifier and predict precursors using an iterative approach:
@@ -68,8 +73,6 @@ class TwoStepClassifier:
             Target variable column name, defaults to 'decoy'
         group_columns : list[str] | None, optional
             Columns to group by for FDR calculations
-        max_iterations : int
-            Maximum number of refinement iterations
 
         Returns
         -------
@@ -81,7 +84,7 @@ class TwoStepClassifier:
         best_result = None
         best_precursor_count = -1
 
-        for i in range(max_iterations):
+        for i in range(self._max_iterations):
             if self.first_classifier.fitted and i > 0:
                 df_train, df_predict = self.apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
