@@ -63,9 +63,6 @@ version = {attr = "alphadia.__version__"}
 [project.scripts]
 alphadia = "alphadia.cli:run"
 
-[tool.ruff]
-extend-exclude = ["tests"]
-
 
 [tool.ruff.lint]
 select =  [

@@ -62,6 +62,8 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
+        self._config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
+
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
         self.raw_path_list = self._config[ConfigKeys.RAW_PATHS]
@@ -86,27 +88,18 @@ class SearchStep:
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
 
-        default_config_path = os.path.join(
-            os.path.dirname(__file__), "constants", "default.yaml"
-        )
-        logger.info(f"loading config from {default_config_path}")
-        config = Config()
-        config.from_yaml(default_config_path)
+        config = SearchStep._load_default_config()
 
         config_updates = []
 
         if user_config:
             logger.info("loading additional config provided via CLI")
             # load update config from dict
-            if isinstance(user_config, dict):
-                user_config_update = Config(user_config, name=USER_DEFINED)
-                config_updates.append(user_config_update)
-            elif isinstance(user_config, Config):
+            if isinstance(user_config, Config):
                 config_updates.append(user_config)
             else:
-                raise ValueError(
-                    "'config' parameter must be of type 'dict' or 'Config'"
-                )
+                user_config_update = Config(user_config, name=USER_DEFINED)
+                config_updates.append(user_config_update)
 
         if cli_config:
             logger.info("loading additional config provided via CLI parameters")
@@ -117,16 +110,26 @@ class SearchStep:
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
-            extra_config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+            extra_config_update[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
             config_updates.append(extra_config_update)
 
-        config.update(config_updates, do_print=True)
+        if config_updates:
+            config.update(config_updates, do_print=True)
 
         if config.get(ConfigKeys.OUTPUT_DIRECTORY, None) is None:
             config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
 
-        config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
+        return config
 
+    @staticmethod
+    def _load_default_config():
+        """Load default config from file."""
+        default_config_path = os.path.join(
+            os.path.dirname(__file__), "constants", "default.yaml"
+        )
+        logger.info(f"loading config from {default_config_path}")
+        config = Config()
+        config.from_yaml(default_config_path)
         return config
 
     @property
