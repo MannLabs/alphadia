@@ -6,8 +6,6 @@ select = [
 
 # TODO excluding explicity is not great but it is a workaround for now
 exclude = [
-    "alphadia/fdrx/models/two_step_classifier.py",
-    "alphadia/fdrx/models/logistic_regression.py",
     "alphadia/__*__.py",
     "alphadia/cli.py",
     "alphadia/exceptions.py",
@@ -83,5 +81,7 @@ ignore = [
     "D401", # First line of docstring should be in imperative mood
     "B023", # Function definition does not bind loop variable
     "PD901", # Avoid using the generic variable name `df` for DataFrames"
-    "TCH003" # Move standard library import into a type-checking block
+    "TCH003", # Move standard library import into a type-checking block
+    "PLR0913", # Too many arguments in function definition (only up to 5 are allowed)
+
 ]
