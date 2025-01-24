@@ -908,7 +908,7 @@ class BinaryClassifierLegacy(Classifier):
         return self.network(torch.Tensor(x)).detach().numpy()
 
 
-def get_scaled_training_params(df, base_lr=0.001, max_batch=1024, min_batch=64):
+def get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
     """
     Scale batch size and learning rate based on dataframe size using square root relationship.
 
@@ -921,7 +921,7 @@ def get_scaled_training_params(df, base_lr=0.001, max_batch=1024, min_batch=64):
     max_batch : int, optional
         Maximum batch size (1024 for >= 1M samples), defaults to 1024
     min_batch : int, optional
-        Minimum batch size, defaults to 32
+        Minimum batch size, defaults to 128
 
     Returns
     -------

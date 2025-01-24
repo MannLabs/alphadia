@@ -233,7 +233,12 @@ fdr:
   keep_decoys: false
   channel_wise_fdr: false
   inference_strategy: "heuristic"
+  # (Experimental)
+  # uses a two-step classifier consisting of a logistic regression and a neural network
   enable_two_step_classifier: false
+  # (Experimental)
+  # Optimizes the batch size and learning rate of the neural network
+  enable_nn_hyperparameter_tuning: false
 
 search_output:
   peptide_level_lfq: false

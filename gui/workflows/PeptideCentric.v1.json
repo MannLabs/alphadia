@@ -72,14 +72,14 @@
             "parameters": [
                 {
                     "id": "transfer_step_enabled",
-                    "name": "Add 'transfer learning' step",
+                    "name": "Transfer Learning Step (Experimental)",
                     "value": false,
                     "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
                 },
                 {
                     "id": "mbr_step_enabled",
-                    "name": "Add 'second search' step",
+                    "name": "MBR Search Step (Experimental)",
                     "value": false,
                     "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
@@ -401,6 +401,20 @@
                     "name": "Keep Decoys",
                     "value": false,
                     "description": "If enabled, decoy PSMs will be retained in the output.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "enable_two_step_classifier",
+                    "name": "Two Step Classifier (Experimental)",
+                    "value": false,
+                    "description": "If enabled, a two step classifier consisting of a linear filter and a neural network will be used.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "enable_nn_hyperparameter_tuning",
+                    "name": "Hyperparameter Tuning (Experimental)",
+                    "value": false,
+                    "description": "If enabled, the hyperparameters of the neural network like the batch size and learning rate will be tuned.",
                     "type": "boolean"
                 }
             ]
