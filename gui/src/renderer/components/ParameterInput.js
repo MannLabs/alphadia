@@ -172,6 +172,29 @@ const ParameterInput = ({
                     />)
                 break;
 
+            case "multi_select":
+                input = (
+                    <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
+                        <Select
+                            multiple
+                            value={parameter.value}
+                            onChange={(event) => {onChange(event.target.value)}}
+                            renderValue={(selected) => (
+                                <Typography>
+                                    {selected.length} selected
+                                </Typography>
+                            )}
+                        >
+                            {parameter.options.map((option) => (
+                                <MenuItem key={option} value={option}>
+                                    {option}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                )
+                break;
+
             default:
                 input = (
                     <Typography>

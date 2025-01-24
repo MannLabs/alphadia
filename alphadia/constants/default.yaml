@@ -46,8 +46,13 @@ library_prediction:
     - 200
     - 2000
   nce: 25.0
-  # semicolon separated list of fragment types. Supported types are: a, b, c, x, y, z, b_modloss, y_modloss
-  fragment_types: 'b;y'
+
+  # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
+  # Supported types are: a, b, c, x, y, z, b_modloss, y_modloss, b_H2O, y_H2O, b_NH3, y_NH3, c_lossH, z_addH
+  fragment_types:
+    - 'b'
+    - 'y'
+
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
   instrument: Lumos
@@ -327,8 +332,9 @@ transfer_library:
   # if true, the library is created for transfer learning
   enabled: False
 
-  # semicolon separated list of fragment types to include in the library. possible values are 'a', 'b', 'c', 'x', 'y', 'z'
-  fragment_types: 'b;y'
+  # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
+  # Supported types are: a, b, c, x, y, z, b_modloss, y_modloss, b_H2O, y_H2O, b_NH3, y_NH3, c_lossH, z_addH
+  fragment_types: ['b', 'y']
 
   # maximum charge for fragments
   max_charge: 2
