@@ -1,3 +1,5 @@
+"""Implements the Two Step Classifier for use within the Alphadia framework."""
+
 import logging
 
 import numpy as np
@@ -10,7 +12,9 @@ logger = logging.getLogger()
 
 
 class TwoStepClassifier:
-    def __init__(
+    """A two-step classifier, designed to refine classification results by applying a stricter second-stage classification after an initial filtering stage."""
+
+    def __init__(  # noqa: PLR0913 Too many arguments in function definition (> 5)
         self,
         first_classifier: Classifier,
         second_classifier: Classifier,
@@ -20,8 +24,7 @@ class TwoStepClassifier:
         max_iterations: int = 5,
         train_on_top_n: int = 1,
     ):
-        """
-        A two-step classifier, designed to refine classification results by applying a stricter second-stage classification after an initial filtering stage.
+        """Initializing a two-step classifier.
 
         Parameters
         ----------
@@ -57,8 +60,8 @@ class TwoStepClassifier:
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
     ) -> pd.DataFrame:
-        """
-        Train the two-step classifier and predict precursors using an iterative approach:
+        """Train the two-step classifier and predict precursors using an iterative approach.
+
         1. First iteration: Train neural network on top-n candidates.
         2. Subsequent iterations: Use linear classifier to filter data, then refine with neural network.
         3. Update linear classifier if enough high-confidence predictions are found, else break.
@@ -131,18 +134,14 @@ class TwoStepClassifier:
         return best_result
 
     def _preprocess_data(self, df: pd.DataFrame, x_cols: list[str]) -> pd.DataFrame:
-        """
-        Prepare data by removing NaN values and applying absolute transformations.
-        """
+        """Prepare data by removing NaN values and applying absolute transformations."""
         df.dropna(subset=x_cols, inplace=True)
         return apply_absolute_transformations(df)
 
     def _apply_filtering_with_first_classifier(
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        Apply first classifier to filter data for the training of the second classifier.
-        """
+        """Apply first classifier to filter data for the training of the second classifier."""
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
 
         filtered_df = compute_and_filter_q_values(
@@ -159,9 +158,7 @@ class TwoStepClassifier:
         y_col: str,
         group_columns: list[str],
     ) -> pd.DataFrame:
-        """
-        Train second_classifier and apply it to get predictions.
-        """
+        """Train second_classifier and apply it to get predictions."""
         self.second_classifier.fit(
             train_df[x_cols].to_numpy().astype(np.float32),
             train_df[y_col].to_numpy().astype(np.float32),
@@ -180,10 +177,10 @@ class TwoStepClassifier:
         y_col: str,
         group_columns: list[str],
     ) -> None:
-        """
-        Update first classifier by finding and using target/decoy pairs. First extracts the corresponding
-        target/decoy partners from the full dataset for each entry in the subset, then uses these
-        pairs to retrain the classifier.
+        """Update first classifier by finding and using target/decoy pairs.
+
+        First extracts the corresponding target/decoy partners from the full dataset
+        for each entry in the subset, then uses these pairs to retrain the classifier.
         """
         df = get_target_decoy_partners(subset_df, full_df)
 
@@ -229,6 +226,7 @@ class TwoStepClassifier:
         -------
         dict
             State dictionary containing both classifiers
+
         """
         return {
             "first_classifier": self.first_classifier.to_state_dict(),
@@ -245,6 +243,7 @@ class TwoStepClassifier:
         ----------
         state_dict : dict
             State dictionary containing both classifiers
+
         """
         self.first_classifier.from_state_dict(state_dict["first_classifier"])
         self.second_classifier.from_state_dict(state_dict["second_classifier"])
@@ -256,19 +255,14 @@ class TwoStepClassifier:
 def compute_q_values(
     df: pd.DataFrame, group_columns: list[str] | None = None
 ) -> pd.DataFrame:
-    """
-    Compute q-values for each entry after keeping only best entries per group.
-    """
+    """Compute q-values for each entry after keeping only best entries per group."""
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)
     return get_q_values(df, "proba", "decoy")
 
 
 def filter_by_qval(df: pd.DataFrame, fdr_cutoff: float) -> pd.DataFrame:
-    """
-    Filter dataframe by q-value threshold. If no entries pass the threshold,
-    return the single target entry with lowest q-value.
-    """
+    """Filter dataframe by q-value threshold. If no entries pass the threshold, return the single target entry with lowest q-value."""
     df_filtered = df[df["qval"] < fdr_cutoff]
 
     if len(df_filtered) == 0:
@@ -282,10 +276,11 @@ def compute_and_filter_q_values(
     df: pd.DataFrame,
     fdr: float,
     group_columns: list[str] | None = None,
+    *,  # This line makes all following arguments keyword-only
     remove_decoys: bool = True,
 ) -> pd.DataFrame:
-    """
-    Returns entries in the DataFrame based on the FDR threshold and optionally removes decoy entries.
+    """Returns entries in the DataFrame based on the FDR threshold and optionally removes decoy entries.
+
     If no entries are found below the FDR threshold after filtering, returns the single best entry based on the q-value.
     """
     df = compute_q_values(df, group_columns)
@@ -297,8 +292,8 @@ def compute_and_filter_q_values(
 def get_target_decoy_partners(
     reference_df: pd.DataFrame, full_df: pd.DataFrame, group_by: list[str] | None = None
 ) -> pd.DataFrame:
-    """
-    Identifies and returns the corresponding target and decoy partner rows in full_df given the subset reference_df.
+    """Identifies and returns the corresponding target and decoy partner rows in full_df given the subset reference_df.
+
     This function is typically used to find target-decoy partners based on certain criteria like rank and elution group index.
 
     Parameters
@@ -319,16 +314,14 @@ def get_target_decoy_partners(
     if group_by is None:
         group_by = ["rank", "elution_group_idx"]
     valid_tuples = reference_df[group_by]
-    matching_rows = full_df.merge(valid_tuples, on=group_by, how="inner")
 
-    return matching_rows
+    return full_df.merge(valid_tuples, on=group_by, how="inner")
 
 
 def apply_absolute_transformations(
     df: pd.DataFrame, columns: list[str] | None = None
 ) -> pd.DataFrame:
-    """
-    Applies absolute value transformations to predefined columns in a DataFrame inplace.
+    """Applies absolute value transformations to predefined columns in a DataFrame inplace.
 
     Parameters
     ----------
@@ -341,6 +334,7 @@ def apply_absolute_transformations(
     -------
     pd.DataFrame
         The transformed DataFrame.
+
     """
     if columns is None:
         columns = ["delta_rt", "top_3_ms2_mass_error", "mean_ms2_mass_error"]
