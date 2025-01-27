@@ -5,9 +5,11 @@ import tempfile
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from conftest import mock_fragment_df, mock_precursor_df
+from alphabase.spectral_library.flat import SpecLibFlat
+from conftest import mock_fragment_correlation_df, mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
+from alphadia.outputaccumulator import ms2_quality_control
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
@@ -247,3 +249,75 @@ def test_default_column_assignment():
             assert built_lib.precursor_df[f"{col}"].equals(
                 built_lib.precursor_df[f"{col}_library"]
             ), f"{col} != {col}_library"
+
+
+def test_non_nan_fragments():
+    """
+    Test that the accumulated fragments data frame has no nan values
+    """
+    # Given:
+    config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
+    keep_top = 2
+    config["transfer_library"]["top_k_samples"] = keep_top
+
+    # When:
+    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    _ = output.build_transfer_library(raw_folders, save=True)
+    built_lib = SpecLibBase()
+    built_lib.load_hdf(
+        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+    )
+
+    # Then: The fragment dataframe should have no nan values
+    assert (
+        not built_lib.fragment_intensity_df.isnull().values.any()
+    ), "There are nan values in the fragment dataframe"
+
+
+def test_use_for_ms2():
+    """
+    Test that the ms2 quality control is correctly applied by checking the use_for_ms2 column in the precursor_df
+    """
+    # Given:
+    psm_flat_df = mock_precursor_df(n_precursor=100, with_decoy=True)
+    fragment_flat_df = mock_fragment_df(n_precursor=100, n_fragments=10)
+    psm_flat_df = psm_flat_df.sort_values(by="precursor_idx")
+    fragment_flat_df = fragment_flat_df.sort_values(by="precursor_idx")
+    psm_flat_df["flat_frag_start_idx"] = np.arange(0, len(psm_flat_df) * 10, 10)
+    psm_flat_df["flat_frag_stop_idx"] = np.arange(0, len(psm_flat_df) * 10, 10) + 9
+    psm_flat_df["nAA"] = psm_flat_df.sequence.str.len().astype(np.int32)
+    fragment_flat_df["loss_type"] = 0
+    flat_spec_lib = SpecLibFlat()
+    flat_spec_lib._precursor_df = psm_flat_df
+    flat_spec_lib._fragment_df = fragment_flat_df
+    # TODO: to_SpecLibBase will be deprecated and this should be adapted to use to_speclib_base
+    spec_lib = flat_spec_lib.to_SpecLibBase()
+    fragment_correlation_base_df = mock_fragment_correlation_df(
+        spec_lib.fragment_intensity_df
+    )
+    spec_lib._fragment_correlation_df = fragment_correlation_base_df
+    precursor_correlation_cutoff = 0.5
+    fragment_correlation_ratio = 0.75
+
+    base_precursor_df = spec_lib.precursor_df.copy()
+    base_fragment_df = spec_lib.fragment_intensity_df.copy()
+    # When:
+    ms2_quality_control(
+        spec_lib, precursor_correlation_cutoff, fragment_correlation_ratio
+    )
+
+    # Then: The use_for_ms2 column should be correctly assigned for precursors with median fragment correlation above precursor_correlation_cutoff
+    target_use_for_ms2 = []
+    for frag_start, frag_stop in zip(
+        base_precursor_df["frag_start_idx"], base_precursor_df["frag_stop_idx"]
+    ):
+        frag_corr = fragment_correlation_base_df.iloc[frag_start:frag_stop].values
+        frag_intensities = base_fragment_df.iloc[frag_start:frag_stop].values
+        # median corr of non zero intensities
+        frag_corr = frag_corr[frag_intensities > 0]
+        median_frag_corr = np.median(frag_corr) if len(frag_corr) > 0 else 0
+        target_use_for_ms2.append(median_frag_corr > precursor_correlation_cutoff)
+
+    np.testing.assert_array_equal(
+        spec_lib.precursor_df["use_for_ms2"].values, target_use_for_ms2
+    )
