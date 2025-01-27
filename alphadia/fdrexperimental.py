@@ -1252,8 +1252,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        y = np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
-        return y
+        return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
     @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray):
@@ -1285,8 +1284,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
-        y = self.network(torch.Tensor(x)).detach().numpy()
-        return y
+        return self.network(torch.Tensor(x)).detach().numpy()
 
 
 class FeedForwardNN(nn.Module):

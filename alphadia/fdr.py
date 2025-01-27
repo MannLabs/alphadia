@@ -32,7 +32,6 @@ def perform_fdr(
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    max_num_threads: int = 2,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 

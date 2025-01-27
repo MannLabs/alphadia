@@ -25,7 +25,7 @@ def manage_torch_threads(max_threads: int = 2) -> Callable[..., Any]:
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        def wrapper(self: Any, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        def wrapper(*args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
             is_threads_changed = False
             original_threads = torch.get_num_threads()
 
@@ -39,7 +39,7 @@ def manage_torch_threads(max_threads: int = 2) -> Callable[..., Any]:
 
             try:
                 # Execute the wrapped function
-                return func(self, *args, **kwargs)
+                return func(*args, **kwargs)
             finally:
                 # Reset threads if we changed them
                 if is_threads_changed:
