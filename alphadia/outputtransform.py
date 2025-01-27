@@ -862,7 +862,7 @@ class SearchPlanOutput:
                     write_df(
                         group_intensity_df,
                         os.path.join(
-                            self.output_folder, f"fragment_{level_name}filt.matrix"
+                            self.output_folder, f"fragment_{level_name}filtered.matrix"
                         ),
                         file_format=self.config["search_output"]["file_format"],
                     )
