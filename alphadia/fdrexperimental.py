@@ -14,44 +14,9 @@ from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
+from alphadia.fdrx.utils import manage_torch_threads
+
 logger = logging.getLogger()
-
-
-def manage_torch_threads(max_threads=2):
-    """Decorator to manage torch thread count during method execution.
-
-    Parameters
-    ----------
-    max_threads : int, default=2
-        Maximum number of threads to use during method execution
-    """
-
-    def decorator(func):
-        def wrapper(self, *args, **kwargs):
-            is_threads_changed = False
-            original_threads = torch.get_num_threads()
-
-            # Restrict threads if needed
-            if original_threads > max_threads:
-                torch.set_num_threads(max_threads)
-                is_threads_changed = True
-                logger.info(
-                    f"Setting torch num_threads to {max_threads} for FDR classification task"
-                )
-
-            try:
-                # Execute the wrapped function
-                result = func(self, *args, **kwargs)
-                return result
-            finally:
-                # Reset threads if we changed them
-                if is_threads_changed:
-                    logger.info(f"Resetting torch num_threads to {original_threads}")
-                    torch.set_num_threads(original_threads)
-
-        return wrapper
-
-    return decorator
 
 
 class Classifier(ABC):
