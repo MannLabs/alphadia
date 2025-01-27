@@ -111,6 +111,9 @@ def get_classifier_base(
         If True, uses logistic regression + neural network.
         If False (default), uses only neural network.
 
+    two_step_classifier_max_iterations : int
+        Maximum number of iterations withtin .fit_predict() of the two-step classifier.
+
     enable_nn_hyperparameter_tuning: bool, optional
         If True, uses hyperparameter tuning for the neural network.
         If False (default), uses default hyperparameters for the neural network.
