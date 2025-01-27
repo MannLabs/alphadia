@@ -799,7 +799,7 @@ class SearchPlanOutput:
                 self.config["search_output"]["precursor_level_lfq"],
                 "mod_seq_charge_hash",
                 "precursor",
-                self.config["search_output"]["fragment_quant_matrix"],
+                self.config["search_output"]["save_fragment_quant_matrix"],
             ),
             LFQOutputConfig(
                 self.config["search_output"]["peptide_level_lfq"],

@@ -237,7 +237,7 @@ fdr:
 search_output:
   peptide_level_lfq: false
   precursor_level_lfq: false
-  fragment_quant_matrix: false #advanced feature to write out quantitative matrix with fragment ion intensities e.g. for AlphaQuant
+  save_fragment_quant_matrix: false #advanced feature to write out quantitative matrix with fragment ion intensities e.g. for AlphaQuant
   min_k_fragments: 12
   min_correlation: 0.9
   num_samples_quadratic: 50

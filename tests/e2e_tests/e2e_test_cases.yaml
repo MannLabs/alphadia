@@ -85,7 +85,7 @@ test_cases:
       search_output:
         peptide_level_lfq: true
         precursor_level_lfq: true
-        fragment_quant_matrix: true
+        save_fragment_quant_matrix: true
     library_path:
       - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=MSFragger_library_60SPD_2.tsv
     raw_paths:
@@ -121,7 +121,7 @@ test_cases:
       search_output:
         peptide_level_lfq: true
         precursor_level_lfq: true
-        fragment_quant_matrix: false
+        save_fragment_quant_matrix: false
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=2024_01_12_human.fasta
     raw_paths:
@@ -158,7 +158,7 @@ test_cases:
       search_output:
         peptide_level_lfq: true
         precursor_level_lfq: true
-        fragment_quant_matrix: false
+        save_fragment_quant_matrix: false
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/s/WTu3rFZHNeb3uG2/download?files=2024_01_12_human.fasta
     raw_paths:
@@ -194,7 +194,7 @@ test_cases:
 #      search_output:
 #        peptide_level_lfq: true
 #        precursor_level_lfq: true
-#        fragment_quant_matrix: false
+#        save_fragment_quant_matrix: false
 #    library_path:
 #      - source_url: https://datashare.biochem.mpg.de/s/Q9D8N2mq8vlzQ1f  #speclib.mbr.hdf
 #    raw_paths:

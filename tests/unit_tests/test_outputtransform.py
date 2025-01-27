@@ -33,7 +33,7 @@ def test_output_transform():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
-            "fragment_quant_matrix": False,
+            "save_fragment_quant_matrix": False,
             "file_format": "parquet",
         },
         "multiplexing": {
