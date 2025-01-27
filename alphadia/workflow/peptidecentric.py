@@ -99,6 +99,7 @@ feature_columns = [
 
 def get_classifier_base(
     enable_two_step_classifier: bool = False,
+    two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
 ):
@@ -136,6 +137,7 @@ def get_classifier_base(
             first_classifier=LogisticRegressionClassifier(),
             second_classifier=nn_classifier,
             second_fdr_cutoff=fdr_cutoff,
+            max_iterations=two_step_classifier_max_iterations,
         )
     else:
         return nn_classifier
@@ -178,6 +180,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             classifier_base=get_classifier_base(
                 enable_two_step_classifier=self.config["fdr"][
                     "enable_two_step_classifier"
+                ],
+                two_step_classifier_max_iterations=self.config["fdr"][
+                    "two_step_classifier_max_iterations"
                 ],
                 enable_nn_hyperparameter_tuning=self.config["fdr"][
                     "enable_nn_hyperparameter_tuning"
