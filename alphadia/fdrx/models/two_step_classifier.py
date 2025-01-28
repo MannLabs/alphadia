@@ -53,6 +53,12 @@ class TwoStepClassifier:
         self._max_iterations = max_iterations
         self._train_on_top_n = train_on_top_n
 
+        logger.info(
+            f"Initialized TwoStepClassifier with "
+            f"first_classifier: {first_classifier.__class__.__name__}, "
+            f"second_classifier: {second_classifier.__class__.__name__}"
+        )
+
     def fit_predict(
         self,
         df: pd.DataFrame,
@@ -83,17 +89,23 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
+        logger.info("Starting training of TwoStepClassifier")
+
         df = self._preprocess_data(df, x_cols)
         best_result = None
         best_precursor_count = -1
 
         for i in range(self._max_iterations):
+            logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
+
             if self.first_classifier.fitted and i > 0:
+                logger.info(f"Applying first classifier to {len(df):,} samples.")
                 df_train, df_predict = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
                 self.second_classifier.epochs = 50
             else:
+                logger.info("First classifier not fitted yet. Proceeding without it.")
                 df_train = df[df["rank"] < self._train_on_top_n]
                 df_predict = df
                 self.second_classifier.epochs = 10
@@ -104,26 +116,32 @@ class TwoStepClassifier:
 
             # Filter results and check for improvement
             df_filtered = filter_by_qval(predictions, self.second_fdr_cutoff)
-            current_target_count = len(df_filtered[df_filtered["decoy"] == 0])
+            current_target_count = get_target_count(df_filtered)
 
             if current_target_count < best_precursor_count:
                 logger.info(
-                    f"Stopping training after iteration {i}, "
-                    f"due to decreased target count ({current_target_count} < {best_precursor_count})"
+                    f"Training stopped on iteration {i + 1}. Decrease in target count from {best_precursor_count:,} to {current_target_count:,}."
                 )
                 return best_result
 
             best_precursor_count = current_target_count
             best_result = predictions
 
+            logger.info(
+                f"{current_target_count:,} precursors found after second classifier, at fdr={self.second_fdr_cutoff}"
+            )
+
             # Update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
+                logger.info(
+                    f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}), updating first classifier"
+                )
                 self._update_first_classifier(
                     df_filtered, df, x_cols, y_col, group_columns
                 )
             else:
                 logger.info(
-                    f"Stopping fitting after {i+1} / {self._max_iterations} iterations due to insufficient detected precursors to update the first classifier."
+                    f"Insufficient precursors detected; ending after {i + 1} iterations."
                 )
                 break
         else:
@@ -142,10 +160,19 @@ class TwoStepClassifier:
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Apply first classifier to filter data for the training of the second classifier."""
+        n_precursors = get_target_count(df)
+        logger.info(
+            f"Applying first classifier to {len(df):,} samples ({n_precursors:,} precursors)"
+        )
+
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
 
         filtered_df = compute_and_filter_q_values(
             df, self.first_fdr_cutoff, group_columns, remove_decoys=False
+        )
+        logger.info(
+            f"Preselection of first classifier at fdr={self.first_fdr_cutoff} results in "
+            f"{len(filtered_df):,} samples ({get_target_count(filtered_df):,} precursors)"
         )
 
         return filtered_df, filtered_df
@@ -159,9 +186,19 @@ class TwoStepClassifier:
         group_columns: list[str],
     ) -> pd.DataFrame:
         """Train second_classifier and apply it to get predictions."""
+        logger.info(
+            f"Training second classifier on {len(train_df):,} samples "
+            f"({get_target_count(train_df):,} precursors, top_n={self._train_on_top_n})"
+        )
+
         self.second_classifier.fit(
             train_df[x_cols].to_numpy().astype(np.float32),
             train_df[y_col].to_numpy().astype(np.float32),
+        )
+
+        logger.info(
+            f"Applying second classifier on {len(predict_df):,} samples "
+            f"({get_target_count(train_df):,} precursors, top_n={max(predict_df['rank']) + 1})"
         )
 
         x = predict_df[x_cols].to_numpy().astype(np.float32)
@@ -198,6 +235,7 @@ class TwoStepClassifier:
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
+        logger.info(f"Fitting first classifier on {len(df_train)} samples.")
         self.first_classifier.fit(x_train, y_train)
 
         full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
@@ -213,7 +251,7 @@ class TwoStepClassifier:
             )
             self.first_classifier.from_state_dict(previous_state_dict)
         else:
-            logger.info("Fitted the second classifier")
+            logger.info("Fitted the first classifier")
 
     @property
     def fitted(self) -> bool:
@@ -251,6 +289,11 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = state_dict["first_fdr_cutoff"]
         self.second_fdr_cutoff = state_dict["second_fdr_cutoff"]
         self._train_on_top_n = state_dict["train_on_top_n"]
+
+
+def get_target_count(df: pd.DataFrame) -> int:
+    """Counts the number of target (non-decoy) entries in a DataFrame."""
+    return len(df[(df["decoy"] == 0)])
 
 
 def compute_q_values(
