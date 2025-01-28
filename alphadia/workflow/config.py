@@ -166,7 +166,7 @@ def _update(
     """
     for key, update_value in update_config.items():
         if key not in target_config:
-            raise KeyAddedConfigError(key, config_name)
+            raise KeyAddedConfigError(key, update_value, config_name)
 
         target_value = target_config[key]
         tracking_value = tracking_dict[key]
@@ -180,7 +180,10 @@ def _update(
             )
         ):
             raise TypeMismatchConfigError(
-                key, config_name, f"{type(update_value)} != {type(target_value)}"
+                key,
+                update_value,
+                config_name,
+                f"{type(update_value)} != {type(target_value)}",
             )
 
         if isinstance(target_value, dict):

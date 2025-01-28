@@ -73,22 +73,29 @@ class ConfigError(BusinessError):
     _key = ""
     _config_name = ""
 
-    def __init__(self, key: str, config_name: str):
+    def __init__(self, key: str, value: str, config_name: str):
         self._key = key
+        self._value = value
         self._config_name = config_name
 
 
 class KeyAddedConfigError(ConfigError):
     """Raise when a key should be added to a config."""
 
-    def __init__(self, key: str, config_name: str):
-        super().__init__(key, config_name)
-        self._detail_msg = f"Defining new keys is not allowed when updating a config: key='{self._key}', config_name='{self._config_name}'"
+    def __init__(self, key: str, value: str, config_name: str):
+        super().__init__(key, value, config_name)
+        self._detail_msg = (
+            f"Defining new keys is not allowed when updating a config: "
+            f"key='{self._key}', value='{self._value}', config_name='{self._config_name}'"
+        )
 
 
 class TypeMismatchConfigError(ConfigError):
     """Raise when the type of a value does not match the default type."""
 
-    def __init__(self, key: str, config_name: str, extra_msg: str):
-        super().__init__(key, config_name)
-        self._detail_msg = f"Types of values must match default config: key='{self._key}', config_name='{self._config_name}', types='{extra_msg}'"
+    def __init__(self, key: str, value: str, config_name: str, extra_msg: str):
+        super().__init__(key, value, config_name)
+        self._detail_msg = (
+            f"Types of values must match default config: "
+            f"key='{self._key}', value='{self._value}', config_name='{self._config_name}', types='{extra_msg}'"
+        )
