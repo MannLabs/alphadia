@@ -43,7 +43,7 @@ def get_torch_device(use_gpu: bool = False):
     return device
 
 
-@nb.njit
+@nb.njit(cache=True)
 def candidate_hash(precursor_idx, rank):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
@@ -51,7 +51,7 @@ def candidate_hash(precursor_idx, rank):
     return precursor_idx + (rank << 32)
 
 
-@nb.njit
+@nb.njit(cache=True)
 def ion_hash(precursor_idx, number, type, charge, loss_type):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
@@ -68,7 +68,7 @@ def ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
-@nb.njit
+@nb.njit(cache=True)
 def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unused?
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
@@ -128,7 +128,7 @@ def plt_limits(mobility_limits, dia_cycle_limits):  # TODO: unused?
     return rect
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
 
@@ -159,7 +159,7 @@ def find_peaks_1d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def find_peaks_2d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
     scan = []
@@ -193,7 +193,7 @@ def find_peaks_2d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def amean1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -201,7 +201,7 @@ def amean1(array):
     return out
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def amean0(array):
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -209,7 +209,7 @@ def amean0(array):
     return out
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def astd0(array):  # TODO: unused?
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -217,7 +217,7 @@ def astd0(array):  # TODO: unused?
     return out
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -248,7 +248,7 @@ def get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def mass_range(mz_list, ppm_tolerance):
     out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)
     out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
@@ -273,12 +273,12 @@ class Point(Structure):  # TODO: unused?
     _fields_ = [("x", c_double), ("y", c_double)]
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
 
 
-@nb.njit
+@nb.njit(cache=True)
 def make_slice_1d(start_stop):
     """Numba helper function to create a 1D slice object from a start and stop value.
 
@@ -298,7 +298,7 @@ def make_slice_1d(start_stop):
     return np.array([[start_stop[0], start_stop[1], 1]], dtype=start_stop.dtype)
 
 
-@nb.njit
+@nb.njit(cache=True)
 def make_slice_2d(start_stop):
     """Numba helper function to create a 2D slice object from multiple start and stop value.
 
@@ -322,7 +322,7 @@ def make_slice_2d(start_stop):
     return out
 
 
-@nb.njit
+@nb.njit(cache=True)
 def fourier_filter(dense_stack, kernel):  # TODO: unused?
     """Numba helper function to apply a gaussian filter to a dense stack.
     The filter is applied as convolution wrapping around the edges, calculated in fourier space.
@@ -456,7 +456,7 @@ def calculate_score_groups(
 
     """
 
-    @nb.njit
+    @nb.njit(cache=True)
     def channel_score_groups(elution_group_idx, decoy, rank):
         """
         Calculate score groups for channel grouping.
@@ -519,7 +519,7 @@ def calculate_score_groups(
     return input_df.sort_values(by=["score_group_idx"]).reset_index(drop=True)
 
 
-@nb.njit()
+@nb.njit(cache=True)
 def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):  # TODO: unused?
     mask = np.sum((profile >= tresh).astype(np.int8), axis=0) == profile.shape[0]
 
@@ -609,7 +609,7 @@ def merge_missing_columns(
     return left_df.merge(right_df[on + missing_from_left], on=on, how=how)
 
 
-@nb.njit(inline="always")
+@nb.njit(inline="always", cache=True)
 def get_frame_indices(
     rt_values: np.ndarray,
     rt_values_array: np.ndarray,
