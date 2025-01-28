@@ -9,7 +9,8 @@ Also ensure the right execution engine has been selected and your version is up 
 <img src="../_static/images/libfree-gui/initial_engine.png" width="100%" height="auto">
 
 ## 2. Project Structure
-We will be performing two DIA searches: a first search for library generation and a second search for joined quantification. To accommodate this, we prepare the project directory to have a `first_pass` and a `second_pass` folder. You can change the project path in the `Output Files` tab
+We will be performing two DIA searches: a first search for library generation and a second search for joined quantification. To accommodate this, we prepare the project directory to have a `first_pass` and a `second_pass` folder,
+which can then be selected in the `Output Files` tab.
 <img src="../_static/images/libfree-gui/initial_folders.png" width="100%" height="auto">
 
 ## 3. First search
@@ -30,7 +31,9 @@ Keeping track of optimized mass tolerance values for different instrument setups
 
 <img src="../_static/images/libfree-gui/first_settings.png" width="100%" height="auto">
 
-Start the first search by clicking the "Run Workflow" button. This will take between one and two hours depending on your system.
+3. In the "Output Files" tab, select the `first_pass` folder as the output directory.
+
+4. Start the first search by clicking the "Run Workflow" button. This will take between one and two hours depending on your system.
 
 ## 4. Second search
 For the second search, we will use the library generated in the first search to quantify precursors across samples. Load all raw files as previously but remove the FASTA file. Instead, select the `speclib.mbr.hdf` as the spectral library.
@@ -39,6 +42,8 @@ For the second search, we will use the library generated in the first search to 
 For the second search, configure the `thread_count`, `target_ms1_tolerance`, and `target_ms2_tolerance` as before. Do not activate library prediction and instead set the `inference_strategy` to `library` to reuse the protein grouping from the first search. In the second search, it can be beneficial to increase the number of peak groups `target_num_candidates` to `5`. Values larger than `5` will most likely not have an effect, and we expect that future versions of alphaDIA will have an improved peak group selection making this step unnecessary.
 
 <img src="../_static/images/libfree-gui/second_settings.png" width="100%" height="auto">
+
+In the "Output Files" tab, select the `second_pass` folder as the output directory.
 
 Finally, start the search as before. This search will take only around 2 minutes per file.
 
