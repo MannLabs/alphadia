@@ -9,9 +9,10 @@ import numpy as np
 
 from alphadia import utils
 from alphadia.numba import numeric
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def weighted_center_of_mass(
     single_dense_representation,
 ):
@@ -43,7 +44,7 @@ def weighted_center_of_mass(
     return scan_mean, frame_mean, scan_var_weighted, frame_var_weighted
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def weighted_center_of_mass_1d(
     dense_representation,
 ):
@@ -62,7 +63,7 @@ def weighted_center_of_mass_1d(
     return scan, frame, scan_var_weighted, frame_var_weighted
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def weighted_center_mean(single_dense_representation, scan_center, frame_center):
     values = 0
     weights = 0
@@ -81,7 +82,7 @@ def weighted_center_mean(single_dense_representation, scan_center, frame_center)
     return values / weights if weights > 0 else 0
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def weighted_center_mean_2d(dense_representation, scan_center, frame_center):
     values = np.zeros((dense_representation.shape[0], dense_representation.shape[1]))
     for i in range(dense_representation.shape[0]):
@@ -96,7 +97,7 @@ def weighted_center_mean_2d(dense_representation, scan_center, frame_center):
 float_array = nb.types.float32[:]
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def cosine_similarity_a1(template_intensity, fragments_intensity):
     fragment_norm = np.sqrt(np.sum(np.power(fragments_intensity, 2), axis=-1))
     template_norm = np.sqrt(np.sum(np.power(template_intensity, 2), axis=-1))
@@ -106,27 +107,27 @@ def cosine_similarity_a1(template_intensity, fragments_intensity):
     return np.sum(fragments_intensity * template_intensity, axis=-1) / div
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def frame_profile_2d(x):
     return np.sum(x, axis=2)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def frame_profile_1d(x):
     return np.sum(x, axis=1)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def scan_profile_2d(x):
     return np.sum(x, axis=3)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def scan_profile_1d(x):
     return np.sum(x, axis=2)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def or_envelope_1d(x):
     res = x.copy()
     for a0 in range(x.shape[0]):
@@ -136,7 +137,7 @@ def or_envelope_1d(x):
     return res
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def or_envelope_2d(x):
     res = x.copy()
     for a0 in range(x.shape[0]):
@@ -149,7 +150,7 @@ def or_envelope_2d(x):
     return res
 
 
-@nb.njit(inline="always", cache=True)
+@nb.njit(inline="always", cache=ACTIVATE_NUMBA_CACHING)
 def _odd_center_envelope(x: np.ndarray):
     """
     Applies an interference correction envelope to a collection of odd-length 1D arrays.
@@ -181,7 +182,7 @@ def _odd_center_envelope(x: np.ndarray):
             ) * 0.5
 
 
-@nb.njit(inline="always", cache=True)
+@nb.njit(inline="always", cache=ACTIVATE_NUMBA_CACHING)
 def _even_center_envelope(x: np.ndarray):
     """
     Applies an interference correction envelope to a collection of even-length 1D arrays.
@@ -218,7 +219,7 @@ def _even_center_envelope(x: np.ndarray):
             ) * 0.5
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def center_envelope_1d(x: np.ndarray):
     """
     Applies an interference correction envelope to a collection of 1D arrays.
@@ -240,7 +241,7 @@ def center_envelope_1d(x: np.ndarray):
         _odd_center_envelope(x)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def weighted_mean_a1(array, weight_mask):
     """
     takes an array of shape (a, b) and a mask of shape (a, b)
@@ -276,7 +277,7 @@ def weighted_mean_a1(array, weight_mask):
     return mean
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def precursor_features(
     isotope_mz: np.ndarray,
     isotope_intensity: np.ndarray,
@@ -370,7 +371,7 @@ def precursor_features(
     )
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def location_features(
     jit_data,
     scan_start,
@@ -401,7 +402,7 @@ def location_features(
 nb_float32_array = nb.types.Array(nb.types.float32, 1, "C")
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def fragment_features(
     dense_fragments: np.ndarray,
     fragments_frame_profile: np.ndarray,
@@ -633,7 +634,7 @@ def fragment_features(
     )
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def fragment_mobility_correlation(
     fragments_scan_profile,
     template_scan_profile,
@@ -686,7 +687,7 @@ def fragment_mobility_correlation(
     return fragment_scan_correlation, template_scan_correlation
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def profile_features(
     dia_data,
     fragment_intensity,
@@ -867,7 +868,7 @@ def profile_features(
     return fragment_frame_correlation_list
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def reference_features(
     reference_observation_importance,
     reference_fragments_scan_profile,
