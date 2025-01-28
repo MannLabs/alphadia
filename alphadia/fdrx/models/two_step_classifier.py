@@ -219,27 +219,28 @@ class TwoStepClassifier:
         First extracts the corresponding target/decoy partners from the full dataset
         for each entry in the subset, then uses these pairs to retrain the classifier.
         """
-        df = get_target_decoy_partners(subset_df, full_df)
+        df_train = get_target_decoy_partners(subset_df, full_df)
+        x_train = df_train[x_cols].to_numpy()
+        y_train = df_train[y_col].to_numpy()
 
-        x = df[x_cols].to_numpy()
-        y = df[y_col].to_numpy()
+        x_all = full_df[x_cols].to_numpy()
 
         previous_n_precursors = -1
 
         if self.first_classifier.fitted:
-            df["proba"] = self.first_classifier.predict_proba(x)[:, 1]
+            full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
             df_targets = compute_and_filter_q_values(
-                df, self.first_fdr_cutoff, group_columns
+                full_df, self.first_fdr_cutoff, group_columns
             )
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
         logger.info(f"Fitting first classifier on {len(df)} samples.")
-        self.first_classifier.fit(x, y)
+        self.first_classifier.fit(x_train, y_train)
 
-        df["proba"] = self.first_classifier.predict_proba(x)[:, 1]
+        full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
-            df, self.first_fdr_cutoff, group_columns
+            full_df, self.first_fdr_cutoff, group_columns
         )
         current_n_precursors = len(df_targets)
 
