@@ -4,9 +4,10 @@ from numba.experimental import jitclass
 from scipy.optimize import curve_fit
 
 from alphadia import utils
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def logistic(x: np.array, mu: float, sigma: float):
     """Numba implementation of the logistic function
 
@@ -34,13 +35,13 @@ def logistic(x: np.array, mu: float, sigma: float):
     return y
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def linear(x, m, b):
     return m * x + b
 
@@ -260,7 +261,7 @@ class SimpleQuadrupole:
         return new_cycle
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def quadrupole_transfer_function_single(
     quadrupole_calibration_jit, observation_indices, scan_indices, isotope_mz
 ):
@@ -303,7 +304,7 @@ def quadrupole_transfer_function_single(
     return intensity.reshape(n_isotopes, n_observations, n_scans)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
     # select only the intensity channel
     # expand observation dimension to the number of fragment observations
@@ -326,7 +327,7 @@ def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
     return template.astype(np.float32)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def calculate_observation_importance(
     template,
 ):
@@ -336,7 +337,7 @@ def calculate_observation_importance(
     )
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def calculate_observation_importance_single(
     template,
 ):
@@ -347,7 +348,7 @@ def calculate_observation_importance_single(
         return observation_importance / np.sum(observation_importance)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def expand_cycle(cycle, lower_mz, upper_mz):
     new_cycle = cycle.copy()
 
