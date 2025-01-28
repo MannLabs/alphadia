@@ -14,6 +14,7 @@ from alphadia import utils, validate
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import assemble_isotope_mz
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -307,7 +308,7 @@ def _executor(
     )
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def select_candidates(
     i,
     jit_data,
@@ -446,7 +447,7 @@ def select_candidates(
     )
 
 
-@nb.njit(fastmath=True, cache=True)
+@nb.njit(fastmath=True, cache=ACTIVATE_NUMBA_CACHING)
 def build_features(smooth_precursor, smooth_fragment):
     n_features = 1
 
@@ -467,7 +468,7 @@ def build_features(smooth_precursor, smooth_fragment):
     return features
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def join_close_peaks(
     peak_scan_list, peak_cycle_list, peak_score_list, scan_tolerance, cycle_tolerance
 ):
@@ -523,7 +524,7 @@ def join_close_peaks(
     return peak_mask
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def join_overlapping_candidates(
     scan_limits_list, cycle_limits_list, p_scan_overlap=0.01, p_cycle_overlap=0.6
 ):
@@ -603,7 +604,7 @@ def join_overlapping_candidates(
     return joined_mask
 
 
-@nb.njit(fastmath=True, cache=True)
+@nb.njit(fastmath=True, cache=ACTIVATE_NUMBA_CACHING)
 def build_candidates(
     precursor_idx,
     candidate_container,
