@@ -307,7 +307,8 @@ function hasBinary(binaryPath){
     return new Promise((resolve, reject) => {
         fs.access(binaryPath, fs.constants.X_OK, (err) => {
             if (err) {
-                reject("hasBinary: Binary " + binaryPath + " not found or not executable.")
+                reject("BundledExecutionEngine: Binary " + binaryPath + " not found or not executable." +
+                    "You may use the CMDExecutionEngine instead.")
             } else {
                 resolve()
             }
