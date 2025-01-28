@@ -1,5 +1,6 @@
 """Implements the Two Step Classifier for use within the Alphadia framework."""
 
+import copy
 import logging
 
 import numpy as np
@@ -93,16 +94,19 @@ class TwoStepClassifier:
 
         df = self._preprocess_data(df, x_cols)
         best_result = None
-        best_precursor_count = -1
+
+        previous_target_count_after_first_clsf = -1
+        previous_target_count_after_second_clsf = -1
 
         for i in range(self._max_iterations):
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
-            if self.first_classifier.fitted and i > 0:
+            if self.first_classifier.fitted:  #  and i > 0:
                 logger.info(f"Applying first classifier to {len(df):,} samples.")
                 df_train, df_predict = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
+                previous_target_count_after_first_clsf = get_target_count(df_train)
                 self.second_classifier.epochs = 50
             else:
                 logger.info("First classifier not fitted yet. Proceeding without it.")
@@ -118,13 +122,13 @@ class TwoStepClassifier:
             df_filtered = filter_by_qval(predictions, self.second_fdr_cutoff)
             current_target_count = get_target_count(df_filtered)
 
-            if current_target_count < best_precursor_count:
+            if current_target_count < previous_target_count_after_second_clsf:
                 logger.info(
-                    f"Training stopped on iteration {i + 1}. Decrease in target count from {best_precursor_count:,} to {current_target_count:,}."
+                    f"Training stopped on iteration {i + 1}. Decrease in target count from {previous_target_count_after_second_clsf:,} to {current_target_count:,}."
                 )
                 return best_result
 
-            best_precursor_count = current_target_count
+            previous_target_count_after_second_clsf = current_target_count
             best_result = predictions
 
             logger.info(
@@ -136,9 +140,31 @@ class TwoStepClassifier:
                 logger.info(
                     f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}), updating first classifier"
                 )
-                self._update_first_classifier(
-                    df_filtered, df, x_cols, y_col, group_columns
+                new_target_count_after_first_clsf, new_classifier = (
+                    self.get_fitted_first_classifier(
+                        df_filtered, df, x_cols, y_col, group_columns
+                    )
                 )
+                logger.info(
+                    f"{new_target_count_after_first_clsf} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
+                )
+
+                if (
+                    new_target_count_after_first_clsf
+                    > previous_target_count_after_first_clsf
+                ):
+                    logger.info(
+                        f"Updating the first classifier as new target count increased: {new_target_count_after_first_clsf} > {previous_target_count_after_first_clsf}"
+                    )
+                    self.first_classifier = new_classifier
+                    previous_target_count_after_first_clsf = (
+                        new_target_count_after_first_clsf
+                    )
+
+                else:
+                    logger.info(
+                        f"Not updating the first classifier as new target count decreased: {new_target_count_after_first_clsf} < {previous_target_count_after_first_clsf}"
+                    )
             else:
                 logger.info(
                     f"Insufficient precursors detected; ending after {i + 1} iterations."
@@ -206,52 +232,37 @@ class TwoStepClassifier:
 
         return compute_q_values(predict_df, group_columns)
 
-    def _update_first_classifier(
+    def get_fitted_first_classifier(
         self,
         subset_df: pd.DataFrame,
         full_df: pd.DataFrame,
         x_cols: list[str],
         y_col: str,
         group_columns: list[str],
-    ) -> None:
-        """Update first classifier by finding and using target/decoy pairs.
+    ) -> tuple[int, Classifier]:
+        """Fits a copy of the first classifier on a given subset and applies it to the full dataset.
 
-        First extracts the corresponding target/decoy partners from the full dataset
-        for each entry in the subset, then uses these pairs to retrain the classifier.
+        Returns the number of targets found and the trained classifier.
         """
         df_train = get_target_decoy_partners(subset_df, full_df)
         x_train = df_train[x_cols].to_numpy()
         y_train = df_train[y_col].to_numpy()
 
         x_all = full_df[x_cols].to_numpy()
+        full_rows = full_df[[*group_columns, "decoy"]]
 
-        previous_n_precursors = -1
+        logger.info(f"Fitting first classifier on {len(df_train):,} samples.")
+        new_classifier = copy.deepcopy(self.first_classifier)
+        new_classifier.fit(x_train, y_train)
 
-        if self.first_classifier.fitted:
-            full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
-            df_targets = compute_and_filter_q_values(
-                full_df, self.first_fdr_cutoff, group_columns
-            )
-            previous_n_precursors = len(df_targets)
-            previous_state_dict = self.first_classifier.to_state_dict()
-
-        logger.info(f"Fitting first classifier on {len(df_train)} samples.")
-        self.first_classifier.fit(x_train, y_train)
-
-        full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
+        logger.info(f"Applying first classifier to {len(x_all):,} samples.")
+        full_rows["proba"] = new_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
-            full_df, self.first_fdr_cutoff, group_columns
+            full_rows, self.first_fdr_cutoff, group_columns
         )
-        current_n_precursors = len(df_targets)
+        n_targets = get_target_count(df_targets)
 
-        if previous_n_precursors > current_n_precursors:
-            logger.info(
-                f"Reverted the first classifier back to the previous version "
-                f"(prev: {previous_n_precursors}, curr: {current_n_precursors})"
-            )
-            self.first_classifier.from_state_dict(previous_state_dict)
-        else:
-            logger.info("Fitted the first classifier")
+        return n_targets, new_classifier
 
     @property
     def fitted(self) -> bool:
