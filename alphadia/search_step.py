@@ -10,7 +10,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
 from alphadia.constants.keys import ConfigKeys
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -271,7 +271,7 @@ class SearchStep:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
-            raise ValueError("no spectral library loaded")
+            raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
         for i, raw_location in enumerate(self.raw_path_list):

@@ -27,8 +27,16 @@ class CustomError(Exception):
 class BusinessError(CustomError):
     """Custom error class for 'business' errors.
 
-    A 'business' error is an error that is caused by the input (data, configuration, ...) and not by a
-    malfunction in alphaDIA.
+    A 'business' error is an error that is caused during processing the input (data, configuration, ...) and not by a
+    malfunction in AlphaDIA.
+    """
+
+
+class UserError(CustomError):
+    """Custom error class for 'user' errors.
+
+    A 'user' error is an error that is caused by the incompatible user input (data, configuration, ...) and not by a
+    malfunction in AlphaDIA.
     """
 
 
@@ -62,6 +70,19 @@ class NotDiaDataError(BusinessError):
     _error_code = "NOT_DIA_DATA"
 
     _msg = "Could not find cycle shape. Please check if this is a valid DIA data set."
+
+
+class NoLibraryAvailableError(UserError):
+    """Raise when no ;ibrary is available."""
+
+    _error_code = "NO_LIBRARY_AVAILABLE"
+
+    _msg = "No spectral library loaded."
+
+    _detail_msg = """No spectral library was loaded.
+
+    Please provide a spectral library file (via GUI, config or command line parameter)
+    or, provide a FASTA file and set the "Predict Library" (GUI) / 'library_prediction.predict' (config) flag."""
 
 
 class ConfigError(BusinessError):
