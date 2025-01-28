@@ -2,6 +2,7 @@
 version: 1
 
 # These values are typically filled via CLI parameters
+workflow_name: null
 output_directory: null
 library_path: null
 raw_paths: []
