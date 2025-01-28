@@ -186,24 +186,23 @@ class TwoStepClassifier:
         x_train = df_train[x_cols].to_numpy()
         y_train = df_train[y_col].to_numpy()
 
-        df_predict = full_df
-        x_predict = full_df[x_cols].to_numpy()
+        x_all = full_df[x_cols].to_numpy()
 
         previous_n_precursors = -1
 
         if self.first_classifier.fitted:
-            df_predict["proba"] = self.first_classifier.predict_proba(x_predict)[:, 1]
+            full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
             df_targets = compute_and_filter_q_values(
-                df_predict, self.first_fdr_cutoff, group_columns
+                full_df, self.first_fdr_cutoff, group_columns
             )
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
         self.first_classifier.fit(x_train, y_train)
 
-        df_predict["proba"] = self.first_classifier.predict_proba(x_predict)[:, 1]
+        full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
-            df_predict, self.first_fdr_cutoff, group_columns
+            full_df, self.first_fdr_cutoff, group_columns
         )
         current_n_precursors = len(df_targets)
 
