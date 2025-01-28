@@ -1,3 +1,8 @@
+#!/bin/bash
+### Install the package with a given type in a defined conda environment with a define python version,
+### and call it to check if it works
+### example usage:
+### ./pip_install.sh stable my_env 3.9
 set -e -u
 
 INSTALL_TYPE=$1 # stable, loose, etc..
