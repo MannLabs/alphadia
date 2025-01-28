@@ -308,7 +308,7 @@ function hasBinary(binaryPath){
         fs.access(binaryPath, fs.constants.X_OK, (err) => {
             if (err) {
                 reject("BundledExecutionEngine: Binary " + binaryPath + " not found or not executable." +
-                    "You may use the CMDExecutionEngine instead.")
+                    "\n\nYou may use the CMDExecutionEngine instead.")
             } else {
                 resolve()
             }
@@ -368,8 +368,8 @@ class BundledExecutionEngine extends BaseExecutionEngine {
                 BrowserWindow.getFocusedWindow(),
                 {
                     type: 'error',
-                    title: 'Error while checking availability of bundled alphaDIA',
-                    message: `Could not start bundled alphaDIA. ${err}`,
+                    title: 'Error while checking availability of bundled AlphaDIA',
+                    message: `Could not start bundled AlphaDIA.\n${err}`,
                 }).catch((err) => {
                     console.log(err)
                 })
