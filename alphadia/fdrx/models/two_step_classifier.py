@@ -148,13 +148,13 @@ class TwoStepClassifier:
                     )
                 )
                 logger.info(
-                    f"{target_count_after_first_clf} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
+                    f"{target_count_after_first_clf:,} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
                 )
 
                 if target_count_after_first_clf > previous_target_count_after_first_clf:
                     logger.info(
                         f"Updating the first classifier as new target count increased: "
-                        f"{target_count_after_first_clf} > {previous_target_count_after_first_clf}"
+                        f"{target_count_after_first_clf:,} > {previous_target_count_after_first_clf:,}"
                     )
                     self.first_classifier = new_classifier
                     previous_target_count_after_first_clf = target_count_after_first_clf
@@ -162,7 +162,7 @@ class TwoStepClassifier:
                 else:
                     logger.info(
                         f"Not updating the first classifier as new target count decreased: "
-                        f"{target_count_after_first_clf} < {previous_target_count_after_first_clf}"
+                        f"{target_count_after_first_clf:,} < {previous_target_count_after_first_clf:,}"
                     )
             else:
                 logger.info(
