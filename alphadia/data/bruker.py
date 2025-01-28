@@ -12,6 +12,7 @@ from numba.experimental import jitclass
 
 from alphadia import utils
 from alphadia.exceptions import NotDiaDataError
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -845,7 +846,7 @@ def transpose_chunk(
                 tof_indcount[tof_index] += 1
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def build_chunks(number_of_elements, num_chunks):
     # Calculate the number of chunks needed
     chunk_size = (number_of_elements + num_chunks - 1) // num_chunks
@@ -861,7 +862,7 @@ def build_chunks(number_of_elements, num_chunks):
     return np.array(chunks)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def transpose(tof_indices, push_indptr, n_tof_indices, values):
     """
     The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.

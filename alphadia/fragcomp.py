@@ -6,11 +6,12 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
 
 
-@nb.njit(cache=True)
+@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
 def get_fragment_overlap(
     frag_mz_1: np.ndarray,
     frag_mz_2: np.ndarray,
