@@ -95,18 +95,19 @@ class TwoStepClassifier:
         df = self._preprocess_data(df, x_cols)
         best_result = None
 
-        previous_target_count_after_first_clsf = -1
-        previous_target_count_after_second_clsf = -1
+        previous_target_count_after_first_clf = -1
+        previous_target_count_after_second_clf = -1
 
         for i in range(self._max_iterations):
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
-            if self.first_classifier.fitted:  #  and i > 0:
+            if self.first_classifier.fitted and i > 0:
                 logger.info(f"Applying first classifier to {len(df):,} samples.")
-                df_train, df_predict = self._apply_filtering_with_first_classifier(
+                df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
-                previous_target_count_after_first_clsf = get_target_count(df_train)
+                df_predict = df_train
+                previous_target_count_after_first_clf = get_target_count(df_train)
                 self.second_classifier.epochs = 50
             else:
                 logger.info("First classifier not fitted yet. Proceeding without it.")
@@ -122,13 +123,13 @@ class TwoStepClassifier:
             df_filtered = filter_by_qval(predictions, self.second_fdr_cutoff)
             current_target_count = get_target_count(df_filtered)
 
-            if current_target_count < previous_target_count_after_second_clsf:
+            if current_target_count < previous_target_count_after_second_clf:
                 logger.info(
-                    f"Training stopped on iteration {i + 1}. Decrease in target count from {previous_target_count_after_second_clsf:,} to {current_target_count:,}."
+                    f"Training stopped on iteration {i + 1}. Decrease in target count from {previous_target_count_after_second_clf:,} to {current_target_count:,}."
                 )
                 return best_result
 
-            previous_target_count_after_second_clsf = current_target_count
+            previous_target_count_after_second_clf = current_target_count
             best_result = predictions
 
             logger.info(
@@ -138,32 +139,30 @@ class TwoStepClassifier:
             # Update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
                 logger.info(
-                    f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}), updating first classifier"
+                    f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}) "
+                    f"to proceed with update of first classifier"
                 )
-                new_target_count_after_first_clsf, new_classifier = (
+                target_count_after_first_clf, new_classifier = (
                     self.get_fitted_first_classifier(
                         df_filtered, df, x_cols, y_col, group_columns
                     )
                 )
                 logger.info(
-                    f"{new_target_count_after_first_clsf} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
+                    f"{target_count_after_first_clf} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
                 )
 
-                if (
-                    new_target_count_after_first_clsf
-                    > previous_target_count_after_first_clsf
-                ):
+                if target_count_after_first_clf > previous_target_count_after_first_clf:
                     logger.info(
-                        f"Updating the first classifier as new target count increased: {new_target_count_after_first_clsf} > {previous_target_count_after_first_clsf}"
+                        f"Updating the first classifier as new target count increased: "
+                        f"{target_count_after_first_clf} > {previous_target_count_after_first_clf}"
                     )
                     self.first_classifier = new_classifier
-                    previous_target_count_after_first_clsf = (
-                        new_target_count_after_first_clsf
-                    )
+                    previous_target_count_after_first_clf = target_count_after_first_clf
 
                 else:
                     logger.info(
-                        f"Not updating the first classifier as new target count decreased: {new_target_count_after_first_clsf} < {previous_target_count_after_first_clsf}"
+                        f"Not updating the first classifier as new target count decreased: "
+                        f"{target_count_after_first_clf} < {previous_target_count_after_first_clf}"
                     )
             else:
                 logger.info(
@@ -184,7 +183,7 @@ class TwoStepClassifier:
 
     def _apply_filtering_with_first_classifier(
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> pd.DataFrame:
         """Apply first classifier to filter data for the training of the second classifier."""
         n_precursors = get_target_count(df)
         logger.info(
@@ -201,7 +200,7 @@ class TwoStepClassifier:
             f"{len(filtered_df):,} samples ({get_target_count(filtered_df):,} precursors)"
         )
 
-        return filtered_df, filtered_df
+        return filtered_df
 
     def _train_and_apply_second_classifier(
         self,
