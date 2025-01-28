@@ -235,7 +235,7 @@ class TwoStepClassifier:
             previous_n_precursors = len(df_targets)
             previous_state_dict = self.first_classifier.to_state_dict()
 
-        logger.info(f"Fitting first classifier on {len(df)} samples.")
+        logger.info(f"Fitting first classifier on {len(df_train)} samples.")
         self.first_classifier.fit(x_train, y_train)
 
         full_df["proba"] = self.first_classifier.predict_proba(x_all)[:, 1]
