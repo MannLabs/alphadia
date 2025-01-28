@@ -8,6 +8,8 @@
 on:
   push:
     branches: [ main ]
+  schedule:
+    - cron: "0 0 * * *"   # daily at midnight, to get feedback on the loose version
   workflow_dispatch:
 
 name: Pip install + unit tests
