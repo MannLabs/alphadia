@@ -102,7 +102,6 @@ class TwoStepClassifier:
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
             if self.first_classifier.fitted and i > 0:
-                logger.info(f"Applying first classifier to {len(df):,} samples.")
                 df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
