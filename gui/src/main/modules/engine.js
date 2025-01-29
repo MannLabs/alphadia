@@ -169,7 +169,7 @@ function hasAlphaDIA(envName, condaPath){
         try {
             execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("AlphaDIA not found in conda environment " + envName); return;}
-                resolve(stdout.trim())
+                resolve(stdout.split('\n')[0].trim())
             }
         )} catch (err) {
             console.log(err)
@@ -322,7 +322,7 @@ function hasAlphaDIABundled(binaryPath){
             execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
                 console.log(stdout)
-                resolve(stdout.trim())
+                resolve(stdout.split('\n')[0].trim())
             })
         } catch (err) {
             console.log(err)
