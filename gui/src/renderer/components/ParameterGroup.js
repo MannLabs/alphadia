@@ -52,7 +52,7 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                                     parameter_group_id = {parameterGroup.id}
                                     onChange = {(value) => {dispatch(
                                         {type: 'updateParameter',
-                                        parameterGroupId: parameter_group_id,
+                                        parameterGroupId: parameterGroup.id,
                                         parameterId: parameter.id,
                                         value: value
                                         })}}
