@@ -50,6 +50,11 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = first_fdr_cutoff
         self.second_fdr_cutoff = second_fdr_cutoff
 
+        if max_iterations <= 0:
+            raise ValueError(
+                f"`max_iterations` must be greater than 0 (got {max_iterations})"
+            )
+
         self._min_precursors_for_update = min_precursors_for_update
         self._max_iterations = max_iterations
         self._train_on_top_n = train_on_top_n
@@ -90,7 +95,7 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
-        logger.info("Starting training of TwoStepClassifier")
+        logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
         best_result = None
@@ -101,41 +106,46 @@ class TwoStepClassifier:
         for i in range(self._max_iterations):
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
+            # extract preselction using first classifier if it is fitted
             if self.first_classifier.fitted and i > 0:
                 df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
                 df_predict = df_train
+
                 previous_target_count_after_first_clf = get_target_count(df_train)
                 self.second_classifier.epochs = 50
             else:
                 logger.info("First classifier not fitted yet. Proceeding without it.")
                 df_train = df[df["rank"] < self._train_on_top_n]
                 df_predict = df
+
                 self.second_classifier.epochs = 10
 
-            predictions = self._train_and_apply_second_classifier(
+            # train and apply second classifier
+            df_after_second_clf = self._train_and_apply_second_classifier(
                 df_train, df_predict, x_cols, y_col, group_columns
             )
 
-            # Filter results and check for improvement
-            df_filtered = filter_by_qval(predictions, self.second_fdr_cutoff)
+            df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
             current_target_count = get_target_count(df_filtered)
 
             if current_target_count < previous_target_count_after_second_clf:
                 logger.info(
-                    f"Training stopped on iteration {i + 1}. Decrease in target count from {previous_target_count_after_second_clf:,} to {current_target_count:,}."
+                    f"Training stopped on iteration {i + 1}. Decrease in target count from "
+                    f"{previous_target_count_after_second_clf:,} to {current_target_count:,}."
                 )
                 return best_result
 
             previous_target_count_after_second_clf = current_target_count
-            best_result = predictions
+            best_result = df_after_second_clf
 
             logger.info(
-                f"{current_target_count:,} precursors found after second classifier, at fdr={self.second_fdr_cutoff}"
+                f"{current_target_count:,} precursors found after second classifier, "
+                f"at fdr={self.second_fdr_cutoff}"
             )
 
-            # Update first classifier if enough confident predictions
+            # update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
                 logger.info(
                     f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}) "
@@ -147,7 +157,8 @@ class TwoStepClassifier:
                     )
                 )
                 logger.info(
-                    f"{target_count_after_first_clf:,} precursors found after first classifier, at fdr={self.first_fdr_cutoff}"
+                    f"{target_count_after_first_clf:,} precursors found after first classifier, "
+                    f"at fdr={self.first_fdr_cutoff}"
                 )
 
                 if target_count_after_first_clf > previous_target_count_after_first_clf:
@@ -165,12 +176,13 @@ class TwoStepClassifier:
                     )
             else:
                 logger.info(
-                    f"Insufficient precursors detected; ending after {i + 1} iterations."
+                    f"=== Insufficient precursors detected; ending after {i + 1} iterations ==="
                 )
                 break
         else:
             logger.info(
-                f"Stopping fitting after reaching the maximum number of iterations: {self._max_iterations} / {self._max_iterations}."
+                f"=== Stopping fitting after reaching the maximum number of iterations: "
+                f"{self._max_iterations} / {self._max_iterations} ==="
             )
 
         return best_result
