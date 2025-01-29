@@ -77,12 +77,12 @@ class NoLibraryAvailableError(UserError):
 
     _error_code = "NO_LIBRARY_AVAILABLE"
 
-    _msg = "No spectral library loaded."
+    _msg = "No spectral library available."
 
-    _detail_msg = """No spectral library was loaded.
+    _detail_msg = """No spectral library available.
 
-    Please provide a spectral library file (via GUI, config or command line parameter)
-    or, provide a FASTA file and set the "Predict Library" (GUI) / 'library_prediction.predict' (config) flag."""
+    Either provide a spectral library file (via GUI, config or command line parameter),
+    or provide a FASTA file and set the "Predict Library" (GUI) / 'library_prediction.predict' (config) flag."""
 
 
 class ConfigError(BusinessError):

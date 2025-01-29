@@ -271,6 +271,7 @@ class SearchStep:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
+            # TODO: check alternative: more fine-grained errors could be raised on the level of search_plan
             raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
