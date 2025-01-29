@@ -73,7 +73,7 @@ class NotDiaDataError(BusinessError):
 
 
 class NoLibraryAvailableError(UserError):
-    """Raise when no ;ibrary is available."""
+    """Raise when no library is available."""
 
     _error_code = "NO_LIBRARY_AVAILABLE"
 
