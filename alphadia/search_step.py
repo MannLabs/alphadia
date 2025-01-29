@@ -342,11 +342,11 @@ class SearchStep:
         if self.config["general"]["reuse_quant"]:
             if os.path.exists(psm_location) and os.path.exists(frag_location):
                 logger.info(
-                    f"Found existing quantification for {raw_name}, skipping processing .."
+                    f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
                 )
                 return workflow
             logger.info(
-                f"No existing quantification found for {raw_name}, proceeding with processing .."
+                f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
             )
 
         workflow.load(dia_path, speclib)
