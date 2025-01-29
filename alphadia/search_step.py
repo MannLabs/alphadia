@@ -10,7 +10,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
 from alphadia.constants.keys import ConfigKeys
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -271,7 +271,8 @@ class SearchStep:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
-            raise ValueError("no spectral library loaded")
+            # TODO: check alternative: more fine-grained errors could be raised on the level of search_plan
+            raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
         for i, raw_location in enumerate(self.raw_path_list):
@@ -340,9 +341,13 @@ class SearchStep:
 
         if self.config["general"]["reuse_quant"]:
             if os.path.exists(psm_location) and os.path.exists(frag_location):
-                logger.info(f"Found existing quantification for {raw_name}")
+                logger.info(
+                    f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
+                )
                 return workflow
-            logger.info(f"No existing quantification found for {raw_name}")
+            logger.info(
+                f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
+            )
 
         workflow.load(dia_path, speclib)
 

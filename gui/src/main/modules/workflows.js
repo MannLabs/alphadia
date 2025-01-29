@@ -76,7 +76,7 @@ function validateWorkflow(workflow) {
 
 function workflowToConfig(workflow) {
 
-    let output = {name: workflow.name}
+    let output = {workflow_name: workflow.name}
 
     if (workflow.library.path != "") {
         output["library_path"] = workflow.library.path
