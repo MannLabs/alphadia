@@ -167,7 +167,7 @@ def _move_old_logs(log_file_path: str) -> str | None:
     n = -1
     while new_path.exists():
         n += 1
-        new_path = old_path.parent / f"{old_path.stem}.{n}{old_path.suffix}"
+        new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
 
     if n != -1:
         Path(log_file_path).rename(new_path)

@@ -163,8 +163,8 @@ def test_move_old_logs_increments_log_file_name_and_moves(mock_exists, mock_rena
     log_file_path = "log.txt"
     # when
     result = _move_old_logs(log_file_path)
-    mock_rename.assert_called_once_with(Path("log.1.txt"))
-    assert result == "log.1.txt"
+    mock_rename.assert_called_once_with(Path("log.1.bkp.txt"))
+    assert result == "log.1.bkp.txt"
 
 
 @patch("alphadia.workflow.reporting.Path.rename")
