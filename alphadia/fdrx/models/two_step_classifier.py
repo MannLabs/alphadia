@@ -152,7 +152,7 @@ class TwoStepClassifier:
                     f"to proceed with update of first classifier"
                 )
                 target_count_after_first_clf, new_classifier = (
-                    self.get_fitted_first_classifier(
+                    self._fit_and_eval_first_classifier(
                         df_filtered, df, x_cols, y_col, group_columns
                     )
                 )
@@ -242,7 +242,7 @@ class TwoStepClassifier:
 
         return compute_q_values(predict_df, group_columns)
 
-    def get_fitted_first_classifier(
+    def _fit_and_eval_first_classifier(
         self,
         subset_df: pd.DataFrame,
         full_df: pd.DataFrame,
@@ -259,16 +259,16 @@ class TwoStepClassifier:
         y_train = df_train[y_col].to_numpy()
 
         x_all = full_df[x_cols].to_numpy()
-        full_rows = full_df[[*group_columns, "decoy"]]
+        subset_df = full_df[[*group_columns, "decoy"]]
 
         logger.info(f"Fitting first classifier on {len(df_train):,} samples.")
         new_classifier = copy.deepcopy(self.first_classifier)
         new_classifier.fit(x_train, y_train)
 
         logger.info(f"Applying first classifier to {len(x_all):,} samples.")
-        full_rows["proba"] = new_classifier.predict_proba(x_all)[:, 1]
+        subset_df["proba"] = new_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
-            full_rows, self.first_fdr_cutoff, group_columns
+            subset_df, self.first_fdr_cutoff, group_columns
         )
         n_targets = get_target_count(df_targets)
 
