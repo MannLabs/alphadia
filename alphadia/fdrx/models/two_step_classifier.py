@@ -50,11 +50,6 @@ class TwoStepClassifier:
         self.first_fdr_cutoff = first_fdr_cutoff
         self.second_fdr_cutoff = second_fdr_cutoff
 
-        if max_iterations <= 0:
-            raise ValueError(
-                f"`max_iterations` must be greater than 0 (got {max_iterations})"
-            )
-
         self._min_precursors_for_update = min_precursors_for_update
         self._max_iterations = max_iterations
         self._train_on_top_n = train_on_top_n
@@ -111,7 +106,7 @@ class TwoStepClassifier:
                 df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
-                df_predict = df_train
+                df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
 
                 previous_target_count_after_first_clf = get_target_count(df_train)
                 self.second_classifier.epochs = 50
@@ -259,16 +254,16 @@ class TwoStepClassifier:
         y_train = df_train[y_col].to_numpy()
 
         x_all = full_df[x_cols].to_numpy()
-        subset_df = full_df[[*group_columns, "decoy"]]
+        reduced_df = full_df[[*group_columns, "decoy"]]
 
         logger.info(f"Fitting first classifier on {len(df_train):,} samples.")
         new_classifier = copy.deepcopy(self.first_classifier)
         new_classifier.fit(x_train, y_train)
 
         logger.info(f"Applying first classifier to {len(x_all):,} samples.")
-        subset_df["proba"] = new_classifier.predict_proba(x_all)[:, 1]
+        reduced_df["proba"] = new_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
-            subset_df, self.first_fdr_cutoff, group_columns
+            reduced_df, self.first_fdr_cutoff, group_columns
         )
         n_targets = get_target_count(df_targets)
 
