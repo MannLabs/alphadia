@@ -205,7 +205,7 @@ const Output = () => {
     <Box sx={{
         height: "calc(100% - 90px)",
         whiteSpace: "break-spaces",
-        overflow: "hiodden",
+        overflow: "hidden",
         fontFamily: "Roboto Mono",
         fontSize: "0.7rem",
         lineHeight: "1.0rem",
