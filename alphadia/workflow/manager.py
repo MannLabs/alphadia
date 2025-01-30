@@ -820,7 +820,9 @@ class FDRManager(BaseManager):
 
                     if classifier_hash not in self.classifier_store:
                         classifier = deepcopy(self.classifier_base)
-                        classifier.from_state_dict(torch.load(os.path.join(path, file)))
+                        classifier.from_state_dict(
+                            torch.load(os.path.join(path, file)), weights_only=False
+                        )
                         self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
