@@ -95,6 +95,7 @@ class TwoStepClassifier:
         df = self._preprocess_data(df, x_cols)
         best_result = None
 
+        # tracking precursors identified at fdr cutoffs `self.first_fdr_cutoff` and `self.second_fdr_cutoff``
         previous_target_count_after_first_clf = -1
         previous_target_count_after_second_clf = -1
 
@@ -107,11 +108,15 @@ class TwoStepClassifier:
                     df, x_cols, group_columns
                 )
                 df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
+                logger.info(
+                    f"Application of first classifier at fdr={self.first_fdr_cutoff} results in "
+                    f"{len(df_train):,} samples ({get_target_count(df_train):,} precursors)"
+                )
 
                 previous_target_count_after_first_clf = get_target_count(df_train)
                 self.second_classifier.epochs = 50
             else:
-                logger.info("First classifier not fitted yet. Proceeding without it.")
+                logger.debug("First classifier not fitted yet. Proceeding without it.")
                 df_train = df[df["rank"] < self._train_on_top_n]
                 df_predict = df
 
@@ -127,47 +132,38 @@ class TwoStepClassifier:
 
             if current_target_count < previous_target_count_after_second_clf:
                 logger.info(
-                    f"Training stopped on iteration {i + 1}. Decrease in target count from "
+                    f"Training stopped on iteration {i + 1}. Decrease in precursor count from "
                     f"{previous_target_count_after_second_clf:,} to {current_target_count:,}."
                 )
                 return best_result
 
             previous_target_count_after_second_clf = current_target_count
-            best_result = df_after_second_clf
+            best_result = df_after_second_clf  # TODO: Remove if multiple iterations are dropped to save memory.
 
             logger.info(
-                f"{current_target_count:,} precursors found after second classifier, "
-                f"at fdr={self.second_fdr_cutoff}"
+                f"Application of second classifier at fdr={self.second_fdr_cutoff} results in "
+                f"{get_target_count(df_train):,} precursors."
             )
 
             # update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
-                logger.info(
-                    f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}) "
-                    f"to proceed with update of first classifier"
-                )
                 target_count_after_first_clf, new_classifier = (
                     self._fit_and_eval_first_classifier(
                         df_filtered, df, x_cols, y_col, group_columns
                     )
                 )
-                logger.info(
-                    f"{target_count_after_first_clf:,} precursors found after first classifier, "
-                    f"at fdr={self.first_fdr_cutoff}"
-                )
-
                 if target_count_after_first_clf > previous_target_count_after_first_clf:
-                    logger.info(
-                        f"Updating the first classifier as new target count increased: "
-                        f"{target_count_after_first_clf:,} > {previous_target_count_after_first_clf:,}"
+                    logger.debug(
+                        f"Update of first classifier initiated: previous version had {previous_target_count_after_first_clf:,} "
+                        f"precursors, current version has {target_count_after_first_clf:,} precursors."
                     )
                     self.first_classifier = new_classifier
                     previous_target_count_after_first_clf = target_count_after_first_clf
 
                 else:
-                    logger.info(
-                        f"Not updating the first classifier as new target count decreased: "
-                        f"{target_count_after_first_clf:,} < {previous_target_count_after_first_clf:,}"
+                    logger.debug(
+                        f"Update of first classifier skipped: previous version had {previous_target_count_after_first_clf:,} "
+                        f"precursors, current version has {target_count_after_first_clf:,} precursors."
                     )
             else:
                 logger.info(
@@ -191,22 +187,11 @@ class TwoStepClassifier:
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
     ) -> pd.DataFrame:
         """Apply first classifier to filter data for the training of the second classifier."""
-        n_precursors = get_target_count(df)
-        logger.info(
-            f"Applying first classifier to {len(df):,} samples ({n_precursors:,} precursors)"
-        )
-
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
 
-        filtered_df = compute_and_filter_q_values(
+        return compute_and_filter_q_values(
             df, self.first_fdr_cutoff, group_columns, remove_decoys=False
         )
-        logger.info(
-            f"Preselection of first classifier at fdr={self.first_fdr_cutoff} results in "
-            f"{len(filtered_df):,} samples ({get_target_count(filtered_df):,} precursors)"
-        )
-
-        return filtered_df
 
     def _train_and_apply_second_classifier(
         self,
@@ -217,19 +202,9 @@ class TwoStepClassifier:
         group_columns: list[str],
     ) -> pd.DataFrame:
         """Train second_classifier and apply it to get predictions."""
-        logger.info(
-            f"Training second classifier on {len(train_df):,} samples "
-            f"({get_target_count(train_df):,} precursors, top_n={self._train_on_top_n})"
-        )
-
         self.second_classifier.fit(
             train_df[x_cols].to_numpy().astype(np.float32),
             train_df[y_col].to_numpy().astype(np.float32),
-        )
-
-        logger.info(
-            f"Applying second classifier on {len(predict_df):,} samples "
-            f"({get_target_count(train_df):,} precursors, top_n={max(predict_df['rank']) + 1})"
         )
 
         x = predict_df[x_cols].to_numpy().astype(np.float32)
