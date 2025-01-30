@@ -280,7 +280,9 @@ def test_feed_forward_save():
 
     new_classifier = fdrx.BinaryClassifierLegacy()
     new_classifier.from_state_dict(
-        torch.load(os.path.join(tempfolder, "test_feed_forward_save.pth"))
+        torch.load(
+            os.path.join(tempfolder, "test_feed_forward_save.pth"), weights_only=False
+        )
     )
 
     y_pred = new_classifier.predict(x)  # noqa: F841  # TODO fix this test
