@@ -102,7 +102,7 @@ class TwoStepClassifier:
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
             # extract preselction using first classifier if it is fitted
-            if self.first_classifier.fitted and i > 0:
+            if self.first_classifier.fitted:
                 df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
