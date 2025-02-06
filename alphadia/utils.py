@@ -6,7 +6,12 @@ from ctypes import Structure, c_double
 import numba as nb
 import numpy as np
 import pandas as pd
-import torch
+
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
+
 from matplotlib import patches
 
 logger = logging.getLogger()

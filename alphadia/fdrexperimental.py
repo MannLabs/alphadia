@@ -8,7 +8,11 @@ from copy import deepcopy
 # alpha family imports
 # third party imports
 import numpy as np
-import torch
+
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
 from sklearn import model_selection
 from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC

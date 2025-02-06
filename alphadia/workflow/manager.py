@@ -12,7 +12,11 @@ import numpy as np
 # alpha family imports
 # third party imports
 import pandas as pd
-import torch
+
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
 import xxhash
 
 # alphadia imports

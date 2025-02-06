@@ -4,7 +4,10 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-import torch
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
 
 logger = logging.getLogger()
 

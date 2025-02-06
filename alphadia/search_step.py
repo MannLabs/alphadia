@@ -3,7 +3,10 @@ import os
 from collections.abc import Generator
 from pathlib import Path
 
-import torch
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat

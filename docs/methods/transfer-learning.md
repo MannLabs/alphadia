@@ -44,7 +44,10 @@ This approach makes the fine-tuning process less sensitive to the user-defined l
 To show how our LR scheduler works, we will use a dummy optimizer with a dummy model parameters.
 """
 
-import torch
+try:
+    import torch
+except Exception: # noqa: BLE001
+    torch = None
 
 NUM_WARMUP_STEPS = 5
 MAX_LR = 0.01

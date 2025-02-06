@@ -2,7 +2,11 @@ import logging
 
 import numpy as np
 import pandas as pd
-import torch
+
+try:
+    import torch
+except Exception:  # noqa: BLE001
+    torch = None
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
