@@ -805,23 +805,30 @@ class FDRManager(BaseManager):
 
         """
         if path is None:
-            path = os.path.join(
-                os.path.dirname(alphadia.__file__), "constants", "classifier"
-            )
+            if self.is_two_step_classifier:
+                path = os.path.join(
+                    os.path.dirname(alphadia.__file__),
+                    "constants",
+                    "classifier",
+                    "two_step_classifier",
+                )
+            else:
+                path = os.path.join(
+                    os.path.dirname(alphadia.__file__), "constants", "classifier"
+                )
 
         logger.info(f"Loading classifier store from {path}")
 
-        if (
-            not self.is_two_step_classifier
-        ):  # TODO add pretrained model for TwoStepClassifier
-            for file in os.listdir(path):
-                if file.endswith(".pth"):
-                    classifier_hash = file.split(".")[0]
+        for file in os.listdir(path):
+            if file.endswith(".pth"):
+                classifier_hash = file.split(".")[0]
 
-                    if classifier_hash not in self.classifier_store:
-                        classifier = deepcopy(self.classifier_base)
-                        classifier.from_state_dict(torch.load(os.path.join(path, file)))
-                        self.classifier_store[classifier_hash].append(classifier)
+                if classifier_hash not in self.classifier_store:
+                    classifier = deepcopy(self.classifier_base)
+                    classifier.from_state_dict(
+                        torch.load(os.path.join(path, file), weights_only=False)
+                    )
+                    self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
@@ -840,10 +847,12 @@ class FDRManager(BaseManager):
 
         """
         classifier_hash = column_hash(available_columns)
+        print(f"\nclassifier_hash = {classifier_hash}\n")
         if classifier_hash in self.classifier_store:
             classifier = self.classifier_store[classifier_hash][version]
         else:
             classifier = self.classifier_base
+        print(f"\nclassifier._max_iterations = {classifier._max_iterations}\n")
         return deepcopy(classifier)
 
     @property
