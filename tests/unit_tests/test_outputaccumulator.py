@@ -136,7 +136,9 @@ def test_complete_output_accumulation():
     assert (
         len(np.unique(built_lib.precursor_df["precursor_idx"]))
         == number_of_unique_precursors
-    ), f"{len(np.unique(built_lib.precursor_df['precursor_idx']))} != {number_of_unique_precursors}"
+    ), (
+        f"{len(np.unique(built_lib.precursor_df['precursor_idx']))} != {number_of_unique_precursors}"
+    )
 
     shutil.rmtree(temp_folder)
 
@@ -210,7 +212,9 @@ def test_keep_top_constraint():
                 ]
             )
             <= keep_top
-        ), f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
+        ), (
+            f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
+        )
 
     shutil.rmtree(temp_folder)
 
@@ -269,9 +273,9 @@ def test_non_nan_fragments():
     )
 
     # Then: The fragment dataframe should have no nan values
-    assert (
-        not built_lib.fragment_intensity_df.isnull().values.any()
-    ), "There are nan values in the fragment dataframe"
+    assert not built_lib.fragment_intensity_df.isnull().values.any(), (
+        "There are nan values in the fragment dataframe"
+    )
 
 
 def test_use_for_ms2():
@@ -279,45 +283,50 @@ def test_use_for_ms2():
     Test that the ms2 quality control is correctly applied by checking the use_for_ms2 column in the precursor_df
     """
     # Given:
-    psm_flat_df = mock_precursor_df(n_precursor=100, with_decoy=True)
-    fragment_flat_df = mock_fragment_df(n_precursor=100, n_fragments=10)
-    psm_flat_df = psm_flat_df.sort_values(by="precursor_idx")
-    fragment_flat_df = fragment_flat_df.sort_values(by="precursor_idx")
-    psm_flat_df["flat_frag_start_idx"] = np.arange(0, len(psm_flat_df) * 10, 10)
-    psm_flat_df["flat_frag_stop_idx"] = np.arange(0, len(psm_flat_df) * 10, 10) + 9
-    psm_flat_df["nAA"] = psm_flat_df.sequence.str.len().astype(np.int32)
-    fragment_flat_df["loss_type"] = 0
-    flat_spec_lib = SpecLibFlat()
-    flat_spec_lib._precursor_df = psm_flat_df
-    flat_spec_lib._fragment_df = fragment_flat_df
-    # TODO: to_SpecLibBase will be deprecated and this should be adapted to use to_speclib_base
-    spec_lib = flat_spec_lib.to_SpecLibBase()
-    fragment_correlation_base_df = mock_fragment_correlation_df(
-        spec_lib.fragment_intensity_df
-    )
-    spec_lib._fragment_correlation_df = fragment_correlation_base_df
-    precursor_correlation_cutoff = 0.5
-    fragment_correlation_ratio = 0.75
+    precursor_correlation_cutoff = 0.6
+    fragment_correlation_ratio = 0.9
 
-    base_precursor_df = spec_lib.precursor_df.copy()
-    base_fragment_df = spec_lib.fragment_intensity_df.copy()
+    # dummy precursor data (3 rows)
+    precursor_df = pd.DataFrame(
+        {
+            "frag_start_idx": [0, 2, 4],
+            "frag_stop_idx": [2, 4, 6],
+            "sequence": ["aa", "bb", "cc"],  # Dummy sequences
+        }
+    )
+
+    # Define dummy fragment intensity data (6 rows)
+    fragment_intensity_df = pd.DataFrame(
+        {"intensity_1": [10, 20, 30, 40, 0, 0], "intensity_2": [5, 15, 25, 35, 0, 0]}
+    )
+
+    # Define dummy fragment correlation data (6 rows)
+    fragment_correlation_df = pd.DataFrame(
+        {
+            "intensity_1": [
+                0.4,
+                0.5,  # Median < 0.6 (False)
+                0.8,
+                0.9,  # Median > 0.6 (True)
+                0.8,
+                0.9,
+            ],  # Median > 0.6 but all zero intensities (False)
+            "intensity_2": [0.3, 0.5, 0.9, 0.7, 0.8, 0.9],
+        }
+    )
+
+    speclib = SpecLibBase()
+    speclib._precursor_df = precursor_df
+    speclib._fragment_intensity_df = fragment_intensity_df
+    speclib._fragment_correlation_df = fragment_correlation_df
+
+    expected_use_for_ms2 = [False, True, False]
     # When:
     ms2_quality_control(
-        spec_lib, precursor_correlation_cutoff, fragment_correlation_ratio
+        speclib, precursor_correlation_cutoff, fragment_correlation_ratio
     )
 
-    # Then: The use_for_ms2 column should be correctly assigned for precursors with median fragment correlation above precursor_correlation_cutoff
-    target_use_for_ms2 = []
-    for frag_start, frag_stop in zip(
-        base_precursor_df["frag_start_idx"], base_precursor_df["frag_stop_idx"]
-    ):
-        frag_corr = fragment_correlation_base_df.iloc[frag_start:frag_stop].values
-        frag_intensities = base_fragment_df.iloc[frag_start:frag_stop].values
-        # median corr of non zero intensities
-        frag_corr = frag_corr[frag_intensities > 0]
-        median_frag_corr = np.median(frag_corr) if len(frag_corr) > 0 else 0
-        target_use_for_ms2.append(median_frag_corr > precursor_correlation_cutoff)
-
+    # Then:
     np.testing.assert_array_equal(
-        spec_lib.precursor_df["use_for_ms2"].values, target_use_for_ms2
+        speclib.precursor_df["use_for_ms2"].values, expected_use_for_ms2
     )
