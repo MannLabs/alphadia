@@ -327,11 +327,13 @@ class PeptDeepPrediction(ProcessingStep):
         model_mgr = ModelManager(device=device)
 
         # will load other model than default generic
-        if self.peptdeep_model_type:
+        if (
+            self.peptdeep_model_type
+        ):  # TODO: why is this not required if peptdeep_model_type == None?
             logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
             model_mgr.load_installed_models(self.peptdeep_model_type)
 
-        if self.peptdeep_model_path and self.peptdeep_model_path != "":
+        if self.peptdeep_model_path:
             if not os.path.exists(self.peptdeep_model_path):
                 raise ValueError(
                     f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"
