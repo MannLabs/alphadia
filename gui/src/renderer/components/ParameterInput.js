@@ -41,6 +41,7 @@ const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
 const ParameterInput = ({
         parameter,
+        parameter_group_id,
         onChange = () => {},
         sx
     }) => {
@@ -214,7 +215,7 @@ const ParameterInput = ({
             spacing={2}
             sx={{minHeight: "30px"}}
             >
-            <Tooltip title = {parameter.description} disableInteractive>
+            <Tooltip title = {`[${parameter_group_id}.${parameter.id}] ${parameter.description}`} disableInteractive>
                 <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>
