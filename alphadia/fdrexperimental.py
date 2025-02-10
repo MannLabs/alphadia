@@ -1146,9 +1146,16 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
-        x_train, x_test, y_train, y_test = model_selection.train_test_split(
-            x, y, test_size=self.test_size
-        )
+        if len(x) > 10:
+            x_train, x_test, y_train, y_test = model_selection.train_test_split(
+                x, y, test_size=self.test_size
+            )
+        else:
+            x_train, x_test = x, y
+            y_train, y_test = x, y
+
+        x_train = torch.Tensor(x_train)
+        y_train = torch.Tensor(y_train)
 
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
@@ -1160,9 +1167,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         )
 
         loss = nn.BCELoss()
-
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
