@@ -21,8 +21,8 @@ class TwoStepClassifier:
         second_classifier: Classifier,
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
-        min_precursors_for_update: int = 5000,
-        max_iterations: int = 5,
+        min_precursors_for_update: int = 200,
+        max_iterations: int = 2,
         train_on_top_n: int = 1,
     ):
         """Initializing a two-step classifier.
@@ -37,11 +37,11 @@ class TwoStepClassifier:
             The fdr threshold for the first classifier, determining how selective the first classification step is.
         second_fdr_cutoff : float, default=0.01
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
-        min_precursors_for_update : int, default=5000
+        min_precursors_for_update : int, default=200
             The minimum number of precursors required to update the first classifier.
-        max_iterations : int
+        max_iterations : int, default=2
             Maximum number of refinement iterations during training.
-        train_on_top_n : int
+        train_on_top_n : int, default=1
             Use candidates up to this rank for training. During inference, all ranks are used.
 
         """
