@@ -847,12 +847,10 @@ class FDRManager(BaseManager):
 
         """
         classifier_hash = column_hash(available_columns)
-        print(f"\nclassifier_hash = {classifier_hash}\n")
         if classifier_hash in self.classifier_store:
             classifier = self.classifier_store[classifier_hash][version]
         else:
             classifier = self.classifier_base
-        print(f"\nclassifier._max_iterations = {classifier._max_iterations}\n")
         return deepcopy(classifier)
 
     @property
