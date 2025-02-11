@@ -40,7 +40,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "commitish_to_test=[\"${{ github.event.inputs.commitish_to_test }}\"]" >> $GITHUB_OUTPUT
           else
-            echo "commitish_to_test=" >> $GITHUB_OUTPUT  # this will trigger 'actions/checkout' to use the current context
+            echo "commitish_to_test=" >> $GITHUB_OUTPUT  # this will trigger 'actions/checkout' to use the reference or SHA for the current event
           fi
 
   end2end_tests:
