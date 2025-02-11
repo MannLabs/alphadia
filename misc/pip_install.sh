@@ -10,7 +10,7 @@ ENV_NAME=${2:-alphadia}
 PYTHON_VERSION=${3:-3.11}
 INSTALL_MONO=${4:-false}
 
-exit 1
+
 if [ "$INSTALL_MONO" = "true" ]; then
   conda create -n $ENV_NAME python=$PYTHON_VERSION mono -y
 else
