@@ -21,8 +21,8 @@ class TwoStepClassifier:
         second_classifier: Classifier,
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
-        min_precursors_for_update: int = 5000,
-        max_iterations: int = 5,
+        min_precursors_for_update: int = 200,
+        max_iterations: int = 2,
         train_on_top_n: int = 1,
     ):
         """Initializing a two-step classifier.
@@ -102,7 +102,7 @@ class TwoStepClassifier:
             logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
 
             # extract preselction using first classifier if it is fitted
-            if self.first_classifier.fitted:
+            if self.first_classifier.fitted and i > 0:
                 df_train = self._apply_filtering_with_first_classifier(
                     df, x_cols, group_columns
                 )
