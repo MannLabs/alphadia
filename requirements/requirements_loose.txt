@@ -14,7 +14,7 @@ seaborn
 rocket_fft
 xxhash
 torchmetrics
-transformers<=4.40.2 # test: tolerate_version
+transformers<=4.48.0 # test: tolerate_version
 directlfq
 pythonnet
 zstandard

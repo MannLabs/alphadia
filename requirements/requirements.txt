@@ -13,7 +13,7 @@ seaborn==0.13.2
 rocket_fft==0.2.5
 xxhash==3.4.1
 torchmetrics==1.4.0.post0
-transformers==4.40.2
+transformers==4.48.0
 directlfq==0.2.19
 pythonnet==3.0.3
 zstandard==0.22.0
