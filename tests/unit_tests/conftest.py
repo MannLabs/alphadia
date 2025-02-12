@@ -168,30 +168,6 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     )
 
 
-def mock_fragment_correlation_df(fragments_df: pd.DataFrame):
-    """Create a mock fragment correlation dataframe as it's found as the individual search outputs
-
-    Parameters
-    ----------
-
-    fragments_df : pd.DataFrame
-        A mock fragment dataframe
-
-    Returns
-    -------
-
-    fragment_correlation_df : pd.DataFrame
-        A mock fragment correlation dataframe
-    """
-    np.random.seed(54)  # for reproducibility
-    fragments_shape = fragments_df.shape
-    fragment_correlation = np.random.rand(*fragments_shape)
-    fragment_correlation_df = pd.DataFrame(
-        fragment_correlation, columns=fragments_df.columns
-    )
-    return fragment_correlation_df
-
-
 def pytest_configure(config):
     test_data_path = os.environ.get("TEST_DATA_DIR", None)
 

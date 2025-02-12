@@ -5,8 +5,7 @@ import tempfile
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from alphabase.spectral_library.flat import SpecLibFlat
-from conftest import mock_fragment_correlation_df, mock_fragment_df, mock_precursor_df
+from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
 from alphadia.outputaccumulator import ms2_quality_control
