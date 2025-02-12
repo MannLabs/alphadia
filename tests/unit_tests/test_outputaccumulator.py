@@ -135,9 +135,7 @@ def test_complete_output_accumulation():
     assert (
         len(np.unique(built_lib.precursor_df["precursor_idx"]))
         == number_of_unique_precursors
-    ), (
-        f"{len(np.unique(built_lib.precursor_df['precursor_idx']))} != {number_of_unique_precursors}"
-    )
+    ), f"{len(np.unique(built_lib.precursor_df['precursor_idx']))} != {number_of_unique_precursors}"
 
     shutil.rmtree(temp_folder)
 
@@ -211,9 +209,7 @@ def test_keep_top_constraint():
                 ]
             )
             <= keep_top
-        ), (
-            f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
-        )
+        ), f"{len(built_lib.precursor_df[built_lib.precursor_df['precursor_idx'] == precursor_idx])} != {keep_top}"
 
     shutil.rmtree(temp_folder)
 
@@ -272,9 +268,9 @@ def test_non_nan_fragments():
     )
 
     # Then: The fragment dataframe should have no nan values
-    assert not built_lib.fragment_intensity_df.isnull().values.any(), (
-        "There are nan values in the fragment dataframe"
-    )
+    assert (
+        not built_lib.fragment_intensity_df.isnull().values.any()
+    ), "There are nan values in the fragment dataframe"
 
 
 def test_use_for_ms2():
