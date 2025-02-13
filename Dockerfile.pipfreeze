@@ -26,7 +26,6 @@ RUN /root/.local/bin/uv pip tree > /app/_tree.txt
 
 CMD ["cp", "/app/_requirements_freeze.txt", "/app/_tree.txt", "/app/output/"]
 
-#docker build -f Dockerfile.uvlock --progress=plain -t pipfreeze .
-
-# run bash:
-#docker run -v ./requirements/:/app/output -t pipfreeze
+# build and run:
+# docker build -f Dockerfile.pipfreeze --progress=plain -t pipfreeze .
+# docker run -v ./requirements/:/app/output -t pipfreeze
