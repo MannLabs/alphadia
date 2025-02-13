@@ -1,6 +1,7 @@
 # Dependencies required for running the "stable" version of alphaDIA.
 # Only usage of fixed versions is allowed, and all dependencies listed here must also be
 # included in `requirements_loose.txt` (enforced by a test).
+# If you change a requirement here, make sure to to update _requirements_freeze using Dockerfile.pipfreeze
 numba==0.59.1
 argparse==1.4.0
 alpharaw==0.4.5

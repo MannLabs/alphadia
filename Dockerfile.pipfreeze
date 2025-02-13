@@ -1,0 +1,32 @@
+# syntax=docker/dockerfile:1
+
+# https://github.com/michaelosthege/pythonnet-docker
+FROM --platform=linux/amd64 python:3.11@sha256:14b4620f59a90f163dfa6bd252b68743f9a41d494a9fde935f9d7669d98094bb
+
+# Prevents Python from writing pyc files.
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Keeps Python from buffering stdout and stderr to avoid situations where
+# the application crashes without emitting any logs due to buffering.
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR app
+
+RUN curl -LsSf https://astral.sh/uv/0.5.31/install.sh | sh
+
+COPY requirements/requirements.txt /app/req/requirements.txt
+
+RUN /root/.local/bin/uv venv
+
+RUN --mount=type=cache,target=/root/.cache/uv \
+    /root/.local/bin/uv pip install -r /app/req/requirements.txt
+
+RUN /root/.local/bin/uv pip freeze > /app/_requirements_freeze.txt
+RUN /root/.local/bin/uv pip tree > /app/_tree.txt
+
+CMD ["cp", "/app/_requirements_freeze.txt", "/app/_tree.txt", "/app/output/"]
+
+#docker build -f Dockerfile.uvlock --progress=plain -t pipfreeze .
+
+# run bash:
+#docker run -v ./requirements/:/app/output -t pipfreeze
