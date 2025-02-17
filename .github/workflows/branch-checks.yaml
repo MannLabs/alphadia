@@ -3,7 +3,9 @@ name: branch-checks
 
 on:
   pull_request:
-
+# TODO: make _run_tests.yml more generic (mono)
+# TODO: pass parameters to _run_tests.yml explicittly (-> "not_slow")
+# TODO move this to alphashared
 jobs:
   pre-commit:
     name: Run all pre-commit hooks
@@ -25,7 +27,7 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests
+      install-script: ./pip_install.sh stable,tests alphadia ${{ matrix.python-version }} true
       test-script: ./run_unit_tests.sh
 
   get-code-review-input:
