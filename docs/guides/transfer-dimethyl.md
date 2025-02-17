@@ -141,6 +141,7 @@ Altough the different parameters do not allow for fair comparison of absolut num
 The multistep workflow described by the above tutorial is supported directly via GUI (and CLI), without the need for
 multiple starts of AlphaDIA.
 
+Set up the raw and fasta files as described above.
 In the GUI, locate the "Multi-step Search" section and activate "Add 'transfer learning' step"
 and/or "Add 'second search' step". Set the rest of parameters as desired and start the search.
 
