@@ -154,8 +154,8 @@ For the "transfer" step, this is `transfer_library.enabled=True` and `transfer_l
 For the "mbr" step, this is `fdr.inference_strategy='library'` and `search.target_num_candidates=5`.
 
 Any other parameter set via GUI (e.g. `thread_count`)
-will apply to all steps. Here, the exceptions are `MS1 Tolerance` and `MS2 Tolerance`, which will be overwritten with
-optimal values determined in the first step. The intermediate results are stored in subfolders `transfer` and `library`,
+will apply to all steps. Here, the exceptions are `search.target_ms1_tolerance` and `search.target_ms2_tolerance`, which will be overwritten with
+optimal values determined in the previous step. The intermediate results are stored in subfolders `transfer` and `library`,
 respectively. As usual, you will find the final results in the root of the project folder.
 
 If you use the CLI, add the following to your `config.yaml` to enable the multistep search:

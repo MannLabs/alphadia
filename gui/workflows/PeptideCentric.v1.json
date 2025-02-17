@@ -74,14 +74,14 @@
                     "id": "transfer_step_enabled",
                     "name": "Transfer Learning Step (Experimental)",
                     "value": false,
-                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "description": "Whether to perform a 'transfer learning' step before the first search. Will set `transfer_library.enabled=True` and `transfer_learning.enabled=True` for this step. All other parameters set here will also be used for this step.",
                     "type": "boolean"
                 },
                 {
                     "id": "mbr_step_enabled",
                     "name": "MBR Search Step (Experimental)",
                     "value": false,
-                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "description": "Whether to perform a 'second search' step after the first search. Will set `fdr.inference_strategy='library'` and `search.target_num_candidates=5` and overwrite `search.target_ms1_tolerance`/`search.target_ms2_tolerance` with optimal values from the previous step. All other parameters set here will also be used for this step.",
                     "type": "boolean"
                 }
             ]
