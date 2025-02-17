@@ -170,6 +170,8 @@ class CandidateConfigJIT:
     precursor_mz_tolerance: nb.float32
     fragment_mz_tolerance: nb.float32
 
+    experimental_xic: nb.boolean
+
     def __init__(
         self,
         collect_fragments: nb.boolean,
@@ -182,6 +184,7 @@ class CandidateConfigJIT:
         quant_all: nb.boolean,
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
+        experimental_xic: nb.boolean,
     ) -> None:
         """Numba JIT compatible config object for CandidateScoring.
         Will be emitted when `CandidateConfig.jitclass()` is called.
@@ -200,6 +203,7 @@ class CandidateConfigJIT:
 
         self.precursor_mz_tolerance = precursor_mz_tolerance
         self.fragment_mz_tolerance = fragment_mz_tolerance
+        self.experimental_xic = experimental_xic
 
 
 candidate_config_type = CandidateConfigJIT.class_type.instance_type
@@ -220,6 +224,7 @@ class CandidateConfig(config.JITConfig):
         self.quant_all = False
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
+        self.experimental_xic = False
 
     @property
     def jit_container(self):
@@ -328,6 +333,16 @@ class CandidateConfig(config.JITConfig):
     @fragment_mz_tolerance.setter
     def fragment_mz_tolerance(self, value):
         self._fragment_mz_tolerance = value
+
+    @property
+    def experimental_xic(self) -> bool:
+        """Use experimental XIC features.
+        Default: `experimental_xic = False`"""
+        return self._experimental_xic
+
+    @experimental_xic.setter
+    def experimental_xic(self, value):
+        self._experimental_xic = value
 
     def validate(self):
         """Validate all properties of the config object.
@@ -796,6 +811,7 @@ class Candidate:
             self.frame_start,
             self.frame_stop,
             feature_array,
+            config.experimental_xic,
         )
 
         if config.collect_fragments:

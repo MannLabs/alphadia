@@ -114,6 +114,7 @@ search:
 
 search_advanced:
   top_k_fragments: 12
+  experimental_xic: True
 
 calibration:
 
