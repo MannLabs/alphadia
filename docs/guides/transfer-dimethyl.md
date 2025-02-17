@@ -1,12 +1,15 @@
 # DIA Transfer Learning for Dimethyl Labeled Samples
 
-**This tutorial was created using AlphaDIA 1.8.1 - please be aware that there might be changes in your version.**
-
 Note: from AlphaDIA 1.10.0, the multistep workflow is supported directly via GUI (and CLI), without the need for
-multiple starts of AlphaDIA. Working through this tutorial is still valuable, as it provides some insights and
-intuition about the process. See section [Integrated multistep workflow](#integrated-multistep-workflow) below for details.
+multiple starts of AlphaDIA.
+We recommend using this integrated multistep workflow, see [below](#integrated-multistep-workflow) for details.
+
+Working through this tutorial might still be valuable, as it provides some insights and
+intuition about the process and the relevant parameters.
 
 ## 1. Prerequisites
+**This tutorial was created using AlphaDIA 1.8.1 - please be aware that there might be changes in your version.**
+
 Make sure that you have a machine with at least 64 gigabytes of memory.
 Please download the test data for this tutorial [here](https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm).
 We will be using replicates of dimethyl-labeled tryptic HeLa digests. The samples are not multiplexed and only contain the natural light isotope.
@@ -141,11 +144,19 @@ multiple starts of AlphaDIA.
 In the GUI, locate the "Multi-step Search" section and activate "Add 'transfer learning' step"
 and/or "Add 'second search' step". Set the rest of parameters as desired and start the search.
 
+![multistep_settings.png](../_static/images/transfer-dimethyl/multistep_settings.png)
+
 This will orchestrate the individual search steps by transferring the data between the steps
-and by setting the configuration parameters that are specific to each step. Any other parameter set via GUI (e.g. `thread_count`)
+and by setting the configuration parameters that are specific to each step.
+
+For the "transfer" step, this is `transfer_library.enabled=True` and `transfer_learning.enabled=True`
+(note that you might also want to enable the "Transfer library" step, cf. [above](#33-transfer-learning))
+For the "mbr" step, this is `fdr.inference_strategy='library'` and `search.target_num_candidates=5`.
+
+Any other parameter set via GUI (e.g. `thread_count`)
 will apply to all steps. Here, the exceptions are `MS1 Tolerance` and `MS2 Tolerance`, which will be overwritten with
-optimal values determined in the first step. The intermediate results are stored in subfolders `tranfer` and `library`, respectively.
-As usual, you will find the final results in the root of the project folder.
+optimal values determined in the first step. The intermediate results are stored in subfolders `transfer` and `library`,
+respectively. As usual, you will find the final results in the root of the project folder.
 
 If you use the CLI, add the following to your `config.yaml` to enable the multistep search:
 ```yaml
@@ -153,7 +164,8 @@ multistep_search:
   transfer_step_enabled: True
   mbr_step_enabled: True
 ```
+Details on the internals of the multistep search can be found in `multistep.yaml`.
 
 In case the multistep search fails at some step, you can restart the failed step by
-using the `full_config.yaml` that is stored in the respective subfolder. You can of course edit
-this file in order to fix the issue that caused the failure.
+using the `full_config.yaml` file that is stored in the respective subfolder. You can of course edit
+the configuration file in order to fix the issue that caused the failure.
