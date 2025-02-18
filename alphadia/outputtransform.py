@@ -871,7 +871,9 @@ class SearchPlanOutput:
                             self.output_folder,
                             f"fragment_{quantlevel_config.level_name}filtered.matrix",
                         ),
-                        file_format=self.config["search_output"]["file_format"],
+                        file_format=self.config["search_output"][
+                            "file_format_advanced"
+                        ],
                     )
 
         # Use protein group (pg) results for merging with psm_df
