@@ -3,10 +3,15 @@ name: Update requirements
 
 on:
   workflow_dispatch:
-
+    inputs:
+      commitish_to_update:
+        type: string
+        description: 'Enter commit hash or branch where requirements should be updated (default: main).'
+        default: "main"
 jobs:
   update-requirements:
     uses: MannLabs/alphashared/.github/workflows/update_requirements.yml@v1
     secrets: inherit
     with:
       requirements_file_name: requirements.txt
+      commitish_to_update: ${{ inputs.commitish_to_update }}
