@@ -64,15 +64,16 @@ const WorkflowMenu = ({
                         )
                     })}
 
-                    <Divider />
-                    <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >
-                        <ListItemIcon>
-                            <MenuBookIcon fontSize="small" />
-                        </ListItemIcon>
-                        <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >
-                            Workflow Documentation
-                        </StyledLink>
-                    </MenuItem>
+                    {/*TODO create workflow documentation and add link here*/}
+                    {/*<Divider />*/}
+                    {/*<MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >*/}
+                    {/*    <ListItemIcon>*/}
+                    {/*        <MenuBookIcon fontSize="small" />*/}
+                    {/*    </ListItemIcon>*/}
+                    {/*    <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >*/}
+                    {/*        Workflow Documentation*/}
+                    {/*    </StyledLink>*/}
+                    {/*</MenuItem>*/}
                 </Menu>
         </Box>
 
