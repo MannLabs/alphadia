@@ -25,7 +25,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
-      test-script: ./run_unit_tests.sh
+      test-script: ./run_unit_tests.sh alphadia-env false
 
   get-code-review-input:
     runs-on: ubuntu-latest
