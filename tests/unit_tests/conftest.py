@@ -154,7 +154,7 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
 
     fragment_correlation = np.random.rand(n_precursor * n_fragments).flatten()
 
-    fragment_loss_type = np.ones(n_precursor * n_fragments).flatten()
+    fragment_loss_type = np.ones(n_precursor * n_fragments).astype(np.uint8).flatten()
     return pd.DataFrame(
         {
             "precursor_idx": fragment_precursor_idx,
