@@ -31,28 +31,28 @@
                 {
                     "id": "thread_count",
                     "name": "Number of Threads",
-                    "value": 10,
+                    "default": 10,
                     "description": "Number of threads to use for parallel processing.",
                     "type": "integer"
                 },
                 {
                     "id": "reuse_quant",
                     "name": "Reuse Ion Quantities",
-                    "value": false,
+                    "default": false,
                     "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantitative features will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
                 {
                     "id": "use_gpu",
                     "name": "Use GPU",
-                    "value": true,
+                    "default": true,
                     "description": "AlphaDIA will use the GPU for some processing steps like library prediction and scoring.",
                     "type": "boolean"
                 },
                 {
                     "id": "log_level",
                     "name": "Log Level",
-                    "value": "INFO",
+                    "default": "INFO",
                     "description": "Log level for the console output.",
                     "type": "dropdown",
                     "options": [
@@ -73,14 +73,14 @@
                 {
                     "id": "transfer_step_enabled",
                     "name": "Transfer Learning Step (Experimental)",
-                    "value": false,
+                    "default": false,
                     "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
                 },
                 {
                     "id": "mbr_step_enabled",
                     "name": "MBR Search Step (Experimental)",
-                    "value": false,
+                    "default": false,
                     "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean"
                 }
@@ -94,14 +94,14 @@
                 {
                     "id": "predict",
                     "name": "Predict Library",
-                    "value": false,
+                    "default": false,
                     "description": "Use alphaPeptDeep to predict peptide. \n If a FASTA file is provided an in silico digest will be performed. \n If a spectral library is provided precursor properties for library precursor will be performed.",
                     "type": "boolean"
                 },
                 {
                     "id": "enzyme",
                     "name": "Enzyme",
-                    "value": "trypsin",
+                    "default": "trypsin",
                     "description": "Enzyme used for in-silico digest.",
                     "type": "dropdown",
                     "options": [
@@ -153,35 +153,35 @@
                 {
                     "id": "fixed_modifications",
                     "name": "Fixed modifications",
-                    "value": "Carbamidomethyl@C",
+                    "default": "Carbamidomethyl@C",
                     "description": "Fixed modifications for in-silico digest. Semicolon separated list \n Format: Modification@AminoAcid \n Example: Carbamidomethyl@C;Dimethyl@N-term",
                     "type": "string"
                 },
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
-                    "value": "Oxidation@M;Acetyl@Protein_N-term",
+                    "default": "Oxidation@M;Acetyl@Protein_N-term",
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "string"
                 },
                 {
                     "id": "max_var_mod_num",
                     "name": "Maximum variable modifications",
-                    "value": 2,
+                    "default": 2,
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
                     "type": "integer"
                 },
                 {
                     "id": "missed_cleavages",
                     "name": "Missed cleavages",
-                    "value": 1,
+                    "default": 1,
                     "description": "Number of missed cleavages for in-silico digest.",
                     "type": "integer"
                 },
                 {
                     "id": "precursor_len",
                     "name": "Precursor length",
-                    "value": [7, 35],
+                    "default": [7, 35],
                     "description": "Number of amino acids of generated precursors.",
                     "type": "integer_range"
                 },
@@ -189,28 +189,28 @@
                 {
                     "id": "precursor_charge",
                     "name": "Precursor charge",
-                    "value": [2, 4],
+                    "default": [2, 4],
                     "description": "Charge states of generated precursors.",
                     "type": "integer_range"
                 },
                 {
                     "id": "precursor_mz",
                     "name": "Precursor mz",
-                    "value": [400.0, 1200.0],
+                    "default": [400.0, 1200.0],
                     "description": "Size limit for generated precursors.",
                     "type": "float_range"
                 },
                 {
                     "id": "fragment_mz",
                     "name": "Fragment mz",
-                    "value": [200.0, 2000.0],
+                    "default": [200.0, 2000.0],
                     "description": "Size limit for generated fragments.",
                     "type": "float_range"
                 },
                 {
                     "id": "fragment_types",
                     "name": "Fragment types",
-                    "value": ["b", "y"],
+                    "default": ["b", "y"],
                     "description":  "List of fragment types to quantify in the library. The PeptDeep model must support the chosen fragment types.",
                     "type": "multi_select",
                     "options": [
@@ -233,21 +233,21 @@
                 {
                     "id": "max_fragment_charge",
                     "name": "Maximum fragment charge",
-                    "value": 2,
+                    "default": 2,
                     "description": "Fragments will be generated up to this charge state. Must be supported by the chosen PeptDeep model.",
                     "type": "integer"
                 },
                 {
                     "id": "nce",
                     "name": "Normalized collision energy",
-                    "value": 25.0,
+                    "default": 25.0,
                     "description": "Normalized collision energy for fragment generation.",
                     "type": "float"
                 },
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "Lumos",
+                    "default": "Lumos",
                     "description": "Instrument used for ms2 spectrum prediction.",
                     "type": "dropdown",
                     "options": [
@@ -271,14 +271,14 @@
                 {
                     "id": "peptdeep_model_path",
                     "name": "PeptDeep Model Path",
-                    "value": null,
+                    "default": null,
                     "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on.",
                     "type": "singleFolderSelection"
                 },
                 {
                     "id": "peptdeep_model_type",
                     "name": "PeptDeep Model Type",
-                    "value": "generic",
+                    "default": "generic",
                     "description": "Select a custom pretrained PeptDeep model for library prediction. Possible values are 'generic', 'phospho' and 'digly'.",
                     "type": "dropdown",
                     "options": [
@@ -298,56 +298,56 @@
                 {
                     "id": "target_ms1_tolerance",
                     "name": "MS1 Tolerance",
-                    "value": 5,
+                    "default": 5,
                     "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
                     "id": "target_ms2_tolerance",
                     "name": "MS2 Tolerance",
-                    "value": 10,
+                    "default": 10,
                     "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
                     "type": "float"
                 },
                 {
                     "id": "target_mobility_tolerance",
                     "name": "Mobility Tolerance",
-                    "value": 0.0,
+                    "default": 0.0,
                     "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
                     "type": "float"
                 },
                 {
                     "id": "target_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 0.0,
+                    "default": 0.0,
                     "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
                     "type": "float"
                 },
                 {
                     "id": "channel_filter",
                     "name": "Channel Filter",
-                    "value": "",
+                    "default": "",
                     "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
                     "type": "string"
                 },
                 {
                     "id": "exclude_shared_ions",
                     "name": "Exclude Shared Ions",
-                    "value": true,
+                    "default": true,
                     "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
                     "type": "boolean"
                 },
                 {
                     "id": "compete_for_fragments",
                     "name": "Compete for Fragments",
-                    "value": true,
+                    "default": true,
                     "description": "If enabled, precursors will compete for fragment ions.",
                     "type": "boolean"
                 },
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
-                    "value": 2,
+                    "default": 2,
                     "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },
@@ -355,7 +355,7 @@
                 {
                     "id": "quant_window",
                     "name": "Quant window",
-                    "value": 3,
+                    "default": 3,
                     "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
                     "type": "integer"
 
@@ -363,7 +363,7 @@
                 {
                     "id": "quant_all",
                     "name": "Use all MS2 observations",
-                    "value": true,
+                    "default": true,
                     "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
                     "type": "boolean"
 
@@ -378,14 +378,14 @@
                 {
                     "id": "fdr",
                     "name": "FDR",
-                    "value": 0.01,
+                    "default": 0.01,
                     "description": "Maximum false discovery rate for PSMs.",
                     "type": "float"
                 },
                 {
                     "id": "group_level",
                     "name": "Inference Level",
-                    "value": "proteins",
+                    "default": "proteins",
                     "description": "Inference level for FDR correction.",
                     "type": "dropdown",
                     "options": [
@@ -396,7 +396,7 @@
                 {
                     "id": "inference_strategy",
                     "name": "Inference Strategy",
-                    "value": "heuristic",
+                    "default": "heuristic",
                     "description": "Inference strategy for protein groups. \n library: Protein groups are used as reported in the library. \n maximum_parsimony: Protein groups are inferred using the maximum parsimony principle. \n heursitic: Protein groups are inferred using maximum parsimony with grouping.",
                     "type": "dropdown",
                     "options": [
@@ -408,35 +408,35 @@
                 {
                     "id": "channel_wise_fdr",
                     "name": "Channel wise FDR",
-                    "value": false,
+                    "default": false,
                     "description": "In the initial pass before propagating identifications the FDR is calculated for each channel separately. This can be usefull if the composition of the channels differs drastically.",
                     "type": "boolean"
                 },
                 {
                     "id": "keep_decoys",
                     "name": "Keep Decoys",
-                    "value": false,
+                    "default": false,
                     "description": "If enabled, decoy PSMs will be retained in the output.",
                     "type": "boolean"
                 },
                 {
                     "id": "enable_two_step_classifier",
                     "name": "Two Step Classifier (Experimental)",
-                    "value": false,
+                    "default": false,
                     "description": "If enabled, a two step classifier consisting of a linear filter and a neural network will be used.",
                     "type": "boolean"
                 },
                 {
                     "id": "two_step_classifier_max_iterations",
                     "name": "Two Step Classifier Max Iterations (Experimental)",
-                    "value": 5,
+                    "default": 5,
                     "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
                     "type": "integer"
                 },
                 {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
-                    "value": false,
+                    "default": false,
                     "description": "If enabled, the hyperparameters of the neural network like the batch size and learning rate will be tuned.",
                     "type": "boolean"
                 }
@@ -450,35 +450,35 @@
                 {
                     "id": "initial_num_candidates",
                     "name": "Number of Candidates",
-                    "value": 1,
+                    "default": 1,
                     "description": "Initial number of candidates to extract per precursor.",
                     "type": "integer"
                 },
                 {
                     "id": "initial_ms1_tolerance",
                     "name": "MS1 Tolerance",
-                    "value": 30,
+                    "default": 30,
                     "description": "Initial MS1 tolerance in ppm. ",
                     "type": "float"
                 },
                 {
                     "id": "initial_ms2_tolerance",
                     "name": "MS2 Tolerance",
-                    "value": 30,
+                    "default": 30,
                     "description": "Initial MS2 tolerance in ppm.",
                     "type": "float"
                 },
                 {
                     "id": "initial_mobility_tolerance",
                     "name": "Mobility Tolerance",
-                    "value": 0.1,
+                    "default": 0.1,
                     "description": "Initial mobility tolerance in 1/K_0.",
                     "type": "float"
                 },
                 {
                     "id": "initial_rt_tolerance",
                     "name": "RT Tolerance",
-                    "value": 0.5,
+                    "default": 0.5,
                     "description": "Initial retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1.",
                     "type": "float"
                 }
@@ -492,35 +492,35 @@
                 {
                     "id": "enabled",
                     "name": "Enable Multiplexing",
-                    "value": false,
+                    "default": false,
                     "description": "Quantify and score identification across non-isobaric labled channels.",
                     "type": "boolean"
                 },
                 {
                     "id": "target_channels",
                     "name": "Target Channels",
-                    "value": "4,8",
+                    "default": "4,8",
                     "description": "Target channels contain regular samples and are used for quantification.",
                     "type": "string"
                 },
                 {
                     "id": "decoy_channel",
                     "name": "Decoy Channel",
-                    "value": 12,
+                    "default": 12,
                     "description": "Non-existant channel used for decoy identifications.",
                     "type": "integer"
                 },
                 {
                     "id": "reference_channel",
                     "name": "Reference Channel",
-                    "value": 0,
+                    "default": 0,
                     "description": "The reference channel is only used for guiding identification and is not used for quantification. Some features will be calculated with respect to the reference channel.",
                     "type": "integer"
                 },
                 {
                     "id": "competetive_scoring",
                     "name": "Competetive Scoring",
-                    "value": true,
+                    "default": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
                     "type": "boolean"
                 }
@@ -534,49 +534,49 @@
                 {
                     "id": "min_k_fragments",
                     "name": "Minimum number of fragments",
-                    "value": 12,
+                    "default": 12,
                     "description": "Minimum number of fragments required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "min_correlation",
                     "name": "Minimum correlation",
-                    "value": 0.9,
+                    "default": 0.9,
                     "description": "Minimum correlation required for quantification.",
                     "type": "float"
                 },
                 {
                     "id": "num_samples_quadratic",
                     "name": "Number of samples for quadratic fit",
-                    "value": 50,
+                    "default": 50,
                     "description": "Number of samples used for quadratic fit.",
                     "type": "integer"
                 },
                 {
                     "id": "min_nonnan",
                     "name": "Minimum number of non-nan values",
-                    "value": 3,
+                    "default": 3,
                     "description": "Minimum number of non-nan values required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "normalize_lfq",
                     "name": "Normalize LFQ",
-                    "value": true,
+                    "default": true,
                     "description": "If enabled, the LFQ values will be normalized.",
                     "type": "boolean"
                 },
                 {
                     "id": "peptide_level_lfq",
                     "name": "Peptide level LFQ",
-                    "value": false,
+                    "default": false,
                     "description": "Perform label free quantification on peptide level and report as peptide matrix.",
                     "type": "boolean"
                 },
                 {
                     "id": "precursor_level_lfq",
                     "name": "Precursor level LFQ",
-                    "value": false,
+                    "default": false,
                     "description": "Perform label free quantification on precursor level and report as precursor matrix.",
                     "type": "boolean"
                 }
@@ -590,14 +590,14 @@
                 {
                     "id": "enabled",
                     "name": "Enabled",
-                    "value": false,
+                    "default": false,
                     "description": "If true, transfer learnin training dataset is created.",
                     "type": "boolean"
                 },
                 {
                     "id": "fragment_types",
                     "name": "Fragment types",
-                    "value": ["b", "y"],
+                    "default": ["b", "y"],
                     "description": "List of fragment types to quantify in the library.",
                     "type": "multi_select",
                     "options": [
@@ -620,35 +620,35 @@
                 {
                     "id": "max_charge",
                     "name": "Maximum charge",
-                    "value": 2,
+                    "default": 2,
                     "description": "Maximum charge for fragments.",
                     "type": "integer"
                 },
                 {
                     "id": "top_k_samples",
                     "name": "Top k samples",
-                    "value": 3,
+                    "default": 3,
                     "description": "If a given precursor appears multiple times in an experiment, only the top_k_samples with the highest scores are included in the library.",
                     "type": "integer"
                 },
                 {
                     "id": "norm_delta_max",
                     "name": "Norm delta max",
-                    "value": true,
+                    "default": true,
                     "description": "Perform advanced rt calibration. \nIf set to false retention times will be normalised by the maximum retention time observed in the experiment. \nIf set to true, a combination of maximum normalisation and deviation from the calibration curve will be used.",
                     "type": "boolean"
                 },
                 {
                     "id": "precursor_correlation_cutoff",
                     "name": "Precursor correlation cutoff",
-                    "value": 0.5,
+                    "default": 0.5,
                     "description": "Use only precursors for ms2 training with a median XIC correlation above this threshold.",
                     "type": "float"
                 },
                 {
                     "id": "fragment_correlation_ratio",
                     "name": "Fragment correlation ratio",
-                    "value": 0.75,
+                    "default": 0.75,
                     "description": "Include only fragments with a XIC correlation at least 0.75 of the median for all fragments.",
                     "type": "float"
                 }
@@ -662,42 +662,42 @@
                 {
                     "id": "enabled",
                     "name": "Enabled",
-                    "value": false,
+                    "default": false,
                     "description": "If true, a custom peptdeep model will be created using the transfer learned library.",
                     "type": "boolean"
                 },
                 {
                     "id": "batch_size",
                     "name": "Batch size",
-                    "value": 2000,
+                    "default": 2000,
                     "description": "Number of precursors per batch.",
                     "type": "integer"
                 },
                 {
                     "id": "max_lr",
                     "name": "Maximum learning rate",
-                    "value": 0.0001,
+                    "default": 0.0001,
                     "description": "Maximum learning rate per batch. \nThe maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler.",
                     "type": "float"
                 },
                 {
                     "id": "train_fraction",
                     "name": "Train fraction",
-                    "value": 0.7,
+                    "default": 0.7,
                     "description": "Fraction of the dataset used for training.",
                     "type": "float"
                 },
                 {
                     "id": "validation_fraction",
                     "name": "Validation fraction",
-                    "value": 0.2,
+                    "default": 0.2,
                     "description": "Fraction of the dataset used for validation.",
                     "type": "float"
                 },
                 {
                     "id": "test_fraction",
                     "name": "Test fraction",
-                    "value": 0.1,
+                    "default": 0.1,
                     "description": "Fraction of the dataset used for testing.",
                     "type": "float"
                 },
@@ -705,42 +705,42 @@
                 {
                     "id": "test_interval",
                     "name": "Test interval",
-                    "value": 1,
+                    "default": 1,
                     "description": "Test every n intervals.",
                     "type": "integer"
                 },
                 {
                     "id": "lr_patience",
                     "name": "Learning rate patience",
-                    "value": 3,
+                    "default": 3,
                     "description": "Learning rate patience after which the lr will be halved.",
                     "type": "integer"
                 },
                 {
                     "id": "epochs",
                     "name": "Number of epochs",
-                    "value": 51,
+                    "default": 51,
                     "description": "Maximum number of epochs.",
                     "type": "integer"
                 },
                 {
                     "id": "warmup_epochs",
                     "name": "Warmup epochs",
-                    "value": 5,
+                    "default": 5,
                     "description": "Number of warmup epochs during which the lr is ramped up.",
                     "type": "integer"
                 },
                 {
                     "id": "nce",
                     "name": "Normalized collision energy",
-                    "value": 25,
+                    "default": 25,
                     "description": "Normalised collision energy encoded during training.",
                     "type": "float"
                 },
                 {
                     "id": "instrument",
                     "name": "Instrument",
-                    "value": "Lumos",
+                    "default": "Lumos",
                     "description": "Instrument type encoded during training. \nThe same instrument type must be used for prediction using the trained model.",
                     "type": "dropdown",
                     "options": [
