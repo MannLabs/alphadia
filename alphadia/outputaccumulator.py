@@ -39,14 +39,15 @@ from alphadia.constants.keys import SearchStepFiles
 logger = logging.getLogger()
 
 
-def process_folder(
+def build_speclibflat_from_quant(
     folder: str,
     mandatory_precursor_columns: list[str] | None = None,
     optional_precursor_columns: list[str] | None = None,
     charged_frag_types: list[str] | None = None,
 ) -> SpecLibFlat:
     """
-    Parse an output folder and return a SpecLibFlat object containing the precursor and fragment data.
+    Build a SpecLibFlat object from quantification output data stored in a folder for transfer learning.
+
 
     Parameters
     ----------
@@ -109,15 +110,12 @@ def process_folder(
     )
     psm_df = psm_df[available_columns]
 
-    foldername = os.path.basename(folder)
-    psm_df["raw_name"] = foldername
+    psm_df["raw_name"] = os.path.basename(folder)
 
     psm_df["decoy"] = psm_df["decoy"].astype(int)
     psm_df = psm_df[psm_df["decoy"] == 0].reset_index(drop=True)
 
-    speclib._precursor_df = pd.DataFrame()
-    for col in psm_df.columns:
-        speclib._precursor_df[col] = psm_df[col]
+    speclib._precursor_df = psm_df.copy()
 
     speclib._precursor_df["mods"] = speclib._precursor_df["mods"].astype(str)
     speclib._precursor_df["mod_sites"] = speclib._precursor_df["mod_sites"].astype(str)
@@ -227,7 +225,7 @@ class AccumulationBroadcaster:
         with multiprocessing.Pool(processes=self._number_of_processes) as pool:
             for folder in self._folder_list:
                 _ = pool.apply_async(
-                    process_folder,
+                    build_speclibflat_from_quant,
                     (folder,),
                     self._processing_kwargs,
                     callback=self._broadcast,
