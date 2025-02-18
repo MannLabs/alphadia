@@ -579,6 +579,13 @@
                     "default": false,
                     "description": "Perform label free quantification on precursor level and report as precursor matrix.",
                     "type": "boolean"
+                },
+                {
+                    "id": "save_fragment_quant_matrix",
+                    "name": "Save Fragment Quant Matrix",
+                    "value": false,
+                    "description": "Save the fragment quantity matrix to disk.",
+                    "type": "boolean"
                 }
             ]
         },
