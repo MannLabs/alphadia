@@ -9,7 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
-from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
@@ -336,11 +336,18 @@ class SearchStep:
         )
 
         # check if the raw file is already processed
-        psm_location = os.path.join(workflow.path, "psm.parquet")
-        frag_location = os.path.join(workflow.path, "frag.parquet")
+        psm_location = os.path.join(workflow.path, SearchStepFiles.PSM_FILE_NAME)
+        frag_location = os.path.join(workflow.path, SearchStepFiles.FRAG_FILE_NAME)
+        frag_transfer_location = os.path.join(
+            workflow.path, SearchStepFiles.FRAG_TRANSFER_FILE_NAME
+        )
 
         if self.config["general"]["reuse_quant"]:
-            if os.path.exists(psm_location) and os.path.exists(frag_location):
+            files_exist = os.path.exists(psm_location) and os.path.exists(frag_location)
+            if self.config["transfer_library"]["enabled"]:
+                files_exist = files_exist and os.path.exists(frag_transfer_location)
+
+            if files_exist:
                 logger.info(
                     f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
                 )
@@ -356,7 +363,10 @@ class SearchStep:
         workflow.timing_manager.set_end_time("optimization")
 
         workflow.timing_manager.set_start_time("extraction")
+
         psm_df, frag_df = workflow.extraction()
+        frag_df.to_parquet(frag_location, index=False)
+
         workflow.timing_manager.set_end_time("extraction")
         workflow.timing_manager.save()
 
@@ -367,11 +377,11 @@ class SearchStep:
             psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
         if self.config["transfer_library"]["enabled"]:
-            psm_df, frag_df = workflow.requantify_fragments(psm_df)
+            psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)
+            frag_transfer_df.to_parquet(frag_transfer_location, index=False)
 
         psm_df["run"] = raw_name
         psm_df.to_parquet(psm_location, index=False)
-        frag_df.to_parquet(frag_location, index=False)
 
         return workflow
 
