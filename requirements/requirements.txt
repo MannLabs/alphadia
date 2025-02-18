@@ -15,7 +15,6 @@ xxhash
 torchmetrics
 transformers
 pythonnet
-progressbar # TODO remove with alphadia 1.5.0
 # not direct dependencies but we have to restrict the versions
 dask==2024.11.2
 numpy<2
