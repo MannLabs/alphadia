@@ -1,6 +1,6 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
-
+import { useTheme } from '@mui/material/styles';
 import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
@@ -208,7 +208,6 @@ const ParameterInput = ({
 
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
-
     let default_text = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
     return (
 
@@ -222,7 +221,7 @@ const ParameterInput = ({
 
             <Tooltip title = {`[${parameter_group_id}.${parameter.id}] ${parameter.description} (default: ${default_text})`} disableInteractive>
                 <Typography sx={{fontWeight: 400, fontSize: "12px",
-                color: parameter.value !== parameter.default ? 'cyan' : 'inherit'}}>
+                color: parameter.value !== parameter.default ? useTheme().palette.primary.main : 'inherit'}}>
                     {parameter.name}
                 </Typography>
             </Tooltip>
