@@ -7,7 +7,6 @@ on:
 jobs:
   update-requirements:
     uses: MannLabs/alphashared/.github/workflows/update_requirements.yml@v1
-    permissions:
-      contents: write
-      pull-requests: write
     secrets: inherit
+    with:
+      requirements_file_name: requirements.txt
