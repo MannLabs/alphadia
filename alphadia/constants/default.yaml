@@ -9,14 +9,31 @@ raw_paths: []
 fasta_paths: []
 quant_directory: null
 
+# scope of default yaml should be one search step
+multistep_search:
+
+  # Enables separate transfer learning step
+  transfer_step_enabled: False
+
+  # Enables separate MBR step
+  mbr_step_enabled: False
+
+
 general:
   thread_count: 10
-  # maximum number of threads or processes to use per raw file
+
+  # === advanced settings ===
+  # whether to reuse previously calculated calibration data
   reuse_calibration: false
+  # whether to reuse previously calculated quantification data
   reuse_quant: false
+  # whether to use Astral MS1 feature detection
   astral_ms1: false
+  # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
+  # whether to memory map detector events for improved performance
   mmap_detector_events: false
+  # whether to use GPU acceleration for library prediction and scoring
   use_gpu: true
   # whether to save the libraries to the output directory
   save_library: True       # input library
@@ -27,25 +44,44 @@ library_loading:
   # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
 
 library_prediction:
+  # Basic parameters
+  # whether to use alphaPeptDeep to predict peptide properties
   predict: False
+  # enzyme used for in-silico digest
   enzyme: trypsin
+  # fixed modifications for in-silico digest
+  # Format: Modification@AminoAcid
+  # Example: Carbamidomethyl@C
   fixed_modifications: 'Carbamidomethyl@C'
+  # variable modifications for in-silico digest. Semicolon separated list
+  # See https://github.com/MannLabs/alphabase/blob/c99c1ec7eb482745f6dae58a324658d6b6c4abf0/alphabase/constants/const_files/modification.tsv
+  # Format: Modification@AminoAcid
+  # Example: Oxidation@M;Acetyl@Protein_N-term
   variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
+  # maximum number of variable modifications per peptide
   max_var_mod_num: 2
+  # number of missed cleavages allowed for in-silico digest
   missed_cleavages: 1
   # using tuples here as it makes interaction with the GUI easier
+  # minimum and maximum number of amino acids for generated precursors
   precursor_len:
     - 7
     - 35
+  # minimum and maximum charge states for generated precursors
   precursor_charge:
     - 2
     - 4
+  # minimum and maximum m/z values for generated precursors
   precursor_mz:
     - 400
     - 1200
+  # minimum and maximum m/z values for generated fragments
   fragment_mz:
     - 200
     - 2000
+
+  # === advanced settings ===
+  # normalized collision energy for fragment generation
   nce: 25.0
 
   # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
@@ -56,6 +92,8 @@ library_prediction:
 
   # maximum charge state for predicted fragments
   max_fragment_charge: 2
+
+  # instrument types as supported by peptdeep. Leave this as Lumos if you are not 100% sure you know what you are changing
   instrument: Lumos
 
   # set path for custom peptdeep model. If set to null, the default model will be used
@@ -96,25 +134,24 @@ custom_modifications:
     composition: C(12)
 
 search:
-  channel_filter: '0'
-  exclude_shared_ions: True
-  compete_for_fragments: True
-
-  target_num_candidates: 2
   # target ms1 tolerance in ppm
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
   target_ms2_tolerance: 10
-  # target ion mobility tolerance in 1/K_0
-  target_mobility_tolerance: 0.0 # default is to optimize automatically
-  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
+  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1. 0.0 means to optimize automatically
   target_rt_tolerance: 0.0 # default is to optimize automatically
+    # target ion mobility tolerance in 1/K_0
+  target_mobility_tolerance: 0.0 # default is to optimize automatically
 
-  quant_window: 3
+  # === advanced settings ===
+  target_num_candidates: 2
+  channel_filter: '0'
+  exclude_shared_ions: True
+  compete_for_fragments: True
+  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   quant_all: True
-
-search_advanced:
   top_k_fragments: 12
+
 
 calibration:
 
@@ -235,10 +272,14 @@ multiplexing:
 fdr:
   fdr: 0.01
   group_level: 'proteins'
+  inference_strategy: "heuristic"
+
+
+  # === advanced settings ===
   competetive_scoring: true
   keep_decoys: false
   channel_wise_fdr: false
-  inference_strategy: "heuristic"
+
   # (Experimental)
   # uses a two-step classifier consisting of a logistic regression and a neural network, with a default maximum of 5 iterations per fitting call
   enable_two_step_classifier: false
@@ -248,15 +289,24 @@ fdr:
   enable_nn_hyperparameter_tuning: false
 
 search_output:
-  peptide_level_lfq: false
-  precursor_level_lfq: false
-  min_k_fragments: 12
-  min_correlation: 0.9
-  num_samples_quadratic: 50
-  min_nonnan: 3
-  normalize_lfq: True
-  # can be either "parquet" or "tsv"
+  # Output file format for search results. Can be either "tsv" or "parquet"
   file_format: "tsv"
+  # Enable label-free quantification at peptide level and generate peptide matrix
+  peptide_level_lfq: false
+  # Enable label-free quantification at precursor level and generate precursor matrix
+  precursor_level_lfq: false
+
+  # === advanced settings ===
+  # Minimum number of fragments required for quantification
+  min_k_fragments: 12
+  # Minimum correlation required between fragment XICs for quantification
+  min_correlation: 0.9
+  # Number of samples used for quadratic fit in retention time alignment
+  num_samples_quadratic: 50
+  # Minimum number of non-missing values required for quantification
+  min_nonnan: 3
+  # Enable normalization of label-free quantification values
+  normalize_lfq: True
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
@@ -334,6 +384,8 @@ transfer_library:
   # if true, the library is created for transfer learning
   enabled: False
 
+  # === advanced settings ===
+
   # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
   # Supported types are: a, b, c, x, y, z, b_modloss, y_modloss, b_H2O, y_H2O, b_NH3, y_NH3, c_lossH, z_addH
   fragment_types: ['b', 'y']
@@ -360,6 +412,8 @@ transfer_learning:
 
   # if true, a custom peptdeep model will be created using the transfer learned library
   enabled: False
+
+  # === advanced settings ===
 
   # number of precursors per batch
   batch_size: 2000
@@ -394,9 +448,3 @@ transfer_learning:
 
   # instrument type encoded during training
   instrument: 'Lumos'
-
-
-# scope of default yaml should be one search step
-multistep_search:
-  transfer_step_enabled: False
-  mbr_step_enabled: False
