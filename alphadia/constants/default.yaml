@@ -9,18 +9,15 @@ raw_paths: []
 fasta_paths: []
 quant_directory: null
 
-# scope of default yaml should be one search step
-multistep_search:
+general:
 
+  thread_count: 10
   # Enables separate transfer learning step
   transfer_step_enabled: False
 
   # Enables separate MBR step
   mbr_step_enabled: False
 
-
-general:
-  thread_count: 10
 
   # === advanced settings ===
   # whether to reuse previously calculated calibration data

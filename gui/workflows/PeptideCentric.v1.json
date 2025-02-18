@@ -33,6 +33,20 @@
                     "value": 10,
                     "description": "Number of threads to use for parallel processing.",
                     "type": "integer"
+                },
+                {
+                    "id": "transfer_step_enabled",
+                    "name": "Transfer Learning Step (Experimental)",
+                    "value": false,
+                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
+                },
+                {
+                    "id": "mbr_step_enabled",
+                    "name": "MBR Search Step (Experimental)",
+                    "value": false,
+                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
                 }
             ],
             "parameters_advanced": [
@@ -74,26 +88,83 @@
             ]
         },
         {
-            "id": "multistep_search",
-            "name": "Multi-step Search",
+            "id": "search",
+            "name": "Search",
             "hidden": false,
             "parameters": [
                 {
-                    "id": "transfer_step_enabled",
-                    "name": "Transfer Learning Step (Experimental)",
-                    "value": false,
-                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "id": "target_ms1_tolerance",
+                    "name": "MS1 Tolerance",
+                    "value": 5,
+                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_ms2_tolerance",
+                    "name": "MS2 Tolerance",
+                    "value": 10,
+                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_mobility_tolerance",
+                    "name": "Mobility Tolerance",
+                    "value": 0.0,
+                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_rt_tolerance",
+                    "name": "RT Tolerance",
+                    "value": 0.0,
+                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
+                    "type": "float"
+                }
+            ],
+            "parameters_advanced": [
+                {
+                    "id": "channel_filter",
+                    "name": "Channel Filter",
+                    "value": "",
+                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
+                    "type": "string"
+                },
+                {
+                    "id": "exclude_shared_ions",
+                    "name": "Exclude Shared Ions",
+                    "value": true,
+                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
                     "type": "boolean"
                 },
                 {
-                    "id": "mbr_step_enabled",
-                    "name": "MBR Search Step (Experimental)",
-                    "value": false,
-                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "id": "compete_for_fragments",
+                    "name": "Compete for Fragments",
+                    "value": true,
+                    "description": "If enabled, precursors will compete for fragment ions.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "target_num_candidates",
+                    "name": "Number of Candidates",
+                    "value": 2,
+                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
+                    "type": "integer"
+                },
+                {
+                    "id": "quant_window",
+                    "name": "Quant window",
+                    "value": 3,
+                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "quant_all",
+                    "name": "Use all MS2 observations",
+                    "value": true,
+                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
                     "type": "boolean"
                 }
-            ],
-            "parameters_advanced": []
+            ]
         },
         {
             "id": "library_prediction",
@@ -381,85 +452,7 @@
                 }
             ]
         },
-        {
-            "id": "search",
-            "name": "Search",
-            "hidden": false,
-            "parameters": [
-                {
-                    "id": "target_ms1_tolerance",
-                    "name": "MS1 Tolerance",
-                    "value": 5,
-                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_ms2_tolerance",
-                    "name": "MS2 Tolerance",
-                    "value": 10,
-                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_mobility_tolerance",
-                    "name": "Mobility Tolerance",
-                    "value": 0.0,
-                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_rt_tolerance",
-                    "name": "RT Tolerance",
-                    "value": 0.0,
-                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
-                    "type": "float"
-                }
-            ],
-            "parameters_advanced": [
-                {
-                    "id": "channel_filter",
-                    "name": "Channel Filter",
-                    "value": "",
-                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
-                    "type": "string"
-                },
-                {
-                    "id": "exclude_shared_ions",
-                    "name": "Exclude Shared Ions",
-                    "value": true,
-                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "compete_for_fragments",
-                    "name": "Compete for Fragments",
-                    "value": true,
-                    "description": "If enabled, precursors will compete for fragment ions.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "target_num_candidates",
-                    "name": "Number of Candidates",
-                    "value": 2,
-                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
-                    "type": "integer"
-                },
-                {
-                    "id": "quant_window",
-                    "name": "Quant window",
-                    "value": 3,
-                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
-                    "type": "integer"
-                },
-                {
-                    "id": "quant_all",
-                    "name": "Use all MS2 observations",
-                    "value": true,
-                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
-                    "type": "boolean"
-                }
-            ]
-        },
+
         {
             "id": "fdr",
             "name": "False Discovery Rate Correction",

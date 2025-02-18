@@ -67,11 +67,9 @@ class SearchPlan:
         self._multistep_config: dict | None = None
         self._transfer_step_output_dir: Path | None = None
 
-        multistep_search_config = self._user_config.get("multistep_search", {})
-        self._transfer_step_enabled = multistep_search_config.get(
-            "transfer_step_enabled", False
-        )
-        self._mbr_step_enabled = multistep_search_config.get("mbr_step_enabled", False)
+        general_config = self._user_config.get("general", {})
+        self._transfer_step_enabled = general_config.get("transfer_step_enabled", False)
+        self._mbr_step_enabled = general_config.get("mbr_step_enabled", False)
 
         if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
