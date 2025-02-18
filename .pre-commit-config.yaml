@@ -13,5 +13,12 @@ repos:
     - id: ruff-format
     - id: ruff
       args: [ '--fix' ]
-
-exclude: .bumpversion.cfg
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.9.1 # newer version -> stricter
+  hooks:
+    - id: ruff
+      # running ruff again with rules in ruff-lint-psm-readers.toml (specific files, all rules)
+      args:
+        - "--config"
+        - "ruff-lint-strict.toml"
+        - "--fix"

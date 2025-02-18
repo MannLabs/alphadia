@@ -76,18 +76,18 @@ function validateWorkflow(workflow) {
 
 function workflowToConfig(workflow) {
 
-    let output = {name: workflow.name}
+    let output = {workflow_name: workflow.name}
 
     if (workflow.library.path != "") {
-        output["library"] = workflow.library.path
+        output["library_path"] = workflow.library.path
     }
 
     if (workflow.fasta_list.path != "") {
-        output["fasta_list"] = workflow.fasta_list.path
+        output["fasta_paths"] = workflow.fasta_list.path
     }
 
     if (workflow.raw_path_list.path != "") {
-        output["raw_path_list"] = workflow.raw_path_list.path
+        output["raw_paths"] = workflow.raw_path_list.path
     }
 
     if (workflow.output_directory.path != "") {

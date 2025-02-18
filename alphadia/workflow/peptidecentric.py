@@ -15,6 +15,8 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
@@ -94,9 +96,54 @@ feature_columns = [
     "mean_overlapping_mass_error",
 ]
 
-classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
-    test_size=0.001, batch_size=5000, learning_rate=0.001, epochs=10
-)
+
+def get_classifier_base(
+    enable_two_step_classifier: bool = False,
+    two_step_classifier_max_iterations: int = 5,
+    enable_nn_hyperparameter_tuning: bool = False,
+    fdr_cutoff: float = 0.01,
+):
+    """Creates and returns a classifier base instance.
+
+    Parameters
+    ----------
+    enable_two_step_classifier : bool, optional
+        If True, uses logistic regression + neural network.
+        If False (default), uses only neural network.
+
+    two_step_classifier_max_iterations : int
+        Maximum number of iterations withtin .fit_predict() of the two-step classifier.
+
+    enable_nn_hyperparameter_tuning: bool, optional
+        If True, uses hyperparameter tuning for the neural network.
+        If False (default), uses default hyperparameters for the neural network.
+
+    fdr_cutoff : float, optional
+        The FDR cutoff threshold used by the second classifier when two-step
+        classification is enabled. Default is 0.01.
+
+    Returns
+    -------
+    BinaryClassifierLegacyNewBatching | TwoStepClassifier
+        Neural network or two-step classifier based on enable_two_step_classifier.
+    """
+    nn_classifier = fdrx.BinaryClassifierLegacyNewBatching(
+        test_size=0.001,
+        batch_size=5000,
+        learning_rate=0.001,
+        epochs=10,
+        experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+    )
+
+    if enable_two_step_classifier:
+        return TwoStepClassifier(
+            first_classifier=LogisticRegressionClassifier(),
+            second_classifier=nn_classifier,
+            second_fdr_cutoff=fdr_cutoff,
+            max_iterations=two_step_classifier_max_iterations,
+        )
+    else:
+        return nn_classifier
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
@@ -133,7 +180,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def init_fdr_manager(self):
         self.fdr_manager = manager.FDRManager(
             feature_columns=feature_columns,
-            classifier_base=classifier_base,
+            classifier_base=get_classifier_base(
+                enable_two_step_classifier=self.config["fdr"][
+                    "enable_two_step_classifier"
+                ],
+                two_step_classifier_max_iterations=self.config["fdr"][
+                    "two_step_classifier_max_iterations"
+                ],
+                enable_nn_hyperparameter_tuning=self.config["fdr"][
+                    "enable_nn_hyperparameter_tuning"
+                ],
+                fdr_cutoff=self.config["fdr"]["fdr"],
+            ),
         )
 
     def init_spectral_library(self):
@@ -1126,7 +1184,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        fragment_types = self.config["transfer_library"]["fragment_types"].split(";")
+        fragment_types = self.config["transfer_library"]["fragment_types"]
         max_charge = self.config["transfer_library"]["max_charge"]
 
         self.reporter.log_string(

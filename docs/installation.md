@@ -69,18 +69,14 @@ See also the [developer guide](developer_guide.md) for more information on how t
 
 ### 1. Setting up the repository
 
-Navigate to a folder where you would like to install alphaDIA and
- download the alphaDIA repository. This creates a subfolder `alphadia` in your current directory
+Navigate to a folder where you would like to set up the repository and execute
 ```bash
-cd ~/work/search_engines
-git clone git@github.com:MannLabs/alphadia.git
-cd alphadia
+git clone git@github.com:MannLabs/alphadia.git && cd alphadia
 ```
 
-Optionally, to get the latest features, switch to the `development` branch and pull the most recent version
+Optionally, get the code version of the latest tag (corresponding to the latest (pre)release):
 ```bash
-git switch development
-git pull
+git fetch --tags && git checkout $(git describe --tags $(git rev-list --tags --max-count=1))
 ```
 
 ### 2. Installation: backend
@@ -111,6 +107,14 @@ The GUI can then be started by typing
 ```bash
 npm run dev
 ```
+
+Ignore the error message telling you that the `BundledExecutionEngine` is not available
+In order to use the locally installed version, select the `CMDExecutionEngine`in the top bar.
+
+By default, this looks for an AlphaDIA installation in a conda environment called `alphadia`.
+If you want to use a different environment, locate the `profile.json` file
+(MacOS: via "Electron" -> "Settings" in the top menu, e.g. `~/Library/Application Support/alphadia/profile.json`)
+and adjust `CMDExecutionEngine.envName`.
 
 ## Docker Installation
 The containerized version can be used to run alphaDIA e.g. on cloud platforms.

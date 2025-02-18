@@ -1,0 +1,23 @@
+# Perform pip installation (loose) and run tests on one OS
+# This is to get feedback on the loose version, which can change literally overnight when third parties are updated.
+
+on:
+  schedule:
+    - cron: "0 0 * * *"   # daily at midnight
+
+name: Nightly loose pip install + unit tests
+
+jobs:
+  run-unit-tests-loose:
+    name: Test 'loose' on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest ]
+        python-version: ["3.11"]
+    uses: ./.github/workflows/_run_tests.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      os: ${{ matrix.os }}
+      install-script: ./pip_install.sh tests
+      test-script: ./run_unit_tests.sh false

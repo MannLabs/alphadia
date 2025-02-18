@@ -1,9 +1,15 @@
+#!/bin/bash
+### Install the package with a given type in a defined conda environment with a define python version,
+### and call it to check if it works
+### example usage:
+### ./pip_install.sh stable my_env 3.9
 set -e -u
 
 INSTALL_TYPE=$1 # stable, loose, etc..
 ENV_NAME=${2:-alphadia}
 PYTHON_VERSION=${3:-3.11}
 INSTALL_MONO=${4:-false}
+
 
 if [ "$INSTALL_MONO" = "true" ]; then
   conda create -n $ENV_NAME python=$PYTHON_VERSION mono -y

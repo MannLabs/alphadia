@@ -13,23 +13,25 @@ import sklearn
 # alphadia imports
 # alpha family imports
 from alphadia import fragcomp
+from alphadia.fdrx.utils import manage_torch_threads
 
 logger = logging.getLogger()
 
 
+@manage_torch_threads(max_threads=2)
 def perform_fdr(
     classifier: sklearn.base.BaseEstimator,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
-    competetive: bool = False,
+    *,
+    competetive: bool = False,  # TODO: fix typo (also in config)
     group_channels: bool = True,
     figure_path: str | None = None,
     neptune_run=None,
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    **kwargs,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -60,14 +62,17 @@ def perform_fdr(
     neptune_run : neptune.run.Run, default=None
         The neptune run to log the FDR plot to
 
-    reuse_fragments : bool, default=True
-        Whether to reuse fragments for different precursors
+    df_fragments : pd.DataFrame, default=None
+        The fragment dataframe.
 
     dia_cycle : np.ndarray, default=None
-        The DIA cycle as provided by alphatims
+        The DIA cycle as provided by alphatims. Required if df_fragments is provided.
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
+
+    max_num_threads : int, default=2
+        The number of threads to use for the classifier. Currently, it does not scale above 2 threads also for large problems.
 
     Returns
     -------
@@ -116,7 +121,6 @@ def perform_fdr(
     classifier.fit(X_train, y_train)
 
     psm_df = pd.concat([df_target, df_decoy])
-
     psm_df["_decoy"] = y
 
     if competetive:
@@ -144,7 +148,7 @@ def perform_fdr(
         if df_fragments is not None:
             if dia_cycle is None:
                 raise ValueError(
-                    "dia_cycle must be provided if reuse_fragments is False"
+                    "dia_cycle must be provided if df_fragments is provided"
                 )
             fragment_competition = fragcomp.FragmentCompetition()
             psm_df = fragment_competition(

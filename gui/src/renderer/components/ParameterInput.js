@@ -41,6 +41,7 @@ const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
 const ParameterInput = ({
         parameter,
+        parameter_group_id,
         onChange = () => {},
         sx
     }) => {
@@ -172,6 +173,29 @@ const ParameterInput = ({
                     />)
                 break;
 
+            case "multi_select":
+                input = (
+                    <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
+                        <Select
+                            multiple
+                            value={parameter.value}
+                            onChange={(event) => {onChange(event.target.value)}}
+                            renderValue={(selected) => (
+                                <Typography>
+                                    {selected.length} selected
+                                </Typography>
+                            )}
+                        >
+                            {parameter.options.map((option) => (
+                                <MenuItem key={option} value={option}>
+                                    {option}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+                )
+                break;
+
             default:
                 input = (
                     <Typography>
@@ -191,7 +215,7 @@ const ParameterInput = ({
             spacing={2}
             sx={{minHeight: "30px"}}
             >
-            <Tooltip title = {parameter.description} disableInteractive>
+            <Tooltip title = {`[${parameter_group_id}.${parameter.id}] ${parameter.description}`} disableInteractive>
                 <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>

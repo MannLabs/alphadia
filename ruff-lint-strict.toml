@@ -1,0 +1,86 @@
+# specific ruff configuraton new code (with stricter rules)
+[lint]
+select = [
+    "ALL"
+]
+
+# TODO excluding explicity is not great but it is a workaround for now
+exclude = [
+    "alphadia/__*__.py",
+    "alphadia/cli.py",
+    "alphadia/exceptions.py",
+    "alphadia/fdr.py",
+    "alphadia/fdrexperimental.py",
+    "alphadia/features.py",
+    "alphadia/fragcomp.py",
+    "alphadia/grouping.py",
+    "alphadia/libtransform.py",
+    "alphadia/libtransform.py",
+    "alphadia/outputaccumulator.py",
+    "alphadia/outputtransform.py",
+    "alphadia/plexscoring.py",
+    "alphadia/quadrupole.py",
+    "alphadia/search_plan.py",
+    "alphadia/libtransform.py",
+    "alphadia/search_step.py",
+    "alphadia/utils.py",
+    "alphadia/validate.py",
+    "alphadia/test_data_downloader.py",
+    "alphadia/calibration/*.py",
+    "alphadia/consensus/*.py",
+    "alphadia/constants/*.py",
+    "alphadia/data/*.py",
+    "alphadia/fdrx/stats.py",
+    "alphadia/fdrx/plotting.py",
+    "alphadia/fdrx/base.py",
+    "alphadia/numba/*.py",
+    "alphadia/peakgroup/*.py",
+    "alphadia/plotting/*.py",
+    "alphadia/transferlearning/*.py",
+    "alphadia/utilities/*.py",
+    "alphadia/workflow/*.py",
+    "tests/*.py",
+    "release/*.py",
+    "docs/**",
+    "nbs/**/*.ipynb",
+    "misc/*.py",
+]
+
+ignore = [
+    #
+    "PD002", #pandas-use-of-inplace-argument # TODO revisit
+
+    # same as pyproject.toml
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+    "B006", # Do not use mutable data structures for argument defaults # TODO: fix this!
+
+    # some more sensible ignores
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+    "COM812", #may cause conflicts when used with the formatter
+    "ISC001", #may cause conflicts when used with the formatter
+    "D211", # no-blank-line-before-class
+    "D213", # multi-line-summary-second-line
+    "S101", # Use of `assert` detected
+    "INP001", # implicit namespace package.
+    "ERA001", # Found commented-out code
+    "D203", # 1 blank line required before class docstring
+    "TD002", "TD003", "FIX002",  # things around TO-DO
+    "PT011", #pytest.raises(ValueError) is too broad
+    "G004", "EM102", # Logging statement uses f-string
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "ANN101", # Missing type annotation for `self` in method
+    "ANN102", # Missing type annotation for `cls` in classmethod
+    "ANN002", # Missing type annotation for `*args`
+    "ANN003", # Missing type annotation for `**kwargs
+    "FA102", # Missing `from __future__ import annotations
+    "EM101", # Exception must not use a string literal, assign to variable first
+    "D104", # Missing docstring in public package
+    "ANN204", # Missing return type annotation for special method `__init__`
+    "D401", # First line of docstring should be in imperative mood
+    "B023", # Function definition does not bind loop variable
+    "PD901", # Avoid using the generic variable name `df` for DataFrames"
+    "TCH003" # Move standard library import into a type-checking block
+
+]

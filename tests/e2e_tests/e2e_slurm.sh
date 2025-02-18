@@ -13,7 +13,7 @@
 
 # input parameters:
 CONDA_ENV=alphadia
-BRANCH=development  # branch to take test cases from
+BRANCH=main  # branch to take test cases from
 TEST_CASE=basic
 
 #

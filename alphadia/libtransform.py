@@ -40,10 +40,10 @@ class ProcessingStep:
             return self.forward(*args)
         else:
             logger.critical(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
             raise ValueError(
-                f"Input {input} failed validation for {self.__class__.__name__}"
+                f"Input {args} failed validation for {self.__class__.__name__}"
             )
 
     def validate(self, *args: typing.Any) -> bool:
@@ -130,6 +130,10 @@ class DynamicLoader(ProcessingStep):
 
         else:
             raise ValueError(f"File type {file_type} not supported")
+
+        # TODO: this is a hack to get the charged_frag_types from the fragment_mz_df
+        # this should be fixed ASAP in alphabase
+        library.charged_frag_types = library.fragment_mz_df.columns.tolist()
 
         return library
 
@@ -286,7 +290,7 @@ class PeptDeepPrediction(ProcessingStep):
             Default is None, which means the peptdeep default model ("generic") is being used.
             Possible values are ['generic','phospho','digly']
 
-        fragment_types : List[str], optional
+        fragment_types : list[str], optional
             Fragment types to predict. Default is ["b", "y"].
 
         max_fragment_charge : int, optional
@@ -617,11 +621,19 @@ class RTNormalization(ProcessingStep):
 
 
 class MultiplexLibrary(ProcessingStep):
-    def __init__(self, multiplex_mapping: dict, input_channel: str | int | None = None):
+    def __init__(self, multiplex_mapping: list, input_channel: str | int | None = None):
         """Initialize the MultiplexLibrary step."""
 
-        self._multiplex_mapping = multiplex_mapping
+        self._multiplex_mapping = self._create_multiplex_mapping(multiplex_mapping)
         self._input_channel = input_channel
+
+    @staticmethod
+    def _create_multiplex_mapping(multiplex_mapping: list) -> dict:
+        """Create a dictionary from the multiplex mapping list."""
+        mapping = {}
+        for list_item in multiplex_mapping:
+            mapping[list_item["channel_name"]] = list_item["modifications"]
+        return mapping
 
     def validate(self, input: str) -> bool:
         """Validate the input object. It is expected that the input is a path to a file which exists."""

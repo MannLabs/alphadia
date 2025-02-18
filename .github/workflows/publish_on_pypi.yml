@@ -16,6 +16,7 @@ jobs:
       # see the documentation of the workflow for more information on the parameters
       package_name: alphadia
       tag_to_release: ${{ inputs.tag_to_release }}
+      test_stable: true
     secrets:
       test_pypi_api_token: ${{ secrets.TEST_PYPI_API_TOKEN }}
       pypi_api_token: ${{ secrets.PYPI_API_TOKEN }}

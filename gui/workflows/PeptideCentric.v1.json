@@ -39,7 +39,7 @@
                     "id": "reuse_quant",
                     "name": "Reuse Ion Quantities",
                     "value": false,
-                    "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantiitative features will be reused for subsequent searches of the same file.",
+                    "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantitative features will be reused for subsequent searches of the same file.",
                     "type": "boolean"
                 },
                 {
@@ -62,6 +62,27 @@
                         "WARNING",
                         "ERROR"
                     ]
+                }
+            ]
+        },
+        {
+            "id": "multistep_search",
+            "name": "Multi-step Search",
+            "hidden": false,
+            "parameters": [
+                {
+                    "id": "transfer_step_enabled",
+                    "name": "Transfer Learning Step (Experimental)",
+                    "value": false,
+                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
+                },
+                {
+                    "id": "mbr_step_enabled",
+                    "name": "MBR Search Step (Experimental)",
+                    "value": false,
+                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
                 }
             ]
         },
@@ -189,9 +210,25 @@
                 {
                     "id": "fragment_types",
                     "name": "Fragment types",
-                    "value": "b;y",
-                    "description": "Semicolon separated list of fragment types. \n Supported types: b, y, b_modloss, y_modloss. \n Must be supported by the chosen PeptDeep model.",
-                    "type": "string"
+                    "value": ["b", "y"],
+                    "description":  "List of fragment types to quantify in the library. The PeptDeep model must support the chosen fragment types.",
+                    "type": "multi_select",
+                    "options": [
+                        "b",
+                        "y",
+                        "b_modloss",
+                        "y_modloss",
+                        "a",
+                        "c",
+                        "x",
+                        "z",
+                        "b_H2O",
+                        "y_H2O",
+                        "b_NH3",
+                        "y_NH3",
+                        "c_lossH",
+                        "z_addH"
+                    ]
                 },
                 {
                     "id": "max_fragment_charge",
@@ -381,6 +418,27 @@
                     "value": false,
                     "description": "If enabled, decoy PSMs will be retained in the output.",
                     "type": "boolean"
+                },
+                {
+                    "id": "enable_two_step_classifier",
+                    "name": "Two Step Classifier (Experimental)",
+                    "value": false,
+                    "description": "If enabled, a two step classifier consisting of a linear filter and a neural network will be used.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "two_step_classifier_max_iterations",
+                    "name": "Two Step Classifier Max Iterations (Experimental)",
+                    "value": 5,
+                    "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
+                    "type": "integer"
+                },
+                {
+                    "id": "enable_nn_hyperparameter_tuning",
+                    "name": "Hyperparameter Tuning (Experimental)",
+                    "value": false,
+                    "description": "If enabled, the hyperparameters of the neural network like the batch size and learning rate will be tuned.",
+                    "type": "boolean"
                 }
             ]
         },
@@ -539,9 +597,25 @@
                 {
                     "id": "fragment_types",
                     "name": "Fragment types",
-                    "value": "b;y",
-                    "description": "Semicolon separated list of fragment types to include in the library. \n possible values are 'a', 'b', 'c', 'x', 'y', 'z'",
-                    "type": "string"
+                    "value": ["b", "y"],
+                    "description": "List of fragment types to quantify in the library.",
+                    "type": "multi_select",
+                    "options": [
+                        "b",
+                        "y",
+                        "b_modloss",
+                        "y_modloss",
+                        "a",
+                        "c",
+                        "x",
+                        "z",
+                        "b_H2O",
+                        "y_H2O",
+                        "b_NH3",
+                        "y_NH3",
+                        "c_lossH",
+                        "z_addH"
+                    ]
                 },
                 {
                     "id": "max_charge",

@@ -55,7 +55,7 @@ const VersionCard = () => {
         let currentActiveVersion = profile.executionEngines[profile.activeIdx].versions.filter((versionEntry) => versionEntry.name === "alphadia")[0].version
         versionOutput = currentActiveVersion
 
-        if (currentActiveVersion != "1.2.0") {
+        if (currentActiveVersion != "1.2.0") { // TODO fix
             updateOutput = (
                 <Stack direction="row" alignItems="center" gap={1}>
                     <CheckIcon sx={{color:"rgb(75, 211, 26)"}}/>

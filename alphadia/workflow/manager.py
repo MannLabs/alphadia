@@ -19,12 +19,65 @@ import xxhash
 import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
+from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.workflow import reporting
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
 # TODO move all managers to dedicated modules
+
+# configuration for the calibration manager
+# the config has to start with the calibration keyword and consists of a list of calibration groups.
+# each group consists of datapoints which have multiple properties.
+# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
+# TODO simplify this structure and the config loading
+CALIBRATION_MANAGER_CONFIG = [
+    {
+        "estimators": [
+            {
+                "input_columns": ["mz_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mz",
+                "output_columns": ["mz_calibrated"],
+                "target_columns": ["mz_observed"],
+                "transform_deviation": "1e6",
+            }
+        ],
+        "name": "fragment",
+    },
+    {
+        "estimators": [
+            {
+                "input_columns": ["mz_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mz",
+                "output_columns": ["mz_calibrated"],
+                "target_columns": ["mz_observed"],
+                "transform_deviation": "1e6",
+            },
+            {
+                "input_columns": ["rt_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 6},
+                "name": "rt",
+                "output_columns": ["rt_calibrated"],
+                "target_columns": ["rt_observed"],
+            },
+            {
+                "input_columns": ["mobility_library"],
+                "model": "LOESSRegression",
+                "model_args": {"n_kernels": 2},
+                "name": "mobility",
+                "output_columns": ["mobility_calibrated"],
+                "target_columns": ["mobility_observed"],
+            },
+        ],
+        "name": "precursor",
+    },
+]
 
 
 class BaseManager:
@@ -101,7 +154,12 @@ class BaseManager:
 
     def load(self):
         """Load the state from pickle file."""
-        if self.path is None or not os.path.exists(self.path):
+        if self.path is None:
+            self.reporter.log_string(
+                f"{self.__class__.__name__} not loaded from disk.",
+            )
+            return
+        elif not os.path.exists(self.path):
             self.reporter.log_string(
                 f"{self.__class__.__name__} not found at: {self.path}",
                 verbosity="warning",
@@ -151,7 +209,6 @@ class BaseManager:
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        config: None | dict = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
@@ -162,10 +219,6 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-
-        config : typing.Union[None, dict], default=None
-            Calibration config dict. If None, the default config is used.
-
         path : str, default=None
             Path where the current parameter set is saved to and loaded from.
 
@@ -181,7 +234,7 @@ class CalibrationManager(BaseManager):
 
         if not self.is_loaded_from_file:
             self.estimator_groups = []
-            self.load_config(config)
+            self.load_config(CALIBRATION_MANAGER_CONFIG)
 
     @property
     def estimator_groups(self):
@@ -494,12 +547,16 @@ class OptimizationManager(BaseManager):
                 "fwhm_mobility": config["optimization_manager"]["fwhm_mobility"],
                 "score_cutoff": config["optimization_manager"]["score_cutoff"],
             }
-            self.__dict__.update(initial_parameters)
+            self.__dict__.update(
+                initial_parameters
+            )  # TODO either store this as a dict or in individual instance variables
 
             for key, value in initial_parameters.items():
                 self.reporter.log_string(f"initial parameter: {key} = {value}")
 
-    def fit(self, update_dict):
+    def fit(
+        self, update_dict
+    ):  # TODO siblings' implementations have different signatures
         """Update the parameters dict with the values in update_dict."""
         self.__dict__.update(update_dict)
         self.is_fitted = True
@@ -512,6 +569,34 @@ class OptimizationManager(BaseManager):
         """Update the parameters dict with the values in update_dict and return the parameters dict."""
         self.fit(update_dict)
         return self.predict()
+
+
+def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
+    """
+    Determine the group columns based on competitiveness and channel grouping.
+
+    competitive : bool
+        If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
+    group_channels : bool
+        If True and 'competitive' is also True, further groups candidates by 'channel'.
+
+    Returns
+    -------
+    list
+        A list of column names to be used for grouping in the analysis. If competitive, this could be either
+        ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
+        If not competitive, the list will always be ['precursor_idx'].
+
+    """
+    if competetive:
+        group_columns = (
+            ["elution_group_idx", "channel"]
+            if group_channels
+            else ["elution_group_idx"]
+        )
+    else:
+        group_columns = ["precursor_idx"]
+    return group_columns
 
 
 class FDRManager(BaseManager):
@@ -541,6 +626,8 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
+            self.is_two_step_classifier = isinstance(classifier_base, TwoStepClassifier)
+
         self._current_version = -1
         self.load_classifier_store()
 
@@ -609,17 +696,27 @@ class FDRManager(BaseManager):
 
         classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
-            psm_df = fdr.perform_fdr(
-                classifier,
-                available_columns,
-                features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == 1].copy(),
-                competetive=competetive,
-                group_channels=True,
-                df_fragments=df_fragments,
-                dia_cycle=dia_cycle,
-                figure_path=self.figure_path,
-            )
+            if not self.is_two_step_classifier:
+                psm_df = fdr.perform_fdr(
+                    classifier,
+                    available_columns,
+                    features_df[features_df["decoy"] == 0].copy(),
+                    features_df[features_df["decoy"] == 1].copy(),
+                    competetive=competetive,
+                    group_channels=True,
+                    df_fragments=df_fragments,
+                    dia_cycle=dia_cycle,
+                    figure_path=self.figure_path,
+                )
+            else:
+                group_columns = get_group_columns(competetive, group_channels=True)
+
+                psm_df = classifier.fit_predict(
+                    features_df,
+                    available_columns + ["score"],
+                    group_columns=group_columns,
+                )
+
         elif decoy_strategy == "precursor_channel_wise":
             channels = features_df["channel"].unique()
             psm_df_list = []
@@ -656,7 +753,6 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["channel"] == decoy_channel].copy(),
                         competetive=competetive,
                         group_channels=False,
-                        reuse_fragments=True,
                         figure_path=self.figure_path,
                     )
                 )
@@ -715,14 +811,19 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        for file in os.listdir(path):
-            if file.endswith(".pth"):
-                classifier_hash = file.split(".")[0]
+        if (
+            not self.is_two_step_classifier
+        ):  # TODO add pretrained model for TwoStepClassifier
+            for file in os.listdir(path):
+                if file.endswith(".pth"):
+                    classifier_hash = file.split(".")[0]
 
-                if classifier_hash not in self.classifier_store:
-                    classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(torch.load(os.path.join(path, file)))
-                    self.classifier_store[classifier_hash].append(classifier)
+                    if classifier_hash not in self.classifier_store:
+                        classifier = deepcopy(self.classifier_base)
+                        classifier.from_state_dict(
+                            torch.load(os.path.join(path, file), weights_only=False)
+                        )
+                        self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1):
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
