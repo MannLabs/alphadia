@@ -4,14 +4,18 @@ name: Update requirements
 on:
   workflow_dispatch:
     inputs:
-      commitish_to_update:
+      branch_name:
         type: string
-        description: 'Enter commit hash or branch where requirements should be updated (default: main).'
+        description: 'Enter branch name where requirements should be updated (default: main).'
         default: "main"
+      requirements_file_name:
+        type: string
+        description: 'Name of requirements file to update (default: requirements.txt).'
+        default: "requirements.txt"
 jobs:
   update-requirements:
     uses: MannLabs/alphashared/.github/workflows/update_requirements.yml@v1
     secrets: inherit
     with:
-      requirements_file_name: requirements.txt
-      branch_name: ${{ inputs.commitish_to_update }}
+      requirements_file_name: ${{ inputs.requirements_file_name }}
+      branch_name: ${{ inputs.branch_name }}
