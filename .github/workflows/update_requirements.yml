@@ -14,4 +14,4 @@ jobs:
     secrets: inherit
     with:
       requirements_file_name: requirements.txt
-      commitish_to_update: ${{ inputs.commitish_to_update }}
+      branch_name: ${{ inputs.commitish_to_update }}

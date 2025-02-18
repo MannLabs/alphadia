@@ -1,4 +1,5 @@
 """Download files from sharing links."""
+# TODO remove with alphadia 1.5.0
 
 import base64
 import cgi

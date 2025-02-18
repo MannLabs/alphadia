@@ -1,4 +1,5 @@
 # Dependencies required for running AlphaDIA.
+# If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
 alpharaw==0.4.5
 alphatims==1.0.8
@@ -14,6 +15,7 @@ xxhash
 torchmetrics
 transformers
 pythonnet
+progressbar # TODO remove with alphadia 1.5.0
 # not direct dependencies but we have to restrict the versions
 dask==2024.11.2
 numpy<2
