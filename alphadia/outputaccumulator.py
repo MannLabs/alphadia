@@ -34,6 +34,8 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
 from tqdm import tqdm
 
+from alphadia.constants.keys import SearchStepFiles
+
 logger = logging.getLogger()
 
 
@@ -89,8 +91,10 @@ def process_folder(
             "mz_calibrated",
         ]
 
-    psm_df = pd.read_parquet(os.path.join(folder, "psm.parquet"))
-    frag_df = pd.read_parquet(os.path.join(folder, "frag.parquet"))
+    psm_df = pd.read_parquet(os.path.join(folder, SearchStepFiles.PSM_FILE_NAME))
+    frag_df = pd.read_parquet(
+        os.path.join(folder, SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
+    )
 
     if not set(mandatory_precursor_columns).issubset(psm_df.columns):
         raise ValueError(
@@ -153,7 +157,7 @@ def process_folder(
 
     return speclib.to_speclib_base(
         charged_frag_types=charged_frag_types,
-        additional_columns=["intensity", "correlation"],
+        flat_columns=["intensity", "correlation"],
     )
 
 

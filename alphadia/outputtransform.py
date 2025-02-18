@@ -293,6 +293,7 @@ def prepare_df(df, psm_df, column="intensity"):
         df["number"].values,
         df["type"].values,
         df["charge"].values,
+        df["loss_type"].values,
     )
     return df[["precursor_idx", "ion", column, "correlation"]]
 
@@ -488,7 +489,7 @@ class SearchPlanOutput:
             number_of_processes=number_of_processes,
             processing_kwargs={
                 "charged_frag_types": fragment.get_charged_frag_types(
-                    self.config["transfer_library"]["fragment_types"].split(";"),
+                    self.config["transfer_library"]["fragment_types"],
                     self.config["transfer_library"]["max_charge"],
                 )
             },

@@ -32,3 +32,9 @@ class ConfigKeys(metaclass=ConstantsClass):
     RAW_PATHS = "raw_paths"
     FASTA_PATHS = "fasta_paths"
     QUANT_DIRECTORY = "quant_directory"
+
+
+class SearchStepFiles(metaclass=ConstantsClass):
+    PSM_FILE_NAME = "psm.parquet"
+    FRAG_FILE_NAME = "frag.parquet"
+    FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
