@@ -257,9 +257,7 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                libtransform.FlattenLibrary(
-                    self.config["search_advanced"]["top_k_fragments"]
-                ),
+                libtransform.FlattenLibrary(self.config["search"]["top_k_fragments"]),
                 libtransform.InitFlatColumns(),
                 libtransform.LogFlatLibraryStats(),
             ]

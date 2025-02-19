@@ -1,11 +1,29 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
-import { useTheme } from '@mui/material/styles';
-import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
+import { Tooltip, tooltipClasses } from '@mui/material'
+
+import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     padding: 0.5
 }))
+
+const InfoTooltip = styled(({ className, ...props }) => (
+    <Tooltip {...props} classes={{ popper: className }} placement="right-start" />
+))(({ theme }) => ({
+    [`& .${tooltipClasses.tooltip}`]: {
+        backgroundColor: theme.palette.background.default,
+        color: theme.palette.text.primary,
+        maxWidth: 400,
+        fontSize: theme.typography.pxToRem(12),
+        padding: '8px 12px',
+        boxShadow: `0px 0px 10px 0px rgba(0, 0, 0, 0.1)`,
+        border: `1px solid ${theme.palette.divider}`,
+        '& .MuiTypography-root': {
+            fontSize: 'inherit'
+        }
+    },
+}));
 
 const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
@@ -218,13 +236,17 @@ const ParameterInput = ({
             spacing={2}
             sx={{minHeight: "30px"}}
             >
-
-            <Tooltip title = {`[${parameter_group_id}.${parameter.id}] ${parameter.description} (default: ${default_text})`} disableInteractive>
-                <Typography sx={{fontWeight: 400, fontSize: "12px",
-                color: parameter.value !== parameter.default ? useTheme().palette.primary.main : 'inherit'}}>
+            <InfoTooltip title={
+                <Stack spacing={0.5}>
+                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
+                    <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
+                    <Typography>{parameter.description}</Typography>
+                </Stack>
+            }>
+                <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>
-            </Tooltip>
+            </InfoTooltip>
                 {input}
 
             </Stack>
