@@ -330,7 +330,7 @@ class PeptDeepPrediction(ProcessingStep):
             logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
             model_mgr.load_installed_models(self.peptdeep_model_type)
         else:
-            logging.info("Loading PeptDeep default model.")
+            logging.info("Using PeptDeep default model.")
 
         if self.peptdeep_model_path:
             if not os.path.exists(self.peptdeep_model_path):
