@@ -52,14 +52,20 @@ def candidate_hash(precursor_idx, rank):
 
 
 @nb.njit
-def ion_hash(precursor_idx, number, type, charge):
+def ion_hash(precursor_idx, number, type, charge, loss_type):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
     # the number is the next 8 bits
     # the type is the next 8 bits
-    # the last 8 bits are used to distinguish between different charges of the same precursor
-    # this is necessary because I forgot to save the charge in the frag.tsv file :D
-    return precursor_idx + (number << 32) + (type << 40) + (charge << 48)
+    # the charge is the next 8 bits
+    # the loss_type is the last 8 bits
+    return (
+        precursor_idx
+        + (number << 32)
+        + (type << 40)
+        + (charge << 48)
+        + (loss_type << 56)
+    )
 
 
 @nb.njit

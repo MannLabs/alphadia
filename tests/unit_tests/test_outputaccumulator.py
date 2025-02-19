@@ -8,6 +8,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
+from alphadia.constants.keys import SearchStepFiles
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
@@ -50,6 +51,7 @@ def prepare_input_data():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
+            "save_fragment_quant_matrix": False,
         },
         "transfer_library": {
             "enabled": True,
@@ -101,9 +103,12 @@ def prepare_input_data():
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
-        psm_dfs[i].to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+        psm_dfs[i].to_parquet(
+            os.path.join(raw_folder, SearchStepFiles.PSM_FILE_NAME), index=False
+        )
         fragment_dfs[i].to_parquet(
-            os.path.join(raw_folder, "frag.parquet"), index=False
+            os.path.join(raw_folder, SearchStepFiles.FRAG_TRANSFER_FILE_NAME),
+            index=False,
         )
 
     return config, temp_folder, raw_folders, psm_dfs, fragment_dfs

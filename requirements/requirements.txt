@@ -3,7 +3,7 @@
 # alphaX
 alpharaw==0.4.5
 alphatims==1.0.8
-alphabase==1.4.2
+alphabase==1.5.0
 peptdeep==1.3.0
 directlfq==0.2.19
 # others

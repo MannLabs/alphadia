@@ -1212,7 +1212,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = plexscoring.CandidateConfig()
         config.update(
             {
-                "top_k_fragments": 1000,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
+                "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
                 "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
                 "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
             }
