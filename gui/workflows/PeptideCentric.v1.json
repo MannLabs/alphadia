@@ -354,7 +354,7 @@
                     "id": "peptdeep_model_path",
                     "name": "PeptDeep Model Path",
                     "default": null,
-                    "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on.",
+                    "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on. If empty, a generic model provided by peptdeep will be used.",
                     "type": "singleFolderSelection"
                 },
                 {
