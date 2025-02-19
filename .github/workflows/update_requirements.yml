@@ -1,0 +1,10 @@
+# Update requirements
+name: Update requirements
+
+on:
+  workflow_dispatch:
+
+jobs:
+  bump-version:
+    uses: MannLabs/alphashared/.github/workflows/update_requirements.yml@v1
+    secrets: inherit
