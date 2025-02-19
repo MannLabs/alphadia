@@ -1,3 +1,5 @@
+"""Implements the Logistic Regression classifier for use within the Alphadia framework."""
+
 import logging
 
 import numpy as np
@@ -10,14 +12,17 @@ logger = logging.getLogger()
 
 
 class LogisticRegressionClassifier(Classifier):
+    """Binary classifier using a logistic regression model."""
+
     def __init__(self) -> None:
-        """Binary classifier using a logistic regression model."""
+        """Initializing a binary classifier using a logistic regression model."""
         self.scaler = StandardScaler()
         self.model = LogisticRegression()
         self._fitted = False
 
     @property
     def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
         return self._fitted
 
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:
@@ -25,7 +30,6 @@ class LogisticRegressionClassifier(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Training data of shape (n_samples, n_features).
 
@@ -42,13 +46,11 @@ class LogisticRegressionClassifier(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
@@ -61,13 +63,11 @@ class LogisticRegressionClassifier(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
@@ -80,7 +80,6 @@ class LogisticRegressionClassifier(Classifier):
 
         Returns
         -------
-
         dict : dict
             Dictionary containing the state of the classifier.
 
@@ -108,8 +107,7 @@ class LogisticRegressionClassifier(Classifier):
 
         Parameters
         ----------
-
-        dict : dict
+        state_dict : dict
             Dictionary containing the state of the classifier.
 
         """

@@ -54,7 +54,7 @@ function parseConsoleOutput(input, theme) {
       '30;20': 'black',
       '31;20': theme.palette.mode === 'light' ? "rgb(200, 1, 0)" : 'rgb(250, 150, 136)' ,
       '32;20': theme.palette.mode === 'light' ?'rgb(76 211 26)' : 'rgb(168, 219, 114)',
-      '33;20': theme.palette.mode === 'light' ?'rgb(253 167 0)' : 'rgb(254, 219, 119',
+      '33;20': theme.palette.mode === 'light' ?'rgb(253 167 0)' : 'rgb(254, 219, 119)',
       '34;20': 'blue',
       '35;20': 'magenta',
       '36;20': 'cyan',
@@ -205,7 +205,7 @@ const Output = () => {
     <Box sx={{
         height: "calc(100% - 90px)",
         whiteSpace: "break-spaces",
-        overflow: "hiodden",
+        overflow: "hidden",
         fontFamily: "Roboto Mono",
         fontSize: "0.7rem",
         lineHeight: "1.0rem",

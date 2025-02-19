@@ -1,10 +1,9 @@
 #!/bin/bash
 
-ENV_NAME=alphadia
+ENV_NAME=${1:-alphadia}
+INCLUDE_SLOW_TESTS=${2:-false}
 
-INCLUDE_SLOW_TESTS=${1:-false}
-
-if [ "$INCLUDE_SLOW_TESTS" == "true" ]; then
+if [ "${INCLUDE_SLOW_TESTS,,}" = "true" ]; then
   conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest
 else
   conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest -k 'not slow'

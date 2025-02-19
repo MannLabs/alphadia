@@ -169,7 +169,7 @@ function hasAlphaDIA(envName, condaPath){
         try {
             execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("AlphaDIA not found in conda environment " + envName); return;}
-                resolve(stdout.trim())
+                resolve(stdout.split('\n')[0].trim())
             }
         )} catch (err) {
             console.log(err)
@@ -307,7 +307,8 @@ function hasBinary(binaryPath){
     return new Promise((resolve, reject) => {
         fs.access(binaryPath, fs.constants.X_OK, (err) => {
             if (err) {
-                reject("hasBinary: Binary " + binaryPath + " not found or not executable.")
+                reject("BundledExecutionEngine: Binary " + binaryPath + " not found or not executable." +
+                    "\n\nYou may use the CMDExecutionEngine instead.")
             } else {
                 resolve()
             }
@@ -321,7 +322,7 @@ function hasAlphaDIABundled(binaryPath){
             execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
                 if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
                 console.log(stdout)
-                resolve(stdout.trim())
+                resolve(stdout.split('\n')[0].trim())
             })
         } catch (err) {
             console.log(err)
@@ -367,8 +368,8 @@ class BundledExecutionEngine extends BaseExecutionEngine {
                 BrowserWindow.getFocusedWindow(),
                 {
                     type: 'error',
-                    title: 'Error while checking availability of bundled alphaDIA',
-                    message: `Could not start bundled alphaDIA. ${err}`,
+                    title: 'Error while checking availability of bundled AlphaDIA',
+                    message: `Could not start bundled AlphaDIA.\n${err}`,
                 }).catch((err) => {
                     console.log(err)
                 })

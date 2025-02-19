@@ -14,6 +14,8 @@ from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
+from alphadia.fdrx.utils import manage_torch_threads
+
 logger = logging.getLogger()
 
 
@@ -1097,6 +1099,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if load_hyperparameters:
             self.__dict__.update(_state_dict)
 
+    @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.
 
@@ -1220,6 +1223,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         self._fitted = True
 
+    @manage_torch_threads(max_threads=2)
     def predict(self, x):
         """Predict the class of the data.
 
@@ -1250,6 +1254,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
+    @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray):
         """Predict the class probabilities of the data.
 

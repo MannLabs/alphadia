@@ -2,6 +2,7 @@
 version: 1
 
 # These values are typically filled via CLI parameters
+workflow_name: null
 output_directory: null
 library_path: null
 raw_paths: []
@@ -60,8 +61,8 @@ library_prediction:
   # set path for custom peptdeep model. If set to null, the default model will be used
   peptdeep_model_path: null
 
-  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'. If set to null, the generic model will be used
-  peptdeep_model_type: null
+  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'.
+  peptdeep_model_type: 'generic'
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
@@ -95,7 +96,7 @@ custom_modifications:
     composition: C(12)
 
 search:
-  channel_filter: '0'
+  channel_filter: "" # will be mapped to "0" -> load only the default unmultiplexed channel
   exclude_shared_ions: True
   compete_for_fragments: True
 
@@ -239,8 +240,9 @@ fdr:
   channel_wise_fdr: false
   inference_strategy: "heuristic"
   # (Experimental)
-  # uses a two-step classifier consisting of a logistic regression and a neural network
+  # uses a two-step classifier consisting of a logistic regression and a neural network, with a default maximum of 5 iterations per fitting call
   enable_two_step_classifier: false
+  two_step_classifier_max_iterations: 5
   # (Experimental)
   # Optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: false
@@ -248,6 +250,7 @@ fdr:
 search_output:
   peptide_level_lfq: false
   precursor_level_lfq: false
+  save_fragment_quant_matrix: false #advanced feature to write out quantitative matrix with fragment ion intensities e.g. for AlphaQuant
   min_k_fragments: 12
   min_correlation: 0.9
   num_samples_quadratic: 50
@@ -255,6 +258,7 @@ search_output:
   normalize_lfq: True
   # can be either "parquet" or "tsv"
   file_format: "tsv"
+  file_format_advanced: "parquet"
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:

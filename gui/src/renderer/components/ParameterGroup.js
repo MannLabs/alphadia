@@ -49,6 +49,7 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                             <Grid item xs={12}>
                                 <ParameterInput
                                     parameter = {parameter}
+                                    parameter_group_id = {parameterGroup.id}
                                     onChange = {(value) => {dispatch(
                                         {type: 'updateParameter',
                                         parameterGroupId: parameterGroup.id,
