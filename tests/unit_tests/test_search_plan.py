@@ -99,7 +99,7 @@ def test_runs_plan_with_transfer_step(
 ):
     """Test that the SearchPlan object runs the plan correctly with the transfer step enabled."""
     additional_user_config = {
-        "multistep_search": {
+        "general": {
             "transfer_step_enabled": True,
             "mbr_step_enabled": False,
         }
@@ -152,7 +152,7 @@ def test_runs_plan_with_transfer_step(
 def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_logging):
     """Test that the SearchPlan object runs the plan correctly with the mbr step enabled."""
     additional_user_config = {
-        "multistep_search": {
+        "general": {
             "transfer_step_enabled": False,
             "mbr_step_enabled": True,
         }
@@ -204,7 +204,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 ):
     """Test that the SearchPlan object runs the plan correctly with both the transfer and mbr steps enabled."""
     additional_user_config = {
-        "multistep_search": {
+        "general": {
             "transfer_step_enabled": True,
             "mbr_step_enabled": True,
         }

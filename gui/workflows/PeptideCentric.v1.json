@@ -1,5 +1,4 @@
-
-    {
+{
     "library": {
         "active": true,
         "required": false,
@@ -36,10 +35,33 @@
                     "type": "integer"
                 },
                 {
+                    "id": "transfer_step_enabled",
+                    "name": "Transfer Learning Step (Experimental)",
+                    "default": false,
+                    "description": "Whether to perform a 'transfer learning' step before the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
+                },
+                {
+                    "id": "mbr_step_enabled",
+                    "name": "MBR Search Step (Experimental)",
+                    "default": false,
+                    "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
+                    "type": "boolean"
+                }
+            ],
+            "parameters_advanced": [
+                {
                     "id": "reuse_quant",
                     "name": "Reuse Ion Quantities",
                     "default": false,
                     "description": "AlphaDIA will save the quantification results in the project file. If this option is enabled, the quantitative features will be reused for subsequent searches of the same file.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "reuse_calibration",
+                    "name": "Reuse Calibration",
+                    "default": false,
+                    "description": "Reuse previously calculated calibration data for subsequent searches of the same file.",
                     "type": "boolean"
                 },
                 {
@@ -66,22 +88,80 @@
             ]
         },
         {
-            "id": "multistep_search",
-            "name": "Multi-step Search",
+            "id": "search",
+            "name": "Search",
             "hidden": false,
             "parameters": [
                 {
-                    "id": "transfer_step_enabled",
-                    "name": "Transfer Learning Step (Experimental)",
-                    "default": false,
-                    "description": "Whether to perform a 'transfer learning' step before the first search. Will set `transfer_library.enabled=True` and `transfer_learning.enabled=True` for this step. All other parameters set here will also be used for this step.",
+                    "id": "target_ms1_tolerance",
+                    "name": "MS1 Tolerance",
+                    "default": 5,
+                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_ms2_tolerance",
+                    "name": "MS2 Tolerance",
+                    "default": 10,
+                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_mobility_tolerance",
+                    "name": "Mobility Tolerance",
+                    "default": 0.0,
+                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
+                    "type": "float"
+                },
+                {
+                    "id": "target_rt_tolerance",
+                    "name": "RT Tolerance",
+                    "default": 0.0,
+                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
+                    "type": "float"
+                }
+            ],
+            "parameters_advanced": [
+                {
+                    "id": "channel_filter",
+                    "name": "Channel Filter",
+                    "default": "",
+                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
+                    "type": "string"
+                },
+                {
+                    "id": "exclude_shared_ions",
+                    "name": "Exclude Shared Ions",
+                    "default": true,
+                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
                     "type": "boolean"
                 },
                 {
-                    "id": "mbr_step_enabled",
-                    "name": "MBR Search Step (Experimental)",
-                    "default": false,
-                    "description": "Whether to perform a 'second search' step after the first search. Will set `fdr.inference_strategy='library'` and `search.target_num_candidates=5` and overwrite `search.target_ms1_tolerance`/`search.target_ms2_tolerance` with optimal values from the previous step. All other parameters set here will also be used for this step.",
+                    "id": "compete_for_fragments",
+                    "name": "Compete for Fragments",
+                    "default": true,
+                    "description": "If enabled, precursors will compete for fragment ions.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "target_num_candidates",
+                    "name": "Number of Candidates",
+                    "default": 2,
+                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
+                    "type": "integer"
+                },
+                {
+                    "id": "quant_window",
+                    "name": "Quant window",
+                    "default": 3,
+                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
+                    "type": "integer"
+                },
+                {
+                    "id": "quant_all",
+                    "name": "Use all MS2 observations",
+                    "default": true,
+                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
                     "type": "boolean"
                 }
             ]
@@ -206,6 +286,15 @@
                     "default": [200.0, 2000.0],
                     "description": "Size limit for generated fragments.",
                     "type": "float_range"
+                }
+            ],
+            "parameters_advanced": [
+                {
+                    "id": "nce",
+                    "name": "Normalized collision energy",
+                    "default": 25.0,
+                    "description": "Normalized collision energy for fragment generation.",
+                    "type": "float"
                 },
                 {
                     "id": "fragment_types",
@@ -236,13 +325,6 @@
                     "default": 2,
                     "description": "Fragments will be generated up to this charge state. Must be supported by the chosen PeptDeep model.",
                     "type": "integer"
-                },
-                {
-                    "id": "nce",
-                    "name": "Normalized collision energy",
-                    "default": 25.0,
-                    "description": "Normalized collision energy for fragment generation.",
-                    "type": "float"
                 },
                 {
                     "id": "instrument",
@@ -279,94 +361,13 @@
                     "id": "peptdeep_model_type",
                     "name": "PeptDeep Model Type",
                     "default": "generic",
-                    "description": "Select a custom pretrained PeptDeep model for library prediction. Possible values are 'generic', 'phospho' and 'digly'.",
+                    "description": "Select a custom pretrained PeptDeep model for library prediction. Possible defaults are 'generic', 'phospho' and 'digly'.",
                     "type": "dropdown",
                     "options": [
                         "generic",
                         "phospho",
                         "digly"
                     ]
-                }
-
-            ]
-        },
-        {
-            "id": "search",
-            "name": "Search",
-            "hidden": false,
-            "parameters": [
-                {
-                    "id": "target_ms1_tolerance",
-                    "name": "MS1 Tolerance",
-                    "default": 5,
-                    "description": "MS1 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_ms2_tolerance",
-                    "name": "MS2 Tolerance",
-                    "default": 10,
-                    "description": "MS2 tolerance in ppm. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_mobility_tolerance",
-                    "name": "Mobility Tolerance",
-                    "default": 0.0,
-                    "description": "Mobility tolerance in 1/K_0. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Set to enable automatic optimization.",
-                    "type": "float"
-                },
-                {
-                    "id": "target_rt_tolerance",
-                    "name": "RT Tolerance",
-                    "default": 0.0,
-                    "description": "Retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1. Search windows are optimized and calibrated during processing. The window is reduced until this tolerance is reached. Automatic optimization is enabled if set to 0.",
-                    "type": "float"
-                },
-                {
-                    "id": "channel_filter",
-                    "name": "Channel Filter",
-                    "default": "",
-                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load only the default unmultiplexed channel (0).",
-                    "type": "string"
-                },
-                {
-                    "id": "exclude_shared_ions",
-                    "name": "Exclude Shared Ions",
-                    "default": true,
-                    "description": "When searching a multiplexed sample some fragment ions are not specific for a single channel. If this option is enabled, these ions will be excluded from the search.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "compete_for_fragments",
-                    "name": "Compete for Fragments",
-                    "default": true,
-                    "description": "If enabled, precursors will compete for fragment ions.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "target_num_candidates",
-                    "name": "Number of Candidates",
-                    "default": 2,
-                    "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
-                    "type": "integer"
-                },
-
-                {
-                    "id": "quant_window",
-                    "name": "Quant window",
-                    "default": 3,
-                    "description": "Number of datapoints next to the apex that are used for quantification. E.g. 3 means 3 datapoints on each side of the apex are used for quantification.",
-                    "type": "integer"
-
-                },
-                {
-                    "id": "quant_all",
-                    "name": "Use all MS2 observations",
-                    "default": true,
-                    "description": "Use all MS2 observations for quantification. If disabled only the best scoring observation is used for quantification. Recommended for synchro-PASEF data.",
-                    "type": "boolean"
-
                 }
             ]
         },
@@ -404,7 +405,10 @@
                         "maximum_parsimony",
                         "heuristic"
                     ]
-                },
+                }
+            ],
+            "parameters_advanced": [
+
                 {
                     "id": "channel_wise_fdr",
                     "name": "Channel wise FDR",
@@ -446,14 +450,9 @@
             "id": "search_initial",
             "name": "Initial Search Settings",
             "hidden": true,
-            "parameters": [
-                {
-                    "id": "initial_num_candidates",
-                    "name": "Number of Candidates",
-                    "default": 1,
-                    "description": "Initial number of candidates to extract per precursor.",
-                    "type": "integer"
-                },
+            "parameters": [],
+            "parameters_advanced": [
+
                 {
                     "id": "initial_ms1_tolerance",
                     "name": "MS1 Tolerance",
@@ -488,7 +487,8 @@
             "id": "multiplexing",
             "name": "Multiplexing",
             "hidden": true,
-            "parameters": [
+            "parameters": [],
+            "parameters_advanced": [
                 {
                     "id": "enabled",
                     "name": "Enable Multiplexing",
@@ -532,6 +532,33 @@
             "hidden": true,
             "parameters": [
                 {
+                    "id": "file_format",
+                    "name": "File Format",
+                    "default": "tsv",
+                    "description": "Output file format. Can be either 'tsv' or 'parquet'.",
+                    "type": "dropdown",
+                    "options": [
+                        "tsv",
+                        "parquet"
+                    ]
+                },
+                {
+                    "id": "peptide_level_lfq",
+                    "name": "Peptide level LFQ",
+                    "default": false,
+                    "description": "Perform label free quantification on peptide level and report as peptide matrix.",
+                    "type": "boolean"
+                },
+                {
+                    "id": "precursor_level_lfq",
+                    "name": "Precursor level LFQ",
+                    "default": false,
+                    "description": "Perform label free quantification on precursor level and report as precursor matrix.",
+                    "type": "boolean"
+                }
+            ],
+            "parameters_advanced": [
+                {
                     "id": "min_k_fragments",
                     "name": "Minimum number of fragments",
                     "default": 12,
@@ -554,37 +581,16 @@
                 },
                 {
                     "id": "min_nonnan",
-                    "name": "Minimum number of non-nan values",
+                    "name": "Minimum number of non-nan defaults",
                     "default": 3,
-                    "description": "Minimum number of non-nan values required for quantification.",
+                    "description": "Minimum number of non-nan defaults required for quantification.",
                     "type": "integer"
                 },
                 {
                     "id": "normalize_lfq",
                     "name": "Normalize LFQ",
                     "default": true,
-                    "description": "If enabled, the LFQ values will be normalized.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "peptide_level_lfq",
-                    "name": "Peptide level LFQ",
-                    "default": false,
-                    "description": "Perform label free quantification on peptide level and report as peptide matrix.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "precursor_level_lfq",
-                    "name": "Precursor level LFQ",
-                    "default": false,
-                    "description": "Perform label free quantification on precursor level and report as precursor matrix.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "save_fragment_quant_matrix",
-                    "name": "Save Fragment Quant Matrix",
-                    "value": false,
-                    "description": "Save the fragment quantity matrix to disk.",
+                    "description": "If enabled, the LFQ defaults will be normalized.",
                     "type": "boolean"
                 }
             ]
@@ -598,9 +604,11 @@
                     "id": "enabled",
                     "name": "Enabled",
                     "default": false,
-                    "description": "If true, transfer learnin training dataset is created.",
+                    "description": "If true, transfer learning training dataset is created.",
                     "type": "boolean"
-                },
+                }
+            ],
+            "parameters_advanced": [
                 {
                     "id": "fragment_types",
                     "name": "Fragment types",
@@ -608,20 +616,8 @@
                     "description": "List of fragment types to quantify in the library.",
                     "type": "multi_select",
                     "options": [
-                        "b",
-                        "y",
-                        "b_modloss",
-                        "y_modloss",
-                        "a",
-                        "c",
-                        "x",
-                        "z",
-                        "b_H2O",
-                        "y_H2O",
-                        "b_NH3",
-                        "y_NH3",
-                        "c_lossH",
-                        "z_addH"
+                        "b", "y", "b_modloss", "y_modloss", "a", "c", "x", "z",
+                        "b_H2O", "y_H2O", "b_NH3", "y_NH3", "c_lossH", "z_addH"
                     ]
                 },
                 {
@@ -672,7 +668,9 @@
                     "default": false,
                     "description": "If true, a custom peptdeep model will be created using the transfer learned library.",
                     "type": "boolean"
-                },
+                }
+            ],
+            "parameters_advanced": [
                 {
                     "id": "batch_size",
                     "name": "Batch size",
@@ -708,7 +706,6 @@
                     "description": "Fraction of the dataset used for testing.",
                     "type": "float"
                 },
-
                 {
                     "id": "test_interval",
                     "name": "Test interval",
@@ -751,21 +748,9 @@
                     "description": "Instrument type encoded during training. \nThe same instrument type must be used for prediction using the trained model.",
                     "type": "dropdown",
                     "options": [
-                        "Astral",
-                        "QE",
-                        "timsTOF",
-                        "SciexTOF",
-                        "Lumos",
-                        "Eclipse",
-                        "Velos",
-                        "Elite",
-                        "OrbitrapTribrid",
-                        "ThermoTribrid",
-                        "QE+",
-                        "QEHF",
-                        "QEHFX",
-                        "Exploris",
-                        "Exploris480"
+                        "Astral", "QE", "timsTOF", "SciexTOF", "Lumos", "Eclipse",
+                        "Velos", "Elite", "OrbitrapTribrid", "ThermoTribrid", "QE+",
+                        "QEHF", "QEHFX", "Exploris", "Exploris480"
                     ]
                 }
             ]
