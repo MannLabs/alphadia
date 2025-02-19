@@ -327,7 +327,7 @@
                     "id": "channel_filter",
                     "name": "Channel Filter",
                     "value": "",
-                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load all available channels.",
+                    "description": "Comma separated list eg. 1,2,3. Only precursors with matching channels will be loaded. Leave empty to load only the default unmultiplexed channel (0).",
                     "type": "string"
                 },
                 {
