@@ -141,9 +141,17 @@ Altough the different parameters do not allow for fair comparison of absolut num
 The multistep workflow described by the above tutorial is supported directly via GUI (and CLI), without the need for
 multiple starts of AlphaDIA.
 
-Set up the raw and fasta files as described above.
+## 1. Prerequisites
+Follow the "Prerequisites" step [above](#1-prerequisites) to obtain the data.
+
+## 2. Configure input/output
+Point AlphaDIA to the raw & FASTA files and set the output folder to a folder of your choice
+<img src="../_static/images/transfer-dimethyl/transfer_input.png" width="100%" height="auto">
+
+## 3. Configure multistep search
 In the GUI, locate the "Multi-step Search" section and activate "Add 'transfer learning' step"
-and/or "Add 'second search' step". Set the rest of parameters as desired and start the search.
+and/or "Add 'second search' step". Set the rest of parameters as shown (cf. also the more detailed instructions above)
+and start the search by clicking the "Run Workflow" button.
 
 ![multistep_settings.png](../_static/images/transfer-dimethyl/multistep_settings.png)
 
@@ -156,12 +164,16 @@ For the "mbr" step, this is `fdr.inference_strategy='library'` and `search.targe
 
 Any other parameter set via GUI (e.g. `thread_count`)
 will apply to all steps. Here, the exceptions are `search.target_ms1_tolerance` and `search.target_ms2_tolerance`, which will be overwritten with
-optimal values determined in the previous step. The intermediate results are stored in subfolders `transfer` and `library`,
-respectively. As usual, you will find the final results in the root of the project folder.
+optimal values determined in the previous step.
 
+After the three-step search ran through, you will find the final results in the root of the project folder.
+The results of the intermediate steps are stored in subfolders `transfer` and `library`, respectively.
+
+
+### Notes one the multistep search using CLI
 If you use the CLI, add the following to your `config.yaml` to enable the multistep search:
 ```yaml
-multistep_search:
+general:
   transfer_step_enabled: True
   mbr_step_enabled: True
 ```
