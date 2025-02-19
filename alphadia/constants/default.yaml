@@ -96,7 +96,7 @@ custom_modifications:
     composition: C(12)
 
 search:
-  channel_filter: "" # will be mapped to "0" -> load all channels
+  channel_filter: "" # will be mapped to "0" -> load only the default unmultiplexed channel
   exclude_shared_ions: True
   compete_for_fragments: True
 
