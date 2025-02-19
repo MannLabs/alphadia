@@ -3,3 +3,4 @@ coverage
 coverage-badge
 pytest
 progressbar # TODO remove with alphadia 1.5.0
+neptune
