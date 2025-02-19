@@ -6,10 +6,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 from alphabase.constants import _const
 from alphabase.constants.modification import MOD_DF
+from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia import search_step
 from alphadia.search_step import SearchStep
-from alphadia.test_data_downloader import DataShareDownloader
 from alphadia.workflow.config import Config
 
 

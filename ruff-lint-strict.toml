@@ -25,7 +25,6 @@ exclude = [
     "alphadia/search_step.py",
     "alphadia/utils.py",
     "alphadia/validate.py",
-    "alphadia/test_data_downloader.py",
     "alphadia/calibration/*.py",
     "alphadia/consensus/*.py",
     "alphadia/constants/*.py",
