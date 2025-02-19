@@ -1,11 +1,11 @@
 # Dependencies required for running AlphaDIA.
 # If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
-alpharaw==0.4.5
-alphatims==1.0.8
-alphabase==1.5.0
-peptdeep==1.3.0
-directlfq==0.2.19
+alpharaw>=0.3.1
+alphatims>=1.0.8
+alphabase>=1.5.0
+peptdeep>=1.3.0
+directlfq>=0.2.19
 # others
 argparse
 seaborn
