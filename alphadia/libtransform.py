@@ -287,7 +287,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         peptdeep_model_type : str, optional
             Use other peptdeep models provided by the peptdeep model manager.
-            Default is None, which means the peptdeep default model ("generic") is being used.
+            Default is None, which means the default model provided by peptdeep (e.g. "generic" for version 1.4.0) is being used.
             Possible values are ['generic','phospho','digly']
 
         fragment_types : list[str], optional
@@ -326,12 +326,13 @@ class PeptDeepPrediction(ProcessingStep):
 
         model_mgr = ModelManager(device=device)
 
-        # will load other model than default generic
         if self.peptdeep_model_type:
             logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
             model_mgr.load_installed_models(self.peptdeep_model_type)
+        else:
+            logging.info("Using PeptDeep default model.")
 
-        if self.peptdeep_model_path and self.peptdeep_model_path != "":
+        if self.peptdeep_model_path:
             if not os.path.exists(self.peptdeep_model_path):
                 raise ValueError(
                     f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"

@@ -61,8 +61,8 @@ library_prediction:
   # set path for custom peptdeep model. If set to null, the default model will be used
   peptdeep_model_path: null
 
-  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'. If set to null, the generic model will be used
-  peptdeep_model_type: null
+  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'.
+  peptdeep_model_type: 'generic'
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
@@ -96,7 +96,7 @@ custom_modifications:
     composition: C(12)
 
 search:
-  channel_filter: '0'
+  channel_filter: "" # will be mapped to "0" -> load only the default unmultiplexed channel
   exclude_shared_ions: True
   compete_for_fragments: True
 
