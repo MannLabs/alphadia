@@ -66,6 +66,8 @@ const ParameterInput = ({
 
         let input = null;
 
+        parameter.value = parameter.value === undefined ? parameter.default : parameter.value
+
         switch (parameter.type) {
             case "integer":
                 input = (
@@ -224,6 +226,7 @@ const ParameterInput = ({
 
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
+    let default_text = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
     return (
 
             <Stack

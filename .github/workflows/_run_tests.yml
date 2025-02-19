@@ -10,6 +10,10 @@ on:
       python-version:
         required: true
         type: string
+      needs-mono:
+        required: false
+        type: boolean
+        default: false
       install-script:
         required: true
         type: string
@@ -36,17 +40,17 @@ jobs:
       shell: bash -l {0}
       run: conda info
     - name: Install mono
-      if: ${{ !contains(inputs.os, 'windows') }}
+      if: ${{ inputs.needs-mono }}
       shell: bash -l {0}
       run: |
         conda install mono
-    - name: Perform pip installation with stable dependencies
+    - name: Perform pip installation
       shell: bash -l {0}
       run: |
         cd misc
-        . ./${{ inputs.install-script }} alphadia ${{ inputs.python-version }} ${{ !contains(inputs.os, 'windows') }}
+        . ./${{ inputs.install-script }}
     - name: Run tests
       shell: bash -l {0}
       run: |
         cd tests
-        . ./${{ inputs.test-script }} alphadia ${{ inputs.python-version }} ${{ !contains(inputs.os, 'windows') }}
+        . ./${{ inputs.test-script }}
