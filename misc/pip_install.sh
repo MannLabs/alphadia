@@ -10,7 +10,7 @@ ENV_NAME=${2:-alphadia}
 PYTHON_VERSION=${3:-3.11}
 INSTALL_MONO=${4:-false}
 
-if [ "${INSTALL_MONO,,}" = "true" ]; then
+if [ "$(echo $INSTALL_MONO | tr '[:upper:]' '[:lower:]')" = "true" ]; then
   conda create -n $ENV_NAME python=$PYTHON_VERSION mono -y
 else
   conda create -n $ENV_NAME python=$PYTHON_VERSION -y
