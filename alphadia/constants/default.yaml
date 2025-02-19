@@ -141,6 +141,7 @@ search:
   target_mobility_tolerance: 0.0 # default is to optimize automatically
 
   # === advanced settings ===
+  quant_window: 3
   target_num_candidates: 2
   # filter to apply to the channels. If set to "", all channels will be used.
   channel_filter: ""
