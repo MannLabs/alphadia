@@ -37,6 +37,9 @@ test_cases:
   - name: multistep
     # see also transfer-dimethyl.md
     config:
+      general:
+        transfer_step_enabled: True
+        mbr_step_enabled: True
       search:
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
@@ -53,9 +56,7 @@ test_cases:
         variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
         max_var_mod_num: 1 # mbr: 2
         missed_cleavages: 0  # mbr: 1
-      multistep_search:
-        transfer_step_enabled: True
-        mbr_step_enabled: True
+
     # dimethyl data (from tutorial)
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2F&files=2024_01_12_human.fasta
