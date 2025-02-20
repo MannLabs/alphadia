@@ -308,7 +308,7 @@ search_output:
   normalize_lfq: True
 
   # Save fragment quant matrix for advanced users
-  save_fragment_quant_matrix: True
+  save_fragment_quant_matrix: False
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
