@@ -1,4 +1,3 @@
-
 import React, { useReducer } from "react";
 
 const initialMethod = {
@@ -44,8 +43,6 @@ export function methodReducer(method, action) {
             return {...method, raw_path_list: {...method.raw_path_list, path: method.raw_path_list.path.concat(action.path)}}
 
         case 'updateParameter':
-            console.log(action)
-
             const new_config = method.config.map((parameterGroup) => {
                 if (parameterGroup.id === action.parameterGroupId) {
                     const new_parameters = parameterGroup.parameters.map((parameter) => {
@@ -63,12 +60,27 @@ export function methodReducer(method, action) {
 
             return {...method, config: new_config}
 
+        case 'updateParameterAdvanced':
+            const new_config_advanced = method.config.map((parameterGroup) => {
+                if (parameterGroup.id === action.parameterGroupId) {
+                    const new_parameters_advanced = parameterGroup.parameters_advanced.map((parameter) => {
+                        if (parameter.id === action.parameterId) {
+                            return {...parameter, value: action.value}
+                        } else {
+                            return parameter
+                        }
+                    })
+                    return {...parameterGroup, parameters_advanced: new_parameters_advanced}
+                } else {
+                    return parameterGroup
+                }
+            })
+            return {...method, config: new_config_advanced}
+
         case "updateWorkflow":
-            console.log(action)
             return {...method, ...action.workflow}
 
         case "updateOutput":
-            console.log(action)
             return {...method, output_directory: {...method.output_directory, path: action.path}}
         default:
             throw new Error(`Unhandled action type: ${action.type}`);
