@@ -37,7 +37,7 @@ class TwoStepClassifier:
             The fdr threshold for the first classifier, determining how selective the first classification step is.
         second_fdr_cutoff : float, default=0.01
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
-        min_precursors_for_update : int, default=5000
+        min_precursors_for_update : int, default=200
             The minimum number of precursors required to update the first classifier.
         max_iterations : int
             Maximum number of refinement iterations during training.
@@ -136,14 +136,14 @@ class TwoStepClassifier:
             best_result = df_after_second_clf
 
             logger.info(
-                f"{current_target_count:,} precursors found after second classifier, "
+                f"{current_target_count:,} targets found after second classifier, "
                 f"at fdr={self.second_fdr_cutoff}"
             )
 
             # update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
                 logger.info(
-                    f"Sufficient precursors detected ({current_target_count:,} > {self._min_precursors_for_update:,}) "
+                    f"Sufficient targets detected ({current_target_count:,} > {self._min_precursors_for_update:,}) "
                     f"to proceed with update of first classifier"
                 )
                 target_count_after_first_clf, new_classifier = (
@@ -152,7 +152,7 @@ class TwoStepClassifier:
                     )
                 )
                 logger.info(
-                    f"{target_count_after_first_clf:,} precursors found after first classifier, "
+                    f"{target_count_after_first_clf:,} targets found after first classifier, "
                     f"at fdr={self.first_fdr_cutoff}"
                 )
 
@@ -193,7 +193,7 @@ class TwoStepClassifier:
         """Apply first classifier to filter data for the training of the second classifier."""
         n_precursors = get_target_count(df)
         logger.info(
-            f"Applying first classifier to {len(df):,} samples ({n_precursors:,} precursors)"
+            f"Applying first classifier to {len(df):,} samples ({n_precursors:,} targets)"
         )
 
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
@@ -203,7 +203,7 @@ class TwoStepClassifier:
         )
         logger.info(
             f"Preselection of first classifier at fdr={self.first_fdr_cutoff} results in "
-            f"{len(filtered_df):,} samples ({get_target_count(filtered_df):,} precursors)"
+            f"{len(filtered_df):,} precursors ({get_target_count(filtered_df):,} targets)"
         )
 
         return filtered_df
@@ -218,8 +218,8 @@ class TwoStepClassifier:
     ) -> pd.DataFrame:
         """Train second_classifier and apply it to get predictions."""
         logger.info(
-            f"Training second classifier on {len(train_df):,} samples "
-            f"({get_target_count(train_df):,} precursors, top_n={self._train_on_top_n})"
+            f"Training second classifier on {len(train_df):,} precursors "
+            f"({get_target_count(train_df):,} targets, top_n={self._train_on_top_n})"
         )
 
         self.second_classifier.fit(
@@ -228,8 +228,8 @@ class TwoStepClassifier:
         )
 
         logger.info(
-            f"Applying second classifier on {len(predict_df):,} samples "
-            f"({get_target_count(train_df):,} precursors, top_n={max(predict_df['rank']) + 1})"
+            f"Applying second classifier on {len(predict_df):,} precursors "
+            f"({get_target_count(train_df):,} targets, top_n={max(predict_df['rank']) + 1})"
         )
 
         x = predict_df[x_cols].to_numpy().astype(np.float32)
@@ -313,12 +313,25 @@ def get_target_count(df: pd.DataFrame) -> int:
 
 
 def compute_q_values(
-    df: pd.DataFrame, group_columns: list[str] | None = None
+    df: pd.DataFrame,
+    qval_col: str = "qval",
+    group_columns: list[str] | None = None,
+    scale_by_target_decoy_ratio: bool = True,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)
-    return get_q_values(df, "proba", "decoy")
+    df = get_q_values(df, "proba", "decoy", qval_col)
+
+    if scale_by_target_decoy_ratio:
+        n_targets = (df["decoy"] == 0).sum()
+        n_decoys = (df["decoy"] == 1).sum()
+        logger.info(
+            f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys (scaling factor = {n_targets / n_decoys})"
+        )
+        df[qval_col] = df[qval_col] * n_targets / n_decoys
+
+    return df
 
 
 def filter_by_qval(df: pd.DataFrame, fdr_cutoff: float) -> pd.DataFrame:
