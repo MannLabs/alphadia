@@ -30,8 +30,8 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      needs-mono: ${{ !contains(inputs.os, 'windows') }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(inputs.os, 'windows') }}
+      needs-mono: ${{ !contains(matrix.os, 'windows') }}
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
       test-script: ./run_unit_tests.sh alphadia-env true
 
   run-unit-tests-loose:
@@ -45,6 +45,6 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      needs-mono: ${{ !contains(inputs.os, 'windows') }}
-      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(inputs.os, 'windows') }}
+      needs-mono: ${{ !contains(matrix.os, 'windows') }}
+      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
       test-script: ./run_unit_tests.sh alphadia-env true
