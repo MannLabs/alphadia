@@ -193,7 +193,7 @@ class TwoStepClassifier:
         """Apply first classifier to filter data for the training of the second classifier."""
         n_precursors = get_target_count(df)
         logger.info(
-            f"Applying first classifier to {len(df):,} samples ({n_precursors:,} targets)"
+            f"Applying first classifier to {len(df):,} precursors ({n_precursors:,} targets)"
         )
 
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
@@ -229,7 +229,7 @@ class TwoStepClassifier:
 
         logger.info(
             f"Applying second classifier on {len(predict_df):,} precursors "
-            f"({get_target_count(train_df):,} targets, top_n={max(predict_df['rank']) + 1})"
+            f"({get_target_count(predict_df):,} targets, top_n={max(predict_df['rank']) + 1})"
         )
 
         x = predict_df[x_cols].to_numpy().astype(np.float32)
@@ -256,11 +256,11 @@ class TwoStepClassifier:
         x_all = full_df[x_cols].to_numpy()
         reduced_df = full_df[[*group_columns, "decoy"]]
 
-        logger.info(f"Fitting first classifier on {len(df_train):,} samples.")
+        logger.info(f"Fitting first classifier on {len(df_train):,} precursors.")
         new_classifier = copy.deepcopy(self.first_classifier)
         new_classifier.fit(x_train, y_train)
 
-        logger.info(f"Applying first classifier to {len(x_all):,} samples.")
+        logger.info(f"Applying first classifier to {len(x_all):,} precursors.")
         reduced_df["proba"] = new_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
             reduced_df, self.first_fdr_cutoff, group_columns
@@ -319,20 +319,22 @@ def compute_q_values(
     scale_by_target_decoy_ratio: bool = True,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
+    scaling_factor = 1.0
+    if scale_by_target_decoy_ratio:
+        n_targets = (df["decoy"] == 0).sum()
+        n_decoys = (df["decoy"] == 1).sum()
+        scaling_factor = n_targets / n_decoys
+        if not np.isfinite(scaling_factor) or scaling_factor == 0:
+            scaling_factor = 1.0
+
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)
     df = get_q_values(df, "proba", "decoy", qval_col)
 
-    if scale_by_target_decoy_ratio:
-        n_targets = (df["decoy"] == 0).sum()
-        n_decoys = (df["decoy"] == 1).sum()
-        logger.info(
-            f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys (scaling factor = {n_targets / n_decoys})"
-        )
-        scaling_factor = n_targets / n_decoys
-        if not np.isfinite(scaling_factor) or scaling_factor == 0:
-            scaling_factor = 1
-        df[qval_col] = df[qval_col] * scaling_factor
+    logger.info(
+        f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys (scaling factor = {scaling_factor})"
+    )
+    df[qval_col] = df[qval_col] * scaling_factor
 
     return df
 
