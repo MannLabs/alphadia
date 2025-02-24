@@ -329,7 +329,10 @@ def compute_q_values(
         logger.info(
             f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys (scaling factor = {n_targets / n_decoys})"
         )
-        df[qval_col] = df[qval_col] * n_targets / n_decoys
+        scaling_factor = n_targets / n_decoys
+        if not np.isfinite(scaling_factor) or scaling_factor == 0:
+            scaling_factor = 1
+        df[qval_col] = df[qval_col] * scaling_factor
 
     return df
 
