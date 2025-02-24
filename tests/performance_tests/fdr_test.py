@@ -10,10 +10,10 @@ import neptune
 import numpy as np
 import pandas as pd
 import torch
+from alphabase.tools.data_downloader import DataShareDownloader
 
 import alphadia
 from alphadia import fdr, fdrexperimental
-from alphadia.test_data_downloader import DataShareDownloader
 from alphadia.workflow import peptidecentric
 
 classifiers = {

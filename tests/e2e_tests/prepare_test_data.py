@@ -8,8 +8,7 @@ import sys
 from collections import defaultdict
 
 import yaml
-
-from alphadia.test_data_downloader import DataShareDownloader
+from alphabase.tools.data_downloader import DataShareDownloader
 
 OUTPUT_DIR_NAME = "output"
 
