@@ -141,6 +141,7 @@ search:
   target_mobility_tolerance: 0.0 # default is to optimize automatically
 
   # === advanced settings ===
+  quant_window: 3
   target_num_candidates: 2
   # filter to apply to the channels. If set to "", all channels will be used.
   channel_filter: ""
@@ -305,6 +306,9 @@ search_output:
   min_nonnan: 3
   # Enable normalization of label-free quantification values
   normalize_lfq: True
+
+  # Save fragment quant matrix for advanced users
+  save_fragment_quant_matrix: False
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:

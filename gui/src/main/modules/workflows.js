@@ -99,6 +99,9 @@ function workflowToConfig(workflow) {
         config.parameters.forEach((parameter) => {
             output[config.id][parameter.id] = parameter.value
         })
+        config.parameters_advanced.forEach((parameter) => {
+            output[config.id][parameter.id] = parameter.value
+        })
     })
 
     return output
