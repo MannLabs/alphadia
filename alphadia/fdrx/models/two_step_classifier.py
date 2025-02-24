@@ -314,8 +314,8 @@ def get_target_count(df: pd.DataFrame) -> int:
 
 def compute_q_values(
     df: pd.DataFrame,
-    qval_col: str = "qval",
     group_columns: list[str] | None = None,
+    qval_col: str = "qval",
     scale_by_target_decoy_ratio: bool = True,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
