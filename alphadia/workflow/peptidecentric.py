@@ -99,8 +99,6 @@ feature_columns = [
 
 def get_classifier_base(
     enable_two_step_classifier: bool = False,
-    two_step_classifier_max_iterations: int = 5,
-    two_step_classifier_min_precursors_for_update: int = 5000,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
 ):
@@ -111,13 +109,6 @@ def get_classifier_base(
     enable_two_step_classifier : bool, optional
         If True, uses logistic regression + neural network.
         If False (default), uses only neural network.
-
-    two_step_classifier_max_iterations : int, optional
-        Maximum number of iterations withtin .fit_predict() of the two-step classifier.
-
-    two_step_classifier_min_precursors_for_update : int, optional
-        The minimum number of precursors required to update the logistic regression model
-        in the two-step classifier. Default is 5000.
 
     enable_nn_hyperparameter_tuning: bool, optional
         If True, uses hyperparameter tuning for the neural network.
@@ -145,8 +136,6 @@ def get_classifier_base(
             first_classifier=LogisticRegressionClassifier(),
             second_classifier=nn_classifier,
             second_fdr_cutoff=fdr_cutoff,
-            max_iterations=two_step_classifier_max_iterations,
-            min_precursors_for_update=two_step_classifier_min_precursors_for_update,
         )
     else:
         return nn_classifier
@@ -189,12 +178,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             classifier_base=get_classifier_base(
                 enable_two_step_classifier=self.config["fdr"][
                     "enable_two_step_classifier"
-                ],
-                two_step_classifier_max_iterations=self.config["fdr"][
-                    "two_step_classifier_max_iterations"
-                ],
-                two_step_classifier_min_precursors_for_update=self.config["fdr"][
-                    "two_step_classifier_min_precursors_for_update"
                 ],
                 enable_nn_hyperparameter_tuning=self.config["fdr"][
                     "enable_nn_hyperparameter_tuning"

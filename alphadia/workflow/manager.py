@@ -786,6 +786,8 @@ class FDRManager(BaseManager):
             path = os.path.join(
                 os.path.dirname(alphadia.__file__), "constants", "classifier"
             )
+            if self.is_two_step_classifier:
+                path = os.path.join(path, "two_step_classifier")
 
         logger.info(f"Saving classifier store to {path}")
 
@@ -805,17 +807,11 @@ class FDRManager(BaseManager):
 
         """
         if path is None:
+            path = os.path.join(
+                os.path.dirname(alphadia.__file__), "constants", "classifier"
+            )
             if self.is_two_step_classifier:
-                path = os.path.join(
-                    os.path.dirname(alphadia.__file__),
-                    "constants",
-                    "classifier",
-                    "two_step_classifier",
-                )
-            else:
-                path = os.path.join(
-                    os.path.dirname(alphadia.__file__), "constants", "classifier"
-                )
+                path = os.path.join(path, "two_step_classifier")
 
         logger.info(f"Loading classifier store from {path}")
 

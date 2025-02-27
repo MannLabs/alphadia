@@ -427,20 +427,6 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "two_step_classifier_max_iterations",
-                    "name": "Two Step Classifier Max Iterations (Experimental)",
-                    "value": 5,
-                    "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
-                    "type": "integer"
-                },
-                {
-                    "id": "two_step_classifier_min_precursors_for_update",
-                    "name": "Two-Step Classifier Minimum Precursors for Update (Experimental)",
-                    "value": 5000,
-                    "description": "If two step classifier is enabled, this sets the minimum number of precursors required to update the first classifier (the Logistic Regression model).",
-                    "type": "integer"
-                },
-                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "value": false,
