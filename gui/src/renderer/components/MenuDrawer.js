@@ -133,7 +133,7 @@ const MenuDrawer = ({
                 <ListItemIcon>
                     <FolderIcon />
                 </ListItemIcon>
-                <ListItemText primary="Input & Output Files" />
+                <ListItemText primary="Input & Output" />
             </ListItemButtonStyled>
 
             <ListItemButtonStyled
