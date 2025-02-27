@@ -22,7 +22,7 @@ class TwoStepClassifier:
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
         min_precursors_for_update: int = 200,
-        train_on_top_n: int = 1,
+        n_top_candidates_for_training: int = 1,
     ):
         """Initializing a two-step classifier.
 
@@ -38,7 +38,7 @@ class TwoStepClassifier:
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
         min_precursors_for_update : int, default=200
             The minimum number of precursors required to update the first classifier.
-        train_on_top_n : int
+        n_top_candidates_for_training : int
             Use candidates up to this rank for training. During inference, all ranks are used.
 
         """
@@ -48,7 +48,7 @@ class TwoStepClassifier:
         self.second_fdr_cutoff = second_fdr_cutoff
 
         self._min_precursors_for_update = min_precursors_for_update
-        self._train_on_top_n = train_on_top_n
+        self._n_top_candidates_for_training = n_top_candidates_for_training
 
         logger.info(
             f"Initialized TwoStepClassifier with "
@@ -90,7 +90,7 @@ class TwoStepClassifier:
         logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
-        df_train = df[df["rank"] < self._train_on_top_n]
+        df_train = df[df["rank"] < self._n_top_candidates_for_training]
         df_predict = df
 
         # train and apply NN classifier
@@ -183,7 +183,7 @@ class TwoStepClassifier:
         """Train second_classifier and apply it to get predictions."""
         logger.info(
             f"Training second classifier on {len(train_df):,} precursors "
-            f"({get_target_count(train_df):,} targets, top_n={self._train_on_top_n})"
+            f"({get_target_count(train_df):,} targets, top_n={self._n_top_candidates_for_training})"
         )
 
         self.second_classifier.fit(
@@ -262,7 +262,7 @@ class TwoStepClassifier:
             "second_classifier": self.second_classifier.to_state_dict(),
             "first_fdr_cutoff": self.first_fdr_cutoff,
             "second_fdr_cutoff": self.second_fdr_cutoff,
-            "train_on_top_n": self._train_on_top_n,
+            "n_top_candidates_for_training": self._n_top_candidates_for_training,
         }
 
     def from_state_dict(self, state_dict: dict) -> None:
@@ -278,7 +278,9 @@ class TwoStepClassifier:
         self.second_classifier.from_state_dict(state_dict["second_classifier"])
         self.first_fdr_cutoff = state_dict["first_fdr_cutoff"]
         self.second_fdr_cutoff = state_dict["second_fdr_cutoff"]
-        self._train_on_top_n = state_dict["train_on_top_n"]
+        self._n_top_candidates_for_training = state_dict[
+            "n_top_candidates_for_training"
+        ]
 
 
 def get_target_count(df: pd.DataFrame) -> int:
@@ -293,13 +295,13 @@ def compute_q_values(
     scale_by_target_decoy_ratio: bool = True,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
-    scaling_factor = 1.0
     if scale_by_target_decoy_ratio:
         n_targets = (df["decoy"] == 0).sum()
         n_decoys = (df["decoy"] == 1).sum()
-        scaling_factor = round(n_targets / n_decoys, 3)
-        if not np.isfinite(scaling_factor) or scaling_factor == 0:
+        if n_targets == 0 or n_decoys == 0:
             scaling_factor = 1.0
+        else:
+            scaling_factor = round(n_targets / n_decoys, 3)
 
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)

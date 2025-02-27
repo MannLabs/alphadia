@@ -815,7 +815,7 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        for file in os.listdir(path):
+        for file in os.scandir(path):
             if file.endswith(".pth"):
                 classifier_hash = file.split(".")[0]
 
