@@ -52,6 +52,16 @@ const Files = () => {
                             path={method.raw_path_list.path}
                             onChange={(path) => {dispatch({type: 'updateFiles', path: path})}}/>
                 </FullWidthBox>
+                <FullWidthBox>
+                    <SingleSelect
+                        type="folder"
+                        label="Output Folder"
+                        active={method.output_directory.active}
+                        path={method.output_directory.path}
+                        tooltipText="Select the folder where you would like to save the output."
+                        onChange={(path) => {dispatch({type: 'updateOutput', path: path})}}
+                    />
+                </FullWidthBox>
         </Box>
     )
 }
