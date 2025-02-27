@@ -86,7 +86,7 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
-        min_train_size = 10
+        min_train_size = 1
         logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
@@ -94,58 +94,55 @@ class TwoStepClassifier:
         df_predict = df
 
         # train and apply NN classifier
-        self.second_classifier.epochs = 50
+        self.second_classifier.epochs = 10
         df_after_second_clf = self._train_and_apply_second_classifier(
             df_train, df_predict, x_cols, y_col, group_columns
         )
         best_result = df_after_second_clf
 
         df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
-        previous_target_count_after_second_clf = get_target_count(df_filtered)
+        target_count_after_second_clf = get_target_count(df_filtered)
         logger.info(
-            f"{previous_target_count_after_second_clf:,} targets found "
+            f"{target_count_after_second_clf:,} targets found "
             f"after second classifier, at fdr={self.second_fdr_cutoff}"
         )
 
         # stop if not enough targets found after NN classifier
-        if previous_target_count_after_second_clf < self._min_precursors_for_update:
+        if target_count_after_second_clf < self._min_precursors_for_update:
             return best_result
 
-        # update the linear classifier
+        # update and use the linear classifier
         self._update_first_classifier(df_filtered, df, x_cols, y_col, group_columns)
-        if self.first_classifier.fitted:
-            # filter data using the fitted first classifier
-            df_train = self._apply_filtering_with_first_classifier(
-                df, x_cols, group_columns
-            )
-            if len(df_train) < min_train_size:
-                return best_result
+        df_train = self._apply_filtering_with_first_classifier(
+            df, x_cols, group_columns
+        )
+        if len(df_train) < min_train_size:
+            return best_result
 
-            df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
+        df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
+        previous_target_count_after_first_clf = get_target_count(df_train)
 
-            previous_target_count_after_first_clf = get_target_count(df_train)
+        # train and apply second classifier
+        self.second_classifier.epochs = 50
+        df_after_second_clf = self._train_and_apply_second_classifier(
+            df_train, df_predict, x_cols, y_col, group_columns
+        )
+        df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
+        current_target_count = get_target_count(df_filtered)
 
-            # train and apply second classifier
-            self.second_classifier.epochs = 50
-            df_after_second_clf = self._train_and_apply_second_classifier(
-                df_train, df_predict, x_cols, y_col, group_columns
-            )
-            df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
-            current_target_count = get_target_count(df_filtered)
+        if current_target_count > target_count_after_second_clf:
+            target_count_after_second_clf = current_target_count
+            best_result = df_after_second_clf
 
-            if current_target_count > previous_target_count_after_second_clf:
-                previous_target_count_after_second_clf = current_target_count
-                best_result = df_after_second_clf
-
-                if current_target_count > self._min_precursors_for_update:
-                    self._update_first_classifier(
-                        df_filtered,
-                        df,
-                        x_cols,
-                        y_col,
-                        group_columns,
-                        previous_target_count_after_first_clf,
-                    )
+            if current_target_count > self._min_precursors_for_update:
+                self._update_first_classifier(
+                    df_filtered,
+                    df,
+                    x_cols,
+                    y_col,
+                    group_columns,
+                    previous_target_count_after_first_clf,
+                )
 
         return best_result
 
