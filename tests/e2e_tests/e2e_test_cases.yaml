@@ -48,7 +48,7 @@ test_cases:
       transfer_learning:
         epochs: 5  # this is reduced to speed the test up a little
       library_prediction:
-        predict: True
+        enabled: True
         precursor_mz:
           - 380
           - 980
@@ -99,7 +99,7 @@ test_cases:
   - name: astral
     config:
       library_prediction:
-        predict: true
+        enabled: true
         fixed_modifications: 'Carbamidomethyl@C'
         variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
         max_var_mod_num: 2
@@ -135,7 +135,7 @@ test_cases:
   - name: astral_automatic_calibration
     config:
       library_prediction:
-        predict: true
+        enabled: true
         fixed_modifications: 'Carbamidomethyl@C'
         variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
         max_var_mod_num: 2
@@ -170,7 +170,7 @@ test_cases:
 #  - name: astral_mixed_species
 #    config:
 #      library_prediction:
-#        predict: true
+#        enabled: true
 #        fixed_modifications: 'Carbamidomethyl@C'
 #        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
 #        max_var_mod_num: 2

@@ -174,8 +174,8 @@
             "hidden": false,
             "parameters": [
                 {
-                    "id": "predict",
-                    "name": "Predict Library",
+                    "id": "enabled",
+                    "name": "Enable Prediction",
                     "default": false,
                     "description": "Use alphaPeptDeep to predict peptide. \n If a FASTA file is provided an in silico digest will be performed. \n If a spectral library is provided precursor properties for library precursor will be performed.",
                     "type": "boolean"

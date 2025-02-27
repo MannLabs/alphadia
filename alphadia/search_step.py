@@ -179,10 +179,10 @@ class SearchStep:
 
         prediction_config = self.config["library_prediction"]
 
-        if self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["enabled"]:
             logger.error("No library provided and prediction disabled.")
             return
-        elif self.library_path is None and prediction_config["predict"]:
+        elif self.library_path is None and prediction_config["enabled"]:
             logger.progress("No library provided. Building library from fasta files.")
 
             fasta_digest = libtransform.FastaDigest(
@@ -207,7 +207,7 @@ class SearchStep:
 
         thread_count = self.config["general"]["thread_count"]
 
-        if prediction_config["predict"]:
+        if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = libtransform.PeptDeepPrediction(
