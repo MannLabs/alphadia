@@ -133,7 +133,7 @@ def test_runs_plan_with_transfer_step(
                 "peptdeep_model_path": _convert_path(
                     "/user_provided_output_path/transfer/peptdeep.transfer"
                 ),
-                "predict": True,
+                "enabled": True,
             },
         }
         | dynamic_config,
@@ -238,7 +238,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
                 "peptdeep_model_path": str(
                     Path("/user_provided_output_path/transfer/peptdeep.transfer")
                 ),
-                "predict": True,
+                "enabled": True,
             },
         }
         | dynamic_config,
