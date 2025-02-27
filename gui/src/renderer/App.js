@@ -68,7 +68,6 @@ const App = () => {
     }, []);
 
     const handleWorkflowChange = (workflowName) => {
-        console.log(workflowName);
         setProfile({
             ...profile,
             currentWorkflow: workflowName

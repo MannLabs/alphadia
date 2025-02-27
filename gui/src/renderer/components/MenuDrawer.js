@@ -71,12 +71,9 @@ const MenuDrawer = ({
 
     // Add function to check if a path is active
     const isPathActive = (path) => {
-        console.log(path)
         const currentPath = location.pathname;
         const currentSearch = new URLSearchParams(location.search);
         const currentTab = currentSearch.get('tab');
-
-        console.log(currentPath, currentTab)
 
         if (path === '/') {
             return currentPath === '/';
