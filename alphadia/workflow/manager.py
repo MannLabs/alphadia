@@ -816,13 +816,13 @@ class FDRManager(BaseManager):
         logger.info(f"Loading classifier store from {path}")
 
         for file in os.scandir(path):
-            if file.endswith(".pth"):
-                classifier_hash = file.split(".")[0]
+            if file.name.endswith(".pth"):
+                classifier_hash = file.name.split(".")[0]
 
                 if classifier_hash not in self.classifier_store:
                     classifier = deepcopy(self.classifier_base)
                     classifier.from_state_dict(
-                        torch.load(os.path.join(path, file), weights_only=False)
+                        torch.load(file.path, weights_only=False)
                     )
                     self.classifier_store[classifier_hash].append(classifier)
 
