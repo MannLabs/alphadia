@@ -22,7 +22,6 @@ class TwoStepClassifier:
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
         min_precursors_for_update: int = 200,
-        max_iterations: int = 2,
         train_on_top_n: int = 1,
     ):
         """Initializing a two-step classifier.
@@ -39,8 +38,6 @@ class TwoStepClassifier:
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
         min_precursors_for_update : int, default=200
             The minimum number of precursors required to update the first classifier.
-        max_iterations : int
-            Maximum number of refinement iterations during training.
         train_on_top_n : int
             Use candidates up to this rank for training. During inference, all ranks are used.
 
@@ -51,7 +48,6 @@ class TwoStepClassifier:
         self.second_fdr_cutoff = second_fdr_cutoff
 
         self._min_precursors_for_update = min_precursors_for_update
-        self._max_iterations = max_iterations
         self._train_on_top_n = train_on_top_n
 
         logger.info(
@@ -90,6 +86,7 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
+        min_train_size = 10
         logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
@@ -121,6 +118,9 @@ class TwoStepClassifier:
             df_train = self._apply_filtering_with_first_classifier(
                 df, x_cols, group_columns
             )
+            if len(df_train) < min_train_size:
+                return best_result
+
             df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
 
             previous_target_count_after_first_clf = get_target_count(df_train)

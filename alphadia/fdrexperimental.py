@@ -1146,13 +1146,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
-        if len(x) > 10:
-            x_train, x_test, y_train, y_test = model_selection.train_test_split(
-                x, y, test_size=self.test_size
-            )
-        else:
-            x_train, x_test = x, y
-            y_train, y_test = x, y
+        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+            x, y, test_size=self.test_size
+        )
 
         x_train = torch.Tensor(x_train)
         y_train = torch.Tensor(y_train)
