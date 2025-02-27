@@ -42,7 +42,7 @@ library_loading:
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
-  predict: False
+  enabled: false
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest
