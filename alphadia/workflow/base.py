@@ -56,7 +56,7 @@ class WorkflowBase:
         self._quant_path: str = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
-        logger.info(f"Saving quantification results to {self._quant_path}")
+        logger.info(f"Quantification results path: {self._quant_path}")
 
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None

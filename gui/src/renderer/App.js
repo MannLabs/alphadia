@@ -21,6 +21,7 @@ const AppLayout = styled('div')(({ theme }) => ({
 }));
 
 const ContentContainer = styled('div')(({ theme }) => ({
+  overflowX: 'hidden',
   flexGrow: 1,
   minWidth: 0,
   paddingLeft: theme.spacing(2),

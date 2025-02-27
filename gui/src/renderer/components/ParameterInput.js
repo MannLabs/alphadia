@@ -1,11 +1,29 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
+import { Tooltip, tooltipClasses } from '@mui/material'
 
-import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
+import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     padding: 0.5
 }))
+
+const InfoTooltip = styled(({ className, ...props }) => (
+    <Tooltip {...props} classes={{ popper: className }} placement="right-start" />
+))(({ theme }) => ({
+    [`& .${tooltipClasses.tooltip}`]: {
+        backgroundColor: theme.palette.background.default,
+        color: theme.palette.text.primary,
+        maxWidth: 400,
+        fontSize: theme.typography.pxToRem(12),
+        padding: '8px 12px',
+        boxShadow: `0px 0px 10px 0px rgba(0, 0, 0, 0.1)`,
+        border: `1px solid ${theme.palette.divider}`,
+        '& .MuiTypography-root': {
+            fontSize: 'inherit'
+        }
+    },
+}));
 
 const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
@@ -41,11 +59,14 @@ const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
 const ParameterInput = ({
         parameter,
+        parameter_group_id,
         onChange = () => {},
         sx
     }) => {
 
         let input = null;
+
+        parameter.value = parameter.value === undefined ? parameter.default : parameter.value
 
         switch (parameter.type) {
             case "integer":
@@ -205,6 +226,7 @@ const ParameterInput = ({
 
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
+    let default_text = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
     return (
 
             <Stack
@@ -214,11 +236,17 @@ const ParameterInput = ({
             spacing={2}
             sx={{minHeight: "30px"}}
             >
-            <Tooltip title = {parameter.description} disableInteractive>
+            <InfoTooltip title={
+                <Stack spacing={0.5}>
+                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
+                    <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
+                    <Typography>{parameter.description}</Typography>
+                </Stack>
+            }>
                 <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>
-            </Tooltip>
+            </InfoTooltip>
                 {input}
 
             </Stack>

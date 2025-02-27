@@ -32,11 +32,11 @@ const WorkflowMenu = ({
                 <ButtonBase {...bindTrigger(popupState)}>
                     {
                         popupState.isOpen ?
-                        <ArrowRightIcon sx={{color: "rgb(75, 211, 26)"}}/>
+                        <ArrowRightIcon sx={{color: theme.palette.success.main}}/>
                         :
-                        <ArrowDropDownIcon sx={{color: "rgb(75, 211, 26)"}}/>
+                        <ArrowDropDownIcon sx={{color: theme.palette.success.main}}/>
                     }
-                    <Typography component="div" sx={{color: "rgb(75, 211, 26)", fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
+                    <Typography component="div" sx={{color: theme.palette.success.main, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
                         {currentWorkflow !== "" ? currentWorkflow : "Select Workflow"}
                     </Typography>
                 </ButtonBase>
@@ -64,15 +64,16 @@ const WorkflowMenu = ({
                         )
                     })}
 
-                    <Divider />
-                    <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >
-                        <ListItemIcon>
-                            <MenuBookIcon fontSize="small" />
-                        </ListItemIcon>
-                        <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >
-                            Workflow Documentation
-                        </StyledLink>
-                    </MenuItem>
+                    {/*TODO create workflow documentation and add link here*/}
+                    {/*<Divider />*/}
+                    {/*<MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >*/}
+                    {/*    <ListItemIcon>*/}
+                    {/*        <MenuBookIcon fontSize="small" />*/}
+                    {/*    </ListItemIcon>*/}
+                    {/*    <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >*/}
+                    {/*        Workflow Documentation*/}
+                    {/*    </StyledLink>*/}
+                    {/*</MenuItem>*/}
                 </Menu>
         </Box>
 

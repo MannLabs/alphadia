@@ -76,7 +76,7 @@ function validateWorkflow(workflow) {
 
 function workflowToConfig(workflow) {
 
-    let output = {name: workflow.name}
+    let output = {workflow_name: workflow.name}
 
     if (workflow.library.path != "") {
         output["library_path"] = workflow.library.path
@@ -97,6 +97,9 @@ function workflowToConfig(workflow) {
     workflow.config.forEach((config) => {
         output[config.id] = {}
         config.parameters.forEach((parameter) => {
+            output[config.id][parameter.id] = parameter.value
+        })
+        config.parameters_advanced.forEach((parameter) => {
             output[config.id][parameter.id] = parameter.value
         })
     })
