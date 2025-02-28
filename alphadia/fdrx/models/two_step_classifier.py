@@ -210,10 +210,7 @@ class TwoStepClassifier:
         group_columns: list[str],
         previous_count: int = -1,
     ) -> None:
-        """Fits a copy of the first classifier on a given subset and applies it to the full dataset.
-
-        Returns the number of targets found and the trained classifier.
-        """
+        """Train a copy of the first classifier on a subset, evaluate it on the full dataset, and update the original if performance improves."""
         df_train = get_target_decoy_partners(subset_df, full_df)
         x_train = df_train[x_cols].to_numpy()
         y_train = df_train[y_col].to_numpy()
@@ -233,15 +230,13 @@ class TwoStepClassifier:
         )
         n_targets = get_target_count(df_targets)
 
-        # update first classifier if imrpovement
+        # update first classifier if improvement
         if n_targets > previous_count:
             logger.info(
                 f"Updating the first classifier as new target count increased: {n_targets:,} > {previous_count:,}"
             )
             self.first_classifier = new_classifier
             previous_count = n_targets
-
-        # return previous_count
 
     @property
     def fitted(self) -> bool:
