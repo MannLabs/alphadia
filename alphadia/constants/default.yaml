@@ -280,7 +280,7 @@ fdr:
   channel_wise_fdr: false
 
   # (Experimental)
-  # uses a two-step classifier consisting of a logistic regression and a neural network.
+  # uses a two-step classifier consisting of a logistic regression and a neural network
   enable_two_step_classifier: false
   # (Experimental)
   # Optimizes the batch size and learning rate of the neural network

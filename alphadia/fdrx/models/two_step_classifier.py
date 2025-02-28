@@ -56,12 +56,14 @@ class TwoStepClassifier:
             f"second_classifier: {second_classifier.__class__.__name__}"
         )
 
-    def fit_predict(
+    def fit_predict(  # noqa: PLR0913
         self,
         df: pd.DataFrame,
         x_cols: list[str],
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
+        n_epochs_initial: int = 10,
+        n_epochs_final: int = 50,
     ) -> pd.DataFrame:
         """Train the two-step classifier and predict precursors using the following approach.
 
@@ -79,6 +81,10 @@ class TwoStepClassifier:
             Target variable column name, defaults to 'decoy'
         group_columns : list[str] | None, optional
             Columns to group by for FDR calculations
+        n_epochs_initial : int, optional
+            Number of epochs for initial training of second classifier, defaults to 10
+        n_epochs_final : int, optional
+            Number of epochs for final training of second classifier, defaults to 50
 
         Returns
         -------
@@ -86,7 +92,6 @@ class TwoStepClassifier:
             DataFrame containing predictions and q-values
 
         """
-        min_train_size = 1
         logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
@@ -94,7 +99,7 @@ class TwoStepClassifier:
         df_predict = df
 
         # train and apply NN classifier
-        self.second_classifier.epochs = 10
+        self.second_classifier.epochs = n_epochs_initial
         df_after_second_clf = self._train_and_apply_second_classifier(
             df_train, df_predict, x_cols, y_col, group_columns
         )
@@ -116,14 +121,14 @@ class TwoStepClassifier:
         df_train = self._apply_filtering_with_first_classifier(
             df, x_cols, group_columns
         )
-        if len(df_train) < min_train_size:
+        if len(df_train) <= 1:
             return best_result
 
         df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
         previous_target_count_after_first_clf = get_target_count(df_train)
 
         # train and apply second classifier
-        self.second_classifier.epochs = 50  # TODO: Check if needed
+        self.second_classifier.epochs = n_epochs_final
         df_after_second_clf = self._train_and_apply_second_classifier(
             df_train, df_predict, x_cols, y_col, group_columns
         )
