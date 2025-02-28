@@ -123,7 +123,7 @@ class TwoStepClassifier:
         previous_target_count_after_first_clf = get_target_count(df_train)
 
         # train and apply second classifier
-        self.second_classifier.epochs = 50
+        self.second_classifier.epochs = 50  # TODO: Check if needed
         df_after_second_clf = self._train_and_apply_second_classifier(
             df_train, df_predict, x_cols, y_col, group_columns
         )
