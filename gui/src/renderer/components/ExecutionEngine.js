@@ -63,7 +63,6 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
 
     React.useEffect(() => {
         window.electronAPI.getEngineStatus().then((result) => {
-            console.log(result);
             profileDispatch({
                 type: 'setExecutionEngines',
                 executionEngines: result

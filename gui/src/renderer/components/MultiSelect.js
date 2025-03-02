@@ -44,7 +44,7 @@ const MultiSelect = ({
     }
 
     return (
-    <Grid container spacing={2} sx={{color, minHeight:"100px"}} wrap="nowrap">
+    <Grid container spacing={2} sx={{color}} wrap="nowrap">
         <Grid item xs={3}>
             <Stack direction="row" alignItems="center" gap={1}>
                 <Typography component="span">{label}</Typography>
@@ -78,7 +78,7 @@ const MultiSelect = ({
         <Grid item xs={3} position={'relative'}>
             <Button
                 variant="outlined"
-                sx={{float: 'right', ml:1, minWidth: "115px"}}
+                sx={{float: 'right', ml:1, minWidth: "130px"}}
                 disabled={!active}
                 onClick={handleSelect}>
                 Select Files

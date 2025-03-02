@@ -185,25 +185,8 @@ const Output = () => {
     };
 
     return (
-    <>
-    <TextField
-        id="outlined-number"
-        type="text"
-        variant="standard"
-        size="small"
-        sx = {{width: "100%"}}
-        value={cmd}
-        onChange={(event) => {setCmd(event.target.value)}}
-        onKeyDown={(event) => {
-            if (event.key === 'Enter'){
-                window.electronAPI.runCommand(cmd).catch((error) => {
-                    console.log(error);
-                });
-                setCmd("");
-         }}}
-    />
     <Box sx={{
-        height: "calc(100% - 90px)",
+        height: "100%",
         whiteSpace: "break-spaces",
         overflow: "hidden",
         fontFamily: "Roboto Mono",
@@ -240,7 +223,6 @@ const Output = () => {
             )}
         </InfiniteLoader>
     </Box>
-    </>
     )}
 
 export default Output

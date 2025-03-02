@@ -67,7 +67,6 @@ const DiscussionCard = ({sx = []}) => {
                 {url: "https://api.github.com/repos/MannLabs/alphatims/issues", name: "AlphaTims"},
                 {url: "https://api.github.com/repos/MannLabs/alphapeptdeep/issues", name: "AlphaPeptDeep"},
             ]).then((data) => {
-                console.log("data", data);
                 setIssues(data)
             }
 
