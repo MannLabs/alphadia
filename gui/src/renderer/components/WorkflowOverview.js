@@ -25,7 +25,7 @@ const CustomNodeBase = ({ data, id, onEnabledChange, children, tooltipTitle }) =
             padding: '10px',
             border: `1px solid ${isActive ? theme.palette.primary.main : theme.palette.divider}`,
             borderRadius: '5px',
-            background: 'white',
+            background: theme.palette.background.default,
             width: '200px',
             minHeight: '160px',
             transition: 'border-color 0.3s ease-in-out',
