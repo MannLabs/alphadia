@@ -125,7 +125,7 @@ class SearchPlan:
                     "peptdeep_model_path": os.path.join(
                         self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                     ),
-                    "predict": True,  # the step following the 'transfer' step needs to have this
+                    "enabled": True,  # the step following the 'transfer' step needs to have this
                 }
             }
 

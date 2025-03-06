@@ -20,7 +20,7 @@ def test_fasta_digest():
     tempdir = tempfile.gettempdir()
     step = search_step.SearchStep(
         tempdir,
-        config={"library_prediction": {"predict": True}},
+        config={"library_prediction": {"enabled": True}},
         cli_config={"fasta_paths": [common_contaminants]},
     )
 
@@ -33,7 +33,7 @@ def test_fasta_digest():
     # predict existing library
     step = search_step.SearchStep(
         tempdir,
-        config={"library_prediction": {"predict": True}},
+        config={"library_prediction": {"enabled": True}},
         cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
@@ -42,7 +42,7 @@ def test_fasta_digest():
     # load existing library without predict
     step = search_step.SearchStep(
         tempdir,
-        config={"library_prediction": {"predict": False}},
+        config={"library_prediction": {"enabled": False}},
         cli_config={"library_path": speclib_path},
     )
     assert len(step.spectral_library.precursor_df) > 0
