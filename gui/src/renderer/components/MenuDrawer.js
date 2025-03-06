@@ -69,8 +69,8 @@ const MenuDrawer = ({
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Add function to check if a path is active
-    const isPathActive = (path) => {
+    // Add function to check if a path is the current path
+    const isRoutePathActive = (path) => {
         const currentPath = location.pathname;
         const currentSearch = new URLSearchParams(location.search);
         const currentTab = currentSearch.get('tab');
@@ -110,7 +110,7 @@ const MenuDrawer = ({
             <ListItemButtonStyled
                 key={"home"}
                 onClick={() => navigate('/')}
-                selected={isPathActive('/')}
+                selected={isRoutePathActive('/')}
             >
                 <ListItemIcon>
                     <HomeIcon />
@@ -125,7 +125,7 @@ const MenuDrawer = ({
             <ListItemButtonStyled
                 key={"files"}
                 onClick={() => navigate('/method?tab=files')}
-                selected={isPathActive('/method?tab=files')}
+                selected={isRoutePathActive('/method?tab=files')}
             >
                 <ListItemIcon>
                     <FolderIcon />
@@ -136,7 +136,7 @@ const MenuDrawer = ({
             <ListItemButtonStyled
                 key={"method"}
                 onClick={() => navigate('/method?tab=config')}
-                selected={isPathActive('/method?tab=config')}
+                selected={isRoutePathActive('/method?tab=config')}
             >
                 <ListItemIcon>
                     <SettingsApplicationsIcon />
@@ -149,7 +149,7 @@ const MenuDrawer = ({
             <ListItemButtonStyled
                 key={"console"}
                 onClick={() => navigate('/run')}
-                selected={isPathActive('/run')}
+                selected={isRoutePathActive('/run')}
             >
                 <ListItemIcon>
                     <TerminalIcon />
