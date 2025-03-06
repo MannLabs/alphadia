@@ -104,6 +104,7 @@ const CustomNodeBase = ({ data, id, onEnabledChange, children, tooltipTitle }) =
     );
 };
 
+// fixed positions for the nodes
 const X0 = 50;
 const DELTA = 250;
 
@@ -135,13 +136,10 @@ const InputNode = ({ data, id, onEnabledChange }) => {
 
     const hasLibrary = method.library.path !== "";
     const hasFasta = method.fasta_list.path.length > 0;
+    const numFasta = method.fasta_list.path.length;
+
     const hasRawFiles = method.raw_path_list.path.length > 0;
     const numRawFiles = method.raw_path_list.path.length;
-
-    let message = data.description;
-    if (hasRawFiles && !hasLibrary && !hasFasta) {
-        message = "Please select a spectral library and FASTA file to enable transfer learning.";
-    }
 
     const getIcon = (hasItem, otherItemSet) => {
         if (hasItem) {
@@ -162,7 +160,7 @@ const InputNode = ({ data, id, onEnabledChange }) => {
                 </Stack>
                 <Stack direction="row" alignItems="center" spacing={1}>
                     {getIcon(hasFasta, hasLibrary)}
-                    <Typography variant="body2">FASTA File</Typography>
+                    <Typography variant="body2">FASTA Files ({numFasta})</Typography>
                 </Stack>
                 <Stack direction="row" alignItems="center" spacing={1}>
                     {hasRawFiles ? (
@@ -184,7 +182,9 @@ const TransferLearningNode = ({ data, id, onEnabledChange }) => {
                         <Typography sx={{ fontWeight: 'bold' }}>Transfer Learning</Typography>
                         <Typography sx={{ fontFamily: 'monospace' }}>{`[general.transfer_step_enabled]`}</Typography>
                         <Typography>
-                            The transfer learning step will perform a whole search of all selected raw files. It can be used with a spectral library or with fasta files and fully predicted library.
+                            The transfer learning step will perform a whole search of all selected raw files before the first search. It can be used with a spectral library or with fasta files and fully predicted library.
+                            <br/><br/>
+                            All parameters set in the configuration will also be used for this step (except those required to switch on the specific behavior of this step).
                             <br/><br/>
                             If this step is enabled, the transfer library module as well as transfer learning module will be automatically activated for this step:
                         </Typography>
@@ -193,7 +193,7 @@ const TransferLearningNode = ({ data, id, onEnabledChange }) => {
                             transfer_learning.enabled = true
                         </Typography>
                         <Typography>
-                            The configuration section for transfer learning and transfer library offer advanced paramteters to tune the behavior of the transfer learning step.
+                            The configuration section for transfer learning and transfer library offer advanced parameters to tune the behavior of the transfer learning step.
                         </Typography>
                     </Stack>
                 }
@@ -205,7 +205,7 @@ const TransferLearningNode = ({ data, id, onEnabledChange }) => {
     );
 };
 
-const MainSearchNode = ({ data, id, onEnabledChange }) => (
+const LibrarySearchNode = ({ data, id, onEnabledChange }) => (
     <CustomNodeBase data={data} id={id} onEnabledChange={onEnabledChange} tooltipTitle={
         <Stack spacing={0.5}>
             <Typography sx={{ fontWeight: 'bold' }}>Main Search</Typography>
@@ -229,6 +229,8 @@ const MatchBetweenRunsNode = ({ data, id, onEnabledChange }) => (
             <Typography sx={{ fontFamily: 'monospace' }}>{`[general.mbr_step_enabled]`}</Typography>
             <Typography>
                 Search all raw files using spectral library from main search.
+                <br/><br/>
+                Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behavior of this step).
                 <br/><br/>
                 This step will perform FDR controlled requantification of all peptides identified across the experiment. Generally recommended for samples with proteome overlap as it increases data completeness.
                 If automatic hyperparameter optimization was activated, the median optimal MS1 and MS2 error tolerances from the main search will be used as optimal fixed parameters.
@@ -264,11 +266,11 @@ const OutputNode = ({ data, id, onEnabledChange }) => {
     );
 };
 
-// Update createNodeTypes to use specific node components
+// Update createNodeTypes to use the renamed component
 const createNodeTypes = (handleEnabledChange) => ({
     inputIO: (props) => <InputNode {...props} onEnabledChange={handleEnabledChange} />,
     transferLearning: (props) => <TransferLearningNode {...props} onEnabledChange={handleEnabledChange} />,
-    mainSearch: (props) => <MainSearchNode {...props} onEnabledChange={handleEnabledChange} />,
+    librarySearch: (props) => <LibrarySearchNode {...props} onEnabledChange={handleEnabledChange} />,
     matchBetweenRuns: (props) => <MatchBetweenRunsNode {...props} onEnabledChange={handleEnabledChange} />,
     outputIO: (props) => <OutputNode {...props} onEnabledChange={handleEnabledChange} />
 });
@@ -314,7 +316,7 @@ const getNodesForNodeStates = (transferLearningEnabled, matchBetweenRunsEnabled)
                 isSwitchable: false,
                 enabled: true
             },
-            type: 'mainSearch'
+            type: 'librarySearch'
         },
         {
             id: '4',
