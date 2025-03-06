@@ -31,7 +31,9 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                         </Typography>
                     </Stack>
                 </Grid>
-                {parameterGroup.parameters.map((parameter, index) => {
+                {parameterGroup.parameters
+                    .filter(parameter => !parameter.hidden)
+                    .map((parameter, index) => {
                     return (
                         <Grid item xs={12} key={parameter.id}>
                             <ParameterInput
@@ -48,8 +50,9 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                     )
                 })}
 
-                {/* Advanced parameters section (if there are any) */}
-                {parameterGroup.parameters_advanced && parameterGroup.parameters_advanced.length > 0 && (
+                {/* Advanced parameters section (if there are any non-hidden parameters) */}
+                {parameterGroup.parameters_advanced &&
+                 parameterGroup.parameters_advanced.filter(parameter => !parameter.hidden).length > 0 && (
                     <Grid item xs={12} sx={{mt: 1}}>
                         <ButtonBase onClick={() => {setAdvancedOpen(!advancedOpen)}}>
                             <Stack direction="row" alignItems="center" spacing={0}>
@@ -60,7 +63,9 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                             </Stack>
                         </ButtonBase>
                         <Collapse in={advancedOpen} sx={{width: "100%"}}>
-                            {parameterGroup.parameters_advanced.map((parameter, index) => (
+                            {parameterGroup.parameters_advanced
+                                .filter(parameter => !parameter.hidden)
+                                .map((parameter, index) => (
                                 <Grid item xs={12} key={parameter.id}>
                                     <ParameterInput
                                         parameter={parameter}

@@ -13,11 +13,10 @@ general:
 
   thread_count: 10
   # Enables separate transfer learning step
-  transfer_step_enabled: False
+  transfer_step_enabled: false
 
   # Enables separate MBR step
-  mbr_step_enabled: False
-
+  mbr_step_enabled: true
 
   # === advanced settings ===
   # whether to reuse previously calculated calibration data

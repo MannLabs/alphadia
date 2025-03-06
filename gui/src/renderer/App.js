@@ -10,7 +10,7 @@ import './App.css';
 
 import { Box, CssBaseline } from '@mui/material';
 import { MenuDrawer, UtilMonitor, ExecutionEngine } from './components';
-import { Home, Files, Method, Output, Run } from './pages';
+import { Home, Files, Method, Run } from './pages';
 
 
 
@@ -18,14 +18,6 @@ import { Home, Files, Method, Output, Run } from './pages';
 const AppLayout = styled('div')(({ theme }) => ({
   display: 'flex',
   height: "100%"
-}));
-
-const ContentContainer = styled('div')(({ theme }) => ({
-  overflowX: 'hidden',
-  flexGrow: 1,
-  minWidth: 0,
-  paddingLeft: theme.spacing(2),
-  paddingRight: theme.spacing(2),
 }));
 
 const App = () => {
@@ -76,7 +68,6 @@ const App = () => {
     }, []);
 
     const handleWorkflowChange = (workflowName) => {
-        console.log(workflowName);
         setProfile({
             ...profile,
             currentWorkflow: workflowName
@@ -100,19 +91,34 @@ const App = () => {
             onSetRunningState={handleSetRunningState}
             profile={profile}
             />
-        <ContentContainer>
-            <Box sx={{marginBottom:1, display: "flex", minHeight:"40px"}}>
+        <Box sx={{flexGrow: 1, overflowX: 'hidden', display: 'flex', flexDirection: 'column', height: '100%'}}>
+            <Box sx={{
+                height: '40px',
+                minHeight: '40px',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                paddingLeft: theme.spacing(1),
+                paddingRight: theme.spacing(1)
+            }}>
                 <ExecutionEngine environment={profile.environment} sx={{ marginRight: "auto"}}/>
                 <UtilMonitor sx={{ marginLeft: "auto"}}/>
             </Box>
-            <Routes>
-                <Route path="/" element={ <Home /> } />
-                <Route path="/files" element={ <Files/> } />
-                <Route path="/method" element={ <Method/> } />
-                <Route path="/output" element={ <Output/> } />
-                <Route path="/run" element={ <Run/> } />
-            </Routes>
-        </ContentContainer>
+            <Box sx={{
+                flexGrow: 1,
+                paddingLeft: theme.spacing(1),
+                paddingRight: theme.spacing(1),
+                overflow: 'auto'
+            }}>
+
+                <Routes>
+                    <Route path="/" element={ <Home /> } />
+                    <Route path="/files" element={ <Files/> } />
+                    <Route path="/method" element={ <Method/> } />
+                    <Route path="/run" element={ <Run/> } />
+                </Routes>
+            </Box>
+        </Box>
         </AppLayout>
     </ThemeProvider>
   );
