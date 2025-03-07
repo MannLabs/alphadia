@@ -21,9 +21,8 @@ class TwoStepClassifier:
         second_classifier: Classifier,
         first_fdr_cutoff: float = 0.6,
         second_fdr_cutoff: float = 0.01,
-        min_precursors_for_update: int = 5000,
-        max_iterations: int = 5,
-        train_on_top_n: int = 1,
+        min_precursors_for_update: int = 200,
+        n_top_candidates_for_training: int = 1,
     ):
         """Initializing a two-step classifier.
 
@@ -37,11 +36,9 @@ class TwoStepClassifier:
             The fdr threshold for the first classifier, determining how selective the first classification step is.
         second_fdr_cutoff : float, default=0.01
             The fdr threshold for the second classifier, typically set stricter to ensure high confidence in the final classification results.
-        min_precursors_for_update : int, default=5000
+        min_precursors_for_update : int, default=200
             The minimum number of precursors required to update the first classifier.
-        max_iterations : int
-            Maximum number of refinement iterations during training.
-        train_on_top_n : int
+        n_top_candidates_for_training : int
             Use candidates up to this rank for training. During inference, all ranks are used.
 
         """
@@ -51,8 +48,7 @@ class TwoStepClassifier:
         self.second_fdr_cutoff = second_fdr_cutoff
 
         self._min_precursors_for_update = min_precursors_for_update
-        self._max_iterations = max_iterations
-        self._train_on_top_n = train_on_top_n
+        self._n_top_candidates_for_training = n_top_candidates_for_training
 
         logger.info(
             f"Initialized TwoStepClassifier with "
@@ -60,18 +56,20 @@ class TwoStepClassifier:
             f"second_classifier: {second_classifier.__class__.__name__}"
         )
 
-    def fit_predict(
+    def fit_predict(  # noqa: PLR0913
         self,
         df: pd.DataFrame,
         x_cols: list[str],
         y_col: str = "decoy",
         group_columns: list[str] | None = None,
+        n_epochs_initial: int = 10,
+        n_epochs_final: int = 50,
     ) -> pd.DataFrame:
-        """Train the two-step classifier and predict precursors using an iterative approach.
+        """Train the two-step classifier and predict precursors using the following approach.
 
-        1. First iteration: Train neural network on top-n candidates.
-        2. Subsequent iterations: Use linear classifier to filter data, then refine with neural network.
-        3. Update linear classifier if enough high-confidence predictions are found, else break.
+        1. Train neural network on top-n candidates.
+        2. Update linear classifier if enough high-confidence predictions are found, else break.
+        3. Use linear classifier to filter data, then refine with neural network.
 
         Parameters
         ----------
@@ -83,6 +81,10 @@ class TwoStepClassifier:
             Target variable column name, defaults to 'decoy'
         group_columns : list[str] | None, optional
             Columns to group by for FDR calculations
+        n_epochs_initial : int, optional
+            Number of epochs for initial training of second classifier, defaults to 10
+        n_epochs_final : int, optional
+            Number of epochs for final training of second classifier, defaults to 50
 
         Returns
         -------
@@ -93,88 +95,59 @@ class TwoStepClassifier:
         logger.info("=== Starting training of TwoStepClassifier ===")
 
         df = self._preprocess_data(df, x_cols)
-        best_result = None
+        df_train = df[df["rank"] < self._n_top_candidates_for_training]
+        df_predict = df
 
-        # tracking precursors identified at fdr cutoffs `self.first_fdr_cutoff` and `self.second_fdr_cutoff``
-        previous_target_count_after_first_clf = -1
-        previous_target_count_after_second_clf = -1
+        # train and apply NN classifier
+        self.second_classifier.epochs = n_epochs_initial
+        df_after_second_clf = self._train_and_apply_second_classifier(
+            df_train, df_predict, x_cols, y_col, group_columns
+        )
+        best_result = df_after_second_clf
 
-        for i in range(self._max_iterations):
-            logger.info(f"Starting iteration {i + 1} / {self._max_iterations}.")
+        df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
+        target_count_after_second_clf = get_target_count(df_filtered)
+        logger.info(
+            f"{target_count_after_second_clf:,} targets found "
+            f"after second classifier, at fdr={self.second_fdr_cutoff}"
+        )
 
-            # extract preselction using first classifier if it is fitted
-            if self.first_classifier.fitted and i > 0:
-                df_train = self._apply_filtering_with_first_classifier(
-                    df, x_cols, group_columns
-                )
-                df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
-                logger.info(
-                    f"Application of first classifier at fdr={self.first_fdr_cutoff} results in "
-                    f"{len(df_train):,} samples ({get_target_count(df_train):,} precursors)"
-                )
+        # stop if not enough targets found after NN classifier
+        if target_count_after_second_clf < self._min_precursors_for_update:
+            return best_result
 
-                previous_target_count_after_first_clf = get_target_count(df_train)
-                self.second_classifier.epochs = 50
-            else:
-                logger.debug("First classifier not fitted yet. Proceeding without it.")
-                df_train = df[df["rank"] < self._train_on_top_n]
-                df_predict = df
+        # update and use the linear classifier
+        self._update_first_classifier(df_filtered, df, x_cols, y_col, group_columns)
+        df_train = self._apply_filtering_with_first_classifier(
+            df, x_cols, group_columns
+        )
+        if len(df_train) <= 1:
+            return best_result
 
-                self.second_classifier.epochs = 10
+        df_predict = df_train  # using the same df for training and predicting, unlike in the following else block.
+        previous_target_count_after_first_clf = get_target_count(df_train)
 
-            # train and apply second classifier
-            df_after_second_clf = self._train_and_apply_second_classifier(
-                df_train, df_predict, x_cols, y_col, group_columns
-            )
+        # train and apply second classifier
+        self.second_classifier.epochs = n_epochs_final
+        df_after_second_clf = self._train_and_apply_second_classifier(
+            df_train, df_predict, x_cols, y_col, group_columns
+        )
+        df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
+        current_target_count = get_target_count(df_filtered)
 
-            df_filtered = filter_by_qval(df_after_second_clf, self.second_fdr_cutoff)
-            current_target_count = get_target_count(df_filtered)
+        if current_target_count > target_count_after_second_clf:
+            target_count_after_second_clf = current_target_count
+            best_result = df_after_second_clf
 
-            if current_target_count < previous_target_count_after_second_clf:
-                logger.info(
-                    f"Training stopped on iteration {i + 1}. Decrease in precursor count from "
-                    f"{previous_target_count_after_second_clf:,} to {current_target_count:,}."
-                )
-                return best_result
-
-            previous_target_count_after_second_clf = current_target_count
-            best_result = df_after_second_clf  # TODO: Remove if multiple iterations are dropped to save memory.
-
-            logger.info(
-                f"Application of second classifier at fdr={self.second_fdr_cutoff} results in "
-                f"{get_target_count(df_train):,} precursors."
-            )
-
-            # update first classifier if enough confident predictions
             if current_target_count > self._min_precursors_for_update:
-                target_count_after_first_clf, new_classifier = (
-                    self._fit_and_eval_first_classifier(
-                        df_filtered, df, x_cols, y_col, group_columns
-                    )
+                self._update_first_classifier(
+                    df_filtered,
+                    df,
+                    x_cols,
+                    y_col,
+                    group_columns,
+                    previous_target_count_after_first_clf,
                 )
-                if target_count_after_first_clf > previous_target_count_after_first_clf:
-                    logger.debug(
-                        f"Update of first classifier initiated: previous version had {previous_target_count_after_first_clf:,} "
-                        f"precursors, current version has {target_count_after_first_clf:,} precursors."
-                    )
-                    self.first_classifier = new_classifier
-                    previous_target_count_after_first_clf = target_count_after_first_clf
-
-                else:
-                    logger.debug(
-                        f"Update of first classifier skipped: previous version had {previous_target_count_after_first_clf:,} "
-                        f"precursors, current version has {target_count_after_first_clf:,} precursors."
-                    )
-            else:
-                logger.info(
-                    f"=== Insufficient precursors detected; ending after {i + 1} iterations ==="
-                )
-                break
-        else:
-            logger.info(
-                f"=== Stopping fitting after reaching the maximum number of iterations: "
-                f"{self._max_iterations} / {self._max_iterations} ==="
-            )
 
         return best_result
 
@@ -187,11 +160,22 @@ class TwoStepClassifier:
         self, df: pd.DataFrame, x_cols: list[str], group_columns: list[str]
     ) -> pd.DataFrame:
         """Apply first classifier to filter data for the training of the second classifier."""
+        n_precursors = get_target_count(df)
+        logger.info(
+            f"Applying first classifier to {len(df):,} precursors ({n_precursors:,} targets)"
+        )
+
         df["proba"] = self.first_classifier.predict_proba(df[x_cols].to_numpy())[:, 1]
 
-        return compute_and_filter_q_values(
+        filtered_df = compute_and_filter_q_values(
             df, self.first_fdr_cutoff, group_columns, remove_decoys=False
         )
+        logger.info(
+            f"Preselection of first classifier at fdr={self.first_fdr_cutoff} results in "
+            f"{len(filtered_df):,} precursors ({get_target_count(filtered_df):,} targets)"
+        )
+
+        return filtered_df
 
     def _train_and_apply_second_classifier(
         self,
@@ -202,9 +186,19 @@ class TwoStepClassifier:
         group_columns: list[str],
     ) -> pd.DataFrame:
         """Train second_classifier and apply it to get predictions."""
+        logger.info(
+            f"Training second classifier on {len(train_df):,} precursors "
+            f"({get_target_count(train_df):,} targets, top_n={self._n_top_candidates_for_training})"
+        )
+
         self.second_classifier.fit(
             train_df[x_cols].to_numpy().astype(np.float32),
             train_df[y_col].to_numpy().astype(np.float32),
+        )
+
+        logger.info(
+            f"Applying second classifier to {len(predict_df):,} precursors "
+            f"({get_target_count(predict_df):,} targets, top_n={max(predict_df['rank']) + 1})"
         )
 
         x = predict_df[x_cols].to_numpy().astype(np.float32)
@@ -212,18 +206,16 @@ class TwoStepClassifier:
 
         return compute_q_values(predict_df, group_columns)
 
-    def _fit_and_eval_first_classifier(
+    def _update_first_classifier(  # noqa: PLR0913
         self,
         subset_df: pd.DataFrame,
         full_df: pd.DataFrame,
         x_cols: list[str],
         y_col: str,
         group_columns: list[str],
-    ) -> tuple[int, Classifier]:
-        """Fits a copy of the first classifier on a given subset and applies it to the full dataset.
-
-        Returns the number of targets found and the trained classifier.
-        """
+        previous_count: int = -1,
+    ) -> None:
+        """Train a copy of the first classifier on a subset, evaluate it on the full dataset, and update the original if performance improves."""
         df_train = get_target_decoy_partners(subset_df, full_df)
         x_train = df_train[x_cols].to_numpy()
         y_train = df_train[y_col].to_numpy()
@@ -231,18 +223,25 @@ class TwoStepClassifier:
         x_all = full_df[x_cols].to_numpy()
         reduced_df = full_df[[*group_columns, "decoy"]]
 
-        logger.info(f"Fitting first classifier on {len(df_train):,} samples.")
+        logger.info(
+            f"Fitting first classifier on {len(df_train):,} precursors, applying it to {len(x_all):,} precursors."
+        )
         new_classifier = copy.deepcopy(self.first_classifier)
         new_classifier.fit(x_train, y_train)
 
-        logger.info(f"Applying first classifier to {len(x_all):,} samples.")
         reduced_df["proba"] = new_classifier.predict_proba(x_all)[:, 1]
         df_targets = compute_and_filter_q_values(
             reduced_df, self.first_fdr_cutoff, group_columns
         )
         n_targets = get_target_count(df_targets)
 
-        return n_targets, new_classifier
+        # update first classifier if improvement
+        if n_targets > previous_count:
+            logger.info(
+                f"Updating the first classifier as new target count increased: {n_targets:,} > {previous_count:,}"
+            )
+            self.first_classifier = new_classifier
+            previous_count = n_targets
 
     @property
     def fitted(self) -> bool:
@@ -263,7 +262,7 @@ class TwoStepClassifier:
             "second_classifier": self.second_classifier.to_state_dict(),
             "first_fdr_cutoff": self.first_fdr_cutoff,
             "second_fdr_cutoff": self.second_fdr_cutoff,
-            "train_on_top_n": self._train_on_top_n,
+            "n_top_candidates_for_training": self._n_top_candidates_for_training,
         }
 
     def from_state_dict(self, state_dict: dict) -> None:
@@ -279,7 +278,9 @@ class TwoStepClassifier:
         self.second_classifier.from_state_dict(state_dict["second_classifier"])
         self.first_fdr_cutoff = state_dict["first_fdr_cutoff"]
         self.second_fdr_cutoff = state_dict["second_fdr_cutoff"]
-        self._train_on_top_n = state_dict["train_on_top_n"]
+        self._n_top_candidates_for_training = state_dict[
+            "n_top_candidates_for_training"
+        ]
 
 
 def get_target_count(df: pd.DataFrame) -> int:
@@ -288,12 +289,30 @@ def get_target_count(df: pd.DataFrame) -> int:
 
 
 def compute_q_values(
-    df: pd.DataFrame, group_columns: list[str] | None = None
+    df: pd.DataFrame,
+    group_columns: list[str] | None = None,
+    qval_col: str = "qval",
+    scale_by_target_decoy_ratio: bool = True,  # noqa: FBT001, FBT002
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
+    if scale_by_target_decoy_ratio:
+        n_targets = (df["decoy"] == 0).sum()
+        n_decoys = (df["decoy"] == 1).sum()
+        if n_targets == 0 or n_decoys == 0:
+            scaling_factor = 1.0
+        else:
+            scaling_factor = round(n_targets / n_decoys, 3)
+
     df.sort_values("proba", ascending=True, inplace=True)
     df = keep_best(df, group_columns=group_columns)
-    return get_q_values(df, "proba", "decoy")
+    df = get_q_values(df, "proba", "decoy", qval_col)
+
+    logger.info(
+        f"Normalizing q-values using {n_targets:,} targets and {n_decoys:,} decoys (scaling factor = {scaling_factor})"
+    )
+    df[qval_col] = df[qval_col] * scaling_factor
+
+    return df
 
 
 def filter_by_qval(df: pd.DataFrame, fdr_cutoff: float) -> pd.DataFrame:

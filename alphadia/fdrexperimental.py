@@ -1150,6 +1150,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x, y, test_size=self.test_size
         )
 
+        x_train = torch.Tensor(x_train)
+        y_train = torch.Tensor(y_train)
+
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
 
@@ -1160,9 +1163,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         )
 
         loss = nn.BCELoss()
-
-        x_train = torch.Tensor(x_train)
-        y_train = torch.Tensor(y_train)
 
         num_batches = (x_train.shape[0] // self.batch_size) - 1
         batch_start_list = np.arange(num_batches) * self.batch_size
