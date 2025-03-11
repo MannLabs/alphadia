@@ -22,9 +22,7 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-from exceptions import GenericUserError
-
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
