@@ -40,6 +40,16 @@ class UserError(CustomError):
     """
 
 
+class GenericUserError(UserError):
+    """Raise when something is wrong with the user."""
+
+    _error_code = "USER_ERROR"
+
+    def __init__(self, msg: str, detail_msg: str = ""):
+        self._msg = msg
+        self._detail_msg = detail_msg
+
+
 class NoPsmFoundError(BusinessError):
     """Raise when no PSMs are found in the search results."""
 

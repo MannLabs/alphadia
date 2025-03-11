@@ -22,6 +22,8 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
+from exceptions import GenericUserError
+
 from alphadia.exceptions import CustomError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
@@ -141,7 +143,13 @@ def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     logger.addHandler(ch)
 
     if log_folder is not None:
-        os.makedirs(log_folder, exist_ok=True)
+        try:
+            os.makedirs(log_folder, exist_ok=True)
+        except Exception as e:
+            raise GenericUserError(
+                f"Could not create folder '{log_folder}'. Check your output_directory settings.",
+                str(e),
+            ) from e
 
         log_file_path = os.path.join(log_folder, "log.txt")
 
