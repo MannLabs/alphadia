@@ -69,7 +69,14 @@ def get_frag_df_generator(folder_list: list[str]):
 
 
 class QuantBuilder:
-    def __init__(self, psm_df, column="intensity"):
+    def __init__(self, psm_df, column=['intensity',
+                                        'mass_error',
+                                        'correlation',
+                                        'height',
+                                        'charge',
+                                        'mz_observed',
+                                        'type',
+                                        'number']):
         self.psm_df = psm_df
         self.column = column
 
@@ -125,45 +132,42 @@ class QuantBuilder:
 
         df = prepare_df(df, self.psm_df, column=self.column)
 
-        intensity_df = df[["precursor_idx", "ion", self.column]].copy()
-        intensity_df.rename(columns={self.column: raw_name}, inplace=True)
-
-        quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
-        quality_df.rename(columns={"correlation": raw_name}, inplace=True)
-
+        df_list = []
+        for col in self.column:
+            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df.rename(columns={col: raw_name}, inplace=True)
+            df_list.append(feat_df)
+        
         for raw_name, df in df_iterable:
             df = prepare_df(df, self.psm_df, column=self.column)
+            
+            for idx, col in enumerate(self.column):
+                df_list[idx] = df_list[idx].merge(
+                    df[["ion", col, "precursor_idx"]],
+                    on=["ion", "precursor_idx"],
+                    how="outer",
+                )
+                df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-            intensity_df = intensity_df.merge(
-                df[["ion", self.column, "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            intensity_df.rename(columns={self.column: raw_name}, inplace=True)
+        for idx in range(len(df_list)):
+            df_list[idx] = self._data_prep(df_list[idx])
+            
+        return df_list
+    
+    def _data_prep(self, df):
 
-            quality_df = quality_df.merge(
-                df[["ion", "correlation", "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            quality_df.rename(columns={"correlation": raw_name}, inplace=True)
+        df.fillna(0, inplace=True)
 
-        # replace nan with 0
-        intensity_df.fillna(0, inplace=True)
-        quality_df.fillna(0, inplace=True)
-
-        intensity_df["precursor_idx"] = intensity_df["precursor_idx"].astype(np.uint32)
-        quality_df["precursor_idx"] = quality_df["precursor_idx"].astype(np.uint32)
+        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
 
         # annotate protein group
         annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
             {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
         )
 
-        intensity_df = intensity_df.merge(annotate_df, on="precursor_idx", how="left")
-        quality_df = quality_df.merge(annotate_df, on="precursor_idx", how="left")
+        df = df.merge(annotate_df, on="precursor_idx", how="left")
 
-        return intensity_df, quality_df
+        return df
 
     def filter_frag_df(
         self,
@@ -296,7 +300,7 @@ def prepare_df(df, psm_df, column="intensity"):
         df["charge"].values,
         df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion", column, "correlation"]]
+    return df[["precursor_idx", "ion"] + column ]
 
 
 class SearchPlanOutput:
@@ -794,7 +798,9 @@ class SearchPlanOutput:
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
 
-        intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
+        dfs = qb.accumulate_frag_df_from_folders(folder_list)
+        intensity_df = dfs[0].copy()
+        quality_df = dfs[2].copy()
 
         @dataclass
         class LFQOutputConfig:
