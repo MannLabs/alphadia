@@ -116,11 +116,8 @@ class QuantBuilder:
 
         Returns
         -------
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        dict
+            Dictionary of (column, df) tuples, where df is a dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
         """
 
         logger.info("Accumulating fragment data")
@@ -130,7 +127,7 @@ class QuantBuilder:
             logger.warning(f"no frag file found for {raw_name}")
             return None
 
-        df = prepare_df(df, self.psm_df, column=self.columns)
+        df = prepare_df(df, self.psm_df, columns=self.columns)
 
         df_list = []
         for col in self.columns:
@@ -139,7 +136,7 @@ class QuantBuilder:
             df_list.append(feat_df)
         
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, column=self.columns)
+            df = prepare_df(df, self.psm_df, columns=self.columns)
             
             for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
@@ -149,7 +146,7 @@ class QuantBuilder:
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-        return [ self._add_annotation(df) for df in df_list]
+        return {col: self._add_annotation(df) for df, col in zip(df_list, self.columns)}
                 
     def _add_annotation(self, df: pd.DataFrame) -> pd.DataFrame:
 
@@ -235,7 +232,6 @@ class QuantBuilder:
     def lfq(
         self,
         intensity_df: pd.DataFrame,
-        quality_df: pd.DataFrame,
         num_samples_quadratic: int = 50,
         min_nonan: int = 1,
         num_cores: int = 8,
@@ -301,7 +297,7 @@ class QuantBuilder:
         return protein_df
 
 
-def prepare_df(df, psm_df, column="intensity"):
+def prepare_df(df, psm_df, columns=["intensity"]):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = utils.ion_hash(
         df["precursor_idx"].values,
@@ -310,7 +306,7 @@ def prepare_df(df, psm_df, column="intensity"):
         df["charge"].values,
         df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion"] + column ]
+    return df[["precursor_idx", "ion"] + columns]
 
 
 class SearchPlanOutput:
@@ -809,8 +805,8 @@ class SearchPlanOutput:
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
 
         dfs = qb.accumulate_frag_df_from_folders(folder_list)
-        intensity_df = dfs[0].copy()
-        quality_df = dfs[2].copy()
+        intensity_df = dfs["intensity"].copy()
+        quality_df = dfs["correlation"].copy()
 
         @dataclass
         class LFQOutputConfig:
@@ -865,7 +861,6 @@ class SearchPlanOutput:
 
             lfq_df = qb.lfq(
                 group_intensity_df,
-                quality_df,
                 num_cores=self.config["general"]["thread_count"],
                 min_nonan=self.config["search_output"]["min_nonnan"],
                 num_samples_quadratic=self.config["search_output"][
