@@ -1,66 +1,20 @@
-#https://docs.github.com/en/actions/publishing-packages/publishing-docker-images
+# Build and publish Docker image
 name: Publish Docker image
 
 on:
   workflow_dispatch:
     inputs:
       tag_to_release:
-        description: 'Enter tag to release (example: v1.5.5)'
+        description: 'Enter tag to release (example: v1.5.5). A tag with this name must exist in the repository.'
+        type: string
         required: true
 
 jobs:
-  push_to_registry:
-    name: Push Docker image to Docker Hub
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-      attestations: write
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.tag_to_release }}
-      - name: Get current version
-        id: get_current_version
-        shell: bash -l {0}
-        run: |
-          CURRENT_VERSION=$(./misc/get_current_version.sh)
-          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
-      - name: Log in to Docker Hub
-        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_ACCESS_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
-        with:
-          images: mannlabs/alphadia
-
-      - name: show metadata
-        run: |
-          echo "${{ steps.meta.outputs.tags }}"
-          echo "${{ steps.meta.outputs.labels }}"
-          echo "${{ steps.meta.outputs }}"
-
-      - name: Build and push Docker image
-        id: push
-        uses: docker/build-push-action@3b5e8027fcad23fda98b2e3ac259d8d67585f671
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKER_USERNAME }}/alphadia:latest,
-            ${{ secrets.DOCKER_USERNAME }}/alphadia:${{ steps.get_current_version.outputs.current_version }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-
-#      - name: Generate artifact attestation
-#        uses: actions/attest-build-provenance@v1
-#        with:
-#          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
-#          subject-digest: ${{ steps.push.outputs.digest }}
-#          push-to-registry: true
+  publish_on_pypi:
+    uses: MannLabs/alphashared/.github/workflows/publish_docker.yml@v1
+    secrets:
+      docker_access_token: ${{ secrets.DOCKER_ACCESS_TOKEN }}
+      docker_username: ${{ secrets.DOCKER_USERNAME }}
+    with:
+      package_name: alphadia
+      tag_to_release: ${{ inputs.tag_to_release }}
