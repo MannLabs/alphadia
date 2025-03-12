@@ -69,7 +69,7 @@ def get_frag_df_generator(folder_list: list[str]):
 
 
 class QuantBuilder:
-    def __init__(self, psm_df, column=['intensity',
+    def __init__(self, psm_df, columns=['intensity',
                                         'mass_error',
                                         'correlation',
                                         'height',
@@ -78,7 +78,7 @@ class QuantBuilder:
                                         'type',
                                         'number']):
         self.psm_df = psm_df
-        self.column = column
+        self.columns = columns
 
     def accumulate_frag_df_from_folders(
         self, folder_list: list[str]
@@ -130,18 +130,18 @@ class QuantBuilder:
             logger.warning(f"no frag file found for {raw_name}")
             return None
 
-        df = prepare_df(df, self.psm_df, column=self.column)
+        df = prepare_df(df, self.psm_df, column=self.columns)
 
         df_list = []
-        for col in self.column:
+        for col in self.columns:
             feat_df = df[["precursor_idx", "ion", col]].copy()
             feat_df.rename(columns={col: raw_name}, inplace=True)
             df_list.append(feat_df)
         
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, column=self.column)
+            df = prepare_df(df, self.psm_df, column=self.columns)
             
-            for idx, col in enumerate(self.column):
+            for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
                     df[["ion", col, "precursor_idx"]],
                     on=["ion", "precursor_idx"],
