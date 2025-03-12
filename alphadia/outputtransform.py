@@ -149,11 +149,8 @@ class QuantBuilder:
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-        for idx in range(len(df_list)):
-            df_list[idx] = self._add_annotation(df_list[idx])
-            
-        return df_list
-    
+        return [ self._add_annotation(df) for df in df_list]
+                
     def _add_annotation(self, df: pd.DataFrame) -> pd.DataFrame:
 
         """Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
