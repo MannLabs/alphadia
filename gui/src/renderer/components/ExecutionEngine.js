@@ -170,7 +170,7 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
             <>
             <CircularProgress size={13} sx={{color: theme.palette.text.secondary, marginRight: theme.spacing(1)}}/>
             <Typography component="div" sx={{fontFamily:"Roboto Mono", fontSize:"0.85rem", fontWeight: 500}}>
-                Loading...
+                Loading backend...
             </Typography>
             </> : menu}
     </Box>
