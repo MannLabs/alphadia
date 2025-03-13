@@ -2,13 +2,12 @@
 # Also, `requirements_tests.txt` and `requirements_docs.txt` are required for developing
 jupyter
 jupyter_contrib_nbextensions
-pyinstaller
 
-twine
 bump-my-version
 pipdeptree
 ipykernel
-psutil
 
 pre-commit==3.7.0
-pywin32; sys_platform=='win32'
+#pywin32; sys_platform=='win32'
+
+neptune
