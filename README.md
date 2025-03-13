@@ -99,7 +99,7 @@ We recommend setting up miniconda as described on their [website](https://docs.c
 If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
-For any Python package, it is highly recommended to use a separate, as otherwise dependancy conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/).
+For any Python package, it is highly recommended to use a separate, as otherwise dependency conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/).
 
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
