@@ -19,6 +19,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
+from alphadia.workflow.reporting import move_existing_file
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -62,7 +63,7 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
-        self._config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
+        self._save_config(output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
@@ -78,6 +79,14 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         self._log_inputs()
+
+    def _save_config(self, output_folder: str) -> None:
+        """Save the config to a file in the output folder, moving an existing file if necessary."""
+        file_path = os.path.join(output_folder, "frozen_config.yaml")
+        moved_path = move_existing_file(file_path)
+        self._config.to_yaml(file_path)
+        if moved_path:
+            logging.info(f"Moved existing config file {file_path} to {moved_path}")
 
     @staticmethod
     def _init_config(
