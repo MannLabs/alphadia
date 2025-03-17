@@ -70,13 +70,7 @@ def get_frag_df_generator(folder_list: list[str]):
 
 class QuantBuilder:
     def __init__(self, psm_df, columns=['intensity',
-                                        'mass_error',
-                                        'correlation',
-                                        'height',
-                                        'charge',
-                                        'mz_observed',
-                                        'type',
-                                        'number']):
+                                        'correlation']):
         self.psm_df = psm_df
         self.columns = columns
 
@@ -88,7 +82,7 @@ class QuantBuilder:
         Parameters
         ----------
 
-        folder_list: List[str]
+        folder_list: List[str],
             List of folders containing the frag.tsv file
 
         Returns
@@ -297,7 +291,7 @@ class QuantBuilder:
         return protein_df
 
 
-def prepare_df(df, psm_df, columns=["intensity"]):
+def prepare_df(df, psm_df, columns=["intensity", "correlation"]):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = utils.ion_hash(
         df["precursor_idx"].values,
