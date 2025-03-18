@@ -43,7 +43,7 @@ mbr:
   general:
     reuse_quant: False
   library_prediction:
-    predict: False
+    enabled: False
   transfer_library:
     enabled: False
   transfer_learning:
