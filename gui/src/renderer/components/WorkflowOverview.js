@@ -385,10 +385,10 @@ const getWorkflowStates = (method) => {
     const generalParameterGroup = method.config.find(group => group.id === "general");
 
     const transferLearningStep = generalParameterGroup.parameters.find(parameter => parameter.id === "transfer_step_enabled");
-    const transferLearningStepEnabled = transferLearningStep.value === undefined ? transferLearningStep.default : transferLearningStep.value;
+    const transferLearningStepEnabled = transferLearningStep.value;
 
     const matchBetweenRunsStep = generalParameterGroup.parameters.find(parameter => parameter.id === "mbr_step_enabled");
-    const matchBetweenRunsStepEnabled = matchBetweenRunsStep.value === undefined ? matchBetweenRunsStep.default : matchBetweenRunsStep.value;
+    const matchBetweenRunsStepEnabled = matchBetweenRunsStep.value;
 
     return {
         edges: getEdgesForNodeStates(transferLearningStepEnabled, matchBetweenRunsStepEnabled),

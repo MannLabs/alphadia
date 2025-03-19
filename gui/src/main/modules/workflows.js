@@ -13,6 +13,7 @@ function discoverWorkflows(window){
             const workflow = JSON.parse(fs.readFileSync(path.join(directory, file)))
             workflow.name = path.basename(file, '.json')
             validateWorkflow(workflow)
+            initializeWorkflow(workflow)
             return [...acc, workflow]
         } catch (err) {
             dialog.showMessageBox(window, {
@@ -72,6 +73,33 @@ function validateWorkflow(workflow) {
         throw new Error('Workflow config is not an array.')
     }
 
+}
+
+function initializeWorkflow(workflow) {
+    // Process each config section
+    workflow.config.forEach((config) => {
+        // Process regular parameters
+        if (config.parameters) {
+            config.parameters.forEach((parameter) => {
+                // Only set value to default if value is not defined
+                if (parameter.value === undefined) {
+                    parameter.value = parameter.default;
+                }
+            });
+        }
+
+        // Process advanced parameters
+        if (config.parameters_advanced) {
+            config.parameters_advanced.forEach((parameter) => {
+                // Only set value to default if value is not defined
+                if (parameter.value === undefined) {
+                    parameter.value = parameter.default;
+                }
+            });
+        }
+    });
+
+    return workflow;
 }
 
 function workflowToConfig(workflow) {
