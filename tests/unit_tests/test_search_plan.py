@@ -7,6 +7,10 @@ import pytest
 
 from alphadia.search_plan import SearchPlan
 
+MOCK_DEFAULT_CONFIG = {
+    "general": {"transfer_step_enabled": False, "mbr_step_enabled": False},
+}
+
 MOCK_MULTISTEP_CONFIG = {
     "transfer": {"some_transfer_config_key": "some_transfer_config_value"},
     "library": {"some_library_config_key": "some_library_config_value"},
@@ -30,15 +34,18 @@ def _convert_path(path_str: str) -> str:
     return str(Path(path_str))
 
 
-def get_search_plan(config):
+def get_search_plan(
+    config,
+    cli_params_config=BASE_CLI_PARAMS_CONFIG,  # noqa: B006
+    configs=[MOCK_DEFAULT_CONFIG, MOCK_MULTISTEP_CONFIG],  # noqa: B006
+):
     """Helper function to create a SearchPlan object with a given config."""
-    with patch(
-        "alphadia.search_plan.yaml.safe_load", return_value=MOCK_MULTISTEP_CONFIG
-    ):
+    with patch("alphadia.search_plan.yaml") as mock_yaml:
+        mock_yaml.safe_load.side_effect = configs
         return SearchPlan(
             output_directory="/user_provided_output_path",
             config=config,
-            cli_params_config=BASE_CLI_PARAMS_CONFIG,
+            cli_params_config=cli_params_config,
         )
 
 
@@ -71,9 +78,7 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
 ):
     """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps when all parameters are none or empty."""
 
-    search_plan = SearchPlan(
-        output_directory="/user_provided_output_path", config={}, cli_params_config={}
-    )
+    search_plan = get_search_plan({}, {})
 
     # when
     search_plan.run_plan()
@@ -89,6 +94,42 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     }
 
     mock_plan.return_value.run.assert_called_once_with()
+
+
+@pytest.mark.parametrize(
+    ("transfer_step_enabled", "mbr_step_enabled"),
+    [
+        (True, True),
+        (False, True),
+        (True, False),
+        (False, False),
+    ],
+)
+@patch("alphadia.search_plan.reporting.init_logging")
+def test_default_correctly_read(
+    mock_init_logging,
+    transfer_step_enabled,
+    mbr_step_enabled,
+):
+    """Test that the defualts are correctly propagated to the class internals."""
+
+    search_plan = get_search_plan(
+        {},
+        {},
+        [
+            {
+                "general": {
+                    "transfer_step_enabled": transfer_step_enabled,
+                    "mbr_step_enabled": mbr_step_enabled,
+                }
+            },
+            {},
+        ],
+    )
+
+    # when
+    assert search_plan._transfer_step_enabled == transfer_step_enabled
+    assert search_plan._mbr_step_enabled == mbr_step_enabled
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
