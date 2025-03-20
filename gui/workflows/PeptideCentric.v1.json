@@ -148,7 +148,7 @@
                 {
                     "id": "target_num_candidates",
                     "name": "Number of Candidates",
-                    "default": 2,
+                    "default": 3,
                     "description": "For every precursor in the library a number of top scoring candidates will be extracted. This number is the maximum number of candidates that will be extracted per precursor.",
                     "type": "integer"
                 },

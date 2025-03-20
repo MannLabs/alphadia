@@ -52,7 +52,7 @@ By default, alphaDIA performs targeted optimization of precursor m/z, fragment m
 ```yaml
 search:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
-  target_num_candidates: 2
+  target_num_candidates: 3
 
   # Targeted optimization of precursor m/z tolerance.
   # Use absolute values in ppm (e.g. 15ppm) or set to 0 for automatic optimization.

@@ -141,7 +141,7 @@ search:
 
   # === advanced settings ===
   quant_window: 3
-  target_num_candidates: 2
+  target_num_candidates: 3
   # filter to apply to the channels. If set to "", all channels will be used.
   channel_filter: ""
   exclude_shared_ions: True
