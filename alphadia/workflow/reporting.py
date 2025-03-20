@@ -22,7 +22,7 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
@@ -141,11 +141,17 @@ def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     logger.addHandler(ch)
 
     if log_folder is not None:
-        os.makedirs(log_folder, exist_ok=True)
+        try:
+            os.makedirs(log_folder, exist_ok=True)
+        except Exception as e:
+            raise GenericUserError(
+                f"Could not create folder '{log_folder}'. Check your output_directory settings.",
+                str(e),
+            ) from e
 
         log_file_path = os.path.join(log_folder, "log.txt")
 
-        moved_log_file_path = _move_old_logs(log_file_path)
+        moved_log_file_path = move_existing_file(log_file_path)
 
         # create file handler which logs even debug messages
         fh = logging.FileHandler(log_file_path, encoding="utf-8")
@@ -159,9 +165,20 @@ def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     __is_initiated__ = True
 
 
-def _move_old_logs(log_file_path: str) -> str | None:
-    """Move old log files to a new name with an incrementing number."""
-    old_path = Path(log_file_path)
+def move_existing_file(file_path: str) -> str | None:
+    """Move existing file to a new name with an incrementing number.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file that needs to be backed up
+
+    Returns
+    -------
+    str | None
+        Path to the backup file if a backup was created, None otherwise
+    """
+    old_path = Path(file_path)
     new_path = old_path
 
     n = -1
@@ -170,7 +187,7 @@ def _move_old_logs(log_file_path: str) -> str | None:
         new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
 
     if n != -1:
-        Path(log_file_path).rename(new_path)
+        Path(file_path).rename(new_path)
         return str(new_path)
 
     return None

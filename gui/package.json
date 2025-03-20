@@ -1,7 +1,7 @@
 {
   "name": "alphadia",
   "productName": "alphadia-gui",
-  "version": "1.9.3-dev2",
+  "version": "1.10.1-dev0",
   "description": "Graphical user interface for DIA data analysis",
   "main": "dist/electron.js",
   "homepage": "./",
@@ -38,6 +38,7 @@
     "react-virtualized-auto-sizer": "^1.0.20",
     "react-window": "^1.8.9",
     "react-window-infinite-loader": "^1.0.9",
+    "reactflow": "^11.11.4",
     "tree-kill": "^1.2.2",
     "write-yaml-file": "^5.0.0"
   },

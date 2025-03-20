@@ -19,6 +19,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
+from alphadia.workflow.reporting import move_existing_file
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -62,7 +63,7 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
-        self._config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
+        self._save_config(output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
@@ -78,6 +79,14 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         self._log_inputs()
+
+    def _save_config(self, output_folder: str) -> None:
+        """Save the config to a file in the output folder, moving an existing file if necessary."""
+        file_path = os.path.join(output_folder, "frozen_config.yaml")
+        moved_path = move_existing_file(file_path)
+        self._config.to_yaml(file_path)
+        if moved_path:
+            logging.info(f"Moved existing config file {file_path} to {moved_path}")
 
     @staticmethod
     def _init_config(
@@ -179,10 +188,10 @@ class SearchStep:
 
         prediction_config = self.config["library_prediction"]
 
-        if self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["enabled"]:
             logger.error("No library provided and prediction disabled.")
             return
-        elif self.library_path is None and prediction_config["predict"]:
+        elif self.library_path is None and prediction_config["enabled"]:
             logger.progress("No library provided. Building library from fasta files.")
 
             fasta_digest = libtransform.FastaDigest(
@@ -207,7 +216,7 @@ class SearchStep:
 
         thread_count = self.config["general"]["thread_count"]
 
-        if prediction_config["predict"]:
+        if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = libtransform.PeptDeepPrediction(
@@ -257,9 +266,7 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                libtransform.FlattenLibrary(
-                    self.config["search_advanced"]["top_k_fragments"]
-                ),
+                libtransform.FlattenLibrary(self.config["search"]["top_k_fragments"]),
                 libtransform.InitFlatColumns(),
                 libtransform.LogFlatLibraryStats(),
             ]

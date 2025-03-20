@@ -63,10 +63,10 @@ const SingleSelect = ({
         <Grid item xs={3} position={'relative'}>
             <Button
                 variant="outlined"
-                sx={{float: 'right', ml:1, minWidth: "115px"}}
+                sx={{float: 'right', ml:1, minWidth: "130px"}}
                 disabled={!active}
                 onClick={handleSelect}>
-                Select File
+                Select {type == "folder" ? "Folder" : "File"}
             </Button>
         </Grid>
     </Grid>

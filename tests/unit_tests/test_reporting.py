@@ -11,7 +11,7 @@ from conftest import random_tempfolder
 from matplotlib import pyplot as plt
 
 from alphadia.workflow import reporting
-from alphadia.workflow.reporting import _move_old_logs
+from alphadia.workflow.reporting import move_existing_file
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")
@@ -157,23 +157,27 @@ def test_pipeline():
 
 @patch("alphadia.workflow.reporting.Path.rename")
 @patch("alphadia.workflow.reporting.Path.exists")
-def test_move_old_logs_increments_log_file_name_and_moves(mock_exists, mock_rename):
+def test_move_existing_file_increments_log_file_name_and_moves(
+    mock_exists, mock_rename
+):
     """Test that the old log file is moved to log.1.txt"""
     mock_exists.side_effect = [True, True, False]
     log_file_path = "log.txt"
     # when
-    result = _move_old_logs(log_file_path)
+    result = move_existing_file(log_file_path)
     mock_rename.assert_called_once_with(Path("log.1.bkp.txt"))
     assert result == "log.1.bkp.txt"
 
 
 @patch("alphadia.workflow.reporting.Path.rename")
 @patch("alphadia.workflow.reporting.Path.exists")
-def test_move_old_logs_returns_none_when_no_existing_old_log(mock_exists, mock_rename):
+def test_move_existing_file_returns_none_when_no_existing_old_log(
+    mock_exists, mock_rename
+):
     """Test that the function returns None when there is no existing old log file"""
     mock_exists.return_value = False
     log_file_path = "log.txt"
     # when
-    result = _move_old_logs(log_file_path)
+    result = move_existing_file(log_file_path)
     mock_rename.assert_not_called()
     assert result is None

@@ -135,6 +135,7 @@ def _update(
     update_config: dict,
     tracking_dict: dict,
     config_name: str,
+    parent_keys: str = "",
 ) -> None:
     """
     Recursively update target_dict in-place with values from update_dict, following specific rules for different types.
@@ -152,6 +153,8 @@ def _update(
         If a value target_config gets overwritten, the same value in tracking_dict will be overwritten with `config_name`.
     config_name:
         The name of the current config object
+    parent_keys:
+        Names of the parent keys, separated by dots. Used only for exception messages.
 
     Notes
     -----
@@ -165,8 +168,9 @@ def _update(
     - ValueTypeMismatchConfigError: the type of the update value does not match the type of the target value
     """
     for key, update_value in update_config.items():
+        full_key = f"{parent_keys}.{key}" if parent_keys else key
         if key not in target_config:
-            raise KeyAddedConfigError(key, update_value, config_name)
+            raise KeyAddedConfigError(full_key, update_value, config_name)
 
         target_value = target_config[key]
         tracking_value = tracking_dict[key]
@@ -180,14 +184,20 @@ def _update(
             )
         ):
             raise TypeMismatchConfigError(
-                key,
+                full_key,
                 update_value,
                 config_name,
                 f"{type(update_value)} != {type(target_value)}",
             )
 
         if isinstance(target_value, dict):
-            _update(target_value, update_value, tracking_value, config_name)
+            _update(
+                target_value,
+                update_value,
+                tracking_value,
+                config_name,
+                parent_keys=full_key,
+            )
 
         elif isinstance(target_value, list):
             # overwrite lists completely

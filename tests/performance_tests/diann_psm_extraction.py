@@ -4,6 +4,7 @@ import pathlib
 import socket
 
 import neptune.new as neptune
+from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia.extraction.calibration import RunCalibration
 from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
@@ -14,7 +15,6 @@ from alphadia.extraction.scoring import (
     fdr_correction,
     unpack_fragment_info,
 )
-from alphadia.test_data_downloader import DataShareDownloader
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"

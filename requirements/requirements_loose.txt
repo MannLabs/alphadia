@@ -1,0 +1,21 @@
+# Dependencies required for running the "loose" version of alphaDIA.
+# All dependencies that are also included in `requirements.txt` must be added also here (enforced by a test).
+numba
+argparse
+alpharaw>=0.3.1  # test: tolerate_version
+alphatims
+# TODO remove once compatible with alphabase>=1.5.0
+alphabase>=1.5.0 # test: tolerate_version
+peptdeep>=1.3.0 # test: tolerate_version
+dask==2024.11.2 # test: tolerate_version
+neptune
+seaborn
+rocket_fft
+xxhash
+torchmetrics
+transformers<=4.40.2 # test: tolerate_version
+directlfq
+pythonnet
+zstandard
+numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
+scipy>=1.12.0 # test: tolerate_version

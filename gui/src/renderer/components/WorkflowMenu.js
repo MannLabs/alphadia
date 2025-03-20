@@ -14,14 +14,13 @@ const WorkflowMenu = ({
     workflows=[],
     currentWorkflow="",
     onWorkflowChange=() => {},
-    key=0,
 }) => {
 
     const popupState = usePopupState({ variant: 'popover', popupId: 'demoMenu' })
     const theme = useTheme();
 
     return (
-        <Box display="flex" flexDirection="row" alignItems="center" padding={1} key={key}
+        <Box display="flex" flexDirection="row" alignItems="center" padding={1}
         sx={[
             {
 
@@ -32,11 +31,11 @@ const WorkflowMenu = ({
                 <ButtonBase {...bindTrigger(popupState)}>
                     {
                         popupState.isOpen ?
-                        <ArrowRightIcon sx={{color: theme.palette.primary.selected}}/>
+                        <ArrowRightIcon sx={{color: theme.palette.success.main}}/>
                         :
-                        <ArrowDropDownIcon sx={{color: theme.palette.primary.selected}}/>
+                        <ArrowDropDownIcon sx={{color: theme.palette.success.main}}/>
                     }
-                    <Typography component="div" sx={{color: theme.palette.primary.selected, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
+                    <Typography component="div" sx={{color: theme.palette.success.main, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
                         {currentWorkflow !== "" ? currentWorkflow : "Select Workflow"}
                     </Typography>
                 </ButtonBase>
@@ -50,19 +49,16 @@ const WorkflowMenu = ({
                         fontSize: "0.8rem",
                         minHeight: 0,
                     }}
-
                 >
-                    {workflows.map((workflowName, index) => {
-                        return (
-                            <MenuItem
-                                key={index}
-                                onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
-                                sx={{color: theme.palette.primary.main}}
-                            >
-                                {workflowName}
-                            </MenuItem>
-                        )
-                    })}
+                    {workflows.map((workflowName, index) => (
+                        <MenuItem
+                            key={`workflow-${workflowName}`}
+                            onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
+                            sx={{color: theme.palette.success.main}}
+                        >
+                            {workflowName}
+                        </MenuItem>
+                    ))}
 
                     {/*TODO create workflow documentation and add link here*/}
                     {/*<Divider />*/}
@@ -76,8 +72,6 @@ const WorkflowMenu = ({
                     {/*</MenuItem>*/}
                 </Menu>
         </Box>
-
-
     )
 }
 
