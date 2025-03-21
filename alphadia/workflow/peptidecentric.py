@@ -1,5 +1,8 @@
 # native imports
 import logging
+import pickle
+from datetime import datetime
+from pathlib import Path
 
 # third party imports
 import numpy as np
@@ -813,6 +816,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # neptune_run=self.neptune
         )
 
+    @staticmethod
+    def get_free_path(file_name: str, path: str) -> str | None:
+        """Move existing file to a new name with an incrementing number."""
+        old_path = Path(path) / file_name
+        new_path = old_path
+
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S_")
+        n = -1
+        while new_path.exists():
+            n += 1
+            new_path = (
+                old_path.parent / f"{old_path.stem}.{n}.{timestamp}.{old_path.suffix}"
+            )
+
+        return new_path
+
     def extract_batch(
         self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
     ):
@@ -900,6 +919,26 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "quant_all": self.config["search"]["quant_all"],
             }
         )
+        # HERE
+
+        # Save the inputs to plexscoring.CandidateScoring as a checkpoint
+        checkpoint_data = {
+            "dia_data": self.dia_data,
+            "precursor_df": batch_precursor_df,
+            "fragment_df": batch_fragment_df,
+            "config": config,
+            "rt_column": self.get_rt_column(),
+            "mobility_column": self.get_mobility_column(),
+            "precursor_mz_column": self.get_precursor_mz_column(),
+            "fragment_mz_column": self.get_fragment_mz_column(),
+        }
+
+        checkpoint_path = self.get_free_path(
+            "checkpoint.pkl", self.config["general"]["output_folder"]
+        )
+        logger.info(f"Saving checkpoint data to {checkpoint_path}")
+        with open(checkpoint_path, "wb") as f:
+            pickle.dump(checkpoint_data, f)
 
         candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
