@@ -904,7 +904,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         # HERE
 
-        if "checkpoint_path" not in config:
+        if "checkpoint_path" not in self.config:
             rt_column = self.get_rt_column()
             mobility_column = self.get_mobility_column()
             precursor_mz_column = self.get_precursor_mz_column()
@@ -930,7 +930,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             with open(checkpoint_path, "wb") as f:
                 pickle.dump(checkpoint_data, f)
         else:
-            checkpoint_path = config["checkpoint_path"]
+            checkpoint_path = self.config["checkpoint_path"]
             logger.info(f"Loading checkpoint data from {checkpoint_path}")
             with open(checkpoint_path, "rb") as f:
                 checkpoint_data = pickle.load(f)
@@ -956,10 +956,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragment_mz_column=fragment_mz_column,
         )
 
+        # shape persistent
         features_df, fragments_df = candidate_scoring(
             candidates_df,
             thread_count=self.config["general"]["thread_count"],
             include_decoy_fragment_features=True,
+        )
+        logging.info(
+            f"features_df: {features_df.shape}, fragments_df: {fragments_df.shape}"
         )
 
         return features_df, fragments_df
