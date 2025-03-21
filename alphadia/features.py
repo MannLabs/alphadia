@@ -633,7 +633,7 @@ def fragment_features(
     )
 
 
-@nb.njit()
+@nb.njit
 def fragment_mobility_correlation(
     fragments_scan_profile,
     template_scan_profile,
@@ -701,54 +701,47 @@ def profile_features(
     frame_start,
     frame_stop,
     feature_array,
+    experimental_xic,
 ):
     n_observations = len(observation_importance)
-
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
     # ============= FRAGMENT RT CORRELATIONS =============
+    top_3_idxs = fragment_idx_sorted[:3]
 
-    # (n_observations, n_fragments, n_fragments)
-    fragment_frame_correlation_masked = numeric.fragment_correlation(
-        fragments_frame_profile,
-    )
+    if experimental_xic:
+        # New correlation method
+        intensity_slice = fragments_frame_profile.sum(axis=1)
+        normalized_intensity_slice = normalize_profiles(intensity_slice)
+        median_profile = median_axis(normalized_intensity_slice)
+        fragment_frame_correlation_list = correlation_coefficient(
+            median_profile, intensity_slice
+        ).astype(np.float32)
+        top3_fragment_frame_correlation = fragment_frame_correlation_list[
+            top_3_idxs
+        ].mean()
+    else:
+        # Original correlation method
+        fragment_frame_correlation_masked = numeric.fragment_correlation(
+            fragments_frame_profile,
+        )
+        fragment_frame_correlation_maked_reduced = np.sum(
+            fragment_frame_correlation_masked
+            * observation_importance.reshape(-1, 1, 1),
+            axis=0,
+        )
+        fragment_frame_correlation_list = np.dot(
+            fragment_frame_correlation_maked_reduced, fragment_intensity
+        )
 
-    # print('fragment_frame_correlation_masked', fragment_frame_correlation_masked)
+        top3_fragment_frame_correlation = fragment_frame_correlation_maked_reduced[
+            top_3_idxs, :
+        ][:, top_3_idxs].mean()
 
-    # (n_fragments, n_fragments)
-    fragment_frame_correlation_maked_reduced = np.sum(
-        fragment_frame_correlation_masked * observation_importance.reshape(-1, 1, 1),
-        axis=0,
-    )
-    fragment_frame_correlation_list = np.dot(
-        fragment_frame_correlation_maked_reduced, fragment_intensity
-    )
     feature_array[31] = np.mean(fragment_frame_correlation_list)
 
     # (3)
-    top_3_idxs = fragment_idx_sorted[:3]
-    # (3, 3)
-    top_3_fragment_frame_correlation = fragment_frame_correlation_maked_reduced[
-        top_3_idxs, :
-    ][:, top_3_idxs]
-    feature_array[32] = np.mean(top_3_fragment_frame_correlation)
-
-    # (n_observation, n_fragments)
-    fragment_template_frame_correlation = numeric.fragment_correlation_different(
-        fragments_frame_profile,
-        template_frame_profile.reshape(1, n_observations, -1),
-    ).reshape(n_observations, -1)
-
-    # (n_fragments)
-    fragment_template_frame_correlation_reduced = np.sum(
-        fragment_template_frame_correlation * observation_importance.reshape(-1, 1),
-        axis=0,
-    )
-
-    # template_frame_correlation
-    feature_array[33] = np.dot(
-        fragment_template_frame_correlation_reduced, fragment_intensity
-    )
+    feature_array[32] = top3_fragment_frame_correlation
 
     # ============= FRAGMENT TYPE FEATURES =============
 
@@ -997,3 +990,105 @@ def reference_features(
     feature_dict["mean_reference_template_frame_cosine"] = np.mean(frame_similarity)
 
     return feature_dict
+
+
+@nb.njit
+def correlation_coefficient(x: np.ndarray, ys: np.ndarray):
+    """
+    Calculate the correlation coefficient between x and each y in ys.
+    Returns a numpy array of the same length as ys.
+
+    Args:
+        x: numpy array of shape (n,)
+        ys: numpy array of shape (m, n)
+
+    Returns:
+        numpy array of shape (m,) where elements are correlation coefficients.
+        Returns 0 for cases where either x or y has zero variance.
+    """
+    n = len(x)
+    # Calculate means
+    mx = x.mean()
+    # Calculate mean for each y array manually since axis parameter isn't supported
+    m = len(ys)
+    my = np.zeros(m)
+    for i in range(m):
+        my[i] = np.sum(ys[i]) / n
+
+    # Initialize array for results
+    result = np.zeros(m)
+
+    var_x = np.sum((x - mx) * (x - mx)) / n
+
+    # Calculate correlation coefficient for each y in ys
+    for i in range(m):
+        # Calculate covariance and variances
+        cov = np.sum((x - mx) * (ys[i] - my[i])) / n
+        var_y = np.sum((ys[i] - my[i]) * (ys[i] - my[i])) / n
+
+        # Handle zero variance cases
+        if var_x == 0 or var_y == 0:
+            result[i] = 0
+        else:
+            result[i] = cov / np.sqrt(var_x * var_y)
+
+    return result
+
+
+@nb.njit
+def normalize_profiles(intensity_slice, center_dilations=2):
+    """
+    Calculate normalized intensity profiles from dense array.
+
+    Args:
+        dense: numpy array where first dimension represents different measurements,
+              and subsequent dimensions represent mz and rt
+        center_dilations: number of points to consider around center for normalization
+
+    Returns:
+        numpy array of normalized intensity profiles with same shape as input,
+        where profiles with zero center intensity are set to zero
+    """
+    center_idx = intensity_slice.shape[1] // 2
+
+    # Calculate mean manually instead of using axis parameter
+    center_intensity = np.ones((intensity_slice.shape[0], 1))
+
+    for i in range(intensity_slice.shape[0]):
+        window = intensity_slice[
+            i, center_idx - center_dilations : center_idx + center_dilations
+        ]
+        center_intensity[i, 0] = np.sum(window) / window.shape[0]
+
+    # Create normalized output array, initialized to zeros
+    center_intensity_normalized = np.zeros_like(intensity_slice)
+
+    # Only normalize profiles where center intensity > 0
+    for i in range(intensity_slice.shape[0]):
+        if center_intensity[i, 0] > 0:
+            center_intensity_normalized[i] = intensity_slice[i] / center_intensity[i, 0]
+
+    return center_intensity_normalized
+
+
+@nb.njit
+def median_axis(array, axis=0):
+    """Calculate the median along a specified axis.
+
+    Args:
+        array: Input array
+        axis: Axis along which to calculate median (default 0)
+
+    Returns:
+        Array of medians
+    """
+    if axis == 0:
+        result = np.zeros(array.shape[1])
+        for i in range(array.shape[1]):
+            result[i] = np.median(array[:, i])
+    else:  # axis == 1
+        result = np.zeros(array.shape[0])
+        for i in range(array.shape[0]):
+            result[i] = np.median(array[i, :])
+
+    return result
