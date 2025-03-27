@@ -12,7 +12,6 @@ from peptdeep.pretrained_models import ModelManager
 from peptdeep.settings import global_settings
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
-from typing import Optional, List
 from alphadia.transferlearning.metrics import (
     AbsErrorPercentileTestMetric,
     AccuracyTestMetric,
@@ -218,7 +217,7 @@ class FinetuneManager(ModelManager):
         max_lr: float = 0.0005,
         nce: float = 25,
         instrument: str = "Lumos",
-        charged_frag_types: Optional[List[str]] = None,
+        charged_frag_types: list[str] | None = None,
     ):
         super().__init__(mask_modloss, device)
         self._test_interval = test_interval
