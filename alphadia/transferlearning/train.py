@@ -9,7 +9,6 @@ from alphabase.peptide.precursor import refine_precursor_df
 from peptdeep.model.charge import ChargeModelForModAASeq
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
-from peptdeep.model.ms2 import pDeepModel
 from peptdeep.settings import global_settings
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
@@ -219,7 +218,7 @@ class FinetuneManager(ModelManager):
         max_lr: float = 0.0005,
         nce: float = 25,
         instrument: str = "Lumos",
-        charged_frag_types: list = ["b_z1", "b_z2", "y_z1", "y_z2"]
+        charged_frag_types: list = ["b_z1", "b_z2", "y_z1", "y_z2"],
     ):
         super().__init__(mask_modloss, device)
         self._test_interval = test_interval
@@ -239,10 +238,14 @@ class FinetuneManager(ModelManager):
         assert (
             self._train_fraction + self._validation_fraction + self._test_fraction
             <= 1.0
-        ), "The sum of the train, validation and test fractions should be less than or equal to 1.0"
+        ), (
+            "The sum of the train, validation and test fractions should be less than or equal to 1.0"
+        )
 
         # if requested charged frag types are different than the default ones, update the ms2 model
-        if set(self.charged_frag_types) != set(self.ms2_model.model.supported_charged_frag_types ):
+        if set(self.charged_frag_types) != set(
+            self.ms2_model.model.supported_charged_frag_types
+        ):
             self.reinitialize_ms2_model(charged_frag_types=self.charged_frag_types)
         self.load_installed_models()
 
@@ -460,7 +463,9 @@ class FinetuneManager(ModelManager):
             precursor_df["nce"] = default_nce
 
         precursor_copy = precursor_df.copy()
-        pred_intensities = self.ms2_model.predict(precursor_copy, allow_unsafe_predictions=True)
+        pred_intensities = self.ms2_model.predict(
+            precursor_copy, allow_unsafe_predictions=True
+        )
 
         test_input = {
             "psm_df": precursor_df,
@@ -607,7 +612,9 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Test the model before training
-        if set(self.charged_frag_types).issubset(set(self.ms2_model.model.supported_charged_frag_types)):
+        if set(self.charged_frag_types).issubset(
+            set(self.ms2_model.model.supported_charged_frag_types)
+        ):
             self._test_ms2(
                 -1,
                 0,
