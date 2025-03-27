@@ -238,9 +238,7 @@ class FinetuneManager(ModelManager):
         assert (
             self._train_fraction + self._validation_fraction + self._test_fraction
             <= 1.0
-        ), (
-            "The sum of the train, validation and test fractions should be less than or equal to 1.0"
-        )
+        ), "The sum of the train, validation and test fractions should be less than or equal to 1.0"
 
         # if requested charged frag types are different than the default ones, update the ms2 model
         if set(self.charged_frag_types) != set(
