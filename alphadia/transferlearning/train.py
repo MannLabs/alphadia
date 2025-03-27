@@ -12,6 +12,7 @@ from peptdeep.pretrained_models import ModelManager
 from peptdeep.settings import global_settings
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
+
 from alphadia.transferlearning.metrics import (
     AbsErrorPercentileTestMetric,
     AccuracyTestMetric,
