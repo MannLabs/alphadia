@@ -1,6 +1,6 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
-import { Tooltip, tooltipClasses } from '@mui/material'
+import useTheme from '@mui/material/styles/useTheme';
 import InfoTooltip from './InfoTooltip'
 
 import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
@@ -210,6 +210,7 @@ const ParameterInput = ({
 
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
+    let default_text = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
     return (
 
             <Stack
@@ -223,15 +224,15 @@ const ParameterInput = ({
                 <Stack spacing={0.5}>
                     <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
                     <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
-                    <Typography>{parameter.description}</Typography>
+                    <Typography>{parameter.description} (default: {default_text})</Typography>
                 </Stack>
             }>
-                <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
+                <Typography sx={{fontWeight: 400, fontSize: "12px",
+                        color: parameter.value !== parameter.default ? useTheme().palette.primary.main : 'inherit'}}>
                     {parameter.name}
                 </Typography>
             </InfoTooltip>
                 {input}
-
             </Stack>
 
 
