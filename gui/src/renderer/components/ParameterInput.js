@@ -210,7 +210,7 @@ const ParameterInput = ({
 
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
-    let default_text = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
+    let defaultText = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
     return (
 
             <Stack
@@ -224,7 +224,7 @@ const ParameterInput = ({
                 <Stack spacing={0.5}>
                     <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
                     <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
-                    <Typography>{parameter.description} (default: {default_text})</Typography>
+                    <Typography>{parameter.description} (default: {defaultText})</Typography>
                 </Stack>
             }>
                 <Typography sx={{fontWeight: 400, fontSize: "12px",
