@@ -1647,7 +1647,7 @@ class CandidateScoring:
         )
 
     def collect_candidates(
-        self, candidates_df: pd.DataFrame, psm_proto_df
+        self, candidates_df: pd.DataFrame, psm_proto_df_precursor_df
     ) -> pd.DataFrame:
         """Collect the features from the score group container and return a DataFrame.
 
@@ -1716,11 +1716,16 @@ class CandidateScoring:
             "mean_overlapping_mass_error",
         ]
 
-        precursor_idx, rank, features = psm_proto_df.to_precursor_df()
+        precursor_idx, rank, features = (
+            psm_proto_df_precursor_df  # psm_proto_df.to_precursor_df() # MEM
+        )
 
         df = pd.DataFrame(features, columns=feature_columns)
         df["precursor_idx"] = precursor_idx
         df["rank"] = rank
+        del precursor_idx
+        del rank
+        del features
 
         # join candidate columns
         candidate_df_columns = [
@@ -1742,6 +1747,7 @@ class CandidateScoring:
             on=["precursor_idx", "rank"],
             how="left",
         )
+        del candidates_df
 
         # join precursor columns
         precursor_df_columns = [
@@ -1797,7 +1803,7 @@ class CandidateScoring:
         return df
 
     def collect_fragments(
-        self, candidates_df: pd.DataFrame, psm_proto_df
+        self, candidates_df: pd.DataFrame, psm_proto_df_to_fragment_df
     ) -> pd.DataFrame:
         """Collect the fragment-level features from the score group container and return a DataFrame.
 
@@ -1838,10 +1844,11 @@ class CandidateScoring:
             {
                 key: value
                 for value, key in zip(
-                    psm_proto_df.to_fragment_df(), colnames, strict=True
+                    psm_proto_df_to_fragment_df, colnames, strict=True
                 )
             }
         )
+        del psm_proto_df_to_fragment_df
 
         # join precursor columns
         precursor_df_columns = [
@@ -1932,11 +1939,19 @@ class CandidateScoring:
 
         logger.info("Finished candidate processing")
         logger.info("Collecting candidate features")
-        candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
-        validate.candidate_features_df(candidate_features_df)
+        candidate_features_df = self.collect_candidates(
+            candidates_df, psm_proto_df.to_precursor_df()
+        )
+        del candidates_df
 
+        df = psm_proto_df.to_fragment_df()
+        del psm_proto_df
         logger.info("Collecting fragment features")
-        fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
+        fragment_features_df = self.collect_fragments(None, df)
+
+        logger.info("validate.candidate_features_df")
+        validate.candidate_features_df(candidate_features_df)
+        logger.info("validate.fragment_features_df")
         validate.fragment_features_df(fragment_features_df)
 
         logger.info("Finished candidate scoring")
