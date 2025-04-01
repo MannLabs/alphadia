@@ -1,5 +1,6 @@
 # native imports
 import logging
+from datetime import datetime
 
 # alpha family imports
 import alphatims.utils
@@ -48,7 +49,7 @@ def candidate_features_to_candidates(
     # validate candidate_features_df input
     if optional_columns is None:
         optional_columns = ["proba"]
-    validate.candidate_features_df(candidate_features_df.copy())
+    validate.candidate_features_df(candidate_features_df)  # MEM .copy()
 
     required_columns = [
         "elution_group_idx",
@@ -63,7 +64,9 @@ def candidate_features_to_candidates(
     ]
 
     # select required columns
-    candidate_df = candidate_features_df[required_columns + optional_columns].copy()
+    candidate_df = candidate_features_df[
+        required_columns + optional_columns
+    ]  # MEM .copy()
     # validate candidate_df output
     validate.candidates_df(candidate_df)
 
@@ -103,8 +106,8 @@ def multiplex_candidates(
     """
     if channels is None:
         channels = [0, 4, 8, 12]
-    precursors_flat_view = precursors_flat_df.copy()
-    best_candidate_view = candidates_df.copy()
+    precursors_flat_view = precursors_flat_df  # MEM .copy()
+    best_candidate_view = candidates_df  # MEM .copy()
 
     validate.precursors_flat(precursors_flat_view)
     validate.candidates_df(best_candidate_view)
@@ -1891,17 +1894,27 @@ class CandidateScoring:
         """
         logger.info("Starting candidate scoring")
 
+        logger.info(f"{datetime.now()} assemble_fragments")
         fragment_container = self.assemble_fragments()
+
+        logger.info(f"{datetime.now()} validate.candidates_df(candidates_df)")
         validate.candidates_df(candidates_df)
 
+        logger.info(f"{datetime.now()} assemble_score_group_container")
         score_group_container = self.assemble_score_group_container(candidates_df)
+
+        logger.info(f"{datetime.now()} get_candidate_count")
         n_candidates = score_group_container.get_candidate_count()
+
+        logger.info(f"{datetime.now()} OuptutPsmDF")
         psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
 
         iterator_len = len(score_group_container)
 
         if debug:
-            logger.info("Debug mode enabled. Processing only the first 10 score groups")
+            logger.info(
+                "Debug mode enabled. Processing only the first 10 score groups with thread_count=1"
+            )
             thread_count = 1
             iterator_len = min(10, iterator_len)
 
