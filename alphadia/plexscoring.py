@@ -1,4 +1,5 @@
 # native imports
+import gc
 import logging
 from datetime import datetime
 
@@ -1726,6 +1727,7 @@ class CandidateScoring:
         del precursor_idx
         del rank
         del features
+        gc.collect()
 
         # join candidate columns
         candidate_df_columns = [
@@ -1748,6 +1750,7 @@ class CandidateScoring:
             how="left",
         )
         del candidates_df
+        gc.collect()
 
         # join precursor columns
         precursor_df_columns = [
@@ -1943,9 +1946,11 @@ class CandidateScoring:
             candidates_df, psm_proto_df.to_precursor_df()
         )
         del candidates_df
+        gc.collect()
 
         df = psm_proto_df.to_fragment_df()
         del psm_proto_df
+        gc.collect()
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(None, df)
 
@@ -1957,6 +1962,8 @@ class CandidateScoring:
         logger.info("Finished candidate scoring")
 
         del score_group_container
+        gc.collect()
         del fragment_container
+        gc.collect()
 
         return candidate_features_df, fragment_features_df
