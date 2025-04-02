@@ -1282,7 +1282,7 @@ class OuptutPsmDF:
     precursor_idx: nb.uint32[::1]
     rank: nb.uint8[::1]
 
-    features: nb.float32[:, ::1]
+    features: nb.float16[:, ::1]
 
     fragment_precursor_idx: nb.uint32[:, ::1]
     fragment_rank: nb.uint8[:, ::1]
@@ -1291,11 +1291,11 @@ class OuptutPsmDF:
     fragment_mz: nb.float32[:, ::1]
     fragment_mz_observed: nb.float32[:, ::1]
 
-    fragment_height: nb.float32[:, ::1]
-    fragment_intensity: nb.float32[:, ::1]
+    fragment_height: nb.float16[:, ::1]
+    fragment_intensity: nb.float16[:, ::1]
 
-    fragment_mass_error: nb.float32[:, ::1]
-    fragment_correlation: nb.float32[:, ::1]
+    fragment_mass_error: nb.float16[:, ::1]
+    fragment_correlation: nb.float16[:, ::1]
 
     fragment_position: nb.uint8[:, ::1]
     fragment_number: nb.uint8[:, ::1]
