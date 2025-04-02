@@ -32,28 +32,28 @@ Make sure you have a project folder set up with the raw data, fasta file and an 
 
 ### 1. Configure Input/Output
 
-Launch AlphaDIA and configure your inputs. Select all raw files and add them to the file list. You'll also need to add the FASTA file which will be used for library prediction. Set your output folder to a location of your choice where results will be stored.
+Launch AlphaDIA and configure your inputs. Set your output folder to a location of your choice where results will be stored. Select all raw files and add them to the file list. You'll also need to add the FASTA file which will be used for library prediction. Set your output folder to a location of your choice where results will be stored.
 
 <img src="../_static/images/transfer-dimethyl-v1.10.1/input.png" width="100%" height="auto">
 
 ### 2. Configure the Multistep Search
 
-#### 1. General Settings
+#### 1. Method Settings
 In the GUI, navigate to settings and activate "Transfer Learning step" and "Match Between Runs" second step. These options enable the complete multistep workflow.
 
 All settings which we will configure will by default affect all three search steps. On top of these settings, AlphaDIA will make smart choices in the transfer learning and MBR search to make sure the right modules are switched on.
 
-Set the `thread_count` parameter to match the number of logical cores available on your system. This will optimize performance by utilizing your available computing resources.
+Set the `general.thread_count` parameter to match the number of logical cores available on your system. This will optimize performance by utilizing your available computing resources.
 
-Enable library prediction from FASTA, which is essential for the workflow. This allows AlphaDIA to generate a theoretical spectral library from your protein database.
+Enable library prediction from FASTA withg `library_prediction.enabled`, which is essential for the workflow. This allows AlphaDIA to generate a theoretical spectral library from your protein database.
 
-The `precursor_mz` range should be set to match your dataset characteristics. For the example data, the range 380-980 is appropriate as it covers the mass range of the peptides in the sample. Setting this correctly helps focus the search on relevant precursors.
+The `library_prediction.precursor_mz` range should be set to match your dataset characteristics. For the example data, the range 380-980 is appropriate as it covers the mass range of the peptides in the sample. Setting this correctly helps focus the search on relevant precursors.
 
-For dimethyl-labeled samples, you must specify the following fixed modifications: `Dimethyl@Any_N-term` and `Dimethyl@K`. These account for the chemical modifications added during sample preparation.
+For dimethyl-labeled samples, you must specify the following fixed modifications by setting `library_prediction.fixed_modifications` to `Dimethyl@Any_N-term` and `Dimethyl@K`. These account for the chemical modifications added during sample preparation.
 
-Add appropriate variable modifications which may be present in your samples. For typical samples, `Oxidation@M` and `Acetyl@Protein_N-term` are common. Variable modifications account for potential post-translational or chemical modifications that may or may not be present on certain residues.
+Add appropriate variable modifications to `library_prediction.variable_modifications` which may be present in your samples. For typical samples, `Oxidation@M` and `Acetyl@Protein_N-term` are common. Variable modifications account for potential post-translational or chemical modifications that may or may not be present on certain residues.
 
-The tolerance settings are critical for search accuracy. Set `target_ms1_tolerance` to 4 ppm and `target_ms2_tolerance` to 7 ppm if you're using Orbitrap Astral or similar high-resolution instruments. For lower-resolution instruments, values of 10-15 ppm might be more appropriate. These values define how closely measured masses must match theoretical masses.
+The tolerance settings are critical for search accuracy. Set `search.target_ms1_tolerance` to 4 ppm and `search.target_ms2_tolerance` to 7 ppm if you're using Orbitrap Astral or similar high-resolution instruments. For lower-resolution instruments, values of 10-15 ppm might be more appropriate. These values define how closely measured masses must match theoretical masses.
 
 <img src="../_static/images/transfer-dimethyl-v1.10.1/settings.png" width="100%" height="auto">
 
@@ -69,12 +69,12 @@ If you want to have more control over the transfer learning step, we can use the
 
 **Transfer Learning** For transfer learning we can set the hyperparameters for training as well as the annotation of the model. Usually no changes are needed as an [automated](../methods/transfer-learning.md) learning rate schedule for optimal performance without overfitting is used.
 
-<img src="../_static/images/transfer-dimethyl-v1.10.1/advanced_settings.png" width="100%" height="auto">
+<img src="../_static/images/transfer-dimethyl-v1.10.1/advanced_settings.png" width="60%" height="auto">
 
 
 ### 3. Start the Workflow
 
-With your settings configured, click the "Run Workflow" button to start the integrated multistep search process. The workflow executes in three automated phases:
+With your settings configured, click the "Run Workflow" button to start the integrated multistep search process. The workflow executes in three automated phases.
 
 ## Results
 ### 1. Output Folder
@@ -85,7 +85,7 @@ The final analysis results will be located in the root of your project folder. T
 
 Intermediate results from earlier steps are stored in subfolders named `transfer` and `library`, allowing you to examine the results of individual stages if needed.
 
-For downstream analysis and interpretation, you'll primarily work with:
+For downstream analysis and interpretation, you'll primarily work with the results stored in the root of the output folder:
 
 The precursor-level file `precursors.tsv`, which contains detailed information about all identified peptide precursors, including retention times, intensities, and confidence metrics.
 
