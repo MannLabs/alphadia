@@ -3,13 +3,15 @@
 
 ## 1. Prerequisites
 Make sure that you have a machine with at least 64 gigabytes of memory.
-Please download the test data for this tutorial [here](https://datashare.biochem.mpg.de/s/Nsp8CaHMBf7FHq1). We will be using replicates of label-free bulk DIA data of HeLa digests acquired on the Orbitrap Astral.
+Please download the test data for this tutorial [here](https://datashare.biochem.mpg.de/s/jPu1DqsS4llyYNE). We will be using replicates of label-free bulk DIA data of HeLa digests acquired on the Orbitrap Astral.
 Also make sure you have a valid alphaDIA installation including the GUI. The easiest option is the one-click installer, and a summary of all installation options can be found [here](<project:../installation.md>).
 Also ensure the right execution engine has been selected and your version is up to date.
 <img src="../_static/images/libfree-gui-v1.10.1/initial_engine.png" width="100%" height="auto">
 
 ## 2. Project Structure
-In this workflow, we will perform a DIA search that handles both library generation and cross-sample quantification (Match Between Runs) automatically. You only need to prepare a single output folder for your analysis results.
+In this workflow, we will perform a DIA search that handles both library generation and cross-sample quantification (Match Between Runs) automatically. We will not use transfer learning in this workflow as we are looking for unmodified peptides from isntruments well supported by the default PeptDeep model.
+
+Start by preparing a single output folder for your analysis results.
 
 <img src="../_static/images/libfree-gui-v1.10.1/initial_folders.png" width="100%" height="auto">
 
@@ -20,15 +22,17 @@ To set up the search:
 2. Add the FASTA file which will be used for library prediction by clicking the `SELECT FILE` button.
 
 
-As we will be using a two-step search, make sure that the MBR step is activated in the search workflow. All settings we are defining will by default affect both searches. AlphaDIA will change these parameters automatically for the second step so both steps interact correctly and you get optimal performance.
+As we will be using a two-step search, make sure that the MBR step is activated in the search workflow in the top panel. All settings we are defining will by default affect both searches. AlphaDIA will change these parameters automatically for the second step so both steps interact correctly and you get optimal performance.
 
 <img src="../_static/images/libfree-gui-v1.10.1/input.png" width="100%" height="auto">
 
 ## 4. Search Settings
 
-In the parameter panel, most can be left at their default values. To speed up processing, set `thread_count` to the number of logical cores you have available in your system. Enable library prediction from FASTA and set the `precursor_mz` range to the range of the dataset `380`-`980` to predict only the relevant subset of precursors. By default, this search will have `Carbamidomethyl@C` as a fixed modification and up to two variable modifications of `Oxidation@M` and `Acetyl@Protein_N-term`.
+In the parameter panel, most can be left at their default values. To speed up processing, set `general.thread_count` to the number of logical cores you have available in your system.
 
-For the search, we will use known `target_ms1_tolerance` of 4ppm and `target_ms2_tolerance` of 7ppm. These values are optimal for Orbitrap Astral data and can be reused. For lower resolution instruments, 10ppm or 15ppm might be optimal. If the optimal mass tolerance is not known, it can be set to `0` to activate automatic optimization. The `target_rt_tolerance` will also be set to `0` for automatic optimization.
+We will use built-in library prediction with PeptDeep for search. The library prediction parameters like modifications define the search space in which alphaDIA will look for precursors matching the observed spectra. Narrower ranges will lead to a smaller search space and thus faster inference but you might miss relevant precursors. Enable library prediction from FASTA and set the `library_prediction.precursor_mz` range to the range of the dataset `380`-`980` to predict only the relevant subset of precursors. By default, this search will have `Carbamidomethyl@C` as a fixed modification and up to two variable modifications of `Oxidation@M` and `Acetyl@Protein_N-term`.
+
+For the search, we will use known `search.target_ms1_tolerance` of 4ppm and `search.target_ms2_tolerance` of 7ppm. These values are optimal for Orbitrap Astral data and can be reused. For lower resolution instruments, 10ppm or 15ppm might be optimal. If the optimal mass tolerance is not known, it can be set to `0` to activate automatic optimization. The `search.target_rt_tolerance` will also be set to `0` for automatic optimization.
 
 :::{tip}
 Keeping track of optimized mass tolerance values for different instrument setups can save time in future analyses and ensure consistent optimized results across projects.
@@ -37,7 +41,7 @@ Keeping track of optimized mass tolerance values for different instrument setups
 <img src="../_static/images/libfree-gui-v1.10.1/settings.png" width="100%" height="auto">
 
 
-Start the search by clicking the "Run Workflow" button. The processing time will depend on your system specifications and the number of files, but you can expect it to take approximately 1-2 hours for this dataset.
+Start the search by clicking the "Run Workflow" button. Generally, the processing time will depend on your system specifications and the number of files. For the current dataset, you can expect it to take approximately 1-2 hours.
 
 ## 5. Results
 After the search completes, your output folder will contain a full search output with both individual file results and cross-sample quantification.
