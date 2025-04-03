@@ -1,78 +1,22 @@
 import * as React from 'react'
 
 import { Card, StyledLink } from '.';
-import { Box, List, ListItem, ListItemText, ListItemSecondaryAction, Typography, CircularProgress } from '@mui/material';
-
-function fetchGithubIssues(repos) {
-    // iterate all repos
-    return Promise.all(repos.map(repo => {
-        // fetch the issues
-        return fetch(repo.url).then((res) => {
-            if (!res.ok) {
-                throw new Error(`HTTP error ${res.status} for ${repo.url}`);
-            } else {
-                return res.json();
-            }
-        }).then(issues => {
-            return {
-                name: repo.name,
-                issues: issues
-            }
-        }).catch(err => {
-            console.log(err);
-            return []
-        })
-    })).then(data => {
-        // combine all the issues into one array and add the repo name
-        // sort them by updated_at date
-        // take top 20
-        const issues = data.reduce((acc, repo) => {
-            return acc.concat(repo.issues.map(issue => {
-                return {
-                    name: repo.name,
-                    title: issue.title,
-                    url: issue.html_url,
-                    updated_at: new Date(issue.updated_at),
-                    days_ago: Math.floor((new Date() - new Date(issue.updated_at)) / (1000 * 60 * 60 * 24)),
-                    hours_ago: Math.floor((new Date() - new Date(issue.updated_at)) / (1000 * 60 * 60)) % 24,
-
-                }
-            }))
-        }, []).sort((a, b) => {
-            return b.updated_at - a.updated_at
-        }).slice(0, 20)
-        return issues;
-    }).catch(err => {
-        console.log(err);
-        return []
-    })
-}
-
-
-
+import { Box, List, ListItem, ListItemText, ListItemSecondaryAction, Typography, CircularProgress, IconButton, Tooltip, Divider } from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import { useGitHub } from '../logic/context';
 
 const DiscussionCard = ({sx = []}) => {
+    //display the 20 most recent issues and releases from the github repos using context
+    const {
+        githubData,
+        loading,
+        lastUpdated,
+        formatLastUpdated,
+        refreshData
+    } = useGitHub();
 
-    //display the 20 most recent issues from the github repos
-    // display loading while fetching
-
-    const [issues, setIssues] = React.useState([]);
-
-
-    React.useEffect(() => {
-
-            fetchGithubIssues([
-                {url: "https://api.github.com/repos/MannLabs/alphabase/issues", name: "AlphaBase"},
-                {url: "https://api.github.com/repos/MannLabs/alphapept/issues", name: "AlphaPept"},
-                {url: "https://api.github.com/repos/MannLabs/alphatims/issues", name: "AlphaTims"},
-                {url: "https://api.github.com/repos/MannLabs/alphapeptdeep/issues", name: "AlphaPeptDeep"},
-            ]).then((data) => {
-                setIssues(data)
-            }
-
-            );
-
-    }, []);
+    // Get the combinedItems from githubData if available
+    const items = githubData?.combinedItems || [];
 
     return (
     <Card sx={[
@@ -84,34 +28,78 @@ const DiscussionCard = ({sx = []}) => {
         ...(Array.isArray(sx) ? sx : [sx]),
         ]}
         >
-            <Typography component="h1" variant="h1" sx={{fontWeight: 700, fontSize: "1rem", mt:0}}>
-                Recent Discussions
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography component="h1" variant="h1" sx={{fontWeight: 700, fontSize: "1rem", mt:0}}>
+                    Recent Updates in AlphaX
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {lastUpdated && (
+                        <Typography variant="caption" sx={{ mr: 1, color: 'text.secondary' }}>
+                            Updated {formatLastUpdated(lastUpdated)}
+                        </Typography>
+                    )}
+                    <Tooltip title="Refresh">
+                        <IconButton
+                            size="small"
+                            onClick={refreshData}
+                            disabled={loading}
+                            sx={{ padding: '2px' }}
+                        >
+                            <RefreshIcon fontSize="small" />
+                        </IconButton>
+                    </Tooltip>
+                </Box>
+            </Box>
 
-            {
-                issues.length === 0 &&
-                <Box sx={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px'}}>
+            {loading ? (
+                <Box sx={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px'}}>
                     <CircularProgress/>
                 </Box>
-            }
+            ) : (
+                <List sx={{ width: '100%', mt: 1}}>
+                    {items.map((item) => (
+                        <ListItem
+                            key={item.url}
+                            disablePadding
+                            sx={item.type === 'release' ? {
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: '4px',
+                                marginBottom: '6px',
+                                marginTop: '6px',
+                                padding: '4px 8px'
+                            } : {padding: '4px 8px'}}
+                        >
+                            <ListItemText
+                                primary={
+                                    <Typography
+                                        sx={item.type === 'release' ? {
+                                            fontWeight: 'bold'
+                                        } : {}}
+                                    >
+                                        {item.title}
+                                    </Typography>
+                                }
+                                secondary={
+                                    <>
+                                        <Typography variant="caption" component="div">
+                                            {(item.days_ago > 0 ? `${item.days_ago} d ` : ``) +
+                                            `${item.hours_ago} h ago - ${item.name} ${item.type === 'release' ? '📦' : ''}`}
+                                        </Typography>
 
-            <List sx={{ width: '100%'}}>
-                {issues.map((issue) => (
-                    <ListItem key={issue.url} disablePadding>
-                        <ListItemText
-                            primary={issue.title}
-                            secondary={ (issue.days_ago > 0 ? `${issue.days_ago} d ` : ``) + `${issue.hours_ago} h ago - ` + issue.name}
-                        />
-                        <ListItemSecondaryAction>
-                            <StyledLink onClick={() => window.electronAPI.openLink(issue.url)}>
-                                View
-                            </StyledLink>
-                        </ListItemSecondaryAction>
-                    </ListItem>
-                ))}
-            </List>
 
-
+                                    </>
+                                }
+                            />
+                            <ListItemSecondaryAction>
+                                <StyledLink onClick={() => window.electronAPI.openLink(item.url)}>
+                                    View
+                                </StyledLink>
+                            </ListItemSecondaryAction>
+                        </ListItem>
+                    ))}
+                </List>
+            )}
         </Card>
     )
 }
