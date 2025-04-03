@@ -1277,25 +1277,25 @@ ScoreGroupContainer.__module__ = "alphatims.extraction.plexscoring"
 
 
 @nb.experimental.jitclass()
-class OuptutPsmDF:
+class OuptutPsmDF:  # numba-compatible data container
     valid: nb.boolean[::1]
     precursor_idx: nb.uint32[::1]
     rank: nb.uint8[::1]
 
-    features: nb.float16[:, ::1]
-
+    features: nb.float32[:, ::1]
+    # from here on roae    frag x candidates ... 12 x 18m
     fragment_precursor_idx: nb.uint32[:, ::1]
     fragment_rank: nb.uint8[:, ::1]
 
-    fragment_mz_library: nb.float32[:, ::1]
+    fragment_mz_library: nb.float32[:, ::1]  # float16?
     fragment_mz: nb.float32[:, ::1]
     fragment_mz_observed: nb.float32[:, ::1]
 
-    fragment_height: nb.float16[:, ::1]
-    fragment_intensity: nb.float16[:, ::1]
+    fragment_height: nb.float32[:, ::1]
+    fragment_intensity: nb.float32[:, ::1]
 
-    fragment_mass_error: nb.float16[:, ::1]
-    fragment_correlation: nb.float16[:, ::1]
+    fragment_mass_error: nb.float32[:, ::1]
+    fragment_correlation: nb.float32[:, ::1]
 
     fragment_position: nb.uint8[:, ::1]
     fragment_number: nb.uint8[:, ::1]
@@ -1874,7 +1874,7 @@ class CandidateScoring:
         thread_count=10,
         debug=False,
         include_decoy_fragment_features=False,
-    ):
+    ):  # where does the memory increase?
         """Calculate features for each precursor candidate used for scoring.
 
         Parameters

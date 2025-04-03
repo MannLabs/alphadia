@@ -972,7 +972,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         # shape persistent
-        features_df, fragments_df = candidate_scoring(
+        features_df, fragments_df = candidate_scoring(  # quantify_fragments=False
             candidates_df,
             thread_count=self.config["general"]["thread_count"],
             include_decoy_fragment_features=True,
@@ -991,30 +991,35 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.save()
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
-    def extraction(self):
+    def extraction(self):  # search the whole lib
+        """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
         self.calibration_manager.predict(
             self.spectral_library._precursor_df, "precursor"
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
+        # we extradt precursors and frag quantities for the whole lib
         features_df, fragments_df = self.extract_batch(
             self.spectral_library._precursor_df,
             apply_cutoff=True,
+            quantify_fragnebts=False,
         )
+        # fragments_df == roae
 
         self.reporter.log_string(
             f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
+        # find ou which pc are actually in the sample (=fdr significant)
         precursor_df = self.fdr_correction(
-            features_df, fragments_df, self.optimization_manager.classifier_version
+            features_df, None, self.optimization_manager.classifier_version
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
         logger.info("Removing fragments below FDR threshold")
 
-        # to be optimized later
+        # remove fragments that are not in the library (=99%)
         fragments_df["candidate_idx"] = utils.candidate_hash(
             fragments_df["precursor_idx"].values, fragments_df["rank"].values
         )
