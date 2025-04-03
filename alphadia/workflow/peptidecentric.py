@@ -774,7 +774,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        score = precursor_df_filtered["score"]
+        q = self.config["search"]["fdr_q"]
+        fac = self.config["search"]["fdr_fac"]
+
+        percentile_001_ori = np.percentile(score, 0.1)
+
+        if q <= 0:
+            percentile_001 = percentile_001_ori
+        else:
+            percentile_001 = fac * np.percentile(score, q)
+            self.reporter.log_string(
+                f"score_cutoff: new {percentile_001} {fac=} {q=} ori {percentile_001_ori}"
+            )
+
+        self.reporter.log_string(f"Using score_cutoff {percentile_001}")
+
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
