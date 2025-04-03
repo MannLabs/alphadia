@@ -976,6 +976,10 @@ class HybridCandidateSelection:
             precursors_flat["charge"].values,
             precursors_flat[self.rt_column].values,
             precursors_flat[self.mobility_column].values,
-            precursors_flat[self.precursor_mz_column].values,
-            precursors_flat[available_isotope_columns].values.copy(),
+            precursors_flat[
+                self.precursor_mz_column
+            ].values,  # this not but apart ALL HERE
+            precursors_flat[
+                available_isotope_columns
+            ].values.copy(),  # multiple available_isotope_columns
         )
