@@ -1,4 +1,5 @@
 import logging
+import os
 import socket
 from datetime import datetime
 from importlib import metadata
@@ -29,6 +30,9 @@ def print_environment() -> None:
     """Log information about the python environment."""
 
     logger.info(f"hostname: {socket.gethostname()}")
+    if slurm_job_id := os.environ.get("SLURM_JOB_ID"):
+        logger.info(f"slurm_job_id: {slurm_job_id}")
+
     now = datetime.today().strftime("%Y-%m-%d %H:%M:%S")
     logger.info(f"date: {now}")
 
