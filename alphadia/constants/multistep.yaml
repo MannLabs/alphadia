@@ -34,6 +34,7 @@ library:
     enabled: False
 
 mbr:
+  fasta_paths: []
   fdr:
     inference_strategy: library
   search:
