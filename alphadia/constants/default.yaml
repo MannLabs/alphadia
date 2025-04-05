@@ -269,7 +269,6 @@ multiplexing:
 
 fdr:
   fdr: 0.01
-  reannotate: False
   group_level: 'proteins'
   inference_strategy: "heuristic"
 
