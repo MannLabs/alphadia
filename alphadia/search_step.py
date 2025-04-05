@@ -234,16 +234,16 @@ class SearchStep:
             spectral_library = pept_deep_prediction(spectral_library)
 
         # 3. import library and harmonize
-        harmonize_pipeline = libtransform.ProcessingPipeline(
-            [
-                libtransform.PrecursorInitializer(),
-                libtransform.AnnotateFasta(self.fasta_path_list),
-                libtransform.IsotopeGenerator(
-                    n_isotopes=4, mp_process_num=thread_count
-                ),
-                libtransform.RTNormalization(),
-            ]
-        )
+        harmonize_steps = [
+            libtransform.PrecursorInitializer(),
+            libtransform.IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
+            libtransform.RTNormalization(),
+        ]
+
+        if self.config["fdr"]["reannotate"]:
+            harmonize_steps.insert(1, libtransform.AnnotateFasta(self.fasta_path_list))
+
+        harmonize_pipeline = libtransform.ProcessingPipeline(harmonize_steps)
         spectral_library = harmonize_pipeline(spectral_library)
 
         multiplexing_config = self.config["library_multiplexing"]
