@@ -269,7 +269,11 @@ multiplexing:
 
 fdr:
   fdr: 0.01
+
+  # what annotation is used for protein inference: "genes" or "proteins"
   group_level: 'proteins'
+
+  # how are proteins inferred from peptides: "library", "heuristic" or "maximum_parsimony"
   inference_strategy: "heuristic"
 
 
