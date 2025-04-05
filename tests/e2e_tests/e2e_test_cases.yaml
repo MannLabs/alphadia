@@ -37,6 +37,9 @@ test_cases:
   - name: multistep
     # see also transfer-dimethyl.md
     config:
+      general:
+        transfer_step_enabled: True
+        mbr_step_enabled: True
       search:
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
@@ -45,7 +48,7 @@ test_cases:
       transfer_learning:
         epochs: 5  # this is reduced to speed the test up a little
       library_prediction:
-        predict: True
+        enabled: True
         precursor_mz:
           - 380
           - 980
@@ -53,9 +56,7 @@ test_cases:
         variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
         max_var_mod_num: 1 # mbr: 2
         missed_cleavages: 0  # mbr: 1
-      multistep_search:
-        transfer_step_enabled: True
-        mbr_step_enabled: True
+
     # dimethyl data (from tutorial)
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/s/1GiKQSwlPf6YlMm/download?path=%2F&files=2024_01_12_human.fasta
@@ -85,6 +86,7 @@ test_cases:
       search_output:
         peptide_level_lfq: true
         precursor_level_lfq: true
+        save_fragment_quant_matrix: true
     library_path:
       - source_url: https://datashare.biochem.mpg.de/s/e4jqILnxHPujBBP/download?files=MSFragger_library_60SPD_2.tsv
     raw_paths:
@@ -97,7 +99,7 @@ test_cases:
   - name: astral
     config:
       library_prediction:
-        predict: true
+        enabled: true
         fixed_modifications: 'Carbamidomethyl@C'
         variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
         max_var_mod_num: 2
@@ -133,7 +135,7 @@ test_cases:
   - name: astral_automatic_calibration
     config:
       library_prediction:
-        predict: true
+        enabled: true
         fixed_modifications: 'Carbamidomethyl@C'
         variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
         max_var_mod_num: 2
@@ -168,7 +170,7 @@ test_cases:
 #  - name: astral_mixed_species
 #    config:
 #      library_prediction:
-#        predict: true
+#        enabled: true
 #        fixed_modifications: 'Carbamidomethyl@C'
 #        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
 #        max_var_mod_num: 2
@@ -191,6 +193,7 @@ test_cases:
 #      search_output:
 #        peptide_level_lfq: true
 #        precursor_level_lfq: true
+#        save_fragment_quant_matrix: false
 #    library_path:
 #      - source_url: https://datashare.biochem.mpg.de/s/Q9D8N2mq8vlzQ1f  #speclib.mbr.hdf
 #    raw_paths:

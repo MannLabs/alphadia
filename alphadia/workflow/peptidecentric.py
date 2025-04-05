@@ -812,7 +812,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["selection_config"])
         config.update(
             {
-                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
+                "top_k_fragments": self.config["search"]["top_k_fragments"],
                 "rt_tolerance": self.optimization_manager.rt_error,
                 "mobility_tolerance": self.optimization_manager.mobility_error,
                 "candidate_count": self.optimization_manager.num_candidates,
@@ -877,7 +877,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.update(self.config["scoring_config"])
         config.update(
             {
-                "top_k_fragments": self.config["search_advanced"]["top_k_fragments"],
+                "top_k_fragments": self.config["search"]["top_k_fragments"],
                 "precursor_mz_tolerance": self.optimization_manager.ms1_error,
                 "fragment_mz_tolerance": self.optimization_manager.ms2_error,
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
@@ -1214,7 +1214,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config = plexscoring.CandidateConfig()
         config.update(
             {
-                "top_k_fragments": 1000,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
+                "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
                 "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
                 "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
                 "experimental_xic": self.config["search_advanced"]["experimental_xic"],

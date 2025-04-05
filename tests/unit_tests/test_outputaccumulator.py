@@ -8,6 +8,8 @@ from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia import outputtransform
+from alphadia.constants.keys import SearchStepFiles
+from alphadia.outputaccumulator import ms2_quality_control
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
@@ -50,6 +52,7 @@ def prepare_input_data():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
+            "save_fragment_quant_matrix": False,
         },
         "transfer_library": {
             "enabled": True,
@@ -101,9 +104,12 @@ def prepare_input_data():
 
     for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
-        psm_dfs[i].to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+        psm_dfs[i].to_parquet(
+            os.path.join(raw_folder, SearchStepFiles.PSM_FILE_NAME), index=False
+        )
         fragment_dfs[i].to_parquet(
-            os.path.join(raw_folder, "frag.parquet"), index=False
+            os.path.join(raw_folder, SearchStepFiles.FRAG_TRANSFER_FILE_NAME),
+            index=False,
         )
 
     return config, temp_folder, raw_folders, psm_dfs, fragment_dfs
@@ -247,3 +253,80 @@ def test_default_column_assignment():
             assert built_lib.precursor_df[f"{col}"].equals(
                 built_lib.precursor_df[f"{col}_library"]
             ), f"{col} != {col}_library"
+
+
+def test_non_nan_fragments():
+    """
+    Test that the accumulated fragments data frame has no nan values
+    """
+    # Given:
+    config, temp_folder, raw_folders, psm_dfs, fragment_dfs = prepare_input_data()
+    keep_top = 2
+    config["transfer_library"]["top_k_samples"] = keep_top
+
+    # When:
+    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    _ = output.build_transfer_library(raw_folders, save=True)
+    built_lib = SpecLibBase()
+    built_lib.load_hdf(
+        os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
+    )
+
+    # Then: The fragment dataframe should have no nan values
+    assert (
+        not built_lib.fragment_intensity_df.isnull().values.any()
+    ), "There are nan values in the fragment dataframe"
+
+
+def test_use_for_ms2():
+    """
+    Test that the ms2 quality control is correctly applied by checking the use_for_ms2 column in the precursor_df
+    """
+    # Given:
+    precursor_correlation_cutoff = 0.6
+    fragment_correlation_ratio = 0.9
+
+    # dummy precursor data (3 rows)
+    precursor_df = pd.DataFrame(
+        {
+            "frag_start_idx": [0, 2, 4],
+            "frag_stop_idx": [2, 4, 6],
+            "sequence": ["aa", "bb", "cc"],  # Dummy sequences
+        }
+    )
+
+    # Define dummy fragment intensity data (6 rows)
+    fragment_intensity_df = pd.DataFrame(
+        {"intensity_1": [10, 20, 30, 40, 0, 0], "intensity_2": [5, 15, 25, 35, 0, 0]}
+    )
+
+    # Define dummy fragment correlation data (6 rows)
+    fragment_correlation_df = pd.DataFrame(
+        {
+            "intensity_1": [
+                0.4,
+                0.5,  # Median < 0.6 (False)
+                0.8,
+                0.9,  # Median > 0.6 (True)
+                0.8,
+                0.9,
+            ],  # Median > 0.6 but all zero intensities (False)
+            "intensity_2": [0.3, 0.5, 0.9, 0.7, 0.8, 0.9],
+        }
+    )
+
+    speclib = SpecLibBase()
+    speclib._precursor_df = precursor_df
+    speclib._fragment_intensity_df = fragment_intensity_df
+    speclib._fragment_correlation_df = fragment_correlation_df
+
+    expected_use_for_ms2 = [False, True, False]
+    # When:
+    ms2_quality_control(
+        speclib, precursor_correlation_cutoff, fragment_correlation_ratio
+    )
+
+    # Then:
+    np.testing.assert_array_equal(
+        speclib.precursor_df["use_for_ms2"].values, expected_use_for_ms2
+    )

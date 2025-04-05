@@ -27,6 +27,8 @@ MBR_STEP_NAME = "mbr"
 # TODO we need to make sure basic users settings are compatible with each step in multistep search
 # e.g. by printing warning messages on the biggest mistakes
 
+CONSTANTS_FOLDER_PATH = Path(os.path.dirname(__file__)) / "constants"
+
 
 class SearchPlan:
     """Search plan for single- and multistep search."""
@@ -67,17 +69,22 @@ class SearchPlan:
         self._multistep_config: dict | None = None
         self._transfer_step_output_dir: Path | None = None
 
-        multistep_search_config = self._user_config.get("multistep_search", {})
-        self._transfer_step_enabled = multistep_search_config.get(
-            "transfer_step_enabled", False
+        # We read the default values for the transfer_step_enabled and mbr_step_enabled directly from the default.yaml,
+        # but then forget about them. They will still end up correctly in the frozen_config.yaml as they are read
+        # again from the default.yaml later
+        user_config_general = self._user_config.get("general", {})
+        with (CONSTANTS_FOLDER_PATH / "default.yaml").open() as f:
+            default_config_general = yaml.safe_load(f)["general"]
+        self._transfer_step_enabled = user_config_general.get(
+            "transfer_step_enabled", default_config_general["transfer_step_enabled"]
         )
-        self._mbr_step_enabled = multistep_search_config.get("mbr_step_enabled", False)
+        self._mbr_step_enabled = user_config_general.get(
+            "mbr_step_enabled", default_config_general["mbr_step_enabled"]
+        )
 
         if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
-            with (
-                Path(os.path.dirname(__file__)) / "constants" / "multistep.yaml"
-            ).open() as f:
+            with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
                 self._multistep_config = yaml.safe_load(f)
 
     def _update_paths(self) -> None:
@@ -127,7 +134,7 @@ class SearchPlan:
                     "peptdeep_model_path": os.path.join(
                         self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                     ),
-                    "predict": True,  # the step following the 'transfer' step needs to have this
+                    "enabled": True,  # the step following the 'transfer' step needs to have this
                 }
             }
 

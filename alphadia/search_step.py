@@ -9,8 +9,8 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
-from alphadia.constants.keys import ConfigKeys
-from alphadia.exceptions import CustomError
+from alphadia.constants.keys import ConfigKeys, SearchStepFiles
+from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -19,6 +19,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
+from alphadia.workflow.reporting import move_existing_file
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -62,7 +63,7 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
-        self._config.to_yaml(os.path.join(output_folder, "frozen_config.yaml"))
+        self._save_config(output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
@@ -78,6 +79,14 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         self._log_inputs()
+
+    def _save_config(self, output_folder: str) -> None:
+        """Save the config to a file in the output folder, moving an existing file if necessary."""
+        file_path = os.path.join(output_folder, "frozen_config.yaml")
+        moved_path = move_existing_file(file_path)
+        self._config.to_yaml(file_path)
+        if moved_path:
+            logging.info(f"Moved existing config file {file_path} to {moved_path}")
 
     @staticmethod
     def _init_config(
@@ -179,10 +188,10 @@ class SearchStep:
 
         prediction_config = self.config["library_prediction"]
 
-        if self.library_path is None and not prediction_config["predict"]:
+        if self.library_path is None and not prediction_config["enabled"]:
             logger.error("No library provided and prediction disabled.")
             return
-        elif self.library_path is None and prediction_config["predict"]:
+        elif self.library_path is None and prediction_config["enabled"]:
             logger.progress("No library provided. Building library from fasta files.")
 
             fasta_digest = libtransform.FastaDigest(
@@ -207,7 +216,7 @@ class SearchStep:
 
         thread_count = self.config["general"]["thread_count"]
 
-        if prediction_config["predict"]:
+        if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = libtransform.PeptDeepPrediction(
@@ -257,9 +266,7 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                libtransform.FlattenLibrary(
-                    self.config["search_advanced"]["top_k_fragments"]
-                ),
+                libtransform.FlattenLibrary(self.config["search"]["top_k_fragments"]),
                 libtransform.InitFlatColumns(),
                 libtransform.LogFlatLibraryStats(),
             ]
@@ -271,7 +278,8 @@ class SearchStep:
         """Generator for raw data and spectral library."""
 
         if self.spectral_library is None:
-            raise ValueError("no spectral library loaded")
+            # TODO: check alternative: more fine-grained errors could be raised on the level of search_plan
+            raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
         for i, raw_location in enumerate(self.raw_path_list):
@@ -335,14 +343,25 @@ class SearchStep:
         )
 
         # check if the raw file is already processed
-        psm_location = os.path.join(workflow.path, "psm.parquet")
-        frag_location = os.path.join(workflow.path, "frag.parquet")
+        psm_location = os.path.join(workflow.path, SearchStepFiles.PSM_FILE_NAME)
+        frag_location = os.path.join(workflow.path, SearchStepFiles.FRAG_FILE_NAME)
+        frag_transfer_location = os.path.join(
+            workflow.path, SearchStepFiles.FRAG_TRANSFER_FILE_NAME
+        )
 
         if self.config["general"]["reuse_quant"]:
-            if os.path.exists(psm_location) and os.path.exists(frag_location):
-                logger.info(f"Found existing quantification for {raw_name}")
+            files_exist = os.path.exists(psm_location) and os.path.exists(frag_location)
+            if self.config["transfer_library"]["enabled"]:
+                files_exist = files_exist and os.path.exists(frag_transfer_location)
+
+            if files_exist:
+                logger.info(
+                    f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
+                )
                 return workflow
-            logger.info(f"No existing quantification found for {raw_name}")
+            logger.info(
+                f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
+            )
 
         workflow.load(dia_path, speclib)
 
@@ -351,7 +370,10 @@ class SearchStep:
         workflow.timing_manager.set_end_time("optimization")
 
         workflow.timing_manager.set_start_time("extraction")
+
         psm_df, frag_df = workflow.extraction()
+        frag_df.to_parquet(frag_location, index=False)
+
         workflow.timing_manager.set_end_time("extraction")
         workflow.timing_manager.save()
 
@@ -362,11 +384,11 @@ class SearchStep:
             psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
         if self.config["transfer_library"]["enabled"]:
-            psm_df, frag_df = workflow.requantify_fragments(psm_df)
+            psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)
+            frag_transfer_df.to_parquet(frag_transfer_location, index=False)
 
         psm_df["run"] = raw_name
         psm_df.to_parquet(psm_location, index=False)
-        frag_df.to_parquet(frag_location, index=False)
 
         return workflow
 

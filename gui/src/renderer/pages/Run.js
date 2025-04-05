@@ -54,7 +54,7 @@ function parseConsoleOutput(input, theme) {
       '30;20': 'black',
       '31;20': theme.palette.mode === 'light' ? "rgb(200, 1, 0)" : 'rgb(250, 150, 136)' ,
       '32;20': theme.palette.mode === 'light' ?'rgb(76 211 26)' : 'rgb(168, 219, 114)',
-      '33;20': theme.palette.mode === 'light' ?'rgb(253 167 0)' : 'rgb(254, 219, 119',
+      '33;20': theme.palette.mode === 'light' ?'rgb(253 167 0)' : 'rgb(254, 219, 119)',
       '34;20': 'blue',
       '35;20': 'magenta',
       '36;20': 'cyan',
@@ -185,27 +185,10 @@ const Output = () => {
     };
 
     return (
-    <>
-    <TextField
-        id="outlined-number"
-        type="text"
-        variant="standard"
-        size="small"
-        sx = {{width: "100%"}}
-        value={cmd}
-        onChange={(event) => {setCmd(event.target.value)}}
-        onKeyDown={(event) => {
-            if (event.key === 'Enter'){
-                window.electronAPI.runCommand(cmd).catch((error) => {
-                    console.log(error);
-                });
-                setCmd("");
-         }}}
-    />
     <Box sx={{
-        height: "calc(100% - 90px)",
+        height: "100%",
         whiteSpace: "break-spaces",
-        overflow: "hiodden",
+        overflow: "hidden",
         fontFamily: "Roboto Mono",
         fontSize: "0.7rem",
         lineHeight: "1.0rem",
@@ -240,7 +223,6 @@ const Output = () => {
             )}
         </InfiniteLoader>
     </Box>
-    </>
     )}
 
 export default Output

@@ -9,6 +9,7 @@ import typing
 import warnings
 from datetime import datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 
 # alphadia imports
 # alpha family imports
@@ -21,7 +22,7 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
@@ -108,9 +109,7 @@ class DefaultFormatter(logging.Formatter):
         return f"{elapsed} {self.formatter[record.levelno].format(record)}"
 
 
-def init_logging(
-    log_folder: str = None, log_level: int = logging.INFO, overwrite: bool = True
-):
+def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     """Initialize the default logger.
     Sets the formatter and the console and file handlers.
 
@@ -122,9 +121,6 @@ def init_logging(
 
     log_level : int, default logging.INFO
         Log level to use. Can be logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR or logging.CRITICAL.
-
-    overwrite : bool, default True
-        Whether to overwrite the log file if it already exists.
     """
 
     global __is_initiated__
@@ -145,20 +141,56 @@ def init_logging(
     logger.addHandler(ch)
 
     if log_folder is not None:
-        os.makedirs(log_folder, exist_ok=True)
+        try:
+            os.makedirs(log_folder, exist_ok=True)
+        except Exception as e:
+            raise GenericUserError(
+                f"Could not create folder '{log_folder}'. Check your output_directory settings.",
+                str(e),
+            ) from e
 
-        log_name = os.path.join(log_folder, "log.txt")
-        # check if log file exists
-        if os.path.exists(log_name) and overwrite:
-            # if it does, delete it
-            os.remove(log_name)
+        log_file_path = os.path.join(log_folder, "log.txt")
+
+        moved_log_file_path = move_existing_file(log_file_path)
+
         # create file handler which logs even debug messages
-        fh = logging.FileHandler(log_name, encoding="utf-8")
+        fh = logging.FileHandler(log_file_path, encoding="utf-8")
         fh.setLevel(log_level)
         fh.setFormatter(DefaultFormatter(use_ansi=False))
         logger.addHandler(fh)
 
+        if moved_log_file_path:
+            logger.info(f"Moved old log file {log_file_path} to {moved_log_file_path}")
+
     __is_initiated__ = True
+
+
+def move_existing_file(file_path: str) -> str | None:
+    """Move existing file to a new name with an incrementing number.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file that needs to be backed up
+
+    Returns
+    -------
+    str | None
+        Path to the backup file if a backup was created, None otherwise
+    """
+    old_path = Path(file_path)
+    new_path = old_path
+
+    n = -1
+    while new_path.exists():
+        n += 1
+        new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
+
+    if n != -1:
+        Path(file_path).rename(new_path)
+        return str(new_path)
+
+    return None
 
 
 class Backend:

@@ -13,6 +13,7 @@ function discoverWorkflows(window){
             const workflow = JSON.parse(fs.readFileSync(path.join(directory, file)))
             workflow.name = path.basename(file, '.json')
             validateWorkflow(workflow)
+            initializeWorkflow(workflow)
             return [...acc, workflow]
         } catch (err) {
             dialog.showMessageBox(window, {
@@ -74,9 +75,36 @@ function validateWorkflow(workflow) {
 
 }
 
+function initializeWorkflow(workflow) {
+    // Process each config section
+    workflow.config.forEach((config) => {
+        // Process regular parameters
+        if (config.parameters) {
+            config.parameters.forEach((parameter) => {
+                // Only set value to default if value is not defined
+                if (parameter.value === undefined) {
+                    parameter.value = parameter.default;
+                }
+            });
+        }
+
+        // Process advanced parameters
+        if (config.parameters_advanced) {
+            config.parameters_advanced.forEach((parameter) => {
+                // Only set value to default if value is not defined
+                if (parameter.value === undefined) {
+                    parameter.value = parameter.default;
+                }
+            });
+        }
+    });
+
+    return workflow;
+}
+
 function workflowToConfig(workflow) {
 
-    let output = {name: workflow.name}
+    let output = {workflow_name: workflow.name}
 
     if (workflow.library.path != "") {
         output["library_path"] = workflow.library.path
@@ -97,6 +125,9 @@ function workflowToConfig(workflow) {
     workflow.config.forEach((config) => {
         output[config.id] = {}
         config.parameters.forEach((parameter) => {
+            output[config.id][parameter.id] = parameter.value
+        })
+        config.parameters_advanced.forEach((parameter) => {
             output[config.id][parameter.id] = parameter.value
         })
     })

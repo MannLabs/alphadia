@@ -782,6 +782,9 @@ class Candidate:
             psm_proto_df.fragment_charge[self.output_idx, : len(fragments.charge)] = (
                 fragments.charge
             )
+            psm_proto_df.fragment_loss_type[
+                self.output_idx, : len(fragments.loss_type)
+            ] = fragments.loss_type
 
         # ============= FRAGMENT MOBILITY CORRELATIONS =============
         # will be skipped if no mobility dimension is present
@@ -1310,6 +1313,7 @@ class OuptutPsmDF:
     fragment_number: nb.uint8[:, ::1]
     fragment_type: nb.uint8[:, ::1]
     fragment_charge: nb.uint8[:, ::1]
+    fragment_loss_type: nb.uint8[:, ::1]
 
     def __init__(self, n_psm, top_k_fragments):
         self.valid = np.zeros(n_psm, dtype=np.bool_)
@@ -1337,6 +1341,7 @@ class OuptutPsmDF:
         self.fragment_number = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_charge = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
+        self.fragment_loss_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
 
     def to_fragment_df(self):
         mask = self.fragment_mz_library.flatten() > 0
@@ -1355,6 +1360,7 @@ class OuptutPsmDF:
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
             self.fragment_charge.flatten()[mask],
+            self.fragment_loss_type.flatten()[mask],
         )
 
     def to_precursor_df(self):
@@ -1839,6 +1845,7 @@ class CandidateScoring:
             "number",
             "type",
             "charge",
+            "loss_type",
         ]
         df = pd.DataFrame(
             {

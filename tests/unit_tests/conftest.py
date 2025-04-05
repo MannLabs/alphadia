@@ -34,7 +34,7 @@ def mock_precursor_df(
     precursor_df : pd.DataFrame
         A mock precursor dataframe
     """
-
+    np.random.seed(42)  # for reproducibility
     precursor_mz = np.random.rand(n_precursor) * 2000 + 500
     precursor_charge = np.random.choice([2, 3], size=n_precursor)
 
@@ -107,7 +107,7 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     fragment_df : pd.DataFrame
         A mock fragment dataframe
     """
-
+    np.random.seed(42)  # for reproducibility
     precursor_intensity = np.random.rand(n_precursor, 1)
 
     # create a dataframe with n_precursor * n_fragments rows
@@ -151,8 +151,10 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     fragment_intensity = (
         10 ** (precursor_intensity * 3) * np.random.rand(n_fragments)
     ).flatten()
+
     fragment_correlation = np.random.rand(n_precursor * n_fragments).flatten()
 
+    fragment_loss_type = np.ones(n_precursor * n_fragments).astype(np.uint8).flatten()
     return pd.DataFrame(
         {
             "precursor_idx": fragment_precursor_idx,
@@ -164,6 +166,7 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
             "height": fragment_height,
             "intensity": fragment_intensity,
             "correlation": fragment_correlation,
+            "loss_type": fragment_loss_type,
         }
     )
 

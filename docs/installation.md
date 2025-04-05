@@ -71,7 +71,7 @@ See also the [developer guide](developer_guide.md) for more information on how t
 
 Navigate to a folder where you would like to set up the repository and execute
 ```bash
-git clone git@github.com:MannLabs/alphadia.git && cd alphadia
+git clone https://github.com/MannLabs/alphadia.git && cd alphadia
 ```
 
 Optionally, get the code version of the latest tag (corresponding to the latest (pre)release):
@@ -108,6 +108,14 @@ The GUI can then be started by typing
 npm run dev
 ```
 
+Ignore the error message telling you that the `BundledExecutionEngine` is not available
+In order to use the locally installed version, select the `CMDExecutionEngine`in the top bar.
+
+By default, this looks for an AlphaDIA installation in a conda environment called `alphadia`.
+If you want to use a different environment, locate the `profile.json` file
+(MacOS: via "Electron" -> "Settings" in the top menu, e.g. `~/Library/Application Support/alphadia/profile.json`)
+and adjust `CMDExecutionEngine.envName`.
+
 ## Docker Installation
 The containerized version can be used to run alphaDIA e.g. on cloud platforms.
 It can be used to run alphaDIA for multiple input files, as well as for single files only
@@ -129,8 +137,8 @@ Set up your data to match the expected folder structure:
   - `output`: make this folder writeable for any user: `chmod -R o+rwx output` (this is where the output files will be stored)
   - `config`: create a file named `config.yaml` here, with the following content:
 ```yaml
-library: /app/data/library/LIBRARY_FILE.hdf
-raw_path_list:
+library_path: /app/data/library/LIBRARY_FILE.hdf
+raw_paths:
   - /app/data/raw/RAW_FILE_1.raw
   - /app/data/raw/RAW_FILE_2.raw
   - ...
@@ -154,7 +162,7 @@ docker build -t alphadia-docker .
 ```
 and run it with
 ```bash
-docker run -v $DATA_FOLDER:/app/data/ --rm alphadia-docker
+docker run -v $DATA_FOLDER:/app/data/ -t alphadia-docker
 ```
 
 ## Slurm cluster Installation

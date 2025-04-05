@@ -176,7 +176,11 @@ def _get_raw_path_list_from_args_and_config(
         if re.search(args.regex, os.path.basename(f)) is not None
     ]
     len_after = len(raw_path_list)
-    print(f"Removed {len_before - len_after} of {len_before} files.")
+
+    if len_removed := len_before - len_after:
+        print(
+            f"Ignoring {len_removed} / {len_before} file(s) from arguments list due to --regex."
+        )
 
     return raw_path_list
 

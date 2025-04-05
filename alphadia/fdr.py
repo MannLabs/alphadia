@@ -9,15 +9,16 @@ import numpy as np
 # third party imports
 import pandas as pd
 import sklearn
-import torch
 
 # alphadia imports
 # alpha family imports
 from alphadia import fragcomp
+from alphadia.fdrx.utils import manage_torch_threads
 
 logger = logging.getLogger()
 
 
+@manage_torch_threads(max_threads=2)
 def perform_fdr(
     classifier: sklearn.base.BaseEstimator,
     available_columns: list[str],
@@ -31,7 +32,6 @@ def perform_fdr(
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    max_num_threads: int = 2,
 ):
     """Performs FDR calculation on a dataframe of PSMs
 
@@ -118,23 +118,9 @@ def perform_fdr(
         X, y, test_size=0.2
     )
 
-    is_num_threads_changed = False
-    num_threads = torch.get_num_threads()
-    if num_threads > max_num_threads:
-        torch.set_num_threads(max_num_threads)
-        is_num_threads_changed = True
-        logger.info(
-            f"Setting torch num_threads to {max_num_threads} for FDR classification task"
-        )
-
     classifier.fit(X_train, y_train)
 
-    if is_num_threads_changed:
-        logger.info(f"Resetting torch num_threads to {num_threads}")
-        torch.set_num_threads(num_threads)
-
     psm_df = pd.concat([df_target, df_decoy])
-
     psm_df["_decoy"] = y
 
     if competetive:

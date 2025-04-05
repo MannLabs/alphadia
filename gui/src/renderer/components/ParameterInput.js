@@ -1,11 +1,15 @@
 import * as React from 'react'
 import styled from '@emotion/styled'
+import { Tooltip, tooltipClasses } from '@mui/material'
+import InfoTooltip from './InfoTooltip'
 
-import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Tooltip, Typography, TextField } from '@mui/material'
+import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
 
 const StyledCheckbox = styled(Checkbox)(({ theme }) => ({
     padding: 0.5
 }))
+
+
 
 const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
@@ -41,6 +45,7 @@ const SingleFolderSelection = ({parameter, onChange = () => {}}) => {
 
 const ParameterInput = ({
         parameter,
+        parameter_group_id,
         onChange = () => {},
         sx
     }) => {
@@ -214,11 +219,17 @@ const ParameterInput = ({
             spacing={2}
             sx={{minHeight: "30px"}}
             >
-            <Tooltip title = {parameter.description} disableInteractive>
+            <InfoTooltip title={
+                <Stack spacing={0.5}>
+                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
+                    <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
+                    <Typography>{parameter.description}</Typography>
+                </Stack>
+            }>
                 <Typography sx={{fontWeight: 400, fontSize: "12px"}}>
                     {parameter.name}
                 </Typography>
-            </Tooltip>
+            </InfoTooltip>
                 {input}
 
             </Stack>
