@@ -883,7 +883,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
                 "quant_window": self.config["search"]["quant_window"],
                 "quant_all": self.config["search"]["quant_all"],
-                "experimental_xic": self.config["search_advanced"]["experimental_xic"],
+                "experimental_xic": self.config["search"]["experimental_xic"],
             }
         )
 
@@ -1127,7 +1127,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config.score_grouped = True
         config.exclude_shared_ions = True
         config.reference_channel = self.config["multiplexing"]["reference_channel"]
-        config.experimental_xic = self.config["search_advanced"]["experimental_xic"]
+        config.experimental_xic = self.config["search"]["experimental_xic"]
 
         multiplexed_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
@@ -1217,7 +1217,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
                 "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
                 "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
-                "experimental_xic": self.config["search_advanced"]["experimental_xic"],
+                "experimental_xic": self.config["search"]["experimental_xic"],
             }
         )
 
