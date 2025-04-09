@@ -1988,9 +1988,12 @@ class CandidateScoring:
         logger.info("Finished candidate scoring")
 
         if os.environ.get("FASTMEM") == "1":
+            logger.info("FASTMEM=1")
             del score_group_container
             gc.collect()
             del fragment_container
             gc.collect()
+        else:
+            logger.info("FASTMEM=0")
 
         return candidate_features_df, fragment_features_df
