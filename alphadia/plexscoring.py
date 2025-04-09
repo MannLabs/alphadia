@@ -54,7 +54,7 @@ def candidate_features_to_candidates(
     if os.environ.get("FASTMEM") == "1":
         validate.candidate_features_df(candidate_features_df)  # MEM .copy()
     else:
-        validate.candidate_features_df(candidate_features_df).copy()
+        validate.candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
         "elution_group_idx",
@@ -1821,7 +1821,7 @@ class CandidateScoring:
         return df
 
     def collect_fragments(
-        self, candidates_df: pd.DataFrame, psm_proto_df_to_fragment_df
+        self, candidates_df: pd.DataFrame, psm_proto_df
     ) -> pd.DataFrame:
         """Collect the fragment-level features from the score group container and return a DataFrame.
 
@@ -1858,15 +1858,21 @@ class CandidateScoring:
             "charge",
             "loss_type",
         ]
-        df = pd.DataFrame(
-            {
-                key: value
-                for value, key in zip(
-                    psm_proto_df_to_fragment_df, colnames, strict=True
-                )
-            }
-        )
-        del psm_proto_df_to_fragment_df
+
+        if os.environ.get("FASTMEM") == "1":
+            df = pd.DataFrame(
+                {key: value for value, key in zip(psm_proto_df, colnames, strict=True)}
+            )
+            del psm_proto_df
+        else:
+            df = pd.DataFrame(
+                {
+                    key: value
+                    for value, key in zip(
+                        psm_proto_df.to_fragment_df(), colnames, strict=True
+                    )
+                }
+            )
 
         # join precursor columns
         precursor_df_columns = [
