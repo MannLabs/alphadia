@@ -96,7 +96,8 @@ parser.add_argument(
 parser.add_argument(
     "--config-dict",
     type=str,
-    help="Python dictionary which will be used to update the default config.",
+    help="Python dictionary which will be used to update the default config. Keys and string values need to be surrounded by "
+    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}".',
     nargs="?",
     default="{}",
 )
