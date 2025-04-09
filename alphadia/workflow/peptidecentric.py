@@ -1,6 +1,5 @@
 # native imports
 import logging
-import pickle
 from datetime import datetime
 from pathlib import Path
 
@@ -919,45 +918,51 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         # HERE
 
-        if "checkpoint_path" not in self.config:
-            rt_column = self.get_rt_column()
-            mobility_column = self.get_mobility_column()
-            precursor_mz_column = self.get_precursor_mz_column()
-            fragment_mz_column = self.get_fragment_mz_column()
+        # if "checkpoint_path" not in self.config:
+        #     rt_column = self.get_rt_column()
+        #     mobility_column = self.get_mobility_column()
+        #     precursor_mz_column = self.get_precursor_mz_column()
+        #     fragment_mz_column = self.get_fragment_mz_column()
+        #
+        #     # Save the inputs to plexscoring.CandidateScoring as a checkpoint
+        #     checkpoint_data = {
+        #         "dia_data": self.dia_data,
+        #         "precursor_df": batch_precursor_df,
+        #         "fragment_df": batch_fragment_df,
+        #         "config": config,
+        #         "rt_column": rt_column,
+        #         "mobility_column": mobility_column,
+        #         "precursor_mz_column": precursor_mz_column,
+        #         "fragment_mz_column": fragment_mz_column,
+        #         "candidates_df": candidates_df,
+        #     }
+        #
+        #     checkpoint_path = self.get_free_path(
+        #         "checkpoint.pkl", self.config["output_directory"]
+        #     )
+        #     logger.info(f"Saving checkpoint data to {checkpoint_path}")
+        #     with open(checkpoint_path, "wb") as f:
+        #         pickle.dump(checkpoint_data, f)
+        # else:
+        #     checkpoint_path = self.config["checkpoint_path"]
+        #     logger.info(f"Loading checkpoint data from {checkpoint_path}")
+        #     with open(checkpoint_path, "rb") as f:
+        #         checkpoint_data = pickle.load(f)
+        #
+        #     self._dia_data = checkpoint_data["dia_data"]
+        #     batch_precursor_df = checkpoint_data["precursor_df"]
+        #     batch_fragment_df = checkpoint_data["fragment_df"]
+        #     config = checkpoint_data["config"]
+        #     rt_column = checkpoint_data["rt_column"]
+        #     mobility_column = checkpoint_data["mobility_column"]
+        #     precursor_mz_column = checkpoint_data["precursor_mz_column"]
+        #     fragment_mz_column = checkpoint_data["fragment_mz_column"]
+        #     candidates_df = checkpoint_data["candidates_df"]
 
-            # Save the inputs to plexscoring.CandidateScoring as a checkpoint
-            checkpoint_data = {
-                "dia_data": self.dia_data,
-                "precursor_df": batch_precursor_df,
-                "fragment_df": batch_fragment_df,
-                "config": config,
-                "rt_column": rt_column,
-                "mobility_column": mobility_column,
-                "precursor_mz_column": precursor_mz_column,
-                "fragment_mz_column": fragment_mz_column,
-                "candidates_df": candidates_df,
-            }
-
-            checkpoint_path = self.get_free_path(
-                "checkpoint.pkl", self.config["output_directory"]
-            )
-            logger.info(f"Saving checkpoint data to {checkpoint_path}")
-            with open(checkpoint_path, "wb") as f:
-                pickle.dump(checkpoint_data, f)
-        elif checkpoint_path := self.config["checkpoint_path"]:
-            logger.info(f"Loading checkpoint data from {checkpoint_path}")
-            with open(checkpoint_path, "rb") as f:
-                checkpoint_data = pickle.load(f)
-
-            self._dia_data = checkpoint_data["dia_data"]
-            batch_precursor_df = checkpoint_data["precursor_df"]
-            batch_fragment_df = checkpoint_data["fragment_df"]
-            config = checkpoint_data["config"]
-            rt_column = checkpoint_data["rt_column"]
-            mobility_column = checkpoint_data["mobility_column"]
-            precursor_mz_column = checkpoint_data["precursor_mz_column"]
-            fragment_mz_column = checkpoint_data["fragment_mz_column"]
-            candidates_df = checkpoint_data["candidates_df"]
+        rt_column = self.get_rt_column()
+        mobility_column = self.get_mobility_column()
+        precursor_mz_column = self.get_precursor_mz_column()
+        fragment_mz_column = self.get_fragment_mz_column()
 
         candidate_scoring = plexscoring.CandidateScoring(
             self.dia_data.jitclass(),
