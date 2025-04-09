@@ -222,9 +222,9 @@ const ParameterInput = ({
             >
             <InfoTooltip title={
                 <Stack spacing={0.5}>
-                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
+                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name} (default: {defaultText})</Typography>
                     <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
-                    <Typography>{parameter.description} (default: {defaultText})</Typography>
+                    <Typography>{parameter.description}</Typography>
                 </Stack>
             }>
                 <Typography sx={{fontWeight: 400, fontSize: "12px",
