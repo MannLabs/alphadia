@@ -1,6 +1,7 @@
 # native imports
 import gc
 import logging
+import os
 from datetime import datetime
 
 # alpha family imports
@@ -50,7 +51,10 @@ def candidate_features_to_candidates(
     # validate candidate_features_df input
     if optional_columns is None:
         optional_columns = ["proba"]
-    validate.candidate_features_df(candidate_features_df)  # MEM .copy()
+    if os.environ.get("FASTMEM") == "1":
+        validate.candidate_features_df(candidate_features_df)  # MEM .copy()
+    else:
+        validate.candidate_features_df(candidate_features_df).copy()
 
     required_columns = [
         "elution_group_idx",
@@ -65,9 +69,12 @@ def candidate_features_to_candidates(
     ]
 
     # select required columns
-    candidate_df = candidate_features_df[
-        required_columns + optional_columns
-    ]  # MEM .copy()
+    if os.environ.get("FASTMEM") == "1":
+        candidate_df = candidate_features_df[
+            required_columns + optional_columns
+        ]  # MEM .copy()
+    else:
+        candidate_df = candidate_features_df[required_columns + optional_columns].copy()
     # validate candidate_df output
     validate.candidates_df(candidate_df)
 
@@ -107,8 +114,12 @@ def multiplex_candidates(
     """
     if channels is None:
         channels = [0, 4, 8, 12]
-    precursors_flat_view = precursors_flat_df  # MEM .copy()
-    best_candidate_view = candidates_df  # MEM .copy()
+    if os.environ.get("FASTMEM") == "1":
+        precursors_flat_view = precursors_flat_df  # MEM .copy()
+        best_candidate_view = candidates_df  # MEM .copy()
+    else:
+        precursors_flat_view = precursors_flat_df.copy()
+        best_candidate_view = candidates_df.copy()
 
     validate.precursors_flat(precursors_flat_view)
     validate.candidates_df(best_candidate_view)
@@ -1648,7 +1659,7 @@ class CandidateScoring:
         )
 
     def collect_candidates(
-        self, candidates_df: pd.DataFrame, psm_proto_df_precursor_df
+        self, candidates_df: pd.DataFrame, psm_proto_df
     ) -> pd.DataFrame:
         """Collect the features from the score group container and return a DataFrame.
 
@@ -1717,17 +1728,20 @@ class CandidateScoring:
             "mean_overlapping_mass_error",
         ]
 
-        precursor_idx, rank, features = (
-            psm_proto_df_precursor_df  # psm_proto_df.to_precursor_df() # MEM
-        )
+        if os.environ.get("FASTMEM") == "1":
+            precursor_idx, rank, features = psm_proto_df
+        else:
+            precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
         df = pd.DataFrame(features, columns=feature_columns)
         df["precursor_idx"] = precursor_idx
         df["rank"] = rank
-        del precursor_idx
-        del rank
-        del features
-        gc.collect()
+
+        if os.environ.get("FASTMEM") == "1":
+            del precursor_idx
+            del rank
+            del features
+            gc.collect()
 
         # join candidate columns
         candidate_df_columns = [
@@ -1749,8 +1763,9 @@ class CandidateScoring:
             on=["precursor_idx", "rank"],
             how="left",
         )
-        del candidates_df
-        gc.collect()
+        if os.environ.get("FASTMEM") == "1":
+            del candidates_df
+            gc.collect()
 
         # join precursor columns
         precursor_df_columns = [
@@ -1945,12 +1960,17 @@ class CandidateScoring:
         candidate_features_df = self.collect_candidates(
             candidates_df, psm_proto_df.to_precursor_df()
         )
-        del candidates_df
-        gc.collect()
+        if os.environ.get("FASTMEM") == "1":
+            del candidates_df
+            gc.collect()
 
-        df = psm_proto_df.to_fragment_df()
-        del psm_proto_df
-        gc.collect()
+        if os.environ.get("FASTMEM") == "1":
+            df = psm_proto_df.to_fragment_df()
+            del psm_proto_df
+            gc.collect()
+        else:
+            df = psm_proto_df
+
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(None, df)
 
@@ -1961,9 +1981,10 @@ class CandidateScoring:
 
         logger.info("Finished candidate scoring")
 
-        del score_group_container
-        gc.collect()
-        del fragment_container
-        gc.collect()
+        if os.environ.get("FASTMEM") == "1":
+            del score_group_container
+            gc.collect()
+            del fragment_container
+            gc.collect()
 
         return candidate_features_df, fragment_features_df

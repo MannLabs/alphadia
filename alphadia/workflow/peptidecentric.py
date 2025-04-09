@@ -944,8 +944,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             logger.info(f"Saving checkpoint data to {checkpoint_path}")
             with open(checkpoint_path, "wb") as f:
                 pickle.dump(checkpoint_data, f)
-        else:
-            checkpoint_path = self.config["checkpoint_path"]
+        elif checkpoint_path := self.config["checkpoint_path"]:
             logger.info(f"Loading checkpoint data from {checkpoint_path}")
             with open(checkpoint_path, "rb") as f:
                 checkpoint_data = pickle.load(f)
@@ -1002,7 +1001,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         features_df, fragments_df = self.extract_batch(
             self.spectral_library._precursor_df,
             apply_cutoff=True,
-            quantify_fragnebts=False,
+            # quantify_fragments=False,
         )
         # fragments_df == roae
 
@@ -1012,7 +1011,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # find ou which pc are actually in the sample (=fdr significant)
         precursor_df = self.fdr_correction(
-            features_df, None, self.optimization_manager.classifier_version
+            features_df,
+            fragments_df,
+            self.optimization_manager.classifier_version,
+            # fragments_df -> None
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
