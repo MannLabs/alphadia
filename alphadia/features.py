@@ -9,6 +9,11 @@ import numpy as np
 
 from alphadia import utils
 from alphadia.numba import numeric
+from alphadia.scoring.utils import (
+    correlation_coefficient,
+    median_axis,
+    normalize_profiles,
+)
 
 
 @nb.njit
@@ -633,7 +638,7 @@ def fragment_features(
     )
 
 
-@nb.njit()
+@nb.njit
 def fragment_mobility_correlation(
     fragments_scan_profile,
     template_scan_profile,
@@ -701,37 +706,47 @@ def profile_features(
     frame_start,
     frame_stop,
     feature_array,
+    experimental_xic,
 ):
     n_observations = len(observation_importance)
-
     fragment_idx_sorted = np.argsort(fragment_intensity)[::-1]
 
     # ============= FRAGMENT RT CORRELATIONS =============
+    top_3_idxs = fragment_idx_sorted[:3]
 
-    # (n_observations, n_fragments, n_fragments)
-    fragment_frame_correlation_masked = numeric.fragment_correlation(
-        fragments_frame_profile,
-    )
+    if experimental_xic:
+        # New correlation method
+        intensity_slice = fragments_frame_profile.sum(axis=1)
+        normalized_intensity_slice = normalize_profiles(intensity_slice, 1)
+        median_profile = median_axis(normalized_intensity_slice, 0)
+        fragment_frame_correlation_list = correlation_coefficient(
+            median_profile, intensity_slice
+        ).astype(np.float32)
+        top3_fragment_frame_correlation = fragment_frame_correlation_list[
+            top_3_idxs
+        ].mean()
+    else:
+        # Original correlation method
+        fragment_frame_correlation_masked = numeric.fragment_correlation(
+            fragments_frame_profile,
+        )
+        fragment_frame_correlation_maked_reduced = np.sum(
+            fragment_frame_correlation_masked
+            * observation_importance.reshape(-1, 1, 1),
+            axis=0,
+        )
+        fragment_frame_correlation_list = np.dot(
+            fragment_frame_correlation_maked_reduced, fragment_intensity
+        )
 
-    # print('fragment_frame_correlation_masked', fragment_frame_correlation_masked)
+        top3_fragment_frame_correlation = fragment_frame_correlation_maked_reduced[
+            top_3_idxs, :
+        ][:, top_3_idxs].mean()
 
-    # (n_fragments, n_fragments)
-    fragment_frame_correlation_maked_reduced = np.sum(
-        fragment_frame_correlation_masked * observation_importance.reshape(-1, 1, 1),
-        axis=0,
-    )
-    fragment_frame_correlation_list = np.dot(
-        fragment_frame_correlation_maked_reduced, fragment_intensity
-    )
     feature_array[31] = np.mean(fragment_frame_correlation_list)
 
     # (3)
-    top_3_idxs = fragment_idx_sorted[:3]
-    # (3, 3)
-    top_3_fragment_frame_correlation = fragment_frame_correlation_maked_reduced[
-        top_3_idxs, :
-    ][:, top_3_idxs]
-    feature_array[32] = np.mean(top_3_fragment_frame_correlation)
+    feature_array[32] = top3_fragment_frame_correlation
 
     # (n_observation, n_fragments)
     fragment_template_frame_correlation = numeric.fragment_correlation_different(
