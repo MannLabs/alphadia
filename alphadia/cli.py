@@ -258,6 +258,5 @@ def run(*args, **kwargs):
         sys.exit(exit_code)
 
 
-# uncomment for debugging:
-# if __name__ == "__main__":
-#     run()
+if __name__ == "__main__" and os.getenv("RUN_MAIN") == "1":
+    run()
