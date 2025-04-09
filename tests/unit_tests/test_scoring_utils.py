@@ -92,7 +92,7 @@ def test_normalize_profiles_dilation():
     assert np.allclose(result, expected, rtol=1e-5)
 
 
-def test_median_axis():
+def test_median_axis_dim0():
     # Given: A 3x4 array of sequential numbers
     array = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]], dtype=np.float32)
 
@@ -102,6 +102,11 @@ def test_median_axis():
     # Then: Should return median of each column
     expected_axis0 = np.array([5, 6, 7, 8])  # Median of each column
     assert np.allclose(result_axis0, expected_axis0)
+
+
+def test_median_axis_dim1():
+    # Given: A 3x4 array of sequential numbers
+    array = np.array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]], dtype=np.float32)
 
     # When: Calculating median along axis 1 (rows)
     result_axis1 = median_axis(array, axis=1)
