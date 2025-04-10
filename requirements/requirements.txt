@@ -14,6 +14,5 @@ xxhash
 torchmetrics
 transformers
 # not direct dependencies but we have to restrict the versions
-dask==2024.11.2 # can be removed once alphabase and directlfq are updated to non-dask versions
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
 scipy==1.12.0
