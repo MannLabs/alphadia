@@ -3,6 +3,7 @@
 
 Ideally the CLI module should have as little logic as possible so that the search behaves the same from the CLI or a jupyter notebook.
 """
+# ruff: noqa: E402 # Module level import not at top of file
 
 import argparse
 import json
@@ -11,8 +12,10 @@ import os
 import re
 import sys
 
-import matplotlib
 import yaml
+
+logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
+import matplotlib  # noqa: E402
 
 import alphadia
 from alphadia import utils
