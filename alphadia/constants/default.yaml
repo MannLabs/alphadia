@@ -141,7 +141,7 @@ search:
 
   # === advanced settings ===
   quant_window: 3
-  target_num_candidates: 2
+  target_num_candidates: 3
   # filter to apply to the channels. If set to "", all channels will be used.
   channel_filter: ""
   exclude_shared_ions: True
@@ -149,6 +149,7 @@ search:
   # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   quant_all: True
   top_k_fragments: 12
+  experimental_xic: True
 
 
 calibration:
