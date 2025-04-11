@@ -79,6 +79,7 @@ You can download the latest release of alphaDIA [here](https://github.com/Mannla
 
 #### Windows
 Download the latest `alphadia-X.Y.Z-windows-amd64.exe` build and double click it to install. If you receive a warning during installation click *Run anyway*.
+Important note: always install AlphaDIA into a new folder, as the installer will not properly overwrite existing installations.
 
 #### Linux
 If you want to use `.raw` files from Thermo instruments AlphaRaw is required, which depends on Mono.

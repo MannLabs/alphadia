@@ -320,7 +320,7 @@ function hasAlphaDIABundled(binaryPath){
     return new Promise((resolve, reject) => {
         try {
             execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
+                if (err) {console.log(err); reject("Backend executable '" + binaryPath + "' invalid!\n\n" + err); return;}
                 console.log(stdout)
                 resolve(stdout.split('\n')[0].trim())
             })
