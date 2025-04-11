@@ -104,7 +104,7 @@ class SearchPlan:
         if self._mbr_step_enabled:
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
 
-    def run_plan(self):
+    def run_plan(self, dry_run: bool = False) -> None:
         """Run the search plan.
 
         Depending on what steps are to be run, the relevant information (e.g. file paths or thresholds) is passed
@@ -112,6 +112,9 @@ class SearchPlan:
         """
         print_logo()
         print_environment()
+
+        if dry_run:
+            self.run_step(self._library_step_output_dir, {}, dry_run=True)
 
         extra_config_for_library_step = (
             self._multistep_config[LIBRARY_STEP_NAME]
@@ -182,6 +185,7 @@ class SearchPlan:
         self,
         output_directory: Path,
         extra_config: dict,
+        dry_run: bool = False,
     ) -> None:
         """Run a single step of the search plan."""
         step = SearchStep(
@@ -189,6 +193,7 @@ class SearchPlan:
             config=self._user_config,
             cli_config=self._cli_params_config,
             extra_config=extra_config,
+            dry_run=dry_run,
         )
         step.run()
 
