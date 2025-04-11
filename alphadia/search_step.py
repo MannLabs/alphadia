@@ -195,6 +195,7 @@ class SearchStep:
         prediction_config = self.config["library_prediction"]
 
         if self.library_path is None and not prediction_config["enabled"]:
+            # TODO why not raise here?
             logger.error("No library provided and prediction disabled.")
             return
         elif self.library_path is None and prediction_config["enabled"]:
@@ -432,14 +433,14 @@ class SearchStep:
                 missing_files.append(self.library_path)
         logger.info(f"Using library: {self.library_path}")
 
-        # TODO check if files can be opened for reading
+        # TODO check if files can be opened for reading ?
         has_errors = False
         if missing_files:
             missing_files_pretty = "\\n-".join(missing_files)
             logger.error(f"Not all input files exist. Missing: {missing_files_pretty}.")
             has_errors = True
         if not len_raw_files:
-            logger.error("At laest one raw file needs to be given.")
+            logger.error("At least one raw file needs to be given.")
             has_errors = True
         if not len_other_files:
             logger.error("At least one FASTA or a speclib file need to be given.")
