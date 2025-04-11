@@ -43,6 +43,9 @@ def get_torch_device(use_gpu: bool = False):
     return device
 
 
+# logging.info(f"ACTIVATE_NUMBA_CACHING: {ACTIVATE_NUMBA_CACHING}")
+
+
 @nb.njit
 def candidate_hash(precursor_idx, rank):
     # create a 64 bit hash from the precursor_idx, number and type
@@ -77,34 +80,6 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unuse
     # the last 8 bits are used to distinguish between different charges of the same precursor
     # this is necessary because I forgot to save the charge in the frag.tsv file :D
     return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
-
-
-def recursive_update(
-    full_dict: dict, update_dict: dict
-):  # TODO merge with Config._update
-    """recursively update a dict with a second dict. The dict is updated inplace.
-
-    Parameters
-    ----------
-    full_dict : dict
-        dict to be updated, is updated inplace.
-
-    update_dict : dict
-        dict with new values
-
-    Returns
-    -------
-    None
-
-    """
-    for key, value in update_dict.items():
-        if key in full_dict:
-            if isinstance(value, dict):
-                recursive_update(full_dict[key], update_dict[key])
-            else:
-                full_dict[key] = value
-        else:
-            full_dict[key] = value
 
 
 def normal(x, mu, sigma):  # TODO: unused?

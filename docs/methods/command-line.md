@@ -4,7 +4,7 @@ AlphaDIA offers a command line interface to perform searches. In fact, even the 
 ## Usage
 Before starting, please make sure that alphaDIA is correctly installed and up to date.
 ```bash
-alphadia -v
+alphadia --check
 ```
 
 To get an overview of all possible arguments, you can use
