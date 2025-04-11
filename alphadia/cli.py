@@ -10,7 +10,6 @@ import json
 import logging
 import os
 import re
-import sys
 
 import yaml
 
@@ -21,6 +20,10 @@ logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 import matplotlib  # noqa: E402
 
 logger = logging.getLogger()
+
+EXIT_CODE_USER_ERROR = 1
+EXIT_CODE_WRONG_CLI_PARAM = 126
+EXIT_CODE_UNKNOWN_ERROR = 127
 
 epilog = "Parameters passed via CLI will overwrite parameters from config file (except for  '--file': will be merged)."
 
@@ -219,7 +222,7 @@ def run(*args, **kwargs):
     if unknown:
         print(f"Unknown arguments: {unknown}")
         parser.print_help()
-        return
+        return EXIT_CODE_WRONG_CLI_PARAM
 
     if args.version:
         print(f"{__version__}")
@@ -231,6 +234,9 @@ def run(*args, **kwargs):
     from alphadia.workflow import reporting
 
     if args.check:
+        print(
+            f"{__version__}"
+        )  # important to have version as first string as this is picked up by the GUI
         print("Importing AlphaDIA works!")
         return
 
@@ -271,15 +277,15 @@ def run(*args, **kwargs):
 
     except Exception as e:
         if isinstance(e, CustomError):
-            exit_code = 1
+            exit_code = EXIT_CODE_USER_ERROR
         else:
             import traceback
 
             logger.info(traceback.format_exc())
-            exit_code = 127
+            exit_code = EXIT_CODE_UNKNOWN_ERROR
 
         logger.error(e)
-        sys.exit(exit_code)
+        return exit_code
 
 
 # uncomment for debugging:
