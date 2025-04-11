@@ -9,8 +9,39 @@ from alphadia.cli import _get_config_from_args, _get_from_args_or_config, run
 # TODO add tests for _get_raw_path_list_from_args_and_config
 
 
+def test_get_config_from_args_nothing_provided():
+    """Test the _get_config_from_args function correctly returns if nothing is provided."""
+    mock_args = MagicMock(config=None, config_dict={})
+
+    result = _get_config_from_args(mock_args)
+
+    assert result == ({}, None, {})
+
+
 def test_get_config_from_args():
-    """Test the _get_config_from_args function correctly merges configs."""
+    """Test the _get_config_from_args function correctly parses config file."""
+    mock_args = MagicMock(config="config.yaml", config_dict={})
+
+    yaml_content = {"key1": "value1", "key2": "value2"}
+    mock_yaml = yaml.dump(yaml_content)
+
+    with patch("builtins.open", mock_open(read_data=mock_yaml)):
+        result = _get_config_from_args(mock_args)
+
+    assert result == ({"key1": "value1", "key2": "value2"}, "config.yaml", {})
+
+
+def test_get_config_from_config_dict():
+    """Test the _get_config_from_args function correctly parses config dict."""
+    mock_args = MagicMock(config=None, config_dict='{"key3": "value3"}')
+
+    result = _get_config_from_args(mock_args)
+
+    assert result == ({"key3": "value3"}, None, '{"key3": "value3"}')
+
+
+def test_get_config_from_args_and_config_dict():
+    """Test the _get_config_from_args function correctly merges config file and dict."""
     mock_args = MagicMock(config="config.yaml", config_dict='{"key3": "value3"}')
 
     yaml_content = {"key1": "value1", "key2": "value2"}
@@ -19,7 +50,11 @@ def test_get_config_from_args():
     with patch("builtins.open", mock_open(read_data=mock_yaml)):
         result = _get_config_from_args(mock_args)
 
-    assert result == {"key1": "value1", "key2": "value2", "key3": "value3"}
+    assert result == (
+        {"key1": "value1", "key2": "value2", "key3": "value3"},
+        "config.yaml",
+        '{"key3": "value3"}',
+    )
 
 
 def test_get_from_args_or_config_returns_value_from_args():
