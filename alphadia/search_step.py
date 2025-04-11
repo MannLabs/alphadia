@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 from collections.abc import Generator
 from pathlib import Path
 
@@ -33,6 +34,7 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
+        dry_run: bool = False,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -79,6 +81,10 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         self._log_inputs()
+
+        if dry_run:
+            logger.info("Dry run mode: exiting.")
+            sys.exit(0)
 
     def _save_config(self, output_folder: str) -> None:
         """Save the config to a file in the output folder, moving an existing file if necessary."""
@@ -402,15 +408,46 @@ class SearchStep:
     def _log_inputs(self):
         """Log all relevant inputs."""
 
+        missing_files = []
+        len_raw_files = 0
+        len_other_files = 0
         logger.info(f"Searching {len(self.raw_path_list)} files:")
         for f in self.raw_path_list:
             logger.info(f"  {os.path.basename(f)}")
+            len_raw_files += 1
+            if not Path(f).exists():
+                missing_files.append(f)
 
         logger.info(f"Using {len(self.fasta_path_list)} fasta files:")
         for f in self.fasta_path_list:
             logger.info(f"  {f}")
+            len_other_files += 1
+            if not Path(f).exists():
+                missing_files.append(f)
 
+        if self.library_path:
+            if Path(self.library_path).exists():
+                len_other_files += 1
+            else:
+                missing_files.append(self.library_path)
         logger.info(f"Using library: {self.library_path}")
+
+        # TODO check if files can be opened for reading
+        has_errors = False
+        if missing_files:
+            missing_files_pretty = "\\n-".join(missing_files)
+            logger.error(f"Not all input files exist. Missing: {missing_files_pretty}.")
+            has_errors = True
+        if not len_raw_files:
+            logger.error("At laest one raw file needs to be given.")
+            has_errors = True
+        if not len_other_files:
+            logger.error("At least one FASTA or a speclib file need to be given.")
+            has_errors = True
+
+        if has_errors:
+            sys.exit(1)
+
         logger.info(f"Saving output to: {self.output_folder}")
 
 
