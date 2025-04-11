@@ -30,4 +30,4 @@ conda run -n $ENV_NAME --no-capture-output pip install -e "../.$INSTALL_STRING"
 
 conda run -n $ENV_NAME --no-capture-output pip freeze
 
-conda run -n $ENV_NAME --no-capture-output alphadia -v
+conda run -n $ENV_NAME --no-capture-output alphadia --check
