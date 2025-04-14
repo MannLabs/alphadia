@@ -69,9 +69,10 @@ def get_frag_df_generator(folder_list: list[str]):
 
 
 class QuantBuilder:
-    def __init__(self, psm_df, column="intensity"):
+    def __init__(self, psm_df, columns=['intensity',
+                                        'correlation']):
         self.psm_df = psm_df
-        self.column = column
+        self.columns = columns
 
     def accumulate_frag_df_from_folders(
         self, folder_list: list[str]
@@ -81,7 +82,7 @@ class QuantBuilder:
         Parameters
         ----------
 
-        folder_list: List[str]
+        folder_list: List[str],
             List of folders containing the frag.tsv file
 
         Returns
@@ -109,11 +110,8 @@ class QuantBuilder:
 
         Returns
         -------
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        dict
+            Dictionary of (column, df) tuples, where df is a dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
         """
 
         logger.info("Accumulating fragment data")
@@ -123,47 +121,54 @@ class QuantBuilder:
             logger.warning(f"no frag file found for {raw_name}")
             return None
 
-        df = prepare_df(df, self.psm_df, column=self.column)
+        df = prepare_df(df, self.psm_df, columns=self.columns)
 
-        intensity_df = df[["precursor_idx", "ion", self.column]].copy()
-        intensity_df.rename(columns={self.column: raw_name}, inplace=True)
-
-        quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
-        quality_df.rename(columns={"correlation": raw_name}, inplace=True)
-
+        df_list = []
+        for col in self.columns:
+            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df.rename(columns={col: raw_name}, inplace=True)
+            df_list.append(feat_df)
+        
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, column=self.column)
+            df = prepare_df(df, self.psm_df, columns=self.columns)
+            
+            for idx, col in enumerate(self.columns):
+                df_list[idx] = df_list[idx].merge(
+                    df[["ion", col, "precursor_idx"]],
+                    on=["ion", "precursor_idx"],
+                    how="outer",
+                )
+                df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-            intensity_df = intensity_df.merge(
-                df[["ion", self.column, "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            intensity_df.rename(columns={self.column: raw_name}, inplace=True)
+        return {col: self._add_annotation(df) for df, col in zip(df_list, self.columns)}
+                
+    def _add_annotation(self, df: pd.DataFrame) -> pd.DataFrame:
 
-            quality_df = quality_df.merge(
-                df[["ion", "correlation", "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            quality_df.rename(columns={"correlation": raw_name}, inplace=True)
+        """Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
 
-        # replace nan with 0
-        intensity_df.fillna(0, inplace=True)
-        quality_df.fillna(0, inplace=True)
+        Parameters
+        ----------
+        df: pd.DataFrame
+            Fragment data
 
-        intensity_df["precursor_idx"] = intensity_df["precursor_idx"].astype(np.uint32)
-        quality_df["precursor_idx"] = quality_df["precursor_idx"].astype(np.uint32)
+        Returns
+        -------
+        pd.DataFrame
+            Fragment data with annotation
+        """
+        
+        df.fillna(0, inplace=True)
+
+        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
 
         # annotate protein group
         annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
             {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
         )
 
-        intensity_df = intensity_df.merge(annotate_df, on="precursor_idx", how="left")
-        quality_df = quality_df.merge(annotate_df, on="precursor_idx", how="left")
+        df = df.merge(annotate_df, on="precursor_idx", how="left")
 
-        return intensity_df, quality_df
+        return df
 
     def filter_frag_df(
         self,
@@ -221,7 +226,6 @@ class QuantBuilder:
     def lfq(
         self,
         intensity_df: pd.DataFrame,
-        quality_df: pd.DataFrame,
         num_samples_quadratic: int = 50,
         min_nonan: int = 1,
         num_cores: int = 8,
@@ -287,7 +291,7 @@ class QuantBuilder:
         return protein_df
 
 
-def prepare_df(df, psm_df, column="intensity"):
+def prepare_df(df, psm_df, columns=["intensity", "correlation"]):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = utils.ion_hash(
         df["precursor_idx"].values,
@@ -296,7 +300,7 @@ def prepare_df(df, psm_df, column="intensity"):
         df["charge"].values,
         df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion", column, "correlation"]]
+    return df[["precursor_idx", "ion"] + columns]
 
 
 class SearchPlanOutput:
@@ -794,7 +798,9 @@ class SearchPlanOutput:
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
 
-        intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
+        dfs = qb.accumulate_frag_df_from_folders(folder_list)
+        intensity_df = dfs["intensity"].copy()
+        quality_df = dfs["correlation"].copy()
 
         @dataclass
         class LFQOutputConfig:
@@ -849,7 +855,6 @@ class SearchPlanOutput:
 
             lfq_df = qb.lfq(
                 group_intensity_df,
-                quality_df,
                 num_cores=self.config["general"]["thread_count"],
                 min_nonan=self.config["search_output"]["min_nonnan"],
                 num_samples_quadratic=self.config["search_output"][
