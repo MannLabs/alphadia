@@ -136,7 +136,7 @@ class SearchStep:
         default_config_path = os.path.join(
             os.path.dirname(__file__), "constants", "default.yaml"
         )
-        logger.info(f"loading config from {default_config_path}")
+        logger.info(f"loading default config from {default_config_path}")
         config = Config()
         config.from_yaml(default_config_path)
         return config
