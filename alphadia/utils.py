@@ -6,7 +6,6 @@ from ctypes import Structure, c_double
 import numba as nb
 import numpy as np
 import pandas as pd
-import torch
 from matplotlib import patches
 
 logger = logging.getLogger()
@@ -30,6 +29,7 @@ def get_torch_device(use_gpu: bool = False):
         Device to be used, either 'cpu', 'gpu' or 'mps'
 
     """
+    import torch
 
     device = "cpu"
     if use_gpu:
