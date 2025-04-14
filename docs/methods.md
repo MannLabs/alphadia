@@ -1,4 +1,4 @@
-# Technlogy
+# Technology
 
 ```{toctree}
     :maxdepth: 1
