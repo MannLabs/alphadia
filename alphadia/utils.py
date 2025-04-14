@@ -1,12 +1,10 @@
 import logging
 import math
 import platform
-from ctypes import Structure, c_double
 
 import numba as nb
 import numpy as np
 import pandas as pd
-from matplotlib import patches
 
 logger = logging.getLogger()
 
@@ -68,17 +66,6 @@ def ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
-@nb.njit
-def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unused?
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the number is the next 8 bits
-    # the type is the next 8 bits
-    # the last 8 bits are used to distinguish between different charges of the same precursor
-    # this is necessary because I forgot to save the charge in the frag.tsv file :D
-    return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
-
-
 def recursive_update(
     full_dict: dict, update_dict: dict
 ):  # TODO merge with Config._update
@@ -105,27 +92,6 @@ def recursive_update(
                 full_dict[key] = value
         else:
             full_dict[key] = value
-
-
-def normal(x, mu, sigma):  # TODO: unused?
-    """ """
-    return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-np.power((x - mu) / sigma, 2) / 2)
-
-
-def plt_limits(mobility_limits, dia_cycle_limits):  # TODO: unused?
-    mobility_len = mobility_limits[1] - mobility_limits[0]
-    dia_cycle_len = dia_cycle_limits[1] - dia_cycle_limits[0]
-
-    rect = patches.Rectangle(
-        (dia_cycle_limits[0], mobility_limits[0]),
-        dia_cycle_len,
-        mobility_len,
-        linewidth=1,
-        edgecolor="r",
-        facecolor="none",
-    )
-
-    return rect
 
 
 @nb.njit()
@@ -210,14 +176,6 @@ def amean0(array):
 
 
 @nb.njit()
-def astd0(array):  # TODO: unused?
-    out = np.zeros(array.shape[1])
-    for i in range(len(out)):
-        out[i] = np.std(array[:, i])
-    return out
-
-
-@nb.njit()
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -254,23 +212,6 @@ def mass_range(mz_list, ppm_tolerance):
     out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
     out_mz[:, 1] = mz_list + ppm_tolerance * mz_list / (10**6)
     return out_mz
-
-
-def function_call(q):  # TODO: unused?
-    q.put("X" * 1000000)
-
-
-def modify(n, x, s, A):  # TODO: unused?
-    n.value **= 2
-    x.value **= 2
-    s.value = s.value.upper()
-    for a in A:
-        a.x **= 2
-        a.y **= 2
-
-
-class Point(Structure):  # TODO: unused?
-    _fields_ = [("x", c_double), ("y", c_double)]
 
 
 @nb.njit()
@@ -320,65 +261,6 @@ def make_slice_2d(start_stop):
     out[:, 0] = start_stop[:, 0]
     out[:, 1] = start_stop[:, 1]
     return out
-
-
-@nb.njit
-def fourier_filter(dense_stack, kernel):  # TODO: unused?
-    """Numba helper function to apply a gaussian filter to a dense stack.
-    The filter is applied as convolution wrapping around the edges, calculated in fourier space.
-
-    As there seems to be no easy option to perform 2d fourier transforms in numba, the numpy fft is used in object mode.
-    During multithreading the GIL has to be acquired to use the numpy fft and is realeased afterwards.
-
-    Parameters
-    ----------
-
-    dense_stack : np.ndarray
-        Array of shape (2, n_precursors, n_observations ,n_scans, n_cycles) containing the dense stack.
-
-    kernel : np.ndarray
-        Array of shape (k0, k1) containing the gaussian kernel.
-
-    Returns
-    -------
-    smooth_output : np.ndarray
-        Array of shape (n_precursors, n_observations, n_scans, n_cycles) containing the filtered dense stack.
-
-    """
-
-    # make sure both dimensions are even
-    scan_mod = dense_stack.shape[3] % 2
-    frame_mod = dense_stack.shape[4] % 2
-
-    scan_size = dense_stack.shape[3] - scan_mod
-    frame_size = dense_stack.shape[4] - frame_mod
-
-    smooth_output = np.zeros(
-        (
-            dense_stack.shape[1],
-            dense_stack.shape[2],
-            scan_size,
-            frame_size,
-        ),
-        dtype="float32",
-    )
-
-    fourier_filter = np.fft.rfft2(kernel, smooth_output.shape[2:])
-
-    for i in range(smooth_output.shape[0]):
-        for j in range(smooth_output.shape[1]):
-            layer = dense_stack[0, i, j, :scan_size, :frame_size]
-
-            smooth_output[i, j] = np.fft.irfft2(np.fft.rfft2(layer) * fourier_filter)
-
-    # with nb.objmode(smooth_output='float32[:,:,:,:]'):
-    #    # roll back to original position
-    #    k0 = kernel.shape[0]
-    #    k1 = kernel.shape[1]
-    #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-    #    smooth_output = np.roll(smooth_output, -k1//2, axis=3)
-
-    return smooth_output
 
 
 def calculate_score_groups(
@@ -517,30 +399,6 @@ def calculate_score_groups(
         input_df["score_group_idx"] = np.arange(len(input_df), dtype=np.uint32)
 
     return input_df.sort_values(by=["score_group_idx"]).reset_index(drop=True)
-
-
-@nb.njit()
-def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):  # TODO: unused?
-    mask = np.sum((profile >= tresh).astype(np.int8), axis=0) == profile.shape[0]
-
-    output = np.zeros(profile.shape, dtype=np.float32)
-
-    start_index = 0
-
-    while start_index < (len(mask) - kernel_size):
-        if not mask[start_index]:
-            start_index += shift
-            continue
-
-        slice = profile[:, start_index : start_index + kernel_size]
-        correlation = amean0(np.corrcoef(slice))
-
-        start = start_index + kernel_size // 2 - shift
-        end = start_index + kernel_size // 2
-        output[:, start : start_index + end] = correlation.reshape(-1, 1)
-        start_index += shift
-
-    return output
 
 
 def merge_missing_columns(
