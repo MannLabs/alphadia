@@ -27,7 +27,7 @@ def get_torch_device(use_gpu: bool = False):
         Device to be used, either 'cpu', 'gpu' or 'mps'
 
     """
-    import torch
+    import torch  # deliberately importing lazily to decouple utils from the heavy torch dependency
 
     device = "cpu"
     if use_gpu:
