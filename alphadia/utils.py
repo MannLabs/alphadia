@@ -79,34 +79,6 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unuse
     return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
 
 
-def recursive_update(
-    full_dict: dict, update_dict: dict
-):  # TODO merge with Config._update
-    """recursively update a dict with a second dict. The dict is updated inplace.
-
-    Parameters
-    ----------
-    full_dict : dict
-        dict to be updated, is updated inplace.
-
-    update_dict : dict
-        dict with new values
-
-    Returns
-    -------
-    None
-
-    """
-    for key, value in update_dict.items():
-        if key in full_dict:
-            if isinstance(value, dict):
-                recursive_update(full_dict[key], update_dict[key])
-            else:
-                full_dict[key] = value
-        else:
-            full_dict[key] = value
-
-
 def normal(x, mu, sigma):  # TODO: unused?
     """ """
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-np.power((x - mu) / sigma, 2) / 2)

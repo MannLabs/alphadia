@@ -55,7 +55,7 @@ Alternatively, use
 version clashes if alphaDIA is imported as a library into a defined python requirement.
 Note however, that this "loose" version might be affected e.g. by breaking changes of third-party dependencies.
 
-Finally, run `alphadia -v` to check if the installation was successful;
+Finally, run `alphadia --check` to check if the installation was successful;
 `alphadia -h` will give you a list of command-line options.
 
 
