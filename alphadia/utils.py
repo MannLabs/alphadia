@@ -43,9 +43,6 @@ def get_torch_device(use_gpu: bool = False):
     return device
 
 
-# logging.info(f"ACTIVATE_NUMBA_CACHING: {ACTIVATE_NUMBA_CACHING}")
-
-
 @nb.njit
 def candidate_hash(precursor_idx, rank):
     # create a 64 bit hash from the precursor_idx, number and type

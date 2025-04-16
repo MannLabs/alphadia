@@ -73,8 +73,6 @@ def test_cli_minimal_args(mock_parse_known_args):
     mock_parse_known_args.return_value = (mock_args, [])
 
     mock_search_plan = MagicMock()
-    mock_search_plan_module = MagicMock()
-    mock_search_plan_module.SearchPlan = mock_search_plan
 
     mock_reporting = MagicMock()
 
@@ -82,8 +80,8 @@ def test_cli_minimal_args(mock_parse_known_args):
     with patch.dict(
         "sys.modules",
         {
-            "alphadia.search_plan": mock_search_plan_module,
-            "alphadia.workflow.reporting": mock_reporting,
+            "alphadia.search_plan": MagicMock(SearchPlan=mock_search_plan),
+            "alphadia.workflow": MagicMock(reporting=mock_reporting),
         },
     ):
         run()
@@ -118,16 +116,13 @@ def test_cli_minimal_args_all_none(mock_parse_known_args):
     mock_parse_known_args.return_value = (mock_args, [])
 
     mock_search_plan = MagicMock()
-    mock_search_plan_module = MagicMock()
-    mock_search_plan_module.SearchPlan = mock_search_plan
-
     mock_reporting = MagicMock()
 
     with patch.dict(
         "sys.modules",
         {
-            "alphadia.search_plan": mock_search_plan_module,
-            "alphadia.workflow.reporting": mock_reporting,
+            "alphadia.search_plan": MagicMock(SearchPlan=mock_search_plan),
+            "alphadia.workflow": MagicMock(reporting=mock_reporting),
         },
     ):
         run()
