@@ -9,9 +9,9 @@ import alpharaw
 import alphatims
 import directlfq
 import peptdeep
-from utils import ACTIVATE_NUMBA_CACHING
 
 import alphadia
+from alphadia.utils import ACTIVATE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
