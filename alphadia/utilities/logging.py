@@ -9,6 +9,7 @@ import alpharaw
 import alphatims
 import directlfq
 import peptdeep
+from utils import ACTIVATE_NUMBA_CACHING
 
 import alphadia
 
@@ -50,3 +51,5 @@ def print_environment() -> None:
     ]
     logger.info(" ".join(pip_env))
     logger.info("===================================================")
+
+    logger.info(f"ACTIVATE_NUMBA_CACHING={ACTIVATE_NUMBA_CACHING}")
