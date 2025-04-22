@@ -66,6 +66,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
         "config": BASE_USER_CONFIG,
         "extra_config": {},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     mock_plan.return_value.run.assert_called_once_with()
@@ -91,6 +92,7 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
         "config": {},
         "extra_config": {},
         "cli_config": {},
+        "dry_run": False,
     }
 
     mock_plan.return_value.run.assert_called_once_with()
@@ -162,6 +164,7 @@ def test_runs_plan_with_transfer_step(
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     # library_step
@@ -179,6 +182,7 @@ def test_runs_plan_with_transfer_step(
         }
         | dynamic_config,
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -215,6 +219,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["library"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     # mbr_step
@@ -229,6 +234,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
             )
         },
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call()])
@@ -267,6 +273,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         "config": BASE_USER_CONFIG | additional_user_config,
         "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     # library_step
@@ -284,6 +291,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         }
         | dynamic_config,
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     # mbr_step
@@ -298,6 +306,7 @@ def test_runs_plan_with_transfer_and_mbr_steps(
             ),
         },
         "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "dry_run": False,
     }
 
     mock_plan.return_value.run.assert_has_calls([call(), call(), call()])
