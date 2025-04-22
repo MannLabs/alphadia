@@ -447,7 +447,7 @@ class SearchStep:
             logger.error("At least one FASTA or a speclib file need to be given.")
             has_errors = True
 
-        if has_errors and self._dry_run:
+        if has_errors:
             raise GenericUserError("Input values check failed.")
 
         logger.info(f"Saving output to: {self.output_folder}")
