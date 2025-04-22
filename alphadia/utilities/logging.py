@@ -52,4 +52,5 @@ def print_environment() -> None:
     logger.info(" ".join(pip_env))
     logger.info("===================================================")
 
-    logger.info(f"ACTIVATE_NUMBA_CACHING={ACTIVATE_NUMBA_CACHING}")
+    if ACTIVATE_NUMBA_CACHING:
+        logger.info("Numba caching is activated.")
