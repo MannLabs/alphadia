@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 from collections.abc import Generator
 from pathlib import Path
 
@@ -11,7 +10,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
-from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.exceptions import CustomError, GenericUserError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -62,6 +61,8 @@ class SearchStep:
         os.makedirs(output_folder, exist_ok=True)
         reporting.init_logging(self.output_folder)
 
+        self._dry_run = dry_run
+
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
@@ -81,10 +82,6 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         self._log_inputs()
-
-        if dry_run:
-            logger.info("Dry run mode: exiting.")
-            sys.exit(0)
 
     def _save_config(self, output_folder: str) -> None:
         """Save the config to a file in the output folder, moving an existing file if necessary."""
@@ -300,6 +297,10 @@ class SearchStep:
     def run(
         self,
     ):
+        if self._dry_run:
+            logger.info("Dry run: skipping search workflow.")
+            return
+
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
@@ -446,8 +447,8 @@ class SearchStep:
             logger.error("At least one FASTA or a speclib file need to be given.")
             has_errors = True
 
-        if has_errors:
-            sys.exit(1)
+        if has_errors and self._dry_run:
+            raise GenericUserError("Input values check failed.")
 
         logger.info(f"Saving output to: {self.output_folder}")
 

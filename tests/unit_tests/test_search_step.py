@@ -1,3 +1,4 @@
+import contextlib
 import os
 import tempfile
 from copy import deepcopy
@@ -9,6 +10,7 @@ from alphabase.constants.modification import MOD_DF
 from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia import search_step
+from alphadia.exceptions import GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
 
@@ -94,7 +96,9 @@ def test_custom_modifications():
         ]
     }
 
-    step = search_step.SearchStep(temp_directory, config=config)  # noqa F841
+    with contextlib.suppress(GenericUserError):
+        _ = search_step.SearchStep(temp_directory, config=config, dry_run=True)  # noqa F841
+
     assert "ThisModDoesNotExists@K" in MOD_DF["mod_name"].values
 
 
