@@ -130,9 +130,6 @@ custom_modifications:
     composition: C(12)
 
 search:
-  fdr_q: -1
-  fdr_fac: 1.0
-
   # target ms1 tolerance in ppm
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
