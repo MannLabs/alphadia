@@ -45,7 +45,7 @@ def get_fragment_overlap(
     return frag_overlap
 
 
-@timsutils.pjit
+@timsutils.pjit(cache=ACTIVATE_NUMBA_CACHING)
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,

@@ -285,7 +285,7 @@ class CandidateDF:
         )
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=ACTIVATE_NUMBA_CACHING)
 def _executor(
     i,
     jit_data,

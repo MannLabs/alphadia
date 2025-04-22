@@ -816,7 +816,7 @@ class TimsTOFTransposeJIT:
         )
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=ACTIVATE_NUMBA_CACHING)
 def transpose_chunk(
     chunk_idx,
     chunks,
