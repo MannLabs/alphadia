@@ -104,7 +104,7 @@ You can either write it from scratch or use a `config.yaml` generated in a GUI s
 
 Sometimes, for example when optimizing a single parameter or building multi step workflows, you want to change only a single parameters on top of an existing configuration. Therefore, alphaDIA offers the `--config-dict` option, which leds you access all parameters from the command line.
 ```
-    --config-dict "{'library_prediction':{'nce':26}}"
+    --config-dict "{\"library_prediction\":{\"nce\":26}}"
 ```
 
 ### 5. Summary
@@ -119,5 +119,5 @@ alphadia \
     --library speclib.single_species.hdf \
     --fasta human_reviewed_2024_03_11.fasta \
     --config config_astral_first_pass.yaml \
-    --config-dict "{'library_prediction':{'nce':26}}"
+    --config-dict "{\"library_prediction\":{\"nce\":26}}"
 ```

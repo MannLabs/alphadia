@@ -11,6 +11,7 @@ import logging
 import os
 import re
 import sys
+from pathlib import Path
 
 import yaml
 
@@ -98,7 +99,8 @@ parser.add_argument(
 parser.add_argument(
     "--config-dict",
     type=str,
-    help="Python dictionary which will be used to update the default config.",
+    help="Python dictionary which will be used to update the default config. Keys and string values need to be surrounded by "
+    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}".',
     nargs="?",
     default="{}",
 )
@@ -112,7 +114,9 @@ parser.add_argument(
 )
 
 
-def _get_config_from_args(args: argparse.Namespace) -> dict:
+def _get_config_from_args(
+    args: argparse.Namespace,
+) -> tuple[dict, str | None, str | None]:
     """Parse config file from `args.config` if given and update with optional JSON string `args.config_dict`."""
 
     config = {}
@@ -120,12 +124,13 @@ def _get_config_from_args(args: argparse.Namespace) -> dict:
         with open(args.config) as f:
             config = yaml.safe_load(f)
 
-    try:
-        utils.recursive_update(config, json.loads(args.config_dict))
-    except Exception as e:
-        print(f"Could not parse config update: {e}")
+    if args.config_dict:
+        try:
+            utils.recursive_update(config, json.loads(args.config_dict))
+        except Exception as e:
+            print(f"Could not parse config update: {e}")
 
-    return config
+    return config, args.config, args.config_dict
 
 
 def _get_from_args_or_config(
@@ -201,7 +206,7 @@ def run(*args, **kwargs):
         print(f"{alphadia.__version__}")
         return
 
-    user_config = _get_config_from_args(args)
+    user_config, config_file_path, extra_config_dict = _get_config_from_args(args)
 
     output_directory = _get_from_args_or_config(
         args, user_config, args_key="output", config_key="output_directory"
@@ -211,7 +216,16 @@ def run(*args, **kwargs):
 
         print("No output directory specified. Please do so via CL-argument or config.")
         return
+
     reporting.init_logging(output_directory)
+
+    logger.info(
+        f"Output directory: {Path(output_directory).absolute()}, cwd: {os.getcwd()}."
+    )
+    if config_file_path:
+        logger.info(f"User provided config file: {config_file_path}.")
+    if extra_config_dict:
+        logger.info(f"User provided config dict: {extra_config_dict}.")
 
     # TODO revisit the multiple sources of raw files (cli, config, regex, ...)
     raw_paths = _get_raw_path_list_from_args_and_config(args, user_config)
@@ -247,6 +261,5 @@ def run(*args, **kwargs):
         sys.exit(exit_code)
 
 
-# uncomment for debugging:
-# if __name__ == "__main__":
-#     run()
+if __name__ == "__main__" and os.getenv("RUN_MAIN") == "1":
+    run()
