@@ -774,12 +774,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        score = precursor_df_filtered["score"]
+        if self.config["search"]["optimized_peak_group_score"]:
+            # these values give benefits on max memory and runtime, with a small precursor penalty
+            fac, q = 0.95, 3
+        else:
+            fac, q = 0.99, 1
+
+        score_cutoff = fac * np.percentile(score, q)
+
+        self.reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
+
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
-                "score_cutoff": percentile_001,
+                "score_cutoff": score_cutoff,
             }
         )
 
