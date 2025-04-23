@@ -27,7 +27,7 @@ Leave all the predefined settings in the two .yaml files as they are.
     - target_directory: the directory where intermediate and final outputs are written (mind that slow read/write speeds to this location may slow down your search)
     - library_path (optional, will be reannotated if fasta_path is provided and predict_library is set to 1): absolute path to a .hdf spectral library
     - fasta_path (optional if library_path is provided and predict_library is set to 0): absolute path to .fasta file
-    - first_search_config_filename: name of .yaml file for the first search
+    - first_search_config_filename: name of the .yaml file for the first search
     - second_search_config_filename: name of the .yaml file for the building the MBR library, second search and LFQ
 6. Run **outer.sh** with the following command line arguments:
     - --nnodes (int): specifies how many nodes can be occupied. Rawfile search will be distributed across these nodes. If there are 5 nodes and 50 raw files, the search will take place on 5 nodes in chunks of 10 rawfiles each.

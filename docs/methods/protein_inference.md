@@ -23,7 +23,7 @@ Viewed through the lens of parsimonious protein grouping, A and B would belong t
     </li>
 </ol>
 
-The above approach is largely based on a greddy set cover implementation described in [https://www.cs.umd.edu/class/fall2017/cmsc451-0101/Lects/lect09-set-cover.pdf], and a general description of protein grouping from [Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005)]. Of note, several ambiguous cases can arise for ids which have the exact same number of precursors. In this case, the algorithm will pick the first id in the list, which resolves these cases arbitrarily. Future implementations will employ a weighted set cover approach, taking into account precursor abundances to resolve ties.
+The above approach is largely based on a greedy set cover implementation described in [https://www.cs.umd.edu/class/fall2017/cmsc451-0101/Lects/lect09-set-cover.pdf], and a general description of protein grouping from [Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005)]. Of note, several ambiguous cases can arise for ids which have the exact same number of precursors. In this case, the algorithm will pick the first id in the list, which resolves these cases arbitrarily. Future implementations will employ a weighted set cover approach, taking into account precursor abundances to resolve ties.
 
 The above mentioned publication lists six cases of protein grouping which must be resolved. Together with circular protein groups, a sub-case of subsumable proteins, these cases are covered by AlphaDIA's grouping implementation.
 
