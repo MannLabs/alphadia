@@ -229,15 +229,30 @@ def run(*args, **kwargs):
         return
 
     # load modules only here to speed up -v and -h commands
-    from alphadia.exceptions import CustomError
-    from alphadia.search_plan import SearchPlan
-    from alphadia.workflow import reporting
+    try:
+        from alphadia.exceptions import CustomError
+        from alphadia.search_plan import SearchPlan
+        from alphadia.workflow import reporting
+
+        import_exception = None
+        raise ValueError("323")
+    except Exception as e:
+        import_exception = e
 
     if args.check:
         print(
             f"{__version__}"
-        )  # important to have version as first string as this is picked up by the GUI
-        print("Importing AlphaDIA works!")
+        )  # important to have version as first string as this is currently picked up by the GUI
+        print(
+            json.dumps(
+                {"version": __version__, "import_success": import_exception is None}
+            )
+        )
+
+    if import_exception is not None:
+        raise import_exception
+
+    if args.check:
         return
 
     user_config = _get_config_from_args(args)
