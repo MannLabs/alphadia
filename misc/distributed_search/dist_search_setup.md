@@ -21,7 +21,7 @@ Steps to set up a search
 3. If no .csv file with rawfile paths exists, it can be obtained by running **discover_project_files.py** from the search directory.
 4. Set first and second search configurations in **first_config.yaml** and **second_config.yaml**. For example, number of precursor candidates and inference strategy, as well as mass tolerances may differ between first and second search.
 Leave all the predefined settings in the two .yaml files as they are.
-5. Set the search parameters in **outer.sh**. While these can also be provided as command line arguments, it is convenient to set them in **outer.sh** itself. This file requires the following settings:
+5. Set the search parameters in **search.config**. The following settings are covered by search.config:
     - input_directory: the search directory
     - input_filename: the .csv file containing rawfile paths
     - target_directory: the directory where intermediate and final outputs are written (mind that slow read/write speeds to this location may slow down your search)
@@ -29,7 +29,7 @@ Leave all the predefined settings in the two .yaml files as they are.
     - fasta_path (optional if library_path is provided and predict_library is set to 0): absolute path to .fasta file
     - first_search_config_filename: name of .yaml file for the first search
     - second_search_config_filename: name of the .yaml file for the building the MBR library, second search and LFQ
-6. Run **outer.sh** with the following search settings:
+6. Run **outer.sh** with the following command line arguments:
     - --nnodes (int): specifies how many nodes can be occupied. Rawfile search will be distributed across these nodes. If there are 5 nodes and 50 raw files, the search will take place on 5 nodes in chunks of 10 rawfiles each.
     - --ntasks_per_node (int): default to 1, some HPCL systems allow for multiple tasks to run on one node
     - --cpus (int): default to 12, specifies how many CPUs shall be used per task
@@ -40,6 +40,8 @@ Leave all the predefined settings in the two .yaml files as they are.
     - --mbr_library (1/0): whether to aggregate first search results into a focused "MBR" library
     - --second_search (1/0): whether to perform a second search with the focused MBR library
     - --lfq (1/0): whether to perform LFQ quantification of the second search results
+    
+An example call to outer.sh could look like this: ```sbatch outer.sh --nnodes 45 --search_config my_search.config```
 
 Running the search creates five subdirectories in the target folder:
 
