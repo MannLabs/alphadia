@@ -12,5 +12,3 @@ export function methodReducer(method, action) {
             throw new Error(`Unhandled action type: ${action.type}`);
     }
 }
-        
-

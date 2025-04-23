@@ -1,12 +1,11 @@
 # native imports
 
 # alphadia imports
-from alphadia.workflow import reporting
-
 # alpha family imports
-
 # third party imports
 import numpy as np
+
+from alphadia.workflow import reporting
 
 
 class JITConfig:
@@ -140,32 +139,36 @@ class JITConfig:
             if not isinstance(value, type(getattr(self, key))):
                 try:
                     value = type(getattr(self, key))(value)
-                except:
+                except Exception:
                     self.reporter.log_string(
                         f"Parameter {key} has wrong type {type(value)}",
                         verbosity="error",
                     )
 
             # check if dtype matches
-            if isinstance(value, np.ndarray):
-                if value.dtype != getattr(self, key).dtype:
-                    try:
-                        value = value.astype(getattr(self, key).dtype)
-                    except:
-                        self.reporter.log_string(
-                            f"Parameter {key} has wrong dtype {value.dtype}",
-                            verbosity="error",
-                        )
-                        continue
-
-            # check if dimensions match
-            if isinstance(value, np.ndarray):
-                if value.shape != getattr(self, key).shape:
+            if (
+                isinstance(value, np.ndarray)
+                and value.dtype != getattr(self, key).dtype
+            ):
+                try:
+                    value = value.astype(getattr(self, key).dtype)
+                except Exception:
                     self.reporter.log_string(
-                        f"Parameter {key} has wrong shape {value.shape}",
+                        f"Parameter {key} has wrong dtype {value.dtype}",
                         verbosity="error",
                     )
                     continue
+
+            # check if dimensions match
+            if (
+                isinstance(value, np.ndarray)
+                and value.shape != getattr(self, key).shape
+            ):
+                self.reporter.log_string(
+                    f"Parameter {key} has wrong shape {value.shape}",
+                    verbosity="error",
+                )
+                continue
 
             # update attribute
             setattr(self, key, value)
@@ -175,5 +178,5 @@ class JITConfig:
         for key, value in self.__dict__.items():
             repr += f"{key}={value} \n"
 
-        repr += f">"
+        repr += ">"
         return repr

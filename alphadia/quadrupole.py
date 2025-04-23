@@ -1,20 +1,12 @@
-# native imports
-import math
-
-# alphadia imports
-from alphadia import utils
-
-# alpha family imports
-import alphatims.utils
-
-# third party imports
 import numba as nb
-from numba.experimental import jitclass
 import numpy as np
+from numba.experimental import jitclass
 from scipy.optimize import curve_fit
 
+from alphadia import utils
 
-@alphatims.utils.njit
+
+@nb.njit
 def logistic(x: np.array, mu: float, sigma: float):
     """Numba implementation of the logistic function
 
@@ -42,13 +34,13 @@ def logistic(x: np.array, mu: float, sigma: float):
     return y
 
 
-@alphatims.utils.njit
+@nb.njit
 def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     y = logistic(x, mu1, sigma1) - logistic(x, mu2, sigma2)
     return y
 
 
-@alphatims.utils.njit
+@nb.njit
 def linear(x, m, b):
     return m * x + b
 
@@ -268,7 +260,7 @@ class SimpleQuadrupole:
         return new_cycle
 
 
-@alphatims.utils.njit
+@nb.njit
 def quadrupole_transfer_function_single(
     quadrupole_calibration_jit, observation_indices, scan_indices, isotope_mz
 ):
@@ -313,14 +305,8 @@ def quadrupole_transfer_function_single(
 
 @nb.njit
 def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
-    n_isotopes = qtf.shape[0]
-    n_observations = qtf.shape[1]
-    n_scans = qtf.shape[2]
-    n_frames = dense_precursor_mz.shape[-1]
-
     # select only the intensity channel
     # expand observation dimension to the number of fragment observations
-    (n_isotopes, n_observations, n_scans, n_frames)
     precursor_mz = dense_precursor_mz[0]
 
     # unravel precursors and isotopes

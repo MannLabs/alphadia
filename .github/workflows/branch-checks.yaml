@@ -1,0 +1,38 @@
+# checks to run on branches for each pull request
+name: branch-checks
+
+on:
+  pull_request:
+jobs:
+  pre-commit:
+    name: Run all pre-commit hooks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+    - uses: pre-commit/action@v3.0.1
+
+  # For feature branches, we don't test the full matrix (os x [stable, loose]) in order to save time & resources.
+  run-tests-stable:
+    name: Test 'stable' on ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    uses: ./.github/workflows/_run_tests.yml
+    with:
+      python-version: ${{ matrix.python-version }}
+      os: ${{ matrix.os }}
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
+      test-script: ./run_unit_tests.sh alphadia-env false
+
+  get-code-review-input:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: MannLabs/alphashared/actions/get-code-review-input@v1
+        continue-on-error: true
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.number }}
+          EXCLUDED_EXTENSIONS: ipynb;js

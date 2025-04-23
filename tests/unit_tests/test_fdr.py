@@ -1,21 +1,16 @@
 import os
+import tempfile
 import warnings
+
+import matplotlib
 import numpy as np
 import pandas as pd
 import pytest
-import tempfile
+import torch
 
 from alphadia import fdr
 from alphadia import fdrexperimental as fdrx
 from alphadia.workflow import manager
-
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from sklearn.neural_network import MLPClassifier
-
-import torch
-
-import matplotlib
 
 feature_columns = [
     "base_width_mobility",
@@ -60,6 +55,7 @@ feature_columns = [
 classifier_base = fdrx.BinaryClassifierLegacy(
     test_size=0.01,
     batch_size=100,
+    epochs=15,
 )
 
 
@@ -89,7 +85,7 @@ def test_keep_best():
     )
 
 
-def test_keep_best():
+def test_keep_best_2():
     test_df = pd.DataFrame(
         {
             "channel": [0, 0, 0, 4, 4, 4, 8, 8, 8],
@@ -163,7 +159,7 @@ def test_get_q_values():
     )
 
 
-@pytest.mark.slow
+@pytest.mark.slow()
 def test_fdr():
     matplotlib.use("Agg")
 
@@ -260,14 +256,11 @@ def test_feed_forward():
     # assert classifier.metrics["test_accuracy"][-1] > 0.99
     # assert classifier.metrics["train_accuracy"][-1] > 0.99
 
-    y_pred = classifier.predict(x)
+    y_pred = classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)
 
-    y_proba = classifier.predict_proba(x)[:, 1]
+    y_proba = classifier.predict_proba(x)[:, 1]  # noqa: F841  # TODO fix this test
     # assert np.all(np.round(y_proba) == y)
-
-
-test_feed_forward()
 
 
 def test_feed_forward_save():
@@ -287,11 +280,10 @@ def test_feed_forward_save():
 
     new_classifier = fdrx.BinaryClassifierLegacy()
     new_classifier.from_state_dict(
-        torch.load(os.path.join(tempfolder, "test_feed_forward_save.pth"))
+        torch.load(
+            os.path.join(tempfolder, "test_feed_forward_save.pth"), weights_only=False
+        )
     )
 
-    y_pred = new_classifier.predict(x)
+    y_pred = new_classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)
-
-
-test_feed_forward_save()

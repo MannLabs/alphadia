@@ -1,15 +1,14 @@
 # native imports
-import typing
 
 # alphadia imports
 
 # alpha family imports
 
 # third party imports
-from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.stats import gaussian_kde
 
 
 def lighten_color(color, amount=0.5):
@@ -30,23 +29,25 @@ def lighten_color(color, amount=0.5):
     tuple
         lightened color
     """
-    import matplotlib.colors as mc
     import colorsys
+
+    import matplotlib.colors as mc
 
     try:
         c = mc.cnames[color]
-    except:
+    except KeyError:
         c = color
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
 
 def density_scatter(
-    x: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
-    y: typing.Union[np.ndarray, pd.Series, pd.DataFrame],
+    x: np.ndarray | pd.Series | pd.DataFrame,
+    y: np.ndarray | pd.Series | pd.DataFrame,
     axis: plt.Axes = None,
+    bw_method=None,
     s: float = 1,
-    **kwargs
+    **kwargs,
 ):
     """
     Scatter plot colored by kerneld density estimation
@@ -100,7 +101,7 @@ def density_scatter(
 
     # Calculate the point density
     xy = np.vstack([x, y])
-    z = gaussian_kde(xy)(xy)
+    z = gaussian_kde(xy, bw_method=bw_method)(xy)
 
     # Sort the points by density, so that the densest points are plotted last
     idx = z.argsort()
@@ -110,7 +111,7 @@ def density_scatter(
 
 
 def plot_image_collection(
-    images: typing.List[np.ndarray], image_width: float = 4, image_height: float = 6
+    images: list[np.ndarray], image_width: float = 4, image_height: float = 6
 ):
     n_images = len(images)
     fig, ax = plt.subplots(1, n_images, figsize=(n_images * image_width, image_height))

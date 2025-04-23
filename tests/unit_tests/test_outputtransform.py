@@ -1,118 +1,14 @@
-import tempfile
-from alphadia import outputtransform
-import pandas as pd
-import numpy as np
 import os
 import shutil
+import tempfile
 
+import numpy as np
+import pandas as pd
+from conftest import mock_fragment_df, mock_precursor_df
 
-def _mock_precursor_df(
-    n_precursor: int = 100,
-) -> pd.DataFrame:
-    """Create a mock precursor dataframe as it's found as the individual search outputs
-
-    Parameters
-    ----------
-
-    n_precursor : int
-        Number of precursors to generate
-
-    Returns
-    -------
-
-    precursor_df : pd.DataFrame
-        A mock precursor dataframe
-    """
-
-    precursor_idx = np.arange(n_precursor)
-    decoy = np.zeros(n_precursor)
-    precursor_mz = np.random.rand(n_precursor) * 2000 + 500
-    precursor_charge = np.random.choice([2, 3], size=n_precursor)
-
-    proteins = np.arange(26)
-    protein_names = [chr(ord("A") + i).upper() + "PROT" for i in proteins]
-
-    proteins = np.random.choice(protein_names, size=n_precursor)
-    genes = proteins
-
-    decoy = np.concatenate([np.zeros(n_precursor // 2), np.ones(n_precursor // 2)])
-    proba = np.zeros(n_precursor) + decoy * np.random.rand(n_precursor)
-    qval = np.random.rand(n_precursor) * 10e-3
-
-    return pd.DataFrame(
-        {
-            "precursor_idx": precursor_idx,
-            "decoy": decoy,
-            "mz_library": precursor_mz,
-            "charge": precursor_charge,
-            "proteins": proteins,
-            "genes": genes,
-            "decoy": decoy,
-            "proba": proba,
-            "qval": qval,
-            "sequence": ["AAAAAA"] * n_precursor,
-            "mods": [""] * n_precursor,
-            "mod_sites": [""] * n_precursor,
-        }
-    )
-
-
-_mock_precursor_df()
-
-
-def _mock_fragment_df(n_fragments: int = 10, n_precursor: int = 10):
-    """Create a mock fragment dataframe as it's found as the individual search outputs
-
-    Parameters
-    ----------
-
-    n_fragments : int
-        Number of fragments per precursor
-
-    n_precursor : int
-        Number of precursors to generate
-
-    Returns
-    -------
-
-    fragment_df : pd.DataFrame
-        A mock fragment dataframe
-    """
-
-    precursor_intensity = np.random.rand(n_precursor, 1)
-
-    fragment_precursor_idx = np.repeat(np.arange(n_precursor), n_fragments).reshape(
-        (n_precursor, n_fragments)
-    )
-    fragment_mz = np.random.rand(n_precursor, n_fragments) * 200 + 2000
-    fragment_charge = np.random.choice([1, 2], size=(n_precursor, n_fragments))
-    fragment_number = np.tile(np.arange(n_fragments // 2), n_precursor * 2).reshape(
-        (n_fragments, n_precursor)
-    )
-    fragment_type = np.tile(
-        np.repeat([ord("b"), ord("y")], n_fragments // 2), n_precursor
-    ).reshape((n_fragments, n_precursor))
-
-    fragment_height = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_intensity = 10 ** (precursor_intensity * 3) * np.random.rand(
-        n_precursor, n_fragments
-    )
-    fragment_correlation = np.random.rand(n_precursor, n_fragments)
-
-    return pd.DataFrame(
-        {
-            "precursor_idx": fragment_precursor_idx.flatten(),
-            "mz": fragment_mz.flatten(),
-            "charge": fragment_charge.flatten(),
-            "number": fragment_number.flatten(),
-            "type": fragment_type.flatten(),
-            "height": fragment_height.flatten(),
-            "intensity": fragment_intensity.flatten(),
-            "correlation": fragment_correlation.flatten(),
-        }
-    )
+from alphadia import outputtransform
+from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
 def test_output_transform():
@@ -122,6 +18,7 @@ def test_output_transform():
         "general": {
             "thread_count": 8,
         },
+        "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
             "inference_strategy": "heuristic",
@@ -136,22 +33,39 @@ def test_output_transform():
             "normalize_lfq": True,
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
+            "save_fragment_quant_matrix": False,
+            "file_format": "parquet",
+        },
+        "multiplexing": {
+            "enabled": False,
+        },
+        "search_initial": {
+            "initial_ms1_tolerance": 4,
+            "initial_ms2_tolerance": 7,
+            "initial_rt_tolerance": 200,
+            "initial_mobility_tolerance": 0.04,
+            "initial_num_candidates": 1,
+        },
+        "optimization_manager": {
+            "fwhm_rt": 2.75,
+            "fwhm_mobility": 2,
+            "score_cutoff": 50,
         },
     }
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
     os.makedirs(temp_folder, exist_ok=True)
 
-    progress_folder = os.path.join(temp_folder, "progress")
-    os.makedirs(progress_folder, exist_ok=True)
+    quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
+    os.makedirs(quant_path, exist_ok=True)
 
     # setup raw folders
-    raw_folders = [os.path.join(progress_folder, run) for run in run_columns]
+    raw_folders = [os.path.join(quant_path, run) for run in run_columns]
 
-    psm_base_df = _mock_precursor_df(n_precursor=100)
-    fragment_base_df = _mock_fragment_df(n_precursor=200)
+    psm_base_df = mock_precursor_df(n_precursor=100)
+    fragment_base_df = mock_fragment_df(n_precursor=200)
 
-    for raw_folder in raw_folders:
+    for i, raw_folder in enumerate(raw_folders):
         os.makedirs(raw_folder, exist_ok=True)
 
         psm_df = psm_base_df.sample(50)
@@ -160,17 +74,44 @@ def test_output_transform():
             fragment_base_df["precursor_idx"].isin(psm_df["precursor_idx"])
         ]
 
-        frag_df.to_csv(os.path.join(raw_folder, "frag.tsv"), sep="\t", index=False)
-        psm_df.to_csv(os.path.join(raw_folder, "psm.tsv"), sep="\t", index=False)
+        frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
+        psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
+
+        optimization_manager = manager.OptimizationManager(
+            config,
+            path=os.path.join(
+                raw_folder,
+                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+            ),
+        )
+
+        timing_manager = manager.TimingManager(
+            path=os.path.join(
+                raw_folder,
+                peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
+            )
+        )
+
+        if (
+            i == 2
+        ):  # simulate the case that the search fails such that the optimization and timing managers are not saved
+            pass
+        else:
+            optimization_manager.fit({"ms2_error": 6})
+            optimization_manager.save()
+            timing_manager.set_start_time("extraction")
+            timing_manager.set_end_time("extraction")
+            timing_manager.save()
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
     _ = output.build_precursor_table(raw_folders, save=True)
     _ = output.build_stat_df(raw_folders, save=True)
+    _ = output.build_internal_df(raw_folders, save=True)
     _ = output.build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
-    psm_df = pd.read_csv(
-        os.path.join(temp_folder, f"{output.PRECURSOR_OUTPUT}.tsv"), sep="\t"
+    psm_df = pd.read_parquet(
+        os.path.join(temp_folder, f"{output.PRECURSOR_OUTPUT}.parquet"),
     )
     assert all(
         [
@@ -196,10 +137,46 @@ def test_output_transform():
         os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
-    assert all([col in stat_df.columns for col in ["run", "precursors", "proteins"]])
 
+    assert stat_df["optimization.ms2_error"][0] == 6
+    assert stat_df["optimization.rt_error"][0] == 200
+
+    assert all(
+        [
+            col in stat_df.columns
+            for col in [
+                "run",
+                "channel",
+                "precursors",
+                "proteins",
+                "fwhm_rt",
+                "fwhm_mobility",
+                "optimization.ms2_error",
+                "optimization.ms1_error",
+                "optimization.rt_error",
+                "optimization.mobility_error",
+                "calibration.ms2_median_accuracy",
+                "calibration.ms2_median_precision",
+                "calibration.ms1_median_accuracy",
+                "calibration.ms1_median_precision",
+                "raw.gradient_min_m",
+                "raw.gradient_max_m",
+                "raw.gradient_length_m",
+                "raw.cycle_length",
+                "raw.cycle_duration",
+                "raw.cycle_number",
+                "raw.msms_range_min",
+                "raw.msms_range_max",
+            ]
+        ]
+    )
+
+    internal_df = pd.read_csv(
+        os.path.join(temp_folder, f"{output.INTERNAL_OUTPUT}.tsv"), sep="\t"
+    )
+    assert isinstance(internal_df["duration_extraction"][0], float)
     # validate protein_df output
-    protein_df = pd.read_csv(os.path.join(temp_folder, f"pg.matrix.tsv"), sep="\t")
+    protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
     assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
     for i in run_columns:
@@ -207,7 +184,5 @@ def test_output_transform():
             if i == j:
                 continue
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
-
-    import shutil
 
     shutil.rmtree(temp_folder)

@@ -3,7 +3,7 @@ import { useTheme } from '@mui/material/styles';
 import { usePopupState, bindTrigger, bindMenu } from 'material-ui-popup-state/hooks'
 
 import { Box, Typography, ButtonBase, Menu, MenuItem, ListItemIcon, Divider } from '@mui/material'
-import MenuBookIcon from '@mui/icons-material/MenuBook'; 
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 
@@ -14,14 +14,13 @@ const WorkflowMenu = ({
     workflows=[],
     currentWorkflow="",
     onWorkflowChange=() => {},
-    key=0,
 }) => {
 
     const popupState = usePopupState({ variant: 'popover', popupId: 'demoMenu' })
     const theme = useTheme();
 
     return (
-        <Box display="flex" flexDirection="row" alignItems="center" padding={1} key={key}
+        <Box display="flex" flexDirection="row" alignItems="center" padding={1}
         sx={[
             {
 
@@ -32,11 +31,11 @@ const WorkflowMenu = ({
                 <ButtonBase {...bindTrigger(popupState)}>
                     {
                         popupState.isOpen ?
-                        <ArrowRightIcon sx={{color: "rgb(75, 211, 26)"}}/>
+                        <ArrowRightIcon sx={{color: theme.palette.success.main}}/>
                         :
-                        <ArrowDropDownIcon sx={{color: "rgb(75, 211, 26)"}}/>
+                        <ArrowDropDownIcon sx={{color: theme.palette.success.main}}/>
                     }
-                    <Typography component="div" sx={{color: "rgb(75, 211, 26)", fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
+                    <Typography component="div" sx={{color: theme.palette.success.main, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
                         {currentWorkflow !== "" ? currentWorkflow : "Select Workflow"}
                     </Typography>
                 </ButtonBase>
@@ -50,33 +49,29 @@ const WorkflowMenu = ({
                         fontSize: "0.8rem",
                         minHeight: 0,
                     }}
-
                 >
-                    {workflows.map((workflowName, index) => {
-                        return (
-                            <MenuItem
-                                key={index} 
-                                onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
-                                sx={{color: theme.palette.success.main}}
-                            >
-                                {workflowName}
-                            </MenuItem>
-                        )
-                    })}
-                                
-                    <Divider />
-                    <MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >
-                        <ListItemIcon>
-                            <MenuBookIcon fontSize="small" />
-                        </ListItemIcon>
-                        <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >
-                            Workflow Documentation
-                        </StyledLink>
-                    </MenuItem>
+                    {workflows.map((workflowName, index) => (
+                        <MenuItem
+                            key={`workflow-${workflowName}`}
+                            onClick={() => {onWorkflowChange(workflowName); popupState.close()}}
+                            sx={{color: theme.palette.success.main}}
+                        >
+                            {workflowName}
+                        </MenuItem>
+                    ))}
+
+                    {/*TODO create workflow documentation and add link here*/}
+                    {/*<Divider />*/}
+                    {/*<MenuItem onClick={popupState.close} sx={{fontFamily:"Roboto Mono", fontSize:"0.8rem"}} key={999} >*/}
+                    {/*    <ListItemIcon>*/}
+                    {/*        <MenuBookIcon fontSize="small" />*/}
+                    {/*    </ListItemIcon>*/}
+                    {/*    <StyledLink  onClick={() => window.electronAPI.openLink("http://www.google.com")} >*/}
+                    {/*        Workflow Documentation*/}
+                    {/*    </StyledLink>*/}
+                    {/*</MenuItem>*/}
                 </Menu>
         </Box>
-
-
     )
 }
 

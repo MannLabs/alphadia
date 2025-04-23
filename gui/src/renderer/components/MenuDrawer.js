@@ -1,9 +1,9 @@
 import * as React from 'react'
-import { NavLink as NavLinkBase } from "react-router-dom"
 import { styled } from '@mui/system';
-
+import { Button } from '@mui/material';
 import { Drawer, List, ListItemIcon, ListItemText, ListItemButton, ListSubheader, Box} from '@mui/material';
 import { WorkflowMenu, RunButton } from '.';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import HomeIcon from '@mui/icons-material/Home';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -14,12 +14,12 @@ import TerminalIcon from '@mui/icons-material/Terminal';
 const DrawerContainer = styled('div')(({ theme }) => ({
     width: 240,
     flexShrink: 0,
-  
+
     '& .MuiPaper-root': {
       backgroundColor: theme.palette.background.default,
       width: 240,
       boxSizing: 'border-box',
-  
+
     },
   }));
 
@@ -40,7 +40,6 @@ const ListStyled = styled(List)(({ theme }) => ({
 }));
 
 const ListItemButtonStyled = styled(ListItemButton)(({ theme }) => ({
-
         paddingTop: 4,
         paddingBottom: 4,
         margin: theme.spacing(1),
@@ -54,18 +53,11 @@ const ListItemButtonStyled = styled(ListItemButton)(({ theme }) => ({
         '&.Mui-selected': {
             backgroundColor: theme.palette.primary.selected,
             color: theme.palette.primary.main,
-        },
+            '&:hover': {
+                backgroundColor: theme.palette.primary.hover,
+            },
+        }
 }));
-
-const NavLink = React.forwardRef((props, ref) => (
-    <NavLinkBase
-      ref={ref}
-      to={props.to}
-      className={({ isActive }) => `${props.className} ${isActive ? props.activeClassName : ''}`}
-    >
-      {props.children}
-    </NavLinkBase>
-  ));
 
 const MenuDrawer = ({
     workflows=[],
@@ -73,7 +65,31 @@ const MenuDrawer = ({
     onWorkflowChange,
     onSetRunningState,
     profile
-}) => (
+}) => {
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    // Add function to check if a path is the current path
+    const isRoutePathActive = (path) => {
+        const currentPath = location.pathname;
+        const currentSearch = new URLSearchParams(location.search);
+        const currentTab = currentSearch.get('tab');
+
+        if (path === '/') {
+            return currentPath === '/';
+        }
+
+        if (path.includes('?')) {
+            const [pathBase, search] = path.split('?');
+            const pathParams = new URLSearchParams(search);
+            const pathTab = pathParams.get('tab');
+            return currentPath === pathBase && currentTab === pathTab;
+        }
+
+        return currentPath === path;
+    };
+
+    return (
     <DrawerContainer>
         <Drawer
             variant="permanent"
@@ -91,62 +107,56 @@ const MenuDrawer = ({
         </Box>
 
         <ListStyled>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"home"}
-                component={NavLink} 
-                to="/" 
-                activeClassName="Mui-selected">
+                onClick={() => navigate('/')}
+                selected={isRoutePathActive('/')}
+            >
                 <ListItemIcon>
                     <HomeIcon />
                 </ListItemIcon>
                 <ListItemText primary="Home" />
             </ListItemButtonStyled>
+
             <ListSubheader component="div" sx={{backgroundColor: "transparent"}}>
                 Method Setup
             </ListSubheader>
-            <ListItemButtonStyled 
+
+            <ListItemButtonStyled
                 key={"files"}
-                component={NavLink} 
-                to="/files" 
-                activeClassName="Mui-selected" >
+                onClick={() => navigate('/method?tab=files')}
+                selected={isRoutePathActive('/method?tab=files')}
+            >
                 <ListItemIcon>
                     <FolderIcon />
                 </ListItemIcon>
-                <ListItemText primary="Input Files" />
-            </ListItemButtonStyled >
-            <ListItemButtonStyled 
+                <ListItemText primary="Input & Output" />
+            </ListItemButtonStyled>
+
+            <ListItemButtonStyled
                 key={"method"}
-                component={NavLink}
-                to="/method"
-                activeClassName="Mui-selected" >
+                onClick={() => navigate('/method?tab=config')}
+                selected={isRoutePathActive('/method?tab=config')}
+            >
                 <ListItemIcon>
                     <SettingsApplicationsIcon />
                 </ListItemIcon>
-            <ListItemText primary="Method Settings" />
+                <ListItemText primary="Method Settings" />
             </ListItemButtonStyled>
-            <ListItemButtonStyled 
-                key={"output"}
-                component={NavLink}
-                to="/output"
-                activeClassName="Mui-selected" >
-                <ListItemIcon>
-                    <SaveIcon />
-                </ListItemIcon>
-                <ListItemText primary="Output Files" />
-            </ListItemButtonStyled>
-            
         </ListStyled>
+
         <List sx={{padding: 0, position: "absolute", bottom: 0, width: "100%"}}>
-            <ListItemButtonStyled 
+            <ListItemButtonStyled
                 key={"console"}
-                component={NavLink} 
-                to="/run" 
-                activeClassName="Mui-selected" >
+                onClick={() => navigate('/run')}
+                selected={isRoutePathActive('/run')}
+            >
                 <ListItemIcon>
                     <TerminalIcon />
                 </ListItemIcon>
                 <ListItemText primary="Console Output" />
-            </ListItemButtonStyled >
+            </ListItemButtonStyled>
+
             <RunButton
                 onSetRunningState={onSetRunningState}
                 profile={profile}
@@ -154,6 +164,7 @@ const MenuDrawer = ({
         </List>
         </Drawer>
     </DrawerContainer>
-)
+    );
+};
 
 export default MenuDrawer

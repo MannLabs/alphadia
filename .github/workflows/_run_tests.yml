@@ -1,0 +1,56 @@
+# reusable workflow to run tests on different installation types and OS
+name: Run unit tests
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+      python-version:
+        required: true
+        type: string
+      needs-mono:
+        required: false
+        type: boolean
+        default: false
+      install-script:
+        required: true
+        type: string
+      test-script:
+        required: true
+        type: string
+jobs:
+  run-unit-tests:
+    name: Unit tests (${{ inputs.os }}, ${{ inputs.python-version }})
+    runs-on: ${{ inputs.os }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniconda-version: "latest"
+        auto-update-conda: true
+        python-version: ${{ inputs.python-version }}
+    - name: Setup pip cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+    - name: Conda info
+      shell: bash -l {0}
+      run: conda info
+    - name: Install mono
+      if: ${{ inputs.needs-mono }}
+      shell: bash -l {0}
+      run: |
+        conda install mono
+    - name: Perform pip installation
+      shell: bash -l {0}
+      run: |
+        cd misc
+        . ./${{ inputs.install-script }}
+    - name: Run tests
+      shell: bash -l {0}
+      run: |
+        cd tests
+        . ./${{ inputs.test-script }}

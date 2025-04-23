@@ -1,0 +1,92 @@
+name: End to end testing
+
+on:
+  pull_request:
+    types: [ labeled ]
+#  push:
+#    branches: [ main ]
+  schedule:
+    - cron: "0 0 * * *"   # daily at midnight
+  workflow_dispatch:
+    inputs:
+      test_case:
+        description: 'Test case to run (see e2e_test_cases.yaml for available cases), "all" to run all test cases.'
+        required: false
+        default: 'all'
+      commitish_to_test:
+        type: string
+        description: 'Enter commit hash or branch to test (default: main).'
+        default: "main"
+
+jobs:
+  parse_inputs:
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'test:e2e') || github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    outputs:
+      test_cases: ${{ steps.parse-test-cases.outputs.test_cases }}
+      commitish_to_test: ${{ steps.parse-commitish-to-test.outputs.commitish_to_test }}
+    steps:
+      - id: parse-test-cases
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.test_case }}" != "all" ]; then
+            echo "test_cases=[\"${{ github.event.inputs.test_case }}\"]" >> $GITHUB_OUTPUT
+          else
+            # NEW TEST CASES ARE ADDED HERE:
+            echo 'test_cases=["basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]' >> $GITHUB_OUTPUT
+          fi
+
+      - id: parse-commitish-to-test
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "commitish_to_test=[\"${{ github.event.inputs.commitish_to_test }}\"]" >> $GITHUB_OUTPUT
+          else
+            echo "commitish_to_test=" >> $GITHUB_OUTPUT  # this will trigger 'actions/checkout' to use the reference or SHA for the current event
+          fi
+
+  end2end_tests:
+    name: End to end tests
+    needs: parse_inputs
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        test_case: ${{ fromJson(needs.parse_inputs.outputs.test_cases) }}
+    env:
+      RUN_NAME: alphadia-${{github.sha}}-${{github.run_id}}-${{github.run_attempt}}
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+      NEPTUNE_API_TOKEN: ${{ secrets.NEPTUNE_E2E_TOKEN }}
+      NEPTUNE_PROJECT_NAME: "MannLabs/alphaDIA-e2e-tests"
+      NUMBA_BOUNDSCHECK: 1
+      NUMBA_DEVELOPER_MODE: 1
+      NUMBA_FULL_TRACEBACKS: 1
+      TQDM_MININTERVAL: 10  # avoid lots of tqdm outputs
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.parse_inputs.outputs.commitish_to_test }}
+      - name: Pip installation (stable)
+        id: pip_installation
+        shell: bash -el {0}
+        run: |
+          conda info
+          cd misc
+          . ./pip_install.sh stable $RUN_NAME
+      - name: Run e2e tests
+        shell: bash -el {0}
+        run: |
+          cd tests
+          . ./run_e2e_tests.sh ${{ matrix.test_case }} $RUN_NAME True ${GITHUB_SHA::7} $BRANCH_NAME
+      - name: Cleanup
+        if: always()
+        shell: bash -l {0}
+        run: |
+          conda remove -n $RUN_NAME --all -y
+      - name: Delete Caches on Error
+        if: ${{ failure() && steps.pip_installation.conclusion == 'failure' }}
+        shell: bash -el {0}
+        run: |
+          rm -rf ~/.cache/pip
+          rm -rf ~/.cache/conda
+
+          # Exit with error code to fail the job
+          exit 1

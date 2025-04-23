@@ -1,23 +1,46 @@
-# native imports
 import logging
+import math
+import platform
 from ctypes import Structure, c_double
-import typing
-import re
 
-# alphadia imports
-
-# alpha family imports
-import alphatims.bruker
-import alphatims.utils
-
-# third party imports
-import pandas as pd
-import numpy as np
 import numba as nb
-import matplotlib.patches as patches
+import numpy as np
+import pandas as pd
+import torch
+from matplotlib import patches
+
+logger = logging.getLogger()
 
 
 ISOTOPE_DIFF = 1.0032999999999674
+
+
+def get_torch_device(use_gpu: bool = False):
+    """Get the torch device to be used.
+
+    Parameters
+    ----------
+
+    use_gpu : bool, optional
+        If True, use GPU if available, by default False
+
+    Returns
+    -------
+    str
+        Device to be used, either 'cpu', 'gpu' or 'mps'
+
+    """
+
+    device = "cpu"
+    if use_gpu:
+        if platform.system() == "Darwin":
+            device = "mps" if torch.backends.mps.is_available() else "cpu"
+        else:
+            device = "gpu" if torch.cuda.is_available() else "cpu"
+
+    logger.info(f"Device set to {device}")
+
+    return device
 
 
 @nb.njit
@@ -29,18 +52,24 @@ def candidate_hash(precursor_idx, rank):
 
 
 @nb.njit
-def ion_hash(precursor_idx, number, type, charge):
+def ion_hash(precursor_idx, number, type, charge, loss_type):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
     # the number is the next 8 bits
     # the type is the next 8 bits
-    # the last 8 bits are used to distinguish between different charges of the same precursor
-    # this is necessary because I forgot to save the charge in the frag.tsv file :D
-    return precursor_idx + (number << 32) + (type << 40) + (charge << 48)
+    # the charge is the next 8 bits
+    # the loss_type is the last 8 bits
+    return (
+        precursor_idx
+        + (number << 32)
+        + (type << 40)
+        + (charge << 48)
+        + (loss_type << 56)
+    )
 
 
 @nb.njit
-def extended_ion_hash(precursor_idx, rank, number, type, charge):
+def extended_ion_hash(precursor_idx, rank, number, type, charge):  # TODO: unused?
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
     # the number is the next 8 bits
@@ -50,82 +79,9 @@ def extended_ion_hash(precursor_idx, rank, number, type, charge):
     return precursor_idx + (rank << 32) + (number << 40) + (type << 48) + (charge << 56)
 
 
-def wsl_to_windows(
-    path: typing.Union[str, list, tuple]
-) -> typing.Union[str, list, tuple]:
-    """Converts a WSL path to a Windows path.
-
-    Parameters
-    ----------
-    path : str, list, tuple
-        WSL path.
-
-    Returns
-    -------
-    str, list, tuple
-        Windows path.
-
-    """
-
-    if path is None:
-        return None
-
-    if isinstance(path, str):
-        disk_match = re.search(r"^/mnt/[a-z]", path)
-
-        if len(disk_match.group()) == 0:
-            raise ValueError(
-                "Could not find disk in path during wsl to windows conversion"
-            )
-
-        disk_letter = disk_match.group()[5].upper()
-
-        return re.sub(r"^/mnt/[a-z]", f"{disk_letter}:", path).replace("/", "\\")
-
-    elif isinstance(path, (list, tuple)):
-        return [wsl_to_windows(p) for p in path]
-    else:
-        raise ValueError(f"Unsupported type {type(path)}")
-
-
-def windows_to_wsl(
-    path: typing.Union[str, list, tuple]
-) -> typing.Union[str, list, tuple]:
-    """Converts a Windows path to a WSL path.
-
-    Parameters
-    ----------
-    path : str, list, tuple
-        Windows path.
-
-    Returns
-    -------
-    str, list, tuple
-        WSL path.
-
-    """
-    if path is None:
-        return None
-
-    if isinstance(path, str):
-        disk_match = re.search(r"^[A-Z]:", path)
-
-        if len(disk_match.group()) == 0:
-            raise ValueError(
-                "Could not find disk in path during windows to wsl conversion"
-            )
-
-        disk_letter = disk_match.group()[0].lower()
-
-        return re.sub(r"^[A-Z]:", f"/mnt/{disk_letter}", path.replace("\\", "/"))
-
-    elif isinstance(path, (list, tuple)):
-        return [windows_to_wsl(p) for p in path]
-    else:
-        raise ValueError(f"Unsupported type {type(path)}")
-
-
-def recursive_update(full_dict: dict, update_dict: dict):
+def recursive_update(
+    full_dict: dict, update_dict: dict
+):  # TODO merge with Config._update
     """recursively update a dict with a second dict. The dict is updated inplace.
 
     Parameters
@@ -142,7 +98,7 @@ def recursive_update(full_dict: dict, update_dict: dict):
 
     """
     for key, value in update_dict.items():
-        if key in full_dict.keys():
+        if key in full_dict:
             if isinstance(value, dict):
                 recursive_update(full_dict[key], update_dict[key])
             else:
@@ -151,46 +107,12 @@ def recursive_update(full_dict: dict, update_dict: dict):
             full_dict[key] = value
 
 
-def normal(x, mu, sigma):
+def normal(x, mu, sigma):  # TODO: unused?
     """ """
     return 1 / (sigma * np.sqrt(2 * np.pi)) * np.exp(-np.power((x - mu) / sigma, 2) / 2)
 
 
-@alphatims.utils.njit()
-def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
-    """multivariate normal distribution, probability density function
-
-    Parameters
-    ----------
-
-    x : np.ndarray
-        `(N, D,)`
-
-    mu : np.ndarray
-        `(1, D,)`
-
-    sigma : np.ndarray
-        `(D, D,)`
-
-    Returns
-    -------
-
-    np.ndarray, float32
-        array of shape `(N,)` with the density at each point
-
-    """
-
-    k = mu.shape[0]
-    dx = x - mu
-
-    # implementation is not very efficient for large N as the N x N matrix will created only for storing the diagonal
-    a = np.exp(-1 / 2 * np.diag(dx @ np.linalg.inv(sigma) @ dx.T))
-    b = (np.pi * 2) ** (-k / 2) * np.linalg.det(sigma) ** (-1 / 2)
-    # print(a*b)
-    return a * b
-
-
-def plt_limits(mobility_limits, dia_cycle_limits):
+def plt_limits(mobility_limits, dia_cycle_limits):  # TODO: unused?
     mobility_len = mobility_limits[1] - mobility_limits[0]
     dia_cycle_len = dia_cycle_limits[1] - dia_cycle_limits[0]
 
@@ -206,7 +128,7 @@ def plt_limits(mobility_limits, dia_cycle_limits):
     return rect
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
 
@@ -237,7 +159,7 @@ def find_peaks_1d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def find_peaks_2d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
     scan = []
@@ -271,7 +193,7 @@ def find_peaks_2d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def amean1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -279,7 +201,7 @@ def amean1(array):
     return out
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def amean0(array):
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -287,15 +209,15 @@ def amean0(array):
     return out
 
 
-@alphatims.utils.njit()
-def astd0(array):
+@nb.njit()
+def astd0(array):  # TODO: unused?
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
         out[i] = np.std(array[:, i])
     return out
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -309,7 +231,7 @@ def get_isotope_columns(colnames):
         if col[:2] == "i_":
             try:
                 isotopes.append(int(col[2:]))
-            except:
+            except Exception:
                 logging.warning(
                     f"Column {col} does not seem to be a valid isotope column"
                 )
@@ -317,7 +239,7 @@ def get_isotope_columns(colnames):
     isotopes = np.array(sorted(isotopes))
 
     if not np.all(np.diff(isotopes) == 1):
-        logging.warning(f"Isotopes are not consecutive")
+        logging.warning("Isotopes are not consecutive")
 
     return isotopes
 
@@ -326,7 +248,7 @@ def get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def mass_range(mz_list, ppm_tolerance):
     out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)
     out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
@@ -334,11 +256,11 @@ def mass_range(mz_list, ppm_tolerance):
     return out_mz
 
 
-def function_call(q):
+def function_call(q):  # TODO: unused?
     q.put("X" * 1000000)
 
 
-def modify(n, x, s, A):
+def modify(n, x, s, A):  # TODO: unused?
     n.value **= 2
     x.value **= 2
     s.value = s.value.upper()
@@ -347,16 +269,16 @@ def modify(n, x, s, A):
         a.y **= 2
 
 
-class Point(Structure):
+class Point(Structure):  # TODO: unused?
     _fields_ = [("x", c_double), ("y", c_double)]
 
 
-@alphatims.utils.njit()
+@nb.njit()
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
 
 
-@alphatims.utils.njit
+@nb.njit
 def make_slice_1d(start_stop):
     """Numba helper function to create a 1D slice object from a start and stop value.
 
@@ -376,7 +298,7 @@ def make_slice_1d(start_stop):
     return np.array([[start_stop[0], start_stop[1], 1]], dtype=start_stop.dtype)
 
 
-@alphatims.utils.njit
+@nb.njit
 def make_slice_2d(start_stop):
     """Numba helper function to create a 2D slice object from multiple start and stop value.
 
@@ -400,8 +322,8 @@ def make_slice_2d(start_stop):
     return out
 
 
-@alphatims.utils.njit
-def fourier_filter(dense_stack, kernel):
+@nb.njit
+def fourier_filter(dense_stack, kernel):  # TODO: unused?
     """Numba helper function to apply a gaussian filter to a dense stack.
     The filter is applied as convolution wrapping around the edges, calculated in fourier space.
 
@@ -423,9 +345,6 @@ def fourier_filter(dense_stack, kernel):
         Array of shape (n_precursors, n_observations, n_scans, n_cycles) containing the filtered dense stack.
 
     """
-
-    k0 = kernel.shape[0]
-    k1 = kernel.shape[1]
 
     # make sure both dimensions are even
     scan_mod = dense_stack.shape[3] % 2
@@ -454,8 +373,10 @@ def fourier_filter(dense_stack, kernel):
 
     # with nb.objmode(smooth_output='float32[:,:,:,:]'):
     #    # roll back to original position
+    #    k0 = kernel.shape[0]
+    #    k1 = kernel.shape[1]
     #    smooth_output = np.roll(smooth_output, -k0//2, axis=2)
-    #     smooth_output = np.roll(smooth_output, -k1//2, axis=3)
+    #    smooth_output = np.roll(smooth_output, -k1//2, axis=3)
 
     return smooth_output
 
@@ -599,7 +520,7 @@ def calculate_score_groups(
 
 
 @nb.njit()
-def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):
+def profile_correlation(profile, tresh=3, shift=2, kernel_size=12):  # TODO: unused?
     mask = np.sum((profile >= tresh).astype(np.int8), axis=0) == profile.shape[0]
 
     output = np.zeros(profile.shape, dtype=np.float32)
@@ -657,24 +578,23 @@ def merge_missing_columns(
         Merged left dataframe
 
     """
-
-    missing_columns = list(set(right_columns) - set(left_df.columns))
-
-    if type(on) == str:
+    if isinstance(on, str):
         on = [on]
 
-    if type(missing_columns) == str:
-        missing_columns = [missing_columns]
+    if isinstance(right_columns, str):
+        right_columns = [right_columns]
 
-    if len(missing_columns) == 0:
+    missing_from_left = list(set(right_columns) - set(left_df.columns))
+    missing_from_right = list(set(missing_from_left) - set(right_df.columns))
+
+    if len(missing_from_left) == 0:
         return left_df
 
-    # check conditions
-    if not all([col in right_df.columns for col in missing_columns]):
-        raise ValueError(f"Columns {missing_columns} must be present in right_df")
+    if missing_from_right:
+        raise ValueError(f"Columns {missing_from_right} must be present in right_df")
 
     if on is None:
-        raise ValueError(f"Parameter on must be specified")
+        raise ValueError("Parameter on must be specified")
 
     if not all([col in left_df.columns for col in on]):
         raise ValueError(f"Columns {on} must be present in left_df")
@@ -683,7 +603,75 @@ def merge_missing_columns(
         raise ValueError(f"Columns {on} must be present in right_df")
 
     if how not in ["left", "right", "inner", "outer"]:
-        raise ValueError(f"Parameter how must be one of left, right, inner, outer")
+        raise ValueError("Parameter how must be one of left, right, inner, outer")
 
     # merge
-    return left_df.merge(right_df[on + missing_columns], on=on, how=how)
+    return left_df.merge(right_df[on + missing_from_left], on=on, how=how)
+
+
+@nb.njit(inline="always")
+def get_frame_indices(
+    rt_values: np.ndarray,
+    rt_values_array: np.ndarray,
+    zeroth_frame: int,
+    cycle_len: int,
+    precursor_cycle_max_index: int,
+    optimize_size: int = 16,
+    min_size: int = 32,
+) -> np.ndarray:
+    """
+    Convert an interval of two rt values to a frame index interval.
+    The length of the interval is rounded up so that a multiple of `optimize_size` cycles are included.
+
+    Parameters
+    ----------
+    rt_values : np.ndarray, shape = (2,), dtype = float32
+        Array of rt values.
+    rt_values_array : np.ndarray
+        Array containing all rt values for searching.
+    zeroth_frame : int
+        Indicator if the first frame is zero.
+    cycle_len : int
+        The size of the cycle dimension.
+    precursor_cycle_max_index : int
+        Maximum index for precursor cycles.
+    optimize_size : int, default = 16
+        Optimize for FFT efficiency by using multiples of this size.
+    min_size : int, default = 32
+        Minimum number of DIA cycles to include.
+
+    Returns
+    -------
+    np.ndarray, shape = (1, 3), dtype = int64
+        Array of frame indices (start, stop, 1)
+    """
+    if rt_values.shape != (2,):
+        raise ValueError("rt_values must be a numpy array of shape (2,)")
+
+    frame_index = np.searchsorted(rt_values_array, rt_values, "left")
+
+    precursor_cycle_limits = (frame_index + zeroth_frame) // cycle_len
+    precursor_cycle_len = precursor_cycle_limits[1] - precursor_cycle_limits[0]
+
+    # Apply minimum size
+    optimal_len = max(precursor_cycle_len, min_size)
+    # Round up to the next multiple of `optimize_size`
+    optimal_len = int(optimize_size * math.ceil(optimal_len / optimize_size))
+
+    # By default, extend the precursor cycle to the right
+    optimal_cycle_limits = np.array(
+        [precursor_cycle_limits[0], precursor_cycle_limits[0] + optimal_len],
+        dtype=np.int64,
+    )
+
+    # If the cycle is too long, extend it to the left
+    if optimal_cycle_limits[1] > precursor_cycle_max_index:
+        optimal_cycle_limits[1] = precursor_cycle_max_index
+        optimal_cycle_limits[0] = precursor_cycle_max_index - optimal_len
+
+        if optimal_cycle_limits[0] < 0:
+            optimal_cycle_limits[0] = 0 if precursor_cycle_max_index % 2 == 0 else 1
+
+    # Convert back to frame indices
+    frame_limits = optimal_cycle_limits * cycle_len + zeroth_frame
+    return make_slice_1d(frame_limits)

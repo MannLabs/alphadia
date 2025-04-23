@@ -5,7 +5,7 @@ import { Grid, Box, Typography, Stack, CircularProgress} from '@mui/material'
 import { Card, AlphapeptIcon, StyledLink, DiscussionCard } from '../components';
 
 import CheckIcon from '@mui/icons-material/Check';
-import MenuBookIcon from '@mui/icons-material/MenuBook'; 
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import GitHubIcon from '@mui/icons-material/GitHub';
 import { useTheme } from '@emotion/react';
 import { useProfileDispatch, useProfile } from '../logic/profile';
@@ -31,7 +31,7 @@ const WelcomeCard = ({children}) => (
       borderColor: "grey.300",
       padding: 2,
       height: '200px'
-      
+
     }}
     >
       {children}
@@ -46,7 +46,7 @@ const VersionCard = () => {
     let versionOutput = ""
     let updateOutput = ""
 
-    
+
 
     if (profile.activeIdx === -1) {
         versionOutput = <CircularProgress sx={{color: theme.palette.text.secondary}}/>
@@ -54,8 +54,8 @@ const VersionCard = () => {
     } else {
         let currentActiveVersion = profile.executionEngines[profile.activeIdx].versions.filter((versionEntry) => versionEntry.name === "alphadia")[0].version
         versionOutput = currentActiveVersion
-        
-        if (currentActiveVersion != "1.2.0") {
+
+        if (currentActiveVersion != "1.2.0") { // TODO fix
             updateOutput = (
                 <Stack direction="row" alignItems="center" gap={1}>
                     <CheckIcon sx={{color:"rgb(75, 211, 26)"}}/>
@@ -70,19 +70,19 @@ const VersionCard = () => {
             )
         }
     }
-   
+
     return (
     <Card sx={{height: '200px', position:'relative'}}>
         <Box component="div" sx={{fontWeight:200, position:'absolute', left:"0", bottom:"0", p:2}}>
             <Typography component="span" sx={{fontWeight: 200, fontSize: "3rem", fontFamily:"Roboto Mono", letterSpacing:"-0.2em" }}>{versionOutput}</Typography>
             <br/>
-            {updateOutput}          
+            {updateOutput}
         </Box>
     </Card>
 )
 }
 const Home = () => (
-  
+
     <Grid container spacing={2}>
         {/*create a grid item with a width of 4*/}
         <Grid item xs={8}>
@@ -91,7 +91,7 @@ const Home = () => (
                     <Typography component="span" sx={{fontWeight: 200, fontSize: "1.5rem"}}>Welcome to</Typography>
                     <br/>
                     <Typography component="span" sx={{fontWeight: 700, fontSize: "3rem"}}>alphaDIA</Typography>
-                    
+
                 </Box>
             </WelcomeCard>
         </Grid>
@@ -108,7 +108,7 @@ const Home = () => (
                         Documentation
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://alphadia.readthedocs.io/en/latest/")}>
                         Link
                     </StyledLink>
                 </Box>
@@ -122,7 +122,7 @@ const Home = () => (
                         GitHub
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://github.com/MannLabs/alphadia")}>
                         Link
                     </StyledLink>
                 </Box>
@@ -130,9 +130,9 @@ const Home = () => (
         </Grid>
         <Grid item xs={4}>
             <Card sx={{
-                height: '200px', 
-                position:'relative', 
-                background: "linear-gradient(18deg, rgb(35 55 73 / 81%) 0%, rgb(11 49 87 / 80%) 100%), url(./images/noise.svg)", 
+                height: '200px',
+                position:'relative',
+                background: "linear-gradient(18deg, rgb(35 55 73 / 81%) 0%, rgb(11 49 87 / 80%) 100%), url(./images/noise.svg)",
                 filter: 'contrast(130%) brightness(100%)'}}>
                 <Box component="div" sx={{position:'absolute', left:"0", bottom:"0", p:2}}>
                     <AlphapeptIcon sx={{fontSize: "5rem"}}/><br />
@@ -141,7 +141,7 @@ const Home = () => (
                         Universe
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("http://www.google.com")} sx={{color: "white !important"}}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://github.com/MannLabs")} sx={{color: "white !important"}}>
                         Link
                     </StyledLink>
                 </Box>

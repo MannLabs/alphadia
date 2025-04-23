@@ -1,32 +1,31 @@
 import logging
+import os
+import pathlib
+import socket
+
+import neptune.new as neptune
+from alphabase.tools.data_downloader import DataShareDownloader
+
+from alphadia.extraction.calibration import RunCalibration
+from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
+from alphadia.extraction.data import TimsTOFDIA
+from alphadia.extraction.planning import Plan
+from alphadia.extraction.scoring import (
+    MS2ExtractionWorkflow,
+    fdr_correction,
+    unpack_fragment_info,
+)
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
-
-import os
-import neptune.new as neptune
-import pathlib
-import socket
-
-
-from alphadia.extraction.planning import Plan
-from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.data import TimsTOFDIA
-from alphadia.extraction.testing import update_datashare
-from alphadia.extraction.scoring import (
-    fdr_correction,
-    unpack_fragment_info,
-    MS2ExtractionWorkflow,
-)
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
 
 if __name__ == "__main__":
     # set up neptune logging
     try:
         neptune_token = os.environ["NEPTUNE_TOKEN"]
     except KeyError:
-        logging.error("NEPTUNE_TOKEN environtment variable not set")
+        logging.exception("NEPTUNE_TOKEN environtment variable not set")
         raise KeyError from None
 
     run = neptune.init_run(project="MannLabs/alphaDIA", api_token=neptune_token)
@@ -43,7 +42,7 @@ if __name__ == "__main__":
     try:
         test_dir = os.environ["TEST_DATA_DIR"]
     except KeyError:
-        logging.error("TEST_DATA_DIR environtment variable not set")
+        logging.exception("TEST_DATA_DIR environtment variable not set")
         raise KeyError from None
 
     logging.info(f"Test data directory: {test_dir}")
@@ -62,7 +61,7 @@ if __name__ == "__main__":
 
     dependency_list = dependencies["file_list"]
     for element in dependency_list:
-        update_datashare(element, output_dir)
+        DataShareDownloader(element, output_dir).download()
 
     # annotate library with predicted fragments
     psm_lib_location = os.path.join(output_dir, "brunner_2022_1ng_rep01.hdf")

@@ -2,15 +2,14 @@ import numpy as np
 
 # local
 from alphadia import utils
+from alphadia.numba.fft import convolve_fourier
 from alphadia.numba.fragments import get_ion_group_mapping
-
 from alphadia.numba.numeric import (
-    symetric_limits_1d,
-    symetric_limits_2d,
-    convolve_fourier,
-    save_corrcoeff,
     fragment_correlation,
     fragment_correlation_different,
+    save_corrcoeff,
+    symetric_limits_1d,
+    symetric_limits_2d,
 )
 
 
@@ -56,8 +55,8 @@ def test_get_ion_group_mapping():
 def fuzz_symetric_limits_1d():
     # test both the numba and the python version
     for f in [symetric_limits_1d, symetric_limits_1d.py_func]:
-        for i in range(1000):
-            x = np.random.random((int(np.random.random() * 20)))
+        for _ in range(1000):
+            x = np.random.random(int(np.random.random() * 20))
             center = int(np.random.random() * 20)
             f = np.random.random() * 2
             center_fraction = np.random.random()
@@ -82,7 +81,7 @@ def fuzz_symetric_limits_1d():
 
 def fuzz_symetric_limits_2d():
     for f in [symetric_limits_2d, symetric_limits_2d.py_func]:
-        for i in range(1000):
+        for _ in range(1000):
             size = np.random.randint(10, 20)
             sigma_x, sigma_y = np.random.random(2) * 10
 

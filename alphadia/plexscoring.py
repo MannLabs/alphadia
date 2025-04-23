@@ -1,34 +1,34 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
-import typing
-
-# alphadia imports
-from alphadia import validate, utils, features, quadrupole
-from alphadia.numba import fragments
-from alphadia.data import bruker, alpharaw
-from alphadia.plotting.cycle import plot_cycle
-from alphadia.plotting.debug import (
-    plot_fragment_profile,
-    plot_precursor,
-    plot_fragments,
-    plot_template,
-)
-
 # alpha family imports
 import alphatims.utils
+import numba as nb
+import numpy as np
 
 # third party imports
 import pandas as pd
-import numpy as np
-import numba as nb
+
+# alphadia imports
+from alphadia import features, quadrupole, utils, validate
+from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.numba import config, fragments
+from alphadia.plotting.cycle import plot_cycle
+from alphadia.plotting.debug import (
+    plot_fragment_profile,
+    plot_fragments,
+    plot_precursor,
+    plot_template,
+)
+
+logger = logging.getLogger()
 
 NUM_FEATURES = 46
 
 
 def candidate_features_to_candidates(
     candidate_features_df: pd.DataFrame,
+    optional_columns: list[str] | None = None,
 ):
     """create candidates_df from candidate_features_df
 
@@ -46,6 +46,8 @@ def candidate_features_to_candidates(
     """
 
     # validate candidate_features_df input
+    if optional_columns is None:
+        optional_columns = ["proba"]
     validate.candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
@@ -58,9 +60,6 @@ def candidate_features_to_candidates(
         "frame_start",
         "frame_stop",
         "frame_center",
-    ]
-    optional_columns = [
-        "proba",
     ]
 
     # select required columns
@@ -75,7 +74,7 @@ def multiplex_candidates(
     candidates_df: pd.DataFrame,
     precursors_flat_df: pd.DataFrame,
     remove_decoys: bool = True,
-    channels: typing.List[int] = [0, 4, 8, 12],
+    channels: list[int] | None = None,
 ):
     """Takes a candidates dataframe and a precursors dataframe and returns a multiplexed candidates dataframe.
     All original candidates will be retained. For missing candidates, the best scoring candidate in the elution group will be used and multiplexed across all missing channels.
@@ -102,7 +101,8 @@ def multiplex_candidates(
         Multiplexed candidates dataframe
 
     """
-
+    if channels is None:
+        channels = [0, 4, 8, 12]
     precursors_flat_view = precursors_flat_df.copy()
     best_candidate_view = candidates_df.copy()
 
@@ -156,9 +156,6 @@ def multiplex_candidates(
     return multiplexed_candidates_df
 
 
-from alphadia.numba import config
-
-
 @nb.experimental.jitclass()
 class CandidateConfigJIT:
     collect_fragments: nb.boolean
@@ -168,9 +165,12 @@ class CandidateConfigJIT:
     top_k_isotopes: nb.uint32
     reference_channel: nb.int16
     quant_window: nb.uint32
+    quant_all: nb.boolean
 
     precursor_mz_tolerance: nb.float32
     fragment_mz_tolerance: nb.float32
+
+    experimental_xic: nb.boolean
 
     def __init__(
         self,
@@ -181,8 +181,10 @@ class CandidateConfigJIT:
         top_k_isotopes: nb.uint32,
         reference_channel: nb.int16,
         quant_window: nb.uint32,
+        quant_all: nb.boolean,
         precursor_mz_tolerance: nb.float32,
         fragment_mz_tolerance: nb.float32,
+        experimental_xic: nb.boolean,
     ) -> None:
         """Numba JIT compatible config object for CandidateScoring.
         Will be emitted when `CandidateConfig.jitclass()` is called.
@@ -197,9 +199,11 @@ class CandidateConfigJIT:
         self.top_k_isotopes = top_k_isotopes
         self.reference_channel = reference_channel
         self.quant_window = quant_window
+        self.quant_all = quant_all
 
         self.precursor_mz_tolerance = precursor_mz_tolerance
         self.fragment_mz_tolerance = fragment_mz_tolerance
+        self.experimental_xic = experimental_xic
 
 
 candidate_config_type = CandidateConfigJIT.class_type.instance_type
@@ -217,8 +221,10 @@ class CandidateConfig(config.JITConfig):
         self.top_k_isotopes = 4
         self.reference_channel = -1
         self.quant_window = 3
+        self.quant_all = False
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
+        self.experimental_xic = False
 
     @property
     def jit_container(self):
@@ -299,6 +305,16 @@ class CandidateConfig(config.JITConfig):
         self._quant_window = value
 
     @property
+    def quant_all(self) -> bool:
+        """Quantify all fragments in the quantification window.
+        Default: `quant_all = False`"""
+        return self._quant_all
+
+    @quant_all.setter
+    def quant_all(self, value):
+        self._quant_all = value
+
+    @property
     def precursor_mz_tolerance(self) -> float:
         """The precursor m/z tolerance in ppm.
         Default: `precursor_mz_tolerance = 10`"""
@@ -317,6 +333,16 @@ class CandidateConfig(config.JITConfig):
     @fragment_mz_tolerance.setter
     def fragment_mz_tolerance(self, value):
         self._fragment_mz_tolerance = value
+
+    @property
+    def experimental_xic(self) -> bool:
+        """Use experimental XIC features.
+        Default: `experimental_xic = False`"""
+        return self._experimental_xic
+
+    @experimental_xic.setter
+    def experimental_xic(self, value):
+        self._experimental_xic = value
 
     def validate(self):
         """Validate all properties of the config object.
@@ -353,7 +379,6 @@ float_array = nb.types.float32[:]
 
 @nb.experimental.jitclass()
 class Candidate:
-
     """
     __init__ will be called single threaded, initialize will later be called multithreaded.
     Therefore as much as possible should be done in initialize.
@@ -573,14 +598,14 @@ class Candidate:
         for i in range(_dense_precursors.shape[1]):
             dense_precursors[0, i, 0] = np.sum(_dense_precursors[0, i], axis=0)
             for k in range(_dense_precursors.shape[3]):
-                for l in range(_dense_precursors.shape[4]):
+                for ll in range(_dense_precursors.shape[4]):
                     sum = 0
                     count = 0
                     for j in range(_dense_precursors.shape[2]):
-                        sum += _dense_precursors[1, i, j, k, l]
-                        if _dense_precursors[1, i, j, k, l] > 0:
+                        sum += _dense_precursors[1, i, j, k, ll]
+                        if _dense_precursors[1, i, j, k, ll] > 0:
                             count += 1
-                    dense_precursors[1, i, 0, k, l] = sum / (count + 1e-6)
+                    dense_precursors[1, i, 0, k, ll] = sum / (count + 1e-6)
 
         # DEBUG only used for debugging
         # self.dense_precursors = dense_precursors
@@ -596,6 +621,12 @@ class Candidate:
             np.arange(int(self.scan_start), int(self.scan_stop)),
             isotope_mz,
         )
+
+        # mask fragments by qtf
+        qtf_mask = np.reshape(
+            np.sum(qtf, axis=0) / qtf.shape[0], (1, qtf.shape[1], qtf.shape[2], 1)
+        ).astype(np.float32)
+        dense_fragments[0] = dense_fragments[0] * qtf_mask
 
         # (n_observation, n_scans, n_frames)
         template = quadrupole.calculate_template_single(
@@ -637,9 +668,9 @@ class Candidate:
         fragments.apply_mask(fragment_mask_1d)
 
         # (n_fragments, n_observations, n_frames)
-        fragments_frame_profile = features.or_envelope_2d(
-            features.frame_profile_2d(dense_fragments[0])
-        )
+
+        fragments_frame_profile = features.frame_profile_2d(dense_fragments[0])
+        # features.center_envelope(fragments_frame_profile)
 
         cycle_len = jit_data.cycle.shape[1]
 
@@ -709,6 +740,7 @@ class Candidate:
             fragments,
             feature_array,
             quant_window=config.quant_window,
+            quant_all=config.quant_all,
         )
 
         # store fragment features if requested
@@ -723,30 +755,36 @@ class Candidate:
             psm_proto_df.fragment_mz_library[
                 self.output_idx, : len(fragments.mz_library)
             ] = fragments.mz_library
-            psm_proto_df.fragment_mz[
-                self.output_idx, : len(fragments.mz)
-            ] = fragments.mz
-            psm_proto_df.fragment_mz_observed[
-                self.output_idx, : len(mz_observed)
-            ] = mz_observed
+            psm_proto_df.fragment_mz[self.output_idx, : len(fragments.mz)] = (
+                fragments.mz
+            )
+            psm_proto_df.fragment_mz_observed[self.output_idx, : len(mz_observed)] = (
+                mz_observed
+            )
 
             psm_proto_df.fragment_height[self.output_idx, : len(height)] = height
-            psm_proto_df.fragment_intensity[
-                self.output_idx, : len(intensity)
-            ] = intensity
+            psm_proto_df.fragment_intensity[self.output_idx, : len(intensity)] = (
+                intensity
+            )
 
-            psm_proto_df.fragment_mass_error[
-                self.output_idx, : len(mass_error)
-            ] = mass_error
-            psm_proto_df.fragment_number[
-                self.output_idx, : len(fragments.number)
-            ] = fragments.number
-            psm_proto_df.fragment_type[
-                self.output_idx, : len(fragments.type)
-            ] = fragments.type
-            psm_proto_df.fragment_charge[
-                self.output_idx, : len(fragments.charge)
-            ] = fragments.charge
+            psm_proto_df.fragment_mass_error[self.output_idx, : len(mass_error)] = (
+                mass_error
+            )
+            psm_proto_df.fragment_position[
+                self.output_idx, : len(fragments.position)
+            ] = fragments.position
+            psm_proto_df.fragment_number[self.output_idx, : len(fragments.number)] = (
+                fragments.number
+            )
+            psm_proto_df.fragment_type[self.output_idx, : len(fragments.type)] = (
+                fragments.type
+            )
+            psm_proto_df.fragment_charge[self.output_idx, : len(fragments.charge)] = (
+                fragments.charge
+            )
+            psm_proto_df.fragment_loss_type[
+                self.output_idx, : len(fragments.loss_type)
+            ] = fragments.loss_type
 
         # ============= FRAGMENT MOBILITY CORRELATIONS =============
         # will be skipped if no mobility dimension is present
@@ -776,12 +814,13 @@ class Candidate:
             self.frame_start,
             self.frame_stop,
             feature_array,
+            config.experimental_xic,
         )
 
         if config.collect_fragments:
-            psm_proto_df.fragment_correlation[
-                self.output_idx, : len(correlation)
-            ] = correlation
+            psm_proto_df.fragment_correlation[self.output_idx, : len(correlation)] = (
+                correlation
+            )
 
         psm_proto_df.features[self.output_idx] = feature_array
         psm_proto_df.valid[self.output_idx] = True
@@ -896,7 +935,7 @@ class ScoreGroup:
 
         # process reference channel features
         if config.reference_channel >= 0:
-            for idx, candidate in enumerate(self.candidates):
+            for idx, _ in enumerate(self.candidates):
                 if idx == reference_channel_idx:
                     continue
                 # candidate.process_reference_channel(
@@ -1089,7 +1128,7 @@ class ScoreGroupContainer:
                 if len(candidate.features) not in known_feature_lengths:
                     known_feature_lengths += [len(candidate.features)]
                     # add all new features to the list of known columns
-                    for key in candidate.features.keys():
+                    for key in candidate.features.keys():  # noqa: SIM118
                         if key not in known_columns:
                             known_columns += [key]
         return known_columns
@@ -1270,9 +1309,11 @@ class OuptutPsmDF:
     fragment_mass_error: nb.float32[:, ::1]
     fragment_correlation: nb.float32[:, ::1]
 
+    fragment_position: nb.uint8[:, ::1]
     fragment_number: nb.uint8[:, ::1]
     fragment_type: nb.uint8[:, ::1]
     fragment_charge: nb.uint8[:, ::1]
+    fragment_loss_type: nb.uint8[:, ::1]
 
     def __init__(self, n_psm, top_k_fragments):
         self.valid = np.zeros(n_psm, dtype=np.bool_)
@@ -1296,9 +1337,11 @@ class OuptutPsmDF:
         self.fragment_mass_error = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
         self.fragment_correlation = np.zeros((n_psm, top_k_fragments), dtype=np.float32)
 
+        self.fragment_position = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_number = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
         self.fragment_charge = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
+        self.fragment_loss_type = np.zeros((n_psm, top_k_fragments), dtype=np.uint8)
 
     def to_fragment_df(self):
         mask = self.fragment_mz_library.flatten() > 0
@@ -1313,9 +1356,11 @@ class OuptutPsmDF:
             self.fragment_intensity.flatten()[mask],
             self.fragment_mass_error.flatten()[mask],
             self.fragment_correlation.flatten()[mask],
+            self.fragment_position.flatten()[mask],
             self.fragment_number.flatten()[mask],
             self.fragment_type.flatten()[mask],
             self.fragment_charge.flatten()[mask],
+            self.fragment_loss_type.flatten()[mask],
         )
 
     def to_precursor_df(self):
@@ -1366,7 +1411,7 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: typing.Union[bruker.TimsTOFTransposeJIT, alpharaw.AlphaRawJIT],
+        dia_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         quadrupole_calibration: quadrupole.SimpleQuadrupole = None,
@@ -1537,11 +1582,11 @@ class CandidateScoring:
         )
 
         # check if channel column is present
-        if not "channel" in candidates_df.columns:
+        if "channel" not in candidates_df.columns:
             candidates_df["channel"] = np.zeros(len(candidates_df), dtype=np.uint8)
 
         # check if monoisotopic abundance column is present
-        if not "i_0" in candidates_df.columns:
+        if "i_0" not in candidates_df.columns:
             candidates_df["i_0"] = np.ones(len(candidates_df), dtype=np.float32)
 
         # calculate score groups
@@ -1699,8 +1744,10 @@ class CandidateScoring:
             "frame_center",
             "frame_start",
             "frame_stop",
-            "score",
         ]
+
+        candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
+
         df = utils.merge_missing_columns(
             df,
             candidates_df,
@@ -1732,6 +1779,11 @@ class CandidateScoring:
         precursor_df_columns += (
             [self.mobility_column]
             if self.mobility_column not in precursor_df_columns
+            else []
+        )
+        precursor_df_columns += (
+            [self.precursor_mz_column]
+            if self.precursor_mz_column not in precursor_df_columns
             else []
         )
 
@@ -1789,12 +1841,19 @@ class CandidateScoring:
             "intensity",
             "mass_error",
             "correlation",
+            "position",
             "number",
             "type",
             "charge",
+            "loss_type",
         ]
         df = pd.DataFrame(
-            {key: value for value, key in zip(psm_proto_df.to_fragment_df(), colnames)}
+            {
+                key: value
+                for value, key in zip(
+                    psm_proto_df.to_fragment_df(), colnames, strict=True
+                )
+            }
         )
 
         # join precursor columns
@@ -1855,11 +1914,12 @@ class CandidateScoring:
         n_candidates = score_group_container.get_candidate_count()
         psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
 
-        # if debug mode, only iterate over 10 elution groups
-        iterator_len = (
-            min(10, len(score_group_container)) if debug else len(score_group_container)
-        )
-        thread_count = 1 if debug else thread_count
+        iterator_len = len(score_group_container)
+
+        if debug:
+            logger.info("Debug mode enabled. Processing only the first 10 score groups")
+            thread_count = 1
+            iterator_len = min(10, iterator_len)
 
         alphatims.utils.set_threads(thread_count)
         _executor(
@@ -1877,12 +1937,10 @@ class CandidateScoring:
         logger.info("Collecting candidate features")
         candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
         validate.candidate_features_df(candidate_features_df)
-        candidate_features_df
 
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
         validate.fragment_features_df(fragment_features_df)
-        fragment_features_df
 
         logger.info("Finished candidate scoring")
 

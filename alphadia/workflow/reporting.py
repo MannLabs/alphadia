@@ -1,29 +1,32 @@
 # native imports
+import base64
+import json
+import logging
+import os
+import time
 import traceback
-import logging, os, time
-from datetime import datetime, timedelta
 import typing
 import warnings
-import json
-import base64
+from datetime import datetime, timedelta
 from io import BytesIO
+from pathlib import Path
 
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 import matplotlib
-from matplotlib.figure import Figure
 import numpy as np
+from matplotlib.figure import Figure
 
 # global variable which tracks if any logger has been initiated
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-# Add a new logging level to the default logger
+from alphadia.exceptions import CustomError, GenericUserError
+
+# Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
-PROGRESS_LEVELV_NUM = 100
+PROGRESS_LEVELV_NUM = 21
 logging.PROGRESS = PROGRESS_LEVELV_NUM
 logging.addLevelName(PROGRESS_LEVELV_NUM, "PROGRESS")
 
@@ -106,9 +109,7 @@ class DefaultFormatter(logging.Formatter):
         return f"{elapsed} {self.formatter[record.levelno].format(record)}"
 
 
-def init_logging(
-    log_folder: str = None, log_level: int = logging.INFO, overwrite: bool = True
-):
+def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     """Initialize the default logger.
     Sets the formatter and the console and file handlers.
 
@@ -120,12 +121,12 @@ def init_logging(
 
     log_level : int, default logging.INFO
         Log level to use. Can be logging.DEBUG, logging.INFO, logging.WARNING, logging.ERROR or logging.CRITICAL.
-
-    overwrite : bool, default True
-        Whether to overwrite the log file if it already exists.
     """
 
     global __is_initiated__
+
+    if __is_initiated__:
+        return
 
     logger = logging.getLogger()
     logger.handlers = []
@@ -140,18 +141,56 @@ def init_logging(
     logger.addHandler(ch)
 
     if log_folder is not None:
-        log_name = os.path.join(log_folder, "log.txt")
-        # check if log file exists
-        if os.path.exists(log_name) and overwrite:
-            # if it does, delete it
-            os.remove(log_name)
+        try:
+            os.makedirs(log_folder, exist_ok=True)
+        except Exception as e:
+            raise GenericUserError(
+                f"Could not create folder '{log_folder}'. Check your output_directory settings.",
+                str(e),
+            ) from e
+
+        log_file_path = os.path.join(log_folder, "log.txt")
+
+        moved_log_file_path = move_existing_file(log_file_path)
+
         # create file handler which logs even debug messages
-        fh = logging.FileHandler(log_name)
+        fh = logging.FileHandler(log_file_path, encoding="utf-8")
         fh.setLevel(log_level)
         fh.setFormatter(DefaultFormatter(use_ansi=False))
         logger.addHandler(fh)
 
+        if moved_log_file_path:
+            logger.info(f"Moved old log file {log_file_path} to {moved_log_file_path}")
+
     __is_initiated__ = True
+
+
+def move_existing_file(file_path: str) -> str | None:
+    """Move existing file to a new name with an incrementing number.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the file that needs to be backed up
+
+    Returns
+    -------
+    str | None
+        Path to the backup file if a backup was created, None otherwise
+    """
+    old_path = Path(file_path)
+    new_path = old_path
+
+    n = -1
+    while new_path.exists():
+        n += 1
+        new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
+
+    if n != -1:
+        Path(file_path).rename(new_path)
+        return str(new_path)
+
+    return None
 
 
 class Backend:
@@ -185,7 +224,7 @@ class Backend:
 class FigureBackend(Backend):
     FIGURE_PATH = "figures"
 
-    def __init__(self, path=None, default_savefig_kwargs={"dpi": 300}) -> None:
+    def __init__(self, path=None, default_savefig_kwargs=None) -> None:
         """Backend which logs figures to a folder.
 
         implements the `log_figure` method.
@@ -201,6 +240,8 @@ class FigureBackend(Backend):
             Default arguments to pass to matplotlib.figure.Figure.savefig
 
         """
+        if default_savefig_kwargs is None:
+            default_savefig_kwargs = {"dpi": 300}
         self.path = path
 
         if self.path is None:
@@ -217,8 +258,10 @@ class FigureBackend(Backend):
     def log_figure(
         self,
         name: str,
-        figure: typing.Union[Figure, np.ndarray],
+        figure: Figure | np.ndarray,
         extension: str = "png",
+        *args,
+        **kwargs,
     ):
         """Log a figure to the figures folder.
 
@@ -254,7 +297,7 @@ class JSONLBackend(Backend):
         self,
         path=None,
         enable_figure=True,
-        default_savefig_kwargs={"dpi": 300},
+        default_savefig_kwargs=None,
     ) -> None:
         """Backend which logs metrics, plots and strings to a JSONL file.
         It implements `log_figure`, `log_metric` , `log_string` and `log_event` methods.
@@ -275,6 +318,8 @@ class JSONLBackend(Backend):
 
         """
 
+        if default_savefig_kwargs is None:
+            default_savefig_kwargs = {"dpi": 300}
         self.path = path
 
         if self.path is None:
@@ -320,7 +365,7 @@ class JSONLBackend(Backend):
         self.start_time = datetime.now().timestamp()
 
         # empty the file if it exists
-        with open(self.events_path, "w") as f:
+        with open(self.events_path, "w"):
             pass
 
         self.log_event("start", {})
@@ -357,7 +402,14 @@ class JSONLBackend(Backend):
         self.entered_context = False
         self.start_time = 0
 
-    def log_event(self, name: str, value: typing.Any):
+    def log_event(
+        self,
+        name: str,
+        value: typing.Any,
+        exception: Exception | None = None,
+        *args,
+        **kwargs,
+    ):
         """Log an event to the `events.jsonl` file.
 
         Important: This method will only log events if the backend is in a context.
@@ -375,19 +427,21 @@ class JSONLBackend(Backend):
 
         if not self.entered_context:
             return
+        message = {
+            "absolute_time": self.absolute_time(),
+            "relative_time": self.relative_time(),
+            "type": "event",
+            "name": name,
+            "value": value,
+            "verbosity": 0,
+        }
+        if exception is not None and isinstance(exception, CustomError):
+            message["error_code"] = exception.error_code
 
         with open(self.events_path, "a") as f:
-            message = {
-                "absolute_time": self.absolute_time(),
-                "relative_time": self.relative_time(),
-                "type": "event",
-                "name": name,
-                "value": value,
-                "verbosity": 0,
-            }
             f.write(json.dumps(message) + "\n")
 
-    def log_metric(self, name: str, value: float):
+    def log_metric(self, name: str, value: float, *args, **kwargs):
         """Log a metric to the `events.jsonl` file.
 
         Important: This method will only log metrics if the backend is in a context.
@@ -417,7 +471,7 @@ class JSONLBackend(Backend):
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_string(self, value: str, verbosity: int = "info"):
+    def log_string(self, value: str, verbosity: int = "info", *args, **kwargs):
         """Log a string to the `events.jsonl` file.
 
         Important: This method will only log strings if the backend is in a context.
@@ -445,9 +499,10 @@ class JSONLBackend(Backend):
                 "value": value,
                 "verbosity": verbosity,
             }
+
             f.write(json.dumps(message) + "\n")
 
-    def log_figure(self, name: str, figure: typing.Any):
+    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
         """Log a base64 image of a figure to the `events.jsonl` file.
 
         Important: This method will only log figures if the backend is in a context.
@@ -502,7 +557,7 @@ class LogBackend(Backend):
         self.logger = logging.getLogger()
         super().__init__()
 
-    def log_string(self, value: str, verbosity: str = "info"):
+    def log_string(self, value: str, verbosity: str = "info", *args, **kwargs):
         if verbosity == "progress":
             self.logger.progress(value)
         elif verbosity == "info":
@@ -543,7 +598,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: typing.List[typing.Type[Backend]] = [],
+        backends: list[Backend] = None,
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 
@@ -556,10 +611,12 @@ class Pipeline:
 
         # the context will store a Context object
         # this allows backends which require a context to be used
+        if backends is None:
+            backends = []
         self.context = Context(self)
 
         # instantiate backends
-        self.backends = backends
+        self.backends: list[Backend] = backends
 
     def __enter__(self):
         for backend in self.backends:
@@ -575,7 +632,7 @@ class Pipeline:
         for backend in self.backends:
             backend.log_figure(name, figure, *args, **kwargs)
 
-    def log_metric(self, name: str, value: float, *args, **kwargs):
+    def log_metric(self, name: str, value: float | str, *args, **kwargs):
         for backend in self.backends:
             backend.log_metric(name, value, *args, **kwargs)
 

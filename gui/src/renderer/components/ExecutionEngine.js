@@ -14,10 +14,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 
 
 const ExecutionEngineItem = ({
-    sx = [], 
-    children, 
-    key=0, 
-    active=true, 
+    sx = [],
+    children,
+    key=0,
+    active=true,
     available=true,
     onClick = () => {}
 }) => {
@@ -25,7 +25,7 @@ const ExecutionEngineItem = ({
 
     return (
         <MenuItem
-        key={key} 
+        key={key}
         disabled={!available}
         sx={{
             display: "flex",
@@ -63,7 +63,6 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
 
     React.useEffect(() => {
         window.electronAPI.getEngineStatus().then((result) => {
-            console.log(result);
             profileDispatch({
                 type: 'setExecutionEngines',
                 executionEngines: result
@@ -102,10 +101,10 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
         }}>
             {profile.executionEngines.map((item, index) => {
                 return (
-                    <ExecutionEngineItem 
-                        key={index} 
-                        active={index == profile.activeIdx} 
-                        available={item.available} 
+                    <ExecutionEngineItem
+                        key={index}
+                        active={index == profile.activeIdx}
+                        available={item.available}
                         onClick={() => {profileDispatch({type: 'setExecutionEngineIdx', idx: index})}}
                         >
                         <Grid container spacing={0}>
@@ -115,13 +114,13 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
                                 </Typography>
                             </Grid>
                             <Grid item xs={3}>
-                                {item.available ? 
+                                {item.available ?
                                     <Stack direction="row" spacing={0} alignItems="center" >
                                         <CheckIcon sx={{color: theme.palette.success.main, fontSize:"0.85rem", marginRight: theme.spacing(0.5)}}/>
                                         <Typography component="div" sx={{fontSize:"0.75rem", color: theme.palette.success.main}}>
                                             Available
                                         </Typography>
-                                        
+
                                     </Stack> :
                                     <Stack direction="row" spacing={0} alignItems="center" >
                                         <ErrorOutlineIcon sx={{color: theme.palette.error.main, fontSize:"0.85rem", marginRight: theme.spacing(0.5)}}/>
@@ -166,11 +165,11 @@ const ExecutionEngine = ({ environment = {}, sx = []}) => {
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     >
-        {isLoading ? 
+        {isLoading ?
             <>
             <CircularProgress size={13} sx={{color: theme.palette.text.secondary, marginRight: theme.spacing(1)}}/>
             <Typography component="div" sx={{fontFamily:"Roboto Mono", fontSize:"0.85rem", fontWeight: 500}}>
-                Loading...
+                Loading backend...
             </Typography>
             </> : menu}
     </Box>

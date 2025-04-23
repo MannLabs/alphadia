@@ -1,29 +1,17 @@
 import logging
+import os
+
+import matplotlib
+from alphabase.spectral_library.base import SpecLibBase
+from alphabase.tools.data_downloader import DataShareDownloader
+
+from alphadia.extraction.planning import Plan
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s: %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
 )
 
-import os
-import neptune.new as neptune
-import pathlib
-import socket
-
-import matplotlib
-
 matplotlib.use("Agg")
-
-from alphadia.extraction.planning import Plan
-from alphadia.extraction.calibration import RunCalibration
-from alphadia.extraction.data import TimsTOFDIA
-from alphadia.extraction.testing import update_datashare
-from alphadia.extraction.scoring import (
-    fdr_correction,
-    unpack_fragment_info,
-    MS2ExtractionWorkflow,
-)
-from alphadia.extraction.candidateselection import MS1CentricCandidateSelection
-from alphabase.spectral_library.base import SpecLibBase
 
 if __name__ == "__main__":
     # set up logging
@@ -34,7 +22,7 @@ if __name__ == "__main__":
     try:
         test_dir = os.environ["TEST_DATA_DIR"]
     except KeyError:
-        logging.error("TEST_DATA_DIR environtment variable not set")
+        logging.exception("TEST_DATA_DIR environtment variable not set")
         raise KeyError from None
 
     logging.info(f"Test data directory: {test_dir}")
@@ -58,7 +46,7 @@ if __name__ == "__main__":
 
     dependency_list = dependencies["file_list"]
     for element in dependency_list:
-        update_datashare(element, output_dir)
+        DataShareDownloader(element, output_dir).download()
 
     file_names = [
         "20200827_TIMS04_EVO07_AnBr_1ng_dia_rep01_400s_30min_S1-D1_1_2944.d",

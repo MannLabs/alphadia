@@ -2,21 +2,31 @@
 """This module provides unit tests for alphadia.cli."""
 
 # builtin
-import unittest
 
 # local
+# global
+import numpy as np
+import pandas as pd
+import pytest
+
 from alphadia.utils import (
     amean0,
     amean1,
     calculate_score_groups,
-    wsl_to_windows,
-    windows_to_wsl,
+    get_torch_device,
+    merge_missing_columns,
 )
 
 
-# global
-import numpy as np
-import pandas as pd
+@pytest.mark.parametrize("use_gpu", [True, False])
+def test_get_torch_device(use_gpu):
+    # given
+
+    # when
+    device = get_torch_device(use_gpu)
+
+    # then
+    assert device in ["gpu", "mps", "cpu"]
 
 
 def test_amean0():
@@ -96,15 +106,36 @@ def test_score_groups():
     )
 
 
-def test_wsl_conversion():
-    test_path = "/mnt/c/Users/username/Documents/test.txt"
-    expected_path = "C:\\Users\\username\\Documents\\test.txt"
+@pytest.fixture()
+def left_and_right_df():
+    left_df = pd.DataFrame([{"idx": 1, "col_1": 0, "col_2": 0}])
 
-    assert wsl_to_windows(test_path) == expected_path
-    assert windows_to_wsl(expected_path) == test_path
+    right_df = pd.DataFrame([{"idx": 1, "col_3": 0, "col_4": 0}])
+    return left_df, right_df
 
-    test_path = "/mnt/d/Users/us__.sdername/D ocuments/test.txt"
-    expected_path = "D:\\Users\\us__.sdername\\D ocuments\\test.txt"
 
-    assert wsl_to_windows(test_path) == expected_path
-    assert windows_to_wsl(expected_path) == test_path
+def test_merge_missing_fail_on(left_and_right_df):
+    # given:
+    left_df, right_df = left_and_right_df
+
+    # when, then
+    with pytest.raises(ValueError):
+        merge_missing_columns(left_df, right_df, ["col_3"], on="idx_doesnt_exist")
+
+
+def test_merge_missing_fail_right(left_and_right_df):
+    # given:
+    left_df, right_df = left_and_right_df
+
+    # when, then
+    with pytest.raises(ValueError):
+        merge_missing_columns(left_df, right_df, ["col_5"], on="idx")
+
+
+def test_merge_missing(left_and_right_df):
+    # given
+    left_df, right_df = left_and_right_df
+    # when
+    df = merge_missing_columns(left_df, right_df, ["col_3"], on="idx")
+    # then
+    assert np.all(df.columns == ["idx", "col_1", "col_2", "col_3"])

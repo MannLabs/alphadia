@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "alphadia"
+requires-python = ">=3.10.0"
+dynamic = ["version", "dependencies", "optional-dependencies"]
+
+authors = [
+    {name = "Mann Labs", email = "wallmann@biochem.mpg.de"}
+]
+description = "A novel proteomics search engine for DIA data based on end-to-end transfer learning."
+readme = "README.md"
+keywords = [
+    "mass spectrometry",
+    "proteomics",
+    "search engine",
+    "DIA",
+    "data-independent acquisition",
+    "bioinformatics",
+    "AlphaPept",
+    "AlphaPept ecosystem",
+]
+license = {file = "LICENSE.txt"}
+classifiers = [
+    "Development Status :: 4 - Beta",
+    # "Development Status :: 5 - Production/Stable",
+    # "Development Status :: 6 - Mature",
+    # "Development Status :: 7 - Inactive"
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+[project.urls]
+
+"Paper preprint" = "https://www.biochem.mpg.de/mann"
+Repository = "https://github.com/MannLabs/alphadia"
+#Documentation = "https://readthedocs.org"
+#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
+Issues = "https://github.com/MannLabs/alphadia/issues"
+"Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
+
+[tool.setuptools.packages]
+find = {}
+
+[tool.setuptools.dynamic]
+# https://stackoverflow.com/a/73600610
+dependencies = {file = ["requirements/requirements.txt"]}
+optional-dependencies.stable = { file = ["requirements/_requirements.freeze.txt"] }
+optional-dependencies.tests = { file = ["requirements/requirements_tests.txt"] }
+optional-dependencies.docs = { file = ["requirements/requirements_docs.txt"] }
+optional-dependencies.development = { file = [
+    "requirements/requirements_development.txt",
+    "requirements/requirements_test.txt",
+    "requirements/requirements_docs.txt"] }
+
+version = {attr = "alphadia.__version__"}
+
+[project.scripts]
+alphadia = "alphadia.cli:run"
+
+
+[tool.ruff.lint]
+select =  [
+    # pycodestyle
+    "E",
+    # Pyflakes
+    "F",
+    # pyupgrade
+    "UP",
+    # flake8-bugbear
+    "B",
+    # flake8-simplify
+    "SIM",
+    # isort
+    "I",
+]
+
+ignore = [
+    "E501",  # Line too long  (ruff wraps code, but not docstrings)
+    "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
+    "B905"  # This causes problems in numba code: `zip()` without an explicit `strict=` parameter
+]

@@ -1,0 +1,27 @@
+# Constraints file to "requirements.txt" for the `update requirements` workflow in alphashared:
+# Use this to resolve cross-os dependency issues
+# For any dependency that is listed before the '-->',
+# the part that comes after the '-->' will be appended to the respective line
+# in the _requirements.freeze.txt file
+nvidia-cublas-cu12--> ; sys_platform == 'linux'
+nvidia-cuda-cupti-cu12--> ; sys_platform == 'linux'
+nvidia-cuda-nvrtc-cu12--> ; sys_platform == 'linux'
+nvidia-cuda-runtime-cu12--> ; sys_platform == 'linux'
+nvidia-cudnn-cu12--> ; sys_platform == 'linux'
+nvidia-cufft-cu12--> ; sys_platform == 'linux'
+nvidia-curand-cu12--> ; sys_platform == 'linux'
+nvidia-cusolver-cu12--> ; sys_platform == 'linux'
+nvidia-cusparse-cu12--> ; sys_platform == 'linux'
+nvidia-cusparselt-cu12--> ; sys_platform == 'linux'
+nvidia-nccl-cu12--> ; sys_platform == 'linux'
+nvidia-nvjitlink-cu12--> ; sys_platform == 'linux'
+nvidia-nvtx-cu12--> ; sys_platform == 'linux'
+triton--> ; sys_platform == 'linux'
+
+# restrict torch version for darwin-x86_64 only
+torch--> ; sys_platform != 'darwin' or platform_machine != 'x86_64'
+ADD_DEPENDENCY--> torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'
+
+# required for windows only. Note: the pinned version here needs to be updated manually
+#ADD_DEPENDENCY--> zstandard==0.23.0; sys_platform == 'win32'
+#ADD_DEPENDENCY--> simplejson==3.20.1; sys_platform == 'win32'  # TODO figure out why this is necessary!

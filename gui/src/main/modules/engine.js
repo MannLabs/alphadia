@@ -1,8 +1,8 @@
-const { exec, spawn } = require('child_process');
+const { exec, execFile, spawn } = require('child_process');
 const StringDecoder = require('string_decoder').StringDecoder;
 const Transform = require('stream').Transform;
 
-const { dialog } = require('electron');
+const { app, dialog, BrowserWindow } = require('electron');
 const writeYamlFile = require('write-yaml-file')
 
 const { workflowToConfig } = require('./workflows');
@@ -10,6 +10,17 @@ const os = require('os');
 const fs = require('fs');
 const path = require('path');
 var kill = require('tree-kill');
+
+function getAppRoot() {
+    console.log("getAppPath=" + app.getAppPath() + " platform=" + process.platform)
+    if ( process.platform === 'win32' ) {
+      return path.join( app.getAppPath(), '/../../' );
+    } else if ( process.platform === 'linux' ) {
+      return path.join( app.getAppPath(), '/../../../' );
+    } else {
+      return path.join( app.getAppPath(), '/../../../../' );
+    }
+  }
 
 function lineBreakTransform () {
 
@@ -28,7 +39,7 @@ function lineBreakTransform () {
         }
         cb();
     },
-    
+
     flush(cb) {
         this._last += decoder.end()
         if (this._last) { this.push(this._last.slice(0, 1000)) }
@@ -56,7 +67,7 @@ class BaseExecutionEngine {
         // raise error if not implemented by subclass
         throw new Error("checkAvailability() not implemented by subclass")
     }
-    
+
     getStatus(){
         return {
             name: this.name,
@@ -82,7 +93,7 @@ function buildCondaPATH(username, platform){
             "/Users/" + username + "/anaconda3/bin/",
             "/Users/" + username + "/miniconda/bin/",
             "/Users/" + username + "/anaconda/bin/",
-            "/anaconda/bin/", 
+            "/anaconda/bin/",
         ]
     } else if (platform == "win32"){
         return [
@@ -143,7 +154,7 @@ function hasPython(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
             execPATH("conda run -n " + envName + " python -c \"print(__import__('sys').version)\"" , condaPath, (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
+                if (err) {console.log(err); reject("Python not found in conda environment " + envName); return;}
                 resolve(stdout.trim().split(" ")[0])
             })
         } catch (err) {
@@ -157,8 +168,8 @@ function hasAlphaDIA(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
             execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("alphaDIA not found within WSL"); return;}
-                resolve(stdout.trim())
+                if (err) {console.log(err); reject("AlphaDIA not found in conda environment " + envName); return;}
+                resolve(stdout.split('\n')[0].trim())
             }
         )} catch (err) {
             console.log(err)
@@ -180,13 +191,13 @@ class CMDExecutionEngine extends BaseExecutionEngine {
 
     checkAvailability(){
         return new Promise((resolve, reject) => {
-            
+
             if (this.valid_plattforms.indexOf(process.platform) == -1){
                 this.available = false
                 this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
                 resolve(this)
             }
-            
+
             console.log(this.config)
             return hasConda(this.config.condaPath).then((conda_path) => {
                 this.discoveredCondaPath = conda_path
@@ -246,13 +257,13 @@ class CMDExecutionEngine extends BaseExecutionEngine {
 
             const PATH = process.env.PATH + ":" + this.discoveredCondaPath
 
-            run.process = spawn("conda", ["run", 
-                                        "-n" , 
-                                        this.config.envName, 
-                                        "--no-capture-output", 
+            run.process = spawn("conda", ["run",
+                                        "-n" ,
+                                        this.config.envName,
+                                        "--no-capture-output",
                                         "alphadia",
-                                        "--config", 
-                                        path.join(workflow.output_directory.path, "config.yaml")
+                                        "--config",
+                                        `"${path.join(workflow.output_directory.path, "config.yaml")}"`
                                     ] , { env:{...process.env, PATH}, shell: true});
             run.pid = run.process.pid
 
@@ -279,7 +290,9 @@ class CMDExecutionEngine extends BaseExecutionEngine {
             return run
         }).catch((err) => {
             console.log(err)
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
                 type: 'error',
                 title: 'Error while starting workflow',
                 message: `Could not start workflow. ${err}`,
@@ -289,11 +302,39 @@ class CMDExecutionEngine extends BaseExecutionEngine {
         })
     }
 }
-        
-class DockerExecutionEngine extends BaseExecutionEngine {
 
-    name = "DockerExecutionEngine"
-    description = "Local or remote Docker containers are being used to run alphaDIA. Recommended for running alphaDIA in a containerized environment."
+function hasBinary(binaryPath){
+    return new Promise((resolve, reject) => {
+        fs.access(binaryPath, fs.constants.X_OK, (err) => {
+            if (err) {
+                reject("BundledExecutionEngine: Binary " + binaryPath + " not found or not executable." +
+                    "\n\nYou may use the CMDExecutionEngine instead.")
+            } else {
+                resolve()
+            }
+        })
+    })
+}
+
+function hasAlphaDIABundled(binaryPath){
+    return new Promise((resolve, reject) => {
+        try {
+            execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("Backend executable '" + binaryPath + "' invalid!\n\n" + err); return;}
+                console.log(stdout)
+                resolve(stdout.split('\n')[0].trim())
+            })
+        } catch (err) {
+            console.log(err)
+            reject(err)
+        }
+    })
+}
+
+class BundledExecutionEngine extends BaseExecutionEngine {
+
+    name = "BundledExecutionEngine"
+    description = "Use the alphaDIA backend bundled with the GUI. This is the default execution engine."
     valid_plattforms = [
         "win32",
         "linux",
@@ -309,103 +350,29 @@ class DockerExecutionEngine extends BaseExecutionEngine {
                 resolve(this)
             }
 
-            this.available = false
-            this.error = "Docker not yet implemented"
-
-            console.log(this.constructor.name + " status")
-            console.log(this)
-            resolve(this)
-        })
-    }
-}
-
-function hasWSL(){
-    return new Promise((resolve, reject) => {
-        exec("wsl --list", () => {}).on("exit", (code) => {
-            if (code == 0){
-                resolve()
-            } else {
-                reject("WSL not found")
-            }
-        })
-    })
-}
-
-function hasWSLConda(){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda info --json\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Conda not found within WSL"); return;}
-            const info = JSON.parse(stdout);
-            resolve(info['conda_version'])
-        })
-    })
-}
-
-function hasWSLCondaEnv(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + "\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Conda environment " + envName + " not found within WSL"); return;}
-            resolve()
-        })
-    })
-}
-
-function hasWSLAlphaPython(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + " && python -c \\\"print(__import__('sys').version)\\\"\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("Python not found in environment " + envName + " within WSL"); return;}
-            resolve(stdout.trim().split(" ")[0])
-        })
-    })
-}
-
-function hasWSLAlphaDIA(envName){
-    return new Promise((resolve, reject) => {
-        exec("wsl bash -ic \"conda activate " + envName + " && alphadia --version\"", (err, stdout, stderr) => {
-            if (err) {console.log(err); reject("alphaDIA not found within WSL"); return;}
-            resolve(stdout.trim())
-        })
-    })
-}
-
-class WSLExecutionEngine extends BaseExecutionEngine {
-
-    name = "WSLExecutionEngine"
-    description = "Windows subsystem for Linux (WSL) is being used to run alphaDIA. Recommended execution engine for Windows users."
-    valid_plattforms = [
-        "win32"
-    ]
-
-    checkAvailability(){
-        return new Promise((resolve, reject) => {
-
-            if (this.valid_plattforms.indexOf(process.platform) == -1){
-                this.available = false
-                this.error = "Plattform " + process.platform + " is not supported when using " + this.constructor.name
-                resolve(this)
+            // check if binary path exists
+            if (this.config.binaryPath == ""){
+                // alert user that binary path is not set
+                this.config.binaryPath = path.join(getAppRoot(), "alphadia"+(process.platform == "win32" ? ".exe" : ""))
             }
 
-            // check the status code of the command "wsl --list"
-
-            return hasWSL().then(
-                hasWSLConda
-            ).then((conda_version) => {
-                this.versions.push({"name": "conda", "version": conda_version})
-            }).then(() => {
-                return hasWSLCondaEnv(this.config.envName)
-            }).then(() => {
-                return hasWSLAlphaPython(this.config.envName)
-            }).then((python_version) => {
-                this.versions.push({"name": "python", "version": python_version})
-            }).then(() => {
-                return hasWSLAlphaDIA(this.config.envName)
+            return hasBinary(this.config.binaryPath).then(() => {
+                return hasAlphaDIABundled(this.config.binaryPath)
             }).then((alphadia_version) => {
                 this.versions.push({"name": "alphadia", "version": alphadia_version})
-            }).then(() => {
                 this.available = true
             }).catch((err) => {
                 this.available = false
                 this.error = err
+                dialog.showMessageBox(
+                BrowserWindow.getFocusedWindow(),
+                {
+                    type: 'error',
+                    title: 'Error while checking availability of bundled AlphaDIA',
+                    message: `Could not start bundled AlphaDIA.\n${err}`,
+                }).catch((err) => {
+                    console.log(err)
+                })
             }).finally(() => {
                 console.log(this.constructor.name + " status")
                 console.log(this)
@@ -416,6 +383,7 @@ class WSLExecutionEngine extends BaseExecutionEngine {
 
     saveWorkflow(workflow){
         return new Promise((resolve, reject) => {
+            console.log(workflow)
             const workflowFolder = workflow.output_directory.path
             const config = workflowToConfig(workflow)
             if (!fs.existsSync(workflowFolder)) {
@@ -442,12 +410,28 @@ class WSLExecutionEngine extends BaseExecutionEngine {
                 activePromise: null,
             }
 
-            const winOutputPath = path.join(workflow.output_directory.path, "config.yaml")
-            const wslOutputPath = "/mnt/" + winOutputPath.replace(/\\/g, "/").replace(":", "").toLowerCase()
+            const PATH = process.env.PATH + ":" + this.discoveredCondaPath
 
-            run.process = spawn("wsl", ["bash",
-                                        "-ic",
-                                        "\"conda run -n " + this.config.envName + " --no-capture-output alphadia -w --config " + wslOutputPath + "\""], { shell: true });
+            // split binary path into directory and binary name
+            const cwd = path.dirname(this.config.binaryPath)
+            const binaryName = path.basename(this.config.binaryPath)
+
+            // prefix for windows and unix systems
+            const prefix = process.platform == "win32" ? "" : "./"
+
+            // spawn process for alphaDIA backend
+            // pass config.yaml as argument
+            // use binary location as cwd and binary name as command
+            run.process = spawn(prefix + binaryName,
+                ["--config",
+                `"${path.join(workflow.output_directory.path, "config.yaml")}"`
+                ],
+                {
+                    env:{...process.env, PATH},
+                    shell: true,
+                    cwd: cwd
+                });
+
             run.pid = run.process.pid
 
             const stdoutTransform = lineBreakTransform();
@@ -473,7 +457,9 @@ class WSLExecutionEngine extends BaseExecutionEngine {
             return run
         }).catch((err) => {
             console.log(err)
-            dialog.showMessageBox({
+            dialog.showMessageBox(
+            BrowserWindow.getFocusedWindow(),
+            {
                 type: 'error',
                 title: 'Error while starting workflow',
                 message: `Could not start workflow. ${err}`,
@@ -483,9 +469,8 @@ class WSLExecutionEngine extends BaseExecutionEngine {
         })
     }
 
-
-
 }
+
 
 class ExecutionManager {
 
@@ -500,8 +485,7 @@ class ExecutionManager {
 
         this.executionEngines = [
             new CMDExecutionEngine(profile.config.CMDExecutionEngine || {}),
-            new DockerExecutionEngine(profile.config.DockerExecutionEngine || {}),
-            new WSLExecutionEngine(profile.config.WSLExecutionEngine || {}),
+            new BundledExecutionEngine(profile.config.BundledExecutionEngine || {}),
         ]
 
         // invoke checkAvailability() for all execution engines

@@ -6,8 +6,8 @@
 
 # third party imports
 import numba as nb
-from numba.extending import overload_method
 import numpy as np
+from numba.extending import overload_method
 
 
 @nb.experimental.jitclass()
@@ -159,7 +159,7 @@ def slice(inst, slices):
 
             precursor = np.arange(len(slices), dtype=np.uint32)
 
-            for i, (start_idx, stop_idx, step) in enumerate(slices):
+            for i, (start_idx, stop_idx, _step) in enumerate(slices):
                 for j in range(start_idx, stop_idx):
                     precursor_idx.append(precursor[i])
                     fragments_mz_library.append(inst.mz_library[j])
@@ -217,7 +217,7 @@ def slice_manual(inst, slices):
 
     precursor = np.arange(len(slices), dtype=np.uint32)
 
-    for i, (start_idx, stop_idx, step) in enumerate(slices):
+    for i, (start_idx, stop_idx, _step) in enumerate(slices):
         for j in range(start_idx, stop_idx):
             precursor_idx.append(precursor[i])
             fragments_mz_library.append(inst.mz_library[j])
@@ -256,9 +256,6 @@ def slice_manual(inst, slices):
     f.precursor_idx = precursor_idx
 
     return f
-
-
-import numba as nb
 
 
 @nb.njit
@@ -334,15 +331,12 @@ def get_ion_group_mapping(
 
     score_group_intensity = np.zeros((len(ion_mz)), dtype=np.float32)
 
-    for i, (precursor, mz, intensity) in enumerate(
-        zip(ion_precursor, ion_mz, ion_intensity)
-    ):
+    for precursor, mz, intensity in zip(
+        ion_precursor, ion_mz, ion_intensity
+    ):  # ('strict' not supported by numba yet
         # score_group_idx = precursor_group[precursor]
 
-        if len(grouped_mz) == 0:
-            grouped_mz.append(mz)
-
-        elif np.abs(grouped_mz[-1] - mz) > EPSILON:
+        if len(grouped_mz) == 0 or np.abs(grouped_mz[-1] - mz) > EPSILON:
             grouped_mz.append(mz)
 
         idx = len(grouped_mz) - 1

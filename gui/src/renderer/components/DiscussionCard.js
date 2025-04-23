@@ -57,8 +57,8 @@ const DiscussionCard = ({sx = []}) => {
     // display loading while fetching
 
     const [issues, setIssues] = React.useState([]);
-    
-    
+
+
     React.useEffect(() => {
 
             fetchGithubIssues([
@@ -67,10 +67,9 @@ const DiscussionCard = ({sx = []}) => {
                 {url: "https://api.github.com/repos/MannLabs/alphatims/issues", name: "AlphaTims"},
                 {url: "https://api.github.com/repos/MannLabs/alphapeptdeep/issues", name: "AlphaPeptDeep"},
             ]).then((data) => {
-                console.log("data", data);
                 setIssues(data)
             }
-                
+
             );
 
     }, []);
@@ -99,8 +98,8 @@ const DiscussionCard = ({sx = []}) => {
             <List sx={{ width: '100%'}}>
                 {issues.map((issue) => (
                     <ListItem key={issue.url} disablePadding>
-                        <ListItemText 
-                            primary={issue.title} 
+                        <ListItemText
+                            primary={issue.title}
                             secondary={ (issue.days_ago > 0 ? `${issue.days_ago} d ` : ``) + `${issue.hours_ago} h ago - ` + issue.name}
                         />
                         <ListItemSecondaryAction>
@@ -116,7 +115,6 @@ const DiscussionCard = ({sx = []}) => {
         </Card>
     )
 }
-  
+
 
 export default DiscussionCard
-

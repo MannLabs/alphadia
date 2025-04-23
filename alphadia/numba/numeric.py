@@ -5,8 +5,22 @@
 # alpha family imports
 
 # third party imports
-import numpy as np
 import numba as nb
+import numpy as np
+
+
+@nb.njit(parallel=False, fastmath=True)
+def search_sorted_left(slice, value):
+    left = 0
+    right = len(slice)
+
+    while left < right:
+        mid = (left + right) >> 1
+        if slice[mid] < value:
+            left = mid + 1
+        else:
+            right = mid
+    return left
 
 
 @nb.njit
@@ -22,123 +36,6 @@ def ceil_to_base_two(x):
 
     x += 1
     return x
-
-
-@nb.njit
-def roll(a, delta0, delta1):
-    b = np.zeros_like(a)
-    b[delta0:, delta1:] = a[:-delta0, :-delta1]
-    b[:delta0, delta1:] = a[-delta0:, :-delta1]
-    b[delta0:, :delta1] = a[:-delta0, -delta1:]
-    b[:delta0, :delta1] = a[-delta0:, -delta1:]
-
-    return b
-
-
-@nb.njit
-def convolve_fourier(dense, kernel):
-    """
-    Numba helper function to apply a gaussian filter to a dense stack.
-
-    Parameters
-    ----------
-
-    dense : np.ndarray
-        Array of shape (n_scans, n_frames)
-
-    kernel : np.ndarray
-        Array of shape (n_frames)
-
-    Returns
-    -------
-
-    np.ndarray
-        Array of shape (n_tofs, n_scans, n_frames) containing the filtered dense stack.
-
-    """
-
-    k0, k1 = kernel.shape
-
-    out = np.zeros_like(dense)
-
-    fourier_filter = np.fft.rfft2(kernel, dense.shape)
-
-    out = roll(np.fft.irfft2(np.fft.rfft2(dense) * fourier_filter), -k0 // 2, -k1 // 2)
-
-    return out
-
-
-@nb.njit
-def convolve_fourier_a0(dense, kernel):
-    """
-    Numba helper function to apply a gaussian filter to a dense stack.
-
-    Parameters
-    ----------
-
-    dense : np.ndarray
-        Array of shape (n_tofs, n_scans, n_frames)
-
-    kernel : np.ndarray
-        Array of shape (n_scans, n_frames)
-
-    Returns
-    -------
-
-    np.ndarray
-        Array of shape (n_tofs, n_scans, n_frames) containing the filtered dense stack.
-
-    """
-
-    k0, k1 = kernel.shape
-
-    out = np.zeros_like(dense)
-
-    fourier_filter = np.fft.rfft2(kernel, dense.shape[1:])
-    for i in range(dense.shape[0]):
-        out[i] = roll(
-            np.fft.irfft2(np.fft.rfft2(dense[i]) * fourier_filter), -k0 // 2, -k1 // 2
-        )
-
-    return out
-
-
-@nb.njit
-def convolve_fourier_a1(dense, kernel):
-    """
-    Numba helper function to apply a gaussian filter to a dense stack.
-
-    Parameters
-    ----------
-
-    dense : np.ndarray
-        Array of shape (n_tofs, n_observations, n_scans, n_frames)
-
-    kernel : np.ndarray
-        Array of shape (n_scans, n_frames)
-
-    Returns
-    -------
-
-    np.ndarray
-        Array of shape (n_tofs, n_observations, n_scans, n_frames) containing the filtered dense stack.
-
-    """
-
-    k0, k1 = kernel.shape
-
-    out = np.zeros_like(dense, dtype="float32")
-
-    fourier_filter = np.fft.rfft2(kernel, dense.shape[2:])
-    for i in range(dense.shape[0]):
-        for j in range(dense.shape[1]):
-            out[i, j] = roll(
-                np.fft.irfft2(np.fft.rfft2(dense[i, j]) * fourier_filter),
-                -k0 // 2,
-                -k1 // 2,
-            )
-
-    return out
 
 
 @nb.njit
@@ -159,42 +56,6 @@ def wrap1(
 ):
     for i in range(values.shape[0]):
         values[i] = wrap0(values[i], limit)
-    return values
-
-
-@nb.njit
-def get_mean0(dense, scan, cycle):
-    """create a fixed window around the peak and extract the mean value"""
-    # window size around peak
-    w = 4
-
-    # extract mz
-    mz_window = dense[
-        max(scan - w, 0) : scan + w, max(cycle - w, 0) : cycle + w
-    ].flatten()
-
-    return np.mean(mz_window)
-
-
-@nb.njit
-def get_mean_sparse0(dense, scan, cycle, threshold):
-    """create a fixed window around the peak and extract the mean value"""
-    # window size around peak
-    w = 4
-
-    # extract mz
-    mz_window = dense[
-        max(scan - w, 0) : scan + w, max(cycle - w, 0) : cycle + w
-    ].flatten()
-
-    mask = mz_window < threshold
-    fraction_nonzero = np.mean(mask.astype("int8"))
-
-    if fraction_nonzero > 0:
-        values = np.mean(mz_window[mask])
-    else:
-        values = threshold
-
     return values
 
 
@@ -482,8 +343,3 @@ def fragment_correlation_different(x: np.ndarray, y: np.ndarray):
         output[i_observations] = correlation_matrix
 
     return output
-
-
-@nb.njit(inline="always")
-def amean(array, axis):
-    return np.sum(array, axis=axis) / array.shape[axis]

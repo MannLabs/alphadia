@@ -1,15 +1,14 @@
 # native imports
 import logging
 
-logger = logging.getLogger()
+import numpy as np
 
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
 import pandas as pd
-import numpy as np
+
+logger = logging.getLogger()
 
 
 class Property:
@@ -68,9 +67,8 @@ class Optional(Property):
             If True, log the validation results
         """
 
-        if self.name in df.columns:
-            if df[self.name].dtype != self.type:
-                df[self.name] = df[self.name].astype(self.type)
+        if self.name in df.columns and df[self.name].dtype != self.type:
+            df[self.name] = df[self.name].astype(self.type)
 
         return True
 
@@ -139,7 +137,7 @@ class Schema:
         self.schema = properties
         for property in self.schema:
             if not isinstance(property, Property):
-                raise ValueError(f"Schema must contain only Property objects")
+                raise ValueError("Schema must contain only Property objects")
 
     def __call__(self, df, logging=True):
         """
@@ -171,7 +169,7 @@ class Schema:
             Docstring for the schema
         """
 
-        docstring = f"""
+        docstring = """
     Schema
     ------
 
@@ -179,7 +177,7 @@ class Schema:
         :widths: 1 1 1
         :header-rows: 1
 
-        * - Name 
+        * - Name
           - Required
           - Type
 """
@@ -419,6 +417,7 @@ fragment_features_schema = Schema(
         Required("decoy", np.uint8),
     ],
 )
+
 
 def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
     """Validate fragment feature dataframe

@@ -1,26 +1,22 @@
 # native imports
-from abc import ABC, abstractmethod
-import warnings
-from copy import deepcopy
-import typing
+import logging
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
 # alphadia imports
-
 # alpha family imports
-
 # third party imports
-import numba as nb
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from sklearn import model_selection
-from tqdm import tqdm
+from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
+from tqdm import tqdm
+
+from alphadia.fdrx.utils import manage_torch_threads
+
+logger = logging.getLogger()
 
 
 class Classifier(ABC):
@@ -38,7 +34,6 @@ class Classifier(ABC):
     @abstractmethod
     def fitted(self):
         """Return whether the classifier has been fitted."""
-        pass
 
     @abstractmethod
     def fit(self, x: np.array, y: np.array):
@@ -54,7 +49,6 @@ class Classifier(ABC):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        pass
 
     @abstractmethod
     def predict(self, x: np.array):
@@ -73,7 +67,6 @@ class Classifier(ABC):
             Predicted class of shape (n_samples,).
 
         """
-        pass
 
     @abstractmethod
     def predict_proba(self, x: np.array):
@@ -92,7 +85,6 @@ class Classifier(ABC):
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
-        pass
 
     @abstractmethod
     def to_state_dict(self):
@@ -105,7 +97,6 @@ class Classifier(ABC):
         state_dict : dict
             State dict of the classifier.
         """
-        pass
 
     @abstractmethod
     def from_state_dict(self, state_dict: dict):
@@ -119,7 +110,6 @@ class Classifier(ABC):
             State dict of the classifier.
 
         """
-        pass
 
 
 class BinaryClassifier(Classifier):
@@ -133,7 +123,7 @@ class BinaryClassifier(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         calculate_metrics: bool = True,
         metric_interval: int = 1,
@@ -192,6 +182,8 @@ class BinaryClassifier(Classifier):
             Whether to use GPU acceleration if available.
         """
 
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.max_batch_size = max_batch_size
         self.min_batch_number = min_batch_number
@@ -226,7 +218,7 @@ class BinaryClassifier(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -291,6 +283,7 @@ class BinaryClassifier(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
         self.__dict__.update(_state_dict)
 
@@ -443,7 +436,7 @@ class BinaryClassifier(Classifier):
                 )
 
                 for batch_start, batch_stop in zip(
-                    test_batch_start_list, test_batch_stop_list
+                    test_batch_start_list, test_batch_stop_list, strict=True
                 ):
                     batch_x_test = x_test[batch_start:batch_stop]
                     batch_y_test = y_test[batch_start:batch_stop]
@@ -610,7 +603,7 @@ class BinaryClassifierLegacy(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
         **kwargs,
@@ -651,7 +644,8 @@ class BinaryClassifierLegacy(Classifier):
             Interval for logging metrics during training.
 
         """
-
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -677,7 +671,7 @@ class BinaryClassifierLegacy(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -721,7 +715,7 @@ class BinaryClassifierLegacy(Classifier):
 
         return dict
 
-    def from_state_dict(self, state_dict: dict):
+    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
         """Load the state of the classifier from a dictionary.
 
         Parameters
@@ -742,8 +736,10 @@ class BinaryClassifierLegacy(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
-        self.__dict__.update(_state_dict)
+        if load_hyperparameters:
+            self.__dict__.update(_state_dict)
 
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.
@@ -805,8 +801,10 @@ class BinaryClassifierLegacy(Classifier):
             x_train = torch.Tensor(x_train[order])
             y_train = torch.Tensor(y_train[order])
 
-            for i, (batch_x, batch_y) in enumerate(
-                zip(x_train.split(self.batch_size), y_train.split(self.batch_size))
+            for batch_x, batch_y in zip(
+                x_train.split(self.batch_size),
+                y_train.split(self.batch_size),
+                strict=True,
             ):
                 y_pred = self.network(batch_x)
                 loss_value = loss(y_pred, batch_y)
@@ -912,6 +910,42 @@ class BinaryClassifierLegacy(Classifier):
         return self.network(torch.Tensor(x)).detach().numpy()
 
 
+def get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
+    """
+    Scale batch size and learning rate based on dataframe size using square root relationship.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Input dataframe
+    base_lr : float, optional
+        Base learning rate for 1024 batch size, defaults to 0.01
+    max_batch : int, optional
+        Maximum batch size (1024 for >= 1M samples), defaults to 1024
+    min_batch : int, optional
+        Minimum batch size, defaults to 128
+
+    Returns
+    -------
+    tuple(int, float)
+        (batch_size, learning_rate)
+    """
+    n_samples = len(df)
+
+    # For >= 1M samples, use max batch size
+    if n_samples >= 1_000_000:
+        return max_batch, base_lr
+
+    # Calculate scaled batch size (linear scaling between min and max)
+    batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
+
+    # Scale learning rate using square root relationship
+    # sqrt(batch_size) / sqrt(max_batch) = scaled_lr / base_lr
+    learning_rate = base_lr * np.sqrt(batch_size / max_batch)
+
+    return batch_size, learning_rate
+
+
 class BinaryClassifierLegacyNewBatching(Classifier):
     def __init__(
         self,
@@ -922,9 +956,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         epochs: int = 10,
         learning_rate: float = 0.0002,
         weight_decay: float = 0.00001,
-        layers: typing.List[int] = [100, 50, 20, 5],
+        layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        experimental_hyperparameter_tuning: bool = False,
         **kwargs,
     ):
         """Binary Classifier using a feed forward neural network.
@@ -962,8 +997,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
-        """
+        experimental_hyperparameter_tuning: bool, default=False
+            Whether to use experimental hyperparameter tuning.
 
+        """
+        if layers is None:
+            layers = [100, 50, 20, 5]
         self.test_size = test_size
         self.batch_size = batch_size
         self.epochs = epochs
@@ -974,6 +1013,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.metric_interval = metric_interval
+        self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
         self.network = None
         self.optimizer = None
@@ -989,7 +1029,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         }
 
         if kwargs:
-            warnings.warn("Unknown arguments: {}".format(kwargs))
+            warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
     def fitted(self):
@@ -1033,7 +1073,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         return dict
 
-    def from_state_dict(self, state_dict: dict):
+    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
         """Load the state of the classifier from a dictionary.
 
         Parameters
@@ -1054,9 +1094,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 dropout=_state_dict.pop("dropout"),
             )
             self.network.load_state_dict(state_dict.pop("network_state_dict"))
+            self._fitted = True
 
-        self.__dict__.update(_state_dict)
+        if load_hyperparameters:
+            self.__dict__.update(_state_dict)
 
+    @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray):
         """Fit the classifier to the data.
 
@@ -1070,6 +1113,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
+        if self.experimental_hyperparameter_tuning:
+            self.batch_size, self.learning_rate = get_scaled_training_params(x)
+            logger.info(
+                f"Estimating optimal hyperparameters - "
+                f"samples: {len(x):,}, "
+                f"batch_size: {self.batch_size:,}, "
+                f"learning_rate: {self.learning_rate:.2e}"
+            )
 
         force_reinit = False
 
@@ -1125,7 +1176,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             batch_start_list = batch_start_list[order]
             batch_stop_list = batch_stop_list[order]
 
-            for batch_start, batch_stop in zip(batch_start_list, batch_stop_list):
+            for batch_start, batch_stop in zip(
+                batch_start_list, batch_stop_list, strict=True
+            ):
                 x_train_batch = x_train[batch_start:batch_stop]
                 y_train_batch = y_train[batch_start:batch_stop]
                 y_pred = self.network(x_train_batch)
@@ -1170,6 +1223,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         self._fitted = True
 
+    @manage_torch_threads(max_threads=2)
     def predict(self, x):
         """Predict the class of the data.
 
@@ -1200,6 +1254,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
+    @manage_torch_threads(max_threads=2)
     def predict_proba(self, x: np.ndarray):
         """Predict the class probabilities of the data.
 
@@ -1237,14 +1292,16 @@ class FeedForwardNN(nn.Module):
         self,
         input_dim,
         output_dim=2,
-        layers=[20, 10, 5],
+        layers: list[int] | None = None,
         dropout=0.5,
     ):
         """
         built a simple feed forward network for FDR estimation
 
         """
-        super(FeedForwardNN, self).__init__()
+        if layers is None:
+            layers = [20, 10, 5]
+        super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
 
