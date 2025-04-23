@@ -15,7 +15,7 @@ Viewed through the lens of parsimonious protein grouping, A and B would belong t
     <li> Extract the columns 'precursor_idx' and 'ids' (proteins or genes) from the table of identified psms.</li>
     <li> Reshape into id-centric view: the first column contains one row per id, the second column contains that id's set of associated precursor indices.</li>
     <li> Perform grouping inspired by the "greedy set cover" algorithm:
-        <ol> 
+        <ol>
             <li> Save the id with the longest set of precursors as the "query" and remove it from the table.</li>
             <li> Iterate over the remaining "subject" ids. From each subject's precursor set, remove all precursors that overlap with the query's precursor set. If a subject's precursor set goes to zero, it is considered subsetted by the query, and the two ids are summarized into one group as a semicolon (;) separated string.</li>
             <li> Repeat until all remaining ids have a precursor set of length zero, or the last available id has been considered as a query. </li>
@@ -25,7 +25,7 @@ Viewed through the lens of parsimonious protein grouping, A and B would belong t
 
 The above approach is largely based on a greedy set cover implementation described in [https://www.cs.umd.edu/class/fall2017/cmsc451-0101/Lects/lect09-set-cover.pdf], and a general description of protein grouping from [Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005)]. Of note, several ambiguous cases can arise for ids which have the exact same number of precursors. In this case, the algorithm will pick the first id in the list, which resolves these cases arbitrarily. Future implementations will employ a weighted set cover approach, taking into account precursor abundances to resolve ties.
 
-The above mentioned publication lists six cases of protein grouping which must be resolved. Together with circular protein groups, a sub-case of subsumable proteins, these cases are covered by AlphaDIA's grouping implementation.
+The publication lists six cases of protein grouping which must be resolved. Together with circular protein groups, a sub-case of subsumable proteins, these cases are covered by AlphaDIA's grouping implementation.
 
 ![Adapted from: Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005): 1419-1440. Figure 5](../../nbs/tutorial_nbs/AEBERSOLD_PROTEIN_INFERENCE_Figure_5.jpg "Protein grouping cases diagram")
 
@@ -34,11 +34,3 @@ Adapted from: Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of sh
 ## Algorithmic implementation
 
 The above cases are implemented in a jupyter notebook: [protein_grouping_tutorial.ipynb](../../nbs/tutorial_nbs/protein_grouping_tutorial.ipynb).
-    
-
-
-
-    
-
-
-
