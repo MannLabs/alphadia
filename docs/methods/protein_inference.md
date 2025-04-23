@@ -31,7 +31,7 @@ The above mentioned publication lists six cases of protein grouping which must b
 
 Adapted from: Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005): 1419-1440. Figure 5.
 
-## Algorithmic implementation:
+## Algorithmic implementation
 
 The above cases are implemented in a jupyter notebook: [protein_grouping_tutorial.ipynb](../../nbs/tutorial_nbs/protein_grouping_tutorial.ipynb).
     
