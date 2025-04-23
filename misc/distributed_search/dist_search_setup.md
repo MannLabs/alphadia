@@ -32,15 +32,15 @@ Leave all the predefined settings in the two .yaml files as they are.
 6. Run **outer.sh** with the following command line arguments:
     - --nnodes (int): specifies how many nodes can be occupied. Rawfile search will be distributed across these nodes. If there are 5 nodes and 50 raw files, the search will take place on 5 nodes in chunks of 10 rawfiles each.
     - --ntasks_per_node (int): default to 1, some HPCL systems allow for multiple tasks to run on one node
-    - --cpus (int): default to 12, specifies how many CPUs shall be used per task
+    - --cpus (int): default to 12, specifies how many CPUs shall be used per task.
     - --mem (str): default to '250G', specifies RAM requirements for each task.
     **HPCL systems may be set to restrict user resources to certain limits. Make sure the above parameters comply with your HPCL setup.**
-    - --predict_library (1/0): default to 1, whether to predict a spectral library from a given fasta
-    - --first_search (1/0): default to 1, whether to search all files with the initial spectral library
-    - --mbr_library (1/0): whether to aggregate first search results into a focused "MBR" library
-    - --second_search (1/0): whether to perform a second search with the focused MBR library
-    - --lfq (1/0): whether to perform LFQ quantification of the second search results
-    
+    - --predict_library (1/0): default to 1, whether to predict a spectral library from a given fasta.
+    - --first_search (1/0): default to 1, whether to search all files with the initial spectral library.
+    - --mbr_library (1/0): whether to aggregate first search results into a focused "MBR" library.
+    - --second_search (1/0): whether to perform a second search with the focused MBR library.
+    - --lfq (1/0): whether to perform LFQ quantification of the second search results.
+
 An example call to outer.sh could look like this: ```sbatch outer.sh --nnodes 45 --search_config my_search.config```
 
 Running the search creates five subdirectories in the target folder:
