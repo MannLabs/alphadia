@@ -10,22 +10,21 @@ import json
 import logging
 import os
 import re
-import sys
 from pathlib import Path
 
 import yaml
 
+from alphadia import __version__  # noqa: E402
+from alphadia.constants.keys import ConfigKeys
+
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 import matplotlib  # noqa: E402
 
-import alphadia
-from alphadia import utils
-from alphadia.constants.keys import ConfigKeys
-from alphadia.exceptions import CustomError
-from alphadia.search_plan import SearchPlan
-from alphadia.workflow import reporting
-
 logger = logging.getLogger()
+
+EXIT_CODE_USER_ERROR = 1
+EXIT_CODE_WRONG_CLI_PARAM = 126
+EXIT_CODE_UNKNOWN_ERROR = 127
 
 epilog = "Parameters passed via CLI will overwrite parameters from config file (except for  '--file': will be merged)."
 
@@ -37,6 +36,11 @@ parser.add_argument(
     "-v",
     action="store_true",
     help="Print version and exit",
+)
+parser.add_argument(
+    "--check",
+    action="store_true",
+    help="Check if package can be imported",
 )
 parser.add_argument(
     "--output",
@@ -114,6 +118,30 @@ parser.add_argument(
 )
 
 
+def _recursive_update(
+    full_dict: dict, update_dict: dict
+):  # TODO merge with Config._update
+    """recursively update a dict with a second dict. The dict is updated inplace.
+
+    Parameters
+    ----------
+    full_dict : dict
+        dict to be updated, is updated inplace.
+
+    update_dict : dict
+        dict with new values
+
+    """
+    for key, value in update_dict.items():
+        if key in full_dict:
+            if isinstance(value, dict):
+                _recursive_update(full_dict[key], update_dict[key])
+            else:
+                full_dict[key] = value
+        else:
+            full_dict[key] = value
+
+
 def _get_config_from_args(
     args: argparse.Namespace,
 ) -> tuple[dict, str | None, str | None]:
@@ -126,7 +154,7 @@ def _get_config_from_args(
 
     if args.config_dict:
         try:
-            utils.recursive_update(config, json.loads(args.config_dict))
+            _recursive_update(config, json.loads(args.config_dict))
         except Exception as e:
             print(f"Could not parse config update: {e}")
 
@@ -194,16 +222,27 @@ def _get_raw_path_list_from_args_and_config(
 
 
 def run(*args, **kwargs):
-    # parse command line arguments
     args, unknown = parser.parse_known_args()
 
     if unknown:
         print(f"Unknown arguments: {unknown}")
         parser.print_help()
-        return
+        return EXIT_CODE_WRONG_CLI_PARAM
 
     if args.version:
-        print(f"{alphadia.__version__}")
+        print(f"{__version__}")
+        return
+
+    # load modules only here to speed up -v and -h commands
+    from alphadia.exceptions import CustomError
+    from alphadia.search_plan import SearchPlan
+    from alphadia.workflow import reporting
+
+    if args.check:
+        print(
+            f"{__version__}"
+        )  # important to have version as first string as this is picked up by the GUI
+        print("Importing AlphaDIA works!")
         return
 
     user_config, config_file_path, extra_config_dict = _get_config_from_args(args)
@@ -211,6 +250,7 @@ def run(*args, **kwargs):
     output_directory = _get_from_args_or_config(
         args, user_config, args_key="output", config_key="output_directory"
     )
+
     if output_directory is None:
         parser.print_help()
 
@@ -250,15 +290,15 @@ def run(*args, **kwargs):
 
     except Exception as e:
         if isinstance(e, CustomError):
-            exit_code = 1
+            exit_code = EXIT_CODE_USER_ERROR
         else:
             import traceback
 
             logger.info(traceback.format_exc())
-            exit_code = 127
+            exit_code = EXIT_CODE_UNKNOWN_ERROR
 
         logger.error(e)
-        sys.exit(exit_code)
+        return exit_code
 
 
 if __name__ == "__main__" and os.getenv("RUN_MAIN") == "1":
