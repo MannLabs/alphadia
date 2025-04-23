@@ -9,7 +9,7 @@ As an example of why grouping is necessary, consider Proteins A with peptides [1
 
 Viewed through the lens of parsimonious protein grouping, A and B would belong to the same group, which is reported as a single ID "A;B" in the end. If only a single protein is allowed per ID, "A" should be reported and "B" omitted.
 
-## AlphaDIA grouping and parsimony approach:
+## AlphaDIA grouping and parsimony approach
 
 <ol>
     <li> Extract the columns 'precursor_idx' and 'ids' (proteins or genes) from the table of identified psms.</li>
