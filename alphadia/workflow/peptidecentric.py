@@ -779,7 +779,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             # these values give benefits on max memory and runtime, with a small precursor penalty
             fac, q = 0.95, 3
         else:
-            fac, q = 1, 0.1
+            fac, q = 0.99, 1
 
         score_cutoff = fac * np.percentile(score, q)
 
