@@ -74,15 +74,34 @@ AlphaDIA can be installed on Windows, macOS and Linux. Please choose the preferr
 * [**Slurm installation:**](docs/installation.md#slurm-cluster-installation) Choose this for running alphaDIA on a research cluster with Slurm.
 
 ### One-click GUI installation
-Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
-* **Windows:** Download the latest `alphadia-X.Y.Z-windows-amd64.exe` build and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS:** Download the latest build suitable for your chip architecture
+
+#### Windows
+Download the latest `alphadia-X.Y.Z-windows-amd64.exe` build and double click it to install. If you receive a warning during installation click *Run anyway*.
+Important note: always install AlphaDIA into a new folder, as the installer will not properly overwrite existing installations.
+
+#### Linux
+If you want to use `.raw` files from Thermo instruments AlphaRaw is required, which depends on Mono.
+A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+
+Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
+
+#### MacOS
+If you want to use `.raw` files from Thermo instruments AlphaRaw is required, which depends on Mono.
+A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+
+Download the latest build suitable for your chip architecture
 (can be looked up by clicking on the Apple Symbol > *About this Mac* > *Chip* ("M1", "M2", "M3" -> `arm64`, "Intel" -> `x64`),
 `alphadia-X.Y.Z-macos-darwin-arm64.pkg` or `alphadia-X.Y.Z-macos-darwin-x64.pkg`. Open the parent folder of the downloaded file in Finder,
-right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
-* **Linux:** Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
+right-click and select *open*. If you receive a warning during installation click *Open*.
+
+In newer MacOS versions, additional steps are required to enable installation of unverified software.
+This is indicated by a dialog telling you `“alphadia. ... .pkg” Not Opened`.
+1. Close this dialog by clicking `Done`.
+2. Choose `Apple menu` > `System Settings`, then `Privacy & Security` in the sidebar. (You may need to scroll down.)
+3. Go to `Security`, locate the line "alphadia.pkg was blocked to protect your Mac" then click `Open Anyway`.
+4. In the dialog windows, click `Open Anyway`.
 
 
 As of now, **Linux** users need follow the steps for the
@@ -96,7 +115,7 @@ you can install alphaDIA via `pip`.
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
 For any Python package, it is highly recommended to use a separate, as otherwise dependency conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/).
@@ -113,7 +132,7 @@ Alternatively, use
 version clashes if alphaDIA is imported as a library into a defined python requirement.
 Note however, that this "loose" version might be affected e.g. by breaking changes of third-party dependencies.
 
-Finally, run `alphadia -v` to check if the installation was successful;
+Finally, run `alphadia --check` to check if the installation was successful;
 `alphadia -h` will give you a list of command-line options.
 
 ---

@@ -167,8 +167,8 @@ function hasPython(envName, condaPath){
 function hasAlphaDIA(envName, condaPath){
     return new Promise((resolve, reject) => {
         try {
-            execPATH(`conda run -n ${envName} alphadia --version` , condaPath, (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("AlphaDIA not found in conda environment " + envName); return;}
+            execPATH(`conda run -n ${envName} alphadia --check` , condaPath, (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("Invalid AlphaDIA in conda environment '" + envName + "'.\n\n" + err); return;}
                 resolve(stdout.split('\n')[0].trim())
             }
         )} catch (err) {
@@ -319,8 +319,8 @@ function hasBinary(binaryPath){
 function hasAlphaDIABundled(binaryPath){
     return new Promise((resolve, reject) => {
         try {
-            execFile(binaryPath, ["--version"], (err, stdout, stderr) => {
-                if (err) {console.log(err); reject("hasAlphaDIABundled: Binary " + binaryPath + " is not alphaDIA"); return;}
+            execFile(binaryPath, ["--check"], (err, stdout, stderr) => {
+                if (err) {console.log(err); reject("Backend executable '" + binaryPath + "' invalid!\n\n" + err); return;}
                 console.log(stdout)
                 resolve(stdout.split('\n')[0].trim())
             })

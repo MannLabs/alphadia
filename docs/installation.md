@@ -17,7 +17,8 @@ Currently available for **MacOS** and **Windows**.
 You can download the latest release of alphaDIA [here](https://github.com/Mannlabs/alphadia/releases/latest).
 
 * **Windows:** Download the latest `win-x64` build. Save it and double click it to install. If you receive a warning during installation click *Run anyway*.
-* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*. If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
+* **MacOS:** Download the latest `darwin-arm64` build. Please note that alphaDIA currently requires an ARM based M1/2/3 processor for the one-click installer. Save the installer and open the parent folder in Finder. Right-click and select *open*. If you receive a warning during installation click *Open*.
+If you want to use `.raw` files on Thermo instruments AlphaRaw is required, which depends on Mono. A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 As of now, **Linux** users need follow the steps for the
 [developer installation](#developer-installation) in order to use the GUI.
@@ -30,9 +31,7 @@ you can install alphaDIA via `pip`.
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono.
-A detailed guide to installing alphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation), a short version is given
-[below](#2-installing-mono).
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono ([see below](#2-installing-mono)).
 
 ### 2. Setting up the environment
 
@@ -56,7 +55,7 @@ Alternatively, use
 version clashes if alphaDIA is imported as a library into a defined python requirement.
 Note however, that this "loose" version might be affected e.g. by breaking changes of third-party dependencies.
 
-Finally, run `alphadia -v` to check if the installation was successful;
+Finally, run `alphadia --check` to check if the installation was successful;
 `alphadia -h` will give you a list of command-line options.
 
 
@@ -178,7 +177,8 @@ conda activate alphadia
 ```
 ### 2. Installing mono
 Install mono to support reading proprietary vendor formats like Thermo `.raw` files.
-
+Note: a detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation),
+this is just a short version.
 
 Install python into your new environment
 ```bash
