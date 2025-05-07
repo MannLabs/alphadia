@@ -6,7 +6,7 @@ import torch
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
-from peptdeep.model.charge import ChargeModelForModAASeq
+from peptdeep.model.charge import ChargeModelForModAASeq,group_psm_df_by_modseq
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
 from peptdeep.settings import global_settings
@@ -16,12 +16,12 @@ from tqdm import tqdm
 from alphadia.transferlearning.metrics import (
     AbsErrorPercentileTestMetric,
     AccuracyTestMetric,
-    CELossTestMetric,
     L1LossTestMetric,
     LinearRegressionTestMetric,
     MetricManager,
     Ms2SimilarityTestMetric,
     PrecisionRecallTestMetric,
+    BinaryCrossEntropyTestMetric
 )
 
 logger = logging.getLogger()
@@ -333,7 +333,7 @@ class FinetuneManager(ModelManager):
         property_name : str
             The property name to accumulate the metrics for.
         """
-        loss_name = "ce_loss" if property_name == "charge" else "l1_loss"
+        loss_name = "bce_loss" if property_name == "charge" else "l1_loss"
         metric_accumulator.accumulate_metrics(
             epoch,
             metric=epoch_loss,
@@ -389,7 +389,7 @@ class FinetuneManager(ModelManager):
             test_input, epoch, data_split=data_split, property_name=property_name
         )
         if epoch != -1 and data_split == "validation":
-            loss_name = "ce_loss" if property_name == "charge" else "l1_loss"
+            loss_name = "bce_loss" if property_name == "charge" else "l1_loss"
             self._accumulate_training_metrics(
                 metric_accumulator, epoch, epoch_loss, current_lr, property_name
             )
@@ -813,7 +813,7 @@ class FinetuneManager(ModelManager):
             return continue_training
 
         self.charge_model.model.eval()
-
+        test_df = test_df.copy()
         pred = self.charge_model.predict(test_df)
         test_input = {
             "target": np.array(test_df["charge_indicators"].values.tolist()),
@@ -848,33 +848,12 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
-        max_charge = np.max(psm_df["charge"])
-        min_charge = np.min(psm_df["charge"])
-
-        if self.charge_model is None:
-            self.charge_model = ChargeModelForModAASeq(
-                max_charge=max_charge, min_charge=min_charge, device=self.device
-            )
-            self.charge_model.predict_batch_size = global_settings["model_mgr"][
-                "predict"
-            ]["batch_size_charge"]
-            self.charge_prob_cutoff = global_settings["model_mgr"]["charge_prob_cutoff"]
-            self.use_predicted_charge_in_speclib = global_settings["model_mgr"][
-                "use_predicted_charge_in_speclib"
-            ]
-
-        template_charge_indicators = np.zeros(max_charge - min_charge + 1)
-        all_possible_charge_indicators = {
-            charge: template_charge_indicators.copy()
-            for charge in range(min_charge, max_charge + 1)
-        }
-        for charge in all_possible_charge_indicators:
-            all_possible_charge_indicators[charge][charge - min_charge] = 1.0
-
-        # map charge to a new column where the new column value is charge_indicators[charge-min_charge] = 1.0
-        psm_df["charge_indicators"] = psm_df["charge"].map(
-            all_possible_charge_indicators
-        )
+      
+        # create the charge indicators column and group by the mod_seq
+        psm_df = self.charge_model.create_charge_indicators(
+            psm_df,
+            group_by_modseq=True,
+        )  
 
         # Shuffle the psm_df and split it into train and test
         train_df = psm_df.sample(frac=self._train_fraction)
@@ -885,15 +864,14 @@ class FinetuneManager(ModelManager):
 
         test_metric_manager = MetricManager(
             test_metrics=[
-                CELossTestMetric(),
-                AccuracyTestMetric(),
-                PrecisionRecallTestMetric(),
+                BinaryCrossEntropyTestMetric(),
+                PrecisionRecallTestMetric(self.charge_prob_cutoff),
             ],
         )
 
         callback_handler = CustomCallbackHandler(
             self._test_charge,
-            test_df=val_df,
+            test_df=val_df.copy(),
             metric_accumulator=test_metric_manager,
             data_split="validation",
         )
