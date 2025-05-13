@@ -150,7 +150,8 @@ search:
   quant_all: True
   top_k_fragments: 12
   experimental_xic: True
-
+  # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
+  optimized_peak_group_score: False
 
 calibration:
 
