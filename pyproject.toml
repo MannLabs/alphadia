@@ -55,7 +55,7 @@ optional-dependencies.tests = { file = ["requirements/requirements_tests.txt"] }
 optional-dependencies.docs = { file = ["requirements/requirements_docs.txt"] }
 optional-dependencies.development = { file = [
     "requirements/requirements_development.txt",
-    "requirements/requirements_test.txt",
+    "requirements/requirements_tests.txt",
     "requirements/requirements_docs.txt"] }
 
 version = {attr = "alphadia.__version__"}
