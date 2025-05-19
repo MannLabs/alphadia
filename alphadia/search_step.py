@@ -10,7 +10,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import libtransform, outputtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
-from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.exceptions import CustomError, GenericUserError, NoLibraryAvailableError
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -33,6 +33,7 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
+        dry_run: bool = False,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -59,6 +60,8 @@ class SearchStep:
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
         reporting.init_logging(self.output_folder)
+
+        self._dry_run = dry_run
 
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
@@ -189,6 +192,7 @@ class SearchStep:
         prediction_config = self.config["library_prediction"]
 
         if self.library_path is None and not prediction_config["enabled"]:
+            # TODO why not raise here?
             logger.error("No library provided and prediction disabled.")
             return
         elif self.library_path is None and prediction_config["enabled"]:
@@ -293,6 +297,10 @@ class SearchStep:
     def run(
         self,
     ):
+        if self._dry_run:
+            logger.info("Dry run: skipping search workflow.")
+            return
+
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
@@ -402,15 +410,46 @@ class SearchStep:
     def _log_inputs(self):
         """Log all relevant inputs."""
 
+        missing_files = []
+        len_raw_files = 0
+        len_other_files = 0
         logger.info(f"Searching {len(self.raw_path_list)} files:")
         for f in self.raw_path_list:
             logger.info(f"  {os.path.basename(f)}")
+            len_raw_files += 1
+            if not Path(f).exists():
+                missing_files.append(f)
 
         logger.info(f"Using {len(self.fasta_path_list)} fasta files:")
         for f in self.fasta_path_list:
             logger.info(f"  {f}")
+            len_other_files += 1
+            if not Path(f).exists():
+                missing_files.append(f)
 
+        if self.library_path:
+            if Path(self.library_path).exists():
+                len_other_files += 1
+            else:
+                missing_files.append(self.library_path)
         logger.info(f"Using library: {self.library_path}")
+
+        # TODO check if files can be opened for reading ?
+        has_errors = False
+        if missing_files:
+            missing_files_pretty = "\\n-".join(missing_files)
+            logger.error(f"Not all input files exist. Missing: {missing_files_pretty}.")
+            has_errors = True
+        if not len_raw_files:
+            logger.error("At least one raw file needs to be given.")
+            has_errors = True
+        if not len_other_files:
+            logger.error("At least one FASTA or a speclib file need to be given.")
+            has_errors = True
+
+        if has_errors:
+            raise GenericUserError("Input values check failed.")
+
         logger.info(f"Saving output to: {self.output_folder}")
 
 

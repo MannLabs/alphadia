@@ -43,6 +43,13 @@ parser.add_argument(
     help="Check if package can be imported",
 )
 parser.add_argument(
+    "--dry-run",
+    "-n",
+    action="store_true",
+    help="Check if configuration is valid and all files are present.",
+    default=False,
+)
+parser.add_argument(
     "--output",
     "--output-directory",
     "-o",
@@ -254,7 +261,9 @@ def run(*args, **kwargs):
     if output_directory is None:
         parser.print_help()
 
-        print("No output directory specified. Please do so via CL-argument or config.")
+        print(
+            "No output directory specified. Please do so via command-line argument or config."
+        )
         return
 
     reporting.init_logging(output_directory)
@@ -286,7 +295,9 @@ def run(*args, **kwargs):
     matplotlib.use("Agg")
 
     try:
-        SearchPlan(output_directory, user_config, cli_params_config).run_plan()
+        SearchPlan(output_directory, user_config, cli_params_config).run_plan(
+            dry_run=args.dry_run
+        )
 
     except Exception as e:
         if isinstance(e, CustomError):
