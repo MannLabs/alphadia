@@ -210,7 +210,7 @@ def test_determine_dia_cycle_invalid_cycle():
     )
 
     # when / then
-    with pytest.raises(NotValidDiaDataError, match="detected, but does not consistent"):
+    with pytest.raises(NotValidDiaDataError, match="detected, but is not consistent"):
         determine_dia_cycle(df)
 
 
@@ -261,6 +261,6 @@ def test_determine_dia_cycle_invalid_cycle_(
     # when / then
     with pytest.raises(
         NotValidDiaDataError,
-        match="Cycle with start 2.00 min and length 1 detected, but does not consistent.",
+        match="Cycle with start 2.00 min and length 1 detected, but is not consistent.",
     ):
         determine_dia_cycle(df)

@@ -162,7 +162,7 @@ def determine_dia_cycle(
     cycle_start_rt = spectrum_df["rt"].to_numpy()[cycle_start]
     if not _is_valid_cycle(cycle_signature, cycle_length, cycle_start):
         raise NotValidDiaDataError(
-            f"Cycle with start {cycle_start_rt:.2f} min and length {cycle_length} detected, but does not consistent."
+            f"Cycle with start {cycle_start_rt:.2f} min and length {cycle_length} detected, but is not consistent."
         )
 
     logger.info(
