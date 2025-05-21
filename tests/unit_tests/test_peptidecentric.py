@@ -23,7 +23,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     fragments_df = pd.DataFrame(
         {
             "precursor_idx": [1, 1, 1, 2, 1],
-            "mass_error": [1, 3, -2, 5, 200],
+            "mass_error": [1, 3, -2, 5, 201],
             "correlation": [0.7, 0.5, 0.8, 0.6, 0.9],
         }
     )
@@ -39,15 +39,9 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         filtered_precursors,
         pd.DataFrame(
             {
-                "qval": [
-                    0.005,
-                ],
-                "decoy": [
-                    0,
-                ],
-                "precursor_idx": [
-                    1,
-                ],
+                "qval": [0.005],
+                "decoy": [0],
+                "precursor_idx": [1],
             }
         ),
     )
@@ -57,8 +51,8 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         pd.DataFrame(
             {
                 "precursor_idx": [1, 1, 1],
-                "mass_error": [200, -2, 1],
-                "correlation": [0.9, 0.8, 0.7],
+                "mass_error": [-2, 1, 3],
+                "correlation": [0.8, 0.7, 0.5],
             }
         ),
         check_like=True,

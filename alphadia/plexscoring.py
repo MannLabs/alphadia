@@ -11,6 +11,7 @@ import pandas as pd
 
 # alphadia imports
 from alphadia import features, quadrupole, utils, validate
+from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE, NUM_FEATURES
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import config, fragments
 from alphadia.plotting.cycle import plot_cycle
@@ -22,8 +23,6 @@ from alphadia.plotting.debug import (
 )
 
 logger = logging.getLogger()
-
-NUM_FEATURES = 46
 
 
 def candidate_features_to_candidates(
@@ -366,8 +365,8 @@ class CandidateConfig(config.JITConfig):
             self.fragment_mz_tolerance >= 0
         ), "fragment_mz_tolerance must be greater than or equal to 0"
         assert (
-            self.fragment_mz_tolerance < 200
-        ), "fragment_mz_tolerance must be less than 200"
+            self.fragment_mz_tolerance <= MAX_FRAGMENT_MZ_TOLERANCE
+        ), f"fragment_mz_tolerance must be less than or equal {MAX_FRAGMENT_MZ_TOLERANCE}"
 
     def copy(self):
         """Create a copy of the config object."""

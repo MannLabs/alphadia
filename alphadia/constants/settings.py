@@ -1,0 +1,4 @@
+"""Internal constants."""
+
+NUM_FEATURES = 46
+MAX_FRAGMENT_MZ_TOLERANCE = 200
