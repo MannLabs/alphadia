@@ -67,9 +67,9 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     ) from e
                 else:
                     if cycle_shape != 1:
-                        msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "
-                        logger.error(msg)
-                        raise ValueError(msg)
+                        raise NotValidDiaDataError(
+                            f"Unexpected cycle shape: {cycle_shape} (expected: 1)."
+                        )
 
                 self.transpose()
 
