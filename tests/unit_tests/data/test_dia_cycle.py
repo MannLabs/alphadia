@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -87,13 +89,30 @@ def test_get_cycle_length():
     assert _get_cycle_length(cycle) == 5
 
 
-# def test_get_cycle_start():
-#     # given
-#     cycle = np.array([0, 0, 0, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5])
-#     cycle_length = 5
-#
-#     # when
-#     assert _get_cycle_start(cycle, cycle_length) == 3
+def test_get_cycle_length_error():
+    # given
+    cycle = np.array([1, 1, 1])
+
+    # when / then
+    assert _get_cycle_length(cycle) == -1
+
+
+def test_get_cycle_start():
+    # given
+    cycle = np.array([0, 0, 0, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5])
+    cycle_length = 5
+
+    # when
+    assert _get_cycle_start(cycle, cycle_length) == 3
+
+
+def test_get_cycle_start_error():
+    # given
+    cycle = np.array([0, 0, 0])
+    cycle_length = 5
+
+    # when
+    assert _get_cycle_start(cycle, cycle_length) == -1
 
 
 def test_is_valid_cycle_valid():
@@ -160,23 +179,6 @@ def test_determine_dia_cycle():
     np.testing.assert_array_equal(cycle[0, :, 0, 1], pattern_upper)
 
 
-def test_determine_dia_cycle_invalid_length():
-    # given
-    df = pd.DataFrame(
-        {
-            "isolation_lower_mz": np.ones(100),  # Constant values won't produce a cycle
-            "isolation_upper_mz": np.ones(100),
-            "rt": np.linspace(0, 10, 100),
-        }
-    )
-
-    # when / then
-    with pytest.raises(
-        NotValidDiaDataError, match="Failed to determine length of DIA cycle"
-    ):
-        determine_dia_cycle(df)
-
-
 def test_determine_dia_cycle_invalid_cycle():
     # given
     num_spectra = 100
@@ -209,4 +211,56 @@ def test_determine_dia_cycle_invalid_cycle():
 
     # when / then
     with pytest.raises(NotValidDiaDataError, match="detected, but does not consistent"):
+        determine_dia_cycle(df)
+
+
+@patch("alphadia.data.dia_cycle._get_cycle_length")
+def test_determine_dia_cycle_invalid_length(mock_get_cycle_length):
+    # given
+    mock_get_cycle_length.return_value = -1
+
+    # when / then
+    with pytest.raises(
+        NotValidDiaDataError, match="Failed to determine length of DIA cycle"
+    ):
+        determine_dia_cycle(MagicMock())
+
+
+@patch("alphadia.data.dia_cycle._get_cycle_length")
+@patch("alphadia.data.dia_cycle._get_cycle_start")
+def test_determine_dia_cycle_invalid_start(mock_get_cycle_start, mock_get_cycle_length):
+    # given
+    mock_get_cycle_length.return_value = 1
+    mock_get_cycle_start.return_value = -1
+
+    # when / then
+    with pytest.raises(
+        NotValidDiaDataError, match="Failed to determine start of DIA cycle"
+    ):
+        determine_dia_cycle(MagicMock())
+
+
+@patch("alphadia.data.dia_cycle._get_cycle_length")
+@patch("alphadia.data.dia_cycle._get_cycle_start")
+@patch("alphadia.data.dia_cycle._is_valid_cycle")
+def test_determine_dia_cycle_invalid_cycle_(
+    mock_is_valid_cycle, mock_get_cycle_start, mock_get_cycle_length
+):
+    # given
+    mock_get_cycle_length.return_value = 1
+    mock_get_cycle_start.return_value = 1
+    mock_is_valid_cycle.return_value = False
+
+    df = pd.DataFrame(
+        {
+            "rt": [1, 2, 3],
+            "isolation_lower_mz": [1, 2, 3],
+            "isolation_upper_mz": [1, 2, 3],
+        }
+    )
+    # when / then
+    with pytest.raises(
+        NotValidDiaDataError,
+        match="Cycle with start 2.00 min and length 1 detected, but does not consistent.",
+    ):
         determine_dia_cycle(df)
