@@ -9,6 +9,7 @@ from alpharaw import ms_data_base as alpharaw_ms_data_base
 from alpharaw import mzml as alpharaw_mzml
 from alpharaw import sciex as alpharaw_sciex
 from alpharaw import thermo as alpharaw_thermo
+from exceptions import NotValidDiaDataError
 
 from alphadia import utils
 
@@ -123,8 +124,8 @@ def get_cycle_start(
 
 
 @nb.njit
-def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
-    """Assert that the found DIA cycle is valid.
+def is_valid_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
+    """Return whether the found DIA cycle is valid.
 
     Parameters
     ----------
@@ -144,8 +145,6 @@ def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: in
     cycle_valid: bool
         True if the cycle is valid, False otherwise.
     """
-
-    cycle_valid = True
     for i in range(len(cycle_signature) - (2 * cycle_length) - cycle_start):
         if not np.all(
             cycle_signature[i + cycle_start : i + cycle_start + cycle_length]
@@ -153,9 +152,8 @@ def assert_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: in
                 i + cycle_start + cycle_length : i + cycle_start + 2 * cycle_length
             ]
         ):
-            cycle_valid = False
-            break
-    return cycle_valid
+            return False
+    return True
 
 
 def determine_dia_cycle(
@@ -185,10 +183,10 @@ def determine_dia_cycle(
     cycle_start = get_cycle_start(cycle_signature, cycle_length)
 
     if cycle_start == -1:
-        raise ValueError("Failed to determine start of DIA cycle.")
+        raise NotValidDiaDataError("Failed to determine start of DIA cycle.")
 
-    if not assert_cycle(cycle_signature, cycle_length, cycle_start):
-        raise ValueError(
+    if not is_valid_cycle(cycle_signature, cycle_length, cycle_start):
+        raise NotValidDiaDataError(
             f"Cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length} detected, but does not consistent."
         )
 

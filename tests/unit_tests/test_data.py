@@ -33,7 +33,7 @@ def test_cycle():
 
     cycle_length = alpharaw_wrapper.get_cycle_length(cycle)
     cycle_start = alpharaw_wrapper.get_cycle_start(cycle, cycle_length)
-    cycle_valid = alpharaw_wrapper.assert_cycle(cycle, cycle_length, cycle_start)
+    cycle_valid = alpharaw_wrapper.is_valid_cycle(cycle, cycle_length, cycle_start)
 
     assert cycle_valid
     assert cycle_length == rand_cycle_length
