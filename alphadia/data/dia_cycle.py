@@ -1,4 +1,5 @@
 """Module to determine the DIA cycle from a spectrum dataframe."""
+
 import logging
 
 import numba as nb
@@ -6,8 +7,8 @@ import numpy as np
 import pandas as pd
 from exceptions import NotValidDiaDataError
 
-
 logger = logging.getLogger()
+
 
 def normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.

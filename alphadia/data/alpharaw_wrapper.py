@@ -3,10 +3,10 @@ import os
 
 import numba as nb
 import numpy as np
+from alpharaw.ms_data_base import MSData_Base
 from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
-from alpharaw.ms_data_base import MSData_Base
 
 from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
