@@ -23,7 +23,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     fragments_df = pd.DataFrame(
         {
             "precursor_idx": [1, 1, 1, 2, 1],
-            "mass_error": [1, 3, -2, 5, 201],
+            "mass_error": [1, 3, -2, 5, -201],
             "correlation": [0.7, 0.5, 0.8, 0.6, 0.9],
         }
     )

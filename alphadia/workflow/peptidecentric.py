@@ -718,9 +718,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_idx_mask = fragments_df["precursor_idx"].isin(
             precursor_df_filtered["precursor_idx"]
         )
-        mass_error_mask = np.abs(
-            fragments_df["mass_error"] <= MAX_FRAGMENT_MZ_TOLERANCE
+        mass_error_mask = (
+            np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE
         )
+
         fragments_df_filtered = fragments_df[
             precursor_idx_mask & mass_error_mask
         ].sort_values(by="correlation", ascending=False)
