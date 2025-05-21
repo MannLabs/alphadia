@@ -4,7 +4,8 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from workflow.peptidecentric import PeptideCentricWorkflow
+
+from alphadia.workflow.peptidecentric import PeptideCentricWorkflow
 
 
 @pytest.fixture
