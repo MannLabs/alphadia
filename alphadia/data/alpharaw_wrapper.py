@@ -5,10 +5,10 @@ import os
 import numba as nb
 import numpy as np
 import pandas as pd
-from alpharaw import ms_data_base as alpharaw_ms_data_base
 from alpharaw import mzml as alpharaw_mzml
 from alpharaw import sciex as alpharaw_sciex
 from alpharaw import thermo as alpharaw_thermo
+from alpharaw.ms_data_base import MSData_Base
 from exceptions import NotValidDiaDataError
 
 from alphadia import utils
@@ -240,9 +240,28 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
-class AlphaRaw(alpharaw_thermo.MSData_Base):
+class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.sample_name = None
+        self.zeroth_frame = 0
+        self.cycle = None
+        self.cycle_start = None
+        self.cycle_length = None
+        self.rt_values = None
+        self.precursor_cycle_max_index = None
+        self.mobility_values = None
+        self.max_mz_value = None
+        self.min_mz_value = None
+        self.quad_max_mz_value = None
+        self.quad_min_mz_value = None
+        self.peak_start_idx_list = None
+        self.peak_stop_idx_list = None
+        self.mz_values = None
+        self.intensity_values = None
+        self.scan_max_index = None
+        self.frame_max_index = None
         self.has_mobility = False
         self.has_ms1 = True
 
@@ -253,7 +272,6 @@ class AlphaRaw(alpharaw_thermo.MSData_Base):
         self.filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
-        self.zeroth_frame = 0
 
         try:
             # determine the DIA cycle
@@ -326,7 +344,7 @@ class AlphaRaw(alpharaw_thermo.MSData_Base):
         )
 
 
-class AlphaRawBase(AlphaRaw, alpharaw_ms_data_base.MSData_Base):
+class AlphaRawBase(AlphaRaw, MSData_Base):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_hdf(raw_file_path)
