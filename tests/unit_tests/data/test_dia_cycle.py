@@ -160,7 +160,7 @@ def test_determine_dia_cycle():
     np.testing.assert_array_equal(cycle[0, :, 0, 1], pattern_upper)
 
 
-def test_determine_dia_cycle_invalid_start():
+def test_determine_dia_cycle_invalid_length():
     # given
     df = pd.DataFrame(
         {

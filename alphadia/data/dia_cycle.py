@@ -46,7 +46,7 @@ def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     Returns
     -------
     cycle_length: int
-        The length of the DIA cycle.
+        The length of the DIA cycle, -1 in case it could not be determined.
 
     """
     corr = _normed_auto_correlation(cycle_signature)
@@ -54,6 +54,10 @@ def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     is_peak = (corr[1:-1] > corr[:-2]) & (corr[1:-1] > corr[2:])
 
     peak_index = is_peak.nonzero()[0] + 1
+
+    if len(peak_index) == 0:
+        return -1
+
     argmax = np.argmax(corr[peak_index])
 
     return peak_index[argmax]
@@ -131,7 +135,7 @@ def determine_dia_cycle(
     spectrum_df: pd.DataFrame,
     subset_for_cycle_detection: int = 10000,
 ) -> tuple[np.ndarray, int, int]:
-    """Determine the DIA cycle and store it in self.cycle.
+    """Determine the DIA cycle.
 
     Parameters
     ----------
@@ -148,11 +152,11 @@ def determine_dia_cycle(
         spectrum_df["isolation_lower_mz"].to_numpy()[:subset_for_cycle_detection]
         + spectrum_df["isolation_upper_mz"].to_numpy()[:subset_for_cycle_detection]
     )
-    cycle_length = _get_cycle_length(cycle_signature)
 
-    cycle_start = _get_cycle_start(cycle_signature, cycle_length)
+    if (cycle_length := _get_cycle_length(cycle_signature)) == -1:
+        raise NotValidDiaDataError("Failed to determine length of DIA cycle.")
 
-    if cycle_start == -1:
+    if (cycle_start := _get_cycle_start(cycle_signature, cycle_length)) == -1:
         raise NotValidDiaDataError("Failed to determine start of DIA cycle.")
 
     cycle_start_rt = spectrum_df["rt"].to_numpy()[cycle_start]
