@@ -15,9 +15,9 @@ logger = logging.getLogger()
 
 def _normed_auto_correlation(x: np.ndarray):
     """Calculate the normalized auto correlation of a 1D array.
+
     Parameters
     ----------
-
     x : np.ndarray
         The input array.
 
@@ -39,17 +39,15 @@ def _get_cycle_length(cycle_signature: np.ndarray):
 
     Parameters
     ----------
-
     cycle_signature: np.ndarray
         The signature of the DIA cycle. This will usually be the sum of the isolation windows.
 
     Returns
     -------
-
     cycle_length: int
         The length of the DIA cycle.
-    """
 
+    """
     corr = _normed_auto_correlation(cycle_signature)
 
     is_peak = (corr[1:-1] > corr[:-2]) & (corr[1:-1] > corr[2:])
@@ -69,7 +67,6 @@ def _get_cycle_start(
 
     Parameters
     ----------
-
     cycle_signature: np.ndarray
         The signature of the DIA cycle. This will usually be the sum of the isolation windows.
 
@@ -78,9 +75,9 @@ def _get_cycle_start(
 
     Returns
     -------
-
     cycle_start: int
         The index of the first cycle in the signature.
+
     """
     for i in range(len(cycle_signature) - (2 * cycle_length)):
         if np.all(cycle_signature[i : i + cycle_length] == cycle_signature[i]):
@@ -101,7 +98,6 @@ def _is_valid_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start:
 
     Parameters
     ----------
-
     cycle_signature: np.ndarray
         The signature of the DIA cycle. This will usually be the sum of the isolation windows.
 
@@ -113,9 +109,9 @@ def _is_valid_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start:
 
     Returns
     -------
-
     cycle_valid: bool
         True if the cycle is valid, False otherwise.
+
     """
     for i in range(len(cycle_signature) - (2 * cycle_length) - cycle_start):
         if not np.all(
@@ -136,7 +132,6 @@ def determine_dia_cycle(
 
     Parameters
     ----------
-
     spectrum_df : pandas.DataFrame
         AlphaRaw compatible spectrum dataframe.
 
