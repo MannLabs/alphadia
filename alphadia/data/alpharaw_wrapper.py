@@ -1,15 +1,12 @@
-# native imports
 import logging
 import os
 
 import numba as nb
 import numpy as np
-import pandas as pd
-from alpharaw import mzml as alpharaw_mzml
-from alpharaw import sciex as alpharaw_sciex
-from alpharaw import thermo as alpharaw_thermo
+from alpharaw.mzml import MzMLReader
+from alpharaw.sciex import SciexWiffData
+from alpharaw.thermo import ThermoRawData
 from alpharaw.ms_data_base import MSData_Base
-from exceptions import NotValidDiaDataError
 
 from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
@@ -18,7 +15,7 @@ logger = logging.getLogger()
 
 
 @nb.njit(parallel=False, fastmath=True)
-def search_sorted_left(slice, value):
+def _search_sorted_left(slice, value):
     left = 0
     right = len(slice)
 
@@ -32,7 +29,7 @@ def search_sorted_left(slice, value):
 
 
 @nb.njit(inline="always", fastmath=True)
-def search_sorted_refernce_left(array, left, right, value):
+def _search_sorted_reference_left(array, left, right, value):
     while left < right:
         mid = (left + right) >> 1
         if array[mid] < value:
@@ -43,7 +40,7 @@ def search_sorted_refernce_left(array, left, right, value):
 
 
 @nb.njit
-def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
+def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     """Calculate the DIA cycle quadrupole mask for each score group.
 
     Parameters
@@ -188,21 +185,21 @@ class AlphaRawBase(AlphaRaw, MSData_Base):
         self.process_alpharaw(**kwargs)
 
 
-class MzML(AlphaRaw, alpharaw_mzml.MzMLReader):
+class MzML(AlphaRaw, MzMLReader):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
 
 
-class Sciex(AlphaRaw, alpharaw_sciex.SciexWiffData):
+class Sciex(AlphaRaw, SciexWiffData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
         self.process_alpharaw(**kwargs)
 
 
-class Thermo(AlphaRaw, alpharaw_thermo.ThermoRawData):
+class Thermo(AlphaRaw, ThermoRawData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
@@ -442,7 +439,7 @@ class AlphaRawJIT:
         cycle_length = self.cycle.shape[1]
 
         # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
-        precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
+        precursor_idx_list = _calculate_valid_scans(quadrupole_mz, self.cycle)
         n_precursor_indices = len(precursor_idx_list)
 
         precursor_cycle_start = frame_limits[0, 0] // cycle_length
@@ -470,7 +467,7 @@ class AlphaRawJIT:
                 idx = peak_start_idx
 
                 for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    rel_idx = search_sorted_left(
+                    rel_idx = _search_sorted_left(
                         self.mz_values[idx:peak_stop_idx], mz_query_start
                     )
 
@@ -567,7 +564,7 @@ class AlphaRawJIT:
         cycle_length = self.cycle.shape[1]
 
         # (n_precursors) array of precursor indices, the precursor index refers to each scan within the cycle
-        precursor_idx_list = calculate_valid_scans(quadrupole_mz, self.cycle)
+        precursor_idx_list = _calculate_valid_scans(quadrupole_mz, self.cycle)
         # n_precursor_indices = len(precursor_idx_list)
 
         precursor_cycle_start = frame_limits[0, 0] // cycle_length
@@ -591,7 +588,7 @@ class AlphaRawJIT:
                 idx = peak_start_idx
 
                 for k, (mz_query_start, mz_query_stop) in enumerate(mz_query_slices):
-                    idx = search_sorted_refernce_left(
+                    idx = _search_sorted_reference_left(
                         self.mz_values, idx, peak_stop_idx, mz_query_start
                     )
 
