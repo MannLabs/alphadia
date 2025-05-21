@@ -13,7 +13,7 @@ from exceptions import NotValidDiaDataError
 logger = logging.getLogger()
 
 
-def _normed_auto_correlation(x: np.ndarray):
+def _normed_auto_correlation(x: np.ndarray) -> np.ndarray:
     """Calculate the normalized auto correlation of a 1D array.
 
     Parameters
@@ -34,7 +34,7 @@ def _normed_auto_correlation(x: np.ndarray):
     return result
 
 
-def _get_cycle_length(cycle_signature: np.ndarray):
+def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     """Get the cycle length from the cycle signature.
 
     Parameters
@@ -62,7 +62,7 @@ def _get_cycle_length(cycle_signature: np.ndarray):
 def _get_cycle_start(
     cycle_signature: np.ndarray,
     cycle_length: int,
-):
+) -> int:
     """Get the cycle start from the cycle signature.
 
     Parameters
@@ -93,7 +93,9 @@ def _get_cycle_start(
 
 
 @nb.njit
-def _is_valid_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start: int):
+def _is_valid_cycle(
+    cycle_signature: np.ndarray, cycle_length: int, cycle_start: int
+) -> bool:
     """Return whether the found DIA cycle is valid.
 
     Parameters
@@ -127,7 +129,7 @@ def _is_valid_cycle(cycle_signature: np.ndarray, cycle_length: int, cycle_start:
 def determine_dia_cycle(
     spectrum_df: pd.DataFrame,
     subset_for_cycle_detection: int = 10000,
-):
+) -> tuple[np.ndarray, int, int]:
     """Determine the DIA cycle and store it in self.cycle.
 
     Parameters
@@ -142,8 +144,8 @@ def determine_dia_cycle(
     logger.info("Determining DIA cycle")
 
     cycle_signature = (
-        spectrum_df.isolation_lower_mz.values[:subset_for_cycle_detection]
-        + spectrum_df.isolation_upper_mz.values[:subset_for_cycle_detection]
+        spectrum_df.isolation_lower_mz.to_numpy()[:subset_for_cycle_detection]
+        + spectrum_df.isolation_upper_mz.to_numpy()[:subset_for_cycle_detection]
     )
     cycle_length = _get_cycle_length(cycle_signature)
 
@@ -152,20 +154,21 @@ def determine_dia_cycle(
     if cycle_start == -1:
         raise NotValidDiaDataError("Failed to determine start of DIA cycle.")
 
+    cycle_start_rt = spectrum_df.rt.to_numpy()[cycle_start]
     if not _is_valid_cycle(cycle_signature, cycle_length, cycle_start):
         raise NotValidDiaDataError(
-            f"Cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length} detected, but does not consistent."
+            f"Cycle with start {cycle_start_rt:.2f} min and length {cycle_length} detected, but does not consistent."
         )
 
     logger.info(
-        f"Found cycle with start {spectrum_df.rt.values[cycle_start]:.2f} min and length {cycle_length}."
+        f"Found cycle with start {cycle_start_rt:.2f} min and length {cycle_length}."
     )
 
     cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.values[
+    cycle[0, :, 0, 0] = spectrum_df.isolation_lower_mz.to_numpy()[
         cycle_start : cycle_start + cycle_length
     ]
-    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.values[
+    cycle[0, :, 0, 1] = spectrum_df.isolation_upper_mz.to_numpy()[
         cycle_start : cycle_start + cycle_length
     ]
 
