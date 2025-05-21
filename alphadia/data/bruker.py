@@ -11,7 +11,7 @@ from numba.core import types
 from numba.experimental import jitclass
 
 from alphadia import utils
-from alphadia.exceptions import NotDiaDataError
+from alphadia.exceptions import NotValidDiaDataError
 
 logger = logging.getLogger()
 
@@ -62,7 +62,9 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                 try:
                     cycle_shape = self._cycle.shape[0]
                 except AttributeError as e:
-                    raise NotDiaDataError() from e
+                    raise NotValidDiaDataError(
+                        "Could not find cycle shape attribute."
+                    ) from e
                 else:
                     if cycle_shape != 1:
                         msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "
