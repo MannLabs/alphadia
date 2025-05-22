@@ -20,6 +20,7 @@ from alphadia.plotting.debug import (
     plot_precursor,
     plot_template,
 )
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -1371,7 +1372,7 @@ class OuptutPsmDF:
         )
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _executor(
     i,
     sg_container,
@@ -1397,7 +1398,7 @@ def _executor(
     )
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def transfer_feature(
     idx, score_group_container, feature_array, precursor_idx_array, rank_array
 ):

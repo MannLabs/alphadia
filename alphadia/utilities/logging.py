@@ -11,6 +11,7 @@ import directlfq
 import peptdeep
 
 import alphadia
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -50,3 +51,6 @@ def print_environment() -> None:
     ]
     logger.info(" ".join(pip_env))
     logger.info("===================================================")
+
+    if USE_NUMBA_CACHING:
+        logger.info("Numba caching is activated.")
