@@ -26,7 +26,9 @@ class CustomError(Exception):
         super().__init__(self._msg)
 
     def __str__(self):
-        return f"{self._error_code}: {self._msg} '{self._user_msg}'\n{self._detail_msg}"
+        return (
+            f"{self._error_code}: {self._msg}\n'{self._user_msg}'\n{self._detail_msg}"
+        )
 
 
 class BusinessError(CustomError):
