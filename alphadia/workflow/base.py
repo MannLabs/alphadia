@@ -75,7 +75,7 @@ class WorkflowBase:
         self._timing_manager: manager.TimingManager | None = None
 
         for path in [self._quant_path, self.figure_path, self.path]:
-            if not os.path.exists(path):
+            if path and not os.path.exists(path):
                 logger.info(f"Creating folder {path}")
                 os.makedirs(
                     path,
