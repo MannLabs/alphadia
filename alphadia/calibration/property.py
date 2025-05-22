@@ -380,12 +380,14 @@ class Calibration:
 
         figure_path : str, default=None
             If set, the figure is saved to the given path.
-
         """
-
         deviation = self.deviation(dataframe)
 
         n_input_properties = deviation.shape[1] - 3
+        input_property = None
+        if n_input_properties <= 0:
+            logging.warning("No input properties found for plotting calibration")
+            return
 
         transform_unit = self.get_transform_unit(self.transform_deviation)
 
