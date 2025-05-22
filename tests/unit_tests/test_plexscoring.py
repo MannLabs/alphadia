@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from alphadia import plexscoring
+from alphadia.plexscoring.utils import multiplex_candidates
 
 
 def test_multiplex_candidates():
@@ -37,12 +37,12 @@ def test_multiplex_candidates():
         }
     )
 
-    multiplexed_candidates = plexscoring.multiplex_candidates(
+    multiplexed_candidates = multiplex_candidates(
         test_candidate_df, test_precursor_df, channels=[]
     )
     assert len(multiplexed_candidates) == 0
 
-    multiplexed_candidates = plexscoring.multiplex_candidates(
+    multiplexed_candidates = multiplex_candidates(
         test_candidate_df, test_precursor_df, channels=[0, 4, 8]
     )
     assert multiplexed_candidates["precursor_idx"].tolist() == [0, 1, 2, 3, 4, 5]

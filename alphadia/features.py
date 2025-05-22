@@ -98,7 +98,7 @@ def weighted_center_mean_2d(dense_representation, scan_center, frame_center):
     return values
 
 
-float_array = nb.types.float32[:]
+float_array = nb.types.float32[:]  # TODO duplicated in plexscoring
 
 
 @nb.njit
