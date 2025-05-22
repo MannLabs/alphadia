@@ -545,10 +545,6 @@ class JSONLBackend(Backend):
             f.write(json.dumps(message) + "\n")
 
 
-class NeptuneBackend(Backend):
-    pass
-
-
 class LogBackend(Backend):
     def __init__(self, path: str = None) -> None:
         if not __is_initiated__ or path is not None:
