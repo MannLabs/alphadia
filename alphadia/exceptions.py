@@ -26,7 +26,9 @@ class CustomError(Exception):
         super().__init__(self._msg)
 
     def __str__(self):
-        return f"{self._error_code}: {self._msg} '{self._user_msg}'\n{self._detail_msg}"
+        return (
+            f"{self._error_code}: {self._msg}\n'{self._user_msg}'\n{self._detail_msg}"
+        )
 
 
 class BusinessError(CustomError):
@@ -60,7 +62,23 @@ class NoPsmFoundError(BusinessError):
 
     _error_code = "NO_PSM_FOUND"
 
-    _msg = "No psm files accumulated, can't continue"
+    _msg = "No psm files accumulated, can't continue."
+
+
+class TooFewPSMError(BusinessError):
+    """Raise when too few PSMs are available to perform a task."""
+
+    _error_code = "TOO_FEW_PSM"
+
+    _msg = "Too few PSMs available to perform the task."
+
+
+class TooFewProteinsError(BusinessError):
+    """Raise when too few Proteins are available to perform a task."""
+
+    _error_code = "TOO_FEW_PROTEINS"
+
+    _msg = "Too few proteins available to perform the task."
 
 
 class NoOptimizationLockTargetError(BusinessError):

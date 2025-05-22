@@ -14,14 +14,14 @@ import pandas as pd
 from alphabase.peptide import fragment, precursor
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
-from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
 from alphadia.constants.keys import StatOutputKeys
-from alphadia.exceptions import NoPsmFoundError
+from alphadia.exceptions import NoPsmFoundError, TooFewProteinsError
+from alphadia.fdrx.utils import train_test_split_
 from alphadia.outputaccumulator import (
     AccumulationBroadcaster,
     TransferLearningAccumulator,
@@ -1204,8 +1204,12 @@ def perform_protein_fdr(psm_df):
     X = protein_features[feature_columns].values
     y = protein_features["decoy"].values
 
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
+    X_train, X_test, y_train, y_test = train_test_split_(
+        X,
+        y,
+        test_size=0.2,
+        random_state=42,
+        exception=TooFewProteinsError,
     )
 
     scaler = StandardScaler()
