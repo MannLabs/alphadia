@@ -262,7 +262,7 @@ class FigureBackend(Backend):
         extension: str = "png",
         *args,
         **kwargs,
-    ):
+    ):  # TODO unused
         """Log a figure to the figures folder.
 
         Parameters

@@ -20,7 +20,7 @@ from alphadia.fragcomp import FragmentCompetition
 logger = logging.getLogger()
 
 
-class TargetDecoyFDR:
+class TargetDecoyFDR:  # TODO: unused?
     def __init__(
         self,
         classifier: sklearn.base.BaseEstimator,
