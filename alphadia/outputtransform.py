@@ -1170,7 +1170,7 @@ def _build_run_internal_df(
     return pd.DataFrame(internal_dict)
 
 
-def perform_protein_fdr(psm_df):
+def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     """Perform protein FDR on PSM dataframe"""
 
     protein_features = []
@@ -1239,7 +1239,16 @@ def perform_protein_fdr(psm_df):
 
     protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
 
-    fdr.plot_fdr(X_train, X_test, y_train, y_test, clf, protein_features["pg_qval"])
+    if figure_path is not None:
+        fdr.plot_fdr(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            clf,
+            protein_features["pg_qval"],
+            figure_path,
+        )
 
     return pd.concat(
         [

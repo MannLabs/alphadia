@@ -1,5 +1,6 @@
 # native imports
 import logging
+import os
 import pickle
 
 import numpy as np
@@ -426,24 +427,28 @@ class Calibration:
                 ax.set_xlabel(self.input_columns[input_property])
                 ax.set_ylabel(f"observed deviation {transform_unit}")
 
-                # get absolute y value and set limites to plus minus absolute y
+                # get absolute y value and set limits to plus minus absolute y
                 y = deviation[:, dim]
                 y_abs = np.abs(y)
                 ax.set_ylim(-y_abs.max() * 1.05, y_abs.max() * 1.05)
 
         fig.tight_layout()
 
-        # if figure_path is not None:
-        #    i = 0
-        #    file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-        #    while os.path.exists(file_name):
-        #        file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-        #        i += 1
-        #    fig.savefig(file_name)
-
-        plt.show()
-
-        plt.close()
+        if figure_path is not None:
+            i = 0
+            file_name = os.path.join(
+                figure_path, f"calibration_{self.input_columns[input_property]}_{i}.pdf"
+            )
+            while os.path.exists(file_name):
+                file_name = os.path.join(
+                    figure_path,
+                    f"calibration_{self.input_columns[input_property]}_{i}.pdf",
+                )
+                i += 1
+            fig.savefig(file_name)
+        else:
+            plt.show()
+            plt.close()
 
 
 class CalibrationModelProvider:
