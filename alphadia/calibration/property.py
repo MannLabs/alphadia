@@ -140,7 +140,13 @@ class Calibration:
 
         return valid
 
-    def fit(self, dataframe: pd.DataFrame, figure_path: str | None = None, **kwargs):
+    def fit(
+        self,
+        dataframe: pd.DataFrame,
+        plot: bool = True,
+        figure_path: str | None = None,
+        **kwargs,
+    ):
         """Fit the estimator based on the input and target columns of the dataframe.
 
         Parameters
@@ -148,6 +154,9 @@ class Calibration:
 
         dataframe : pandas.DataFrame
             Dataframe containing the input and target columns
+
+        plot : bool, default=True
+            If True, a plot of the calibration is generated.
 
         figure_path : str, default=None
             If not None, a plot of the calibration is generated and saved.
@@ -179,7 +188,7 @@ class Calibration:
 
         self._save_metrics(dataframe)
 
-        if figure_path is not None:
+        if plot:
             self.plot(dataframe, figure_path=figure_path)
 
     def predict(self, dataframe, inplace=True):
@@ -220,7 +229,7 @@ class Calibration:
             return self.function.predict(input_values)
 
     def fit_predict(
-        self, dataframe: pd.DataFrame, plot: bool = False, inplace: bool = True
+        self, dataframe: pd.DataFrame, plot: bool = True, inplace: bool = True
     ):
         """Fit the estimator and perform a prediction based on the input columns of the dataframe.
 
@@ -368,7 +377,6 @@ class Calibration:
         self,
         dataframe: pd.DataFrame,
         figure_path: str = None,
-        **kwargs,
     ):
         """Plot the data and calibration model.
 
