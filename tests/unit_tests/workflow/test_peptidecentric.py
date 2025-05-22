@@ -52,16 +52,8 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         pd.DataFrame(
             {
                 "precursor_idx": [1, 1, 1],
-                "mass_error": [
-                    1,
-                    -2,
-                    1,
-                ],
-                "correlation": [
-                    0.95,
-                    0.8,
-                    0.7,
-                ],
+                "mass_error": [1, -2, 1],
+                "correlation": [0.95, 0.8, 0.7],
             }
         ),
         check_like=True,
