@@ -22,8 +22,7 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
-from constants.settings import FIGURES_FOLDER_NAME
-
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)

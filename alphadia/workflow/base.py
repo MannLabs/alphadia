@@ -4,9 +4,9 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
-from constants.settings import FIGURES_FOLDER_NAME
 
 from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker

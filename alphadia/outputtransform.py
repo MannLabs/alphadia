@@ -14,13 +14,13 @@ import pandas as pd
 from alphabase.peptide import fragment, precursor
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
-from constants.settings import FIGURES_FOLDER_NAME
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
 from alphadia.constants.keys import ConfigKeys, StatOutputKeys
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError, TooFewProteinsError
 from alphadia.fdrx.utils import train_test_split_
 from alphadia.outputaccumulator import (

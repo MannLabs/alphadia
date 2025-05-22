@@ -15,9 +15,7 @@ def test_output_transform():
     run_columns = ["run_0", "run_1", "run_2"]
 
     config = {
-        "general": {
-            "thread_count": 8,
-        },
+        "general": {"thread_count": 8, "save_figures": True},
         "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,

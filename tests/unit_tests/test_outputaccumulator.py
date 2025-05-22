@@ -37,6 +37,7 @@ def prepare_input_data():
     config = {
         "general": {
             "thread_count": 8,
+            "save_figures": True,
         },
         "fdr": {
             "fdr": 0.01,
