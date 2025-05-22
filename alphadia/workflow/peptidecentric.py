@@ -727,13 +727,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ].sort_values(by="correlation", ascending=False)
 
         # Determine the number of fragments to keep
-        min_fragments = 500  # TODO remove min_fragments as it seems to have no effect
         high_corr_count = (
             fragments_df_filtered["correlation"]
             > self.config["calibration"]["min_correlation"]
         ).sum()
         stop_rank = min(
-            max(high_corr_count, min_fragments),
+            high_corr_count,
             self.config["calibration"]["max_fragments"],
         )
 
