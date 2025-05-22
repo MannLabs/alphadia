@@ -629,7 +629,8 @@ class SearchPlanOutput:
             )
 
         logger.info("Performing protein FDR")
-        psm_df = perform_protein_fdr(psm_df)
+
+        psm_df = perform_protein_fdr(psm_df, self._figure_path)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
