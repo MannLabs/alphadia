@@ -10,10 +10,14 @@ from datetime import datetime
 from typing import Any
 
 import matplotlib.pyplot as plt
-import neptune
 import pandas as pd
 
 from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+
+try:
+    import neptune
+except ModuleNotFoundError:
+    neptune = None
 
 NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 
@@ -219,6 +223,9 @@ if __name__ == "__main__":
     if not neptune_upload:
         print("skipping neptune upload")
         exit(0)
+    if neptune is None:
+        print("neptune is not installed")
+        exit(1)
 
     neptune_run = neptune.init_run(
         project=NEPTUNE_PROJECT_NAME,

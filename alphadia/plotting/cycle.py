@@ -304,7 +304,6 @@ def plot_cycle(
     scan_start: float = None,
     scan_stop: float = None,
     figure_path: str = None,
-    # neptune_run = None
 ):
     """Plot the DIA cycle
 
@@ -329,8 +328,6 @@ def plot_cycle(
     figure_path : str, optional
         Path to save the figure to
 
-    neptune_run : neptune.Run, optional
-        Neptune run to upload the figure to
     """
 
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -353,6 +350,3 @@ def plot_cycle(
 
     if figure_path is not None:
         fig.savefig(os.path.join(figure_path, "cycle.png"), dpi=300)
-
-    # if neptune_run is not None:
-    #    neptune_run['cycle'].upload(fig)

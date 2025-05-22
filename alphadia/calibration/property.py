@@ -367,8 +367,6 @@ class Calibration:
         self,
         dataframe: pd.DataFrame,
         figure_path: str = None,
-        # neptune_run : str = None,
-        # neptune_key :str = None,
         **kwargs,
     ):
         """Plot the data and calibration model.
@@ -381,12 +379,6 @@ class Calibration:
 
         figure_path : str, default=None
             If set, the figure is saved to the given path.
-
-        neptune_run : str, default=None
-            If set, the figure is logged to the given neptune run.
-
-        neptune_key : str, default=None
-            key under which the figure is logged to the neptune run.
 
         """
 
@@ -441,18 +433,12 @@ class Calibration:
 
         fig.tight_layout()
 
-        # log figure to neptune ai
-        # if neptune_run is not None and neptune_key is not None:
-        #    neptune_run[f'calibration/{neptune_key}'].log(fig)
-
         # if figure_path is not None:
-
         #    i = 0
         #    file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
         #    while os.path.exists(file_name):
         #        file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
         #        i += 1
-
         #    fig.savefig(file_name)
 
         plt.show()
