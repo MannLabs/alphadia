@@ -1,3 +1,5 @@
+"""Data Containers for Candidate Scoring."""
+
 # native imports
 import logging
 

@@ -1,3 +1,5 @@
+"""Configuration Module for Candidate Scoring."""
+
 # native imports
 import logging
 

@@ -1,3 +1,5 @@
+"""Output Handling for Candidate Scoring."""
+
 # native imports
 import logging
 

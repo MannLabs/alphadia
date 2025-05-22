@@ -1,3 +1,5 @@
+"""Main Implementation of Candidate Scoring System."""
+
 # native imports
 import logging
 
