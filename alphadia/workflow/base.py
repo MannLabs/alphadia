@@ -74,15 +74,13 @@ class WorkflowBase:
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
 
-        if not os.path.exists(self._quant_path):
-            logger.info(f"Creating parent folder for workflows at {self._quant_path}")
-            os.makedirs(self._quant_path)
-
-        if not os.path.exists(self.path):
-            logger.info(
-                f"Creating workflow folder for {self.instance_name} at {self.path}"
-            )
-            os.mkdir(self.path)
+        for path in [self._quant_path, self.figure_path, self.path]:
+            if not os.path.exists(path):
+                logger.info(f"Creating folder {path}")
+                os.makedirs(
+                    path,
+                    exist_ok=True,
+                )
 
     def load(
         self,
