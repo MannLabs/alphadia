@@ -232,7 +232,7 @@ You can find an example of a Slurm script here: [./tests/e2e_tests/e2e_slurm.sh]
 
 
 ## Advanced options
-### numba caching
+### numba caching (experimental)
 If you use AlphaDIA in a high-throughput environment, i.e. many independent runs on singe files,
 you could save some run time by leveraging the [numba cache](https://numba.pydata.org/numba-doc/dev/developer/caching.html).
 This is done by setting the environmental variable
