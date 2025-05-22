@@ -15,7 +15,7 @@ logger = logging.getLogger()
 
 
 @nb.experimental.jitclass()
-class OuptutPsmDF:
+class OutputPsmDF:
     valid: nb.boolean[::1]
     precursor_idx: nb.uint32[::1]
     rank: nb.uint8[::1]

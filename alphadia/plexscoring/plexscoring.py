@@ -16,7 +16,7 @@ from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import fragments
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
-from alphadia.plexscoring.output import OuptutPsmDF
+from alphadia.plexscoring.output import OutputPsmDF
 
 logger = logging.getLogger()
 
@@ -553,7 +553,7 @@ class CandidateScoring:
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         n_candidates = score_group_container.get_candidate_count()
-        psm_proto_df = OuptutPsmDF(n_candidates, self.config.top_k_fragments)
+        psm_proto_df = OutputPsmDF(n_candidates, self.config.top_k_fragments)
 
         iterator_len = len(score_group_container)
 
