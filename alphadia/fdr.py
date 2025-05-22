@@ -152,15 +152,16 @@ def perform_fdr(
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    plot_fdr(
-        X_train,
-        X_test,
-        y_train,
-        y_test,
-        classifier,
-        psm_df["qval"],
-        figure_path=figure_path,
-    )
+    if figure_path is not None:
+        plot_fdr(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            classifier,
+            psm_df["qval"],
+            figure_path=figure_path,
+        )
 
     return psm_df
 
@@ -336,6 +337,9 @@ def plot_fdr(
 
     qval : np.ndarray
         The q-values of the PSMs.
+
+    figure_path: str | None
+        The path to the folder to save the figure to.
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
@@ -400,9 +404,14 @@ def plot_fdr(
         )
 
     fig.tight_layout()
-    plt.show()
 
     if figure_path is not None:
-        fig.savefig(os.path.join(figure_path, "fdr.pdf"))
-
-    plt.close()
+        i = 0
+        file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
+        while os.path.exists(file_name):
+            i += 1
+            file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
+        fig.savefig(file_name)
+    else:
+        plt.show()
+        plt.close()
