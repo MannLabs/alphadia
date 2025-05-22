@@ -15,6 +15,7 @@ from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
 from alphadia import fragcomp, plexscoring, utils
+from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
@@ -708,34 +709,39 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             Filtered fragment dataframe. Retained fragments must either:
                 1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
                 2) belong to the top 500 fragments sorted by correlation otherwise.
-
+            Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
         """
-        precursor_df_filtered = precursor_df[precursor_df["qval"] < 0.01]
-        precursor_df_filtered = precursor_df_filtered[
-            precursor_df_filtered["decoy"] == 0
-        ]
+        qval_mask = precursor_df["qval"] < 0.01
+        decoy_mask = precursor_df["decoy"] == 0
+        precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
+
+        precursor_idx_mask = fragments_df["precursor_idx"].isin(
+            precursor_df_filtered["precursor_idx"]
+        )
+        mass_error_mask = (
+            np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE
+        )
 
         fragments_df_filtered = fragments_df[
-            fragments_df["precursor_idx"].isin(precursor_df_filtered["precursor_idx"])
-        ]
+            precursor_idx_mask & mass_error_mask
+        ].sort_values(by="correlation", ascending=False)
 
-        fragments_df_filtered = fragments_df_filtered.sort_values(
-            by="correlation", ascending=False
-        )
         # Determine the number of fragments to keep
-        min_fragments, max_fragments = (
-            500,
+        high_corr_count = (
+            fragments_df_filtered["correlation"]
+            > self.config["calibration"]["min_correlation"]
+        ).sum()
+        stop_rank = min(
+            high_corr_count,
             self.config["calibration"]["max_fragments"],
-        )  # TODO remove min_fragments as it seems to have no effect
-        min_correlation = self.config["calibration"]["min_correlation"]
-
-        high_corr_count = (fragments_df_filtered["correlation"] > min_correlation).sum()
-        stop_rank = min(max(high_corr_count, min_fragments), max_fragments)
+        )
 
         # Select top fragments
         fragments_df_filtered = fragments_df_filtered.head(stop_rank)
 
-        self.reporter.log_string(f"fragments_df_filtered: {len(fragments_df_filtered)}")
+        self.reporter.log_string(
+            f"fragments_df: keeping {len(fragments_df_filtered)} of {len(fragments_df)} [{sum(precursor_idx_mask)=} {sum(mass_error_mask)=} {stop_rank=}"
+        )
 
         return precursor_df_filtered, fragments_df_filtered
 
