@@ -336,6 +336,9 @@ def plot_fdr(
 
     qval : np.ndarray
         The q-values of the PSMs.
+
+    figure_path: str | None
+        The path to the folder to save the figure to.
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]

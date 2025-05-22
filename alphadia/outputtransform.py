@@ -14,12 +14,13 @@ import pandas as pd
 from alphabase.peptide import fragment, precursor
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
+from constants.settings import FIGURES_FOLDER_NAME
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
-from alphadia.constants.keys import StatOutputKeys
+from alphadia.constants.keys import ConfigKeys, StatOutputKeys
 from alphadia.exceptions import NoPsmFoundError, TooFewProteinsError
 from alphadia.fdrx.utils import train_test_split_
 from alphadia.outputaccumulator import (
@@ -335,16 +336,16 @@ class SearchPlanOutput:
         output_folder: str
             Output folder
         """
-        self._config = config
-        self._output_folder = output_folder
+        self.config = config
+        self.output_folder = output_folder
 
-    @property
-    def config(self):
-        return self._config
-
-    @property
-    def output_folder(self):
-        return self._output_folder
+        self._figure_path = (
+            os.path.join(self.output_folder, FIGURES_FOLDER_NAME)
+            if self.config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            else None
+        )
+        if self._figure_path and not os.path.exists(self._figure_path):
+            os.makedirs(self._figure_path)
 
     def build(
         self,

@@ -4,6 +4,7 @@ import os
 
 # alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
+from constants.settings import FIGURES_FOLDER_NAME
 
 from alphadia.constants.keys import ConfigKeys
 
@@ -30,7 +31,6 @@ class WorkflowBase:
     OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
     TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
     FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
-    FIGURES_FOLDER_NAME = "figures"
 
     def __init__(
         self,
@@ -56,6 +56,12 @@ class WorkflowBase:
         self._quant_path: str = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
+        self.figure_path: str = (
+            os.path.join(self.path, FIGURES_FOLDER_NAME)
+            if config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            else None
+        )
+
         logger.info(f"Quantification results path: {self._quant_path}")
 
         self._config: Config = config
@@ -126,7 +132,7 @@ class WorkflowBase:
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
-            figure_path=os.path.join(self.path, self.FIGURES_FOLDER_NAME),
+            figure_path=self.figure_path,
             reporter=self.reporter,
         )
 
