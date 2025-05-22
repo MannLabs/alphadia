@@ -8,10 +8,10 @@
 import numba as nb
 import numpy as np
 
-from alphadia.utils import ACTIVATE_NUMBA_CACHING
+from alphadia.utils import USE_NUMBA_CACHING
 
 
-@nb.njit(parallel=False, fastmath=True, cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(parallel=False, fastmath=True, cache=USE_NUMBA_CACHING)
 def search_sorted_left(slice, value):
     left = 0
     right = len(slice)
@@ -25,7 +25,7 @@ def search_sorted_left(slice, value):
     return left
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def ceil_to_base_two(x):
     # borrowed from Bit Twiddling Hacks
     # https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
@@ -40,7 +40,7 @@ def ceil_to_base_two(x):
     return x
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def wrap0(
     value,
     limit,
@@ -51,7 +51,7 @@ def wrap0(
         return min(value, limit)
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def wrap1(
     values,
     limit,
@@ -61,7 +61,7 @@ def wrap1(
     return values
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def symetric_limits_1d(
     array_1d,
     center,
@@ -136,7 +136,7 @@ def symetric_limits_1d(
     )
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def symetric_limits_2d(
     a,
     scan_center,
@@ -175,7 +175,7 @@ def symetric_limits_2d(
     return mobility_limits, dia_cycle_limits
 
 
-@nb.njit(inline="always", cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(inline="always", cache=USE_NUMBA_CACHING)
 def save_corrcoeff(x: np.array, y: np.array):
     """Save way to calculate the correlation coefficient between two one-dimensional arrays.
 
@@ -210,7 +210,7 @@ def save_corrcoeff(x: np.array, y: np.array):
     return numerator / (denominator + 1e-12)
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def fragment_correlation(
     fragments_profile,
 ):
@@ -271,7 +271,7 @@ def fragment_correlation(
     return output
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def fragment_correlation_different(x: np.ndarray, y: np.ndarray):
     """Calculates a save correlation matrix for a given fragment profile.
 

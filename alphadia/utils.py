@@ -12,7 +12,7 @@ logger = logging.getLogger()
 
 ISOTOPE_DIFF = 1.0032999999999674
 
-ACTIVATE_NUMBA_CACHING = os.environ.get("ACTIVATE_NUMBA_CACHING", "0") == "1"
+USE_NUMBA_CACHING = os.environ.get("USE_NUMBA_CACHING", "0") == "1"
 
 
 def get_torch_device(use_gpu: bool = False):
@@ -44,7 +44,7 @@ def get_torch_device(use_gpu: bool = False):
     return device
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def candidate_hash(precursor_idx, rank):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
@@ -52,7 +52,7 @@ def candidate_hash(precursor_idx, rank):
     return precursor_idx + (rank << 32)
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def ion_hash(precursor_idx, number, type, charge, loss_type):
     # create a 64 bit hash from the precursor_idx, number and type
     # the precursor_idx is the lower 32 bits
@@ -69,7 +69,7 @@ def ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
 
@@ -100,7 +100,7 @@ def find_peaks_1d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def find_peaks_2d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
     scan = []
@@ -134,7 +134,7 @@ def find_peaks_2d(a, top_n=3):
     return scan, dia_cycle, intensity
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def amean1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -142,7 +142,7 @@ def amean1(array):
     return out
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def amean0(array):
     out = np.zeros(array.shape[1])
     for i in range(len(out)):
@@ -150,7 +150,7 @@ def amean0(array):
     return out
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
@@ -181,7 +181,7 @@ def get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def mass_range(mz_list, ppm_tolerance):
     out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)
     out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
@@ -189,12 +189,12 @@ def mass_range(mz_list, ppm_tolerance):
     return out_mz
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def make_slice_1d(start_stop):
     """Numba helper function to create a 1D slice object from a start and stop value.
 
@@ -214,7 +214,7 @@ def make_slice_1d(start_stop):
     return np.array([[start_stop[0], start_stop[1], 1]], dtype=start_stop.dtype)
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def make_slice_2d(start_stop):
     """Numba helper function to create a 2D slice object from multiple start and stop value.
 
@@ -313,7 +313,7 @@ def calculate_score_groups(
 
     """
 
-    @nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+    @nb.njit(cache=USE_NUMBA_CACHING)
     def channel_score_groups(elution_group_idx, decoy, rank):
         """
         Calculate score groups for channel grouping.
@@ -442,7 +442,7 @@ def merge_missing_columns(
     return left_df.merge(right_df[on + missing_from_left], on=on, how=how)
 
 
-@nb.njit(inline="always", cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(inline="always", cache=USE_NUMBA_CACHING)
 def get_frame_indices(
     rt_values: np.ndarray,
     rt_values_array: np.ndarray,

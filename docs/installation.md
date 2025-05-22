@@ -237,7 +237,7 @@ If you use AlphaDIA in a high-throughput environment, i.e. many independent runs
 you could save some run time by leveraging the [numba cache](https://numba.pydata.org/numba-doc/dev/developer/caching.html).
 This is done by setting the environmental variable
 ```
-export ACTIVATE_NUMBA_CACHING=1
+export USE_NUMBA_CACHING=1
 ```
 before each run.
 This will avoid re-compilation of numba functions on every startup, which can take a while. The location of the

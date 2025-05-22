@@ -9,12 +9,12 @@ import numpy as np
 
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
-from alphadia.utils import ACTIVATE_NUMBA_CACHING
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
 
-@nb.njit(cache=ACTIVATE_NUMBA_CACHING)
+@nb.njit(cache=USE_NUMBA_CACHING)
 def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
     """multivariate normal distribution, probability density function
 

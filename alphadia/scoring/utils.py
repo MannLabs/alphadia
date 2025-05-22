@@ -8,14 +8,14 @@ import numba as nb
 import numpy as np
 from numba import types
 
-from alphadia.utils import ACTIVATE_NUMBA_CACHING
+from alphadia.utils import USE_NUMBA_CACHING
 
 
 @nb.njit(
     types.Array(types.float32, 1, "A")(
         types.Array(types.float32, 1, "A"), types.Array(types.float32, 2, "A")
     ),
-    cache=ACTIVATE_NUMBA_CACHING,
+    cache=USE_NUMBA_CACHING,
 )
 def correlation_coefficient(x: np.ndarray, ys: np.ndarray) -> np.ndarray:
     """Calculate the correlation coefficient between x and each y in ys.
@@ -74,7 +74,7 @@ def correlation_coefficient(x: np.ndarray, ys: np.ndarray) -> np.ndarray:
     types.Array(types.float32, 2, "A")(
         types.Array(types.float32, 2, "A"), types.Optional(types.int64)
     ),
-    cache=ACTIVATE_NUMBA_CACHING,
+    cache=USE_NUMBA_CACHING,
 )
 def normalize_profiles(
     intensity_slice: np.ndarray, center_dilations: int = 1
@@ -122,7 +122,7 @@ def normalize_profiles(
     types.Array(types.float32, 1, "A")(
         types.Array(types.float32, 2, "A"), types.Optional(types.int64)
     ),
-    cache=ACTIVATE_NUMBA_CACHING,
+    cache=USE_NUMBA_CACHING,
 )
 def median_axis(array: np.ndarray, axis: int = 0) -> np.ndarray:
     """Calculate the median along a specified axis.
