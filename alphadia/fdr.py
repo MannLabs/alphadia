@@ -13,7 +13,7 @@ import sklearn
 # alphadia imports
 # alpha family imports
 from alphadia import fragcomp
-from alphadia.fdrx.utils import manage_torch_threads
+from alphadia.fdrx.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
@@ -114,9 +114,7 @@ def perform_fdr(
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-        X, y, test_size=0.2
-    )
+    X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
 
     classifier.fit(X_train, y_train)
 

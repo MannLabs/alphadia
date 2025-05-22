@@ -60,7 +60,23 @@ class NoPsmFoundError(BusinessError):
 
     _error_code = "NO_PSM_FOUND"
 
-    _msg = "No psm files accumulated, can't continue"
+    _msg = "No psm files accumulated, can't continue  (as other one)"
+
+
+class TooFewPSMError(BusinessError):
+    """Raise when too few PSMs are available to perform a task."""
+
+    _error_code = "TOO_FEW_PSM"
+
+    _msg = "To few PSMs available to perform the task."
+
+
+class TooFewProteinsError(BusinessError):
+    """Raise when too few Proteins are available to perform a task."""
+
+    _error_code = "TOO_FEW_PROTEINS"
+
+    _msg = "To few proteins available to perform the task."
 
 
 class NoOptimizationLockTargetError(BusinessError):

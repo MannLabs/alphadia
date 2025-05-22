@@ -1,20 +1,15 @@
-# native imports
 import logging
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
-# alphadia imports
-# alpha family imports
-# third party imports
 import numpy as np
 import torch
-from sklearn import model_selection
 from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
-from alphadia.fdrx.utils import manage_torch_threads
+from alphadia.fdrx.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
@@ -357,7 +352,8 @@ class BinaryClassifier(Classifier):
 
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
-        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+
+        x_train, x_test, y_train, y_test = train_test_split_(
             x, y, test_size=self.test_size
         )
         x_train = torch.from_numpy(x_train).float().to(self.device)
@@ -779,10 +775,9 @@ class BinaryClassifierLegacy(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
-        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+        x_train, x_test, y_train, y_test = train_test_split_(
             x, y, test_size=self.test_size
         )
-
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
 
@@ -1146,10 +1141,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
-        x_train, x_test, y_train, y_test = model_selection.train_test_split(
+        x_train, x_test, y_train, y_test = train_test_split_(
             x, y, test_size=self.test_size
         )
-
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
 
