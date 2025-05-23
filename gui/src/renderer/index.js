@@ -4,7 +4,7 @@ import './index.css';
 import './fonts/index.css';
 
 import { HashRouter } from "react-router-dom";
-import { MethodProvider } from './logic/context';
+import { GitHubProvider, MethodProvider } from './logic/context';
 import { ProfileProvider } from './logic/profile';
 
 import App from './App';
@@ -12,10 +12,12 @@ import App from './App';
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <HashRouter>
-    <MethodProvider>
+    <GitHubProvider>
+      <MethodProvider>
         <ProfileProvider>
-            <App />
+          <App />
         </ProfileProvider>
-    </MethodProvider>
+      </MethodProvider>
+    </GitHubProvider>
   </HashRouter>
 );
