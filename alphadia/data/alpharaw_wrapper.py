@@ -242,6 +242,18 @@ def calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
+def is_ms1_dia(spectrum_df: pd.DataFrame):
+    """Check if the MS1 spectra follow a DIA cycle. This check is stricter than just relying on failing to determine a cycle.
+
+    Parameters
+    ----------
+    spectrum_df : pd.DataFrame
+        The spectrum dataframe.
+    """
+    ms1_df = spectrum_df[spectrum_df["ms_level"] == 1]
+    return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
+
+
 class AlphaRaw(alpharaw_thermo.MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -257,14 +269,16 @@ class AlphaRaw(alpharaw_thermo.MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        try:
+        if is_ms1_dia(self.spectrum_df):
             # determine the DIA cycle
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
-        except ValueError:
+        else:
             logger.warning(
-                "Failed to determine DIA cycle, will retry without MS1 spectra."
+                "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
+                "AlphaDIA will therefore not be able to use the MS1 information.\n"
+                "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
