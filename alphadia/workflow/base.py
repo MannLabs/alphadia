@@ -56,7 +56,7 @@ class WorkflowBase:
         self._quant_path: str = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
-        self.figure_path: str = (
+        self._figure_path: str = (
             os.path.join(self.path, FIGURES_FOLDER_NAME)
             if config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
             else None
@@ -74,7 +74,7 @@ class WorkflowBase:
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
 
-        for path in [self._quant_path, self.figure_path, self.path]:
+        for path in [self._quant_path, self._figure_path, self.path]:
             if path and not os.path.exists(path):
                 logger.info(f"Creating folder {path}")
                 os.makedirs(
@@ -130,7 +130,7 @@ class WorkflowBase:
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
-            figure_path=self.figure_path,
+            figure_path=self._figure_path,
             reporter=self.reporter,
         )
 

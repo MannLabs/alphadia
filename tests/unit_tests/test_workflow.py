@@ -459,7 +459,7 @@ def create_workflow_instance():
         TEST_OPTIMIZATION_CONFIG,
         path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
-        figure_path=workflow.figure_path,
+        figure_path=workflow._figure_path,
         reporter=workflow.reporter,
     )
 

@@ -199,7 +199,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=self.config["fdr"]["fdr"],
             ),
-            figure_path=self.figure_path,
+            figure_path=self._figure_path,
         )
 
     def init_spectral_library(self):
@@ -769,14 +769,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.fit(
             precursor_df_filtered,
             "precursor",
-            figure_path=self.figure_path,
+            figure_path=self._figure_path,
             skip=["mz"] if not self.dia_data.has_ms1 else [],
         )
 
         self.calibration_manager.fit(
             fragments_df_filtered,
             "fragment",
-            figure_path=self.figure_path,
+            figure_path=self._figure_path,
         )
 
         self.optimization_manager.fit(
