@@ -19,7 +19,8 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr, grouping, libtransform, utils
 from alphadia.consensus.utils import read_df, write_df
-from alphadia.constants.keys import StatOutputKeys
+from alphadia.constants.keys import ConfigKeys, StatOutputKeys
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError, TooFewProteinsError
 from alphadia.fdrx.utils import train_test_split_
 from alphadia.outputaccumulator import (
@@ -335,16 +336,16 @@ class SearchPlanOutput:
         output_folder: str
             Output folder
         """
-        self._config = config
-        self._output_folder = output_folder
+        self.config = config
+        self.output_folder = output_folder
 
-    @property
-    def config(self):
-        return self._config
-
-    @property
-    def output_folder(self):
-        return self._output_folder
+        self._figure_path = (
+            os.path.join(self.output_folder, FIGURES_FOLDER_NAME)
+            if self.config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            else None
+        )
+        if self._figure_path and not os.path.exists(self._figure_path):
+            os.makedirs(self._figure_path)
 
     def build(
         self,
@@ -628,7 +629,8 @@ class SearchPlanOutput:
             )
 
         logger.info("Performing protein FDR")
-        psm_df = perform_protein_fdr(psm_df)
+
+        psm_df = perform_protein_fdr(psm_df, self._figure_path)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
         pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
@@ -1168,7 +1170,7 @@ def _build_run_internal_df(
     return pd.DataFrame(internal_dict)
 
 
-def perform_protein_fdr(psm_df):
+def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     """Perform protein FDR on PSM dataframe"""
 
     protein_features = []
@@ -1237,7 +1239,16 @@ def perform_protein_fdr(psm_df):
 
     protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
 
-    fdr.plot_fdr(X_train, X_test, y_train, y_test, clf, protein_features["pg_qval"])
+    if figure_path is not None:
+        fdr.plot_fdr(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            clf,
+            protein_features["pg_qval"],
+            figure_path,
+        )
 
     return pd.concat(
         [

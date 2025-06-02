@@ -10,6 +10,7 @@ import pytest
 from conftest import random_tempfolder
 from matplotlib import pyplot as plt
 
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.workflow import reporting
 from alphadia.workflow.reporting import move_existing_file
 
@@ -68,10 +69,8 @@ def test_figure_backend():
     figure_backend.log_figure("scatter", fig)
     plt.close(fig)
 
-    assert os.path.exists(
-        os.path.join(tempfolder, figure_backend.FIGURE_PATH, "scatter.png")
-    )
-    os.remove(os.path.join(tempfolder, figure_backend.FIGURE_PATH, "scatter.png"))
+    assert os.path.exists(os.path.join(tempfolder, FIGURES_FOLDER_NAME, "scatter.png"))
+    os.remove(os.path.join(tempfolder, FIGURES_FOLDER_NAME, "scatter.png"))
     time.sleep(1)
 
 

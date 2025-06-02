@@ -6,6 +6,7 @@ import os
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
@@ -30,7 +31,6 @@ class WorkflowBase:
     OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
     TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
     FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
-    FIGURES_FOLDER_NAME = "figures"
 
     def __init__(
         self,
@@ -56,6 +56,12 @@ class WorkflowBase:
         self._quant_path: str = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
         )
+        self.figure_path: str = (
+            os.path.join(self.path, FIGURES_FOLDER_NAME)
+            if config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            else None
+        )
+
         logger.info(f"Quantification results path: {self._quant_path}")
 
         self._config: Config = config
@@ -68,15 +74,13 @@ class WorkflowBase:
         self._optimization_manager: manager.OptimizationManager | None = None
         self._timing_manager: manager.TimingManager | None = None
 
-        if not os.path.exists(self._quant_path):
-            logger.info(f"Creating parent folder for workflows at {self._quant_path}")
-            os.makedirs(self._quant_path)
-
-        if not os.path.exists(self.path):
-            logger.info(
-                f"Creating workflow folder for {self.instance_name} at {self.path}"
-            )
-            os.mkdir(self.path)
+        for path in [self._quant_path, self.figure_path, self.path]:
+            if path and not os.path.exists(path):
+                logger.info(f"Creating folder {path}")
+                os.makedirs(
+                    path,
+                    exist_ok=True,
+                )
 
     def load(
         self,
@@ -126,7 +130,7 @@ class WorkflowBase:
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
-            figure_path=os.path.join(self.path, self.FIGURES_FOLDER_NAME),
+            figure_path=self.figure_path,
             reporter=self.reporter,
         )
 

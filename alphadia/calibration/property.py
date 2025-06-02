@@ -1,5 +1,6 @@
 # native imports
 import logging
+import os
 import pickle
 
 import numpy as np
@@ -139,7 +140,13 @@ class Calibration:
 
         return valid
 
-    def fit(self, dataframe: pd.DataFrame, plot: bool = False, **kwargs):
+    def fit(
+        self,
+        dataframe: pd.DataFrame,
+        plot: bool = True,
+        figure_path: str | None = None,
+        **kwargs,
+    ):
         """Fit the estimator based on the input and target columns of the dataframe.
 
         Parameters
@@ -148,8 +155,11 @@ class Calibration:
         dataframe : pandas.DataFrame
             Dataframe containing the input and target columns
 
-        plot : bool, default=False
+        plot : bool, default=True
             If True, a plot of the calibration is generated.
+
+        figure_path : str, default=None
+            If not None, a plot of the calibration is generated and saved.
 
         Returns
         -------
@@ -179,7 +189,7 @@ class Calibration:
         self._save_metrics(dataframe)
 
         if plot:
-            self.plot(dataframe, **kwargs)
+            self.plot(dataframe, figure_path=figure_path)
 
     def predict(self, dataframe, inplace=True):
         """Perform a prediction based on the input columns of the dataframe.
@@ -219,7 +229,7 @@ class Calibration:
             return self.function.predict(input_values)
 
     def fit_predict(
-        self, dataframe: pd.DataFrame, plot: bool = False, inplace: bool = True
+        self, dataframe: pd.DataFrame, plot: bool = True, inplace: bool = True
     ):
         """Fit the estimator and perform a prediction based on the input columns of the dataframe.
 
@@ -367,7 +377,6 @@ class Calibration:
         self,
         dataframe: pd.DataFrame,
         figure_path: str = None,
-        **kwargs,
     ):
         """Plot the data and calibration model.
 
@@ -379,12 +388,14 @@ class Calibration:
 
         figure_path : str, default=None
             If set, the figure is saved to the given path.
-
         """
-
         deviation = self.deviation(dataframe)
 
         n_input_properties = deviation.shape[1] - 3
+        input_property = None
+        if n_input_properties <= 0:
+            logging.warning("No input properties found for plotting calibration")
+            return
 
         transform_unit = self.get_transform_unit(self.transform_deviation)
 
@@ -426,24 +437,28 @@ class Calibration:
                 ax.set_xlabel(self.input_columns[input_property])
                 ax.set_ylabel(f"observed deviation {transform_unit}")
 
-                # get absolute y value and set limites to plus minus absolute y
+                # get absolute y value and set limits to plus minus absolute y
                 y = deviation[:, dim]
                 y_abs = np.abs(y)
                 ax.set_ylim(-y_abs.max() * 1.05, y_abs.max() * 1.05)
 
         fig.tight_layout()
 
-        # if figure_path is not None:
-        #    i = 0
-        #    file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-        #    while os.path.exists(file_name):
-        #        file_name = os.path.join(figure_path, f'calibration_{neptune_key}_{i}.png')
-        #        i += 1
-        #    fig.savefig(file_name)
-
-        plt.show()
-
-        plt.close()
+        if figure_path is not None:
+            i = 0
+            file_name = os.path.join(
+                figure_path, f"calibration_{self.input_columns[input_property]}_{i}.pdf"
+            )
+            while os.path.exists(file_name):
+                file_name = os.path.join(
+                    figure_path,
+                    f"calibration_{self.input_columns[input_property]}_{i}.pdf",
+                )
+                i += 1
+            fig.savefig(file_name)
+        else:
+            plt.show()
+            plt.close()
 
 
 class CalibrationModelProvider:

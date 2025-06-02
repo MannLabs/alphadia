@@ -34,6 +34,8 @@ general:
   # whether to save the libraries to the output directory
   save_library: True       # input library
   save_mbr_library: True   # output library
+  # whether to save plots to the output folder
+  save_figures: True
 
 library_loading:
   rt_heuristic: 180
