@@ -10,11 +10,12 @@ from alpharaw.thermo import ThermoRawData
 
 from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
 
-@nb.njit(parallel=False, fastmath=True)
+@nb.njit(parallel=False, fastmath=True, cache=USE_NUMBA_CACHING)
 def _search_sorted_left(slice, value):
     left = 0
     right = len(slice)
@@ -28,7 +29,7 @@ def _search_sorted_left(slice, value):
     return left
 
 
-@nb.njit(inline="always", fastmath=True)
+@nb.njit(inline="always", fastmath=True, cache=USE_NUMBA_CACHING)
 def _search_sorted_reference_left(array, left, right, value):
     while left < right:
         mid = (left + right) >> 1
@@ -39,7 +40,7 @@ def _search_sorted_reference_left(array, left, right, value):
     return left
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     """Calculate the DIA cycle quadrupole mask for each score group.
 
@@ -78,24 +79,6 @@ class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.sample_name = None
-        self.zeroth_frame = 0
-        self.cycle = None
-        self.cycle_start = None
-        self.cycle_length = None
-        self.rt_values = None
-        self.precursor_cycle_max_index = None
-        self.mobility_values = None
-        self.max_mz_value = None
-        self.min_mz_value = None
-        self.quad_max_mz_value = None
-        self.quad_min_mz_value = None
-        self.peak_start_idx_list = None
-        self.peak_stop_idx_list = None
-        self.mz_values = None
-        self.intensity_values = None
-        self.scan_max_index = None
-        self.frame_max_index = None
         self.has_mobility = False
         self.has_ms1 = True
 
@@ -106,6 +89,7 @@ class AlphaRaw(MSData_Base):
         self.filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+        self.zeroth_frame = 0
 
         try:
             # determine the DIA cycle
