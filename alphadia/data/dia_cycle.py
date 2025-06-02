@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.exceptions import NotValidDiaDataError
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -63,7 +64,7 @@ def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     return peak_index[argmax]
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _get_cycle_start(
     cycle_signature: np.ndarray,
     cycle_length: int,
@@ -97,7 +98,7 @@ def _get_cycle_start(
     return -1
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _is_valid_cycle(
     cycle_signature: np.ndarray, cycle_length: int, cycle_start: int
 ) -> bool:
