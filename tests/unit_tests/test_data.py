@@ -24,7 +24,7 @@ def test_transpose():
 
 
 @pytest.mark.slow()
-def test_raw_data():
+def test_raw_data():  # TODO this is never executed as TEST_DATA_DIR (cf. conftest.py) is never set
     if pytest.test_data is None:
         pytest.skip("No test data found")
         return

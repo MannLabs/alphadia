@@ -223,7 +223,7 @@ def fdr_to_q_values(fdr_values: np.ndarray):
     return q_vals
 
 
-def q_values(
+def q_values(  # TODO unused
     scores: np.ndarray,
     decoy_labels: np.ndarray,
     # score_column : str = 'proba',
@@ -301,7 +301,7 @@ def get_q_values(
     target_values = 1 - _df[decoy_column].values
     decoy_cumsum = np.cumsum(_df[decoy_column].values)
     target_cumsum = np.cumsum(target_values)
-    fdr_values = decoy_cumsum / target_cumsum
+    fdr_values = decoy_cumsum / target_cumsum  # here
     _df[qval_column] = fdr_to_q_values(fdr_values)
     return _df
 
