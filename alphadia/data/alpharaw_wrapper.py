@@ -78,27 +78,6 @@ class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.sample_name = None
-        self.zeroth_frame = 0
-        self.cycle = None
-        self.cycle_start = None
-        self.cycle_length = None
-        self.rt_values = None
-        self.precursor_cycle_max_index = None
-        self.mobility_values = None
-        self.max_mz_value = None
-        self.min_mz_value = None
-        self.quad_max_mz_value = None
-        self.quad_min_mz_value = None
-        self.peak_start_idx_list = None
-        self.peak_stop_idx_list = None
-        self.mz_values = None
-        self.intensity_values = None
-        self.scan_max_index = None
-        self.frame_max_index = None
-        self.has_mobility = False
-        self.has_ms1 = True
-
     def process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
 
@@ -106,6 +85,7 @@ class AlphaRaw(MSData_Base):
         self.filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+        self.zeroth_frame = 0
 
         try:
             # determine the DIA cycle
