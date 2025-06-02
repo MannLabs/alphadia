@@ -335,12 +335,9 @@ def test_workflow_base():
             my_workflow.load(file, pd.DataFrame({}))
 
             assert my_workflow.config["output_directory"] == config["output_directory"]
-            assert my_workflow.instance_name == workflow_name
-            assert my_workflow.quant_path == os.path.join(
-                config["output_directory"], base.QUANT_FOLDER_NAME
-            )
+            assert my_workflow._instance_name == workflow_name
             assert my_workflow.path == os.path.join(
-                my_workflow.quant_path, workflow_name
+                config["output_directory"], base.QUANT_FOLDER_NAME, workflow_name
             )
 
             assert os.path.exists(my_workflow.path)
@@ -355,7 +352,7 @@ def test_workflow_base():
 
             # os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
             # os.rmdir(os.path.join(my_workflow.path))
-            shutil.rmtree(os.path.join(my_workflow.quant_path))
+            shutil.rmtree(os.path.join(my_workflow.path))
 
 
 FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
