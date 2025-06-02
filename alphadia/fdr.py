@@ -28,7 +28,6 @@ def perform_fdr(
     competetive: bool = False,  # TODO: fix typo (also in config)
     group_channels: bool = True,
     figure_path: str | None = None,
-    neptune_run=None,
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
@@ -58,9 +57,6 @@ def perform_fdr(
 
     figure_path : str, default=None
         The path to save the FDR plot to
-
-    neptune_run : neptune.run.Run, default=None
-        The neptune run to log the FDR plot to
 
     df_fragments : pd.DataFrame, default=None
         The fragment dataframe.
@@ -164,7 +160,6 @@ def perform_fdr(
         classifier,
         psm_df["qval"],
         figure_path=figure_path,
-        neptune_run=neptune_run,
     )
 
     return psm_df
@@ -318,8 +313,7 @@ def plot_fdr(
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
     figure_path: str | None = None,
-    neptune_run=None,
-):
+) -> None:
     """Plots statistics on the fdr corrected PSMs.
 
     Parameters
@@ -410,8 +404,5 @@ def plot_fdr(
 
     if figure_path is not None:
         fig.savefig(os.path.join(figure_path, "fdr.pdf"))
-
-    if neptune_run is not None:
-        neptune_run["eval/fdr"].log(fig)
 
     plt.close()

@@ -448,9 +448,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"calibration group: {group_name}, fitting {estimator.name} estimator "
                 )
-                estimator.fit(
-                    df, *args, neptune_key=f"{group_name}_{estimator.name}", **kwargs
-                )
+                estimator.fit(df, *args, **kwargs)
 
         is_fitted = True
         # check if all estimators are fitted

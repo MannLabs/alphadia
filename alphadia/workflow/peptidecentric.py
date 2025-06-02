@@ -763,14 +763,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             "precursor",
             plot=True,
             skip=["mz"] if not self.dia_data.has_ms1 else [],
-            # neptune_run = self.neptune
         )
 
         self.calibration_manager.fit(
             fragments_df_filtered,
             "fragment",
             plot=True,
-            # neptune_run = self.neptune
         )
 
         self.optimization_manager.fit(
@@ -811,7 +809,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             else None,
             dia_cycle=self.dia_data.cycle,
             version=version,
-            # neptune_run=self.neptune
         )
 
     def extract_batch(
@@ -1055,17 +1052,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             "=========================================================================",
             verbosity="progress",
         )
-
-        precursor_01fdr = len(
-            precursor_df[(precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)]
-        )
-        proteins_01fdr = precursor_df[
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
-        ]["proteins"].nunique()
-
-        # if self.neptune is not None:
-        #    self.neptune['precursors'].log(precursor_01fdr)
-        #    self.neptune['proteins'].log(proteins_01fdr)
 
     def requantify(self, psm_df):
         self.calibration_manager.predict(
