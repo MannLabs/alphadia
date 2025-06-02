@@ -9,6 +9,8 @@ import numba as nb
 import numpy as np
 from numba.extending import overload_method
 
+from alphadia.utils import USE_NUMBA_CACHING
+
 
 @nb.experimental.jitclass()
 class FragmentContainer:
@@ -202,7 +204,7 @@ def slice(inst, slices):
         return impl
 
 
-@nb.njit()
+@nb.njit(cache=USE_NUMBA_CACHING)
 def slice_manual(inst, slices):
     precursor_idx = []
     fragments_mz_library = []
@@ -258,7 +260,7 @@ def slice_manual(inst, slices):
     return f
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def get_ion_group_mapping(
     ion_precursor,
     ion_mz,

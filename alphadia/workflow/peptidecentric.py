@@ -728,13 +728,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         ].sort_values(by="correlation", ascending=False)
 
         # Determine the number of fragments to keep
-        min_fragments = 500  # TODO remove min_fragments as it seems to have no effect
         high_corr_count = (
             fragments_df_filtered["correlation"]
             > self.config["calibration"]["min_correlation"]
         ).sum()
         stop_rank = min(
-            max(high_corr_count, min_fragments),
+            high_corr_count,
             self.config["calibration"]["max_fragments"],
         )
 
@@ -780,12 +779,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        percentile_001 = np.percentile(precursor_df_filtered["score"], 0.1)
+        score = precursor_df_filtered["score"]
+        if self.config["search"]["optimized_peak_group_score"]:
+            # these values give benefits on max memory and runtime, with a small precursor penalty
+            fac, q = 0.95, 3
+        else:
+            fac, q = 0.99, 1
+
+        score_cutoff = fac * np.percentile(score, q)
+
+        self.reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
+
         self.optimization_manager.fit(
             {
                 "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
                 "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
-                "score_cutoff": percentile_001,
+                "score_cutoff": score_cutoff,
             }
         )
 
