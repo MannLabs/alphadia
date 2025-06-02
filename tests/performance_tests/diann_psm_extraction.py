@@ -156,13 +156,21 @@ if __name__ == "__main__":
         ]
         features_df["nAA"] = precursors_flat["nAA"].values[features_df["index"].values]
 
-        features_df = fdr_correction(features_df, neptune_run=run)
+        features_df = fdr_correction(
+            features_df,
+            # neptune_run=run
+        )
 
         feature_filtered = features_df[features_df["qval"] < 0.01]
         run["eval/precursors"].log(len(feature_filtered))
         logging.info(f"Found {len(feature_filtered):,} features with qval < 0.01")
 
-        calibration.fit(feature_filtered, "precursor", plot=True, neptune_run=run)
+        calibration.fit(
+            feature_filtered,
+            "precursor",
+            plot=True,
+            # neptune_run=run
+        )
         m1_70 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.7)[0]
         m1_99 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.99)[0]
         rt_70 = calibration.get_estimator("precursor", "rt").ci(features_df, 0.7)[0]
@@ -180,7 +188,12 @@ if __name__ == "__main__":
             by=["intensity"], ascending=True
         ).head(10000)
 
-        calibration.fit(fragment_calibration_df, "fragment", plot=True, neptune_run=run)
+        calibration.fit(
+            fragment_calibration_df,
+            "fragment",
+            plot=True,
+            # neptune_run=run
+        )
         m2_70 = calibration.get_estimator("fragment", "mz").ci(
             fragment_calibration_df, 0.7
         )[0]
