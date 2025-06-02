@@ -88,6 +88,7 @@ class AlphaRaw(MSData_Base):
         self.filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+        self.zeroth_frame = 0
 
         try:
             # determine the DIA cycle
