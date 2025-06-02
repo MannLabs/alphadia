@@ -76,6 +76,9 @@ def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
+        self.has_mobility = False
+        self.has_ms1 = True
+
         super().__init__(*args, **kwargs)
 
     def process_alpharaw(self, **kwargs):
@@ -85,7 +88,6 @@ class AlphaRaw(MSData_Base):
         self.filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
-        self.zeroth_frame = 0
 
         try:
             # determine the DIA cycle
