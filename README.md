@@ -82,13 +82,13 @@ Download the latest `alphadia-X.Y.Z-windows-amd64.exe` build and double click it
 Important note: always install AlphaDIA into a new folder, as the installer will not properly overwrite existing installations.
 
 #### Linux
-If you want to use `.raw` files from Thermo instruments AlphaRaw is required, which depends on Mono.
+If you want to search `.raw` files from Thermo instruments or `.wiff` files from Sciex instruments, [AlphaRaw](https://github.com/MannLabs/alpharaw) is required, which depends on Mono.
 A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
 
 #### MacOS
-If you want to use `.raw` files from Thermo instruments AlphaRaw is required, which depends on Mono.
+If you want to search `.raw` files from Thermo instruments or `.wiff` files from Sciex instruments, [AlphaRaw](https://github.com/MannLabs/alpharaw) is required, which depends on Mono.
 A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 Download the latest build suitable for your chip architecture
@@ -195,7 +195,7 @@ Further information on the development process can be found [here](docs/installa
 ---
 ## Changelog
 
-See the [HISTORY.md](HISTORY.md) for a full overview of the changes made in each version.
+See the [GitHub releases](https://github.com/MannLabs/alphadia/releases) for a full overview of the changes made in each version.
 
 ---
 ## About
@@ -205,6 +205,6 @@ An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at 
 ---
 ## License
 
-AlphaDIA was developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt). External Python packages (available in the [requirements](requirements) folder) have their own licenses, which can be consulted on their respective websites.
+AlphaDIA is developed by the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann) and is freely available with an [Apache License](LICENSE.txt). External Python packages (available in the [requirements](requirements) folder) have their own licenses, which can be consulted on their respective websites.
 
 ---

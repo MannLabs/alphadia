@@ -10,11 +10,12 @@ from alpharaw.thermo import ThermoRawData
 
 from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
 
-@nb.njit(parallel=False, fastmath=True)
+@nb.njit(parallel=False, fastmath=True, cache=USE_NUMBA_CACHING)
 def _search_sorted_left(slice, value):
     left = 0
     right = len(slice)
@@ -28,7 +29,7 @@ def _search_sorted_left(slice, value):
     return left
 
 
-@nb.njit(inline="always", fastmath=True)
+@nb.njit(inline="always", fastmath=True, cache=USE_NUMBA_CACHING)
 def _search_sorted_reference_left(array, left, right, value):
     while left < right:
         mid = (left + right) >> 1
@@ -39,7 +40,7 @@ def _search_sorted_reference_left(array, left, right, value):
     return left
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     """Calculate the DIA cycle quadrupole mask for each score group.
 

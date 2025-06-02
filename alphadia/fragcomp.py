@@ -6,11 +6,12 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def get_fragment_overlap(
     frag_mz_1: np.ndarray,
     frag_mz_2: np.ndarray,
@@ -44,7 +45,7 @@ def get_fragment_overlap(
     return frag_overlap
 
 
-@timsutils.pjit
+@timsutils.pjit(cache=USE_NUMBA_CACHING)
 def compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,

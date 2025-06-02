@@ -3,9 +3,10 @@ import numpy as np
 import pytest
 
 from alphadia.peakgroup.utils import assemble_isotope_mz
+from alphadia.utils import USE_NUMBA_CACHING
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def wrap_assemble_isotope_mz(mz, charge, intensities):
     return assemble_isotope_mz(mz, charge, intensities)
 

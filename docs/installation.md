@@ -229,3 +229,16 @@ Further details on such errors can be found in the `events.jsonl` file in the `.
 
 ### Slurm script example
 You can find an example of a Slurm script here: [./tests/e2e_tests/e2e_slurm.sh](./tests/e2e_tests/e2e_slurm.sh).
+
+
+## Advanced options
+### numba caching (experimental)
+If you use AlphaDIA in a high-throughput environment, i.e. many independent runs on singe files,
+you could save some run time by leveraging the [numba cache](https://numba.pydata.org/numba-doc/dev/developer/caching.html).
+This is done by setting the environmental variable
+```
+export USE_NUMBA_CACHING=1
+```
+before each run.
+This will avoid re-compilation of numba functions on every startup, which can take a while. The location of the
+cache directory can be set by `NUMBA_CACHE_DIR`.

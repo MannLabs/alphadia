@@ -12,7 +12,7 @@ from alphadia.workflow.peptidecentric import PeptideCentricWorkflow
 def mock_config():
     return {
         "output_directory": "",
-        "calibration": {"min_correlation": 0.7, "max_fragments": 3},
+        "calibration": {"min_correlation": 0.55, "max_fragments": 3},
     }
 
 
@@ -23,9 +23,9 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     )
     fragments_df = pd.DataFrame(
         {
-            "precursor_idx": [1, 1, 1, 2, 1],
-            "mass_error": [1, 3, -2, 5, -201],
-            "correlation": [0.7, 0.5, 0.8, 0.6, 0.9],
+            "precursor_idx": [1, 1, 1, 2, 1, 1],
+            "mass_error": [1, 3, -2, 5, -201, 1],
+            "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95],
         }
     )
     instance = PeptideCentricWorkflow("test_instance", mock_config)
@@ -52,8 +52,8 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         pd.DataFrame(
             {
                 "precursor_idx": [1, 1, 1],
-                "mass_error": [-2, 1, 3],
-                "correlation": [0.8, 0.7, 0.5],
+                "mass_error": [1, -2, 1],
+                "correlation": [0.95, 0.8, 0.7],
             }
         ),
         check_like=True,
