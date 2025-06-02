@@ -11,6 +11,7 @@ import pandas as pd
 
 # alphadia imports
 from alphadia import validate
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -145,7 +146,7 @@ def multiplex_candidates(
     return multiplexed_candidates_df
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def transfer_feature(  # TODO: unused?
     idx, score_group_container, feature_array, precursor_idx_array, rank_array
 ):

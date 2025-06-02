@@ -17,11 +17,12 @@ from alphadia.numba import fragments
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _executor(
     i,
     sg_container,
