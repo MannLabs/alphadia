@@ -14,6 +14,7 @@ from alphadia.fdrx.plotting import (
     _plot_score_distribution,
 )
 from alphadia.fdrx.stats import add_q_values, get_pep, keep_best
+from alphadia.fdrx.utils import train_test_split_
 from alphadia.fragcomp import FragmentCompetition
 
 logger = logging.getLogger()
@@ -68,9 +69,8 @@ class TargetDecoyFDR:
         X = psm_df.loc[~is_na_row, self._feature_columns].values
         y = psm_df.loc[~is_na_row, self._decoy_column].values
 
-        X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-            X, y, test_size=0.2
-        )
+        X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
+
         self._classifier.fit(X_train, y_train)
 
         # evaluate classifier

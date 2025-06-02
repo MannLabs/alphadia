@@ -5,8 +5,19 @@ from collections.abc import Callable
 from typing import Any
 
 import torch
+from sklearn.model_selection import train_test_split
+
+from alphadia.exceptions import TooFewPSMError
 
 logger = logging.getLogger()
+
+
+def train_test_split_(X, y, *, exception: type[Exception] = TooFewPSMError, **kwargs):  # noqa: ANN001, ANN201, N803
+    """Wrapper around `sklearn.model_selection.train_test_split` to handle exceptions."""
+    try:
+        return train_test_split(X, y, **kwargs)
+    except ValueError as e:
+        raise exception(str(e)) from e
 
 
 def manage_torch_threads(max_threads: int = 2) -> Callable[..., Any]:
