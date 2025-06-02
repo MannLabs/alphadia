@@ -76,10 +76,10 @@ def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
 
 class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
         self.has_mobility = False
         self.has_ms1 = True
-
-        super().__init__(*args, **kwargs)
 
     def process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
