@@ -14,11 +14,17 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
-from alphadia import fragcomp, plexscoring, utils
+from alphadia import fragcomp, utils
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
+from alphadia.plexscoring.config import CandidateConfig
+from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.plexscoring.utils import (
+    candidate_features_to_candidates,
+    multiplex_candidates,
+)
 from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
 
@@ -887,7 +893,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 f"Removed {num_removed} precursors with score below cutoff",
             )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.update(self.config["scoring_config"])
         config.update(
             {
@@ -901,7 +907,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        candidate_scoring = plexscoring.CandidateScoring(
+        candidate_scoring = CandidateScoring(
             self.dia_data.jitclass(),
             batch_precursor_df,
             batch_fragment_df,
@@ -1060,7 +1066,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
+        reference_candidates = candidate_features_to_candidates(psm_df)
 
         if "multiplexing" not in self.config:
             raise ValueError("no multiplexing config found")
@@ -1099,7 +1105,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 + [decoy_channel]
             )
         )
-        multiplexed_candidates = plexscoring.multiplex_candidates(
+        multiplexed_candidates = multiplex_candidates(
             reference_candidates,
             self.spectral_library.precursor_df_unfiltered,
             channels=channels,
@@ -1126,13 +1132,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.score_grouped = True
         config.exclude_shared_ions = True
         config.reference_channel = self.config["multiplexing"]["reference_channel"]
         config.experimental_xic = self.config["search"]["experimental_xic"]
 
-        multiplexed_scoring = plexscoring.CandidateScoring(
+        multiplexed_scoring = CandidateScoring(
             self.dia_data.jitclass(),
             self.spectral_library.precursor_df_unfiltered,
             self.spectral_library.fragment_df,
@@ -1214,7 +1220,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
@@ -1224,7 +1230,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        scoring = plexscoring.CandidateScoring(
+        scoring = CandidateScoring(
             self.dia_data.jitclass(),
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
@@ -1328,7 +1334,7 @@ def _build_candidate_speclib_flat(
             "mz_observed",
         ]
 
-    scored_candidates = plexscoring.candidate_features_to_candidates(
+    scored_candidates = candidate_features_to_candidates(
         psm_df, optional_columns=optional_columns
     )
 
