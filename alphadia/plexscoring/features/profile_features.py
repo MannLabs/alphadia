@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 
 from alphadia.numba import numeric
-from alphadia.scoring.utils import (
+from alphadia.plexscoring.scoring_utils import (
     correlation_coefficient,
     median_axis,
     normalize_profiles,
