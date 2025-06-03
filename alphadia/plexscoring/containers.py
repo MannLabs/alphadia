@@ -9,9 +9,10 @@ import numpy as np
 
 # third party imports
 # alphadia imports
-from alphadia import features, quadrupole
+from alphadia import quadrupole
 from alphadia.constants.settings import NUM_FEATURES
 from alphadia.numba import config, fragments
+from alphadia.plexscoring.features_ import features
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
