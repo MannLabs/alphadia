@@ -11,9 +11,11 @@ from alphadia.constants.settings import FIGURES_FOLDER_NAME
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.reporting import reporting
-from alphadia.workflow import manager
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
+from alphadia.workflow.managers.timing_manager import TimingManager
 
 # third party imports
 
@@ -71,9 +73,9 @@ class WorkflowBase:
             None
         )
         self._spectral_library: SpecLibBase | None = None
-        self._calibration_manager: manager.CalibrationManager | None = None
-        self._optimization_manager: manager.OptimizationManager | None = None
-        self._timing_manager: manager.TimingManager | None = None
+        self._calibration_manager: CalibrationManager | None = None
+        self._optimization_manager: OptimizationManager | None = None
+        self._timing_manager: TimingManager | None = None
 
         for path in [self._quant_path, self.figure_path, self.path]:
             if path and not os.path.exists(path):
@@ -115,7 +117,7 @@ class WorkflowBase:
         self._spectral_library = spectral_library.copy()
 
         # initialize the calibration manager
-        self._calibration_manager = manager.CalibrationManager(
+        self._calibration_manager = CalibrationManager(
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
             reporter=self.reporter,
@@ -126,7 +128,7 @@ class WorkflowBase:
             self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
-        self._optimization_manager = manager.OptimizationManager(
+        self._optimization_manager = OptimizationManager(
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
             path=os.path.join(self.path, self.OPTIMIZATION_MANAGER_PKL_NAME),
@@ -135,7 +137,7 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
-        self._timing_manager = manager.TimingManager(
+        self._timing_manager = TimingManager(
             path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
         )
@@ -163,17 +165,17 @@ class WorkflowBase:
         return self._config
 
     @property
-    def calibration_manager(self) -> manager.CalibrationManager:
+    def calibration_manager(self) -> CalibrationManager:
         """Calibration manager for the workflow. Owns the RT, IM, MZ calibration and the calibration data"""
         return self._calibration_manager
 
     @property
-    def optimization_manager(self) -> manager.OptimizationManager:
+    def optimization_manager(self) -> OptimizationManager:
         """Optimization manager for the workflow. Owns the optimization data"""
         return self._optimization_manager
 
     @property
-    def timing_manager(self) -> manager.TimingManager:
+    def timing_manager(self) -> TimingManager:
         """Optimization manager for the workflow. Owns the timing data"""
         return self._timing_manager
 

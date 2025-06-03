@@ -7,7 +7,7 @@ import numpy as np
 
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.workflow.config import Config
-from alphadia.workflow.manager import BaseManager
+from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
