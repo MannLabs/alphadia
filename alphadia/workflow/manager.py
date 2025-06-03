@@ -20,7 +20,7 @@ import alphadia
 from alphadia import fdr
 from alphadia.calibration.property import Calibration, calibration_model_provider
 from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
-from alphadia.workflow import reporting
+from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()

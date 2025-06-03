@@ -11,8 +11,8 @@ from conftest import random_tempfolder
 from matplotlib import pyplot as plt
 
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-from alphadia.workflow import reporting
-from alphadia.workflow.reporting import move_existing_file
+from alphadia.reporting import reporting
+from alphadia.reporting.reporting import move_existing_file
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="does not run on windows")

@@ -7,12 +7,13 @@ import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
+from reporting.reporting import init_logging, move_existing_file
 
 from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.workflow import peptidecentric, reporting
+from alphadia.workflow import peptidecentric
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
     MULTISTEP_SEARCH,
@@ -20,7 +21,6 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
-from alphadia.workflow.reporting import move_existing_file
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -59,7 +59,7 @@ class SearchStep:
 
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
-        reporting.init_logging(self.output_folder)
+        init_logging(self.output_folder)
 
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
