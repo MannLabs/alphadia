@@ -3,7 +3,7 @@ import numpy as np
 
 from alphadia import utils
 from alphadia.numba import numeric
-from alphadia.plexscoring.features_.features_utils import (
+from alphadia.plexscoring.features.features_utils import (
     weighted_center_mean_2d,
 )
 from alphadia.utils import USE_NUMBA_CACHING

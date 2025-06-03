@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.plexscoring.features_.features import center_envelope_1d
+from alphadia.plexscoring.features.fragment_features import center_envelope_1d
 
 
 @pytest.mark.parametrize(
