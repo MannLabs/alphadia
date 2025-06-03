@@ -10,7 +10,8 @@ from alphadia.constants.settings import FIGURES_FOLDER_NAME
 
 # alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
-from alphadia.workflow import manager, reporting
+from alphadia.reporting import reporting
+from alphadia.workflow import manager
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 

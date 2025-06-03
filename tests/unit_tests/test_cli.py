@@ -116,7 +116,7 @@ def test_cli_minimal_args(mock_parse_known_args):
         "sys.modules",
         {
             "alphadia.search_plan": MagicMock(SearchPlan=mock_search_plan),
-            "alphadia.workflow": MagicMock(reporting=mock_reporting),
+            "alphadia.reporting": MagicMock(reporting=mock_reporting),
         },
     ):
         run()
@@ -157,7 +157,7 @@ def test_cli_minimal_args_all_none(mock_parse_known_args):
         "sys.modules",
         {
             "alphadia.search_plan": MagicMock(SearchPlan=mock_search_plan),
-            "alphadia.workflow": MagicMock(reporting=mock_reporting),
+            "alphadia.reporting": MagicMock(reporting=mock_reporting),
         },
     ):
         run()

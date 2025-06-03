@@ -235,8 +235,8 @@ def run(*args, **kwargs):
 
     # load modules only here to speed up -v and -h commands
     from alphadia.exceptions import CustomError
+    from alphadia.reporting import reporting
     from alphadia.search_plan import SearchPlan
-    from alphadia.workflow import reporting
 
     if args.check:
         print(

@@ -7,8 +7,9 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow import manager
 from alphadia.workflow.base import QUANT_FOLDER_NAME
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
 def test_output_transform():
@@ -79,14 +80,14 @@ def test_output_transform():
             config,
             path=os.path.join(
                 raw_folder,
-                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
             ),
         )
 
         timing_manager = manager.TimingManager(
             path=os.path.join(
                 raw_folder,
-                peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
             )
         )
 
