@@ -8,9 +8,10 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import libtransform, outputtransform
+from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow import peptidecentric, reporting
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -321,7 +322,7 @@ class SearchStep:
                 os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
             )
 
-            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
         except Exception as e:
             _log_exception_event(e)
