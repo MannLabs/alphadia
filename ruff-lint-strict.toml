@@ -15,7 +15,7 @@ exclude = [
     "alphadia/fragcomp.py",
     "alphadia/grouping.py",
     "alphadia/outputaccumulator.py",
-    "alphadia/outputtransform_/**.py",
+    "alphadia/outputtransform/**.py",
     "alphadia/plexscoring/*.py",
     "alphadia/quadrupole.py",
     "alphadia/search_plan.py",

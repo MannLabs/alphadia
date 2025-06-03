@@ -9,7 +9,7 @@ from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import SearchStepFiles
 from alphadia.outputaccumulator import ms2_quality_control
-from alphadia.outputtransform_ import outputtransform
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
@@ -126,7 +126,7 @@ def test_complete_output_accumulation():
     config["transfer_library"]["top_k_samples"] = 2
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    output = SearchPlanOutput(config, temp_folder)
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
@@ -157,7 +157,7 @@ def test_selection_of_precursors():
     keep_top = 2
     config["transfer_library"]["top_k_samples"] = keep_top
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    output = SearchPlanOutput(config, temp_folder)
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
@@ -199,7 +199,7 @@ def test_keep_top_constraint():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    output = SearchPlanOutput(config, temp_folder)
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
@@ -233,7 +233,7 @@ def test_default_column_assignment():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    output = SearchPlanOutput(config, temp_folder)
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
@@ -266,7 +266,7 @@ def test_non_nan_fragments():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
+    output = SearchPlanOutput(config, temp_folder)
     _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
