@@ -13,7 +13,6 @@ from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.workflow import peptidecentric
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
     MULTISTEP_SEARCH,
@@ -21,6 +20,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -334,10 +334,10 @@ class SearchStep:
 
     def _process_raw_file(
         self, dia_path: str, raw_name: str, speclib: SpecLibFlat
-    ) -> peptidecentric.PeptideCentricWorkflow:
+    ) -> PeptideCentricWorkflow:
         """Process a single raw file."""
 
-        workflow = peptidecentric.PeptideCentricWorkflow(
+        workflow = PeptideCentricWorkflow(
             raw_name,
             self.config,
             quant_path=self.config["quant_directory"],
