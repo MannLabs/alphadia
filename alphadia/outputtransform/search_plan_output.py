@@ -8,7 +8,6 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import grouping, libtransform, utils
-from alphadia.consensus.utils import read_df, write_df
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
@@ -24,6 +23,7 @@ from alphadia.outputtransform.df_builders import (
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 from alphadia.outputtransform.quant_builder import QuantBuilder
+from alphadia.outputtransform.utils import read_df, write_df
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
 
