@@ -1,4 +1,3 @@
-# native imports
 import logging
 import os
 from dataclasses import dataclass
@@ -104,19 +103,19 @@ class SearchPlanOutput:
         psm_df = self._build_precursor_table(
             folder_list, save=False, base_spec_lib=base_spec_lib
         )
-        _ = self._build_stat_df(folder_list, psm_df=psm_df, save=True)
-        _ = self._build_internal_df(folder_list, save=True)
-        _ = self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        _ = self._build_library(
+        self._build_stat_df(folder_list, psm_df=psm_df, save=True)
+        self._build_internal_df(folder_list, save=True)
+        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+        self._build_library(
             base_spec_lib,
             psm_df=psm_df,
         )
 
         if self.config["transfer_library"]["enabled"]:
-            _ = self._build_transfer_library(folder_list, save=True)
+            self._build_transfer_library(folder_list, save=True)
 
         if self.config["transfer_learning"]["enabled"]:
-            _ = self._build_transfer_model(save=True)
+            self._build_transfer_model(save=True)
 
     def _build_transfer_model(self, save=True):
         """
