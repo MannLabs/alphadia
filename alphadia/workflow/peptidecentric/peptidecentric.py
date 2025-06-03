@@ -25,8 +25,9 @@ from alphadia.plexscoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
-from alphadia.workflow import base, manager, optimization
+from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.fdr_manager import FDRManager
 
 logger = logging.getLogger()
 
@@ -185,7 +186,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.init_spectral_library()
 
     def init_fdr_manager(self):
-        self.fdr_manager = manager.FDRManager(
+        self.fdr_manager = FDRManager(
             feature_columns=feature_columns,
             classifier_base=get_classifier_base(
                 enable_two_step_classifier=self.config["fdr"][
