@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 
 from alphadia.constants.keys import ConfigKeys, StatOutputKeys
-from alphadia.outputtransform import (
+from alphadia.outputtransform_.outputtransform import (
     SearchPlanOutput,
 )
 from alphadia.search_step import (

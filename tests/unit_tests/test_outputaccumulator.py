@@ -7,9 +7,9 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia import outputtransform
 from alphadia.constants.keys import SearchStepFiles
 from alphadia.outputaccumulator import ms2_quality_control
+from alphadia.outputtransform_ import outputtransform
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 

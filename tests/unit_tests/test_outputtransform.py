@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia import outputtransform
+from alphadia.outputtransform_ import outputtransform
 from alphadia.workflow import manager, peptidecentric
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
