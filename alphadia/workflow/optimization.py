@@ -11,6 +11,7 @@ import seaborn as sns
 # alpha family imports
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
+from workflow.config import Config
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 
@@ -756,7 +757,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
 
 
 class OptimizationLock:
-    def __init__(self, library: SpecLibFlat, config: dict):
+    def __init__(self, library: SpecLibFlat, config: Config):
         """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
 
         Parameters
@@ -764,11 +765,10 @@ class OptimizationLock:
         library: alphabase.spectral_library.flat.SpecLibFlat
             The library object from the PeptideCentricWorkflow object, which includes the precursor and fragment library dataframes.
 
-        config: dict
-            The configuration dictionary from the PeptideCentricWorkflow object.
+        config: Config
+            The configuration object from the PeptideCentricWorkflow.
         """
         self._library = library
-        self._config = config
 
         self.previously_calibrated = False
         self.has_target_num_precursors = False
@@ -777,9 +777,8 @@ class OptimizationLock:
         rng = np.random.default_rng(seed=772)
         rng.shuffle(self.elution_group_order)
 
-        self._precursor_target_count = self._config["calibration"][
-            "optimization_lock_target"
-        ]
+        self._precursor_target_count = config["calibration"]["optimization_lock_target"]
+        self._batch_size = self._config["calibration"]["batch_size"]
 
         self.batch_idx = 0
         self.set_batch_plan()
@@ -824,13 +823,12 @@ class OptimizationLock:
 
         plan = []
 
-        batch_size = self._config["calibration"]["batch_size"]
         step = 0
         start_idx = 0
 
         while start_idx < n_eg:
             n_batches = self._get_exponential_batches(step)
-            stop_idx = min(start_idx + n_batches * batch_size, n_eg)
+            stop_idx = min(start_idx + n_batches * self._batch_size, n_eg)
             plan.append((start_idx, stop_idx))
             step += 1
             start_idx = stop_idx
