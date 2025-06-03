@@ -2,6 +2,7 @@ import numba as nb
 import numpy as np
 
 from alphadia import utils
+from alphadia.numba.numeric import fragment_correlation, fragment_correlation_different
 from alphadia.plexscoring.features_.features_utils import (
     cosine_similarity_a1,
     weighted_center_mean_2d,
@@ -419,3 +420,56 @@ def fragment_features(
         observed_fragment_height,
         fragment_area_norm,
     )
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def fragment_mobility_correlation(
+    fragments_scan_profile,
+    template_scan_profile,
+    observation_importance,
+    fragment_intensity,
+):
+    n_observations = len(observation_importance)
+
+    fragment_mask_1d = np.sum(np.sum(fragments_scan_profile, axis=-1), axis=-1) > 0
+    if np.sum(fragment_mask_1d) < 3:
+        return 0, 0
+
+    non_zero_fragment_norm = fragment_intensity[fragment_mask_1d] / np.sum(
+        fragment_intensity[fragment_mask_1d]
+    )
+
+    # (n_observations, n_fragments, n_fragments)
+    fragment_scan_correlation_masked = fragment_correlation(
+        fragments_scan_profile[fragment_mask_1d],
+    )
+
+    # (n_fragments, n_fragments)
+    fragment_scan_correlation_maked_reduced = np.sum(
+        fragment_scan_correlation_masked * observation_importance.reshape(-1, 1, 1),
+        axis=0,
+    )
+    fragment_scan_correlation_list = np.dot(
+        fragment_scan_correlation_maked_reduced, non_zero_fragment_norm
+    )
+
+    # fragment_scan_correlation
+    fragment_scan_correlation = np.mean(fragment_scan_correlation_list)
+
+    # (n_observation, n_fragments)
+    fragment_template_scan_correlation = fragment_correlation_different(
+        fragments_scan_profile[fragment_mask_1d],
+        template_scan_profile.reshape(1, n_observations, -1),
+    ).reshape(n_observations, -1)
+
+    # (n_fragments)
+    fragment_template_scan_correlation_reduced = np.sum(
+        fragment_template_scan_correlation * observation_importance.reshape(-1, 1),
+        axis=0,
+    )
+    # template_scan_correlation
+    template_scan_correlation = np.dot(
+        fragment_template_scan_correlation_reduced, non_zero_fragment_norm
+    )
+
+    return fragment_scan_correlation, template_scan_correlation

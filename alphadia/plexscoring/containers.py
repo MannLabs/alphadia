@@ -12,14 +12,14 @@ import numpy as np
 from alphadia import quadrupole
 from alphadia.constants.settings import NUM_FEATURES
 from alphadia.numba import config, fragments
-from alphadia.plexscoring.features_.features import (
+from alphadia.plexscoring.features_.fragment_features import (
+    fragment_features,
     fragment_mobility_correlation,
-    location_features,
-    precursor_features,
-    profile_features,
-    reference_features,
 )
-from alphadia.plexscoring.features_.fragment_features import fragment_features
+from alphadia.plexscoring.features_.location_features import location_features
+from alphadia.plexscoring.features_.precursor_features import precursor_features
+from alphadia.plexscoring.features_.profile_features import profile_features
+from alphadia.plexscoring.features_.reference_features import reference_features
 from alphadia.plexscoring.utils import (
     frame_profile_1d,
     frame_profile_2d,
