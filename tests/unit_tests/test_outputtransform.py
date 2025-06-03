@@ -102,10 +102,10 @@ def test_output_transform():
             timing_manager.save()
 
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_precursor_table(raw_folders, save=True)
-    _ = output.build_stat_df(raw_folders, save=True)
-    _ = output.build_internal_df(raw_folders, save=True)
-    _ = output.build_lfq_tables(raw_folders, save=True)
+    _ = output._build_precursor_table(raw_folders, save=True)
+    _ = output._build_stat_df(raw_folders, save=True)
+    _ = output._build_internal_df(raw_folders, save=True)
+    _ = output._build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
     psm_df = pd.read_parquet(

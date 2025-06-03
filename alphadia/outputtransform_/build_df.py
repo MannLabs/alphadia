@@ -14,7 +14,7 @@ from alphadia.workflow.managers.raw_file_manager import RawFileManager
 logger = logging.getLogger()
 
 
-def _build_run_stat_df(
+def build_run_stat_df(
     folder: str,
     raw_name: str,
     run_df: pd.DataFrame,
@@ -183,7 +183,7 @@ def _build_run_stat_df(
     return pd.DataFrame(all_stats)
 
 
-def _build_run_internal_df(
+def build_run_internal_df(
     folder_path: str,
 ):
     """Build stat dataframe for a single run.

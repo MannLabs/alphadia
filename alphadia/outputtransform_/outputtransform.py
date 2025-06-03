@@ -18,8 +18,8 @@ from alphadia.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.outputtransform_.build_df import (
-    _build_run_internal_df,
-    _build_run_stat_df,
+    build_run_internal_df,
+    build_run_stat_df,
     log_stat_df,
     transfer_library_stat_df,
 )
@@ -101,24 +101,24 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self.build_precursor_table(
+        psm_df = self._build_precursor_table(
             folder_list, save=False, base_spec_lib=base_spec_lib
         )
-        _ = self.build_stat_df(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_internal_df(folder_list, save=True)
-        _ = self.build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        _ = self.build_library(
+        _ = self._build_stat_df(folder_list, psm_df=psm_df, save=True)
+        _ = self._build_internal_df(folder_list, save=True)
+        _ = self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
+        _ = self._build_library(
             base_spec_lib,
             psm_df=psm_df,
         )
 
         if self.config["transfer_library"]["enabled"]:
-            _ = self.build_transfer_library(folder_list, save=True)
+            _ = self._build_transfer_library(folder_list, save=True)
 
         if self.config["transfer_learning"]["enabled"]:
-            _ = self.build_transfer_model(save=True)
+            _ = self._build_transfer_model(save=True)
 
-    def build_transfer_model(self, save=True):
+    def _build_transfer_model(self, save=True):
         """
         Finetune PeptDeep models using the transfer library
 
@@ -177,7 +177,7 @@ class SearchPlanOutput:
                 file_format="tsv",
             )
 
-    def build_transfer_library(
+    def _build_transfer_library(
         self,
         folder_list: list[str],
         keep_top: int = 3,
@@ -242,7 +242,7 @@ class SearchPlanOutput:
 
         return transferAccumulator.consensus_speclibase
 
-    def load_precursor_table(self):
+    def _load_precursor_table(self):
         """Load precursor table from output folder.
         Helper functions used by other builders.
 
@@ -258,7 +258,7 @@ class SearchPlanOutput:
             file_format=self.config["search_output"]["file_format"],
         )
 
-    def build_precursor_table(
+    def _build_precursor_table(
         self,
         folder_list: list[str],
         save: bool = True,
@@ -391,7 +391,7 @@ class SearchPlanOutput:
 
         return psm_df
 
-    def build_stat_df(
+    def _build_stat_df(
         self,
         folder_list: list[str],
         psm_df: pd.DataFrame | None = None,
@@ -431,14 +431,14 @@ class SearchPlanOutput:
         all_channels = sorted([int(c) for c in all_channels])
 
         if psm_df is None:
-            psm_df = self.load_precursor_table()
+            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         stat_df_list = []
         for folder in folder_list:
             raw_name = os.path.basename(folder)
             stat_df_list.append(
-                _build_run_stat_df(
+                build_run_stat_df(
                     folder,
                     raw_name,
                     psm_df[psm_df["run"] == raw_name],
@@ -458,7 +458,7 @@ class SearchPlanOutput:
 
         return stat_df
 
-    def build_internal_df(
+    def _build_internal_df(
         self,
         folder_list: list[str],
         save: bool = True,
@@ -485,7 +485,7 @@ class SearchPlanOutput:
         internal_df_list = []
         for folder in folder_list:
             internal_df_list.append(
-                _build_run_internal_df(
+                build_run_internal_df(
                     folder,
                 )
             )
@@ -502,7 +502,7 @@ class SearchPlanOutput:
 
         return internal_df
 
-    def build_lfq_tables(
+    def _build_lfq_tables(
         self,
         folder_list: list[str],
         psm_df: pd.DataFrame | None = None,
@@ -522,7 +522,7 @@ class SearchPlanOutput:
         logger.progress("Performing label free quantification")
 
         if psm_df is None:
-            psm_df = self.load_precursor_table()
+            psm_df = self._load_precursor_table()
 
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
@@ -635,7 +635,7 @@ class SearchPlanOutput:
 
         return lfq_results
 
-    def build_library(
+    def _build_library(
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame | None = None,
@@ -655,7 +655,7 @@ class SearchPlanOutput:
         logger.progress("Building spectral library")
 
         if psm_df is None:
-            psm_df = self.load_precursor_table()
+            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         if len(psm_df) == 0:

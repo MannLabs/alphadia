@@ -127,7 +127,7 @@ def test_complete_output_accumulation():
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -158,7 +158,7 @@ def test_selection_of_precursors():
     config["transfer_library"]["top_k_samples"] = keep_top
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -200,7 +200,7 @@ def test_keep_top_constraint():
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -234,7 +234,7 @@ def test_default_column_assignment():
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -267,7 +267,7 @@ def test_non_nan_fragments():
 
     # When:
     output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
