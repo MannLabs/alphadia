@@ -12,7 +12,22 @@ import numpy as np
 from alphadia import quadrupole
 from alphadia.constants.settings import NUM_FEATURES
 from alphadia.numba import config, fragments
-from alphadia.plexscoring.features_ import features
+from alphadia.plexscoring.features_.features import (
+    fragment_mobility_correlation,
+    location_features,
+    precursor_features,
+    profile_features,
+    reference_features,
+)
+from alphadia.plexscoring.features_.fragment_features import fragment_features
+from alphadia.plexscoring.utils import (
+    frame_profile_1d,
+    frame_profile_2d,
+    or_envelope_1d,
+    or_envelope_2d,
+    scan_profile_1d,
+    scan_profile_2d,
+)
 from alphadia.plotting.cycle import plot_cycle
 from alphadia.plotting.debug import (
     plot_fragment_profile,
@@ -316,7 +331,7 @@ class Candidate:
 
         # (n_fragments, n_observations, n_frames)
 
-        fragments_frame_profile = features.frame_profile_2d(dense_fragments[0])
+        fragments_frame_profile = frame_profile_2d(dense_fragments[0])
         # features.center_envelope(fragments_frame_profile)
 
         cycle_len = jit_data.cycle.shape[1]
@@ -324,19 +339,13 @@ class Candidate:
         frame_rt = jit_data.rt_values[self.frame_start : self.frame_stop : cycle_len]
 
         # (n_observations, n_frames)
-        template_frame_profile = features.or_envelope_1d(
-            features.frame_profile_1d(template)
-        )
+        template_frame_profile = or_envelope_1d(frame_profile_1d(template))
 
         # (n_fragments, n_observations, n_scans)
-        fragments_scan_profile = features.or_envelope_2d(
-            features.scan_profile_2d(dense_fragments[0])
-        )
+        fragments_scan_profile = or_envelope_2d(scan_profile_2d(dense_fragments[0]))
 
         # (n_observations, n_scans)
-        template_scan_profile = features.or_envelope_1d(
-            features.scan_profile_1d(template)
-        )
+        template_scan_profile = or_envelope_1d(scan_profile_1d(template))
 
         if debug:
             self.visualize_profiles(
@@ -354,7 +363,7 @@ class Candidate:
         feature_array[28] = np.mean(fragment_mask_1d)
 
         # works
-        features.location_features(
+        location_features(
             jit_data,
             self.scan_start,
             self.scan_stop,
@@ -365,7 +374,7 @@ class Candidate:
             feature_array,
         )
 
-        features.precursor_features(
+        precursor_features(
             isotope_mz,
             self.isotope_intensity,
             dense_precursors,
@@ -378,7 +387,7 @@ class Candidate:
         # retrive first fragment features
         # (n_valid_fragments)
 
-        mz_observed, mass_error, height, intensity = features.fragment_features(
+        mz_observed, mass_error, height, intensity = fragment_features(
             dense_fragments,
             fragments_frame_profile,
             frame_rt,
@@ -439,7 +448,7 @@ class Candidate:
             (
                 feature_array[29],
                 feature_array[30],
-            ) = features.fragment_mobility_correlation(
+            ) = fragment_mobility_correlation(
                 fragments_scan_profile,
                 template_scan_profile,
                 observation_importance,
@@ -447,7 +456,7 @@ class Candidate:
             )
 
         # (n_valid_fragments)
-        correlation = features.profile_features(
+        correlation = profile_features(
             jit_data,
             fragments.intensity,
             fragments.type,
@@ -483,7 +492,7 @@ class Candidate:
         fragments.sort_by_mz()
 
         self.features.update(
-            features.reference_features(
+            reference_features(
                 reference_candidate.observation_importance,
                 reference_candidate.fragments_scan_profile,
                 reference_candidate.fragments_frame_profile,

@@ -18,49 +18,6 @@ float_array = nb.types.float32[:]  # TODO duplicated in plexscoring
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def frame_profile_2d(x):
-    return np.sum(x, axis=2)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def frame_profile_1d(x):
-    return np.sum(x, axis=1)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def scan_profile_2d(x):
-    return np.sum(x, axis=3)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def scan_profile_1d(x):
-    return np.sum(x, axis=2)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def or_envelope_1d(x):
-    res = x.copy()
-    for a0 in range(x.shape[0]):
-        for i in range(1, x.shape[1] - 1):
-            if (x[a0, i] < x[a0, i - 1]) or (x[a0, i] < x[a0, i + 1]):
-                res[a0, i] = (x[a0, i - 1] + x[a0, i + 1]) / 2
-    return res
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def or_envelope_2d(x):
-    res = x.copy()
-    for a0 in range(x.shape[0]):
-        for a1 in range(x.shape[1]):
-            for i in range(1, x.shape[2] - 1):
-                if (x[a0, a1, i] < x[a0, a1, i - 1]) or (
-                    x[a0, a1, i] < x[a0, a1, i + 1]
-                ):
-                    res[a0, a1, i] = (x[a0, a1, i - 1] + x[a0, a1, i + 1]) / 2
-    return res
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def precursor_features(
     isotope_mz: np.ndarray,
     isotope_intensity: np.ndarray,
