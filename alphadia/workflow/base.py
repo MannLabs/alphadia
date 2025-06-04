@@ -147,7 +147,7 @@ class WorkflowBase:
 
     @property
     def path(self) -> str:
-        """Path to the workflow folder"""
+        """Path to the workflow folder, e.g. `first_search/quant/raw_file_xyz.raw`"""
         return self._path
 
     @property

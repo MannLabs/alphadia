@@ -301,7 +301,7 @@ def get_q_values(
     target_values = 1 - _df[decoy_column].values
     decoy_cumsum = np.cumsum(_df[decoy_column].values)
     target_cumsum = np.cumsum(target_values)
-    fdr_values = decoy_cumsum / target_cumsum  # here
+    fdr_values = decoy_cumsum / target_cumsum
     _df[qval_column] = fdr_to_q_values(fdr_values)
     return _df
 
