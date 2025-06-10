@@ -20,8 +20,8 @@ extensions = [
     "sphinx.ext.intersphinx",
     # "sphinx.ext.linkcode",
     "sphinx.ext.viewcode",
-    # 'sphinx.ext.autodoc',
-    "autodocsumm",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "nbsphinx",
     "myst_parser",
     "sphinx_design",
@@ -33,6 +33,9 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 napoleon_custom_sections = ["Schema"]
+
+# -- Options for autosummary -------------------------------------------------
+autosummary_generate = True
 
 
 # -- Options for HTML output -------------------------------------------------
