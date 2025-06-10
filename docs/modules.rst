@@ -17,3 +17,4 @@ Modules
     alphadia/quadrupole
     alphadia/utils
     alphadia/validate
+    alphadia/workflow
