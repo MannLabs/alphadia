@@ -228,7 +228,7 @@ A exit code of 127 indicates that there was an unknown error. All other nonzero 
 Further details on such errors can be found in the `events.jsonl` file in the `.progress` folder(s) of the output directory.
 
 ### Slurm script example
-You can find an example of a Slurm script here: [./tests/e2e_tests/e2e_slurm.sh](./tests/e2e_tests/e2e_slurm.sh).
+You can find an example of a Slurm script here: [../tests/e2e_tests/e2e_slurm.sh](../tests/e2e_tests/e2e_slurm.sh).
 
 
 ## Advanced options
