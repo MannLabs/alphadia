@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia import outputtransform
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow import manager, peptidecentric
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
@@ -101,11 +101,11 @@ def test_output_transform():
             timing_manager.set_end_time("extraction")
             timing_manager.save()
 
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_precursor_table(raw_folders, save=True)
-    _ = output.build_stat_df(raw_folders, save=True)
-    _ = output.build_internal_df(raw_folders, save=True)
-    _ = output.build_lfq_tables(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_precursor_table(raw_folders, save=True)
+    _ = output._build_stat_df(raw_folders, save=True)
+    _ = output._build_internal_df(raw_folders, save=True)
+    _ = output._build_lfq_tables(raw_folders, save=True)
 
     # validate psm_df output
     psm_df = pd.read_parquet(
