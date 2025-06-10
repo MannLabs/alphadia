@@ -11,7 +11,7 @@ exclude = [
     "alphadia/exceptions.py",
     "alphadia/fdr.py",
     "alphadia/fdrexperimental.py",
-    "alphadia/features.py",
+    "alphadia/plexscoring/features/**.py",
     "alphadia/fragcomp.py",
     "alphadia/grouping.py",
     "alphadia/outputaccumulator.py",
