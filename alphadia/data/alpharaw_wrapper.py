@@ -10,6 +10,7 @@ from alpharaw.thermo import ThermoRawData
 
 from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
+from alphadia.exceptions import NotValidDiaDataError
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -96,9 +97,10 @@ class AlphaRaw(MSData_Base):
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
-        except ValueError:
+        except (ValueError, NotValidDiaDataError) as e:
+            msg = str(e) if isinstance(e, ValueError) else ""
             logger.warning(
-                "Failed to determine DIA cycle, will retry without MS1 spectra."
+                f"Failed to determine DIA cycle, will retry without MS1 spectra.{msg}"
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
