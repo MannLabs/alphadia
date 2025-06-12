@@ -880,7 +880,7 @@ class OptimizationLock:
 
         Parameters
         ----------
-        calibration_manager: manager.CalibrationManager
+        calibration_manager: CalibrationManager
             The calibration manager object from the PeptideCentricWorkflow object.
 
         """
@@ -938,7 +938,7 @@ class OptimizationLock:
 
         Parameter
         ---------
-        calibration_manager: manager.CalibrationManager
+        calibration_manager: CalibrationManager
             The calibration manager object from the PeptideCentricWorkflow object.
 
         """
