@@ -52,6 +52,3 @@ workflow.managers
    :members:
    :undoc-members:
    :show-inheritance:
-
-
-
