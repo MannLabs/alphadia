@@ -2,4 +2,5 @@
 coverage
 coverage-badge
 pytest
+nbmake
 neptune
