@@ -171,7 +171,7 @@ def mock_fragment_df(n_fragments: int = 10, n_precursor: int = 20):
     )
 
 
-def pytest_configure(config):
+def pytest_configure(config):  # TODO is this still used?
     test_data_path = os.environ.get("TEST_DATA_DIR", None)
 
     pytest.test_data = {}
@@ -200,7 +200,7 @@ def pytest_configure(config):
     os.environ["NUMBA_FULL_TRACEBACKS"] = "1"
 
 
-def random_tempfolder():
+def random_tempfolder():  # TODO remove in favor of tempdir
     """Create a randomly named temp folder in the system temp folder
 
     Returns
