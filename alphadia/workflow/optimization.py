@@ -11,12 +11,12 @@ import seaborn as sns
 # alpha family imports
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
-from workflow.config import Config
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 
 # alphadia imports
 from alphadia.reporting import reporting
+from alphadia.workflow.config import Config
 
 
 class BaseOptimizer(ABC):
@@ -778,10 +778,10 @@ class OptimizationLock:
         rng.shuffle(self.elution_group_order)
 
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
-        self._batch_size = self._config["calibration"]["batch_size"]
+        self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
-        self.set_batch_plan()
+        self._set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
@@ -817,7 +817,7 @@ class OptimizationLock:
         """
         return int(2**step)
 
-    def set_batch_plan(self):
+    def _set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
         n_eg = len(self.elution_group_order)
 
