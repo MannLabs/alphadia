@@ -10,7 +10,7 @@ import torch
 
 from alphadia import fdr
 from alphadia import fdrexperimental as fdrx
-from alphadia.workflow import manager
+from alphadia.workflow.managers.fdr_manager import FDRManager
 
 feature_columns = [
     "base_width_mobility",
@@ -183,7 +183,7 @@ def test_fdr():
         test_df.drop(columns=["proba", "qval"], inplace=True)
     # run the fdr
 
-    fdr_manager = manager.FDRManager(
+    fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=classifier_base,
     )

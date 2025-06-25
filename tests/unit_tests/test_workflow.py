@@ -16,13 +16,17 @@ from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
-from alphadia.workflow import base, manager, optimization
+from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.base import BaseManager
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
 def test_base_manager():
-    my_base_manager = manager.BaseManager()
+    my_base_manager = BaseManager()
     assert my_base_manager.path is None
     assert my_base_manager.is_loaded_from_file is False
     assert my_base_manager.is_fitted is False
@@ -31,7 +35,7 @@ def test_base_manager():
 def test_base_manager_save():
     tmp_path = os.path.join(tempfile.gettempdir(), "my_base_manager.pkl")
 
-    my_base_manager = manager.BaseManager(path=tmp_path)
+    my_base_manager = BaseManager(path=tmp_path)
     my_base_manager.save()
     assert os.path.exists(my_base_manager.path)
     os.remove(my_base_manager.path)
@@ -40,10 +44,10 @@ def test_base_manager_save():
 def test_base_manager_load():
     tmp_path = os.path.join(tempfile.gettempdir(), "my_base_manager.pkl")
 
-    my_base_manager = manager.BaseManager(path=tmp_path)
+    my_base_manager = BaseManager(path=tmp_path)
     my_base_manager.save()
 
-    my_base_manager_loaded = manager.BaseManager(path=tmp_path, load_from_file=True)
+    my_base_manager_loaded = BaseManager(path=tmp_path, load_from_file=True)
     assert my_base_manager_loaded.path == my_base_manager.path
     assert my_base_manager_loaded.is_loaded_from_file is True
     assert my_base_manager_loaded.is_fitted is False
@@ -94,12 +98,10 @@ def test_calibration_manager_init():
     # initialize the calibration manager
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = manager.CalibrationManager(
-            path=temp_path, load_from_file=False
-        )
+        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
@@ -166,12 +168,10 @@ def calibration_testdata():
 def test_calibration_manager_fit_predict():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = manager.CalibrationManager(
-            path=temp_path, load_from_file=False
-        )
+        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
 
     test_df = calibration_testdata()
 
@@ -194,12 +194,10 @@ def test_calibration_manager_fit_predict():
 def test_calibration_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = manager.CalibrationManager(
-            path=temp_path, load_from_file=False
-        )
+        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)
@@ -211,10 +209,10 @@ def test_calibration_manager_save_load():
     calibration_manager.save()
 
     with patch(
-        "alphadia.workflow.manager.CALIBRATION_MANAGER_CONFIG",
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager_loaded = manager.CalibrationManager(
+        calibration_manager_loaded = CalibrationManager(
             path=temp_path, load_from_file=True
         )
     assert calibration_manager_loaded.is_fitted is True
@@ -245,7 +243,7 @@ TEST_OPTIMIZATION_CONFIG = {
 
 
 def test_optimization_manager():
-    optimization_manager = manager.OptimizationManager(TEST_OPTIMIZATION_CONFIG)
+    optimization_manager = OptimizationManager(TEST_OPTIMIZATION_CONFIG)
 
     assert optimization_manager.fwhm_rt == 5
     assert optimization_manager.fwhm_mobility == 0.01
@@ -257,7 +255,7 @@ def test_optimization_manager():
 def test_optimization_manager_rt_proportion():
     TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
     TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
-    optimization_manager = manager.OptimizationManager(
+    optimization_manager = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG_PROPORTION, 1200
     )
 
@@ -272,7 +270,7 @@ def test_optimization_manager_rt_proportion():
 def test_optimization_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
 
-    optimization_manager = manager.OptimizationManager(
+    optimization_manager = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
@@ -281,7 +279,7 @@ def test_optimization_manager_save_load():
 
     optimization_manager.save()
 
-    optimization_manager_loaded = manager.OptimizationManager(
+    optimization_manager_loaded = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=True
     )
 
@@ -293,7 +291,7 @@ def test_optimization_manager_save_load():
 
 def test_optimization_manager_fit():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
-    optimization_manager = manager.OptimizationManager(
+    optimization_manager = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG, path=temp_path, load_from_file=False
     )
 
@@ -345,12 +343,8 @@ def test_workflow_base():
             assert os.path.exists(my_workflow.path)
 
             # assert isinstance(my_workflow.dia_data, bruker.TimsTOFTranspose) or isinstance(my_workflow.dia_data, thermo.Thermo)
-            assert isinstance(
-                my_workflow.calibration_manager, manager.CalibrationManager
-            )
-            assert isinstance(
-                my_workflow.optimization_manager, manager.OptimizationManager
-            )
+            assert isinstance(my_workflow.calibration_manager, CalibrationManager)
+            assert isinstance(my_workflow.optimization_manager, OptimizationManager)
 
             # os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
             # os.rmdir(os.path.join(my_workflow.path))
@@ -375,7 +369,7 @@ def fdr_testdata(features):
 
 
 def test_fdr_manager():
-    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
 
     assert fdr_manager.is_loaded_from_file is False
     assert fdr_manager.is_fitted is False
@@ -385,7 +379,7 @@ def test_fdr_manager():
 
 
 def test_fdr_manager_fit_predict():
-    fdr_manager = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
     assert len(fdr_manager.classifier_store) == 1
@@ -400,7 +394,7 @@ def test_fdr_manager_fit_predict():
 
     assert len(fdr_manager.classifier_store) == 2
     assert fdr_manager.current_version == 0
-    assert manager.column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
+    assert column_hash(FDR_TEST_FEATURES) in fdr_manager.classifier_store
 
     fdr_manager.fit_predict(
         test_features_df,
@@ -416,12 +410,10 @@ def test_fdr_manager_fit_predict():
 
     fdr_manager.save_classifier_store(tempfile.tempdir)
 
-    fdr_manager_new = manager.FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager_new = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
     fdr_manager_new.load_classifier_store(tempfile.tempdir)
 
-    temp_path = os.path.join(
-        tempfile.tempdir, f"{manager.column_hash(FDR_TEST_FEATURES)}.pth"
-    )
+    temp_path = os.path.join(tempfile.tempdir, f"{column_hash(FDR_TEST_FEATURES)}.pth")
 
     assert os.path.exists(temp_path)
     assert fdr_manager_new.get_classifier(FDR_TEST_FEATURES).fitted is True
@@ -448,13 +440,13 @@ def create_workflow_instance():
             reporting.FigureBackend(path=workflow.path),
         ]
     )
-    workflow._calibration_manager = manager.CalibrationManager(
+    workflow._calibration_manager = CalibrationManager(
         path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         reporter=workflow.reporter,
     )
 
-    workflow._optimization_manager = manager.OptimizationManager(
+    workflow._optimization_manager = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG,
         path=os.path.join(workflow.path, workflow.OPTIMIZATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
