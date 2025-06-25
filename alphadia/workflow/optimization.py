@@ -15,7 +15,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.exceptions import NoOptimizationLockTargetError
 
 # alphadia imports
-from alphadia.workflow import reporting
+from alphadia.reporting import reporting
 
 
 class BaseOptimizer(ABC):

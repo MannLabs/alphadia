@@ -15,8 +15,10 @@ from sklearn.linear_model import LinearRegression
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
-from alphadia.workflow import base, manager, optimization, peptidecentric, reporting
+from alphadia.reporting import reporting
+from alphadia.workflow import base, manager, optimization
 from alphadia.workflow.config import Config
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
 def test_base_manager():
@@ -435,7 +437,7 @@ def create_workflow_instance():
     config = Config()
     config.from_yaml(config_base_path)
     config.update([Config({"output_directory": tempfile.mkdtemp()})])
-    workflow = peptidecentric.PeptideCentricWorkflow(
+    workflow = PeptideCentricWorkflow(
         "test",
         config,
     )
