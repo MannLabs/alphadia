@@ -3,6 +3,7 @@ import os
 
 import numba as nb
 import numpy as np
+import pandas as pd
 from alpharaw.ms_data_base import MSData_Base
 from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
@@ -75,7 +76,7 @@ def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
-def is_ms1_dia(spectrum_df: pd.DataFrame):
+def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
     """Check if the MS1 spectra follow a DIA cycle. This check is stricter than just relying on failing to determine a cycle.
 
     Parameters
@@ -103,7 +104,7 @@ class AlphaRaw(MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        if is_ms1_dia(self.spectrum_df):
+        if _is_ms1_dia(self.spectrum_df):
             # determine the DIA cycle
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
