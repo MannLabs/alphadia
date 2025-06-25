@@ -1,8 +1,8 @@
 import numpy as np
 import pandas as pd
+import torch
 from peptdeep.model.ms2 import calc_ms2_similarity
 from peptdeep.utils import linear_regression
-import torch
 
 
 class TestMetricBase:
@@ -267,6 +267,7 @@ class Ms2SimilarityTestMetric(TestMetricBase):
 
         return stats
 
+
 class BinaryCrossEntropyTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["bce_loss"])
@@ -307,7 +308,8 @@ class BinaryCrossEntropyTestMetric(TestMetricBase):
         stats = self._to_long_format(new_stats, epoch, data_split, property_name)
 
         return stats
-    
+
+
 class CELossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["ce_loss"])
@@ -426,11 +428,10 @@ class PrecisionRecallTestMetric(TestMetricBase):
         predictions = test_input["predicted"]
         targets = test_input["target"]
         predictions = predictions >= self.prob_cutoff
-        #correct matches of predicted and target
+        # correct matches of predicted and target
         matches = np.logical_and(predictions, targets)
         precision = np.sum(matches) / (np.sum(predictions) + 1e-10)
         recall = np.sum(matches) / (np.sum(targets) + 1e-10)
-
 
         new_stats = pd.DataFrame(
             np.array([precision, recall]).reshape(1, 2),
