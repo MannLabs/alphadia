@@ -55,8 +55,9 @@ Introduction to your first DIA search with alphaDIA.
 
 🔧 Installation<installation>
 🚀 Quickstart<quickstart>
-📚 Guides<guides>
+📚 User Guides<guides>
 📖 Methods<methods>
+ 🛠️ Developer guide<developer_guide>
 ```
 
 ```{toctree}
@@ -64,5 +65,4 @@ Introduction to your first DIA search with alphaDIA.
 :hidden:
 
 modules
-contributing
 ```

@@ -14,7 +14,7 @@ from alphabase.tools.data_downloader import DataShareDownloader
 
 import alphadia
 from alphadia import fdr, fdrexperimental
-from alphadia.workflow import peptidecentric
+from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
 
 classifiers = {
     "binary": fdrexperimental.BinaryClassifier,
@@ -136,7 +136,7 @@ def main():
     print(f"Test data has {len(features_df)} rows")
     print(f"Will use {args.size}% of the data")
     available_columns = list(
-        set(peptidecentric.feature_columns).intersection(set(features_df.columns))
+        set(feature_columns).intersection(set(features_df.columns))
     )
 
     performance_dicts = []
@@ -166,7 +166,7 @@ def main():
             target_df,
             decoy_df,
             competetive=True,
-            neptune_run=run,
+            # neptune_run=run,
         )
 
         stop_time = time.time()
@@ -207,6 +207,8 @@ def main():
     run["eval/duration_std"] = performance_df["duration"].std()
     run["eval/duration_min"] = performance_df["duration"].min()
     run["eval/duration_max"] = performance_df["duration"].max()
+
+    # TODO this used to upload fig from plot_fdr() to run["eval/fdr"]
 
     run.stop()
 

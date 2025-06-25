@@ -49,13 +49,13 @@ find = {}
 
 [tool.setuptools.dynamic]
 # https://stackoverflow.com/a/73600610
-dependencies = {file = ["requirements/requirements_loose.txt"]}
-optional-dependencies.stable = { file = ["requirements/requirements.txt"] }
+dependencies = {file = ["requirements/requirements.txt"]}
+optional-dependencies.stable = { file = ["requirements/_requirements.freeze.txt"] }
 optional-dependencies.tests = { file = ["requirements/requirements_tests.txt"] }
 optional-dependencies.docs = { file = ["requirements/requirements_docs.txt"] }
 optional-dependencies.development = { file = [
     "requirements/requirements_development.txt",
-    "requirements/requirements_test.txt",
+    "requirements/requirements_tests.txt",
     "requirements/requirements_docs.txt"] }
 
 version = {attr = "alphadia.__version__"}

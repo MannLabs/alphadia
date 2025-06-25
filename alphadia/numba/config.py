@@ -5,7 +5,7 @@
 # third party imports
 import numpy as np
 
-from alphadia.workflow import reporting
+from alphadia.reporting import reporting
 
 
 class JITConfig:

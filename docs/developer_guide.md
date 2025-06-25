@@ -23,8 +23,8 @@ A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
  - "module": `alphadia.cli`
  - "script parameters": `--config /abs/path/to/tests/e2e_tests/basic/config.yaml`
  - "working directory": `/abs/path/to/tests/e2e_tests`
-2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
-3. Run the configuration.
+ - "Environment variables": `RUN_MAIN=1`
+2. Run the configuration.
 
 ##### Debug e2e tests with VS Code
 1. Create the following debug configuration (`launch.json`, see [here](https://code.visualstudio.com/docs/editor/debugging#_launch-configurations)):
@@ -41,13 +41,15 @@ A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
             "console": "integratedTerminal",
             "args": [
                 "--config", "/abs/path/to/tests/e2e_tests/basic/config.yaml"
-            ]
+            ],
+            "env": {
+              "RUN_MAIN": "1"
+            }
         }
     ]
 }
 ```
-2. Uncomment the lines following the `uncomment for debugging` comment in `alphadia/cli.py`.
-3. Run the configuration.
+2. Run the configuration.
 
 
 ### pre-commit hooks

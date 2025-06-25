@@ -11,7 +11,8 @@ from numba.core import types
 from numba.experimental import jitclass
 
 from alphadia import utils
-from alphadia.exceptions import NotDiaDataError
+from alphadia.exceptions import NotValidDiaDataError
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -62,12 +63,14 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                 try:
                     cycle_shape = self._cycle.shape[0]
                 except AttributeError as e:
-                    raise NotDiaDataError() from e
+                    raise NotValidDiaDataError(
+                        "Could not find cycle shape attribute."
+                    ) from e
                 else:
                     if cycle_shape != 1:
-                        msg = f"Unexpected cycle shape: {cycle_shape} (expected: 1). "
-                        logger.error(msg)
-                        raise ValueError(msg)
+                        raise NotValidDiaDataError(
+                            f"Unexpected cycle shape: {cycle_shape} (expected: 1)."
+                        )
 
                 self.transpose()
 
@@ -815,7 +818,7 @@ class TimsTOFTransposeJIT:
         )
 
 
-@alphatims.utils.pjit()
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def transpose_chunk(
     chunk_idx,
     chunks,
@@ -845,7 +848,7 @@ def transpose_chunk(
                 tof_indcount[tof_index] += 1
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def build_chunks(number_of_elements, num_chunks):
     # Calculate the number of chunks needed
     chunk_size = (number_of_elements + num_chunks - 1) // num_chunks
@@ -861,7 +864,7 @@ def build_chunks(number_of_elements, num_chunks):
     return np.array(chunks)
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def transpose(tof_indices, push_indptr, n_tof_indices, values):
     """
     The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.

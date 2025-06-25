@@ -1,0 +1,6 @@
+"""Internal constants."""
+
+FIGURES_FOLDER_NAME = "figures"
+
+NUM_FEATURES = 46
+MAX_FRAGMENT_MZ_TOLERANCE = 200

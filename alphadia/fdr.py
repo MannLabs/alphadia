@@ -13,7 +13,7 @@ import sklearn
 # alphadia imports
 # alpha family imports
 from alphadia import fragcomp
-from alphadia.fdrx.utils import manage_torch_threads
+from alphadia.fdrx.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
@@ -28,7 +28,6 @@ def perform_fdr(
     competetive: bool = False,  # TODO: fix typo (also in config)
     group_channels: bool = True,
     figure_path: str | None = None,
-    neptune_run=None,
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
@@ -58,9 +57,6 @@ def perform_fdr(
 
     figure_path : str, default=None
         The path to save the FDR plot to
-
-    neptune_run : neptune.run.Run, default=None
-        The neptune run to log the FDR plot to
 
     df_fragments : pd.DataFrame, default=None
         The fragment dataframe.
@@ -114,9 +110,7 @@ def perform_fdr(
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = sklearn.model_selection.train_test_split(
-        X, y, test_size=0.2
-    )
+    X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
 
     classifier.fit(X_train, y_train)
 
@@ -158,16 +152,16 @@ def perform_fdr(
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    plot_fdr(
-        X_train,
-        X_test,
-        y_train,
-        y_test,
-        classifier,
-        psm_df["qval"],
-        figure_path=figure_path,
-        neptune_run=neptune_run,
-    )
+    if figure_path is not None:
+        plot_fdr(
+            X_train,
+            X_test,
+            y_train,
+            y_test,
+            classifier,
+            psm_df["qval"],
+            figure_path=figure_path,
+        )
 
     return psm_df
 
@@ -229,7 +223,7 @@ def fdr_to_q_values(fdr_values: np.ndarray):
     return q_vals
 
 
-def q_values(
+def q_values(  # TODO unused
     scores: np.ndarray,
     decoy_labels: np.ndarray,
     # score_column : str = 'proba',
@@ -320,8 +314,7 @@ def plot_fdr(
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
     figure_path: str | None = None,
-    neptune_run=None,
-):
+) -> None:
     """Plots statistics on the fdr corrected PSMs.
 
     Parameters
@@ -344,6 +337,9 @@ def plot_fdr(
 
     qval : np.ndarray
         The q-values of the PSMs.
+
+    figure_path: str | None
+        The path to the folder to save the figure to.
     """
 
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
@@ -408,12 +404,14 @@ def plot_fdr(
         )
 
     fig.tight_layout()
-    plt.show()
 
     if figure_path is not None:
-        fig.savefig(os.path.join(figure_path, "fdr.pdf"))
-
-    if neptune_run is not None:
-        neptune_run["eval/fdr"].log(fig)
-
-    plt.close()
+        i = 0
+        file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
+        while os.path.exists(file_name):
+            i += 1
+            file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
+        fig.savefig(file_name)
+    else:
+        plt.show()
+        plt.close()

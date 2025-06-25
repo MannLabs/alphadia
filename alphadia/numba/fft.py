@@ -11,6 +11,8 @@ from rocket_fft.overloads import (
     zeropad_or_crop,
 )
 
+from alphadia.utils import USE_NUMBA_CACHING
+
 
 class NumbaContextOnly(Exception):
     pass
@@ -120,7 +122,7 @@ def _(x, s=None):
     return funcx_impl
 
 
-@nb.njit
+@nb.njit(cache=USE_NUMBA_CACHING)
 def roll(a, delta0, delta1):
     b = np.zeros_like(a)
     b[delta0:, delta1:] = a[:-delta0, :-delta1]

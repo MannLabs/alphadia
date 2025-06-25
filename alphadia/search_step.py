@@ -8,10 +8,11 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import libtransform, outputtransform
+from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
-from alphadia.workflow import peptidecentric, reporting
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
+from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
     MULTISTEP_SEARCH,
@@ -19,7 +20,7 @@ from alphadia.workflow.config import (
     USER_DEFINED_CLI_PARAM,
     Config,
 )
-from alphadia.workflow.reporting import move_existing_file
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
 
@@ -58,7 +59,7 @@ class SearchStep:
 
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
-        reporting.init_logging(self.output_folder)
+        init_logging(self.output_folder)
 
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
@@ -136,7 +137,7 @@ class SearchStep:
         default_config_path = os.path.join(
             os.path.dirname(__file__), "constants", "default.yaml"
         )
-        logger.info(f"loading config from {default_config_path}")
+        logger.info(f"loading default config from {default_config_path}")
         config = Config()
         config.from_yaml(default_config_path)
         return config
@@ -321,7 +322,7 @@ class SearchStep:
                 os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
             )
 
-            output = outputtransform.SearchPlanOutput(self.config, self.output_folder)
+            output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
         except Exception as e:
             _log_exception_event(e)
@@ -333,10 +334,10 @@ class SearchStep:
 
     def _process_raw_file(
         self, dia_path: str, raw_name: str, speclib: SpecLibFlat
-    ) -> peptidecentric.PeptideCentricWorkflow:
+    ) -> PeptideCentricWorkflow:
         """Process a single raw file."""
 
-        workflow = peptidecentric.PeptideCentricWorkflow(
+        workflow = PeptideCentricWorkflow(
             raw_name,
             self.config,
             quant_path=self.config["quant_directory"],
