@@ -7,8 +7,10 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
-from alphadia.workflow import manager, peptidecentric
 from alphadia.workflow.base import QUANT_FOLDER_NAME
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.managers.timing_manager import TimingManager
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
 def test_output_transform():
@@ -75,18 +77,18 @@ def test_output_transform():
         frag_df.to_parquet(os.path.join(raw_folder, "frag.parquet"), index=False)
         psm_df.to_parquet(os.path.join(raw_folder, "psm.parquet"), index=False)
 
-        optimization_manager = manager.OptimizationManager(
+        optimization_manager = OptimizationManager(
             config,
             path=os.path.join(
                 raw_folder,
-                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
             ),
         )
 
-        timing_manager = manager.TimingManager(
+        timing_manager = TimingManager(
             path=os.path.join(
                 raw_folder,
-                peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
             )
         )
 

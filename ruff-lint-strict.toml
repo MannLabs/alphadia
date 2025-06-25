@@ -37,6 +37,7 @@ exclude = [
     "alphadia/transferlearning/*.py",
     "alphadia/utilities/*.py",
     "alphadia/workflow/*.py",
+    "alphadia/reporting/**.py",
     "tests/*.py",
     "release/*.py",
     "docs/**",

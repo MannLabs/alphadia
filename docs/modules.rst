@@ -7,7 +7,6 @@ Modules
     alphadia/calibration
     alphadia/fdr
     alphadia/fdrexperimental
-    alphadia/features
     alphadia/fragcomp
     alphadia/grouping
     alphadia/libtransform
@@ -17,3 +16,4 @@ Modules
     alphadia/quadrupole
     alphadia/utils
     alphadia/validate
+    alphadia/workflow

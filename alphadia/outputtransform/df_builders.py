@@ -7,8 +7,11 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import StatOutputKeys
-from alphadia.workflow import manager, peptidecentric
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
+from alphadia.workflow.managers.timing_manager import TimingManager
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 logger = logging.getLogger()
 
@@ -70,12 +73,10 @@ def build_run_stat_df(
         if os.path.exists(
             optimization_manager_path := os.path.join(
                 folder,
-                peptidecentric.PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
             )
         ):
-            optimization_manager = manager.OptimizationManager(
-                path=optimization_manager_path
-            )
+            optimization_manager = OptimizationManager(path=optimization_manager_path)
             optimization_stats[StatOutputKeys.MS2_ERROR] = (
                 optimization_manager.ms2_error
             )
@@ -104,12 +105,10 @@ def build_run_stat_df(
         if os.path.exists(
             calibration_manager_path := os.path.join(
                 folder,
-                peptidecentric.PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME,
             )
         ):
-            calibration_manager = manager.CalibrationManager(
-                path=calibration_manager_path
-            )
+            calibration_manager = CalibrationManager(path=calibration_manager_path)
 
             if (
                 fragment_mz_estimator := calibration_manager.get_estimator(
@@ -151,7 +150,7 @@ def build_run_stat_df(
         raw_stats = defaultdict(lambda: np.nan)
         if os.path.exists(
             raw_file_manager_path := os.path.join(
-                folder, peptidecentric.PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
+                folder, PeptideCentricWorkflow.RAW_FILE_MANAGER_PKL_NAME
             )
         ):
             raw_stats = RawFileManager(
@@ -201,7 +200,7 @@ def build_run_internal_df(
 
     """
     timing_manager_path = os.path.join(
-        folder_path, peptidecentric.PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
+        folder_path, PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
     )
     raw_name = os.path.basename(folder_path)
 
@@ -210,7 +209,7 @@ def build_run_internal_df(
     }
 
     if os.path.exists(timing_manager_path):
-        timing_manager = manager.TimingManager(path=timing_manager_path)
+        timing_manager = TimingManager(path=timing_manager_path)
         for key in timing_manager.timings:
             internal_dict[f"duration_{key}"] = [timing_manager.timings[key]["duration"]]
 
