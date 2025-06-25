@@ -33,6 +33,9 @@ class ConfigKeys(metaclass=ConstantsClass):
     FASTA_PATHS = "fasta_paths"
     QUANT_DIRECTORY = "quant_directory"
 
+    GENERAL = "general"
+    SAVE_FIGURES = "save_figures"
+
 
 class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"

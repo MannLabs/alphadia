@@ -7,9 +7,9 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia import outputtransform
 from alphadia.constants.keys import SearchStepFiles
-from alphadia.outputaccumulator import ms2_quality_control
+from alphadia.outputtransform.outputaccumulator import ms2_quality_control
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 
 
@@ -37,6 +37,7 @@ def prepare_input_data():
     config = {
         "general": {
             "thread_count": 8,
+            "save_figures": True,
         },
         "fdr": {
             "fdr": 0.01,
@@ -125,8 +126,8 @@ def test_complete_output_accumulation():
     config["transfer_library"]["top_k_samples"] = 2
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -156,8 +157,8 @@ def test_selection_of_precursors():
     keep_top = 2
     config["transfer_library"]["top_k_samples"] = keep_top
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -198,8 +199,8 @@ def test_keep_top_constraint():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -232,8 +233,8 @@ def test_default_column_assignment():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True
@@ -265,8 +266,8 @@ def test_non_nan_fragments():
     config["transfer_library"]["top_k_samples"] = keep_top
 
     # When:
-    output = outputtransform.SearchPlanOutput(config, temp_folder)
-    _ = output.build_transfer_library(raw_folders, save=True)
+    output = SearchPlanOutput(config, temp_folder)
+    _ = output._build_transfer_library(raw_folders, save=True)
     built_lib = SpecLibBase()
     built_lib.load_hdf(
         os.path.join(temp_folder, f"{output.TRANSFER_OUTPUT}.hdf"), load_mod_seq=True

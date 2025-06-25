@@ -14,13 +14,20 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia import fdrexperimental as fdrx
 
 # alphadia imports
-from alphadia import fragcomp, plexscoring, utils
+from alphadia import fragcomp, utils
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
-from alphadia.workflow import base, manager, optimization
+from alphadia.plexscoring.config import CandidateConfig
+from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.plexscoring.utils import (
+    candidate_features_to_candidates,
+    multiplex_candidates,
+)
+from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.fdr_manager import FDRManager
 
 logger = logging.getLogger()
 
@@ -172,14 +179,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Initializing workflow {self.instance_name}", verbosity="progress"
+            f"Initializing workflow {self._instance_name}", verbosity="progress"
         )
 
         self.init_fdr_manager()
         self.init_spectral_library()
 
     def init_fdr_manager(self):
-        self.fdr_manager = manager.FDRManager(
+        self.fdr_manager = FDRManager(
             feature_columns=feature_columns,
             classifier_base=get_classifier_base(
                 enable_two_step_classifier=self.config["fdr"][
@@ -193,6 +200,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=self.config["fdr"]["fdr"],
             ),
+            figure_path=self._figure_path,
         )
 
     def init_spectral_library(self):
@@ -761,16 +769,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.fit(
             precursor_df_filtered,
             "precursor",
-            plot=True,
+            figure_path=self._figure_path,
             skip=["mz"] if not self.dia_data.has_ms1 else [],
-            # neptune_run = self.neptune
         )
 
         self.calibration_manager.fit(
             fragments_df_filtered,
             "fragment",
-            plot=True,
-            # neptune_run = self.neptune
+            figure_path=self._figure_path,
         )
 
         self.optimization_manager.fit(
@@ -811,7 +817,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             else None,
             dia_cycle=self.dia_data.cycle,
             version=version,
-            # neptune_run=self.neptune
         )
 
     def extract_batch(
@@ -889,7 +894,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 f"Removed {num_removed} precursors with score below cutoff",
             )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.update(self.config["scoring_config"])
         config.update(
             {
@@ -903,7 +908,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        candidate_scoring = plexscoring.CandidateScoring(
+        candidate_scoring = CandidateScoring(
             self.dia_data.jitclass(),
             batch_precursor_df,
             batch_fragment_df,
@@ -1056,24 +1061,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        precursor_01fdr = len(
-            precursor_df[(precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)]
-        )
-        proteins_01fdr = precursor_df[
-            (precursor_df["qval"] < 0.01) & (precursor_df["decoy"] == 0)
-        ]["proteins"].nunique()
-
-        # if self.neptune is not None:
-        #    self.neptune['precursors'].log(precursor_01fdr)
-        #    self.neptune['proteins'].log(proteins_01fdr)
-
     def requantify(self, psm_df):
         self.calibration_manager.predict(
             self.spectral_library.precursor_df_unfiltered, "precursor"
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        reference_candidates = plexscoring.candidate_features_to_candidates(psm_df)
+        reference_candidates = candidate_features_to_candidates(psm_df)
 
         if "multiplexing" not in self.config:
             raise ValueError("no multiplexing config found")
@@ -1112,7 +1106,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 + [decoy_channel]
             )
         )
-        multiplexed_candidates = plexscoring.multiplex_candidates(
+        multiplexed_candidates = multiplex_candidates(
             reference_candidates,
             self.spectral_library.precursor_df_unfiltered,
             channels=channels,
@@ -1139,13 +1133,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.score_grouped = True
         config.exclude_shared_ions = True
         config.reference_channel = self.config["multiplexing"]["reference_channel"]
         config.experimental_xic = self.config["search"]["experimental_xic"]
 
-        multiplexed_scoring = plexscoring.CandidateScoring(
+        multiplexed_scoring = CandidateScoring(
             self.dia_data.jitclass(),
             self.spectral_library.precursor_df_unfiltered,
             self.spectral_library.fragment_df,
@@ -1227,7 +1221,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        config = plexscoring.CandidateConfig()
+        config = CandidateConfig()
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
@@ -1237,7 +1231,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             }
         )
 
-        scoring = plexscoring.CandidateScoring(
+        scoring = CandidateScoring(
             self.dia_data.jitclass(),
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
@@ -1341,7 +1335,7 @@ def _build_candidate_speclib_flat(
             "mz_observed",
         ]
 
-    scored_candidates = plexscoring.candidate_features_to_candidates(
+    scored_candidates = candidate_features_to_candidates(
         psm_df, optional_columns=optional_columns
     )
 

@@ -5,12 +5,13 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from alphadia.workflow.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
 @pytest.fixture
 def mock_config():
     return {
+        "general": {"save_figures": True},
         "output_directory": "",
         "calibration": {"min_correlation": 0.55, "max_fragments": 3},
     }

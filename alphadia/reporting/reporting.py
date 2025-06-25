@@ -22,6 +22,7 @@ from matplotlib.figure import Figure
 # As soon as its instantiated the default logger will be configured with a path to save the log file
 __is_initiated__ = False
 
+from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import CustomError, GenericUserError
 
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
@@ -222,8 +223,6 @@ class Backend:
 
 
 class FigureBackend(Backend):
-    FIGURE_PATH = "figures"
-
     def __init__(self, path=None, default_savefig_kwargs=None) -> None:
         """Backend which logs figures to a folder.
 
@@ -250,7 +249,7 @@ class FigureBackend(Backend):
             )
 
         # create figures folder if it does not exist
-        self.figures_path = os.path.join(self.path, self.FIGURE_PATH)
+        self.figures_path = os.path.join(self.path, FIGURES_FOLDER_NAME)
         os.makedirs(self.figures_path, exist_ok=True)
 
         self.default_savefig_kwargs = default_savefig_kwargs
@@ -262,7 +261,7 @@ class FigureBackend(Backend):
         extension: str = "png",
         *args,
         **kwargs,
-    ):
+    ):  # TODO unused
         """Log a figure to the figures folder.
 
         Parameters
@@ -543,10 +542,6 @@ class JSONLBackend(Backend):
                 "verbosity": 0,
             }
             f.write(json.dumps(message) + "\n")
-
-
-class NeptuneBackend(Backend):
-    pass
 
 
 class LogBackend(Backend):

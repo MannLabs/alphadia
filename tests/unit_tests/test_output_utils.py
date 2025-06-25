@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from conftest import random_tempfolder
 
-from alphadia.consensus.utils import read_df, write_df
+from alphadia.outputtransform.utils import read_df, write_df
 
 
 @pytest.mark.parametrize(

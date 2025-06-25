@@ -9,15 +9,15 @@ import pandas as pd
 import yaml
 
 from alphadia.constants.keys import ConfigKeys, StatOutputKeys
-from alphadia.outputtransform import (
+from alphadia.outputtransform.search_plan_output import (
     SearchPlanOutput,
 )
+from alphadia.reporting import reporting
+from alphadia.reporting.logging import print_environment, print_logo
 from alphadia.search_step import (
     SearchStep,
     logger,
 )
-from alphadia.utilities.logging import print_environment, print_logo
-from alphadia.workflow import reporting
 
 # TODO the names of the steps need to be adjusted
 TRANSFER_STEP_NAME = "transfer"

@@ -4,8 +4,8 @@
 class CustomError(Exception):
     """Custom alphaDIA error class."""
 
-    _error_code = None
-    _msg = None
+    _error_code = ""
+    _msg = ""
     _detail_msg = ""
 
     @property
@@ -20,8 +20,15 @@ class CustomError(Exception):
     def detail_msg(self):
         return self._detail_msg
 
+    def __init__(self, msg: str = ""):
+        self._user_msg = msg
+
+        super().__init__(self._msg)
+
     def __str__(self):
-        return f"{self._error_code}: {self._msg} {self._detail_msg}"
+        return (
+            f"{self._error_code}: {self._msg}\n'{self._user_msg}'\n{self._detail_msg}"
+        )
 
 
 class BusinessError(CustomError):
@@ -55,7 +62,23 @@ class NoPsmFoundError(BusinessError):
 
     _error_code = "NO_PSM_FOUND"
 
-    _msg = "No psm files accumulated, can't continue"
+    _msg = "No psm files accumulated, can't continue."
+
+
+class TooFewPSMError(BusinessError):
+    """Raise when too few PSMs are available to perform a task."""
+
+    _error_code = "TOO_FEW_PSM"
+
+    _msg = "Too few PSMs available to perform the task."
+
+
+class TooFewProteinsError(BusinessError):
+    """Raise when too few Proteins are available to perform a task."""
+
+    _error_code = "TOO_FEW_PROTEINS"
+
+    _msg = "Too few proteins available to perform the task."
 
 
 class NoOptimizationLockTargetError(BusinessError):
@@ -74,12 +97,21 @@ class NoOptimizationLockTargetError(BusinessError):
                    3. There was a fundamental issue with search parameters."""
 
 
-class NotDiaDataError(BusinessError):
-    """Raise when data is not from DIA."""
+class NotValidDiaDataError(BusinessError):
+    """Raise when data is not from DIA or invalid DIA data."""
 
-    _error_code = "NOT_DIA_DATA"
+    _error_code = "NOT_VALID_DIA_DATA"
 
-    _msg = "Could not find cycle shape. Please check if this is a valid DIA data set."
+    _msg = "Not valid DIA data."
+
+    _detail_msg = """Please check if this is a valid DIA data set.
+
+    1. This could be DDA data?
+    2. Is it DIA data where the order of windows is not the same in each cycle?
+    3. Might be due to DIA data where the cycle does not start at beginning of file but e.g. only after a series of blank scans.
+
+    AlphaDIA has a strict definition of DIA cycles: same order of scans within a cycle and the cycle must appear throughout the whole file without gaps.
+    """
 
 
 class NoLibraryAvailableError(UserError):
