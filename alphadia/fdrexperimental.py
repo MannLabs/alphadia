@@ -106,7 +106,7 @@ class Classifier(ABC):
         """
 
 
-def get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
+def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
     """
     Scale batch size and learning rate based on dataframe size using square root relationship.
 
@@ -310,7 +310,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         """
         if self.experimental_hyperparameter_tuning:
-            self.batch_size, self.learning_rate = get_scaled_training_params(x)
+            self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
                 f"Estimating optimal hyperparameters - "
                 f"samples: {len(x):,}, "

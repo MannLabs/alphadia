@@ -135,7 +135,7 @@ def test_keep_best_2():
 def test_fdr_to_q_values():
     test_fdr = np.array([0.2, 0.1, 0.05, 0.3, 0.26, 0.25, 0.5])
 
-    test_q_values = fdr.fdr_to_q_values(test_fdr)
+    test_q_values = fdr._fdr_to_q_values(test_fdr)
 
     assert np.allclose(
         test_q_values, np.array([0.05, 0.05, 0.05, 0.25, 0.25, 0.25, 0.5])
