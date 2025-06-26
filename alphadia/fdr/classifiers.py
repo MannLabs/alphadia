@@ -226,7 +226,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         return self._metrics
 
     @metrics.setter
-    def metrics(self, metrics):
+    def metrics(self, metrics) -> None:
         self._metrics = metrics
 
     def to_state_dict(self):
@@ -258,7 +258,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         return dict
 
-    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
+    def from_state_dict(
+        self, state_dict: dict, load_hyperparameters: bool = False
+    ) -> None:
         """Load the state of the classifier from a dictionary.
 
         Parameters
@@ -283,7 +285,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self.__dict__.update(_state_dict)
 
     @manage_torch_threads(max_threads=2)
-    def fit(self, x: np.ndarray, y: np.ndarray):
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """Fit the classifier to the data.
 
         Parameters
@@ -471,19 +473,19 @@ class FeedForwardNN(nn.Module):
         layers: list[int] | None = None,
         dropout=0.5,
     ):
-        """Built a simple feed forward network for FDR estimation"""
+        """Built a simple feed forward network for FDR estimation."""
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-        self.layers = [input_dim] + layers
+        self.layers = [input_dim, *layers]
         self.dropout = dropout
 
         self._build_model()
 
-    def _build_model(self):
+    def _build_model(self) -> None:
         layers = []
         # add batch norm layer
         layers.append(nn.BatchNorm1d(self.input_dim))

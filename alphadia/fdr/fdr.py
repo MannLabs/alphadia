@@ -25,7 +25,7 @@ def perform_fdr(
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
 ):
-    """Performs FDR calculation on a dataframe of PSMs
+    """Performs FDR calculation on a dataframe of PSMs.
 
     Parameters
     ----------
@@ -189,8 +189,7 @@ def keep_best(
     temp_df = df.reset_index(drop=True)
     temp_df = temp_df.sort_values(score_column, ascending=True)
     temp_df = temp_df.groupby(group_columns).head(1)
-    temp_df = temp_df.sort_index().reset_index(drop=True)
-    return temp_df
+    return temp_df.sort_index().reset_index(drop=True)
 
 
 def _fdr_to_q_values(fdr_values: np.ndarray):
@@ -211,8 +210,7 @@ def _fdr_to_q_values(fdr_values: np.ndarray):
     """
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
-    q_vals = np.flip(q_values_flipped)
-    return q_vals
+    return np.flip(q_values_flipped)
 
 
 def get_q_values(
