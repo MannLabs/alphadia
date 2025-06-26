@@ -8,8 +8,8 @@ import pandas as pd
 import pytest
 import torch
 
-from alphadia.fdr_ import fdr
-from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr import fdr
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
 
 feature_columns = [

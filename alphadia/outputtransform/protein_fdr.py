@@ -5,9 +5,9 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
 from alphadia.exceptions import TooFewProteinsError
-from alphadia.fdr_ import fdr
-from alphadia.fdr_.plotting import plot_fdr
-from alphadia.fdr_.utils import train_test_split_
+from alphadia.fdr import fdr
+from alphadia.fdr.plotting import plot_fdr
+from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 

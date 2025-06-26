@@ -8,7 +8,7 @@ import torch
 from torch import nn, optim
 from tqdm import tqdm
 
-from alphadia.fdr_.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 

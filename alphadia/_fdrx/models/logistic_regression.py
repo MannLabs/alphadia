@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from alphadia.fdr_.classifiers import Classifier
+from alphadia.fdr.classifiers import Classifier
 
 logger = logging.getLogger()
 

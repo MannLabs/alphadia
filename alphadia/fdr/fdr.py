@@ -5,8 +5,8 @@ import pandas as pd
 import sklearn
 
 from alphadia import fragcomp
-from alphadia.fdr_.plotting import plot_fdr
-from alphadia.fdr_.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr.plotting import plot_fdr
+from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
@@ -29,7 +29,6 @@ def perform_fdr(
 
     Parameters
     ----------
-
     classifier : sklearn.base.BaseEstimator
         A classifier that implements the fit and predict_proba methods
 
@@ -243,7 +242,6 @@ def get_q_values(
 
     Returns
     -------
-
     pd.DataFrame
         The dataframe containing the q-values in column qval.
 

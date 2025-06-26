@@ -13,8 +13,8 @@ import torch
 from alphabase.tools.data_downloader import DataShareDownloader
 
 import alphadia
-from alphadia.fdr_ import fdr
-from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr import fdr
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
 
 classifiers = {

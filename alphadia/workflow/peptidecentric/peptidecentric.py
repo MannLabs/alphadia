@@ -11,7 +11,7 @@ from alphadia import fragcomp, utils
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
