@@ -1,19 +1,14 @@
-# native imports
 import logging
 import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-
-# third party imports
 import pandas as pd
 import sklearn
 
-# alphadia imports
-# alpha family imports
 from alphadia import fragcomp
-from alphadia.fdrx.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr_.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 

@@ -8,13 +8,13 @@ import numpy as np
 import pandas as pd
 import sklearn.base
 
-from alphadia.fdrx.plotting import (
+from alphadia._fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
     _plot_score_distribution,
 )
-from alphadia.fdrx.stats import add_q_values, get_pep, keep_best
-from alphadia.fdrx.utils import train_test_split_
+from alphadia._fdrx.stats import add_q_values, get_pep, keep_best
+from alphadia.fdr_.utils import train_test_split_
 from alphadia.fragcomp import FragmentCompetition
 
 logger = logging.getLogger()

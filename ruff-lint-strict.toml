@@ -31,6 +31,7 @@ exclude = [
     "alphadia/_fdrx/stats.py",
     "alphadia/_fdrx/plotting.py",
     "alphadia/_fdrx/base.py",
+    "alphadia/fdr_/**.py",
     "alphadia/numba/*.py",
     "alphadia/peakgroup/*.py",
     "alphadia/plotting/*.py",

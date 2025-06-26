@@ -1,23 +1,17 @@
-# native imports
 import logging
 
-# third party imports
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from alphabase.peptide.fragment import get_charged_frag_types
-
-# alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import fdrexperimental as fdrx
-
-# alphadia imports
 from alphadia import fragcomp, utils
+from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
+from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.fdrx.models.logistic_regression import LogisticRegressionClassifier
-from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
