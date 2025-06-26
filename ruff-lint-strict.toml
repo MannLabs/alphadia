@@ -10,7 +10,6 @@ exclude = [
     "alphadia/cli.py",
     "alphadia/exceptions.py",
     "alphadia/fdr.py",
-    "alphadia/fdrexperimental.py",
     "alphadia/plexscoring/features/**.py",
     "alphadia/fragcomp.py",
     "alphadia/grouping.py",

@@ -9,7 +9,7 @@ import pytest
 import torch
 
 from alphadia import fdr
-from alphadia import fdrexperimental as fdrx
+from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
 
 feature_columns = [
@@ -52,7 +52,7 @@ feature_columns = [
     "weighted_ms1_intensity",
 ]
 
-classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
+classifier_base = BinaryClassifierLegacyNewBatching(
     test_size=0.01,
     batch_size=100,
     epochs=15,
@@ -248,7 +248,7 @@ def gen_data_np(
 def test_feed_forward():
     x, y = gen_data_np()
 
-    classifier = fdrx.BinaryClassifierLegacyNewBatching(
+    classifier = BinaryClassifierLegacyNewBatching(
         batch_size=100,
     )
 
@@ -267,7 +267,7 @@ def test_feed_forward_save():
     tempfolder = tempfile.gettempdir()
     x, y = gen_data_np()
 
-    classifier = fdrx.BinaryClassifierLegacyNewBatching(
+    classifier = BinaryClassifierLegacyNewBatching(
         batch_size=100,
     )
 
@@ -278,7 +278,7 @@ def test_feed_forward_save():
         os.path.join(tempfolder, "test_feed_forward_save.pth"),
     )
 
-    new_classifier = fdrx.BinaryClassifierLegacyNewBatching()
+    new_classifier = BinaryClassifierLegacyNewBatching()
     new_classifier.from_state_dict(
         torch.load(
             os.path.join(tempfolder, "test_feed_forward_save.pth"), weights_only=False

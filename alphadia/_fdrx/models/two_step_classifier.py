@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia.fdr import get_q_values, keep_best
-from alphadia.fdrexperimental import Classifier
+from alphadia.fdr_.classifiers import Classifier
 
 logger = logging.getLogger()
 

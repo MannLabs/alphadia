@@ -7,11 +7,11 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import fdrexperimental as fdrx
 from alphadia import fragcomp, utils
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
+from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -129,7 +129,7 @@ def _get_classifier_base(
     BinaryClassifierLegacyNewBatching | TwoStepClassifier
         Neural network or two-step classifier based on enable_two_step_classifier.
     """
-    nn_classifier = fdrx.BinaryClassifierLegacyNewBatching(
+    nn_classifier = BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
         learning_rate=0.001,
