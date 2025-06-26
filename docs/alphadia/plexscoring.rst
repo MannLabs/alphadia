@@ -48,6 +48,12 @@ The plexscoring package performs scoring of peak group candidates by calculating
    :undoc-members:
    :show-inheritance:
 
+.. automodule:: alphadia.plexscoring.quadrupole
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 Features
 --------
 

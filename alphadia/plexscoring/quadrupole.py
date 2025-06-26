@@ -1,3 +1,5 @@
+"""The quadrupole module contains a quadrupole calibration for a dia dataset."""
+
 import numba as nb
 import numpy as np
 from numba.experimental import jitclass
