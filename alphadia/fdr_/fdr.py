@@ -5,7 +5,7 @@ import pandas as pd
 import sklearn
 
 from alphadia import fragcomp
-from alphadia.fdr_.plot import plot_fdr
+from alphadia.fdr_.plotting import plot_fdr
 from alphadia.fdr_.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
