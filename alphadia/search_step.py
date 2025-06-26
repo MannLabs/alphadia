@@ -12,6 +12,13 @@ from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
 from alphadia.libtransform import libtransform
 from alphadia.libtransform.fasta_digest import FastaDigest
+from alphadia.libtransform.harmonize import (
+    AnnotateFasta,
+    IsotopeGenerator,
+    PrecursorInitializer,
+    RTNormalization,
+)
+from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
@@ -238,19 +245,17 @@ class SearchStep:
         # 3. import library and harmonize
         harmonize_pipeline = libtransform.ProcessingPipeline(
             [
-                libtransform.PrecursorInitializer(),
-                libtransform.AnnotateFasta(self.fasta_path_list),
-                libtransform.IsotopeGenerator(
-                    n_isotopes=4, mp_process_num=thread_count
-                ),
-                libtransform.RTNormalization(),
+                PrecursorInitializer(),
+                AnnotateFasta(self.fasta_path_list),
+                IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
+                RTNormalization(),
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
         multiplexing_config = self.config["library_multiplexing"]
         if multiplexing_config["enabled"]:
-            multiplexing = libtransform.MultiplexLibrary(
+            multiplexing = MultiplexLibrary(
                 multiplex_mapping=multiplexing_config["multiplex_mapping"],
                 input_channel=multiplexing_config["input_channel"],
             )
