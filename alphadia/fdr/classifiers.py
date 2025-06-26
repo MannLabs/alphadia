@@ -1,3 +1,5 @@
+"""Classifier module for FDR estimation."""
+
 import logging
 import warnings
 from abc import ABC, abstractmethod
@@ -5,6 +7,7 @@ from copy import deepcopy
 from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn, optim
 from tqdm import tqdm
@@ -26,57 +29,57 @@ class Classifier(ABC):
 
     @property
     @abstractmethod
-    def fitted(self):
+    def fitted(self) -> bool:
         """Return whether the classifier has been fitted."""
 
     @abstractmethod
-    def fit(self, x: np.array, y: np.array):
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """Fit the classifier to the data.
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Training data of shape (n_samples, n_features).
 
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
 
     @abstractmethod
-    def predict(self, x: np.array):
+    def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Predicted class of shape (n_samples,).
 
         """
 
     @abstractmethod
-    def predict_proba(self, x: np.array):
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
         """Predict the class probabilities of the data.
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-        y : np.array, dtype=float
+        y : np.ndarray, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
 
     @abstractmethod
-    def to_state_dict(self):
+    def to_state_dict(self) -> dict:
         """Return a state dict of the classifier.
 
         Returns
@@ -87,7 +90,7 @@ class Classifier(ABC):
         """
 
     @abstractmethod
-    def from_state_dict(self, state_dict: dict):
+    def from_state_dict(self, state_dict: dict) -> None:
         """Load a state dict of the classifier.
 
         Parameters
@@ -98,12 +101,17 @@ class Classifier(ABC):
         """
 
 
-def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
+def _get_scaled_training_params(
+    df: pd.DataFrame,
+    base_lr: float = 0.001,
+    max_batch: float = 4096,
+    min_batch: float = 128,
+) -> tuple[int, float]:
     """Scale batch size and learning rate based on dataframe size using square root relationship.
 
     Parameters
     ----------
-    df : pandas.DataFrame
+    df : pd.DataFrame
         Input dataframe
     base_lr : float, optional
         Base learning rate for 1024 batch size, defaults to 0.01
@@ -135,6 +143,8 @@ def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128
 
 
 class BinaryClassifierLegacyNewBatching(Classifier):
+    """Binary Classifier using a feed forward neural network."""
+
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         input_dim: int = 10,
@@ -147,6 +157,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        *,
         experimental_hyperparameter_tuning: bool = False,
         **kwargs,
     ):
@@ -187,6 +198,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
+        **kwargs : dict
+            Deprecated keyword arguments. Will raise a warning if used.
+
         """
         if layers is None:
             layers = [100, 50, 20, 5]
@@ -219,7 +233,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
-    def fitted(self):
+    def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
         return self._fitted
 
     def to_state_dict(self) -> dict:
@@ -286,10 +301,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Training data of shape (n_samples, n_features).
 
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
@@ -408,12 +423,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Predicted class of shape (n_samples,).
 
         """
@@ -437,12 +452,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-        y : np.array, dtype=float
+        y : np.ndarray, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """

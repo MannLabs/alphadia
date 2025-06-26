@@ -9,7 +9,6 @@ exclude = [
     "alphadia/__*__.py",
     "alphadia/cli.py",
     "alphadia/exceptions.py",
-    "alphadia/fdr/**.py",
     "alphadia/plexscoring/features/**.py",
     "alphadia/fragcomp.py",
     "alphadia/grouping.py",
@@ -43,6 +42,8 @@ exclude = [
     "nbs/**/*.ipynb",
     "misc/*.py",
 ]
+
+pep8-naming.ignore-names = ["X_train", "X_test", "X_target", "X_decoy", "X"]
 
 ignore = [
     #
