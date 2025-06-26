@@ -1,3 +1,5 @@
+"""Module performing False Discovery Rate (FDR) control."""
+
 import logging
 
 import numpy as np
@@ -8,11 +10,13 @@ from alphadia import fragcomp
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 
+max_dia_cycle_shape = 2
+
 logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(
+def perform_fdr(  # noqa: PLR0913 # Too many arguments
     classifier: sklearn.base.BaseEstimator,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -24,7 +28,7 @@ def perform_fdr(
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-):
+) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
     Parameters
@@ -85,7 +89,7 @@ def perform_fdr(
 
     if (
         np.abs(len(df_target) - len(df_decoy)) / ((len(df_target) + len(df_decoy)) / 2)
-        > 0.1
+        > 0.1  # noqa: PLR2004
     ):
         logger.warning(
             f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
@@ -94,8 +98,8 @@ def perform_fdr(
             "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
         )
 
-    X_target = df_target[available_columns].values
-    X_decoy = df_decoy[available_columns].values
+    X_target = df_target[available_columns].to_numpy()
+    X_decoy = df_decoy[available_columns].to_numpy()
     y_target = np.zeros(len(X_target))
     y_decoy = np.ones(len(X_decoy))
 
@@ -123,7 +127,7 @@ def perform_fdr(
 
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
-    if dia_cycle is not None and dia_cycle.shape[2] <= 2:
+    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
         # if there are no PSMs with a FDR < 10% use all PSMs
         start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
@@ -162,8 +166,9 @@ def keep_best(
     df: pd.DataFrame,
     score_column: str = "proba",
     group_columns: list[str] | None = None,
-):
+) -> pd.DataFrame:
     """Keep the best PSM for each group of PSMs with the same precursor_idx.
+
     This function is used to select the best candidate PSM for each precursor.
     if the group_columns is set to ['channel', 'elution_group_idx'] then its used for target decoy competition.
 
@@ -192,8 +197,9 @@ def keep_best(
     return temp_df.sort_index().reset_index(drop=True)
 
 
-def _fdr_to_q_values(fdr_values: np.ndarray):
+def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     """Converts FDR values to q-values.
+
     Takes a ascending sorted array of FDR values and converts them to q-values.
     for every element the lowest FDR where it would be accepted is used as q-value.
 

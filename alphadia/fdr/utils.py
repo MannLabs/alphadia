@@ -12,7 +12,7 @@ from alphadia.exceptions import TooFewPSMError
 logger = logging.getLogger()
 
 
-def train_test_split_(X, y, *, exception: type[Exception] = TooFewPSMError, **kwargs):  # noqa: ANN001, ANN201, N803
+def train_test_split_(X, y, *, exception: type[Exception] = TooFewPSMError, **kwargs):  # noqa: ANN001, ANN201
     """Wrapper around `sklearn.model_selection.train_test_split` to handle exceptions."""
     try:
         return train_test_split(X, y, **kwargs)

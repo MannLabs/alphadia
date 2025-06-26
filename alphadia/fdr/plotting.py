@@ -15,7 +15,7 @@ qval_threshold = 0.05
 logger = logging.getLogger()
 
 
-def plot_fdr(
+def plot_fdr(  # noqa: PLR0913 # Too many arguments
     X_train: np.ndarray,
     X_test: np.ndarray,
     y_train: np.ndarray,
@@ -23,7 +23,7 @@ def plot_fdr(
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
     figure_path: str | None = None,
-) -> None:  # noqa: PLR0913 # Too many arguments
+) -> None:
     """Plots statistics on the fdr corrected PSMs.
 
     Parameters
