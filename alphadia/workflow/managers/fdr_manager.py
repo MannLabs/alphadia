@@ -11,7 +11,7 @@ import xxhash
 
 import alphadia
 from alphadia import fdr
-from alphadia.fdrx.models.two_step_classifier import TwoStepClassifier
+from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()

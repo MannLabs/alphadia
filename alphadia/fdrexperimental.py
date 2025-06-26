@@ -9,7 +9,7 @@ from torch import nn, optim
 from torchmetrics.classification import BinaryAUROC
 from tqdm import tqdm
 
-from alphadia.fdrx.utils import manage_torch_threads, train_test_split_
+from alphadia.fdr_.utils import manage_torch_threads, train_test_split_
 
 logger = logging.getLogger()
 
