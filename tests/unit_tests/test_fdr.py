@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 import torch
 
-from alphadia import fdr
+from alphadia.fdr_ import fdr
 from alphadia.fdr_.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
 

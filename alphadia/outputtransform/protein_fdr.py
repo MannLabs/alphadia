@@ -4,8 +4,8 @@ import pandas as pd
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
-from alphadia import fdr
 from alphadia.exceptions import TooFewProteinsError
+from alphadia.fdr_ import fdr
 from alphadia.fdr_.utils import train_test_split_
 
 logger = logging.getLogger()
