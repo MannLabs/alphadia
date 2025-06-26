@@ -52,7 +52,7 @@ feature_columns = [
     "weighted_ms1_intensity",
 ]
 
-classifier_base = fdrx.BinaryClassifierLegacy(
+classifier_base = fdrx.BinaryClassifierLegacyNewBatching(
     test_size=0.01,
     batch_size=100,
     epochs=15,
@@ -248,7 +248,7 @@ def gen_data_np(
 def test_feed_forward():
     x, y = gen_data_np()
 
-    classifier = fdrx.BinaryClassifierLegacy(
+    classifier = fdrx.BinaryClassifierLegacyNewBatching(
         batch_size=100,
     )
 
@@ -267,7 +267,7 @@ def test_feed_forward_save():
     tempfolder = tempfile.gettempdir()
     x, y = gen_data_np()
 
-    classifier = fdrx.BinaryClassifierLegacy(
+    classifier = fdrx.BinaryClassifierLegacyNewBatching(
         batch_size=100,
     )
 
@@ -278,7 +278,7 @@ def test_feed_forward_save():
         os.path.join(tempfolder, "test_feed_forward_save.pth"),
     )
 
-    new_classifier = fdrx.BinaryClassifierLegacy()
+    new_classifier = fdrx.BinaryClassifierLegacyNewBatching()
     new_classifier.from_state_dict(
         torch.load(
             os.path.join(tempfolder, "test_feed_forward_save.pth"), weights_only=False

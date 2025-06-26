@@ -17,7 +17,6 @@ from alphadia import fdr, fdrexperimental
 from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
 
 classifiers = {
-    "legacy": fdrexperimental.BinaryClassifierLegacy,
     "legacy_new_batching": fdrexperimental.BinaryClassifierLegacyNewBatching,
 }
 
