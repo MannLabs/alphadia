@@ -1,10 +1,10 @@
+import logging
 import os
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
-from reporting import logging
 
 logger = logging.getLogger()
 
