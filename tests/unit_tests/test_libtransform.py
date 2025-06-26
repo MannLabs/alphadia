@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia import libtransform
+from alphadia.libtransform import libtransform
 
 
 def test_library_transform():

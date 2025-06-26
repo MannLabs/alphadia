@@ -1,16 +1,10 @@
-# native imports
 import logging
 import os
-import typing
 from functools import reduce
 from pathlib import Path
 
-# third party imports
 import numpy as np
-import pandas as pd
 from alphabase.constants.modification import MOD_DF
-
-# alpha family imports
 from alphabase.peptide import fragment
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.protein import fasta
@@ -22,65 +16,10 @@ from alphabase.spectral_library.reader import LibraryReaderBase
 from peptdeep.pretrained_models import ModelManager
 from peptdeep.protein.fasta import PredictSpecLibFasta
 
-# alphadia imports
 from alphadia import utils, validate
+from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
-
-
-class ProcessingStep:
-    def __init__(self) -> None:
-        """Base class for processing steps. Each implementation must implement the `validate` and `forward` method.
-        Processing steps can be chained together in a ProcessingPipeline."""
-
-    def __call__(self, *args: typing.Any) -> typing.Any:
-        """Run the processing step on the input object."""
-        logger.info(f"Running {self.__class__.__name__}")
-        if self.validate(*args):
-            return self.forward(*args)
-        else:
-            logger.critical(
-                f"Input {args} failed validation for {self.__class__.__name__}"
-            )
-            raise ValueError(
-                f"Input {args} failed validation for {self.__class__.__name__}"
-            )
-
-    def validate(self, *args: typing.Any) -> bool:
-        """Validate the input object."""
-        raise NotImplementedError("Subclasses must implement this method")
-
-    def forward(self, *args: typing.Any) -> typing.Any:
-        """Run the processing step on the input object."""
-        raise NotImplementedError("Subclasses must implement this method")
-
-
-class ProcessingPipeline:
-    def __init__(self, steps: list[ProcessingStep]) -> None:
-        """Processing pipeline for loading and transforming spectral libraries.
-        The pipeline is a list of ProcessingStep objects. Each step is called in order and the output of the previous step is passed to the next step.
-
-        Example:
-        ```
-        pipeline = ProcessingPipeline([
-            DynamicLoader(),
-            PrecursorInitializer(),
-            AnnotateFasta(fasta_path_list),
-            IsotopeGenerator(),
-            DecoyGenerator(),
-            RTNormalization()
-        ])
-
-        library = pipeline(input_path)
-        ```
-        """
-        self.steps = steps
-
-    def __call__(self, input: typing.Any) -> typing.Any:
-        """Run the pipeline on the input object."""
-        for step in self.steps:
-            input = step(input)
-        return input
 
 
 class DynamicLoader(ProcessingStep):
@@ -266,7 +205,6 @@ class PeptDeepPrediction(ProcessingStep):
 
         Parameters
         ----------
-
         use_gpu : bool, optional
             Use GPU for prediction. Default is True.
 
@@ -295,6 +233,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         max_fragment_charge : int, optional
             Maximum charge state to predict. Default is 2.
+
         """
         if fragment_types is None:
             fragment_types = ["b", "y"]
@@ -383,7 +322,6 @@ class PrecursorInitializer(ProcessingStep):
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
-
         valid = isinstance(input, SpecLibBase)
 
         if len(input.precursor_df) == 0:
@@ -402,7 +340,6 @@ class PrecursorInitializer(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Initialize the precursor dataframe with the `precursor_idx`, `decoy`, `channel` and `elution_group_idx` columns."""
-
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
 
@@ -430,7 +367,6 @@ class AnnotateFasta(ProcessingStep):
 
         Parameters
         ----------
-
         fasta_path_list : List[str]
             List of paths to FASTA files. Multiple files can be provided and will be merged into a single protein dataframe.
 
@@ -438,7 +374,6 @@ class AnnotateFasta(ProcessingStep):
             Drop all precursors which could not be annotated by the FASTA file. Default is True.
 
         """
-
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
@@ -459,7 +394,6 @@ class AnnotateFasta(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Annotate the precursor dataframe with protein information from a FASTA file."""
-
         protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
         if self.drop_decoy and "decoy" in input.precursor_df.columns:
@@ -485,12 +419,10 @@ class DecoyGenerator(ProcessingStep):
 
         Parameters
         ----------
-
         decoy_type : str, optional
             Type of decoys to generate. Currently only `pseudo_reverse` and `diann` are supported. Default is `diann`.
 
         """
-
         super().__init__()
         self.decoy_type = decoy_type
         self.mp_process_num = mp_process_num
@@ -501,7 +433,6 @@ class DecoyGenerator(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Generate decoys for the spectral library."""
-
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
 
@@ -543,7 +474,6 @@ class IsotopeGenerator(ProcessingStep):
 
         Parameters
         ----------
-
         n_isotopes : int, optional
             Number of isotopes to generate. Default is 4.
 
@@ -624,7 +554,6 @@ class RTNormalization(ProcessingStep):
 class MultiplexLibrary(ProcessingStep):
     def __init__(self, multiplex_mapping: list, input_channel: str | int | None = None):
         """Initialize the MultiplexLibrary step."""
-
         self._multiplex_mapping = self._create_multiplex_mapping(multiplex_mapping)
         self._input_channel = input_channel
 
@@ -667,7 +596,6 @@ class MultiplexLibrary(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Apply the MultiplexLibrary step to the input object."""
-
         if "channel" in input.precursor_df.columns:
             input.precursor_df = input.precursor_df[
                 input.precursor_df["channel"] == self._input_channel
@@ -703,7 +631,6 @@ class FlattenLibrary(ProcessingStep):
 
         Parameters
         ----------
-
         top_k_fragments : int, optional
             Number of top fragments to keep. Default is 12.
 
@@ -722,7 +649,6 @@ class FlattenLibrary(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibFlat:
         """Convert a `SpecLibBase` object into a `SpecLibFlat` object."""
-
         input._fragment_cardinality_df = fragment.calc_fragment_cardinality(
             input.precursor_df, input._fragment_mz_df
         )
@@ -742,7 +668,6 @@ class InitFlatColumns(ProcessingStep):
         """Initialize the columns of a `SpecLibFlat` object for alphadia search.
         Calibratable columns are `mz_library`, `rt_library` and `mobility_library` will be initialized with the first matching column in the input dataframe.
         """
-
         super().__init__()
 
     def validate(self, input: SpecLibFlat) -> bool:
@@ -751,7 +676,6 @@ class InitFlatColumns(ProcessingStep):
 
     def forward(self, input: SpecLibFlat) -> SpecLibFlat:
         """Initialize the columns of a `SpecLibFlat` object for alphadia search."""
-
         precursor_columns = {
             "mz_library": ["mz_library", "mz", "precursor_mz"],
             "rt_library": [
@@ -801,7 +725,6 @@ class LogFlatLibraryStats(ProcessingStep):
 
     def forward(self, input: SpecLibFlat) -> SpecLibFlat:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
-
         logger.info("============ Library Stats ============")
         logger.info(f"Number of precursors: {len(input.precursor_df):,}")
 
@@ -844,38 +767,3 @@ class LogFlatLibraryStats(ProcessingStep):
         logger.info("=======================================")
 
         return input
-
-
-class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr=0.01) -> None:
-        super().__init__()
-        self.fdr = fdr
-
-    def validate(self, psm_df, base_library) -> bool:
-        """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
-        return True
-
-    def forward(self, psm_df, base_library):
-        psm_df = psm_df[psm_df["qval"] <= self.fdr]
-        psm_df = psm_df[psm_df["decoy"] == 0]
-
-        rt_df = psm_df.groupby("elution_group_idx", as_index=False).agg(
-            rt=pd.NamedAgg(column="rt_observed", aggfunc="median"),
-            pg=pd.NamedAgg(column="pg", aggfunc="first"),
-        )
-
-        mbr_spec_lib = base_library.copy()
-        if "rt" in mbr_spec_lib._precursor_df.columns:
-            mbr_spec_lib._precursor_df.drop(columns=["rt"], inplace=True)
-
-        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df.merge(
-            rt_df, on="elution_group_idx", how="right"
-        )
-        mbr_spec_lib._precursor_df["genes"] = mbr_spec_lib._precursor_df["pg"]
-        mbr_spec_lib._precursor_df["proteins"] = mbr_spec_lib._precursor_df["pg"]
-
-        mbr_spec_lib._precursor_df.drop(columns=["pg"], inplace=True)
-
-        mbr_spec_lib.remove_unused_fragments()
-
-        return mbr_spec_lib

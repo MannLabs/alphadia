@@ -8,9 +8,9 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.libtransform import libtransform
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.workflow.base import WorkflowBase
