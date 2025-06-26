@@ -159,7 +159,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval: int = 1000,
         *,
         experimental_hyperparameter_tuning: bool = False,
-        **kwargs,
+        **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
 
@@ -199,7 +199,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Whether to use experimental hyperparameter tuning.
 
         **kwargs : dict
-            Deprecated keyword arguments. Will raise a warning if used.
+            Keyword arguments. Will raise a warning if used.
 
         """
         if layers is None:

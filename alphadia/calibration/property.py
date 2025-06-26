@@ -520,7 +520,7 @@ def PolynomialRegression(degree=2, include_bias=False):
     )
 
 
-calibration_model_provider = CalibrationModelProvider()  # remove
+calibration_model_provider = CalibrationModelProvider()
 calibration_model_provider.register_model("LinearRegression", LinearRegression)
 calibration_model_provider.register_model("LOESSRegression", LOESSRegression)
 calibration_model_provider.register_model("PolynomialRegression", PolynomialRegression)
