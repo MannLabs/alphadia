@@ -1,5 +1,5 @@
 import logging
-import os
+from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -108,12 +108,13 @@ def plot_fdr(
     fig.tight_layout()
 
     if figure_path is not None:
+        figure_path_ = Path(figure_path)
         i = 0
-        file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
-        while os.path.exists(file_name):
+        file_path = figure_path_ / f"fdr_{i}.pdf"
+        while file_path.exists():
             i += 1
-            file_name = os.path.join(figure_path, f"fdr_{i}.pdf")
-        fig.savefig(file_name)
+            file_path = figure_path_ / f"fdr_{i}.pdf"
+        fig.savefig(file_path)
     else:
         plt.show()
         plt.close()
