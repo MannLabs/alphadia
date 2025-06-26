@@ -214,16 +214,16 @@ def _fdr_to_q_values(fdr_values: np.ndarray):
 
 
 def get_q_values(
-    _df: pd.DataFrame,
+    df: pd.DataFrame,
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
-):
+) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
     Parameters
     ----------
-    _df : pd.DataFrame
+    df : pd.DataFrame
         The dataframe containing the PSMs.
 
     score_column : str, default='proba'
@@ -243,10 +243,10 @@ def get_q_values(
         The dataframe containing the q-values in column qval.
 
     """
-    _df = _df.sort_values([score_column, score_column], ascending=True)
-    target_values = 1 - _df[decoy_column].values
-    decoy_cumsum = np.cumsum(_df[decoy_column].values)
+    df = df.sort_values([score_column, score_column], ascending=True)
+    target_values = 1 - df[decoy_column].to_numpy()
+    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum / target_cumsum
-    _df[qval_column] = _fdr_to_q_values(fdr_values)
-    return _df
+    df[qval_column] = _fdr_to_q_values(fdr_values)
+    return df

@@ -1,3 +1,5 @@
+"""Plotting functionality for FDR."""
+
 import logging
 from pathlib import Path
 
@@ -5,6 +7,10 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import sklearn
+
+auc_difference_percent_warning_threshold = 5
+
+qval_threshold = 0.05
 
 logger = logging.getLogger()
 
@@ -17,7 +23,7 @@ def plot_fdr(
     classifier: sklearn.base.BaseEstimator,
     qval: np.ndarray,
     figure_path: str | None = None,
-) -> None:
+) -> None:  # noqa: PLR0913 # Too many arguments
     """Plots statistics on the fdr corrected PSMs.
 
     Parameters
@@ -63,8 +69,10 @@ def plot_fdr(
 
     auc_difference_percent = np.abs((auc_test - auc_train) / auc_train * 100)
     logger.info(f"AUC difference: {auc_difference_percent:.2f}%")
-    if auc_difference_percent > 5:
-        logger.warning("AUC difference > 5%. This may indicate overfitting.")
+    if auc_difference_percent > auc_difference_percent_warning_threshold:
+        logger.warning(
+            f"AUC difference > {auc_difference_percent_warning_threshold}%. This may indicate overfitting."
+        )
 
     fig, ax = plt.subplots(1, 3, figsize=(12, 4))
     ax[0].plot(fpr_test, tpr_test, label=f"Test AUC: {auc_test:.3f}")
@@ -90,7 +98,7 @@ def plot_fdr(
     ax[1].set_ylabel("precursor count")
     ax[1].legend()
 
-    qval_plot = qval[qval < 0.05]
+    qval_plot = qval[qval < qval_threshold]
     ids = np.arange(0, len(qval_plot), 1)
     ax[2].plot(qval_plot, ids)
     ax[2].set_xlim(-0.001, 0.05)
@@ -102,7 +110,7 @@ def plot_fdr(
         axs.spines["top"].set_visible(False)
         axs.spines["right"].set_visible(False)
         axs.get_yaxis().set_major_formatter(
-            mpl.ticker.FuncFormatter(lambda x, p: format(int(x), ","))
+            mpl.ticker.FuncFormatter(lambda x, _p: format(int(x), ","))
         )
 
     fig.tight_layout()
