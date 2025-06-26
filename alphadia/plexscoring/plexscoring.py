@@ -11,9 +11,10 @@ import numpy as np
 import pandas as pd
 
 # alphadia imports
-from alphadia import quadrupole, utils, validate
+from alphadia import utils, validate
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import fragments
+from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF

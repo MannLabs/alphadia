@@ -42,7 +42,7 @@ def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def linear(x, m, b):
+def linear(x, m, b):  # TODO unused
     return m * x + b
 
 
@@ -328,7 +328,7 @@ def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def calculate_observation_importance(
+def calculate_observation_importance(  # TODO unused
     template,
 ):
     observation_importance = np.sum(np.sum(template, axis=2), axis=2)

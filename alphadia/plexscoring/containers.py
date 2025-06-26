@@ -7,11 +7,12 @@ import logging
 import numba as nb
 import numpy as np
 
-# third party imports
-# alphadia imports
-from alphadia import quadrupole
 from alphadia.constants.settings import NUM_FEATURES
 from alphadia.numba import config, fragments
+
+# third party imports
+# alphadia imports
+from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.features.fragment_features import (
     fragment_features,
     fragment_mobility_correlation,

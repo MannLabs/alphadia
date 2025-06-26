@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from alphadia.quadrupole import (
+from alphadia.plexscoring.quadrupole import (
     SimpleQuadrupole,
     logistic_rectangle,
     quadrupole_transfer_function_single,
