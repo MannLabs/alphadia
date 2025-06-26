@@ -18,7 +18,6 @@ class Classifier(ABC):
 
     Attributes
     ----------
-
     fitted : bool
         Whether the classifier has been fitted.
 
@@ -35,7 +34,6 @@ class Classifier(ABC):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Training data of shape (n_samples, n_features).
 
@@ -50,13 +48,11 @@ class Classifier(ABC):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=int
             Predicted class of shape (n_samples,).
 
@@ -68,13 +64,11 @@ class Classifier(ABC):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
@@ -82,24 +76,21 @@ class Classifier(ABC):
 
     @abstractmethod
     def to_state_dict(self):
-        """
-        Return a state dict of the classifier.
+        """Return a state dict of the classifier.
 
         Returns
         -------
-
         state_dict : dict
             State dict of the classifier.
+
         """
 
     @abstractmethod
     def from_state_dict(self, state_dict: dict):
-        """
-        Load a state dict of the classifier.
+        """Load a state dict of the classifier.
 
         Parameters
         ----------
-
         state_dict : dict
             State dict of the classifier.
 
@@ -107,8 +98,7 @@ class Classifier(ABC):
 
 
 def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
-    """
-    Scale batch size and learning rate based on dataframe size using square root relationship.
+    """Scale batch size and learning rate based on dataframe size using square root relationship.
 
     Parameters
     ----------
@@ -125,6 +115,7 @@ def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128
     -------
     tuple(int, float)
         (batch_size, learning_rate)
+
     """
     n_samples = len(df)
 
@@ -162,7 +153,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-
         input_dim : int, default=10
             Number of input features.
 
@@ -244,7 +234,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Returns
         -------
-
         dict : dict
             Dictionary containing the state of the classifier.
 
@@ -274,12 +263,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-
         dict : dict
             Dictionary containing the state of the classifier.
 
         """
-
         _state_dict = deepcopy(state_dict)
 
         if "network_state_dict" in _state_dict:
@@ -301,7 +288,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Training data of shape (n_samples, n_features).
 
@@ -424,17 +410,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=int
             Predicted class of shape (n_samples,).
-        """
 
+        """
         if not self.fitted:
             raise ValueError("Classifier has not been fitted yet.")
 
@@ -455,18 +439,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         Parameters
         ----------
-
         x : np.array, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
         y : np.array, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
-
         if not self.fitted:
             raise ValueError("Classifier has not been fitted yet.")
 
@@ -490,10 +471,7 @@ class FeedForwardNN(nn.Module):
         layers: list[int] | None = None,
         dropout=0.5,
     ):
-        """
-        built a simple feed forward network for FDR estimation
-
-        """
+        """Built a simple feed forward network for FDR estimation"""
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()

@@ -64,10 +64,10 @@ def perform_fdr(
 
     Returns
     -------
-
     psm_df : pd.DataFrame
         A dataframe of PSMs with q-values and probabilities.
         The columns `qval` and `proba` are added to the input dataframes.
+
     """
     target_len, decoy_len = len(df_target), len(df_decoy)
     df_target.dropna(subset=available_columns, inplace=True)
@@ -169,7 +169,6 @@ def keep_best(
 
     Parameters
     ----------
-
     df : pd.DataFrame
         The dataframe containing the PSMs.
 
@@ -181,9 +180,9 @@ def keep_best(
 
     Returns
     -------
-
     pd.DataFrame
         The dataframe containing the best PSM for each group.
+
     """
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
@@ -208,6 +207,7 @@ def _fdr_to_q_values(fdr_values: np.ndarray):
     -------
     np.ndarray
         The q-values.
+
     """
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
@@ -225,7 +225,6 @@ def get_q_values(
 
     Parameters
     ----------
-
     _df : pd.DataFrame
         The dataframe containing the PSMs.
 

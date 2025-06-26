@@ -22,7 +22,6 @@ def plot_fdr(
 
     Parameters
     ----------
-
     X_train : np.ndarray
         The training data.
 
@@ -43,8 +42,8 @@ def plot_fdr(
 
     figure_path: str | None
         The path to the folder to save the figure to.
-    """
 
+    """
     y_test_proba = classifier.predict_proba(X_test)[:, 1]
 
     y_train_proba = classifier.predict_proba(X_train)[:, 1]
