@@ -482,7 +482,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         return self.network(torch.Tensor(x)).detach().numpy()
 
 
-class FeedForwardNN(nn.Module):  # TODO: remove
+class FeedForwardNN(nn.Module):
     def __init__(
         self,
         input_dim,
@@ -521,16 +521,3 @@ class FeedForwardNN(nn.Module):  # TODO: remove
 
     def forward(self, x):
         return self.fc_layers(x)
-
-
-class SupervisedLoss:  # TODO: remove
-    def __init__(self) -> None:
-        self.loss = nn.CrossEntropyLoss()
-
-    def __call__(self, y_pred, y_true):
-        # output_selection = get_group_mask(y_pred.detach().detach().cpu().numpy(), y_groups.detach().cpu().numpy(), n_groups)
-
-        # y_pred = y_pred[output_selection]
-        # y_true = y_true[output_selection]
-
-        return self.loss(y_pred, y_true)
