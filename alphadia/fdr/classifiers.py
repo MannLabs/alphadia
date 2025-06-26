@@ -222,16 +222,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
     def fitted(self):
         return self._fitted
 
-    @property
-    def metrics(self):
-        """Return the metrics of the classifier."""
-        return self._metrics
-
-    @metrics.setter
-    def metrics(self, metrics: dict) -> None:
-        """Set the metrics for the classifier."""
-        self._metrics = metrics
-
     def to_state_dict(self) -> dict:
         """Save the state of the classifier as a dictionary.
 
