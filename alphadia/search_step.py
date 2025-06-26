@@ -10,14 +10,21 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
-from alphadia.libtransform import libtransform
+from alphadia.libtransform.base import ProcessingPipeline
+from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
+from alphadia.libtransform.flatten import (
+    FlattenLibrary,
+    InitFlatColumns,
+    LogFlatLibraryStats,
+)
 from alphadia.libtransform.harmonize import (
     AnnotateFasta,
     IsotopeGenerator,
     PrecursorInitializer,
     RTNormalization,
 )
+from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
@@ -218,7 +225,7 @@ class SearchStep:
             )
             spectral_library = fasta_digest(self.fasta_path_list)
         else:
-            dynamic_loader = libtransform.DynamicLoader()
+            dynamic_loader = DynamicLoader()
             spectral_library = dynamic_loader(self.library_path)
 
         # 2. Check if properties should be predicted
@@ -243,7 +250,7 @@ class SearchStep:
             spectral_library = pept_deep_prediction(spectral_library)
 
         # 3. import library and harmonize
-        harmonize_pipeline = libtransform.ProcessingPipeline(
+        harmonize_pipeline = ProcessingPipeline(
             [
                 PrecursorInitializer(),
                 AnnotateFasta(self.fasta_path_list),
@@ -267,15 +274,15 @@ class SearchStep:
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
-        prepare_pipeline = libtransform.ProcessingPipeline(
+        prepare_pipeline = ProcessingPipeline(
             [
-                libtransform.DecoyGenerator(
+                DecoyGenerator(
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                libtransform.FlattenLibrary(self.config["search"]["top_k_fragments"]),
-                libtransform.InitFlatColumns(),
-                libtransform.LogFlatLibraryStats(),
+                FlattenLibrary(self.config["search"]["top_k_fragments"]),
+                InitFlatColumns(),
+                LogFlatLibraryStats(),
             ]
         )
 
