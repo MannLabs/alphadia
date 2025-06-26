@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import torch
 from peptdeep.model.ms2 import calc_ms2_similarity
 from peptdeep.utils import linear_regression
 
@@ -267,6 +268,48 @@ class Ms2SimilarityTestMetric(TestMetricBase):
         return stats
 
 
+class BinaryCrossEntropyTestMetric(TestMetricBase):
+    def __init__(self):
+        super().__init__(columns=["bce_loss"])
+        self.first_predictions = None
+        self.first_targets = None
+
+    def calculate_test_metric(
+        self, test_input: dict, epoch: int, data_split: str, property_name: str
+    ) -> pd.DataFrame:
+        """
+        Calculate the test metric at a given epoch.
+
+        Parameters
+        ----------
+        test_input : dict
+            A dictionary containing the test input data. The dictionary should contain the following keys:
+            - "predicted": A numpy array of predicted values.
+            - "target": A numpy array of target values.
+
+        epoch : int
+            The epoch at which the test metric is calculated.
+
+        data_split : str
+            The name of the dataset. e.g. "train", "validation", "test".
+
+        property_name : str
+            The name of the property. e.g. "charge", "rt"
+
+        Returns
+        -------
+        pd.DataFrame
+            A pandas dataframe containing the test metric at the given epoch in the long format.
+        """
+        predictions = torch.as_tensor(test_input["predicted"], dtype=torch.float32)
+        targets = torch.as_tensor(test_input["target"], dtype=torch.float32)
+        loss = torch.nn.functional.binary_cross_entropy(predictions, targets).item()
+        new_stats = pd.DataFrame([loss], columns=self.columns)
+        stats = self._to_long_format(new_stats, epoch, data_split, property_name)
+
+        return stats
+
+
 class CELossTestMetric(TestMetricBase):
     def __init__(self):
         super().__init__(columns=["ce_loss"])
@@ -352,8 +395,9 @@ class AccuracyTestMetric(TestMetricBase):
 
 
 class PrecisionRecallTestMetric(TestMetricBase):
-    def __init__(self):
+    def __init__(self, prob_cutoff: float = 0.5):
         super().__init__(columns=["precision", "recall"])
+        self.prob_cutoff = prob_cutoff
 
     def calculate_test_metric(
         self, test_input: dict, epoch: int, data_split: str, property_name: str
@@ -383,22 +427,14 @@ class PrecisionRecallTestMetric(TestMetricBase):
         """
         predictions = test_input["predicted"]
         targets = test_input["target"]
-        n_classes = predictions.shape[1]
-        predictions = np.argmax(predictions, axis=1)
-        targets = np.argmax(targets, axis=1)
-
-        confusion_matrix = np.zeros((n_classes, n_classes))
-        for i in range(n_classes):
-            for j in range(n_classes):
-                confusion_matrix[i, j] = np.sum((predictions == i) & (targets == j))
-
-        precision = np.diag(confusion_matrix) / (
-            np.sum(confusion_matrix, axis=0) + 1e-6
-        )
-        recall = np.diag(confusion_matrix) / (np.sum(confusion_matrix, axis=1) + 1e-6)
+        predictions = predictions >= self.prob_cutoff
+        # correct matches of predicted and target
+        matches = np.logical_and(predictions, targets)
+        precision = np.sum(matches) / (np.sum(predictions) + 1e-10)
+        recall = np.sum(matches) / (np.sum(targets) + 1e-10)
 
         new_stats = pd.DataFrame(
-            np.array([np.mean(precision), np.mean(recall)]).reshape(1, 2),
+            np.array([precision, recall]).reshape(1, 2),
             columns=self.columns,
         )
 
