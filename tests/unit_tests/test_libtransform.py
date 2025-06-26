@@ -4,7 +4,21 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.libtransform import libtransform
+from alphadia.libtransform.base import ProcessingPipeline
+from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.flatten import (
+    FlattenLibrary,
+    InitFlatColumns,
+    LogFlatLibraryStats,
+)
+from alphadia.libtransform.harmonize import (
+    AnnotateFasta,
+    IsotopeGenerator,
+    PrecursorInitializer,
+    RTNormalization,
+)
+from alphadia.libtransform.loader import DynamicLoader
+from alphadia.libtransform.multiplex import MultiplexLibrary
 
 
 def test_library_transform():
@@ -39,23 +53,23 @@ KSKSSGEHLDLKSGEHLDLKLMHSPTGR
     temp_fasta.write(fasta.encode())
     temp_fasta.close()
 
-    import_pipeline = libtransform.ProcessingPipeline(
+    import_pipeline = ProcessingPipeline(
         [
-            libtransform.DynamicLoader(),
-            libtransform.PrecursorInitializer(),
-            libtransform.AnnotateFasta([temp_fasta.name]),
-            libtransform.IsotopeGenerator(n_isotopes=4),
-            libtransform.RTNormalization(),
+            DynamicLoader(),
+            PrecursorInitializer(),
+            AnnotateFasta([temp_fasta.name]),
+            IsotopeGenerator(n_isotopes=4),
+            RTNormalization(),
         ]
     )
 
     # the prepare pipeline is used to prepare an alphabase compatible spectral library for extraction
-    prepare_pipeline = libtransform.ProcessingPipeline(
+    prepare_pipeline = ProcessingPipeline(
         [
-            libtransform.DecoyGenerator(decoy_type="diann"),
-            libtransform.FlattenLibrary(),
-            libtransform.InitFlatColumns(),
-            libtransform.LogFlatLibraryStats(),
+            DecoyGenerator(decoy_type="diann"),
+            FlattenLibrary(),
+            InitFlatColumns(),
+            LogFlatLibraryStats(),
         ]
     )
 
@@ -111,7 +125,7 @@ def test_multiplex_library():
     ]
 
     # when
-    multiplexer = libtransform.MultiplexLibrary(test_multiplex_mapping)
+    multiplexer = MultiplexLibrary(test_multiplex_mapping)
     result_lib = multiplexer.forward(test_lib)
 
     # then
