@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
+from alphadia._fdrx.base import TargetDecoyFDR
 from alphadia.fdrexperimental import get_scaled_training_params
-from alphadia.fdrx.base import TargetDecoyFDR
 
 
 @patch("matplotlib.pyplot.show")
