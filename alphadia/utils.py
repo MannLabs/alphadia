@@ -72,14 +72,6 @@ def get_isotope_columns(colnames):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def mass_range(mz_list, ppm_tolerance):
-    out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)
-    out_mz[:, 0] = mz_list - ppm_tolerance * mz_list / (10**6)
-    out_mz[:, 1] = mz_list + ppm_tolerance * mz_list / (10**6)
-    return out_mz
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def tile(a, n):
     return np.repeat(a, n).reshape(-1, n).T.flatten()
 

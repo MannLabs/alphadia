@@ -9,9 +9,9 @@ from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
-from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
-from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.data.utils import mass_range
+from alphadia.utils import USE_NUMBA_CACHING, get_frame_indices
 
 logger = logging.getLogger()
 
@@ -327,7 +327,7 @@ class AlphaRawJIT:
 
         """
 
-        return utils.get_frame_indices(
+        return get_frame_indices(
             rt_values=rt_values,
             rt_values_array=self.rt_values,
             zeroth_frame=self.zeroth_frame,
@@ -432,7 +432,7 @@ class AlphaRawJIT:
         LOW_EPSILON = 1e-36
 
         # (n_tof_slices, 2) array of start, stop mz for each slice
-        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+        mz_query_slices = mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
 
         cycle_length = self.cycle.shape[1]
@@ -557,7 +557,7 @@ class AlphaRawJIT:
         """
 
         # (n_tof_slices, 2) array of start, stop mz for each slice
-        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+        mz_query_slices = mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
 
         cycle_length = self.cycle.shape[1]

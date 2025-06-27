@@ -25,6 +25,7 @@ exclude = [
     "alphadia/constants/*.py",
     "alphadia/data/alpharaw_wrapper.py",
     "alphadia/data/bruker.py",
+    "alphadia/data/utils.py",
     "alphadia/_fdrx/stats.py",
     "alphadia/_fdrx/plotting.py",
     "alphadia/_fdrx/base.py",
