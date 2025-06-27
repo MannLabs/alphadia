@@ -6,7 +6,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import utils
 from alphadia.libtransform.base import ProcessingStep
-from alphadia.validation import validate
+from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
 logger = logging.getLogger()
 
@@ -96,8 +96,8 @@ class InitFlatColumns(ProcessingStep):
             input.precursor_df["mobility_library"] = 0
             logger.warning("Library contains no ion mobility annotations")
 
-        validate.precursors_flat_schema(input.precursor_df)
-        validate.fragments_flat_schema(input.fragment_df)
+        precursors_flat_schema.validate(input.precursor_df)
+        fragments_flat_schema.validate(input.fragment_df)
 
         return input
 

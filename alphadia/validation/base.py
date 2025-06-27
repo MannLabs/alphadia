@@ -2,6 +2,7 @@
 import logging
 
 import numpy as np
+import pandas as pd
 
 # alphadia imports
 # alpha family imports
@@ -122,8 +123,8 @@ class Schema:
             if not isinstance(property, Property):
                 raise ValueError("Schema must contain only Property objects")
 
-    def __call__(self, df, logging=True):
-        """Validates the dataframe
+    def validate(self, df: pd.DataFrame, logging: bool = True) -> None:
+        """Validates the dataframe.
 
         Parameters
         ----------
@@ -132,6 +133,11 @@ class Schema:
 
         logging: bool
             If True, log the validation results
+
+        Raises
+        ------
+        ValueError
+            If validation fails.
 
         """
         for property in self.schema:

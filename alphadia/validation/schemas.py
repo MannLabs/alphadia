@@ -50,7 +50,7 @@ def precursors_flat(df: pd.DataFrame, logging: bool = True):
 
     """
     check_critical_values(df)
-    precursors_flat_schema(df, logging=logging)
+    precursors_flat_schema.validate(df, logging=logging)
 
 
 precursors_flat.__doc__ += precursors_flat_schema.docstring()
@@ -89,7 +89,7 @@ def fragments_flat(df: pd.DataFrame, logging: bool = True):
 
     """
     check_critical_values(df)
-    fragments_flat_schema(df, logging=logging)
+    fragments_flat_schema.validate(df, logging=logging)
 
 
 fragments_flat.__doc__ += fragments_flat_schema.docstring()
@@ -137,7 +137,7 @@ def candidates_df(df: pd.DataFrame, logging: bool = True):
 
     """
     check_critical_values(df)
-    candidates_schema(df, logging=logging)
+    candidates_schema.validate(df, logging=logging)
 
 
 candidates_df.__doc__ += candidates_schema.docstring()
@@ -192,7 +192,7 @@ def candidate_features_df(input_df: pd.DataFrame, logging: bool = True):
 
     """
     check_critical_values(input_df)
-    features_schema(input_df, logging=logging)
+    features_schema.validate(input_df, logging=logging)
 
 
 candidate_features_df.__doc__ += features_schema.docstring()
@@ -231,7 +231,7 @@ def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
 
     """
     check_critical_values(input_df)
-    fragment_features_schema(input_df, logging=logging)
+    fragment_features_schema.validate(input_df, logging=logging)
 
 
 fragment_features_df.__doc__ += fragment_features_schema.docstring()
