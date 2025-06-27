@@ -4,9 +4,10 @@ import pandas as pd
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
-from alphadia import fdr
 from alphadia.exceptions import TooFewProteinsError
-from alphadia.fdr_.utils import train_test_split_
+from alphadia.fdr import fdr
+from alphadia.fdr.plotting import plot_fdr
+from alphadia.fdr.utils import train_test_split_
 
 logger = logging.getLogger()
 
@@ -81,7 +82,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     protein_features["pg_qval"] = protein_features["pg_qval"] * n_targets / n_decoys
 
     if figure_path is not None:
-        fdr.plot_fdr(
+        plot_fdr(
             X_train,
             X_test,
             y_train,

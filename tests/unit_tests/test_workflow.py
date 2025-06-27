@@ -14,7 +14,7 @@ from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
-from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
