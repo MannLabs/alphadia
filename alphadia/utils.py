@@ -71,10 +71,6 @@ def get_isotope_columns(colnames):
     return isotopes
 
 
-def get_isotope_column_names(colnames):
-    return [f"i_{i}" for i in get_isotope_columns(colnames)]
-
-
 @nb.njit(cache=USE_NUMBA_CACHING)
 def mass_range(mz_list, ppm_tolerance):
     out_mz = np.zeros((len(mz_list), 2), dtype=mz_list.dtype)

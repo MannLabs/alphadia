@@ -1,26 +1,30 @@
 """Main Implementation of Candidate Scoring System."""
 
-# native imports
 import logging
 
-# alpha family imports
 import alphatims.utils
 import numpy as np
-
-# third party imports
 import pandas as pd
 
-# alphadia imports
-from alphadia import utils, validate
+from alphadia import validate
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import fragments
 from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
-from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.utils import (
+    USE_NUMBA_CACHING,
+    calculate_score_groups,
+    get_isotope_columns,
+    merge_missing_columns,
+)
 
 logger = logging.getLogger()
+
+
+def _get_isotope_column_names(colnames):
+    return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
@@ -214,9 +218,9 @@ class CandidateScoring:
             "decoy",
             "channel",
             self.precursor_mz_column,
-        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
 
-        candidates_df = utils.merge_missing_columns(
+        candidates_df = merge_missing_columns(
             candidates_df,
             self.precursors_flat_df,
             precursor_columns,
@@ -233,7 +237,7 @@ class CandidateScoring:
             candidates_df["i_0"] = np.ones(len(candidates_df), dtype=np.float32)
 
         # calculate score groups
-        candidates_df = utils.calculate_score_groups(
+        candidates_df = calculate_score_groups(
             candidates_df, group_channels=self.config.score_grouped
         )
 
@@ -257,7 +261,7 @@ class CandidateScoring:
             candidates_df["frame_center"].values,
             candidates_df["charge"].values,
             candidates_df[self.precursor_mz_column].values,
-            candidates_df[utils.get_isotope_column_names(candidates_df.columns)].values,
+            candidates_df[_get_isotope_column_names(candidates_df.columns)].values,
         )
 
         return score_group_container
@@ -391,7 +395,7 @@ class CandidateScoring:
 
         candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
 
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             candidates_df,
             candidate_df_columns,
@@ -414,7 +418,7 @@ class CandidateScoring:
             "sequence",
             "mods",
             "mod_sites",
-        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
 
         precursor_df_columns += (
             [self.rt_column] if self.rt_column not in precursor_df_columns else []
@@ -430,7 +434,7 @@ class CandidateScoring:
             else []
         )
 
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             self.precursors_flat_df,
             precursor_df_columns,
@@ -504,7 +508,7 @@ class CandidateScoring:
             "elution_group_idx",
             "decoy",
         ]
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             self.precursors_flat_df,
             precursor_df_columns,
