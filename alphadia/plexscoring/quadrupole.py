@@ -43,11 +43,6 @@ def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     return y
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
-def linear(x, m, b):  # TODO unused
-    return m * x + b
-
-
 @jitclass
 class SimpleQuadrupoleJit:
     # original cycle as defined in the Bruker file
