@@ -6,7 +6,7 @@ on:
 #  push:
 #    branches: [ main ]
   schedule:
-    - cron: "0 0 * * *"   # daily at midnight
+    - cron: "0 22 * * *"  # daily at 10 pm
   workflow_dispatch:
     inputs:
       test_case:
