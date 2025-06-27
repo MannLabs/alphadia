@@ -10,14 +10,14 @@ import numpy as np
 from numba.core import types
 from numba.experimental import jitclass
 
-from alphadia.data.utils import mass_range
-from alphadia.exceptions import NotValidDiaDataError
-from alphadia.utils import (
-    USE_NUMBA_CACHING,
+from alphadia.data.utils import (
     get_frame_indices,
     make_slice_1d,
     make_slice_2d,
+    mass_range,
 )
+from alphadia.exceptions import NotValidDiaDataError
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 

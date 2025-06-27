@@ -10,8 +10,8 @@ from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
 from alphadia.data.dia_cycle import determine_dia_cycle
-from alphadia.data.utils import mass_range
-from alphadia.utils import USE_NUMBA_CACHING, get_frame_indices
+from alphadia.data.utils import get_frame_indices, mass_range
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
