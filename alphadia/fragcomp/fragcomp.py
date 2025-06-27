@@ -48,7 +48,7 @@ def _get_fragment_overlap(
 
 @timsutils.pjit(cache=USE_NUMBA_CACHING)
 def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
-    thread_idx: int,  # pjit decorator expands this into an iterable of indices
+    thread_idx: int,  # pjit decorator changes the passed argument from an iterable to single index
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
     rt: np.ndarray,
@@ -63,11 +63,15 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
 
     The function is applied on a dia window basis.
 
+    The pjit decorator thread-parallelizes over the first argument index and additionally wraps with numba.njit(nogil=True).
+    Make sure to read and understand the pjit decorator, especially how it changes the type of the first argument.
+
     Parameters
     ----------
     thread_idx: int
         The thread index. Each thread will handle one dia window.
-        The function will be wrapped in a pjit decorator and will be parallelized over this index.
+        The pjit decorator effectively changes the type of this argument to `np.ndarray` and threa-parallelizes
+        over it.
 
     precursor_start_idxs: np.ndarray
         Array of length n_windows. The start indices of the precursors in the PSM dataframe.
@@ -262,9 +266,7 @@ class FragmentCompetition:
         thread_plan_df = self._get_thread_plan_df(psm_df)
 
         _compete_for_fragments(
-            np.arange(
-                len(thread_plan_df)
-            ),  # function is wrapped by pjit -> will be turned into single index and passed to the method
+            np.arange(len(thread_plan_df)),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
             psm_df["rt_observed"].values,
