@@ -7,8 +7,7 @@ import numpy as np
 import pandas as pd
 from alphatims import utils as timsutils
 
-from alphadia import utils
-from alphadia.fragcomp.utils import add_frag_start_stop_idx
+from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
@@ -246,10 +245,10 @@ class FragmentCompetition:
             The PSM dataframe with the valid column.
 
         """
-        psm_df["_candidate_idx"] = utils.candidate_hash(
+        psm_df["_candidate_idx"] = candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
         )
-        frag_df["_candidate_idx"] = utils.candidate_hash(
+        frag_df["_candidate_idx"] = candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
 

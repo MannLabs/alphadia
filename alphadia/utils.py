@@ -2,7 +2,6 @@ import logging
 import os
 import platform
 
-import numba as nb
 import numpy as np
 
 logger = logging.getLogger()
@@ -40,14 +39,6 @@ def get_torch_device(use_gpu: bool = False):
     logger.info(f"Device set to {device}")
 
     return device
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def candidate_hash(precursor_idx, rank):
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the rank is the next 8 bits
-    return precursor_idx + (rank << 32)
 
 
 def get_isotope_columns(colnames):
