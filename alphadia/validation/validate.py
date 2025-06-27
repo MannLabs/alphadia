@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from alphadia.validation.base import Optional, Required, Schema
+from alphadia.validation.base import Optional, Required, Schema, check_critical_values
 
 logger = logging.getLogger()
 
@@ -49,7 +49,7 @@ def precursors_flat(df: pd.DataFrame, logging: bool = True):
         If validation fails
 
     """
-    _check_critical_values(df)
+    check_critical_values(df)
     precursors_flat_schema(df, logging=logging)
 
 
@@ -88,7 +88,7 @@ def fragments_flat(df: pd.DataFrame, logging: bool = True):
         If validation fails
 
     """
-    _check_critical_values(df)
+    check_critical_values(df)
     fragments_flat_schema(df, logging=logging)
 
 
@@ -136,30 +136,11 @@ def candidates_df(df: pd.DataFrame, logging: bool = True):
         If validation fails
 
     """
-    _check_critical_values(df)
+    check_critical_values(df)
     candidates_schema(df, logging=logging)
 
 
 candidates_df.__doc__ += candidates_schema.docstring()
-
-
-def _check_critical_values(input_df):
-    for col in input_df.columns:
-        if np.issubdtype(input_df[col].dtype, np.floating):
-            nan_count = input_df[col].isna().sum()
-            inf_count = np.isinf(input_df[col]).sum()
-
-            if nan_count > 0:
-                nan_percentage = nan_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {nan_count} NaNs ( {nan_percentage:.2f} % out of {len(input_df)})"
-                )
-
-            if inf_count > 0:
-                inf_percentage = inf_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {inf_count} Infs ( {inf_percentage:.2f} % out of {len(input_df)})"
-                )
 
 
 features_schema = Schema(
@@ -210,7 +191,7 @@ def candidate_features_df(input_df: pd.DataFrame, logging: bool = True):
         If validation fails
 
     """
-    _check_critical_values(input_df)
+    check_critical_values(input_df)
     features_schema(input_df, logging=logging)
 
 
@@ -249,7 +230,7 @@ def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
         If validation fails
 
     """
-    _check_critical_values(input_df)
+    check_critical_values(input_df)
     fragment_features_schema(input_df, logging=logging)
 
 

@@ -1,6 +1,8 @@
 # native imports
 import logging
 
+import numpy as np
+
 # alphadia imports
 # alpha family imports
 # third party imports
@@ -167,3 +169,22 @@ class Schema:
           - {property.type.__name__}
         """
         return docstring
+
+
+def check_critical_values(input_df):
+    for col in input_df.columns:
+        if np.issubdtype(input_df[col].dtype, np.floating):
+            nan_count = input_df[col].isna().sum()
+            inf_count = np.isinf(input_df[col]).sum()
+
+            if nan_count > 0:
+                nan_percentage = nan_count / len(input_df) * 100
+                logger.warning(
+                    f"{col} has {nan_count} NaNs ( {nan_percentage:.2f} % out of {len(input_df)})"
+                )
+
+            if inf_count > 0:
+                inf_percentage = inf_count / len(input_df) * 100
+                logger.warning(
+                    f"{col} has {inf_count} Infs ( {inf_percentage:.2f} % out of {len(input_df)})"
+                )
