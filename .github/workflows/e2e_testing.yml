@@ -32,7 +32,7 @@ jobs:
             echo "test_cases=[\"${{ github.event.inputs.test_case }}\"]" >> $GITHUB_OUTPUT
           else
             # NEW TEST CASES ARE ADDED HERE:
-            echo 'test_cases=["basic", "synchropasef", "astral", "astral_automatic_calibration", "multistep"]' >> $GITHUB_OUTPUT
+            echo 'test_cases=["basic", "astral", "astral_automatic_calibration", "multistep", "synchropasef", ]' >> $GITHUB_OUTPUT
           fi
 
       - id: parse-commitish-to-test
@@ -49,6 +49,7 @@ jobs:
     runs-on: self-hosted
     strategy:
       fail-fast: false
+      max-parallel: 1 # make order of tests deterministic, cf. https://github.com/tektoncd/pipeline/issues/7056#issuecomment-1689301827
       matrix:
         test_case: ${{ fromJson(needs.parse_inputs.outputs.test_cases) }}
     env:
