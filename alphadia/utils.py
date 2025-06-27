@@ -39,6 +39,7 @@ def get_torch_device(use_gpu: bool = False):
     return device
 
 
+# TODO find a better place for this
 def get_isotope_columns(colnames):
     isotopes = []
     for col in colnames:
