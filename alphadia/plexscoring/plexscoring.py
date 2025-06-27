@@ -18,19 +18,11 @@ from alphadia.utils import (
     get_isotope_columns,
 )
 from alphadia.validation.schemas import (
-    candidate_features_df as validate_candidate_features_df,
-)
-from alphadia.validation.schemas import (
-    candidates_df as validate_candidates_df,
-)
-from alphadia.validation.schemas import (
-    fragment_features_df as validate_fragment_features_df,
-)
-from alphadia.validation.schemas import (
-    fragments_flat as validate_fragments_flat,
-)
-from alphadia.validation.schemas import (
-    precursors_flat as validate_precursors_flat,
+    candidates_schema,
+    features_schema,
+    fragment_features_schema,
+    fragments_flat_schema,
+    precursors_flat_schema,
 )
 
 logger = logging.getLogger()
@@ -126,12 +118,10 @@ class CandidateScoring:
 
         self._dia_data = dia_data
 
-        # validate precursors_flat
-        validate_precursors_flat(precursors_flat)
+        precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
         self.precursors_flat_df = precursors_flat
 
-        # validate fragments_flat
-        validate_fragments_flat(fragments_flat)
+        fragments_flat_schema.validate(fragments_flat, warn_on_critical_values=True)
         self.fragments_flat = fragments_flat
 
         # check if a valid quadrupole calibration is provided
@@ -163,7 +153,9 @@ class CandidateScoring:
 
     @precursors_flat_df.setter
     def precursors_flat_df(self, precursors_flat_df):
-        validate_precursors_flat(precursors_flat_df)
+        precursors_flat_schema.validate(
+            precursors_flat_df, warn_on_critical_values=True
+        )
         self._precursors_flat_df = precursors_flat_df.sort_values(by="precursor_idx")
 
     @property
@@ -173,7 +165,7 @@ class CandidateScoring:
 
     @fragments_flat_df.setter
     def fragments_flat_df(self, fragments_flat):
-        validate_fragments_flat(fragments_flat)
+        fragments_flat_schema.validate(fragments_flat, warn_on_critical_values=True)
         self._fragments_flat = fragments_flat
 
     @property
@@ -255,7 +247,7 @@ class CandidateScoring:
         )
 
         # validate dataframe schema and prepare jitclass compatible dtypes
-        validate_candidates_df(candidates_df)
+        candidates_schema.validate(candidates_df, warn_on_critical_values=True)
 
         score_group_container = ScoreGroupContainer()
         score_group_container.build_from_df(
@@ -305,7 +297,9 @@ class CandidateScoring:
             )
 
         # validate dataframe schema and prepare jitclass compatible dtypes
-        validate_fragments_flat(self.fragments_flat)
+        fragments_flat_schema.validate(
+            self.fragments_flat, warn_on_critical_values=True
+        )
 
         return fragments.FragmentContainer(
             self.fragments_flat["mz_library"].values,
@@ -568,7 +562,8 @@ class CandidateScoring:
         logger.info("Starting candidate scoring")
 
         fragment_container = self.assemble_fragments()
-        validate_candidates_df(candidates_df)
+
+        candidates_schema.validate(candidates_df, warn_on_critical_values=True)
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         n_candidates = score_group_container.get_candidate_count()
@@ -596,11 +591,13 @@ class CandidateScoring:
         logger.info("Finished candidate processing")
         logger.info("Collecting candidate features")
         candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
-        validate_candidate_features_df(candidate_features_df)
+        features_schema.validate(candidate_features_df, warn_on_critical_values=True)
 
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
-        validate_fragment_features_df(fragment_features_df)
+        fragment_features_schema.validate(
+            fragment_features_df, warn_on_critical_values=True
+        )
 
         logger.info("Finished candidate scoring")
 
