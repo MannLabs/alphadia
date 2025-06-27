@@ -5,7 +5,7 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
-from alphadia import utils, validate
+from alphadia import utils
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -16,6 +16,7 @@ from alphadia.peakgroup.utils import (
     find_peaks_2d,
 )
 from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.validation import validate
 
 logger = logging.getLogger()
 

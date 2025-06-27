@@ -1,194 +1,11 @@
-# native imports
 import logging
 
 import numpy as np
-
-# alphadia imports
-# alpha family imports
-# third party imports
 import pandas as pd
 
+from alphadia.validation.base import Optional, Required, Schema, check_critical_values
+
 logger = logging.getLogger()
-
-
-class Property:
-    """Column property base class"""
-
-    def __init__(self, name, type):
-        """
-        Base class for all properties
-
-        Parameters
-        ----------
-
-        name: str
-            Name of the property
-
-        type: type
-            Type of the property
-
-        """
-        self.name = name
-        self.type = type
-
-
-class Optional(Property):
-    """Optional property"""
-
-    def __init__(self, name, type):
-        """
-        Optional property
-
-        Parameters
-        ----------
-
-        name: str
-            Name of the property
-
-        type: type
-            Type of the property
-
-        """
-
-        self.name = name
-        self.type = type
-
-    def __call__(self, df, logging=True):
-        """
-        Casts the property to the specified type if it is present in the dataframe
-
-        Parameters
-        ----------
-
-        df: pd.DataFrame
-            Dataframe to validate
-
-        logging: bool
-            If True, log the validation results
-        """
-
-        if self.name in df.columns and df[self.name].dtype != self.type:
-            df[self.name] = df[self.name].astype(self.type)
-
-        return True
-
-
-class Required(Property):
-    """Required property"""
-
-    def __init__(self, name, type):
-        """
-        Required property
-
-        Parameters
-        ----------
-
-        name: str
-            Name of the property
-
-        type: type
-            Type of the property
-
-        """
-        self.name = name
-        self.type = type
-
-    def __call__(self, df, logging=True):
-        """
-        Casts the property to the specified type if it is present in the dataframe
-
-        Parameters
-        ----------
-
-        df: pd.DataFrame
-            Dataframe to validate
-
-        logging: bool
-            If True, log the validation results
-
-        """
-
-        if self.name in df.columns:
-            if df[self.name].dtype != self.type:
-                df[self.name] = df[self.name].astype(self.type)
-
-            return True
-        else:
-            return False
-
-
-class Schema:
-    def __init__(self, name, properties):
-        """
-        Schema for validating dataframes
-
-        Parameters
-        ----------
-
-        name: str
-            Name of the schema
-
-        properties: list
-            List of Property objects
-
-        """
-
-        self.name = name
-        self.schema = properties
-        for property in self.schema:
-            if not isinstance(property, Property):
-                raise ValueError("Schema must contain only Property objects")
-
-    def __call__(self, df, logging=True):
-        """
-        Validates the dataframe
-
-        Parameters
-        ----------
-
-        df: pd.DataFrame
-            Dataframe to validate
-
-        logging: bool
-            If True, log the validation results
-
-        """
-
-        for property in self.schema:
-            if not property(df, logging=logging):
-                raise ValueError(
-                    f"Validation of {self.name} failed: Column {property.name} is not present in the dataframe"
-                )
-
-    def docstring(self) -> str:
-        """Automatically generate a docstring for the schema.
-
-        Returns
-        -------
-        str
-            Docstring for the schema
-        """
-
-        docstring = """
-    Schema
-    ------
-
-    .. list-table::
-        :widths: 1 1 1
-        :header-rows: 1
-
-        * - Name
-          - Required
-          - Type
-"""
-        for property in self.schema:
-            emphasis = "**" if isinstance(property, Required) else ""
-            docstring += f"""
-        * - {property.name}
-          - {emphasis}{property.__class__.__name__}{emphasis}
-          - {property.type.__name__}
-        """
-        return docstring
 
 
 precursors_flat_schema = Schema(
@@ -228,13 +45,12 @@ def precursors_flat(df: pd.DataFrame, logging: bool = True):
 
     Raises
     ------
-
     ValueError
         If validation fails
 
     """
     check_critical_values(df)
-    precursors_flat_schema(df, logging=logging)
+    precursors_flat_schema.validate(df, logging=logging)
 
 
 precursors_flat.__doc__ += precursors_flat_schema.docstring()
@@ -268,13 +84,12 @@ def fragments_flat(df: pd.DataFrame, logging: bool = True):
 
     Raises
     ------
-
     ValueError
         If validation fails
 
     """
     check_critical_values(df)
-    fragments_flat_schema(df, logging=logging)
+    fragments_flat_schema.validate(df, logging=logging)
 
 
 fragments_flat.__doc__ += fragments_flat_schema.docstring()
@@ -317,35 +132,15 @@ def candidates_df(df: pd.DataFrame, logging: bool = True):
 
     Raises
     ------
-
     ValueError
         If validation fails
 
     """
     check_critical_values(df)
-    candidates_schema(df, logging=logging)
+    candidates_schema.validate(df, logging=logging)
 
 
 candidates_df.__doc__ += candidates_schema.docstring()
-
-
-def check_critical_values(input_df):
-    for col in input_df.columns:
-        if np.issubdtype(input_df[col].dtype, np.floating):
-            nan_count = input_df[col].isna().sum()
-            inf_count = np.isinf(input_df[col]).sum()
-
-            if nan_count > 0:
-                nan_percentage = nan_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {nan_count} NaNs ( {nan_percentage:.2f} % out of {len(input_df)})"
-                )
-
-            if inf_count > 0:
-                inf_percentage = inf_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {inf_count} Infs ( {inf_percentage:.2f} % out of {len(input_df)})"
-                )
 
 
 features_schema = Schema(
@@ -392,13 +187,12 @@ def candidate_features_df(input_df: pd.DataFrame, logging: bool = True):
 
     Raises
     ------
-
     ValueError
         If validation fails
 
     """
     check_critical_values(input_df)
-    features_schema(input_df, logging=logging)
+    features_schema.validate(input_df, logging=logging)
 
 
 candidate_features_df.__doc__ += features_schema.docstring()
@@ -432,13 +226,12 @@ def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
 
     Raises
     ------
-
     ValueError
         If validation fails
 
     """
     check_critical_values(input_df)
-    fragment_features_schema(input_df, logging=logging)
+    fragment_features_schema.validate(input_df, logging=logging)
 
 
 fragment_features_df.__doc__ += fragment_features_schema.docstring()
