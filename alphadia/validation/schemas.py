@@ -1,9 +1,8 @@
 import logging
 
 import numpy as np
-import pandas as pd
 
-from alphadia.validation.base import Optional, Required, Schema, check_critical_values
+from alphadia.validation.base import Optional, Required, Schema
 
 logger = logging.getLogger()
 
@@ -32,29 +31,6 @@ precursors_flat_schema = Schema(
 )
 
 
-def precursors_flat(df: pd.DataFrame, logging: bool = True):
-    """Validate flat precursor dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Precursor dataframe
-
-    logging : bool, optional
-        If True, log the validation results, by default True
-
-    Raises
-    ------
-    ValueError
-        If validation fails
-
-    """
-    check_critical_values(df)
-    precursors_flat_schema.validate(df, logging=logging)
-
-
-precursors_flat.__doc__ += precursors_flat_schema.docstring()
-
 fragments_flat_schema = Schema(
     "fragments_flat",
     [
@@ -70,29 +46,6 @@ fragments_flat_schema = Schema(
     ],
 )
 
-
-def fragments_flat(df: pd.DataFrame, logging: bool = True):
-    """Validate flat fragment dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Fragment dataframe
-
-    logging : bool, optional
-        If True, log the validation results, by default True
-
-    Raises
-    ------
-    ValueError
-        If validation fails
-
-    """
-    check_critical_values(df)
-    fragments_flat_schema.validate(df, logging=logging)
-
-
-fragments_flat.__doc__ += fragments_flat_schema.docstring()
 
 candidates_schema = Schema(
     "candidates_df",
@@ -117,30 +70,6 @@ candidates_schema = Schema(
         *[Optional(f"i_{i}", np.float32) for i in range(10)],
     ],
 )
-
-
-def candidates_df(df: pd.DataFrame, logging: bool = True):
-    """Validate candidate dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Candidate dataframe
-
-    logging : bool, optional
-        If True, log the validation results, by default True
-
-    Raises
-    ------
-    ValueError
-        If validation fails
-
-    """
-    check_critical_values(df)
-    candidates_schema.validate(df, logging=logging)
-
-
-candidates_df.__doc__ += candidates_schema.docstring()
 
 
 features_schema = Schema(
@@ -174,29 +103,6 @@ features_schema = Schema(
 )
 
 
-def candidate_features_df(input_df: pd.DataFrame, logging: bool = True):
-    """Validate feature dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Feature dataframe
-
-    logging : bool, optional
-        If True, log the validation results, by default True
-
-    Raises
-    ------
-    ValueError
-        If validation fails
-
-    """
-    check_critical_values(input_df)
-    features_schema.validate(input_df, logging=logging)
-
-
-candidate_features_df.__doc__ += features_schema.docstring()
-
 fragment_features_schema = Schema(
     "fragment_features_df",
     [
@@ -211,27 +117,3 @@ fragment_features_schema = Schema(
         Required("decoy", np.uint8),
     ],
 )
-
-
-def fragment_features_df(input_df: pd.DataFrame, logging: bool = True):
-    """Validate fragment feature dataframe
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Fragment feature dataframe
-
-    logging : bool, optional
-        If True, log the validation results, by default True
-
-    Raises
-    ------
-    ValueError
-        If validation fails
-
-    """
-    check_critical_values(input_df)
-    fragment_features_schema.validate(input_df, logging=logging)
-
-
-fragment_features_df.__doc__ += fragment_features_schema.docstring()
