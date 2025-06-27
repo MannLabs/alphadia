@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from alphadia import fragcomp
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
+from alphadia.fragcomp.fragcomp import FragmentCompetition
 
 max_dia_cycle_shape = 2
 
@@ -140,7 +140,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
-            fragment_competition = fragcomp.FragmentCompetition()
+            fragment_competition = FragmentCompetition()
             psm_df = fragment_competition(
                 psm_df.iloc[:start_idx], df_fragments, dia_cycle
             )

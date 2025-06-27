@@ -7,11 +7,11 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import fragcomp, utils
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fragcomp.fragcomp import FragmentCompetition
 from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -19,6 +19,7 @@ from alphadia.plexscoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
+from alphadia.utils import candidate_hash
 from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
@@ -956,10 +957,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         logger.info("Removing fragments below FDR threshold")
 
         # to be optimized later
-        fragments_df["candidate_idx"] = utils.candidate_hash(
+        fragments_df["candidate_idx"] = candidate_hash(
             fragments_df["precursor_idx"].values, fragments_df["rank"].values
         )
-        precursor_df["candidate_idx"] = utils.candidate_hash(
+        precursor_df["candidate_idx"] = candidate_hash(
             precursor_df["precursor_idx"].values, precursor_df["rank"].values
         )
 
@@ -1246,11 +1247,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         # establish mapping
         # TODO: we are reusing the FragmentCompetition class here which should be refactored
-        frag_comp = fragcomp.FragmentCompetition()
-        scored_candidates["_candidate_idx"] = utils.candidate_hash(
+        frag_comp = FragmentCompetition()
+        scored_candidates["_candidate_idx"] = candidate_hash(
             scored_candidates["precursor_idx"].values, scored_candidates["rank"].values
         )
-        frag_df["_candidate_idx"] = utils.candidate_hash(
+        frag_df["_candidate_idx"] = candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
         scored_candidates = frag_comp.add_frag_start_stop_idx(

@@ -15,7 +15,7 @@ from alphadia._fdrx.plotting import (
 )
 from alphadia._fdrx.stats import add_q_values, get_pep, keep_best
 from alphadia.fdr.utils import train_test_split_
-from alphadia.fragcomp import FragmentCompetition
+from alphadia.fragcomp.fragcomp import FragmentCompetition
 
 logger = logging.getLogger()
 

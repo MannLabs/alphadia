@@ -1,33 +1,37 @@
 import numpy as np
 import pandas as pd
 
-from alphadia import fragcomp
+from alphadia.fragcomp.fragcomp import (
+    FragmentCompetition,
+    compete_for_fragments,
+    get_fragment_overlap,
+)
 
 
 def test_fragment_overlap():
     frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     frag_mz_2 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 10
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 10
 
     frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     frag_mz_2 = np.array([100])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 1
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 1
 
     frag_mz_1 = np.array([])
     frag_mz_2 = np.array([])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
 
     frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     frag_mz_2 = np.array([])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
 
     frag_mz_1 = np.array([])
     frag_mz_2 = np.array([100, 200, 300, 400, 500, 600, 700, 801, 901, 1001])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
 
     frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
     frag_mz_2 = np.array([101, 201, 301, 401, 501, 601, 701, 801, 901, 1001])
-    assert fragcomp.get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
+    assert get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
 
 
 def test_compete_for_fragments():
@@ -37,7 +41,7 @@ def test_compete_for_fragments():
     frag_stop_idx = np.array([10, 20, 30, 40, 50, 60])
     fragment_mz = np.tile(np.arange(100, 110), 6)
 
-    fragcomp.compete_for_fragments(
+    compete_for_fragments(
         np.array([0, 1]),
         np.array([0, 3]),
         np.array([3, 6]),
@@ -73,7 +77,7 @@ def test_fragment_competition():
         }
     )
 
-    fragment_competition = fragcomp.FragmentCompetition()
+    fragment_competition = FragmentCompetition()
     psm_df = fragment_competition(psm_df, frag_df, cycle)
 
     assert len(psm_df) == 4
