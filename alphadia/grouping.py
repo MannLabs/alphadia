@@ -12,7 +12,7 @@ import pandas as pd
 from numpy.typing import NDArray
 
 
-def group_and_parsimony(
+def _group_and_parsimony(
     precursor_idx: NDArray[np.int64],
     precursor_ids: NDArray[Any],
     return_parsimony_groups: bool = False,
@@ -153,7 +153,7 @@ def perform_grouping(
     unique_decoys = upsm[decoy_column].unique()
     if len(unique_decoys) == 1:
         upsm[decoy_column] = -1
-        upsm["pg_master"], upsm["pg"] = group_and_parsimony(
+        upsm["pg_master"], upsm["pg"] = _group_and_parsimony(
             upsm.precursor_idx.values,
             upsm[genes_or_proteins].values,
             return_parsimony_groups,
@@ -167,7 +167,7 @@ def perform_grouping(
         # greedy set cover on targets
         t_df = upsm[target_mask].copy()
         # TODO: consider directly assigning to t_df["pg_master"], t_df["pg"] = group_and_parsimony(...)
-        new_columns = group_and_parsimony(
+        new_columns = _group_and_parsimony(
             t_df.precursor_idx.values,
             t_df[genes_or_proteins].values,
             return_parsimony_groups,
@@ -176,7 +176,7 @@ def perform_grouping(
 
         # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
-        new_columns = group_and_parsimony(
+        new_columns = _group_and_parsimony(
             d_df.precursor_idx.values,
             d_df[genes_or_proteins].values,
             return_parsimony_groups,
