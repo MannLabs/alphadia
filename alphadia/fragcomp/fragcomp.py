@@ -20,12 +20,10 @@ def _get_fragment_overlap(
     frag_mz_2: np.ndarray,
     mass_tol_ppm: float = 10,
 ) -> int:
-    """
-    Get the number of overlapping fragments between two spectra.
+    """Get the number of overlapping fragments between two spectra.
 
     Parameters
     ----------
-
     frag_mz_1: np.ndarray
         The m/z values of the first spectrum.
 
@@ -39,6 +37,7 @@ def _get_fragment_overlap(
     -------
     int
         The number of overlapping fragments.
+
     """
     frag_mz_1 = frag_mz_1.reshape(-1, 1)
     frag_mz_2 = frag_mz_2.reshape(1, -1)
@@ -61,13 +60,11 @@ def _compete_for_fragments(
     rt_tol_seconds: float = 3,
     mass_tol_ppm: float = 15,
 ):
-    """
-    Remove PSMs that share fragments with other PSMs.
+    """Remove PSMs that share fragments with other PSMs.
     The function is applied on a dia window basis.
 
     Parameters
     ----------
-
     thread_idx: int
         The thread index. Each thread will handle one dia window.
         The function will be wrapped in a pjit decorator and will be parallelized over this index.
@@ -98,8 +95,8 @@ def _compete_for_fragments(
 
     mass_tol_ppm: float
         The mass tolerance in ppm.
-    """
 
+    """
     precursor_start_idx = precursor_start_idxs[thread_idx]
     precursor_stop_idx = precursor_stop_idxs[thread_idx]
 
@@ -140,12 +137,10 @@ class FragmentCompetition:
     def __init__(
         self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8
     ):
-        """
-        Remove PSMs that share fragments with other PSMs.
+        """Remove PSMs that share fragments with other PSMs.
 
         Parameters
         ----------
-
         rt_tol_seconds: int
             The retention time tolerance in seconds.
 
@@ -162,12 +157,10 @@ class FragmentCompetition:
 
     @staticmethod
     def _add_window_idx(psm_df: pd.DataFrame, cycle: np.ndarray):
-        """
-        Add the window index to the PSM dataframe.
+        """Add the window index to the PSM dataframe.
 
         Parameters
         ----------
-
         psm_df: pd.DataFrame
             The PSM dataframe.
 
@@ -178,8 +171,8 @@ class FragmentCompetition:
         -------
         pd.DataFrame
             The PSM dataframe with the window index.
-        """
 
+        """
         if "window_idx" in psm_df.columns:
             logger.warning("Window index already present in PSM dataframe. Skipping.")
             return psm_df
@@ -196,13 +189,11 @@ class FragmentCompetition:
 
     @staticmethod
     def _get_thread_plan_df(psm_df: pd.DataFrame):
-        """
-        Expects a dataframe sorted by window idxs and qvals.
+        """Expects a dataframe sorted by window idxs and qvals.
         Returns a dataframe with start and stop indices of the threads.
 
         Parameters
         ----------
-
         psm_df: pd.DataFrame
             The PSM dataframe.
 
@@ -210,6 +201,7 @@ class FragmentCompetition:
         -------
         pd.DataFrame
             The thread plan dataframe.
+
         """
         psm_df["_thread_idx"] = np.arange(len(psm_df))
         index_df = psm_df.groupby("window_idx", as_index=False).agg(
@@ -224,12 +216,10 @@ class FragmentCompetition:
     def __call__(
         self, psm_df: pd.DataFrame, frag_df: pd.DataFrame, cycle: np.ndarray
     ) -> pd.DataFrame:
-        """
-        Remove PSMs that share fragments with other PSMs.
+        """Remove PSMs that share fragments with other PSMs.
 
         Parameters
         ----------
-
         psm_df: pd.DataFrame
             The PSM dataframe.
 
@@ -238,13 +228,13 @@ class FragmentCompetition:
 
         cycle: np.ndarray
             DIA cycle as provided by alphatims.
+
         Returns
         -------
-
         pd.DataFrame
             The PSM dataframe with the valid column.
-        """
 
+        """
         psm_df["_candidate_idx"] = utils.candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
         )
