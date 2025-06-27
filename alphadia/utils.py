@@ -7,8 +7,6 @@ import numpy as np
 logger = logging.getLogger()
 
 
-ISOTOPE_DIFF = 1.0032999999999674
-
 USE_NUMBA_CACHING = os.environ.get("USE_NUMBA_CACHING", "0") == "1"
 
 
