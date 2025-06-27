@@ -61,14 +61,6 @@ def amean1(array):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def amean0(array):
-    out = np.zeros(array.shape[1])
-    for i in range(len(out)):
-        out[i] = np.mean(array[:, i])
-    return out
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def astd1(array):
     out = np.zeros(array.shape[0])
     for i in range(len(out)):
