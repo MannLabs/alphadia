@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def get_fragment_overlap(
+def _get_fragment_overlap(
     frag_mz_1: np.ndarray,
     frag_mz_2: np.ndarray,
     mass_tol_ppm: float = 10,
@@ -47,7 +47,7 @@ def get_fragment_overlap(
 
 
 @timsutils.pjit(cache=USE_NUMBA_CACHING)
-def compete_for_fragments(
+def _compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
@@ -115,7 +115,7 @@ def compete_for_fragments(
 
             delta_rt = abs(i_rt - j_rt)
             if delta_rt < rt_tol_seconds:
-                fragment_overlap = get_fragment_overlap(
+                fragment_overlap = _get_fragment_overlap(
                     fragment_mz[
                         frag_start_idx[precursor_start_idx + i] : frag_stop_idx[
                             precursor_start_idx + i
@@ -192,7 +192,8 @@ class FragmentCompetition:
         psm_df["window_idx"] = np.argmax(idx, axis=1)
         return psm_df
 
-    def get_thread_plan_df(self, psm_df: pd.DataFrame):
+    @staticmethod
+    def _get_thread_plan_df(psm_df: pd.DataFrame):
         """
         Expects a dataframe sorted by window idxs and qvals.
         Returns a dataframe with start and stop indices of the threads.
@@ -259,9 +260,9 @@ class FragmentCompetition:
         # psm_df["valid"] = True
 
         timsutils.set_threads(self.thread_count)
-        thread_plan_df = self.get_thread_plan_df(psm_df)
+        thread_plan_df = self._get_thread_plan_df(psm_df)
 
-        compete_for_fragments(
+        _compete_for_fragments(
             np.arange(len(thread_plan_df)),
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
