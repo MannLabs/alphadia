@@ -19,7 +19,7 @@ exclude = [
     "alphadia/plexscoring/*.py",
     "alphadia/quadrupole.py",
     "alphadia/search_plan.py",
-    "alphadia/libtransform.py",
+    "alphadia/libtransform/**.py",
     "alphadia/search_step.py",
     "alphadia/utils.py",
     "alphadia/validate.py",
