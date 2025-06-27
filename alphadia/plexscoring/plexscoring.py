@@ -13,11 +13,10 @@ from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
+from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
 from alphadia.utils import (
     USE_NUMBA_CACHING,
-    calculate_score_groups,
     get_isotope_columns,
-    merge_missing_columns,
 )
 
 logger = logging.getLogger()
