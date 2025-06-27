@@ -8,7 +8,13 @@ import pandas as pd
 from alphadia import utils, validate
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
-from alphadia.peakgroup.utils import assemble_isotope_mz, find_peaks_1d, find_peaks_2d
+from alphadia.peakgroup.utils import (
+    amean1,
+    assemble_isotope_mz,
+    astd1,
+    find_peaks_1d,
+    find_peaks_2d,
+)
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -642,13 +648,13 @@ def build_candidates(
     # if trained, use the mean and std from training
     # otherwise calculate the mean and std from the current data
     if mean is None:
-        feature_mean = utils.amean1(feature_matrix).reshape(-1, 1, 1)
+        feature_mean = amean1(feature_matrix).reshape(-1, 1, 1)
     else:
         feature_mean = mean.reshape(-1, 1, 1)
     # feature_mean = feature_mean.reshape(-1,1,1)
 
     if std is None:
-        feature_std = utils.astd1(feature_matrix).reshape(-1, 1, 1)
+        feature_std = astd1(feature_matrix).reshape(-1, 1, 1)
     else:
         feature_std = std.reshape(-1, 1, 1)
     # feature_std = feature_std.reshape(-1,1,1)

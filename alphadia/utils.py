@@ -52,22 +52,6 @@ def candidate_hash(precursor_idx, rank):
     return precursor_idx + (rank << 32)
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
-def amean1(array):
-    out = np.zeros(array.shape[0])
-    for i in range(len(out)):
-        out[i] = np.mean(array[i])
-    return out
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def astd1(array):
-    out = np.zeros(array.shape[0])
-    for i in range(len(out)):
-        out[i] = np.std(array[i])
-    return out
-
-
 def get_isotope_columns(colnames):
     isotopes = []
     for col in colnames:

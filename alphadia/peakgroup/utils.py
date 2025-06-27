@@ -103,3 +103,19 @@ def find_peaks_2d(a, top_n=3):
     intensity = intensity[idx]
 
     return scan, dia_cycle, intensity
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def amean1(array):
+    out = np.zeros(array.shape[0])
+    for i in range(len(out)):
+        out[i] = np.mean(array[i])
+    return out
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def astd1(array):
+    out = np.zeros(array.shape[0])
+    for i in range(len(out)):
+        out[i] = np.std(array[i])
+    return out
