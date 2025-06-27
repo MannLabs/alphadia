@@ -72,11 +72,6 @@ def get_isotope_columns(colnames):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def tile(a, n):
-    return np.repeat(a, n).reshape(-1, n).T.flatten()
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def make_slice_1d(start_stop):
     """Numba helper function to create a 1D slice object from a start and stop value.
 

@@ -14,6 +14,11 @@ logger = logging.getLogger()
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
+def tile(a, n):
+    return np.repeat(a, n).reshape(-1, n).T.flatten()
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
 def frame_profile_2d(x):
     return np.sum(x, axis=2)
 
