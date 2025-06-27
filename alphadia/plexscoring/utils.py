@@ -198,3 +198,69 @@ def transfer_feature(  # TODO: unused?
     feature_array[idx] = score_group_container[idx].candidates[0].feature_array
     precursor_idx_array[idx] = score_group_container[idx].candidates[0].precursor_idx
     rank_array[idx] = score_group_container[idx].candidates[0].rank
+
+
+def merge_missing_columns(
+    left_df: pd.DataFrame,
+    right_df: pd.DataFrame,
+    right_columns: list,
+    on: list = None,
+    how: str = "left",
+):
+    """Merge missing columns from right_df into left_df.
+
+    Merging is performed only for columns not yet present in left_df.
+
+    Parameters
+    ----------
+
+    left_df : pandas.DataFrame
+        Left dataframe
+
+    right_df : pandas.DataFrame
+        Right dataframe
+
+    right_columns : list
+        List of columns to merge from right_df into left_df
+
+    on : list, optional
+        List of columns to merge on, by default None
+
+    how : str, optional
+        How to merge, by default 'left'
+
+    Returns
+    -------
+    pandas.DataFrame
+        Merged left dataframe
+
+    """
+    if isinstance(on, str):
+        on = [on]
+
+    if isinstance(right_columns, str):
+        right_columns = [right_columns]
+
+    missing_from_left = list(set(right_columns) - set(left_df.columns))
+    missing_from_right = list(set(missing_from_left) - set(right_df.columns))
+
+    if len(missing_from_left) == 0:
+        return left_df
+
+    if missing_from_right:
+        raise ValueError(f"Columns {missing_from_right} must be present in right_df")
+
+    if on is None:
+        raise ValueError("Parameter on must be specified")
+
+    if not all([col in left_df.columns for col in on]):
+        raise ValueError(f"Columns {on} must be present in left_df")
+
+    if not all([col in right_df.columns for col in on]):
+        raise ValueError(f"Columns {on} must be present in right_df")
+
+    if how not in ["left", "right", "inner", "outer"]:
+        raise ValueError("Parameter how must be one of left, right, inner, outer")
+
+    # merge
+    return left_df.merge(right_df[on + missing_from_left], on=on, how=how)
