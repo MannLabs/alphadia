@@ -7,11 +7,12 @@ from alphabase.peptide import fragment, precursor
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia import grouping, utils
+from alphadia import utils
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
+from alphadia.outputtransform import grouping
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
