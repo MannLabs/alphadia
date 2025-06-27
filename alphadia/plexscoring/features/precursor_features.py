@@ -1,11 +1,11 @@
 import numba as nb
 import numpy as np
 
-from alphadia import utils
 from alphadia.numba import numeric
 from alphadia.plexscoring.features.features_utils import (
     weighted_center_mean_2d,
 )
+from alphadia.plexscoring.utils import tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 
@@ -48,10 +48,10 @@ def precursor_features(
     # weighted_ms1_intensity
     feature_array[7] = np.sum(weighted_sum_precursor_intensity * isotope_intensity)
 
-    expected_scan_center = utils.tile(
+    expected_scan_center = tile(
         dense_precursors.shape[3], n_isotopes * n_observations
     ).reshape(n_isotopes, -1)
-    expected_frame_center = utils.tile(
+    expected_frame_center = tile(
         dense_precursors.shape[2], n_isotopes * n_observations
     ).reshape(n_isotopes, -1)
 

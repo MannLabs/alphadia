@@ -6,10 +6,11 @@ import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
 import directlfq.protein_intensity_estimation as lfqprot_estimation
 import directlfq.utils as lfqutils
+import numba as nb
 import numpy as np
 import pandas as pd
 
-from alphadia import utils
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
@@ -48,9 +49,26 @@ def get_frag_df_generator(folder_list: list[str]):
                 yield raw_name, run_df
 
 
+@nb.njit(cache=USE_NUMBA_CACHING)
+def _ion_hash(precursor_idx, number, type, charge, loss_type):
+    # create a 64 bit hash from the precursor_idx, number and type
+    # the precursor_idx is the lower 32 bits
+    # the number is the next 8 bits
+    # the type is the next 8 bits
+    # the charge is the next 8 bits
+    # the loss_type is the last 8 bits
+    return (
+        precursor_idx
+        + (number << 32)
+        + (type << 40)
+        + (charge << 48)
+        + (loss_type << 56)
+    )
+
+
 def prepare_df(df, psm_df, column="intensity"):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
-    df["ion"] = utils.ion_hash(
+    df["ion"] = _ion_hash(
         df["precursor_idx"].values,
         df["number"].values,
         df["type"].values,

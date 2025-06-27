@@ -5,7 +5,7 @@ import numpy as np
 from numba.experimental import jitclass
 from scipy.optimize import curve_fit
 
-from alphadia import utils
+from alphadia.plexscoring.utils import tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 
@@ -292,8 +292,8 @@ def quadrupole_transfer_function_single(
     n_scans = scan_indices.shape[0]
 
     mz_column = np.repeat(isotope_mz, n_scans * n_observations)
-    observation_column = utils.tile(np.repeat(observation_indices, n_scans), n_isotopes)
-    scan_column = utils.tile(scan_indices, n_isotopes * n_observations)
+    observation_column = tile(np.repeat(observation_indices, n_scans), n_isotopes)
+    scan_column = tile(scan_indices, n_isotopes * n_observations)
 
     intensity = quadrupole_calibration_jit.predict(
         observation_column, scan_column, mz_column

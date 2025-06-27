@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia import grouping
+from alphadia.outputtransform import grouping
 
 
 # helper function to construct test cases

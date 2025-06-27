@@ -10,7 +10,12 @@ import numpy as np
 from numba.core import types
 from numba.experimental import jitclass
 
-from alphadia import utils
+from alphadia.data.utils import (
+    get_frame_indices,
+    make_slice_1d,
+    make_slice_2d,
+    mass_range,
+)
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -315,7 +320,7 @@ class TimsTOFTransposeJIT:
 
         """
 
-        return utils.get_frame_indices(
+        return get_frame_indices(
             rt_values=rt_values,
             rt_values_array=self.rt_values,
             zeroth_frame=self.zeroth_frame,
@@ -402,7 +407,7 @@ class TimsTOFTransposeJIT:
             if optimal_scan_limits[0] > self.scan_max_index:
                 optimal_scan_limits[0] = self.scan_max_index
 
-        return utils.make_slice_1d(optimal_scan_limits)
+        return make_slice_1d(optimal_scan_limits)
 
     def get_scan_indices_tolerance(self, mobility, tolerance, optimize_size=16):
         """
@@ -445,8 +450,8 @@ class TimsTOFTransposeJIT:
         mz_values: np.ndarray,
         tolerance: float,
     ):
-        mz_limits = utils.mass_range(mz_values, tolerance)
-        return utils.make_slice_2d(self.get_tof_indices(mz_limits))
+        mz_limits = mass_range(mz_values, tolerance)
+        return make_slice_2d(self.get_tof_indices(mz_limits))
 
     def cycle_mask(self, quad_slices: np.ndarray, custom_cycle: np.ndarray = None):
         """Calculate the DIA cycle quadrupole mask for each score group.
@@ -766,8 +771,8 @@ class TimsTOFTransposeJIT:
         absolute_masses=False,
         custom_cycle=None,
     ):
-        tof_limits = utils.make_slice_2d(
-            self.get_tof_indices(utils.mass_range(mz_values, mass_tolerance))
+        tof_limits = make_slice_2d(
+            self.get_tof_indices(mass_range(mz_values, mass_tolerance))
         )
 
         mz_mask = self.cycle_mask(quadrupole_mz, custom_cycle)
@@ -797,8 +802,8 @@ class TimsTOFTransposeJIT:
         absolute_masses=False,
         custom_cycle=None,
     ):
-        tof_limits = utils.make_slice_2d(
-            self.get_tof_indices(utils.mass_range(mz_values, mass_tolerance))
+        tof_limits = make_slice_2d(
+            self.get_tof_indices(mass_range(mz_values, mass_tolerance))
         )
 
         mz_mask = self.cycle_mask(quadrupole_mz, custom_cycle)
