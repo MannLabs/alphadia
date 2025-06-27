@@ -48,7 +48,7 @@ def _get_fragment_overlap(
 
 @timsutils.pjit(cache=USE_NUMBA_CACHING)
 def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
-    thread_idx: int,
+    thread_idx: int,  # pjit decorator expands this into an iterable of indices
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
     rt: np.ndarray,
@@ -56,8 +56,8 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     frag_start_idx: np.ndarray,
     frag_stop_idx: np.ndarray,
     fragment_mz: np.ndarray,
-    rt_tol_seconds: float = 3,
-    mass_tol_ppm: float = 15,
+    rt_tol_seconds: float,
+    mass_tol_ppm: float,
 ) -> None:
     """Remove PSMs that share fragments with other PSMs.
 
@@ -79,7 +79,7 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
         The retention times of the precursors.
 
     valid: np.ndarray
-        Array of length n_psms. The validity of each PSM.
+        Array of length n_psms. The validity of each PSM. This is where the method output will be stored.
 
     frag_start_idx: np.ndarray
         Array of length n_psms. The start indices of the fragments in the fragment dataframe.
@@ -95,6 +95,10 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
 
     mass_tol_ppm: float
         The mass tolerance in ppm.
+
+    Returns
+    -------
+        None, but modifies the `valid` array in place.
 
     """
     precursor_start_idx = precursor_start_idxs[thread_idx]
@@ -258,7 +262,9 @@ class FragmentCompetition:
         thread_plan_df = self._get_thread_plan_df(psm_df)
 
         _compete_for_fragments(
-            np.arange(len(thread_plan_df)),
+            np.arange(
+                len(thread_plan_df)
+            ),  # function is wrapped by pjit -> will be turned into single index and passed to the method
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
             psm_df["rt_observed"].values,
@@ -266,6 +272,8 @@ class FragmentCompetition:
             psm_df["_frag_start_idx"].values,
             psm_df["_frag_stop_idx"].values,
             frag_df["mz_observed"].values,
+            self.rt_tol_seconds,
+            self.mass_tol_ppm,
         )
 
         psm_df["valid"] = valid

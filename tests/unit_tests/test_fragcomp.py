@@ -50,6 +50,8 @@ def test_compete_for_fragments():
         frag_start_idx,
         frag_stop_idx,
         fragment_mz,
+        3,
+        15,
     )
 
     assert np.all(valid == np.array([True, True, False, True, False, True]))
