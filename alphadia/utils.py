@@ -53,23 +53,6 @@ def candidate_hash(precursor_idx, rank):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def ion_hash(precursor_idx, number, type, charge, loss_type):
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the number is the next 8 bits
-    # the type is the next 8 bits
-    # the charge is the next 8 bits
-    # the loss_type is the last 8 bits
-    return (
-        precursor_idx
-        + (number << 32)
-        + (type << 40)
-        + (charge << 48)
-        + (loss_type << 56)
-    )
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def find_peaks_1d(a, top_n=3):
     """accepts a dense representation and returns the top three peaks"""
 
