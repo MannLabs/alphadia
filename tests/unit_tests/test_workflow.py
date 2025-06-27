@@ -454,7 +454,7 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
-    workflow.init_fdr_manager()
+    workflow._init_fdr_manager()
 
     class MockOptlock:
         total_elution_groups = 2000
@@ -1049,7 +1049,7 @@ def test_configurability():
         }
     )
 
-    ordered_optimizers = workflow.get_ordered_optimizers()
+    ordered_optimizers = workflow._get_ordered_optimizers()
 
     assert len(ordered_optimizers) == 3
 

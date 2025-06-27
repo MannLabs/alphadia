@@ -16,6 +16,7 @@ from alphadia.exceptions import NoOptimizationLockTargetError
 
 # alphadia imports
 from alphadia.reporting import reporting
+from alphadia.workflow.config import Config
 
 
 class BaseOptimizer(ABC):
@@ -756,7 +757,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
 
 
 class OptimizationLock:
-    def __init__(self, library: SpecLibFlat, config: dict):
+    def __init__(self, library: SpecLibFlat, config: Config):
         """Sets and updates the optimization lock, which is the data used for calibration and optimization of the search parameters.
 
         Parameters
@@ -764,11 +765,10 @@ class OptimizationLock:
         library: alphabase.spectral_library.flat.SpecLibFlat
             The library object from the PeptideCentricWorkflow object, which includes the precursor and fragment library dataframes.
 
-        config: dict
-            The configuration dictionary from the PeptideCentricWorkflow object.
+        config: Config
+            The configuration object from the PeptideCentricWorkflow.
         """
         self._library = library
-        self._config = config
 
         self.previously_calibrated = False
         self.has_target_num_precursors = False
@@ -777,12 +777,11 @@ class OptimizationLock:
         rng = np.random.default_rng(seed=772)
         rng.shuffle(self.elution_group_order)
 
-        self._precursor_target_count = self._config["calibration"][
-            "optimization_lock_target"
-        ]
+        self._precursor_target_count = config["calibration"]["optimization_lock_target"]
+        self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
-        self.set_batch_plan()
+        self._set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
@@ -818,19 +817,18 @@ class OptimizationLock:
         """
         return int(2**step)
 
-    def set_batch_plan(self):
+    def _set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
         n_eg = len(self.elution_group_order)
 
         plan = []
 
-        batch_size = self._config["calibration"]["batch_size"]
         step = 0
         start_idx = 0
 
         while start_idx < n_eg:
             n_batches = self._get_exponential_batches(step)
-            stop_idx = min(start_idx + n_batches * batch_size, n_eg)
+            stop_idx = min(start_idx + n_batches * self._batch_size, n_eg)
             plan.append((start_idx, stop_idx))
             step += 1
             start_idx = stop_idx

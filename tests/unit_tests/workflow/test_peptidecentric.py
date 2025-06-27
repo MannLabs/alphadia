@@ -33,7 +33,7 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     instance.reporter = MagicMock()
 
     # when
-    filtered_precursors, filtered_fragments = instance.filter_dfs(
+    filtered_precursors, filtered_fragments = instance._filter_dfs(
         precursor_df, fragments_df
     )
 
