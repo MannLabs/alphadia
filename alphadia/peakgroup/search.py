@@ -16,7 +16,7 @@ from alphadia.peakgroup.utils import (
     find_peaks_2d,
 )
 from alphadia.utils import USE_NUMBA_CACHING
-from alphadia.validation import validate
+from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
 logger = logging.getLogger()
 
@@ -937,8 +937,10 @@ class HybridCandidateSelection:
                 len(self.fragments_flat), dtype=np.uint8
             )
 
-        # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.fragments_flat(self.fragments_flat)
+        # prepare jitclass compatible dtypes
+        fragments_flat_schema.validate(
+            self.fragments_flat, warn_on_critical_values=True
+        )
 
         return fragments.FragmentContainer(
             self.fragments_flat["mz_library"].values,
@@ -953,8 +955,8 @@ class HybridCandidateSelection:
         )
 
     def assemble_precursor_df(self, precursors_flat):
-        # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.precursors_flat(precursors_flat)
+        # prepare jitclass compatible dtypes
+        precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
 
         available_isotopes = utils.get_isotope_columns(precursors_flat.columns)
         available_isotope_columns = [f"i_{i}" for i in available_isotopes]

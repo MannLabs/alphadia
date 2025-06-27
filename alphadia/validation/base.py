@@ -1,12 +1,7 @@
-# native imports
 import logging
 
 import numpy as np
 import pandas as pd
-
-# alphadia imports
-# alpha family imports
-# third party imports
 
 logger = logging.getLogger()
 
@@ -123,7 +118,12 @@ class Schema:
             if not isinstance(property, Property):
                 raise ValueError("Schema must contain only Property objects")
 
-    def validate(self, df: pd.DataFrame, logging: bool = True) -> None:
+    def validate(
+        self,
+        df: pd.DataFrame,
+        logging: bool = True,
+        warn_on_critical_values: bool = False,
+    ) -> None:
         """Validates the dataframe.
 
         Parameters
@@ -132,7 +132,10 @@ class Schema:
             Dataframe to validate
 
         logging: bool
-            If True, log the validation results
+            If True, log the validation results. Defaults to True.
+
+        warn_on_critical_values: bool
+            If True, warn on critical values like NaN and Inf in the dataframe. Defaults to False.
 
         Raises
         ------
@@ -140,6 +143,9 @@ class Schema:
             If validation fails.
 
         """
+        if warn_on_critical_values:
+            self._warn_on_critical_values(df)
+
         for property in self.schema:
             if not property(df, logging=logging):
                 raise ValueError(
@@ -176,21 +182,21 @@ class Schema:
         """
         return docstring
 
+    def _warn_on_critical_values(self, input_df: pd.DataFrame) -> None:
+        """Warns about critical values in the dataframe, such as NaN and Inf."""
+        for col in input_df.columns:
+            if np.issubdtype(input_df[col].dtype, np.floating):
+                nan_count = input_df[col].isna().sum()
+                inf_count = np.isinf(input_df[col]).sum()
 
-def check_critical_values(input_df):
-    for col in input_df.columns:
-        if np.issubdtype(input_df[col].dtype, np.floating):
-            nan_count = input_df[col].isna().sum()
-            inf_count = np.isinf(input_df[col]).sum()
+                if nan_count > 0:
+                    nan_percentage = nan_count / len(input_df) * 100
+                    logger.warning(
+                        f"{col} has {nan_count} NaNs ( {nan_percentage:.2f} % out of {len(input_df)})"
+                    )
 
-            if nan_count > 0:
-                nan_percentage = nan_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {nan_count} NaNs ( {nan_percentage:.2f} % out of {len(input_df)})"
-                )
-
-            if inf_count > 0:
-                inf_percentage = inf_count / len(input_df) * 100
-                logger.warning(
-                    f"{col} has {inf_count} Infs ( {inf_percentage:.2f} % out of {len(input_df)})"
-                )
+                if inf_count > 0:
+                    inf_percentage = inf_count / len(input_df) * 100
+                    logger.warning(
+                        f"{col} has {inf_count} Infs ( {inf_percentage:.2f} % out of {len(input_df)})"
+                    )
