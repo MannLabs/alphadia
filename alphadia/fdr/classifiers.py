@@ -1,9 +1,13 @@
+"""Classifier module for FDR estimation."""
+
 import logging
 import warnings
 from abc import ABC, abstractmethod
 from copy import deepcopy
+from typing import Any
 
 import numpy as np
+import pandas as pd
 import torch
 from torch import nn, optim
 from tqdm import tqdm
@@ -18,7 +22,6 @@ class Classifier(ABC):
 
     Attributes
     ----------
-
     fitted : bool
         Whether the classifier has been fitted.
 
@@ -26,93 +29,89 @@ class Classifier(ABC):
 
     @property
     @abstractmethod
-    def fitted(self):
+    def fitted(self) -> bool:
         """Return whether the classifier has been fitted."""
 
     @abstractmethod
-    def fit(self, x: np.array, y: np.array):
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """Fit the classifier to the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Training data of shape (n_samples, n_features).
 
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
 
     @abstractmethod
-    def predict(self, x: np.array):
+    def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Predicted class of shape (n_samples,).
 
         """
 
     @abstractmethod
-    def predict_proba(self, x: np.array):
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
         """Predict the class probabilities of the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
-        y : np.array, dtype=float
+        y : np.ndarray, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
 
     @abstractmethod
-    def to_state_dict(self):
-        """
-        Return a state dict of the classifier.
+    def to_state_dict(self) -> dict:
+        """Return a state dict of the classifier.
 
         Returns
         -------
-
         state_dict : dict
             State dict of the classifier.
+
         """
 
     @abstractmethod
-    def from_state_dict(self, state_dict: dict):
-        """
-        Load a state dict of the classifier.
+    def from_state_dict(self, state_dict: dict) -> None:
+        """Load a state dict of the classifier.
 
         Parameters
         ----------
-
         state_dict : dict
             State dict of the classifier.
 
         """
 
 
-def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128):
-    """
-    Scale batch size and learning rate based on dataframe size using square root relationship.
+def _get_scaled_training_params(
+    df: pd.DataFrame,
+    base_lr: float = 0.001,
+    max_batch: float = 4096,
+    min_batch: float = 128,
+) -> tuple[int, float]:
+    """Scale batch size and learning rate based on dataframe size using square root relationship.
 
     Parameters
     ----------
-    df : pandas.DataFrame
+    df : pd.DataFrame
         Input dataframe
     base_lr : float, optional
         Base learning rate for 1024 batch size, defaults to 0.01
@@ -125,11 +124,12 @@ def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128
     -------
     tuple(int, float)
         (batch_size, learning_rate)
+
     """
     n_samples = len(df)
 
     # For >= 1M samples, use max batch size
-    if n_samples >= 1_000_000:
+    if n_samples >= 1_000_000:  # noqa: PLR2004
         return max_batch, base_lr
 
     # Calculate scaled batch size (linear scaling between min and max)
@@ -143,7 +143,9 @@ def _get_scaled_training_params(df, base_lr=0.001, max_batch=4096, min_batch=128
 
 
 class BinaryClassifierLegacyNewBatching(Classifier):
-    def __init__(
+    """Binary Classifier using a feed forward neural network."""
+
+    def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         input_dim: int = 10,
         output_dim: int = 2,
@@ -155,14 +157,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        *,
         experimental_hyperparameter_tuning: bool = False,
-        **kwargs,
+        **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
 
         Parameters
         ----------
-
         input_dim : int, default=10
             Number of input features.
 
@@ -196,6 +198,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
+        **kwargs : dict
+            Keyword arguments. Will raise a warning if used.
+
         """
         if layers is None:
             layers = [100, 50, 20, 5]
@@ -228,28 +233,20 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             warnings.warn(f"Unknown arguments: {kwargs}")
 
     @property
-    def fitted(self):
+    def fitted(self) -> bool:
+        """Return whether the classifier has been fitted."""
         return self._fitted
 
-    @property
-    def metrics(self):
-        return self._metrics
-
-    @metrics.setter
-    def metrics(self, metrics):
-        self._metrics = metrics
-
-    def to_state_dict(self):
+    def to_state_dict(self) -> dict:
         """Save the state of the classifier as a dictionary.
 
         Returns
         -------
-
         dict : dict
             Dictionary containing the state of the classifier.
 
         """
-        dict = {
+        state_dict = {
             "_fitted": self._fitted,
             "input_dim": self.input_dim,
             "output_dim": self.output_dim,
@@ -265,21 +262,24 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         }
 
         if self._fitted:
-            dict["network_state_dict"] = self.network.state_dict()
+            state_dict["network_state_dict"] = self.network.state_dict()
 
-        return dict
+        return state_dict
 
-    def from_state_dict(self, state_dict: dict, load_hyperparameters: bool = False):
+    def from_state_dict(
+        self, state_dict: dict, *, load_hyperparameters: bool = False
+    ) -> None:
         """Load the state of the classifier from a dictionary.
 
         Parameters
         ----------
-
-        dict : dict
+        state_dict : dict
             Dictionary containing the state of the classifier.
 
-        """
+        load_hyperparameters : bool, default=False
+            Whether to load hyperparameters from the state dict.
 
+        """
         _state_dict = deepcopy(state_dict)
 
         if "network_state_dict" in _state_dict:
@@ -296,16 +296,15 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self.__dict__.update(_state_dict)
 
     @manage_torch_threads(max_threads=2)
-    def fit(self, x: np.ndarray, y: np.ndarray):
+    def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
         """Fit the classifier to the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Training data of shape (n_samples, n_features).
 
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
@@ -367,7 +366,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         for epoch in tqdm(range(self.epochs)):
             # shuffle batches
-            order = np.random.permutation(num_batches)
+            order = np.random.permutation(num_batches)  # noqa: NPY002
             batch_start_list = batch_start_list[order]
             batch_stop_list = batch_stop_list[order]
 
@@ -419,27 +418,25 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self._fitted = True
 
     @manage_torch_threads(max_threads=2)
-    def predict(self, x):
+    def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
-        y : np.array, dtype=int
+        y : np.ndarray, dtype=int
             Predicted class of shape (n_samples,).
-        """
 
+        """
         if not self.fitted:
             raise ValueError("Classifier has not been fitted yet.")
 
         assert (
-            x.ndim == 2
+            x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
         assert (
             x.shape[1] == self.input_dim
@@ -450,28 +447,25 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
     @manage_torch_threads(max_threads=2)
-    def predict_proba(self, x: np.ndarray):
+    def predict_proba(self, x: np.ndarray) -> np.ndarray:
         """Predict the class probabilities of the data.
 
         Parameters
         ----------
-
-        x : np.array, dtype=float
+        x : np.ndarray, dtype=float
             Data of shape (n_samples, n_features).
 
         Returns
         -------
-
-        y : np.array, dtype=float
+        y : np.ndarray, dtype=float
             Predicted class probabilities of shape (n_samples, n_classes).
 
         """
-
         if not self.fitted:
             raise ValueError("Classifier has not been fitted yet.")
 
         assert (
-            x.ndim == 2
+            x.ndim == 2  # noqa: PLR2004
         ), "Input data must have batch and feature dimension. (n_samples, n_features)"
         assert (
             x.shape[1] == self.input_dim
@@ -483,29 +477,29 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
 
 class FeedForwardNN(nn.Module):
+    """A simple feed forward neural network for FDR estimation."""
+
     def __init__(
         self,
-        input_dim,
-        output_dim=2,
+        input_dim: int,
+        output_dim: int = 2,
         layers: list[int] | None = None,
-        dropout=0.5,
+        dropout: float = 0.5,
     ):
-        """
-        built a simple feed forward network for FDR estimation
-
-        """
+        """Built a simple feed forward network for FDR estimation."""
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-        self.layers = [input_dim] + layers
+        self.layers = [input_dim, *layers]
         self.dropout = dropout
 
         self._build_model()
 
-    def _build_model(self):
+    def _build_model(self) -> None:
+        """Build the feed forward network model."""
         layers = []
         # add batch norm layer
         layers.append(nn.BatchNorm1d(self.input_dim))
@@ -519,5 +513,6 @@ class FeedForwardNN(nn.Module):
         layers.append(nn.Softmax(dim=1))
         self.fc_layers = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x: Any) -> Any:  # noqa: ANN401
+        """Forward pass through the network."""
         return self.fc_layers(x)
