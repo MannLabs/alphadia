@@ -2,7 +2,8 @@ import math
 
 import numba as nb
 import numpy as np
-from utils import USE_NUMBA_CACHING
+
+from alphadia.utils import USE_NUMBA_CACHING
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)

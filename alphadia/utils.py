@@ -1,3 +1,5 @@
+"""Some utility functions for the whole alphadia package."""
+
 import logging
 import os
 import platform

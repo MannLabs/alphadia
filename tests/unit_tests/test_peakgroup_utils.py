@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 import pytest
 
-from alphadia.peakgroup.utils import assemble_isotope_mz
+from alphadia.peakgroup.utils import amean1, assemble_isotope_mz
 from alphadia.utils import USE_NUMBA_CACHING
 
 
@@ -25,3 +25,12 @@ def test_assemble_isotope_mz(should_fail, mz, charge, intensities):
             wrap_assemble_isotope_mz(mz, charge, intensities)
     else:
         wrap_assemble_isotope_mz(mz, charge, intensities)
+
+
+def test_amean1():
+    test_array = np.random.random((10, 10))
+
+    numba_mean = amean1(test_array)
+    np_mean = np.mean(test_array, axis=1)
+
+    assert np.allclose(numba_mean, np_mean)
