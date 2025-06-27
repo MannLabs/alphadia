@@ -78,11 +78,11 @@ class CandidateScoring:
 
         precursors_flat : pd.DataFrame
             A DataFrame containing precursor information.
-            The DataFrame will be validated by using the `alphadia.validate.precursors_flat` schema.
+            The DataFrame will be validated by using the `alphadia.validation.schemas.precursors_flat` schema.
 
         fragments_flat : pd.DataFrame
             A DataFrame containing fragment information.
-            The DataFrame will be validated by using the `alphadia.validate.fragments_flat` schema.
+            The DataFrame will be validated by using the `alphadia.validation.schemas.fragments_flat` schema.
 
         quadrupole_calibration : quadrupole.SimpleQuadrupole, default=None
             An object containing the quadrupole calibration information.
