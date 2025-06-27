@@ -1,3 +1,5 @@
+"""Utility methods for fragment competition."""
+
 import logging
 
 import numpy as np
@@ -6,8 +8,11 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def add_frag_start_stop_idx(psm_df: pd.DataFrame, frag_df: pd.DataFrame):
+def add_frag_start_stop_idx(
+    psm_df: pd.DataFrame, frag_df: pd.DataFrame
+) -> pd.DataFrame:
     """The fragment dataframe is indexed by the precursor index.
+
     This function adds the start and stop indices of the fragments to the PSM dataframe.
 
     Parameters

@@ -43,12 +43,11 @@ def _get_fragment_overlap(
     frag_mz_2 = frag_mz_2.reshape(1, -1)
     delta_mz = np.abs(frag_mz_1 - frag_mz_2)
     ppm_delta_mz = delta_mz / frag_mz_1 * 1e6
-    frag_overlap = np.sum(ppm_delta_mz < mass_tol_ppm)
-    return frag_overlap
+    return np.sum(ppm_delta_mz < mass_tol_ppm)
 
 
 @timsutils.pjit(cache=USE_NUMBA_CACHING)
-def _compete_for_fragments(
+def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
@@ -59,8 +58,9 @@ def _compete_for_fragments(
     fragment_mz: np.ndarray,
     rt_tol_seconds: float = 3,
     mass_tol_ppm: float = 15,
-):
+) -> None:
     """Remove PSMs that share fragments with other PSMs.
+
     The function is applied on a dia window basis.
 
     Parameters
@@ -127,13 +127,15 @@ def _compete_for_fragments(
                     ],
                     mass_tol_ppm=mass_tol_ppm,
                 )
-                if fragment_overlap >= 3:
+                if fragment_overlap >= 3:  # noqa: PLR2004
                     valid_window[j] = False
 
     valid[precursor_start_idx:precursor_stop_idx] = valid_window
 
 
 class FragmentCompetition:
+    """Fragment competition class to remove PSMs that share fragments with other PSMs."""
+
     def __init__(
         self, rt_tol_seconds: int = 3, mass_tol_ppm: int = 15, thread_count: int = 8
     ):
@@ -156,7 +158,7 @@ class FragmentCompetition:
         self.thread_count = thread_count
 
     @staticmethod
-    def _add_window_idx(psm_df: pd.DataFrame, cycle: np.ndarray):
+    def _add_window_idx(psm_df: pd.DataFrame, cycle: np.ndarray) -> pd.DataFrame:
         """Add the window index to the PSM dataframe.
 
         Parameters
@@ -188,8 +190,9 @@ class FragmentCompetition:
         return psm_df
 
     @staticmethod
-    def _get_thread_plan_df(psm_df: pd.DataFrame):
+    def _get_thread_plan_df(psm_df: pd.DataFrame) -> pd.DataFrame:
         """Expects a dataframe sorted by window idxs and qvals.
+
         Returns a dataframe with start and stop indices of the threads.
 
         Parameters
