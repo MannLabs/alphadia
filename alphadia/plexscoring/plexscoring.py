@@ -6,7 +6,6 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia import validate
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.numba import fragments
 from alphadia.plexscoring import quadrupole
@@ -18,6 +17,7 @@ from alphadia.utils import (
     USE_NUMBA_CACHING,
     get_isotope_columns,
 )
+from alphadia.validation import validate
 
 logger = logging.getLogger()
 

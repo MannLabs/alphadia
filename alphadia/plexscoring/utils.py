@@ -7,8 +7,8 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
-from alphadia import validate
 from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.validation import validate
 
 logger = logging.getLogger()
 

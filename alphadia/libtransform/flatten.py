@@ -4,8 +4,9 @@ from alphabase.peptide import fragment
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import utils, validate
+from alphadia import utils
 from alphadia.libtransform.base import ProcessingStep
+from alphadia.validation import validate
 
 logger = logging.getLogger()
 
