@@ -1,3 +1,5 @@
+"""The fragment competition module contains functionality to maintain the exclusive assignment of signal to identifications."""
+
 import logging
 
 import numba as nb
@@ -6,13 +8,14 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
+from alphadia.fragcomp.utils import add_frag_start_stop_idx
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def get_fragment_overlap(
+def _get_fragment_overlap(
     frag_mz_1: np.ndarray,
     frag_mz_2: np.ndarray,
     mass_tol_ppm: float = 10,
@@ -46,7 +49,7 @@ def get_fragment_overlap(
 
 
 @timsutils.pjit(cache=USE_NUMBA_CACHING)
-def compete_for_fragments(
+def _compete_for_fragments(
     thread_idx: int,
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
@@ -114,7 +117,7 @@ def compete_for_fragments(
 
             delta_rt = abs(i_rt - j_rt)
             if delta_rt < rt_tol_seconds:
-                fragment_overlap = get_fragment_overlap(
+                fragment_overlap = _get_fragment_overlap(
                     fragment_mz[
                         frag_start_idx[precursor_start_idx + i] : frag_stop_idx[
                             precursor_start_idx + i
@@ -157,42 +160,8 @@ class FragmentCompetition:
         self.mass_tol_ppm = mass_tol_ppm
         self.thread_count = thread_count
 
-    def add_frag_start_stop_idx(self, psm_df: pd.DataFrame, frag_df: pd.DataFrame):
-        """
-        The fragment dataframe is indexed by the precursor index.
-        This function adds the start and stop indices of the fragments to the PSM dataframe.
-
-        Parameters
-        ----------
-
-        psm_df: pd.DataFrame
-            The PSM dataframe.
-
-        frag_df: pd.DataFrame
-            The fragment dataframe.
-
-        Returns
-        -------
-        pd.DataFrame
-            The PSM dataframe with the start and stop indices of the fragments.
-        """
-
-        if "_frag_start_idx" in psm_df.columns and "_frag_stop_idx" in psm_df.columns:
-            logger.warning(
-                "Fragment start and stop indices already present in PSM dataframe. Skipping."
-            )
-            return psm_df
-
-        frag_df["frag_idx"] = np.arange(len(frag_df))
-        index_df = frag_df.groupby("_candidate_idx", as_index=False).agg(
-            _frag_start_idx=pd.NamedAgg("frag_idx", min),
-            _frag_stop_idx=pd.NamedAgg("frag_idx", max),
-        )
-        index_df["_frag_stop_idx"] += 1
-
-        return psm_df.merge(index_df, "inner", on="_candidate_idx")
-
-    def add_window_idx(self, psm_df: pd.DataFrame, cycle: np.ndarray):
+    @staticmethod
+    def _add_window_idx(psm_df: pd.DataFrame, cycle: np.ndarray):
         """
         Add the window index to the PSM dataframe.
 
@@ -225,7 +194,8 @@ class FragmentCompetition:
         psm_df["window_idx"] = np.argmax(idx, axis=1)
         return psm_df
 
-    def get_thread_plan_df(self, psm_df: pd.DataFrame):
+    @staticmethod
+    def _get_thread_plan_df(psm_df: pd.DataFrame):
         """
         Expects a dataframe sorted by window idxs and qvals.
         Returns a dataframe with start and stop indices of the threads.
@@ -282,8 +252,8 @@ class FragmentCompetition:
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
 
-        psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
-        psm_df = self.add_window_idx(psm_df, cycle)
+        psm_df = add_frag_start_stop_idx(psm_df, frag_df)
+        psm_df = self._add_window_idx(psm_df, cycle)
 
         # important to sort by window_idx and proba
         psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
@@ -292,9 +262,9 @@ class FragmentCompetition:
         # psm_df["valid"] = True
 
         timsutils.set_threads(self.thread_count)
-        thread_plan_df = self.get_thread_plan_df(psm_df)
+        thread_plan_df = self._get_thread_plan_df(psm_df)
 
-        compete_for_fragments(
+        _compete_for_fragments(
             np.arange(len(thread_plan_df)),
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
