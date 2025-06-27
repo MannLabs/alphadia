@@ -43,11 +43,6 @@ def logistic_rectangle(mu1, mu2, sigma1, sigma2, x):
     return y
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
-def linear(x, m, b):  # TODO unused
-    return m * x + b
-
-
 @jitclass
 class SimpleQuadrupoleJit:
     # original cycle as defined in the Bruker file
@@ -327,16 +322,6 @@ def calculate_template_single(qtf, dense_precursor_mz, isotope_intensity):
 
     # (n_observations, n_scans, n_frames)
     return template.astype(np.float32)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def calculate_observation_importance(  # TODO unused
-    template,
-):
-    observation_importance = np.sum(np.sum(template, axis=2), axis=2)
-    return observation_importance / np.sum(observation_importance, axis=1).reshape(
-        -1, 1
-    )
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
