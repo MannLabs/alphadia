@@ -1,3 +1,5 @@
+"""The fragment competition module contains functionality to maintain the exclusive assignment of signal to identifications."""
+
 import logging
 
 import numba as nb
