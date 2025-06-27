@@ -141,14 +141,6 @@ def perform_grouping(
     psm[genes_or_proteins] = psm[genes_or_proteins].astype(str)
     upsm = psm.loc[duplicate_mask, ["precursor_idx", genes_or_proteins, decoy_column]]
 
-    # check if duplicate precursors exist
-    # TODO: consider removing check for duplicates since duplicate masking is implemented above
-    if upsm.duplicated(subset=["precursor_idx"]).any():
-        raise ValueError(
-            """The same precursor was found annotated to different proteins.
-            Please make sure all precursors were searched with the same library."""
-        )
-
     # greedy set cover on all proteins if there is only one decoy class
     unique_decoys = upsm[decoy_column].unique()
     if len(unique_decoys) == 1:
@@ -166,22 +158,19 @@ def perform_grouping(
 
         # greedy set cover on targets
         t_df = upsm[target_mask].copy()
-        # TODO: consider directly assigning to t_df["pg_master"], t_df["pg"] = group_and_parsimony(...)
-        new_columns = _group_and_parsimony(
+        t_df["pg_master"], t_df["pg"] = _group_and_parsimony(
             t_df.precursor_idx.values,
             t_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
-        t_df["pg_master"], t_df["pg"] = new_columns
 
         # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
-        new_columns = _group_and_parsimony(
+        d_df["pg_master"], d_df["pg"] = _group_and_parsimony(
             d_df.precursor_idx.values,
             d_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
-        d_df["pg_master"], d_df["pg"] = new_columns
 
         upsm = pd.concat([t_df, d_df])[
             ["precursor_idx", "pg_master", "pg", genes_or_proteins]
