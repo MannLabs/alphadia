@@ -6,7 +6,7 @@ from sklearn.preprocessing import StandardScaler
 
 from alphadia import fdr
 from alphadia.exceptions import TooFewProteinsError
-from alphadia.fdrx.utils import train_test_split_
+from alphadia.fdr_.utils import train_test_split_
 
 logger = logging.getLogger()
 
