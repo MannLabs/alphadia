@@ -11,7 +11,7 @@ from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifi
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
-from alphadia.fragcomp.fragcomp import FragmentCompetition
+from alphadia.fragcomp.utils import add_frag_start_stop_idx
 from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -1246,17 +1246,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         _, frag_df = scoring(scored_candidates)
 
         # establish mapping
-        # TODO: we are reusing the FragmentCompetition class here which should be refactored
-        frag_comp = FragmentCompetition()
         scored_candidates["_candidate_idx"] = candidate_hash(
             scored_candidates["precursor_idx"].values, scored_candidates["rank"].values
         )
         frag_df["_candidate_idx"] = candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
-        scored_candidates = frag_comp.add_frag_start_stop_idx(
-            scored_candidates, frag_df
-        )
+        scored_candidates = add_frag_start_stop_idx(scored_candidates, frag_df)
 
         return scored_candidates, frag_df
 

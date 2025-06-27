@@ -6,6 +6,7 @@ import pandas as pd
 from alphatims import utils as timsutils
 
 from alphadia import utils
+from alphadia.fragcomp.utils import add_frag_start_stop_idx
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
@@ -157,42 +158,8 @@ class FragmentCompetition:
         self.mass_tol_ppm = mass_tol_ppm
         self.thread_count = thread_count
 
-    def add_frag_start_stop_idx(self, psm_df: pd.DataFrame, frag_df: pd.DataFrame):
-        """
-        The fragment dataframe is indexed by the precursor index.
-        This function adds the start and stop indices of the fragments to the PSM dataframe.
-
-        Parameters
-        ----------
-
-        psm_df: pd.DataFrame
-            The PSM dataframe.
-
-        frag_df: pd.DataFrame
-            The fragment dataframe.
-
-        Returns
-        -------
-        pd.DataFrame
-            The PSM dataframe with the start and stop indices of the fragments.
-        """
-
-        if "_frag_start_idx" in psm_df.columns and "_frag_stop_idx" in psm_df.columns:
-            logger.warning(
-                "Fragment start and stop indices already present in PSM dataframe. Skipping."
-            )
-            return psm_df
-
-        frag_df["frag_idx"] = np.arange(len(frag_df))
-        index_df = frag_df.groupby("_candidate_idx", as_index=False).agg(
-            _frag_start_idx=pd.NamedAgg("frag_idx", min),
-            _frag_stop_idx=pd.NamedAgg("frag_idx", max),
-        )
-        index_df["_frag_stop_idx"] += 1
-
-        return psm_df.merge(index_df, "inner", on="_candidate_idx")
-
-    def add_window_idx(self, psm_df: pd.DataFrame, cycle: np.ndarray):
+    @staticmethod
+    def _add_window_idx(psm_df: pd.DataFrame, cycle: np.ndarray):
         """
         Add the window index to the PSM dataframe.
 
@@ -282,8 +249,8 @@ class FragmentCompetition:
             frag_df["precursor_idx"].values, frag_df["rank"].values
         )
 
-        psm_df = self.add_frag_start_stop_idx(psm_df, frag_df)
-        psm_df = self.add_window_idx(psm_df, cycle)
+        psm_df = add_frag_start_stop_idx(psm_df, frag_df)
+        psm_df = self._add_window_idx(psm_df, cycle)
 
         # important to sort by window_idx and proba
         psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
