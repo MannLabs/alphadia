@@ -1,19 +1,14 @@
-# native imports
 import logging
 
-# alpha family imports
 import alphatims
-
-# third party imports
 import numba as nb
 import numpy as np
 import pandas as pd
 
-# alphadia imports
 from alphadia import utils, validate
 from alphadia.numba import config, fft, fragments, numeric
 from alphadia.peakgroup.kernel import GaussianKernel
-from alphadia.peakgroup.utils import assemble_isotope_mz
+from alphadia.peakgroup.utils import assemble_isotope_mz, find_peaks_1d, find_peaks_2d
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -673,11 +668,11 @@ def build_candidates(
     # identify distinct peaks
     #  check if there is a real ion mobility dimension
     if score.shape[0] <= 2:
-        peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks_1d(
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_1d(
             score, top_n=candidate_count
         )
     else:
-        peak_scan_list, peak_cycle_list, peak_score_list = utils.find_peaks_2d(
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_2d(
             score, top_n=candidate_count
         )
 
