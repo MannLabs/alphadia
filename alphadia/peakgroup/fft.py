@@ -11,8 +11,6 @@ from rocket_fft.overloads import (
     zeropad_or_crop,
 )
 
-from alphadia.utils import USE_NUMBA_CACHING
-
 
 class NumbaContextOnly(Exception):
     pass
@@ -120,8 +118,6 @@ def _(x, s=None):
         return out
 
     return funcx_impl
-
-
 
 
 def convolve_fourier(dense, kernel):
