@@ -8,7 +8,6 @@ import numba as nb
 import numpy as np
 
 from alphadia.constants.settings import NUM_FEATURES
-from alphadia.numba import fragments
 
 # third party imports
 # alphadia imports
@@ -35,6 +34,7 @@ from alphadia.plotting.debug import (
     plot_precursor,
     plot_template,
 )
+from alphadia.utilities.fragment_container import FragmentContainer
 
 logger = logging.getLogger()
 
@@ -74,7 +74,7 @@ class Candidate:
     isotope_mz: nb.float32[::1]
 
     # object properties
-    fragments: fragments.FragmentContainer.class_type.instance_type
+    fragments: FragmentContainer.class_type.instance_type
 
     fragment_feature_dict: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
 

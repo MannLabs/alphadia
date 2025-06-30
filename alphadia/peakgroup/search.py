@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.numba import fragments
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -15,10 +14,12 @@ from alphadia.peakgroup.utils import (
     astd1,
     find_peaks_1d,
     find_peaks_2d,
+    slice_manual,
     symetric_limits_2d,
     wrap0,
     wrap1,
 )
+from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utilities.jit_config import JITConfig
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
@@ -345,9 +346,7 @@ def select_candidates(
         dtype=np.uint32,
     )
 
-    fragment_container_slice = fragments.slice_manual(
-        fragment_container, fragment_idx_slices
-    )
+    fragment_container_slice = slice_manual(fragment_container, fragment_idx_slices)
     if config.exclude_shared_ions:
         fragment_container_slice.filter_by_cardinality(1)
     fragment_container_slice.sort_by_mz()
@@ -947,7 +946,7 @@ class HybridCandidateSelection:
             self.fragments_flat, warn_on_critical_values=True
         )
 
-        return fragments.FragmentContainer(
+        return FragmentContainer(
             self.fragments_flat["mz_library"].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,

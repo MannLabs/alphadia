@@ -2,8 +2,8 @@ import numba as nb
 import numpy as np
 from numba.extending import overload
 
-from alphadia.numba.fragments import FragmentContainer
 from alphadia.peakgroup.fft import NumbaContextOnly
+from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 
 
