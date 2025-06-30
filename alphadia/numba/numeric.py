@@ -11,20 +11,6 @@ import numpy as np
 from alphadia.utils import USE_NUMBA_CACHING
 
 
-@nb.njit(parallel=False, fastmath=True, cache=USE_NUMBA_CACHING)
-def search_sorted_left(slice, value):
-    left = 0
-    right = len(slice)
-
-    while left < right:
-        mid = (left + right) >> 1
-        if slice[mid] < value:
-            left = mid + 1
-        else:
-            right = mid
-    return left
-
-
 @nb.njit(cache=USE_NUMBA_CACHING)
 def ceil_to_base_two(x):
     # borrowed from Bit Twiddling Hacks
