@@ -15,6 +15,8 @@ from alphadia.peakgroup.utils import (
     astd1,
     find_peaks_1d,
     find_peaks_2d,
+    wrap0,
+    wrap1,
 )
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
@@ -747,18 +749,18 @@ def build_candidates(
     ):  # ('strict' not supported by numba yet)
         # does not work anymore
 
-        scan_limits_absolute = numeric.wrap1(
+        scan_limits_absolute = wrap1(
             scan_limits_relative + scan_limits[0, 0], jit_data.scan_max_index
         )
-        frame_limits_absolute = numeric.wrap1(
+        frame_limits_absolute = wrap1(
             cycle_limits_relative * cycle_length + frame_limits[0, 0],
             jit_data.frame_max_index,
         )
 
-        scan_absolute = numeric.wrap0(
+        scan_absolute = wrap0(
             scan_relative + scan_limits[0, 0], jit_data.scan_max_index
         )
-        frame_absolute = numeric.wrap0(
+        frame_absolute = wrap0(
             cycle_relative * cycle_length + frame_limits[0, 0], jit_data.frame_max_index
         )
 

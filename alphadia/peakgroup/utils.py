@@ -176,3 +176,24 @@ def slice_manual(inst, slices):
     f.precursor_idx = precursor_idx
 
     return f
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def wrap0(
+    value,
+    limit,
+):
+    if value < 0:
+        return 0
+    else:
+        return min(value, limit)
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def wrap1(
+    values,
+    limit,
+):
+    for i in range(values.shape[0]):
+        values[i] = wrap0(values[i], limit)
+    return values

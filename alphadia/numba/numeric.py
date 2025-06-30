@@ -12,27 +12,6 @@ from alphadia.utils import USE_NUMBA_CACHING
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def wrap0(
-    value,
-    limit,
-):
-    if value < 0:
-        return 0
-    else:
-        return min(value, limit)
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def wrap1(
-    values,
-    limit,
-):
-    for i in range(values.shape[0]):
-        values[i] = wrap0(values[i], limit)
-    return values
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def symetric_limits_1d(
     array_1d,
     center,
