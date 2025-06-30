@@ -1,8 +1,3 @@
-# native imports
-
-# alphadia imports
-# alpha family imports
-# third party imports
 import numpy as np
 
 from alphadia.reporting import reporting

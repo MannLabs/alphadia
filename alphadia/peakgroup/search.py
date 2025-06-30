@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.numba import config, fragments
+from alphadia.numba import fragments
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -19,6 +19,7 @@ from alphadia.peakgroup.utils import (
     wrap0,
     wrap1,
 )
+from alphadia.utilities.jit_config import JITConfig
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
@@ -139,7 +140,7 @@ class HybridCandidateConfigJIT:
         self.feature_weight = feature_weight
 
 
-class HybridCandidateConfig(config.JITConfig):
+class HybridCandidateConfig(JITConfig):
     jit_container = HybridCandidateConfigJIT
 
     def __init__(self):

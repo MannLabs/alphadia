@@ -1,15 +1,11 @@
 """Configuration Module for Candidate Scoring."""
 
-# native imports
 import logging
 
-# alpha family imports
 import numba as nb
 
-# third party imports
-# alphadia imports
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.numba import config
+from alphadia.utilities.jit_config import JITConfig
 
 logger = logging.getLogger()
 
@@ -64,7 +60,7 @@ class CandidateConfigJIT:
         self.experimental_xic = experimental_xic
 
 
-class CandidateConfig(config.JITConfig):
+class CandidateConfig(JITConfig):
     """Config object for CandidateScoring."""
 
     def __init__(self):
