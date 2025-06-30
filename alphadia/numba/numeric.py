@@ -12,21 +12,6 @@ from alphadia.utils import USE_NUMBA_CACHING
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def ceil_to_base_two(x):
-    # borrowed from Bit Twiddling Hacks
-    # https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-    x -= 1
-    x |= x >> 1
-    x |= x >> 2
-    x |= x >> 4
-    x |= x >> 8
-    x |= x >> 16
-
-    x += 1
-    return x
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
 def wrap0(
     value,
     limit,
