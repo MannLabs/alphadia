@@ -833,6 +833,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         features_df, fragments_df = self._extraction_handler.extract_batch(
             self.spectral_library.precursor_df,
+            self._workflow.spectral_library._fragment_df,
             apply_cutoff=True,
         )
 

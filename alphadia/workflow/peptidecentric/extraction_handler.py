@@ -11,12 +11,7 @@ class ExtractionHandler:
     def __init__(self, workflow):
         self._workflow = workflow
 
-    def extract_batch(
-        self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
-    ):
-        if batch_fragment_df is None:
-            batch_fragment_df = self._workflow.spectral_library._fragment_df
-
+    def extract_batch(self, batch_precursor_df, batch_fragment_df, apply_cutoff=False):
         self._workflow.reporter.log_string(
             f"Extracting batch of {len(batch_precursor_df)} precursors",
             verbosity="progress",
