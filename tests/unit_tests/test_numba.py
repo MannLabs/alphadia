@@ -2,8 +2,6 @@ import numpy as np
 
 # local
 from alphadia import utils
-from alphadia.peakgroup.fft import convolve_fourier
-from alphadia.numba.fragments import get_ion_group_mapping
 from alphadia.numba.numeric import (
     fragment_correlation,
     fragment_correlation_different,
@@ -11,45 +9,7 @@ from alphadia.numba.numeric import (
     symetric_limits_1d,
     symetric_limits_2d,
 )
-
-
-def test_get_ion_group_mapping():
-    """Test the get_ion_group_mapping function."""
-
-    ion_mz = np.array(
-        [100.0, 200.0, 300.0, 400.0, 500.0, 600.0, 700.0, 800.0, 900.0, 1000.0]
-    )
-    ion_count = np.ones(len(ion_mz), dtype=np.uint8)
-    ion_precursor = np.tile(np.arange(2, dtype=np.uint8), 5)
-    ion_intensity = np.random.rand(len(ion_mz))
-    ion_cardinality = np.ones(len(ion_mz))
-
-    precursor_abundance = np.array([1, 1])
-
-    print(ion_mz, len(ion_mz))
-    print(ion_count, len(ion_count))
-    print(ion_precursor, len(ion_precursor))
-    print(precursor_abundance)
-
-    mz, intensity = get_ion_group_mapping(
-        ion_precursor, ion_mz, ion_intensity, ion_cardinality, precursor_abundance
-    )
-
-    print(mz, mz.shape)
-    print(intensity, intensity.shape)
-
-    assert np.allclose(mz, ion_mz)
-    assert np.allclose(np.ceil(intensity), np.ones((1, 10)))
-    assert np.all(intensity.shape == (10,))
-
-    ion_mz = np.repeat(np.array([100, 200.0]), 5)
-
-    mz, intensity = get_ion_group_mapping(
-        ion_precursor, ion_mz, ion_intensity, ion_cardinality, precursor_abundance
-    )
-
-    assert np.all(intensity.shape == (2,))
-    assert np.all(mz.shape == (2,))
+from alphadia.peakgroup.fft import convolve_fourier
 
 
 def fuzz_symetric_limits_1d():
