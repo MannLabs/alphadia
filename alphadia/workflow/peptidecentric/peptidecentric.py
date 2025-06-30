@@ -2,7 +2,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -12,7 +11,6 @@ from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
-from alphadia.peakgroup import search
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.plexscoring.utils import (
@@ -22,6 +20,7 @@ from alphadia.plexscoring.utils import (
 from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 
 logger = logging.getLogger()
 
@@ -161,6 +160,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             quant_path,
         )
         self.optlock = None
+
+        self._extraction_handler = ExtractionHandler(self)
 
     def load(
         self,
@@ -605,7 +606,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        feature_df, fragment_df = self._extract_batch(
+        feature_df, fragment_df = self._extraction_handler.extract_batch(
             self.optlock.batch_library.precursor_df,
             self.optlock.batch_library.fragment_df,
         )
@@ -816,114 +817,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             version=version,
         )
 
-    def _extract_batch(
-        self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
-    ):
-        if batch_fragment_df is None:
-            batch_fragment_df = self.spectral_library._fragment_df
-        self.reporter.log_string(
-            f"Extracting batch of {len(batch_precursor_df)} precursors",
-            verbosity="progress",
-        )
-
-        config = search.HybridCandidateConfig()
-        config.update(self.config["selection_config"])
-        config.update(
-            {
-                "top_k_fragments": self.config["search"]["top_k_fragments"],
-                "rt_tolerance": self.optimization_manager.rt_error,
-                "mobility_tolerance": self.optimization_manager.mobility_error,
-                "candidate_count": self.optimization_manager.num_candidates,
-                "precursor_mz_tolerance": self.optimization_manager.ms1_error,
-                "fragment_mz_tolerance": self.optimization_manager.ms2_error,
-                "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
-                "min_size_rt": self.config["search"]["quant_window"],
-            }
-        )
-
-        self.reporter.log_string("=== Search parameters used === ", verbosity="debug")
-        self.reporter.log_string(
-            f"{'rt_tolerance':<15}: {config.rt_tolerance}", verbosity="debug"
-        )
-        self.reporter.log_string(
-            f"{'mobility_tolerance':<15}: {config.mobility_tolerance}",
-            verbosity="debug",
-        )
-        self.reporter.log_string(
-            f"{'precursor_mz_tolerance':<15}: {config.precursor_mz_tolerance}",
-            verbosity="debug",
-        )
-        self.reporter.log_string(
-            f"{'fragment_mz_tolerance':<15}: {config.fragment_mz_tolerance}",
-            verbosity="debug",
-        )
-        self.reporter.log_string(
-            "==============================================", verbosity="debug"
-        )
-
-        extraction = search.HybridCandidateSelection(
-            self.dia_data.jitclass(),
-            batch_precursor_df,
-            batch_fragment_df,
-            config.jitclass(),
-            rt_column=self._get_rt_column(),
-            mobility_column=self._get_mobility_column(),
-            precursor_mz_column=self._get_precursor_mz_column(),
-            fragment_mz_column=self._get_fragment_mz_column(),
-            fwhm_rt=self.optimization_manager.fwhm_rt,
-            fwhm_mobility=self.optimization_manager.fwhm_mobility,
-        )
-        candidates_df = extraction(thread_count=self.config["general"]["thread_count"])
-
-        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
-
-        if apply_cutoff:
-            num_before = len(candidates_df)
-            self.reporter.log_string(
-                f"Applying score cutoff of {self.optimization_manager.score_cutoff}",
-            )
-            candidates_df = candidates_df[
-                candidates_df["score"] > self.optimization_manager.score_cutoff
-            ]
-            num_after = len(candidates_df)
-            num_removed = num_before - num_after
-            self.reporter.log_string(
-                f"Removed {num_removed} precursors with score below cutoff",
-            )
-
-        config = CandidateConfig()
-        config.update(self.config["scoring_config"])
-        config.update(
-            {
-                "top_k_fragments": self.config["search"]["top_k_fragments"],
-                "precursor_mz_tolerance": self.optimization_manager.ms1_error,
-                "fragment_mz_tolerance": self.optimization_manager.ms2_error,
-                "exclude_shared_ions": self.config["search"]["exclude_shared_ions"],
-                "quant_window": self.config["search"]["quant_window"],
-                "quant_all": self.config["search"]["quant_all"],
-                "experimental_xic": self.config["search"]["experimental_xic"],
-            }
-        )
-
-        candidate_scoring = CandidateScoring(
-            self.dia_data.jitclass(),
-            batch_precursor_df,
-            batch_fragment_df,
-            config=config,
-            rt_column=self._get_rt_column(),
-            mobility_column=self._get_mobility_column(),
-            precursor_mz_column=self._get_precursor_mz_column(),
-            fragment_mz_column=self._get_fragment_mz_column(),
-        )
-
-        features_df, fragments_df = candidate_scoring(
-            candidates_df,
-            thread_count=self.config["general"]["thread_count"],
-            include_decoy_fragment_features=True,
-        )
-
-        return features_df, fragments_df
-
     def _save_managers(self):
         """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
@@ -938,7 +831,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        features_df, fragments_df = self._extract_batch(
+        features_df, fragments_df = self._extraction_handler.extract_batch(
             self.spectral_library.precursor_df,
             apply_cutoff=True,
         )
