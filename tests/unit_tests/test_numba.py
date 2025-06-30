@@ -2,7 +2,7 @@ import numpy as np
 
 # local
 from alphadia import utils
-from alphadia.numba.fft import convolve_fourier
+from alphadia.peakgroup.fft import convolve_fourier
 from alphadia.numba.fragments import get_ion_group_mapping
 from alphadia.numba.numeric import (
     fragment_correlation,

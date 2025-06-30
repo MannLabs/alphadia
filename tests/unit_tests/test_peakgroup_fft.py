@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 import pytest
 
-from alphadia.numba.fft import convolve_fourier, _irfft2, _rfft2
+from alphadia.peakgroup.fft import convolve_fourier, _irfft2, _rfft2
 from alphadia.utils import USE_NUMBA_CACHING
 
 

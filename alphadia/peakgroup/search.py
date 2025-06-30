@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.numba import config, fft, fragments, numeric
+from alphadia.numba import config, fragments, numeric
+from alphadia.peakgroup import fft
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
     amean1,
