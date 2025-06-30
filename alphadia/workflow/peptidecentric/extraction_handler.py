@@ -9,6 +9,8 @@ class ExtractionHandler:
     """Manages precursor and fragment extraction operations."""
 
     def __init__(self, workflow):
+        # TODO: consider: ExtractionHandler takes the entire workflow as a dependency, increasing coupling.
+        #  Consider injecting only the required services or parameters (e.g., reporter, config, optimization manager) for clearer separation of concerns
         self._workflow = workflow
 
     def extract_batch(self, batch_precursor_df, batch_fragment_df, apply_cutoff=False):
@@ -63,7 +65,7 @@ class ExtractionHandler:
             config.jitclass(),
             rt_column=self._workflow._get_rt_column(),
             mobility_column=self._workflow._get_mobility_column(),
-            precursor_mz_column=self._workflow.get_precursor_mz_column(),
+            precursor_mz_column=self._workflow._get_precursor_mz_column(),
             fragment_mz_column=self._workflow._get_fragment_mz_column(),
             fwhm_rt=self._workflow.optimization_manager.fwhm_rt,
             fwhm_mobility=self._workflow.optimization_manager.fwhm_mobility,
