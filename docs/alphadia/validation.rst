@@ -1,5 +1,5 @@
 validation
-========
+==========
 
 The module contains functionality for a static type validation of pandas dataframes.
 
