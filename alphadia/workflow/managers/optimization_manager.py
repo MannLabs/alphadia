@@ -7,6 +7,17 @@ logger = logging.getLogger()
 
 
 class OptimizationManager(BaseManager):
+    ms1_error: float
+    ms2_error: float
+    rt_error: float
+    mobility_error: float
+    column_type: str
+    num_candidates: int
+    classifier_version: int
+    fwhm_rt: float
+    fwhm_mobility: float
+    score_cutoff: float
+
     def __init__(
         self,
         config: None | Config = None,
