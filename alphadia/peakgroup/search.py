@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.numba import config, fragments, numeric
+from alphadia.numba import config, fragments
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -15,6 +15,7 @@ from alphadia.peakgroup.utils import (
     astd1,
     find_peaks_1d,
     find_peaks_2d,
+    symetric_limits_2d,
     wrap0,
     wrap1,
 )
@@ -698,7 +699,7 @@ def build_candidates(
     for candidate_rank, (scan_relative, cycle_relative) in enumerate(
         zip(peak_scan_list, peak_cycle_list)  # ('strict' not supported by numba yet)
     ):
-        scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
+        scan_limits_relative, cycle_limits_relative = symetric_limits_2d(
             score,
             scan_relative,
             cycle_relative,

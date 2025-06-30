@@ -1,11 +1,14 @@
 import numba as nb
 import numpy as np
 
-from alphadia.numba import numeric
 from alphadia.plexscoring.scoring_utils import (
     correlation_coefficient,
     median_axis,
     normalize_profiles,
+)
+from alphadia.plexscoring.utils import (
+    fragment_correlation,
+    fragment_correlation_different,
 )
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -46,7 +49,7 @@ def profile_features(
         ].mean()
     else:
         # Original correlation method
-        fragment_frame_correlation_masked = numeric.fragment_correlation(
+        fragment_frame_correlation_masked = fragment_correlation(
             fragments_frame_profile,
         )
         fragment_frame_correlation_maked_reduced = np.sum(
@@ -68,7 +71,7 @@ def profile_features(
     feature_array[32] = top3_fragment_frame_correlation
 
     # (n_observation, n_fragments)
-    fragment_template_frame_correlation = numeric.fragment_correlation_different(
+    fragment_template_frame_correlation = fragment_correlation_different(
         fragments_frame_profile,
         template_frame_profile.reshape(1, n_observations, -1),
     ).reshape(n_observations, -1)
