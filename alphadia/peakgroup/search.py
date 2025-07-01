@@ -526,7 +526,6 @@ class HybridCandidateSelection:
         fragment_mz_column="mz_library",
         fwhm_rt=5.0,
         fwhm_mobility=0.012,
-        feature_path=None,
     ):
         """select candidates for MS2 extraction based on MS1 features
 
@@ -574,11 +573,6 @@ class HybridCandidateSelection:
             kernel_height=min(config.kernel_size, self.dia_data_jit.scan_max_index + 1),
         )
         self.kernel = gaussian_filter.get_dense_matrix()
-
-        self.available_isotopes = utils.get_isotope_columns(
-            self.precursors_flat.columns
-        )
-        self.available_isotope_columns = [f"i_{i}" for i in self.available_isotopes]
 
     def __call__(self, thread_count: int = 10, debug: bool = False) -> pd.DataFrame:
         """
