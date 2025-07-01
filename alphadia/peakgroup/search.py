@@ -50,6 +50,40 @@ def _select_candidates_pjit(
     )
 
 
+def _is_valid(
+    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: pd.DataFrame
+) -> bool:
+    """Perform sanity checks and return False if any of them fails."""
+
+    if dense_fragments.shape[0] == 0:
+        # "Empty dense fragment matrix"
+        return False
+
+    if dense_precursors.shape[0] == 0:
+        # "Empty dense precursor matrix"
+        return False
+
+    if dense_fragments.shape[2] % 2 != 0:
+        # "Dense fragment matrix not divisible by 2"
+        return False
+
+    if (
+        dense_precursors.shape[2] < kernel.shape[0]
+        or dense_precursors.shape[3] < kernel.shape[1]
+    ):
+        # "Precursor matrix smaller than convolution kernel"
+        return False
+
+    if (
+        dense_fragments.shape[2] < kernel.shape[0]
+        or dense_fragments.shape[3] < kernel.shape[1]
+    ):
+        # "Fragment matrix smaller than convolution kernel"
+        return False
+
+    return True
+
+
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _select_candidates(
     i,
@@ -124,31 +158,7 @@ def _select_candidates(
     # FLAG: needed for debugging
     # self.dense_fragments = dense_fragments
 
-    # perform sanity checks
-    if dense_fragments.shape[0] == 0:
-        # "Empty dense fragment matrix"
-        return
-
-    if dense_precursors.shape[0] == 0:
-        # "Empty dense precursor matrix"
-        return
-
-    if dense_fragments.shape[2] % 2 != 0:
-        # "Dense fragment matrix not divisible by 2"
-        return
-
-    if (
-        dense_precursors.shape[2] < kernel.shape[0]
-        or dense_precursors.shape[3] < kernel.shape[1]
-    ):
-        # "Precursor matrix smaller than convolution kernel"
-        return
-
-    if (
-        dense_fragments.shape[2] < kernel.shape[0]
-        or dense_fragments.shape[3] < kernel.shape[1]
-    ):
-        # "Fragment matrix smaller than convolution kernel"
+    if not _is_valid(dense_fragments, dense_precursors, kernel):
         return
 
     if config.use_weighted_score:
