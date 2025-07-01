@@ -137,10 +137,6 @@ def _select_candidates(
         # "Dense fragment matrix not divisible by 2"
         return
 
-    if dense_fragments.shape[2] % 2 != 0:
-        # "Dense fragment matrix not divisible by 2"
-        return
-
     if (
         dense_precursors.shape[2] < kernel.shape[0]
         or dense_precursors.shape[3] < kernel.shape[1]
