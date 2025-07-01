@@ -385,11 +385,13 @@ def _build_candidates(
     smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
     if smooth_precursor.shape != dense_precursors.shape:
-        print(smooth_precursor.shape, dense_precursors.shape)
-        print("smooth_precursor shape does not match dense_precursors shape")
+        logging.warning(
+            f"smooth_precursor shape does not match dense_precursors shape {smooth_precursor.shape} != {dense_precursors.shape}"
+        )
     if smooth_fragment.shape != dense_fragments.shape:
-        print(smooth_fragment.shape, dense_fragments.shape)
-        print("smooth_fragment shape does not match dense_fragments shape")
+        logging.warning(
+            f"smooth_fragment shape does not match dense_precursors shape {smooth_fragment.shape} != {dense_fragments.shape}"
+        )
 
     feature_matrix = _build_features(smooth_precursor, smooth_fragment).astype(
         "float32"
@@ -398,22 +400,21 @@ def _build_candidates(
     # get mean and std to normalize features
     # if trained, use the mean and std from training
     # otherwise calculate the mean and std from the current data
-    if mean is None:
-        feature_mean = amean1(feature_matrix).reshape(-1, 1, 1)
-    else:
-        feature_mean = mean.reshape(-1, 1, 1)
-    # feature_mean = feature_mean.reshape(-1,1,1)
+    feature_mean = (
+        amean1(feature_matrix).reshape(-1, 1, 1)
+        if mean is None
+        else mean.reshape(-1, 1, 1)
+    )
 
-    if std is None:
-        feature_std = astd1(feature_matrix).reshape(-1, 1, 1)
-    else:
-        feature_std = std.reshape(-1, 1, 1)
-    # feature_std = feature_std.reshape(-1,1,1)
+    feature_std = (
+        astd1(feature_matrix).reshape(-1, 1, 1)
+        if std is None
+        else std.reshape(-1, 1, 1)
+    )
 
-    # make sure that mean, std and weights have the same shape
     if not (feature_std.shape == feature_mean.shape == feature_weights.shape):
         raise ValueError(
-            "feature_mean, feature_std and feature_weights must have the same shape"
+            f"{feature_mean.shape=}, {feature_std.shape=} and {feature_weights.shape=} must be equal"
         )
 
     feature_matrix_norm = (
