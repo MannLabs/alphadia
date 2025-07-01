@@ -36,7 +36,6 @@ def _select_candidates_pjit(
     fragment_container,
     config,
     kernel,
-    debug,
 ):
     _select_candidates(
         i,
@@ -46,7 +45,6 @@ def _select_candidates_pjit(
         fragment_container,
         config,
         kernel,
-        debug,
     )
 
 
@@ -93,7 +91,6 @@ def _select_candidates(
     fragment_container,
     config,
     kernel,
-    debug,
 ):
     # prepare precursor isotope intensity
     # (n_isotopes)
@@ -175,18 +172,14 @@ def _select_candidates(
         precursor_container.precursor_idx[i],
         candidate_container,
         precursor_container.candidate_start_idx[i],
-        precursor_container.candidate_stop_idx[i],
         dense_precursors,
         dense_fragments,
-        isotope_intensity,
-        fragment_container_slice.intensity,
         kernel,
         jit_data,
         config,
         scan_limits,
         frame_limits,
         candidate_count=config.candidate_count,
-        debug=debug,
         weights=weights,
         mean=mean,
         std=std,
@@ -355,18 +348,14 @@ def _build_candidates(
     precursor_idx,
     candidate_container,
     candidate_start_idx,
-    candidate_stop_idx,
     dense_precursors,
     dense_fragments,
-    precursor_intensity,
-    fragment_intensity,
     kernel,
     jit_data,
     config,
     scan_limits,
     frame_limits,
     candidate_count=3,
-    debug=False,
     weights=None,
     mean=None,
     std=None,
@@ -638,7 +627,6 @@ class HybridCandidateSelection:
             fragment_container,
             self.config,
             self.kernel,
-            debug,
         )
 
         return self._collect_candidates(candidate_container)
