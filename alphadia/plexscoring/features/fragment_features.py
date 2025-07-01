@@ -1,12 +1,12 @@
 import numba as nb
 import numpy as np
 
-from alphadia import utils
 from alphadia.numba.numeric import fragment_correlation, fragment_correlation_different
 from alphadia.plexscoring.features.features_utils import (
     cosine_similarity_a1,
     weighted_center_mean_2d,
 )
+from alphadia.plexscoring.utils import tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 nb_float32_array = nb.types.Array(nb.types.float32, 1, "C")
@@ -225,10 +225,10 @@ def fragment_features(
 
     # expand the expected center of mass to the number of fragments
     # (n_fragments, n_observations)
-    f_expected_scan_center = utils.tile(expected_scan_center, n_fragments).reshape(
+    f_expected_scan_center = tile(expected_scan_center, n_fragments).reshape(
         n_fragments, -1
     )
-    f_expected_frame_center = utils.tile(expected_frame_center, n_fragments).reshape(
+    f_expected_frame_center = tile(expected_frame_center, n_fragments).reshape(
         n_fragments, -1
     )
 
