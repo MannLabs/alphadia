@@ -818,11 +818,6 @@ class HybridCandidateSelection:
         fragment_mz_column : str, optional
             name of the fragment mz column in the fragment dataframe, by default 'mz_library'
 
-        Returns
-        -------
-
-        pandas.DataFrame
-            dataframe containing the extracted candidates
         """
         self.dia_data = dia_data
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
@@ -854,7 +849,7 @@ class HybridCandidateSelection:
         self.config = config
         self.feature_path = feature_path
 
-    def __call__(self, thread_count=10, debug=False):
+    def __call__(self, thread_count: int = 10, debug: bool = False) -> pd.DataFrame:
         """
         Perform candidate extraction workflow.
         1. First, elution groups are assembled based on the annotation in the flattened precursor dataframe.
@@ -866,6 +861,12 @@ class HybridCandidateSelection:
 
         3. Finally, the candidates are collected from the ElutionGroup,
         assembled into a pandas.DataFrame and precursor information is appended.
+
+        Returns
+        -------
+
+        pd.DataFrame
+            dataframe containing the extracted candidates
         """
 
         logging.info("Starting candidate selection")

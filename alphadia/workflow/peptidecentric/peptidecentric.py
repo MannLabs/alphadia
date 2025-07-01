@@ -211,21 +211,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
         # normalize spectral library rt to file specific TIC profile
-        self.spectral_library._precursor_df["rt_library"] = self._norm_to_rt(
-            self.dia_data, self.spectral_library._precursor_df["rt_library"].values
+        self.spectral_library.precursor_df["rt_library"] = self._norm_to_rt(
+            self.dia_data, self.spectral_library.precursor_df["rt_library"].values
         )
 
         # filter based on precursor observability
         lower_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].min()
         upper_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].max()
 
-        precursor_before = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
-        self.spectral_library._precursor_df = self.spectral_library._precursor_df[
-            (self.spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
-            & (self.spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
+        precursor_before = np.sum(self.spectral_library.precursor_df["decoy"] == 0)
+        self.spectral_library.precursor_df = self.spectral_library.precursor_df[
+            (self.spectral_library.precursor_df["mz_library"] >= lower_mz_limit)
+            & (self.spectral_library.precursor_df["mz_library"] <= upper_mz_limit)
         ]
         # self.spectral_library.remove_unused_fragmen
-        precursor_after = np.sum(self.spectral_library._precursor_df["decoy"] == 0)
+        precursor_after = np.sum(self.spectral_library.precursor_df["decoy"] == 0)
         precursor_removed = precursor_before - precursor_after
         self.reporter.log_string(
             f"{precursor_after:,} target precursors potentially observable ({precursor_removed:,} removed)",
@@ -237,7 +237,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.spectral_library.precursor_df_unfiltered = (
             self.spectral_library.precursor_df.copy()
         )
-        self.spectral_library._precursor_df = (
+        self.spectral_library.precursor_df = (
             self.spectral_library.precursor_df_unfiltered[
                 self.spectral_library.precursor_df_unfiltered["channel"].isin(
                     allowed_channels
@@ -934,12 +934,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def extraction(self):
         self.calibration_manager.predict(
-            self.spectral_library._precursor_df, "precursor"
+            self.spectral_library.precursor_df, "precursor"
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
         features_df, fragments_df = self._extract_batch(
-            self.spectral_library._precursor_df,
+            self.spectral_library.precursor_df,
             apply_cutoff=True,
         )
 
