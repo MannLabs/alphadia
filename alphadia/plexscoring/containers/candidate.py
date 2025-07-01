@@ -1,16 +1,11 @@
 """Data Containers for Candidate Scoring."""
 
-# native imports
 import logging
 
-# alpha family imports
 import numba as nb
 import numpy as np
 
 from alphadia.constants.settings import NUM_FEATURES
-
-# third party imports
-# alphadia imports
 from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.features.fragment_features import (
     fragment_features,
@@ -167,7 +162,7 @@ class Candidate:
         )
         return offset.astype(nb.float32) + self.precursor_mz
 
-    # TODO this needs to be split!
+    # TODO this needs to be split! also, this is a lot of logic for a "container"
     def process(
         self,
         jit_data,

@@ -1,16 +1,11 @@
 """Data Containers for Candidate Scoring."""
 
-# native imports
 import logging
 
-# alpha family imports
 import numba as nb
 import numpy as np
 
 from alphadia.constants.settings import NUM_FEATURES
-
-# third party imports
-# alphadia imports
 from alphadia.plexscoring.containers.candidate import Candidate, candidate_type
 
 logger = logging.getLogger()
@@ -415,4 +410,5 @@ class ScoreGroupContainer:
         return fragment_array, precursor_idx_array, rank_array, fragment_columns
 
 
+# TODO: why is this necessary?
 ScoreGroupContainer.__module__ = "alphatims.extraction.plexscoring"
