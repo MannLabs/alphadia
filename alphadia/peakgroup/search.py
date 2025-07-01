@@ -606,11 +606,11 @@ class HybridCandidateSelection:
         logging.info("Starting candidate selection")
 
         # initialize input container
-        precursor_container = self.assemble_precursor_df(self.precursors_flat)
+        precursor_container = self._assemble_precursor_df(self.precursors_flat)
         candidate_container = CandidateDF(
             len(self.precursors_flat) * self.config.candidate_count
         )
-        fragment_container = self.assemble_fragments()
+        fragment_container = self._assemble_fragments()
 
         # if debug mode, only iterate over 10 elution groups
         iterator_len = (
@@ -631,9 +631,9 @@ class HybridCandidateSelection:
             debug,
         )
 
-        return self.collect_candidates(candidate_container)
+        return self._collect_candidates(candidate_container)
 
-    def collect_candidates(self, candidate_container):
+    def _collect_candidates(self, candidate_container):
         candidate_df = pd.DataFrame(
             {
                 key: value
@@ -661,7 +661,7 @@ class HybridCandidateSelection:
         )
         return candidate_df
 
-    def assemble_fragments(self):
+    def _assemble_fragments(self):
         # set cardinality to 1 if not present
         if "cardinality" in self.fragments_flat.columns:
             self.fragments_flat["cardinality"] = self.fragments_flat[
@@ -693,7 +693,7 @@ class HybridCandidateSelection:
             self.fragments_flat["cardinality"].values,
         )
 
-    def assemble_precursor_df(self, precursors_flat):
+    def _assemble_precursor_df(self, precursors_flat):
         # prepare jitclass compatible dtypes
         precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
 
