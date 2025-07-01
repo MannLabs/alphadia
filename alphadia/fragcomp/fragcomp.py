@@ -70,7 +70,7 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     ----------
     thread_idx: int
         The thread index. Each thread will handle one dia window.
-        The pjit decorator effectively changes the type of this argument to `np.ndarray` and threa-parallelizes
+        The pjit decorator effectively changes the type of this argument to `np.ndarray` and thread-parallelizes
         over it.
 
     precursor_start_idxs: np.ndarray
