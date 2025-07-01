@@ -7,8 +7,16 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
-from alphadia import validate
 from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.validation.schemas import (
+    candidate_features_df as validate_candidate_features_df,
+)
+from alphadia.validation.schemas import (
+    candidates_df as validate_candidates_df,
+)
+from alphadia.validation.schemas import (
+    precursors_flat as validate_precursors_flat,
+)
 
 logger = logging.getLogger()
 
@@ -83,7 +91,7 @@ def candidate_features_to_candidates(
     # validate candidate_features_df input
     if optional_columns is None:
         optional_columns = ["proba"]
-    validate.candidate_features_df(candidate_features_df.copy())
+    validate_candidate_features_df(candidate_features_df.copy())
 
     required_columns = [
         "elution_group_idx",
@@ -100,7 +108,7 @@ def candidate_features_to_candidates(
     # select required columns
     candidate_df = candidate_features_df[required_columns + optional_columns].copy()
     # validate candidate_df output
-    validate.candidates_df(candidate_df)
+    validate_candidates_df(candidate_df)
 
     return candidate_df
 
@@ -141,8 +149,8 @@ def multiplex_candidates(
     precursors_flat_view = precursors_flat_df.copy()
     best_candidate_view = candidates_df.copy()
 
-    validate.precursors_flat(precursors_flat_view)
-    validate.candidates_df(best_candidate_view)
+    validate_precursors_flat(precursors_flat_view)
+    validate_candidates_df(best_candidate_view)
 
     # remove decoys if requested
     if remove_decoys:
@@ -186,7 +194,7 @@ def multiplex_candidates(
 
     # append original candidates
     # multiplexed_candidates_df = pd.concat([multiplexed_candidates_df, candidates_view]).sort_values('precursor_idx')
-    validate.candidates_df(multiplexed_candidates_df)
+    validate_candidates_df(multiplexed_candidates_df)
 
     return multiplexed_candidates_df
 
