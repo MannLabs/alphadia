@@ -164,6 +164,7 @@ class Candidate:
         )
         return offset.astype(nb.float32) + self.precursor_mz
 
+    # TODO this needs to be split!
     def process(
         self,
         jit_data,
