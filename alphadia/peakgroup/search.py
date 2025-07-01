@@ -622,11 +622,11 @@ class HybridCandidateSelection:
         )
         fragment_container = self._assemble_fragments()
 
-        # if debug mode, only iterate over 10 elution groups
-        iterator_len = (
-            min(10, len(self.precursors_flat)) if debug else len(self.precursors_flat)
-        )
-        thread_count = 1 if debug else thread_count
+        iterator_len = len(self.precursors_flat)
+
+        if debug:
+            iterator_len = min(10, len(self.precursors_flat))
+            thread_count = 1
 
         alphatims.utils.set_threads(thread_count)
 
