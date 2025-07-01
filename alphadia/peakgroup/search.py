@@ -6,8 +6,13 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
+from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.peakgroup import fft
-from alphadia.peakgroup.config_df import CandidateDF, PrecursorFlatDF
+from alphadia.peakgroup.config_df import (
+    CandidateDF,
+    HybridCandidateConfig,
+    PrecursorFlatDF,
+)
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
     amean1,
@@ -516,27 +521,33 @@ def _build_candidates(
 class HybridCandidateSelection:
     def __init__(
         self,
-        dia_data,
-        precursors_flat,
-        fragments_flat,
-        config,
-        rt_column="rt_library",
-        mobility_column="mobility_library",
-        precursor_mz_column="mz_library",
-        fragment_mz_column="mz_library",
-        fwhm_rt=5.0,
-        fwhm_mobility=0.012,
+        dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT,
+        precursors_flat: pd.DataFrame,
+        fragments_flat: pd.DataFrame,
+        config: HybridCandidateConfig,
+        rt_column: str = "rt_library",
+        mobility_column: str = "mobility_library",
+        precursor_mz_column: str = "mz_library",
+        fragment_mz_column: str = "mz_library",
+        fwhm_rt: float = 5.0,
+        fwhm_mobility: float = 0.012,
     ):
         """select candidates for MS2 extraction based on MS1 features
 
         Parameters
         ----------
 
-        dia_data : alphadia.data.bruker.TimsTOFDIA
+        dia_data : bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT
             dia data object
 
-        precursors_flat : pandas.DataFrame
+        precursors_flat : pd.DataFrame
             flattened precursor dataframe
+
+        fragments_flat : pd.DataFrame
+            flattened fragment dataframe
+
+        config : HybridCandidateConfig
+            config object
 
         rt_column : str, optional
             name of the rt column in the precursor dataframe, by default 'rt_library'
@@ -550,8 +561,14 @@ class HybridCandidateSelection:
         fragment_mz_column : str, optional
             name of the fragment mz column in the fragment dataframe, by default 'mz_library'
 
+        fwhm_rt : float, optional
+            full width at half maximum in RT dimension for the GaussianKernel, by default 5.0
+
+        fwhm_mobility : float, optional
+            full width at half maximum in mobility dimension for the GaussianKernel, by default 0.012
         """
         self.dia_data_jit = dia_data.jit_class()
+
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
             drop=True
         )
@@ -566,11 +583,13 @@ class HybridCandidateSelection:
         gaussian_filter = GaussianKernel(
             self.dia_data_jit,
             fwhm_rt=fwhm_rt,
-            sigma_scale_rt=config.sigma_scale_rt,
+            sigma_scale_rt=self.config_jit.sigma_scale_rt,
             fwhm_mobility=fwhm_mobility,
-            sigma_scale_mobility=config.sigma_scale_mobility,
-            kernel_width=config.kernel_size,
-            kernel_height=min(config.kernel_size, self.dia_data_jit.scan_max_index + 1),
+            sigma_scale_mobility=self.config_jit.sigma_scale_mobility,
+            kernel_width=self.config_jit.kernel_size,
+            kernel_height=min(
+                self.config_jit.kernel_size, self.dia_data_jit.scan_max_index + 1
+            ),
         )
         self.kernel = gaussian_filter.get_dense_matrix()
 
@@ -585,7 +604,7 @@ class HybridCandidateSelection:
         The candidate selection is performed in parallel using the alphatims.utils.pjit function.
 
         3. Finally, the candidates are collected from the ElutionGroup,
-        assembled into a pandas.DataFrame and precursor information is appended.
+        assembled into a pd.DataFrame and precursor information is appended.
 
         Returns
         -------
