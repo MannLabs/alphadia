@@ -13,6 +13,7 @@ from alphadia.peakgroup.config_df import (
     HybridCandidateConfig,
     HybridCandidateConfigJIT,
     PrecursorFlatContainer,
+    candidate_container_to_df,
 )
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -54,6 +55,7 @@ def _select_candidates_pjit(
     )
 
 
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _is_valid(
     dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: np.ndarray
 ) -> bool:
@@ -412,7 +414,7 @@ def _build_candidates(
 
     if not (feature_std.shape == feature_mean.shape == feature_weights.shape):
         raise ValueError(
-            f"{feature_mean.shape=}, {feature_std.shape=} and {feature_weights.shape=} must be equal"
+            f"feature_mean.shape={feature_mean.shape}, feature_std.shape={feature_std.shape} and feature_weights.shape={feature_weights.shape} must be equal"
         )
 
     feature_matrix_norm = (
@@ -520,6 +522,7 @@ def _build_candidates(
         candidate_container.frame_stop[candidate_index] = frame_limits_absolute[1]
 
 
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _find_peaks(
     score: np.ndarray,
     candidate_count: int,
@@ -664,9 +667,8 @@ class HybridCandidateSelection:
     def _collect_candidates(
         self, candidate_container: CandidateContainer
     ) -> pd.DataFrame:
-        candidate_df = pd.DataFrame(
-            candidate_container.prepare_candidate_df(),
-        )
+        candidate_df = candidate_container_to_df(candidate_container)
+
         candidate_with_precursors_df = candidate_df.merge(
             self.precursors_flat[["precursor_idx", "elution_group_idx", "decoy"]],
             on="precursor_idx",
