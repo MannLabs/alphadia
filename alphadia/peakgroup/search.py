@@ -38,7 +38,7 @@ def _select_candidates_pjit(
     kernel,
     debug,
 ):
-    select_candidates(
+    _select_candidates(
         i,
         jit_data,
         precursor_container,
@@ -51,7 +51,7 @@ def _select_candidates_pjit(
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def select_candidates(
+def _select_candidates(
     i,
     jit_data,
     precursor_container,
@@ -165,7 +165,7 @@ def select_candidates(
         std = None
         weights = None
 
-    build_candidates(
+    _build_candidates(
         precursor_container.precursor_idx[i],
         candidate_container,
         precursor_container.candidate_start_idx[i],
@@ -188,7 +188,7 @@ def select_candidates(
 
 
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
-def build_features(smooth_precursor, smooth_fragment):
+def _build_features(smooth_precursor, smooth_fragment):
     n_features = 1
 
     features = np.zeros(
@@ -209,7 +209,7 @@ def build_features(smooth_precursor, smooth_fragment):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def join_close_peaks(
+def _join_close_peaks(
     peak_scan_list, peak_cycle_list, peak_score_list, scan_tolerance, cycle_tolerance
 ):
     """
@@ -265,7 +265,7 @@ def join_close_peaks(
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def join_overlapping_candidates(
+def _join_overlapping_candidates(
     scan_limits_list, cycle_limits_list, p_scan_overlap=0.01, p_cycle_overlap=0.6
 ):
     """
@@ -345,7 +345,7 @@ def join_overlapping_candidates(
 
 
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
-def build_candidates(
+def _build_candidates(
     precursor_idx,
     candidate_container,
     candidate_start_idx,
@@ -381,7 +381,9 @@ def build_candidates(
         print(smooth_fragment.shape, dense_fragments.shape)
         print("smooth_fragment shape does not match dense_fragments shape")
 
-    feature_matrix = build_features(smooth_precursor, smooth_fragment).astype("float32")
+    feature_matrix = _build_features(smooth_precursor, smooth_fragment).astype(
+        "float32"
+    )
 
     # get mean and std to normalize features
     # if trained, use the mean and std from training
@@ -421,7 +423,9 @@ def build_candidates(
             score, top_n=candidate_count
         )
 
-    peak_mask = join_close_peaks(peak_scan_list, peak_cycle_list, peak_score_list, 3, 3)
+    peak_mask = _join_close_peaks(
+        peak_scan_list, peak_cycle_list, peak_score_list, 3, 3
+    )
 
     peak_scan_list = peak_scan_list[peak_mask]
     peak_cycle_list = peak_cycle_list[peak_mask]
@@ -451,7 +455,7 @@ def build_candidates(
 
     # check if candidates overlapping candidates should be joined
     if config.join_close_candidates:
-        mask = join_overlapping_candidates(
+        mask = _join_overlapping_candidates(
             scan_limits_list,
             cycle_limits_list,
             p_scan_overlap=config.join_close_candidates_scan_threshold,
