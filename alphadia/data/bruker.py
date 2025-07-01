@@ -690,7 +690,7 @@ class TimsTOFTransposeJIT:
         frame_limits,
         scan_limits,
         ppm_background,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         if len(precursor_index) == 0:
             return np.empty((0, 0, 0, 0), dtype=np.float32), np.empty(
                 (0), dtype=np.int64
@@ -801,7 +801,7 @@ class TimsTOFTransposeJIT:
         quadrupole_mz,
         absolute_masses=False,
         custom_cycle=None,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         tof_limits = make_slice_2d(
             self.get_tof_indices(mass_range(mz_values, mass_tolerance))
         )
