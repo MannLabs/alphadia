@@ -50,7 +50,7 @@ def add_frag_start_stop_idx(
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def candidate_hash(precursor_idx: int, rank: int) -> int:
-    """VCreate a 64 bit hash from the precursor_idx, and rank.
+    """Create a 64 bit hash from the precursor_idx, and rank.
 
     The precursor_idx is the lower 32 bits.
     The rank is the next 8 bits.
