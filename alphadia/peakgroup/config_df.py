@@ -248,17 +248,35 @@ class CandidateContainer:
         self.frame_start = np.zeros(n_candidates, dtype=np.uint32)
         self.frame_stop = np.zeros(n_candidates, dtype=np.uint32)
 
-    def to_candidate_df(self, min_score=0):
+    def prepare_candidate_df(self, min_score: int = 0) -> dict:
+        """Prepare a dictionary with the candidate data, filtering by minimum score."""
         mask = self.score > min_score
 
-        return (
-            self.precursor_idx[mask],
-            self.rank[mask],
-            self.score[mask],
-            self.scan_center[mask],
-            self.scan_start[mask],
-            self.scan_stop[mask],
-            self.frame_center[mask],
-            self.frame_start[mask],
-            self.frame_stop[mask],
-        )
+        return {
+            key: value
+            for key, value in zip(
+                [
+                    "precursor_idx",
+                    "rank",
+                    "score",
+                    "scan_center",
+                    "scan_start",
+                    "scan_stop",
+                    "frame_center",
+                    "frame_start",
+                    "frame_stop",
+                ],
+                (
+                    self.precursor_idx[mask],
+                    self.rank[mask],
+                    self.score[mask],
+                    self.scan_center[mask],
+                    self.scan_start[mask],
+                    self.scan_stop[mask],
+                    self.frame_center[mask],
+                    self.frame_start[mask],
+                    self.frame_stop[mask],
+                ),
+                # strict=True, # not supported by numba
+            )
+        }

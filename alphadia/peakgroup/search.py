@@ -665,31 +665,14 @@ class HybridCandidateSelection:
         self, candidate_container: CandidateContainer
     ) -> pd.DataFrame:
         candidate_df = pd.DataFrame(
-            {
-                key: value
-                for key, value in zip(
-                    [
-                        "precursor_idx",
-                        "rank",
-                        "score",
-                        "scan_center",
-                        "scan_start",
-                        "scan_stop",
-                        "frame_center",
-                        "frame_start",
-                        "frame_stop",
-                    ],
-                    candidate_container.to_candidate_df(),
-                    strict=True,
-                )
-            }
+            candidate_container.prepare_candidate_df(),
         )
-        candidate_df = candidate_df.merge(
+        candidate_with_precursors_df = candidate_df.merge(
             self.precursors_flat[["precursor_idx", "elution_group_idx", "decoy"]],
             on="precursor_idx",
             how="left",
         )
-        return candidate_df
+        return candidate_with_precursors_df
 
     def _assemble_fragment_container(self) -> FragmentContainer:
         # set cardinality to 1 if not present
