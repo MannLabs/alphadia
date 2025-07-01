@@ -4,10 +4,10 @@ import alphatims
 import numba as nb
 import numpy as np
 import pandas as pd
-from peakgroup.config_df import CandidateDF, PrecursorFlatDF
 
 from alphadia import utils
 from alphadia.peakgroup import fft
+from alphadia.peakgroup.config_df import CandidateDF, PrecursorFlatDF
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
     amean1,
