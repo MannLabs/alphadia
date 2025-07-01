@@ -250,26 +250,15 @@ class CandidateContainer:
 
     def to_candidate_df(self, min_score=0):
         mask = self.score > min_score
-        self.precursor_idx = self.precursor_idx[mask]
-        self.rank = self.rank[mask]
-        self.score = self.score[mask]
-
-        self.scan_center = self.scan_center[mask]
-        self.scan_start = self.scan_start[mask]
-        self.scan_stop = self.scan_stop[mask]
-
-        self.frame_center = self.frame_center[mask]
-        self.frame_start = self.frame_start[mask]
-        self.frame_stop = self.frame_stop[mask]
 
         return (
-            self.precursor_idx,
-            self.rank,
-            self.score,
-            self.scan_center,
-            self.scan_start,
-            self.scan_stop,
-            self.frame_center,
-            self.frame_start,
-            self.frame_stop,
+            self.precursor_idx[mask],
+            self.rank[mask],
+            self.score[mask],
+            self.scan_center[mask],
+            self.scan_start[mask],
+            self.scan_stop[mask],
+            self.frame_center[mask],
+            self.frame_start[mask],
+            self.frame_stop[mask],
         )
