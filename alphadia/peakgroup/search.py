@@ -677,17 +677,14 @@ class HybridCandidateSelection:
     def _assemble_fragment_container(self) -> FragmentContainer:
         # set cardinality to 1 if not present
         if "cardinality" in self.fragments_flat.columns:
-            self.fragments_flat["cardinality"] = self.fragments_flat[
-                "cardinality"
-            ].values
-
+            cardinality_values = self.fragments_flat["cardinality"].values
         else:
             logging.warning(
                 "Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1."
             )
-            self.fragments_flat["cardinality"] = np.ones(
-                len(self.fragments_flat), dtype=np.uint8
-            )
+            cardinality_values = np.ones(len(self.fragments_flat), dtype=np.uint8)
+
+        self.fragments_flat["cardinality"] = cardinality_values
 
         # prepare jitclass compatible dtypes
         fragments_flat_schema.validate(
