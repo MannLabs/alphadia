@@ -176,9 +176,8 @@ class HybridCandidateConfig(JITConfig):
         pass
 
 
-# TODO what is "DF"?
 @nb.experimental.jitclass
-class PrecursorFlatDF:
+class PrecursorFlatContainer:
     precursor_idx: nb.uint32[::1]
 
     frag_start_idx: nb.uint32[::1]
@@ -220,7 +219,7 @@ class PrecursorFlatDF:
 
 
 @nb.experimental.jitclass
-class CandidateDF:
+class CandidateContainer:
     precursor_idx: nb.uint32[::1]
     rank: nb.uint8[::1]
     score: nb.float32[::1]

@@ -9,10 +9,10 @@ from alphadia import utils
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
-    CandidateDF,
+    CandidateContainer,
     HybridCandidateConfig,
     HybridCandidateConfigJIT,
-    PrecursorFlatDF,
+    PrecursorFlatContainer,
 )
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -35,10 +35,10 @@ logger = logging.getLogger()
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
-    i: int,
+    i: int,  # pjit decorator changes the passed argument from an iterable to single index
     dia_data_jit: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
-    precursor_container: PrecursorFlatDF,
-    candidate_container: CandidateDF,
+    precursor_container: PrecursorFlatContainer,
+    candidate_container: CandidateContainer,
     fragment_container: FragmentContainer,
     config_jit: HybridCandidateConfigJIT,
     kernel: np.ndarray,
@@ -92,8 +92,8 @@ def _is_valid(
 def _select_candidates(
     i: int,
     jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
-    precursor_container: PrecursorFlatDF,
-    candidate_container: CandidateDF,
+    precursor_container: PrecursorFlatContainer,
+    candidate_container: CandidateContainer,
     fragment_container: FragmentContainer,
     config: HybridCandidateConfigJIT,
     kernel: np.ndarray,
@@ -361,7 +361,7 @@ def _join_overlapping_candidates(
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
 def _build_candidates(
     precursor_idx: int,
-    candidate_container: CandidateDF,
+    candidate_container: CandidateContainer,
     candidate_start_idx: int,
     dense_precursors: np.ndarray,
     dense_fragments: np.ndarray,
@@ -626,11 +626,11 @@ class HybridCandidateSelection:
         logging.info("Starting candidate selection")
 
         # initialize input container
-        precursor_container = self._assemble_precursor_df(self.precursors_flat)
-        candidate_container = CandidateDF(
+        precursor_container = self._assemble_precursor_container(self.precursors_flat)
+        candidate_container = CandidateContainer(
             len(self.precursors_flat) * self.config_jit.candidate_count
         )
-        fragment_container = self._assemble_fragments()
+        fragment_container = self._assemble_fragment_container()
 
         iterator_len = len(self.precursors_flat)
 
@@ -641,7 +641,7 @@ class HybridCandidateSelection:
         alphatims.utils.set_threads(thread_count)
 
         _select_candidates_pjit(
-            range(iterator_len),
+            range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             self.dia_data_jit,
             precursor_container,
             candidate_container,
@@ -652,7 +652,9 @@ class HybridCandidateSelection:
 
         return self._collect_candidates(candidate_container)
 
-    def _collect_candidates(self, candidate_container: CandidateDF) -> pd.DataFrame:
+    def _collect_candidates(
+        self, candidate_container: CandidateContainer
+    ) -> pd.DataFrame:
         candidate_df = pd.DataFrame(
             {
                 key: value
@@ -680,7 +682,7 @@ class HybridCandidateSelection:
         )
         return candidate_df
 
-    def _assemble_fragments(self) -> FragmentContainer:
+    def _assemble_fragment_container(self) -> FragmentContainer:
         # set cardinality to 1 if not present
         if "cardinality" in self.fragments_flat.columns:
             self.fragments_flat["cardinality"] = self.fragments_flat[
@@ -712,7 +714,9 @@ class HybridCandidateSelection:
             self.fragments_flat["cardinality"].values,
         )
 
-    def _assemble_precursor_df(self, precursors_flat: pd.DataFrame) -> PrecursorFlatDF:
+    def _assemble_precursor_container(
+        self, precursors_flat: pd.DataFrame
+    ) -> PrecursorFlatContainer:
         # prepare jitclass compatible dtypes
         precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
 
@@ -729,7 +733,7 @@ class HybridCandidateSelection:
             candidate_start_index + self.config_jit.candidate_count
         ).astype(np.uint32)
 
-        return PrecursorFlatDF(
+        return PrecursorFlatContainer(
             precursors_flat["precursor_idx"].values,
             precursors_flat["flat_frag_start_idx"].values,
             precursors_flat["flat_frag_stop_idx"].values,
