@@ -863,10 +863,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         extraction = search.HybridCandidateSelection(
-            self.dia_data.jitclass(),
+            self.dia_data,
             batch_precursor_df,
             batch_fragment_df,
-            config.jitclass(),
+            config,
             rt_column=self._get_rt_column(),
             mobility_column=self._get_mobility_column(),
             precursor_mz_column=self._get_precursor_mz_column(),

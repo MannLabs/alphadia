@@ -30,20 +30,20 @@ logger = logging.getLogger()
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
     i,
-    jit_data,
+    dia_data_jit,
     precursor_container,
     candidate_container,
     fragment_container,
-    config,
+    config_jit,
     kernel,
 ):
     _select_candidates(
         i,
-        jit_data,
+        dia_data_jit,
         precursor_container,
         candidate_container,
         fragment_container,
-        config,
+        config_jit,
         kernel,
     )
 
@@ -552,11 +552,12 @@ class HybridCandidateSelection:
             name of the fragment mz column in the fragment dataframe, by default 'mz_library'
 
         """
-        self.dia_data = dia_data
+        self.dia_data_jit = dia_data.jit_class()
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
             drop=True
         )
         self.fragments_flat = fragments_flat
+        self.config_jit = config.jitclass()
 
         self.rt_column = rt_column
         self.precursor_mz_column = precursor_mz_column
@@ -564,13 +565,13 @@ class HybridCandidateSelection:
         self.mobility_column = mobility_column
 
         gaussian_filter = GaussianKernel(
-            dia_data,
+            self.dia_data_jit,
             fwhm_rt=fwhm_rt,
             sigma_scale_rt=config.sigma_scale_rt,
             fwhm_mobility=fwhm_mobility,
             sigma_scale_mobility=config.sigma_scale_mobility,
             kernel_width=config.kernel_size,
-            kernel_height=min(config.kernel_size, dia_data.scan_max_index + 1),
+            kernel_height=min(config.kernel_size, self.dia_data_jit.scan_max_index + 1),
         )
         self.kernel = gaussian_filter.get_dense_matrix()
 
@@ -578,9 +579,6 @@ class HybridCandidateSelection:
             self.precursors_flat.columns
         )
         self.available_isotope_columns = [f"i_{i}" for i in self.available_isotopes]
-
-        self.config = config
-        self.feature_path = feature_path
 
     def __call__(self, thread_count: int = 10, debug: bool = False) -> pd.DataFrame:
         """
@@ -607,7 +605,7 @@ class HybridCandidateSelection:
         # initialize input container
         precursor_container = self._assemble_precursor_df(self.precursors_flat)
         candidate_container = CandidateDF(
-            len(self.precursors_flat) * self.config.candidate_count
+            len(self.precursors_flat) * self.config_jit.candidate_count
         )
         fragment_container = self._assemble_fragments()
 
@@ -621,11 +619,11 @@ class HybridCandidateSelection:
 
         _select_candidates_pjit(
             range(iterator_len),
-            self.dia_data,
+            self.dia_data_jit,
             precursor_container,
             candidate_container,
             fragment_container,
-            self.config,
+            self.config_jit,
             self.kernel,
         )
 
@@ -700,12 +698,12 @@ class HybridCandidateSelection:
 
         candidate_start_index = np.arange(
             0,
-            len(precursors_flat) * self.config.candidate_count,
-            self.config.candidate_count,
+            len(precursors_flat) * self.config_jit.candidate_count,
+            self.config_jit.candidate_count,
             dtype=np.uint32,
         )
         candidate_stop_index = (
-            candidate_start_index + self.config.candidate_count
+            candidate_start_index + self.config_jit.candidate_count
         ).astype(np.uint32)
 
         return PrecursorFlatDF(
