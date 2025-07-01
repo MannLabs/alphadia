@@ -378,18 +378,17 @@ def _build_candidates(
     cycle_length = jit_data.cycle.shape[1]
 
     feature_weights = np.ones(1) if weights is None else weights
-
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
     smooth_precursor = fft.convolve_fourier(dense_precursors, kernel)
     smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
     if smooth_precursor.shape != dense_precursors.shape:
-        logging.warning(
+        print(
             f"smooth_precursor shape does not match dense_precursors shape {smooth_precursor.shape} != {dense_precursors.shape}"
         )
     if smooth_fragment.shape != dense_fragments.shape:
-        logging.warning(
+        print(
             f"smooth_fragment shape does not match dense_precursors shape {smooth_fragment.shape} != {dense_fragments.shape}"
         )
 
@@ -398,8 +397,7 @@ def _build_candidates(
     )
 
     # get mean and std to normalize features
-    # if trained, use the mean and std from training
-    # otherwise calculate the mean and std from the current data
+    # if trained, use the mean and std from training, otherwise calculate the mean and std from the current data
     feature_mean = (
         amean1(feature_matrix).reshape(-1, 1, 1)
         if mean is None
@@ -423,16 +421,9 @@ def _build_candidates(
 
     score = np.sum(feature_matrix_norm, axis=0)
 
-    # identify distinct peaks
-    #  check if there is a real ion mobility dimension
-    if score.shape[0] <= 2:
-        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_1d(
-            score, top_n=candidate_count
-        )
-    else:
-        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_2d(
-            score, top_n=candidate_count
-        )
+    peak_scan_list, peak_cycle_list, peak_score_list = _find_peaks(
+        score, candidate_count
+    )
 
     peak_mask = _join_close_peaks(
         peak_scan_list, peak_cycle_list, peak_score_list, 3, 3
@@ -527,6 +518,23 @@ def _build_candidates(
         candidate_container.frame_center[candidate_index] = frame_absolute
         candidate_container.frame_start[candidate_index] = frame_limits_absolute[0]
         candidate_container.frame_stop[candidate_index] = frame_limits_absolute[1]
+
+
+def _find_peaks(
+    score: np.ndarray,
+    candidate_count: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Identify distinct peaks."""
+    #  check if there is a real ion mobility dimension
+    if score.shape[0] <= 2:
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_1d(
+            score, top_n=candidate_count
+        )
+    else:
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_2d(
+            score, top_n=candidate_count
+        )
+    return peak_scan_list, peak_cycle_list, peak_score_list
 
 
 class HybridCandidateSelection:
