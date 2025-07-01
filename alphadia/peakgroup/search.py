@@ -28,7 +28,7 @@ logger = logging.getLogger()
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
-def _executor(
+def _select_candidates_pjit(
     i,
     jit_data,
     precursor_container,
@@ -620,7 +620,7 @@ class HybridCandidateSelection:
 
         alphatims.utils.set_threads(thread_count)
 
-        _executor(
+        _select_candidates_pjit(
             range(iterator_len),
             self.dia_data,
             precursor_container,
