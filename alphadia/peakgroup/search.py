@@ -55,7 +55,7 @@ def _select_candidates_pjit(
 
 
 def _is_valid(
-    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: pd.DataFrame
+    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: np.ndarray
 ) -> bool:
     """Perform sanity checks and return False if any of them fails."""
 
