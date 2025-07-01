@@ -1,5 +1,4 @@
 import logging
-from typing import Any
 
 import alphatims
 import numba as nb
@@ -12,6 +11,7 @@ from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateDF,
     HybridCandidateConfig,
+    HybridCandidateConfigJIT,
     PrecursorFlatDF,
 )
 from alphadia.peakgroup.kernel import GaussianKernel
@@ -35,12 +35,12 @@ logger = logging.getLogger()
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
-    i: Any,  # TODO: (ANN) - JIT iterator type unclear
-    dia_data_jit: Any,  # TODO: (ANN) - JIT class type unclear
-    precursor_container: Any,  # TODO: (ANN) - JIT container type unclear
-    candidate_container: Any,  # TODO: (ANN) - JIT container type unclear
-    fragment_container: Any,  # TODO: (ANN) - JIT container type unclear
-    config_jit: Any,  # TODO: (ANN) - JIT config type unclear
+    i: int,
+    dia_data_jit: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    precursor_container: PrecursorFlatDF,
+    candidate_container: CandidateDF,
+    fragment_container: FragmentContainer,
+    config_jit: HybridCandidateConfigJIT,
     kernel: np.ndarray,
 ) -> None:
     _select_candidates(
@@ -90,12 +90,12 @@ def _is_valid(
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _select_candidates(
-    i: Any,  # TODO: (ANN) - JIT iterator type unclear
-    jit_data: Any,  # TODO: (ANN) - JIT data type unclear
-    precursor_container: Any,  # TODO: (ANN) - JIT container type unclear
-    candidate_container: Any,  # TODO: (ANN) - JIT container type unclear
-    fragment_container: Any,  # TODO: (ANN) - JIT container type unclear
-    config: Any,  # TODO: (ANN) - JIT config type unclear
+    i: int,
+    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    precursor_container: PrecursorFlatDF,
+    candidate_container: CandidateDF,
+    fragment_container: FragmentContainer,
+    config: HybridCandidateConfigJIT,
     kernel: np.ndarray,
 ) -> None:
     # prepare precursor isotope intensity
@@ -360,14 +360,14 @@ def _join_overlapping_candidates(
 
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
 def _build_candidates(
-    precursor_idx: Any,  # TODO: (ANN) - precursor index type unclear
-    candidate_container: Any,  # TODO: (ANN) - JIT container type unclear
+    precursor_idx: int,
+    candidate_container: CandidateDF,
     candidate_start_idx: int,
     dense_precursors: np.ndarray,
     dense_fragments: np.ndarray,
     kernel: np.ndarray,
-    jit_data: Any,  # TODO: (ANN) - JIT data type unclear
-    config: Any,  # TODO: (ANN) - JIT config type unclear
+    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    config: HybridCandidateConfigJIT,
     scan_limits: np.ndarray,
     frame_limits: np.ndarray,
     candidate_count: int = 3,
@@ -652,9 +652,7 @@ class HybridCandidateSelection:
 
         return self._collect_candidates(candidate_container)
 
-    def _collect_candidates(
-        self, candidate_container: Any
-    ) -> pd.DataFrame:  # TODO: (ANN) - candidate_container type unclear
+    def _collect_candidates(self, candidate_container: CandidateDF) -> pd.DataFrame:
         candidate_df = pd.DataFrame(
             {
                 key: value
