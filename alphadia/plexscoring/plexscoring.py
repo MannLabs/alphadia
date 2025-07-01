@@ -7,12 +7,12 @@ import numpy as np
 import pandas as pd
 
 from alphadia.data import alpharaw_wrapper, bruker
-from alphadia.numba import fragments
 from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
 from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
+from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import (
     USE_NUMBA_CACHING,
     get_isotope_columns,
@@ -271,7 +271,7 @@ class CandidateScoring:
 
         return score_group_container
 
-    def assemble_fragments(self) -> fragments.FragmentContainer:
+    def assemble_fragments(self) -> FragmentContainer:
         """Assemble the Numba JIT compatible fragment container from a fragment dataframe.
 
         If not present, the `cardinality` column will be added to the fragment dataframe and set to 1.
@@ -301,7 +301,7 @@ class CandidateScoring:
             self.fragments_flat, warn_on_critical_values=True
         )
 
-        return fragments.FragmentContainer(
+        return FragmentContainer(
             self.fragments_flat["mz_library"].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,

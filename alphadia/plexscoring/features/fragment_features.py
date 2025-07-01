@@ -1,12 +1,15 @@
 import numba as nb
 import numpy as np
 
-from alphadia.numba.numeric import fragment_correlation, fragment_correlation_different
 from alphadia.plexscoring.features.features_utils import (
     cosine_similarity_a1,
     weighted_center_mean_2d,
 )
-from alphadia.plexscoring.utils import tile
+from alphadia.plexscoring.utils import (
+    fragment_correlation,
+    fragment_correlation_different,
+    tile,
+)
 from alphadia.utils import USE_NUMBA_CACHING
 
 nb_float32_array = nb.types.Array(nb.types.float32, 1, "C")

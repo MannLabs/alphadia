@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 import pytest
 
-from alphadia.numba.fft import convolve_fourier, irfft2, rfft2
+from alphadia.peakgroup.fft import _irfft2, _rfft2, convolve_fourier
 from alphadia.utils import USE_NUMBA_CACHING
 
 
@@ -10,7 +10,7 @@ from alphadia.utils import USE_NUMBA_CACHING
 def test_rfft2_np_agreement(shape, tol=1e-6):
     @nb.njit(cache=USE_NUMBA_CACHING)
     def njit_rfft2(x):
-        return rfft2(x)
+        return _rfft2(x)
 
     x = np.random.rand(*shape).astype(np.float32)
     y = njit_rfft2(x)
@@ -22,7 +22,7 @@ def test_rfft2_np_agreement(shape, tol=1e-6):
 def test_irfft2_np_agreement(shape, tol=1e-6):
     @nb.njit(cache=USE_NUMBA_CACHING)
     def njit_r2r(x):
-        return irfft2(rfft2(x))
+        return _irfft2(_rfft2(x))
 
     x = np.random.rand(*shape).astype(np.float32)
     x2 = njit_r2r(x)
@@ -35,8 +35,8 @@ def test_irfft2_np_agreement(shape, tol=1e-6):
 def test_conv_np_agreement():
     @nb.njit(cache=USE_NUMBA_CACHING)
     def conv(x, y):
-        y = rfft2(y, x.shape)
-        return irfft2(rfft2(x) * y)
+        y = _rfft2(y, x.shape)
+        return _irfft2(_rfft2(x) * y)
 
     x = np.random.rand(128, 128).astype(np.float32)
     y = np.random.rand(32, 32).astype(np.float32)
@@ -58,7 +58,7 @@ def test_conv_np_agreement():
 def test_fft_typing(x, should_fail):
     @nb.njit(cache=USE_NUMBA_CACHING)
     def njit_r2r(x):
-        return irfft2(rfft2(x))
+        return _irfft2(_rfft2(x))
 
     if should_fail:
         with pytest.raises(nb.TypingError):

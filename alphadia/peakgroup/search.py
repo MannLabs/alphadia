@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.numba import config, fft, fragments, numeric
+from alphadia.peakgroup import fft
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
     amean1,
@@ -14,7 +14,13 @@ from alphadia.peakgroup.utils import (
     astd1,
     find_peaks_1d,
     find_peaks_2d,
+    slice_manual,
+    symetric_limits_2d,
+    wrap0,
+    wrap1,
 )
+from alphadia.utilities.fragment_container import FragmentContainer
+from alphadia.utilities.jit_config import JITConfig
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
@@ -135,7 +141,7 @@ class HybridCandidateConfigJIT:
         self.feature_weight = feature_weight
 
 
-class HybridCandidateConfig(config.JITConfig):
+class HybridCandidateConfig(JITConfig):
     jit_container = HybridCandidateConfigJIT
 
     def __init__(self):
@@ -340,9 +346,7 @@ def select_candidates(
         dtype=np.uint32,
     )
 
-    fragment_container_slice = fragments.slice_manual(
-        fragment_container, fragment_idx_slices
-    )
+    fragment_container_slice = slice_manual(fragment_container, fragment_idx_slices)
     if config.exclude_shared_ions:
         fragment_container_slice.filter_by_cardinality(1)
     fragment_container_slice.sort_by_mz()
@@ -695,7 +699,7 @@ def build_candidates(
     for candidate_rank, (scan_relative, cycle_relative) in enumerate(
         zip(peak_scan_list, peak_cycle_list)  # ('strict' not supported by numba yet)
     ):
-        scan_limits_relative, cycle_limits_relative = numeric.symetric_limits_2d(
+        scan_limits_relative, cycle_limits_relative = symetric_limits_2d(
             score,
             scan_relative,
             cycle_relative,
@@ -746,18 +750,18 @@ def build_candidates(
     ):  # ('strict' not supported by numba yet)
         # does not work anymore
 
-        scan_limits_absolute = numeric.wrap1(
+        scan_limits_absolute = wrap1(
             scan_limits_relative + scan_limits[0, 0], jit_data.scan_max_index
         )
-        frame_limits_absolute = numeric.wrap1(
+        frame_limits_absolute = wrap1(
             cycle_limits_relative * cycle_length + frame_limits[0, 0],
             jit_data.frame_max_index,
         )
 
-        scan_absolute = numeric.wrap0(
+        scan_absolute = wrap0(
             scan_relative + scan_limits[0, 0], jit_data.scan_max_index
         )
-        frame_absolute = numeric.wrap0(
+        frame_absolute = wrap0(
             cycle_relative * cycle_length + frame_limits[0, 0], jit_data.frame_max_index
         )
 
@@ -942,7 +946,7 @@ class HybridCandidateSelection:
             self.fragments_flat, warn_on_critical_values=True
         )
 
-        return fragments.FragmentContainer(
+        return FragmentContainer(
             self.fragments_flat["mz_library"].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,

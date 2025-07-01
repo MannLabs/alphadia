@@ -11,14 +11,12 @@ from rocket_fft.overloads import (
     zeropad_or_crop,
 )
 
-from alphadia.utils import USE_NUMBA_CACHING
-
 
 class NumbaContextOnly(Exception):
     pass
 
 
-def rfft2(x: np.array, s: None | tuple = None) -> np.array:
+def _rfft2(x: np.array, s: None | tuple = None) -> np.array:
     """
     Numba function to compute the 2D real-to-complex FFT of a real array.
 
@@ -46,7 +44,7 @@ def rfft2(x: np.array, s: None | tuple = None) -> np.array:
     )
 
 
-@overload(rfft2, fastmath=True)
+@overload(_rfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
         return None
@@ -69,7 +67,7 @@ def _(x, s=None):
     return funcx_impl
 
 
-def irfft2(x: np.array, s: None | tuple = None) -> np.array:
+def _irfft2(x: np.array, s: None | tuple = None) -> np.array:
     """
     Numba function to compute the 2D complex-to-real FFT of a complex array.
 
@@ -97,7 +95,7 @@ def irfft2(x: np.array, s: None | tuple = None) -> np.array:
     )
 
 
-@overload(irfft2, fastmath=True)
+@overload(_irfft2, fastmath=True)
 def _(x, s=None):
     if not isinstance(x, nb.types.Array):
         return None
@@ -120,17 +118,6 @@ def _(x, s=None):
         return out
 
     return funcx_impl
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def roll(a, delta0, delta1):
-    b = np.zeros_like(a)
-    b[delta0:, delta1:] = a[:-delta0, :-delta1]
-    b[:delta0, delta1:] = a[-delta0:, :-delta1]
-    b[delta0:, :delta1] = a[:-delta0, -delta1:]
-    b[:delta0, :delta1] = a[-delta0:, -delta1:]
-
-    return b
 
 
 def convolve_fourier(dense, kernel):
@@ -181,8 +168,8 @@ def _(dense, kernel):
             delta0, delta1 = -k0 // 2, -k1 // 2
 
             out = np.zeros_like(dense)
-            fourier_filter = rfft2(kernel, dense.shape)
-            layer = irfft2(rfft2(dense) * fourier_filter)
+            fourier_filter = _rfft2(kernel, dense.shape)
+            layer = _irfft2(_rfft2(dense) * fourier_filter)
             out[delta0:, delta1:] = layer[:-delta0, :-delta1]
             out[:delta0, delta1:] = layer[-delta0:, :-delta1]
             out[delta0:, :delta1] = layer[:-delta0, -delta1:]
@@ -199,10 +186,10 @@ def _(dense, kernel):
             delta0, delta1 = -k0 // 2, -k1 // 2
 
             out = np.zeros_like(dense)
-            fourier_filter = rfft2(kernel, dense.shape[-2:])
+            fourier_filter = _rfft2(kernel, dense.shape[-2:])
 
             for i in range(dense.shape[0]):
-                layer = irfft2(rfft2(dense[i]) * fourier_filter)
+                layer = _irfft2(_rfft2(dense[i]) * fourier_filter)
                 out[i, delta0:, delta1:] = layer[:-delta0, :-delta1]
                 out[i, :delta0, delta1:] = layer[-delta0:, :-delta1]
                 out[i, delta0:, :delta1] = layer[:-delta0, -delta1:]
@@ -219,11 +206,11 @@ def _(dense, kernel):
             delta0, delta1 = -k0 // 2, -k1 // 2
 
             out = np.zeros_like(dense)
-            fourier_filter = rfft2(kernel, dense.shape[-2:])
+            fourier_filter = _rfft2(kernel, dense.shape[-2:])
 
             for i in range(dense.shape[0]):
                 for j in range(dense.shape[1]):
-                    layer = irfft2(rfft2(dense[i, j]) * fourier_filter)
+                    layer = _irfft2(_rfft2(dense[i, j]) * fourier_filter)
                     out[i, j, delta0:, delta1:] = layer[:-delta0, :-delta1]
                     out[i, j, :delta0, delta1:] = layer[-delta0:, :-delta1]
                     out[i, j, delta0:, :delta1] = layer[:-delta0, -delta1:]
