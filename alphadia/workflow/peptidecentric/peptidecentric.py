@@ -15,7 +15,7 @@ from alphadia.workflow.peptidecentric.recalibration_handler import Recalibration
 from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
 )
-from alphadia.workflow.peptidecentric.utils import fdr_correction
+from alphadia.workflow.peptidecentric.utils import fdr_correction, log_precursor_df
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -449,96 +449,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             fragments_df["candidate_idx"].isin(precursor_df["candidate_idx"])
         ]
 
-        self.log_precursor_df(precursor_df)
+        log_precursor_df(self.reporter, precursor_df)
 
         return precursor_df, fragments_df
-
-    def log_precursor_df(self, precursor_df):
-        total_precursors = len(precursor_df)
-
-        total_precursors_denom = max(
-            float(total_precursors), 1e-6
-        )  # avoid division by zero
-
-        target_precursors = len(precursor_df[precursor_df["decoy"] == 0])
-        target_precursors_percentages = target_precursors / total_precursors_denom * 100
-        decoy_precursors = len(precursor_df[precursor_df["decoy"] == 1])
-        decoy_precursors_percentages = decoy_precursors / total_precursors_denom * 100
-
-        self.reporter.log_string(
-            "============================= Precursor FDR =============================",
-            verbosity="progress",
-        )
-        self.reporter.log_string(
-            f"Total precursors accumulated: {total_precursors:,}", verbosity="progress"
-        )
-        self.reporter.log_string(
-            f"Target precursors: {target_precursors:,} ({target_precursors_percentages:.2f}%)",
-            verbosity="progress",
-        )
-        self.reporter.log_string(
-            f"Decoy precursors: {decoy_precursors:,} ({decoy_precursors_percentages:.2f}%)",
-            verbosity="progress",
-        )
-
-        self.reporter.log_string("", verbosity="progress")
-        self.reporter.log_string("Precursor Summary:", verbosity="progress")
-
-        for channel in precursor_df["channel"].unique():
-            precursor_05fdr = len(
-                precursor_df[
-                    (precursor_df["qval"] < 0.05)
-                    & (precursor_df["decoy"] == 0)
-                    & (precursor_df["channel"] == channel)
-                ]
-            )
-            precursor_01fdr = len(
-                precursor_df[
-                    (precursor_df["qval"] < 0.01)
-                    & (precursor_df["decoy"] == 0)
-                    & (precursor_df["channel"] == channel)
-                ]
-            )
-            precursor_001fdr = len(
-                precursor_df[
-                    (precursor_df["qval"] < 0.001)
-                    & (precursor_df["decoy"] == 0)
-                    & (precursor_df["channel"] == channel)
-                ]
-            )
-            self.reporter.log_string(
-                f"Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}",
-                verbosity="progress",
-            )
-
-        self.reporter.log_string("", verbosity="progress")
-        self.reporter.log_string("Protein Summary:", verbosity="progress")
-
-        for channel in precursor_df["channel"].unique():
-            proteins_05fdr = precursor_df[
-                (precursor_df["qval"] < 0.05)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]["proteins"].nunique()
-            proteins_01fdr = precursor_df[
-                (precursor_df["qval"] < 0.01)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]["proteins"].nunique()
-            proteins_001fdr = precursor_df[
-                (precursor_df["qval"] < 0.001)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]["proteins"].nunique()
-            self.reporter.log_string(
-                f"Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}",
-                verbosity="progress",
-            )
-
-        self.reporter.log_string(
-            "=========================================================================",
-            verbosity="progress",
-        )
 
     def _lazy_init_requantification_handler(self):
         """Initializes the requantification handler if it is not already initialized."""
@@ -564,7 +477,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         psm_df = self._requantification_handler.requantify(self.dia_data, psm_df)
 
-        self.log_precursor_df(psm_df)
+        log_precursor_df(self.reporter, psm_df)
 
         return psm_df
 

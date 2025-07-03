@@ -13,7 +13,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
-from alphadia.workflow.peptidecentric.utils import fdr_correction
+from alphadia.workflow.peptidecentric.utils import fdr_correction, log_precursor_df
 
 
 class OptimizationHandler:
@@ -320,7 +320,7 @@ class OptimizationHandler:
             f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        self.log_precursor_df(precursor_df)
+        log_precursor_df(self.reporter, precursor_df)
 
         return precursor_df
 
