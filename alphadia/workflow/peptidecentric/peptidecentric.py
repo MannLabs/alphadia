@@ -154,7 +154,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self._extraction_handler: ExtractionHandler | None = None
         self._recalibration_handler: RecalibrationHandler | None = None
-        self.requantification_handler: RequantificationHandler | None = None
+        self._requantification_handler: RequantificationHandler | None = None
 
     def load(
         self,
@@ -918,8 +918,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     def _lazy_init_requantification_handler(self):
         """Initializes the requantification handler if it is not already initialized."""
-        if not self.requantification_handler:
-            self.requantification_handler = RequantificationHandler(
+        if not self._requantification_handler:
+            self._requantification_handler = RequantificationHandler(
                 self.config,
                 self.optimization_manager,
                 self.calibration_manager,
@@ -935,7 +935,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         self._lazy_init_requantification_handler()
 
-        psm_df = self.requantification_handler.requantify(self.dia_data, psm_df)
+        psm_df = self._requantification_handler.requantify(self.dia_data, psm_df)
 
         self.log_precursor_df(psm_df)
 
@@ -946,4 +946,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         self._lazy_init_requantification_handler()
 
-        return self.requantification_handler.requantify_fragments(self.dia_data, psm_df)
+        return self._requantification_handler.requantify_fragments(
+            self.dia_data, psm_df
+        )
