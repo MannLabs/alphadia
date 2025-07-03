@@ -11,7 +11,6 @@ import pytest
 import yaml
 from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
-from workflow.peptidecentric.optimization_handler import OptimizationHandler
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
@@ -23,6 +22,7 @@ from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
