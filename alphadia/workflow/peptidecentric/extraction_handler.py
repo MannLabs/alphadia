@@ -1,28 +1,40 @@
 import seaborn as sns
+from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.data.utils import DiaData
 from alphadia.peakgroup import search
 from alphadia.peakgroup.config_df import HybridCandidateConfig
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.reporting.reporting import Pipeline
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
 class ExtractionHandler:
     """Manages precursor and fragment extraction operations."""
 
-    def __init__(self, workflow):
-        # TODO: consider: ExtractionHandler takes the entire workflow as a dependency, increasing coupling.
-        #  Consider injecting only the required services or parameters (e.g., reporter, config, optimization manager) for clearer separation of concerns
-        self._workflow = workflow
-
-        self.config = self._workflow.config
-        self.optimization_manager = self._workflow.optimization_manager
-        self.reporter = self._workflow.reporter
-        self.dia_data = self._workflow.dia_data
-        self.spectral_library = self._workflow.spectral_library
-        self._get_rt_column = self._workflow.get_rt_column
-        self._get_mobility_column = self._workflow.get_mobility_column
-        self._get_precursor_mz_column = self._workflow.get_precursor_mz_column
-        self._get_fragment_mz_column = self._workflow.get_fragment_mz_column
+    def __init__(
+        self,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        reporter: Pipeline,
+        dia_data: DiaData,
+        spectral_library: SpecLibBase,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        fragment_mz_column: str,
+    ):
+        self.config: Config = config
+        self.optimization_manager: OptimizationManager = optimization_manager
+        self.reporter: Pipeline = reporter
+        self.dia_data: DiaData = dia_data
+        self.spectral_library: SpecLibBase = spectral_library
+        self._rt_column: str = rt_column
+        self._mobility_column: str = mobility_column
+        self._precursor_mz_column: str = precursor_mz_column
+        self._fragment_mz_column: str = fragment_mz_column
 
     def extract_batch(
         self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
@@ -74,10 +86,10 @@ class ExtractionHandler:
             batch_precursor_df,
             batch_fragment_df,
             config,
-            rt_column=self._get_rt_column(),
-            mobility_column=self._get_mobility_column(),
-            precursor_mz_column=self._get_precursor_mz_column(),
-            fragment_mz_column=self._get_fragment_mz_column(),
+            rt_column=self._rt_column,
+            mobility_column=self._mobility_column,
+            precursor_mz_column=self._precursor_mz_column,
+            fragment_mz_column=self._fragment_mz_column,
             fwhm_rt=self.optimization_manager.fwhm_rt,
             fwhm_mobility=self.optimization_manager.fwhm_mobility,
         )
@@ -118,10 +130,10 @@ class ExtractionHandler:
             batch_precursor_df,
             batch_fragment_df,
             config=config,
-            rt_column=self._get_rt_column(),
-            mobility_column=self._get_mobility_column(),
-            precursor_mz_column=self._get_precursor_mz_column(),
-            fragment_mz_column=self._get_fragment_mz_column(),
+            rt_column=self._rt_column(),
+            mobility_column=self._mobility_column(),
+            precursor_mz_column=self._precursor_mz_column(),
+            fragment_mz_column=self._fragment_mz_column(),
         )
 
         features_df, fragments_df = candidate_scoring(

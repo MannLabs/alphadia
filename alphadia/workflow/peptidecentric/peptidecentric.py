@@ -159,9 +159,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config,
             quant_path,
         )
-        self.optlock = None
+        self.optlock: optimization.OptimizationLock | None = None
 
-        self._extraction_handler = ExtractionHandler(self)
+        self._extraction_handler: ExtractionHandler | None = None
 
     def load(
         self,
@@ -179,6 +179,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self._init_fdr_manager()
         self._init_spectral_library()
+
+        self._extraction_handler = ExtractionHandler(
+            self.config,
+            self.optimization_manager,
+            self.reporter,
+            self.dia_data,
+            self.spectral_library,
+            self._get_rt_column(),
+            self._get_mobility_column(),
+            self._get_precursor_mz_column(),
+            self._get_fragment_mz_column(),
+        )
 
     def _init_fdr_manager(self):
         self.fdr_manager = FDRManager(
