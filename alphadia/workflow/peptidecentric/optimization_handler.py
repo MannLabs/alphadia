@@ -169,7 +169,9 @@ class OptimizationHandler:
         return ordered_optimizers
 
     def search_parameter_optimization(self):
-        """Performs optimization of the search parameters. This occurs in two stages:
+        """Performs optimization of the search parameters.
+
+        This occurs in two stages:
         1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
         2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.
             In each iteration, the data are searched with the locked library from stage 1, and the properties -- m/z for both precursors and fragments (i.e. MS1 and MS2), RT and mobility -- are recalibrated.
