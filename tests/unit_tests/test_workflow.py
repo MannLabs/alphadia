@@ -23,7 +23,11 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.peptidecentric import (
+    PeptideCentricWorkflow,
+    _get_classifier_base,
+)
+from alphadia.workflow.peptidecentric.utils import feature_columns
 
 
 def test_base_manager():
@@ -455,7 +459,22 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
-    workflow._init_fdr_manager()
+    workflow.fdr_manager = FDRManager(
+        feature_columns=feature_columns,
+        classifier_base=_get_classifier_base(
+            enable_two_step_classifier=workflow.config["fdr"][
+                "enable_two_step_classifier"
+            ],
+            two_step_classifier_max_iterations=workflow.config["fdr"][
+                "two_step_classifier_max_iterations"
+            ],
+            enable_nn_hyperparameter_tuning=workflow.config["fdr"][
+                "enable_nn_hyperparameter_tuning"
+            ],
+            fdr_cutoff=workflow.config["fdr"]["fdr"],
+        ),
+        figure_path=workflow._figure_path,
+    )
 
     class MockDIAData:
         has_mobility = True
@@ -467,7 +486,7 @@ def create_workflow_instance():
         workflow.config,
         workflow._optimization_manager,
         workflow._calibration_manager,
-        fdr_manager=None,
+        fdr_manager=workflow.fdr_manager,
         extraction_handler=None,
         recalibration_handler=None,
         reporter=workflow.reporter,
@@ -494,7 +513,7 @@ def test_automatic_ms2_optimizer():
 
     ms2_optimizer = optimization.AutomaticMS2Optimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert ms2_optimizer.has_converged is False
@@ -550,7 +569,7 @@ def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
 
     ms2_optimizer = optimization.AutomaticMS2Optimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
     ms2_optimizer._favour_narrower_optimum = favour_narrower_optimum
     ms2_optimizer.proceed_with_insufficient_precursors(
@@ -571,7 +590,7 @@ def test_automatic_rt_optimizer():
 
     rt_optimizer = optimization.AutomaticRTOptimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert rt_optimizer.has_converged is False
@@ -626,7 +645,7 @@ def test_automatic_ms1_optimizer():
 
     ms1_optimizer = optimization.AutomaticMS1Optimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert ms1_optimizer.has_converged is False
@@ -677,7 +696,7 @@ def test_automatic_mobility_optimizer():
 
     mobility_optimizer = optimization.AutomaticMobilityOptimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert mobility_optimizer.has_converged is False
@@ -732,7 +751,7 @@ def test_targeted_ms2_optimizer():
     optimizer = optimization.TargetedMS2Optimizer(
         100,
         7,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert optimizer.parameter_name == "ms2_error"
@@ -760,7 +779,7 @@ def test_targeted_rt_optimizer():
     optimizer = optimization.TargetedRTOptimizer(
         100,
         7,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert optimizer.parameter_name == "rt_error"
@@ -788,7 +807,7 @@ def test_targeted_ms1_optimizer():
     optimizer = optimization.TargetedMS1Optimizer(
         100,
         7,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert optimizer.parameter_name == "ms1_error"
@@ -816,7 +835,7 @@ def test_targeted_mobility_optimizer():
     optimizer = optimization.TargetedMobilityOptimizer(
         100,
         7,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert optimizer.parameter_name == "mobility_error"
@@ -1093,7 +1112,7 @@ def test_optimizer_skipping():
 
     rt_optimizer = optimization.AutomaticRTOptimizer(
         100,
-        workflow,
+        workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
 
     assert rt_optimizer.has_converged is False

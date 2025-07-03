@@ -34,7 +34,8 @@ class OptimizationHandler:
         dia_data: AlphaRaw | TimsTOFTranspose,
     ):
         self.config = config
-        # TODO there's an implicit coupling between this class and the Optimizers, which think this is a workflow object!
+        # TODO decouple optimizers from workflow:
+        #  there's an implicit coupling between this class and the Optimizers, which think this is a workflow object!
         self.optimization_manager = optimization_manager
         self.calibration_manager = calibration_manager
         self.fdr_manager = fdr_manager
