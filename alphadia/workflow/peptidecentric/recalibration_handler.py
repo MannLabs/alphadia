@@ -15,16 +15,16 @@ class RecalibrationHandler:
     def __init__(
         self,
         config: Config,
-        reporter: Pipeline,
         optimization_manager: OptimizationManager,
         calibration_manager: CalibrationManager,
+        reporter: Pipeline,
         figure_path: str,
         dia_data_has_ms1: bool,
     ):
         self._config = config
-        self._reporter = reporter
         self._optimization_manager = optimization_manager
         self._calibration_manager = calibration_manager
+        self._reporter = reporter
         self._figure_path = figure_path
         self._dia_data_has_ms1 = dia_data_has_ms1
 
