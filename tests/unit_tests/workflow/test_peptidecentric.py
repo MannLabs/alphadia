@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
+from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
@@ -31,10 +32,21 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     )
     instance = PeptideCentricWorkflow("test_instance", mock_config)
     instance.reporter = MagicMock()
+    instance._optimization_handler = OptimizationHandler(
+        mock_config,
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+    )
 
     # when
-    filtered_precursors, filtered_fragments = instance._filter_dfs(
-        precursor_df, fragments_df
+    filtered_precursors, filtered_fragments = (
+        instance._optimization_handler._filter_dfs(precursor_df, fragments_df)
     )
 
     pd.testing.assert_frame_equal(
