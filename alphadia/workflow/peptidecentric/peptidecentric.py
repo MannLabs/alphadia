@@ -921,7 +921,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if not self._requantification_handler:
             self._requantification_handler = RequantificationHandler(
                 self.config,
-                self.optimization_manager,
                 self.calibration_manager,
                 self.fdr_manager,
                 self.reporter,
