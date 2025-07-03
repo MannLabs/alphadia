@@ -455,6 +455,14 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
+    workflow._init_fdr_manager()
+
+    class MockDIAData:
+        has_mobility = True
+        has_ms1 = True
+
+    workflow._dia_data = MockDIAData()
+
     workflow._optimization_handler = OptimizationHandler(
         workflow.config,
         workflow._optimization_manager,
@@ -464,22 +472,14 @@ def create_workflow_instance():
         recalibration_handler=None,
         reporter=workflow.reporter,
         spectral_library=None,
-        dia_data=None,
+        dia_data=workflow._dia_data,
     )
-
-    workflow._init_fdr_manager()
 
     class MockOptlock:
         total_elution_groups = 2000
         batch_idx = 1
 
-    workflow.optlock = MockOptlock()
-
-    class MockDIAData:
-        has_mobility = True
-        has_ms1 = True
-
-    workflow._dia_data = MockDIAData()
+    workflow._optimization_handler.optlock = MockOptlock()
 
     return workflow
 
