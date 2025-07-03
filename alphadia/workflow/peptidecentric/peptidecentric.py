@@ -1230,7 +1230,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         scoring = CandidateScoring(
-            self.dia_data.jitclass(),
+            self.dia_data.jitclass(),  # TODO: move jitclass() in
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,

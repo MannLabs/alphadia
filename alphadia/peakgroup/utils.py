@@ -42,7 +42,9 @@ def _(mono_mz, charge, isotope_intensity):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def find_peaks_1d(a, top_n=3):
+def find_peaks_1d(
+    a: np.ndarray, top_n: int = 3
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """accepts a dense representation and returns the top three peaks"""
 
     scan = []
@@ -73,7 +75,9 @@ def find_peaks_1d(a, top_n=3):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def find_peaks_2d(a, top_n=3):
+def find_peaks_2d(
+    a: np.ndarray, top_n: int = 3
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """accepts a dense representation and returns the top three peaks"""
     scan = []
     dia_cycle = []
