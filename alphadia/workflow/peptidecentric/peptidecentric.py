@@ -1,5 +1,3 @@
-import logging
-
 import numpy as np
 import pandas as pd
 from alphabase.peptide.fragment import get_charged_frag_types
@@ -21,9 +19,6 @@ from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
-
-logger = logging.getLogger()
-
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -852,7 +847,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
+            f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
         precursor_df = self._fdr_correction(
@@ -861,7 +856,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
 
-        logger.info("Removing fragments below FDR threshold")
+        self.reporter.log_string("Removing fragments below FDR threshold")
 
         # to be optimized later
         fragments_df["candidate_idx"] = candidate_hash(
