@@ -19,6 +19,7 @@ from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -157,6 +158,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.optlock: optimization.OptimizationLock | None = None
 
         self._extraction_handler: ExtractionHandler | None = None
+        self._recalibration_handler: RecalibrationHandler | None = None
 
     def load(
         self,
@@ -184,6 +186,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             mobility_column=self._get_mobility_column(),
             precursor_mz_column=self._get_precursor_mz_column(),
             fragment_mz_column=self._get_fragment_mz_column(),
+        )
+        self._recalibration_handler = RecalibrationHandler(
+            self.config,
+            self.optimization_manager,
+            self.calibration_manager,
+            self.reporter,
+            self._figure_path,
+            self.dia_data.has_ms1,
         )
 
     def _init_fdr_manager(self):
@@ -554,7 +564,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     )
 
                     self.optlock.update()
-                    self._recalibration(precursor_df_filtered, fragments_df_filtered)
+                    self._recalibration_handler.recalibrate(
+                        precursor_df_filtered, fragments_df_filtered
+                    )
                     self.optlock.update_with_calibration(self.calibration_manager)
 
                     if not self.optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached.
@@ -585,7 +597,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 precursor_df, self.optlock.fragments_df
             )
             if precursor_df_filtered.shape[0] >= 6:
-                self._recalibration(precursor_df_filtered, fragments_df_filtered)
+                self._recalibration_handler.recalibrate(
+                    precursor_df_filtered, fragments_df_filtered
+                )
 
             for optimizers in ordered_optimizers:
                 for optimizer in optimizers:
@@ -755,60 +769,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         return precursor_df_filtered, fragments_df_filtered
-
-    def _recalibration(
-        self, precursor_df_filtered: pd.DataFrame, fragments_df_filtered: pd.DataFrame
-    ):
-        """Performs recalibration of the MS1, MS2, RT and mobility properties. Also fits the convolution kernel and the score cutoff.
-        The calibration manager is used to fit the data and predict the calibrated values.
-
-        Parameters
-        ----------
-        precursor_df_filtered : pd.DataFrame
-            Filtered precursor dataframe (see filter_dfs)
-
-        fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe (see filter_dfs)
-
-        """
-        self.calibration_manager.fit(
-            precursor_df_filtered,
-            "precursor",
-            figure_path=self._figure_path,
-            skip=["mz"] if not self.dia_data.has_ms1 else [],
-        )
-
-        self.calibration_manager.fit(
-            fragments_df_filtered,
-            "fragment",
-            figure_path=self._figure_path,
-        )
-
-        self.optimization_manager.fit(
-            {
-                "column_type": "calibrated",
-                "num_candidates": self.config["search"]["target_num_candidates"],
-            }
-        )
-
-        score = precursor_df_filtered["score"]
-        if self.config["search"]["optimized_peak_group_score"]:
-            # these values give benefits on max memory and runtime, with a small precursor penalty
-            fac, q = 0.95, 3
-        else:
-            fac, q = 0.99, 1
-
-        score_cutoff = fac * np.percentile(score, q)
-
-        self.reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
-
-        self.optimization_manager.fit(
-            {
-                "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
-                "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
-                "score_cutoff": score_cutoff,
-            }
-        )
 
     def _fdr_correction(self, features_df, df_fragments, version=-1):
         return self.fdr_manager.fit_predict(
