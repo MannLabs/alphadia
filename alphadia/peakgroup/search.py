@@ -11,6 +11,7 @@ from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateDF,
     HybridCandidateConfig,
+    HybridCandidateConfigJIT,
     PrecursorFlatDF,
 )
 from alphadia.peakgroup.kernel import GaussianKernel
@@ -34,14 +35,14 @@ logger = logging.getLogger()
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
-    i,
-    dia_data_jit,
-    precursor_container,
-    candidate_container,
-    fragment_container,
-    config_jit,
-    kernel,
-):
+    i: int,
+    dia_data_jit: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    precursor_container: PrecursorFlatDF,
+    candidate_container: CandidateDF,
+    fragment_container: FragmentContainer,
+    config_jit: HybridCandidateConfigJIT,
+    kernel: np.ndarray,
+) -> None:
     _select_candidates(
         i,
         dia_data_jit,
@@ -89,14 +90,14 @@ def _is_valid(
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _select_candidates(
-    i,
-    jit_data,
-    precursor_container,
-    candidate_container,
-    fragment_container,
-    config,
-    kernel,
-):
+    i: int,
+    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    precursor_container: PrecursorFlatDF,
+    candidate_container: CandidateDF,
+    fragment_container: FragmentContainer,
+    config: HybridCandidateConfigJIT,
+    kernel: np.ndarray,
+) -> None:
     # prepare precursor isotope intensity
     # (n_isotopes)
     isotope_intensity = precursor_container.isotopes[i][: config.top_k_precursors]
@@ -192,7 +193,9 @@ def _select_candidates(
 
 
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
-def _build_features(smooth_precursor, smooth_fragment):
+def _build_features(
+    smooth_precursor: np.ndarray, smooth_fragment: np.ndarray
+) -> np.ndarray:
     n_features = 1
 
     features = np.zeros(
@@ -214,8 +217,12 @@ def _build_features(smooth_precursor, smooth_fragment):
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _join_close_peaks(
-    peak_scan_list, peak_cycle_list, peak_score_list, scan_tolerance, cycle_tolerance
-):
+    peak_scan_list: np.ndarray,
+    peak_cycle_list: np.ndarray,
+    peak_score_list: np.ndarray,
+    scan_tolerance: int,
+    cycle_tolerance: int,
+) -> np.ndarray:
     """
     Join peaks that are close in scan and cycle space.
 
@@ -270,8 +277,11 @@ def _join_close_peaks(
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _join_overlapping_candidates(
-    scan_limits_list, cycle_limits_list, p_scan_overlap=0.01, p_cycle_overlap=0.6
-):
+    scan_limits_list: np.ndarray,
+    cycle_limits_list: np.ndarray,
+    p_scan_overlap: float = 0.01,
+    p_cycle_overlap: float = 0.6,
+) -> np.ndarray:
     """
     Identify overlapping candidates and join them into a single candidate.
     The limits of the candidates are updated in-place.
@@ -350,21 +360,21 @@ def _join_overlapping_candidates(
 
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
 def _build_candidates(
-    precursor_idx,
-    candidate_container,
-    candidate_start_idx,
-    dense_precursors,
-    dense_fragments,
-    kernel,
-    jit_data,
-    config,
-    scan_limits,
-    frame_limits,
-    candidate_count=3,
-    weights=None,
-    mean=None,
-    std=None,
-):
+    precursor_idx: int,
+    candidate_container: CandidateDF,
+    candidate_start_idx: int,
+    dense_precursors: np.ndarray,
+    dense_fragments: np.ndarray,
+    kernel: np.ndarray,
+    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    config: HybridCandidateConfigJIT,
+    scan_limits: np.ndarray,
+    frame_limits: np.ndarray,
+    candidate_count: int = 3,
+    weights: np.ndarray | None = None,
+    mean: np.ndarray | None = None,
+    std: np.ndarray | None = None,
+) -> None:
     cycle_length = jit_data.cycle.shape[1]
 
     feature_weights = np.ones(1) if weights is None else weights
@@ -531,7 +541,7 @@ class HybridCandidateSelection:
         fragment_mz_column: str = "mz_library",
         fwhm_rt: float = 5.0,
         fwhm_mobility: float = 0.012,
-    ):
+    ) -> None:
         """select candidates for MS2 extraction based on MS1 features
 
         Parameters
@@ -642,7 +652,7 @@ class HybridCandidateSelection:
 
         return self._collect_candidates(candidate_container)
 
-    def _collect_candidates(self, candidate_container):
+    def _collect_candidates(self, candidate_container: CandidateDF) -> pd.DataFrame:
         candidate_df = pd.DataFrame(
             {
                 key: value
@@ -670,7 +680,7 @@ class HybridCandidateSelection:
         )
         return candidate_df
 
-    def _assemble_fragments(self):
+    def _assemble_fragments(self) -> FragmentContainer:
         # set cardinality to 1 if not present
         if "cardinality" in self.fragments_flat.columns:
             self.fragments_flat["cardinality"] = self.fragments_flat[
@@ -702,7 +712,7 @@ class HybridCandidateSelection:
             self.fragments_flat["cardinality"].values,
         )
 
-    def _assemble_precursor_df(self, precursors_flat):
+    def _assemble_precursor_df(self, precursors_flat: pd.DataFrame) -> PrecursorFlatDF:
         # prepare jitclass compatible dtypes
         precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
 
