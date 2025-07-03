@@ -52,9 +52,9 @@ class ExtractionHandler:
         )
 
         scoring_config = HybridCandidateConfig()
-        scoring_config.update(self._config["selection_config"])
         scoring_config.update(
             {
+                **self._config["selection_config"],
                 "top_k_fragments": self._config["search"]["top_k_fragments"],
                 "rt_tolerance": self._optimization_manager.rt_error,
                 "mobility_tolerance": self._optimization_manager.mobility_error,
@@ -66,25 +66,15 @@ class ExtractionHandler:
             }
         )
 
-        self._reporter.log_string("=== Search parameters used === ", verbosity="debug")
-        self._reporter.log_string(
-            f"{'rt_tolerance':<15}: {scoring_config.rt_tolerance}", verbosity="debug"
-        )
-        self._reporter.log_string(
+        for log_line in [
+            "=== Search parameters used ===",
+            f"{'rt_tolerance':<15}: {scoring_config.rt_tolerance}",
             f"{'mobility_tolerance':<15}: {scoring_config.mobility_tolerance}",
-            verbosity="debug",
-        )
-        self._reporter.log_string(
             f"{'precursor_mz_tolerance':<15}: {scoring_config.precursor_mz_tolerance}",
-            verbosity="debug",
-        )
-        self._reporter.log_string(
             f"{'fragment_mz_tolerance':<15}: {scoring_config.fragment_mz_tolerance}",
-            verbosity="debug",
-        )
-        self._reporter.log_string(
-            "==============================================", verbosity="debug"
-        )
+            "==============================================",
+        ]:
+            self._reporter.log_string(log_line, verbosity="debug")
 
         extraction = search.HybridCandidateSelection(
             dia_data,
@@ -117,9 +107,9 @@ class ExtractionHandler:
             )
 
         candidate_scoring_config = CandidateConfig()
-        candidate_scoring_config.update(self._config["scoring_config"])
         candidate_scoring_config.update(
             {
+                **self._config["scoring_config"],
                 "top_k_fragments": self._config["search"]["top_k_fragments"],
                 "precursor_mz_tolerance": self._optimization_manager.ms1_error,
                 "fragment_mz_tolerance": self._optimization_manager.ms2_error,
