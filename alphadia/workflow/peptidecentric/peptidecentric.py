@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -10,6 +9,7 @@ from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.requantification_handler import (
@@ -119,7 +119,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             figure_path=self._figure_path,
         )
 
-        self._init_spectral_library()
+        init_spectral_library(
+            self.config, self.dia_data, self.reporter, self.spectral_library
+        )
 
         self._extraction_handler = ExtractionHandler(
             self.config,
@@ -150,130 +152,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library,
             self.dia_data,
         )
-
-    def _init_spectral_library(self):
-        # apply channel filter
-        if self.config["search"]["channel_filter"] == "":
-            allowed_channels = self.spectral_library.precursor_df["channel"].unique()
-        else:
-            allowed_channels = [
-                int(c) for c in self.config["search"]["channel_filter"].split(",")
-            ]
-            self.reporter.log_string(
-                f"Applying channel filter using only: {allowed_channels}",
-                verbosity="progress",
-            )
-
-        # normalize spectral library rt to file specific TIC profile
-        self.spectral_library.precursor_df["rt_library"] = self._norm_to_rt(
-            self.dia_data, self.spectral_library.precursor_df["rt_library"].values
-        )
-
-        # filter based on precursor observability
-        lower_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].min()
-        upper_mz_limit = self.dia_data.cycle[self.dia_data.cycle > 0].max()
-
-        precursor_before = np.sum(self.spectral_library.precursor_df["decoy"] == 0)
-        self.spectral_library.precursor_df = self.spectral_library.precursor_df[
-            (self.spectral_library.precursor_df["mz_library"] >= lower_mz_limit)
-            & (self.spectral_library.precursor_df["mz_library"] <= upper_mz_limit)
-        ]
-        # self.spectral_library.remove_unused_fragmen
-        precursor_after = np.sum(self.spectral_library.precursor_df["decoy"] == 0)
-        precursor_removed = precursor_before - precursor_after
-        self.reporter.log_string(
-            f"{precursor_after:,} target precursors potentially observable ({precursor_removed:,} removed)",
-            verbosity="progress",
-        )
-
-        # filter spectral library to only contain precursors from allowed channels
-        # save original precursor_df for later use
-        self.spectral_library.precursor_df_unfiltered = (
-            self.spectral_library.precursor_df.copy()
-        )
-        self.spectral_library.precursor_df = (
-            self.spectral_library.precursor_df_unfiltered[
-                self.spectral_library.precursor_df_unfiltered["channel"].isin(
-                    allowed_channels
-                )
-            ].copy()
-        )
-
-    def _norm_to_rt(
-        self,
-        dia_data,
-        norm_values: np.ndarray,
-        active_gradient_start: float | None = None,
-        active_gradient_stop: float | None = None,
-        mode=None,
-    ):
-        """Convert normalized retention time values to absolute retention time values.
-
-        Parameters
-        ----------
-        dia_data : alphatims.bruker.TimsTOF
-            TimsTOF object containing the DIA data.
-
-        norm_values : np.ndarray
-            Array of normalized retention time values.
-
-        active_gradient_start : float, optional
-            Start of the active gradient in seconds, by default None.
-            If None, the value from the config is used.
-            If not defined in the config, it is set to zero.
-
-        active_gradient_stop : float, optional
-            End of the active gradient in seconds, by default None.
-            If None, the value from the config is used.
-            If not defined in the config, it is set to the last retention time value.
-
-        mode : str, optional
-            Mode of the gradient, by default None.
-            If None, the value from the config is used which should be 'tic' by default
-
-        """
-
-        # determine if the gradient start and stop are defined in the config
-        if active_gradient_start is None:
-            if "active_gradient_start" in self.config["calibration"]:
-                lower_rt = self.config["calibration"]["active_gradient_start"]
-            else:
-                lower_rt = (
-                    dia_data.rt_values[0]
-                    + self.config["search_initial"]["initial_rt_tolerance"] / 2
-                )
-        else:
-            lower_rt = active_gradient_start
-
-        if active_gradient_stop is None:
-            if "active_gradient_stop" in self.config["calibration"]:
-                upper_rt = self.config["calibration"]["active_gradient_stop"]
-            else:
-                upper_rt = dia_data.rt_values[-1] - (
-                    self.config["search_initial"]["initial_rt_tolerance"] / 2
-                )
-        else:
-            upper_rt = active_gradient_stop
-
-        # make sure values are really norm values
-        norm_values = np.interp(
-            norm_values, [norm_values.min(), norm_values.max()], [0, 1]
-        )
-
-        # determine the mode based on the config or the function parameter
-        if mode is None:
-            mode = self.config["calibration"].get("norm_rt_mode", "tic")
-        else:
-            mode = mode.lower()
-
-        if mode == "linear":
-            return np.interp(norm_values, [0, 1], [lower_rt, upper_rt])
-
-        elif mode == "tic":
-            raise NotImplementedError("tic mode is not implemented yet")
-
-        else:
-            raise ValueError(f"Unknown norm_rt_mode {mode}")
 
     def _get_precursor_mz_column(self):
         """Get the precursor m/z column name.
