@@ -3,11 +3,7 @@ import math
 import numba as nb
 import numpy as np
 
-from alphadia.data.alpharaw_wrapper import AlphaRaw
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.utils import USE_NUMBA_CACHING
-
-DiaData = TimsTOFTranspose | AlphaRaw
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)

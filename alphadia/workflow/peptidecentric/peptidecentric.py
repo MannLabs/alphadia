@@ -186,10 +186,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.reporter,
             self.dia_data,
             self.spectral_library,
-            self._get_rt_column(),
-            self._get_mobility_column(),
-            self._get_precursor_mz_column(),
-            self._get_fragment_mz_column(),
+            rt_column=self._get_rt_column(),
+            mobility_column=self._get_mobility_column(),
+            precursor_mz_column=self._get_precursor_mz_column(),
+            fragment_mz_column=self._get_fragment_mz_column(),
         )
 
     def _init_fdr_manager(self):
