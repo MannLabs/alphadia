@@ -7,7 +7,7 @@ from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifi
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
-from alphadia.workflow import base, optimization
+from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
@@ -15,6 +15,7 @@ from alphadia.workflow.peptidecentric.recalibration_handler import Recalibration
 from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
 )
+from alphadia.workflow.peptidecentric.utils import fdr_correction
 
 feature_columns = [
     "reference_intensity_correlation",
@@ -150,7 +151,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config,
             quant_path,
         )
-        self.optlock: optimization.OptimizationLock | None = None
 
         self._extraction_handler: ExtractionHandler | None = None
         self._recalibration_handler: RecalibrationHandler | None = None
@@ -192,7 +192,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self._figure_path,
             self.dia_data.has_ms1,
         )
-        self._optimization_handler = OptimizationHandler()
+        self._optimization_handler = OptimizationHandler(
+            self.config,
+            self.optimization_manager,
+            self.calibration_manager,
+            self.fdr_manager,
+            self._extraction_handler,
+            self._recalibration_handler,
+            self.reporter,
+            self.spectral_library,
+            self.dia_data,
+        )
 
     def _init_fdr_manager(self):
         self.fdr_manager = FDRManager(
@@ -389,20 +399,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self._save_managers()
 
-    def _fdr_correction(self, features_df, df_fragments, version=-1):
-        return self.fdr_manager.fit_predict(
-            features_df,
-            decoy_strategy="precursor_channel_wise"
-            if self.config["fdr"]["channel_wise_fdr"]
-            else "precursor",
-            competetive=self.config["fdr"]["competetive_scoring"],
-            df_fragments=df_fragments
-            if self.config["search"]["compete_for_fragments"]
-            else None,
-            dia_cycle=self.dia_data.cycle,
-            version=version,
-        )
-
     def _save_managers(self):
         """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
@@ -428,8 +424,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        precursor_df = self._fdr_correction(
-            features_df, fragments_df, self.optimization_manager.classifier_version
+        precursor_df = fdr_correction(
+            self.fdr_manager,
+            self.config,
+            self.dia_data,
+            features_df,
+            fragments_df,
+            self.optimization_manager.classifier_version,
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]

@@ -1,12 +1,19 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from reporting.reporting import Pipeline
-from workflow import optimization
-from workflow.config import Config
-from workflow.managers.optimization_manager import OptimizationManager
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
+from alphadia.data.alpharaw_wrapper import AlphaRaw
+from alphadia.data.bruker import TimsTOFTranspose
+from alphadia.reporting.reporting import Pipeline
+from alphadia.workflow import optimization
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
+from alphadia.workflow.peptidecentric.utils import fdr_correction
 
 
 class OptimizationHandler:
@@ -18,13 +25,27 @@ class OptimizationHandler:
         self,
         config: Config,
         optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        extraction_handler: ExtractionHandler,
+        recalibration_handler: RecalibrationHandler,
         reporter: Pipeline,
         spectral_library: SpecLibBase,
+        dia_data: AlphaRaw | TimsTOFTranspose,
     ):
         self.config = config
         self.optimization_manager = optimization_manager
+        self.calibration_manager = calibration_manager
+        self.fdr_manager = fdr_manager
+
+        self._extraction_handler = extraction_handler
+        self._recalibration_handler = recalibration_handler
+
         self.reporter = reporter
         self.spectral_library = spectral_library
+        self.dia_data = dia_data
+
+        self.optlock: optimization.OptimizationLock | None = None
 
     def _get_ordered_optimizers(self):
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
@@ -284,7 +305,10 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
-        precursor_df = self._fdr_correction(
+        precursor_df = fdr_correction(
+            self.fdr_manager,
+            self.config,
+            self.dia_data,
             self.optlock.features_df,
             self.optlock.fragments_df,
             self.optimization_manager.classifier_version,

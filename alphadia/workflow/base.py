@@ -1,14 +1,10 @@
-# native imports
 import logging
 import os
 
-# alpha family imports
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-
-# alphadia imports
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -16,8 +12,6 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
-
-# third party imports
 
 logger = logging.getLogger()
 
@@ -181,6 +175,8 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT:
+    ) -> (
+        bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT
+    ):  # TODO is this type annotation correct?
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data
