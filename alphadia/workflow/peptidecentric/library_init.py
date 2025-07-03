@@ -1,7 +1,8 @@
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
-from reporting.reporting import Pipeline
-from workflow.config import Config
+
+from alphadia.reporting.reporting import Pipeline
+from alphadia.workflow.config import Config
 
 
 def init_spectral_library(
