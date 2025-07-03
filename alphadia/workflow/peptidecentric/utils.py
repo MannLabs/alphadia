@@ -1,8 +1,7 @@
+import numpy as np
 import pandas as pd
 from reporting.reporting import Pipeline
 
-from alphadia.data.alpharaw_wrapper import AlphaRawJIT
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 
@@ -10,7 +9,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 def fdr_correction(
     fdr_manager: FDRManager,
     config: Config,
-    dia_data: TimsTOFTranspose | AlphaRawJIT,
+    dia_cycle: np.ndarray,
     features_df: pd.DataFrame,
     df_fragments: pd.DataFrame,
     version: int = -1,
@@ -25,7 +24,7 @@ def fdr_correction(
         df_fragments=df_fragments
         if config["search"]["compete_for_fragments"]
         else None,
-        dia_cycle=dia_data.dia_cycle,
+        dia_cycle=dia_cycle,
         version=version,
     )
 

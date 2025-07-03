@@ -427,7 +427,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         precursor_df = fdr_correction(
             self.fdr_manager,
             self.config,
-            self.dia_data,
+            self.dia_data.cycle,
             features_df,
             fragments_df,
             self.optimization_manager.classifier_version,

@@ -308,7 +308,7 @@ class OptimizationHandler:
         precursor_df = fdr_correction(
             self.fdr_manager,
             self.config,
-            self.dia_data,
+            self.dia_data.cycle,
             self.optlock.features_df,
             self.optlock.fragments_df,
             self.optimization_manager.classifier_version,
