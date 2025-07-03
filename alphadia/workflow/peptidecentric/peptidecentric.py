@@ -932,6 +932,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
 
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
+        """TODO.
+
+        Delegates to RequantificationHandler.requantify(), see docstring there for more details.
+        """
         self._lazy_init_requantification_handler()
 
         psm_df = self._requantification_handler.requantify(self.dia_data, psm_df)
@@ -943,6 +947,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def requantify_fragments(
         self, psm_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Requantify confident precursor identifications for transfer learning.
+
+        Delegates to RequantificationHandler.requantify_fragments(), see docstring there for more details.
+        """
         self._lazy_init_requantification_handler()
 
         return self._requantification_handler.requantify_fragments(
