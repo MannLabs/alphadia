@@ -38,11 +38,7 @@ class ExtractionHandler:
         self._precursor_mz_column: str = precursor_mz_column
         self._fragment_mz_column: str = fragment_mz_column
 
-    def extract_batch(
-        self, batch_precursor_df, batch_fragment_df=None, apply_cutoff=False
-    ):
-        if batch_fragment_df is None:
-            batch_fragment_df = self._spectral_library._fragment_df
+    def extract_batch(self, batch_precursor_df, batch_fragment_df, apply_cutoff=False):
         self._reporter.log_string(
             f"Extracting batch of {len(batch_precursor_df)} precursors",
             verbosity="progress",
