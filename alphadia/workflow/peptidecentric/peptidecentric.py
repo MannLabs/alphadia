@@ -305,6 +305,29 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             else "mobility_library"
         )
 
+    def _save_managers(self):
+        """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
+        Note the timing manager is not saved at this point as it is saved with every call to it.
+        The FDR manager is not saved because it is not used in subsequent parts of the workflow.
+        """
+        self.calibration_manager.save()
+        self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
+
+    def _lazy_init_requantification_handler(self):
+        """Initializes the requantification handler if it is not already initialized."""
+        if not self._requantification_handler:
+            self._requantification_handler = RequantificationHandler(
+                self.config,
+                self.calibration_manager,
+                self.fdr_manager,
+                self.reporter,
+                self.spectral_library,
+                rt_column=self._get_rt_column(),
+                mobility_column=self._get_mobility_column(),
+                precursor_mz_column=self._get_precursor_mz_column(),
+                fragment_mz_column=self._get_fragment_mz_column(),
+            )
+
     def search_parameter_optimization(self):
         """Performs optimization of the search parameters.
 
@@ -324,14 +347,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self._optimization_handler.search_parameter_optimization()
 
         self._save_managers()
-
-    def _save_managers(self):
-        """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
-        Note the timing manager is not saved at this point as it is saved with every call to it.
-        The FDR manager is not saved because it is not used in subsequent parts of the workflow.
-        """
-        self.calibration_manager.save()
-        self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     def extraction(self):
         self.calibration_manager.predict(
@@ -378,21 +393,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         log_precursor_df(self.reporter, precursor_df)
 
         return precursor_df, fragments_df
-
-    def _lazy_init_requantification_handler(self):
-        """Initializes the requantification handler if it is not already initialized."""
-        if not self._requantification_handler:
-            self._requantification_handler = RequantificationHandler(
-                self.config,
-                self.calibration_manager,
-                self.fdr_manager,
-                self.reporter,
-                self.spectral_library,
-                rt_column=self._get_rt_column(),
-                mobility_column=self._get_mobility_column(),
-                precursor_mz_column=self._get_precursor_mz_column(),
-                fragment_mz_column=self._get_fragment_mz_column(),
-            )
 
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         """TODO.
