@@ -16,7 +16,6 @@ from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
 class RequantificationHandler:
@@ -27,7 +26,6 @@ class RequantificationHandler:
     def __init__(
         self,
         config: Config,
-        optimization_manager: OptimizationManager,
         calibration_manager: CalibrationManager,
         fdr_manager: FDRManager,
         reporter: Pipeline,
@@ -39,7 +37,6 @@ class RequantificationHandler:
         fragment_mz_column: str,
     ):
         self.config = config
-        self.optimization_manager = optimization_manager
         self.calibration_manager = calibration_manager
         self.fdr_manager = fdr_manager
         self.reporter = reporter
