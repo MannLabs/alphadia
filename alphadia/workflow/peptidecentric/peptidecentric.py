@@ -619,6 +619,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         feature_df, fragment_df = self._extraction_handler.extract_batch(
+            self.dia_data,
             self.optlock.batch_library.precursor_df,
             self.optlock.batch_library.fragment_df,
         )
@@ -844,6 +845,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
         features_df, fragments_df = self._extraction_handler.extract_batch(
+            self.dia_data,
             self.spectral_library.precursor_df,
             self._spectral_library._fragment_df,
             apply_cutoff=True,

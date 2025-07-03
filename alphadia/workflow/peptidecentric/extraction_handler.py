@@ -1,3 +1,4 @@
+import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -20,7 +21,6 @@ class ExtractionHandler:
         config: Config,
         optimization_manager: OptimizationManager,
         reporter: Pipeline,
-        dia_data: TimsTOFTranspose | AlphaRaw,
         spectral_library: SpecLibBase,
         *,
         rt_column: str,
@@ -31,14 +31,20 @@ class ExtractionHandler:
         self._config: Config = config
         self._optimization_manager: OptimizationManager = optimization_manager
         self._reporter: Pipeline = reporter
-        self._dia_data: TimsTOFTranspose | AlphaRaw = dia_data
+
         self._spectral_library: SpecLibBase = spectral_library
         self._rt_column: str = rt_column
         self._mobility_column: str = mobility_column
         self._precursor_mz_column: str = precursor_mz_column
         self._fragment_mz_column: str = fragment_mz_column
 
-    def extract_batch(self, batch_precursor_df, batch_fragment_df, apply_cutoff=False):
+    def extract_batch(
+        self,
+        dia_data: TimsTOFTranspose | AlphaRaw,
+        batch_precursor_df: pd.DataFrame,
+        batch_fragment_df: pd.DataFrame,
+        apply_cutoff: bool = False,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         self._reporter.log_string(
             f"Extracting batch of {len(batch_precursor_df)} precursors",
             verbosity="progress",
@@ -80,7 +86,7 @@ class ExtractionHandler:
         )
 
         extraction = search.HybridCandidateSelection(
-            self._dia_data,
+            dia_data,
             batch_precursor_df,
             batch_fragment_df,
             config,
@@ -124,7 +130,7 @@ class ExtractionHandler:
         )
 
         candidate_scoring = CandidateScoring(
-            self._dia_data.jitclass(),
+            dia_data.jitclass(),
             batch_precursor_df,
             batch_fragment_df,
             config=config,
