@@ -29,6 +29,7 @@ class ExtractionHandler:
         fragment_mz_column: str,
     ):
         self._config: Config = config
+        # TODO think about passing only what is needed, e.g. rt_error, ms1_error, etc.
         self._optimization_manager: OptimizationManager = optimization_manager
         self._reporter: Pipeline = reporter
 
@@ -50,9 +51,9 @@ class ExtractionHandler:
             verbosity="progress",
         )
 
-        config = HybridCandidateConfig()
-        config.update(self._config["selection_config"])
-        config.update(
+        scoring_config = HybridCandidateConfig()
+        scoring_config.update(self._config["selection_config"])
+        scoring_config.update(
             {
                 "top_k_fragments": self._config["search"]["top_k_fragments"],
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -67,18 +68,18 @@ class ExtractionHandler:
 
         self._reporter.log_string("=== Search parameters used === ", verbosity="debug")
         self._reporter.log_string(
-            f"{'rt_tolerance':<15}: {config.rt_tolerance}", verbosity="debug"
+            f"{'rt_tolerance':<15}: {scoring_config.rt_tolerance}", verbosity="debug"
         )
         self._reporter.log_string(
-            f"{'mobility_tolerance':<15}: {config.mobility_tolerance}",
+            f"{'mobility_tolerance':<15}: {scoring_config.mobility_tolerance}",
             verbosity="debug",
         )
         self._reporter.log_string(
-            f"{'precursor_mz_tolerance':<15}: {config.precursor_mz_tolerance}",
+            f"{'precursor_mz_tolerance':<15}: {scoring_config.precursor_mz_tolerance}",
             verbosity="debug",
         )
         self._reporter.log_string(
-            f"{'fragment_mz_tolerance':<15}: {config.fragment_mz_tolerance}",
+            f"{'fragment_mz_tolerance':<15}: {scoring_config.fragment_mz_tolerance}",
             verbosity="debug",
         )
         self._reporter.log_string(
@@ -89,7 +90,7 @@ class ExtractionHandler:
             dia_data,
             batch_precursor_df,
             batch_fragment_df,
-            config,
+            scoring_config,
             rt_column=self._rt_column,
             mobility_column=self._mobility_column,
             precursor_mz_column=self._precursor_mz_column,
@@ -115,9 +116,9 @@ class ExtractionHandler:
                 f"Removed {num_removed} precursors with score below cutoff",
             )
 
-        config = CandidateConfig()
-        config.update(self._config["scoring_config"])
-        config.update(
+        candidate_scoring_config = CandidateConfig()
+        candidate_scoring_config.update(self._config["scoring_config"])
+        candidate_scoring_config.update(
             {
                 "top_k_fragments": self._config["search"]["top_k_fragments"],
                 "precursor_mz_tolerance": self._optimization_manager.ms1_error,
@@ -133,7 +134,7 @@ class ExtractionHandler:
             dia_data.jitclass(),
             batch_precursor_df,
             batch_fragment_df,
-            config=config,
+            config=candidate_scoring_config,
             rt_column=self._rt_column,
             mobility_column=self._mobility_column,
             precursor_mz_column=self._precursor_mz_column,

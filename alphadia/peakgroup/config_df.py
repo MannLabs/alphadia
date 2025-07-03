@@ -124,7 +124,9 @@ class HybridCandidateConfigJIT:
         self.feature_weight = feature_weight
 
 
-class HybridCandidateConfig(JITConfig):
+class HybridCandidateConfig(
+    JITConfig
+):  # TODO rename to HybridCandidateScoringHyperparameters
     jit_container = HybridCandidateConfigJIT
 
     def __init__(self):
