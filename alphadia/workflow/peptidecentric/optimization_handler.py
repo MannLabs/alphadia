@@ -47,7 +47,7 @@ class OptimizationHandler:
 
         self._optlock: optimization.OptimizationLock | None = None
 
-    def _get_ordered_optimizers(self):
+    def _get_ordered_optimizers(self) -> list[list[optimization.BaseOptimizer]]:
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
         if a value less than or equal to 0 is supplied, automatic optimization is used.
         Targeted optimizers are run simultaneously; automatic optimizers are run separately in the order MS2, RT, MS1, mobility.

@@ -11,6 +11,7 @@ import pytest
 import yaml
 from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
+from workflow.peptidecentric.optimization_handler import OptimizationHandler
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
@@ -452,6 +453,18 @@ def create_workflow_instance():
         load_from_file=workflow.config["general"]["reuse_calibration"],
         figure_path=workflow._figure_path,
         reporter=workflow.reporter,
+    )
+
+    workflow._optimization_handler = OptimizationHandler(
+        workflow.config,
+        workflow._optimization_manager,
+        workflow._calibration_manager,
+        fdr_manager=None,
+        extraction_handler=None,
+        recalibration_handler=None,
+        reporter=workflow.reporter,
+        spectral_library=None,
+        dia_data=None,
     )
 
     workflow._init_fdr_manager()
@@ -1049,7 +1062,7 @@ def test_configurability():
         }
     )
 
-    ordered_optimizers = workflow._get_ordered_optimizers()
+    ordered_optimizers = workflow._optimization_handler._get_ordered_optimizers()
 
     assert len(ordered_optimizers) == 3
 
