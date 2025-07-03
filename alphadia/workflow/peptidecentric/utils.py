@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
-from reporting.reporting import Pipeline
 
+from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 

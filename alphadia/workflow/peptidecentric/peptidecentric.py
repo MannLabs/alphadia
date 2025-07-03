@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from workflow.peptidecentric.optimization_handler import OptimizationHandler
 
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
@@ -11,6 +10,7 @@ from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
