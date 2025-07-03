@@ -156,16 +156,6 @@ class OptimizationHandler:
 
         """
         log_string = self.reporter.log_string
-        # First check to see if the calibration has already been performed. Return if so.
-        if (
-            self.calibration_manager.is_fitted
-            and self.calibration_manager.is_loaded_from_file
-        ):
-            log_string(
-                "Skipping calibration as existing calibration was found",
-                verbosity="progress",
-            )
-            return
 
         # Get the order of optimization
         ordered_optimizers = self._get_ordered_optimizers()
@@ -274,8 +264,6 @@ class OptimizationHandler:
         log_string(
             "==============================================", verbosity="progress"
         )
-
-        self._save_managers()
 
     def _process_batch(self):
         """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""

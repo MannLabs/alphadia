@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
+from workflow.peptidecentric.optimization_handler import OptimizationHandler
 
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
@@ -154,6 +155,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self._extraction_handler: ExtractionHandler | None = None
         self._recalibration_handler: RecalibrationHandler | None = None
         self._requantification_handler: RequantificationHandler | None = None
+        self._optimization_handler: OptimizationHandler | None = None
 
     def load(
         self,
@@ -190,6 +192,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self._figure_path,
             self.dia_data.has_ms1,
         )
+        self._optimization_handler = OptimizationHandler()
 
     def _init_fdr_manager(self):
         self.fdr_manager = FDRManager(
@@ -362,6 +365,29 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self.dia_data.has_mobility
             else "mobility_library"
         )
+
+    def search_parameter_optimization(self):
+        """Performs optimization of the search parameters. This occurs in two stages:
+        1) Optimization lock: the data are searched to acquire a locked set of precursors which is used for search parameter optimization. The classifier is also trained during this stage.
+        2) Optimization loop: the search parameters are optimized iteratively using the locked set of precursors.
+            In each iteration, the data are searched with the locked library from stage 1, and the properties -- m/z for both precursors and fragments (i.e. MS1 and MS2), RT and mobility -- are recalibrated.
+            The optimization loop is repeated for each list of optimizers in ordered_optimizers.
+
+        """
+        # First check to see if the calibration has already been performed. Return if so.
+        if (
+            self.calibration_manager.is_fitted
+            and self.calibration_manager.is_loaded_from_file
+        ):
+            self.reporter.log_string(
+                "Skipping calibration as existing calibration was found",
+                verbosity="progress",
+            )
+            return
+
+        self._optimization_handler.search_parameter_optimization()
+
+        self._save_managers()
 
     def _fdr_correction(self, features_df, df_fragments, version=-1):
         return self.fdr_manager.fit_predict(
