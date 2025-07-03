@@ -5,7 +5,11 @@ from workflow.config import Config
 
 
 def init_spectral_library(
-    config: Config, dia_data, reporter: Pipeline, spectral_library: SpecLibBase
+    config: Config,
+    dia_cycle: np.ndarray,
+    dia_rt_values: np.ndarray,
+    reporter: Pipeline,
+    spectral_library: SpecLibBase,
 ) -> None:
     # apply channel filter
     if config["search"]["channel_filter"] == "":
@@ -21,12 +25,12 @@ def init_spectral_library(
 
     # normalize spectral library rt to file specific TIC profile
     spectral_library.precursor_df["rt_library"] = _norm_to_rt(
-        config, dia_data, spectral_library.precursor_df["rt_library"].values
+        config, dia_rt_values, spectral_library.precursor_df["rt_library"].values
     )
 
     # filter based on precursor observability
-    lower_mz_limit = dia_data.cycle[dia_data.cycle > 0].min()
-    upper_mz_limit = dia_data.cycle[dia_data.cycle > 0].max()
+    lower_mz_limit = dia_cycle[dia_cycle > 0].min()
+    upper_mz_limit = dia_cycle[dia_cycle > 0].max()
 
     precursor_before = np.sum(spectral_library.precursor_df["decoy"] == 0)
     spectral_library.precursor_df = spectral_library.precursor_df[
@@ -50,19 +54,19 @@ def init_spectral_library(
 
 
 def _norm_to_rt(
-    config,
-    dia_data,
+    config: Config,
+    dia_rt_values: np.ndarray,
     norm_values: np.ndarray,
     active_gradient_start: float | None = None,
     active_gradient_stop: float | None = None,
     mode=None,
-):
+) -> np.ndarray:
     """Convert normalized retention time values to absolute retention time values.
 
     Parameters
     ----------
-    dia_data : alphatims.bruker.TimsTOF
-        TimsTOF object containing the DIA data.
+    dia_rt_values :  np.ndarray
+       RT values of the DIA data.
 
     norm_values : np.ndarray
         Array of normalized retention time values.
@@ -89,8 +93,7 @@ def _norm_to_rt(
             lower_rt = config["calibration"]["active_gradient_start"]
         else:
             lower_rt = (
-                dia_data.rt_values[0]
-                + config["search_initial"]["initial_rt_tolerance"] / 2
+                dia_rt_values[0] + config["search_initial"]["initial_rt_tolerance"] / 2
             )
     else:
         lower_rt = active_gradient_start
@@ -99,7 +102,7 @@ def _norm_to_rt(
         if "active_gradient_stop" in config["calibration"]:
             upper_rt = config["calibration"]["active_gradient_stop"]
         else:
-            upper_rt = dia_data.rt_values[-1] - (
+            upper_rt = dia_rt_values[-1] - (
                 config["search_initial"]["initial_rt_tolerance"] / 2
             )
     else:
