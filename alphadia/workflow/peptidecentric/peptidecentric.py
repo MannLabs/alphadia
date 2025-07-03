@@ -83,7 +83,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config,
             quant_path,
         )
-
+        self.fdr_manager: FDRManager | None = None
         self._extraction_handler: ExtractionHandler | None = None
         self._recalibration_handler: RecalibrationHandler | None = None
         self._requantification_handler: RequantificationHandler | None = None
@@ -103,7 +103,22 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self._instance_name}", verbosity="progress"
         )
 
-        self._init_fdr_manager()
+        config_fdr = self.config["fdr"]
+        self.fdr_manager = FDRManager(
+            feature_columns=feature_columns,
+            classifier_base=_get_classifier_base(
+                enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
+                two_step_classifier_max_iterations=config_fdr[
+                    "two_step_classifier_max_iterations"
+                ],
+                enable_nn_hyperparameter_tuning=config_fdr[
+                    "enable_nn_hyperparameter_tuning"
+                ],
+                fdr_cutoff=config_fdr["fdr"],
+            ),
+            figure_path=self._figure_path,
+        )
+
         self._init_spectral_library()
 
         self._extraction_handler = ExtractionHandler(
@@ -134,24 +149,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.reporter,
             self.spectral_library,
             self.dia_data,
-        )
-
-    def _init_fdr_manager(self):
-        self.fdr_manager = FDRManager(
-            feature_columns=feature_columns,
-            classifier_base=_get_classifier_base(
-                enable_two_step_classifier=self.config["fdr"][
-                    "enable_two_step_classifier"
-                ],
-                two_step_classifier_max_iterations=self.config["fdr"][
-                    "two_step_classifier_max_iterations"
-                ],
-                enable_nn_hyperparameter_tuning=self.config["fdr"][
-                    "enable_nn_hyperparameter_tuning"
-                ],
-                fdr_cutoff=self.config["fdr"]["fdr"],
-            ),
-            figure_path=self._figure_path,
         )
 
     def _init_spectral_library(self):
