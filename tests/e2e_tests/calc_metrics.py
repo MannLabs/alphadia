@@ -120,9 +120,23 @@ class BasicStats(Metrics):
         """Calculate metrics."""
         df = self._data_store[OutputFiles.STAT]
 
-        for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
-            self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
-            self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+        for col in [
+            "proteins",
+            "precursors",
+            "optimization.ms2_error",
+            "optimization.ms1_error",
+            "optimization.rt_error",
+            "optimization.mobility_error",
+            "calibration.ms2_median_accuracy",
+            "calibration.ms2_median_precision",
+            "calibration.ms1_median_accuracy",
+            "calibration.ms1_median_precision",
+        ]:
+            try:
+                self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
+                self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+            except Exception as e:
+                print(f"Error calculating {self._name} from {col}: {e}")
 
 
 def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str = None):
