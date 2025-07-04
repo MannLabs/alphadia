@@ -15,9 +15,11 @@ import pandas as pd
 from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 try:
-    import neptune
+    from neptune_scale import Run
+
+    neptune_scale = True
 except ModuleNotFoundError:
-    neptune = None
+    neptune_scale = False
 
 NEPTUNE_PROJECT_NAME = os.environ.get("NEPTUNE_PROJECT_NAME")
 
@@ -178,6 +180,10 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
 def _get_history_plots(test_results: dict, metrics_classes: list):
     """Get all past runs from neptune, add the current one and create plots."""
 
+    # NOTE: neptune-client-scale doesn't support project fetching/history plots
+    # This functionality is disabled for now
+    neptune = None
+
     test_results = test_results.copy()
     test_results["sys/creation_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     test_results_df = pd.DataFrame(test_results, index=[0])
@@ -237,19 +243,16 @@ if __name__ == "__main__":
     if not neptune_upload:
         print("skipping neptune upload")
         exit(0)
-    if neptune is None:
-        print("neptune is not installed")
+    if not neptune_scale:
+        print("neptune-client-scale is not installed")
         exit(1)
 
-    neptune_run = neptune.init_run(
-        project=NEPTUNE_PROJECT_NAME,
-        tags=[test_case_name, short_sha, branch_name],
-    )
+    neptune_run = Run(experiment_name=test_case_name)
+    neptune_run.add_tags(tags=[test_case_name, short_sha, branch_name])
 
     # metrics
-    for k, v in test_results.items():
-        print(f"adding {k}={v}")
-        neptune_run[k] = v
+    print("logging metrics to neptune")
+    neptune_run.log_configs(test_results)
 
     # files
     files = {}
@@ -262,12 +265,13 @@ if __name__ == "__main__":
     if files:
         neptune_run.assign_files(files)
 
-    try:
-        history_plots = _get_history_plots(test_results, metrics_classes)
+    # try:
+    #     history_plots = _get_history_plots(test_results, metrics_classes)
+    #
+    #     for name, plot in history_plots:
+    #         plot.savefig(f"/tmp/{name}.png")
+    #         neptune_run.assign_files({f"plots/{name}": f"/tmp/{name}.png"})
+    # except Exception as e:
+    #     print(f"no plots today: {e}")
 
-        for name, plot in history_plots:
-            neptune_run[f"plots/{name}"].upload(plot)
-    except Exception as e:
-        print(f"no plots today: {e}")
-
-    neptune_run.stop()
+    neptune_run.close()
