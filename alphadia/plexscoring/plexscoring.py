@@ -9,7 +9,7 @@ import pandas as pd
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.containers import ScoreGroupContainer
+from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
 from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
 from alphadia.utilities.fragment_container import FragmentContainer
