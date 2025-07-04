@@ -11,6 +11,7 @@ from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
 class ExtractionHandler:
@@ -21,12 +22,8 @@ class ExtractionHandler:
         config: Config,
         optimization_manager: OptimizationManager,
         reporter: Pipeline,
+        column_name_handler: ColumnNameHandler,
         spectral_library: SpecLibBase,
-        *,
-        rt_column: str,
-        mobility_column: str,
-        precursor_mz_column: str,
-        fragment_mz_column: str,
     ):
         self._config: Config = config
         # TODO think about passing only what is needed, e.g. rt_error, ms1_error, etc.
@@ -34,10 +31,7 @@ class ExtractionHandler:
         self._reporter: Pipeline = reporter
 
         self._spectral_library: SpecLibBase = spectral_library
-        self._rt_column: str = rt_column
-        self._mobility_column: str = mobility_column
-        self._precursor_mz_column: str = precursor_mz_column
-        self._fragment_mz_column: str = fragment_mz_column
+        self._column_name_handler: ColumnNameHandler = column_name_handler
 
     def extract_batch(
         self,
@@ -76,15 +70,20 @@ class ExtractionHandler:
         ]:
             self._reporter.log_string(log_line, verbosity="debug")
 
+        rt_column = self._column_name_handler.get_rt_column()
+        mobility_column = self._column_name_handler.get_mobility_column()
+        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
+        fragment_mz_column = self._column_name_handler.get_fragment_mz_column()
+
         extraction = search.HybridCandidateSelection(
             dia_data,
             batch_precursor_df,
             batch_fragment_df,
             scoring_config,
-            rt_column=self._rt_column,
-            mobility_column=self._mobility_column,
-            precursor_mz_column=self._precursor_mz_column,
-            fragment_mz_column=self._fragment_mz_column,
+            rt_column=rt_column,
+            mobility_column=mobility_column,
+            precursor_mz_column=precursor_mz_column,
+            fragment_mz_column=fragment_mz_column,
             fwhm_rt=self._optimization_manager.fwhm_rt,
             fwhm_mobility=self._optimization_manager.fwhm_mobility,
         )
@@ -125,10 +124,10 @@ class ExtractionHandler:
             batch_precursor_df,
             batch_fragment_df,
             config=candidate_scoring_config,
-            rt_column=self._rt_column,
-            mobility_column=self._mobility_column,
-            precursor_mz_column=self._precursor_mz_column,
-            fragment_mz_column=self._fragment_mz_column,
+            rt_column=rt_column,
+            mobility_column=mobility_column,
+            precursor_mz_column=precursor_mz_column,
+            fragment_mz_column=fragment_mz_column,
         )
 
         features_df, fragments_df = candidate_scoring(
