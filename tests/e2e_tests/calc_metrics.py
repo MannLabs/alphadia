@@ -175,15 +175,19 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
     return fig
 
 
-def _get_history_plots(test_results: dict, metrics_classes: list):
-    """Get all past runs from neptune, add the current one and create plots."""
+def _get_history_plots(
+    test_results: dict, test_case_name: str, metrics_classes: list, limit: int = 30
+):
+    """Get last `limit` runs from neptune for test_case_name, add the current one and create plots."""
 
     test_results = test_results.copy()
     test_results["sys/creation_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     test_results_df = pd.DataFrame(test_results, index=[0])
 
     project = neptune.init_project(project=NEPTUNE_PROJECT_NAME, mode="read-only")
-    runs_table_df = project.fetch_runs_table().to_pandas()
+    runs_table_df = project.fetch_runs_table(
+        tag=test_case_name, limit=limit
+    ).to_pandas()
 
     df = pd.concat([runs_table_df, test_results_df])
 
@@ -259,7 +263,9 @@ if __name__ == "__main__":
             neptune_run["output/" + file_name].upload(file_path)
 
     try:
-        history_plots = _get_history_plots(test_results, metrics_classes)
+        history_plots = _get_history_plots(
+            test_results, test_case_name, metrics_classes
+        )
 
         for name, plot in history_plots:
             neptune_run[f"plots/{name}"].upload(plot)
