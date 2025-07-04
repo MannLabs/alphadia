@@ -12,6 +12,33 @@ def init_spectral_library(
     reporter: Pipeline,
     spectral_library: SpecLibBase,
 ) -> None:
+    """Initialize the spectral library.
+
+    Parameters
+    ----------
+    config : Config
+        Configuration object containing search and calibration parameters.
+    dia_cycle : np.ndarray
+        Array of DIA cycle values, used to determine the mz limits for filtering.
+    dia_rt_values : np.ndarray
+        Array of observed retention time values from the DIA data.
+    reporter : Pipeline
+        Reporter object for logging messages.
+    spectral_library : SpecLibBase
+        Spectral library object containing precursor information, will be modified in place.
+
+
+    Normalizes the normalized retention time values form the spectral library to the observed RT values.
+    Filters the spectral library based on the observed mz values.
+    Optionally filters the spectral library to only contain precursors from selected channels (if set in config).
+
+    Returns
+    -------
+    None
+        The spectral library is modified in place:
+            - precursor_df attribute is updated
+            - precursor_df_unfiltered attribute is set to the original precursor dataframe.
+    """
     lib_precursor_df = spectral_library.precursor_df
 
     lib_precursor_df["rt_library"] = _norm_to_rt(
