@@ -85,12 +85,12 @@ class BaseManager:
         """Load the state from pickle file."""
         if self.path is None:
             self.reporter.log_string(
-                f"{self.__class__.__name__} not loaded from disk.",
+                f"{self.__class__.__name__}: loading saved state not requested, will be initialized.",
             )
             return
         elif not os.path.exists(self.path):
             self.reporter.log_string(
-                f"{self.__class__.__name__} not found at: {self.path}",
+                f"{self.__class__.__name__}: not found at {self.path}, will be initialized.",
                 verbosity="warning",
             )
             return
