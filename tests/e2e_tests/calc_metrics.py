@@ -225,12 +225,12 @@ if __name__ == "__main__":
     try:
         data_store = DataStore(output_path)
 
-        for cl in metrics_classes:
-            metrics = cl(data_store).get()
-            print(cl, metrics)
+        for metrics_class in metrics_classes:
+            metrics = metrics_class(data_store).get()
+            print(metrics_class, metrics)
             test_results |= metrics
     except Exception as e:
-        print(e)
+        print("Exception calculating metrics: ", e)
 
     print(test_results)
 
