@@ -16,6 +16,7 @@ from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
 class RequantificationHandler:
@@ -29,23 +30,15 @@ class RequantificationHandler:
         calibration_manager: CalibrationManager,
         fdr_manager: FDRManager,
         reporter: Pipeline,
+        column_name_handler: ColumnNameHandler,
         spectral_library: SpecLibBase,
-        *,
-        rt_column: str,
-        mobility_column: str,
-        precursor_mz_column: str,
-        fragment_mz_column: str,
     ):
         self.config = config
         self.calibration_manager = calibration_manager
         self.fdr_manager = fdr_manager
         self.reporter = reporter
+        self._column_name_handler = column_name_handler
         self.spectral_library = spectral_library
-
-        self._rt_column: str = rt_column
-        self._mobility_column: str = mobility_column
-        self._precursor_mz_column: str = precursor_mz_column
-        self._fragment_mz_column: str = fragment_mz_column
 
     def requantify(
         self, dia_data: TimsTOFTranspose | AlphaRaw, psm_df: pd.DataFrame
@@ -132,10 +125,10 @@ class RequantificationHandler:
             self.spectral_library.precursor_df_unfiltered,
             self.spectral_library.fragment_df,
             config=config,
-            rt_column=self._rt_column,
-            mobility_column=self._mobility_column,
-            precursor_mz_column=self._precursor_mz_column,
-            fragment_mz_column=self._fragment_mz_column,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
         )
 
         multiplexed_candidates["rank"] = 0
