@@ -12,18 +12,6 @@ def init_spectral_library(
     reporter: Pipeline,
     spectral_library: SpecLibBase,
 ) -> None:
-    # apply channel filter
-    if config["search"]["channel_filter"] == "":
-        allowed_channels = spectral_library.precursor_df["channel"].unique()
-    else:
-        allowed_channels = [
-            int(c) for c in config["search"]["channel_filter"].split(",")
-        ]
-        reporter.log_string(
-            f"Applying channel filter using only: {allowed_channels}",
-            verbosity="progress",
-        )
-
     # normalize spectral library rt to file specific TIC profile
     spectral_library.precursor_df["rt_library"] = _norm_to_rt(
         config, dia_rt_values, spectral_library.precursor_df["rt_library"].values
@@ -46,11 +34,21 @@ def init_spectral_library(
     )
 
     # filter spectral library to only contain precursors from allowed channels
-    # save original precursor_df for later use
     spectral_library.precursor_df_unfiltered = spectral_library.precursor_df.copy()
-    spectral_library.precursor_df = spectral_library.precursor_df_unfiltered[
-        spectral_library.precursor_df_unfiltered["channel"].isin(allowed_channels)
-    ].copy()
+
+    if config["search"]["channel_filter"] != "":
+        allowed_channels = [
+            int(c) for c in config["search"]["channel_filter"].split(",")
+        ]
+
+        spectral_library.precursor_df = spectral_library.precursor_df_unfiltered[
+            spectral_library.precursor_df_unfiltered["channel"].isin(allowed_channels)
+        ].copy()
+
+        reporter.log_string(
+            f"Initializing spectral library: applied channel filter using only: {allowed_channels}, {len(spectral_library.precursor_df):,} precursors left",
+            verbosity="progress",
+        )
 
 
 def _norm_to_rt(
