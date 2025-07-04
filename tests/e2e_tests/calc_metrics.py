@@ -252,11 +252,15 @@ if __name__ == "__main__":
         neptune_run[k] = v
 
     # files
+    files = {}
     for file_name in OutputFiles.all_values():
         print("adding", file_name)
         file_path = os.path.join(output_path, file_name)
         if os.path.exists(file_path):
-            neptune_run["output/" + file_name].assign_files(file_path)
+            files["output/" + file_name] = file_path
+
+    if files:
+        neptune_run.assign_files(files)
 
     try:
         history_plots = _get_history_plots(test_results, metrics_classes)
