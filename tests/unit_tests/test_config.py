@@ -209,8 +209,6 @@ def test_config_update_new_key_tolerated():
     """Test updating a config with a new key that is tolerated."""
     config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
 
-    # mock_tolerated_keys.return_value = lambda: ["new_key"]
-
     config_2 = Config({"nested_values": {"new_key2": 0}}, "first")
 
     # when
