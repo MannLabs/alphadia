@@ -84,7 +84,7 @@ def _norm_to_rt(
     norm_values: np.ndarray,
     active_gradient_start: float | None = None,
     active_gradient_stop: float | None = None,
-    mode=None,
+    mode: str | None = None,
 ) -> np.ndarray:
     """Convert normalized retention time values to absolute retention time values.
 
@@ -94,59 +94,53 @@ def _norm_to_rt(
        RT values of the DIA data.
 
     norm_values : np.ndarray
-        Array of normalized retention time values.
+        Array of normalized retention time values from the spectral library.
 
     active_gradient_start : float, optional
         Start of the active gradient in seconds, by default None.
-        If None, the value from the config is used.
-        If not defined in the config, it is set to zero.
+        If None, it is set to the first retention time value plus half the configured `initial_rt_tolerance`.
 
     active_gradient_stop : float, optional
         End of the active gradient in seconds, by default None.
-        If None, the value from the config is used.
-        If not defined in the config, it is set to the last retention time value.
+        If None, it is set to the last retention time value minus half the configured `initial_rt_tolerance`.
 
     mode : str, optional
         Mode of the gradient, by default None.
-        If None, the value from the config is used which should be 'tic' by default
+        If None, the value from the config is used which should be 'linear' by default
 
+    Returns
+    -------
+    np.ndarray
+        Array of absolute retention time values corresponding to the normalized values.
     """
+    # TODO: "initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1" not reflected here!
+    # TODO: would expect the signs turned around?
+    lower_rt = (
+        (dia_rt_values[0] + config["search_initial"]["initial_rt_tolerance"] / 2)
+        if active_gradient_start is None
+        else active_gradient_start
+    )
 
-    # determine if the gradient start and stop are defined in the config
-    if active_gradient_start is None:
-        if "active_gradient_start" in config["calibration"]:
-            lower_rt = config["calibration"]["active_gradient_start"]
-        else:
-            lower_rt = (
-                dia_rt_values[0] + config["search_initial"]["initial_rt_tolerance"] / 2
-            )
-    else:
-        lower_rt = active_gradient_start
-
-    if active_gradient_stop is None:
-        if "active_gradient_stop" in config["calibration"]:
-            upper_rt = config["calibration"]["active_gradient_stop"]
-        else:
-            upper_rt = dia_rt_values[-1] - (
-                config["search_initial"]["initial_rt_tolerance"] / 2
-            )
-    else:
-        upper_rt = active_gradient_stop
+    upper_rt = (
+        dia_rt_values[-1] - (config["search_initial"]["initial_rt_tolerance"] / 2)
+        if active_gradient_stop is None
+        else active_gradient_stop
+    )
 
     # make sure values are really norm values
     norm_values = np.interp(norm_values, [norm_values.min(), norm_values.max()], [0, 1])
 
     # determine the mode based on the config or the function parameter
-    if mode is None:
-        mode = config["calibration"].get("norm_rt_mode", "tic")
-    else:
-        mode = mode.lower()
+    mode = (
+        config["calibration"].get("norm_rt_mode", "linear")
+        if mode is None
+        else mode.lower()
+    )
 
     if mode == "linear":
         return np.interp(norm_values, [0, 1], [lower_rt, upper_rt])
 
-    elif mode == "tic":
+    if mode == "tic":
         raise NotImplementedError("tic mode is not implemented yet")
 
-    else:
-        raise ValueError(f"Unknown norm_rt_mode {mode}")
+    raise ValueError(f"Unknown norm_rt_mode {mode}")
