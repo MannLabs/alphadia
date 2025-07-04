@@ -33,16 +33,15 @@ def init_spectral_library(
     lower_mz_limit = dia_cycle[dia_cycle > 0].min()
     upper_mz_limit = dia_cycle[dia_cycle > 0].max()
 
-    precursor_before = np.sum(spectral_library.precursor_df["decoy"] == 0)
+    n_precursor_before = np.sum(spectral_library.precursor_df["decoy"] == 0)
     spectral_library.precursor_df = spectral_library.precursor_df[
         (spectral_library.precursor_df["mz_library"] >= lower_mz_limit)
         & (spectral_library.precursor_df["mz_library"] <= upper_mz_limit)
     ]
     # self.spectral_library.remove_unused_fragmen
-    precursor_after = np.sum(spectral_library.precursor_df["decoy"] == 0)
-    precursor_removed = precursor_before - precursor_after
+    n_precursors_after = np.sum(spectral_library.precursor_df["decoy"] == 0)
     reporter.log_string(
-        f"{precursor_after:,} target precursors potentially observable ({precursor_removed:,} removed)",
+        f"Initializing spectral library: {n_precursors_after:,} target precursors potentially observable ({n_precursor_before - n_precursors_after:,} removed)",
         verbosity="progress",
     )
 
