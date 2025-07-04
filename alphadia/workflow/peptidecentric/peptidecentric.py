@@ -120,11 +120,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         init_spectral_library(
-            self.config,
             self.dia_data.cycle,
             self.dia_data.rt_values,
             self.reporter,
             self.spectral_library,
+            self.config["search"]["channel_filter"],
         )
 
         self._extraction_handler = ExtractionHandler(

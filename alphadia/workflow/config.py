@@ -130,6 +130,13 @@ class Config(UserDict):
         )
 
 
+# keys that have been removed from the config but are still tolerated
+# Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
+TOLERATED_KEYS = [
+    "calibration.norm_rt_mode"  # supported until 1.10.4
+]
+
+
 def _update(
     target_config: dict,
     update_config: dict,
@@ -169,7 +176,13 @@ def _update(
     """
     for key, update_value in update_config.items():
         full_key = f"{parent_keys}.{key}" if parent_keys else key
+
         if key not in target_config:
+            if full_key in TOLERATED_KEYS:
+                logger.warning(
+                    f"Key '{full_key}' has been removed from AlphaDIA. Please update your config.yaml as this will be an error in future versions."
+                )
+                continue
             raise KeyAddedConfigError(full_key, update_value, config_name)
 
         target_value = target_config[key]

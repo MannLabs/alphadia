@@ -1,5 +1,6 @@
 import os
 from io import StringIO
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -201,6 +202,19 @@ def test_config_update_new_key_raises():
     # when
     with pytest.raises(KeyAddedConfigError):
         config_1.update([config_2], do_print=True)
+
+
+@patch("alphadia.workflow.config.TOLERATED_KEYS", ["nested_values.new_key2"])
+def test_config_update_new_key_tolerated():
+    """Test updating a config with a new key that is tolerated."""
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
+
+    config_2 = Config({"nested_values": {"new_key2": 0}}, "first")
+
+    # when
+    config_1.update([config_2], do_print=True)
+
+    assert config_1 == expected_generic_default_config_dict
 
 
 def test_config_update_type_mismatch_raises():
