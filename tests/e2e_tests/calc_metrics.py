@@ -256,7 +256,7 @@ if __name__ == "__main__":
         print("adding", file_name)
         file_path = os.path.join(output_path, file_name)
         if os.path.exists(file_path):
-            neptune_run["output/" + file_name].assign_files(file_path)
+            neptune_run["output/" + file_name].upload(file_path)
 
     try:
         history_plots = _get_history_plots(test_results, metrics_classes)
