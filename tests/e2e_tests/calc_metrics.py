@@ -170,7 +170,7 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
 
         labels.append(f"{x}:\n{y} [{z}]")
 
-    ax.set_xticks(df.index, labels, rotation=66)
+    ax.set_xticks(df.index, labels, rotation=90)
 
     return fig
 
