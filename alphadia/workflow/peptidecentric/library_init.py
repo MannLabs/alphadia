@@ -28,7 +28,7 @@ def init_spectral_library(
     spectral_library : SpecLibBase
         Spectral library object containing precursor information, will be modified in place.
     channel_filter : str, optional
-        Comma-separated string of channel numbers to filter the spectral library (column "channel") by.
+        Comma-separated string of channel numbers (integers) to filter the spectral library (column "channel") by.
         If empty, no filtering is applied.
 
     Returns
