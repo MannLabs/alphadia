@@ -140,6 +140,7 @@ class SearchStep:
             config_updates.append(extra_config_update)
 
         if config_updates:
+            logger.info(f"updating config with user defined values: {config_updates}")
             config.update(config_updates, do_print=True)
 
         if config.get(ConfigKeys.OUTPUT_DIRECTORY, None) is None:
