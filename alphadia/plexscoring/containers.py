@@ -7,11 +7,11 @@ import logging
 import numba as nb
 import numpy as np
 
+from alphadia.constants.settings import NUM_FEATURES
+
 # third party imports
 # alphadia imports
-from alphadia import quadrupole
-from alphadia.constants.settings import NUM_FEATURES
-from alphadia.numba import config, fragments
+from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.features.fragment_features import (
     fragment_features,
     fragment_mobility_correlation,
@@ -19,7 +19,6 @@ from alphadia.plexscoring.features.fragment_features import (
 from alphadia.plexscoring.features.location_features import location_features
 from alphadia.plexscoring.features.precursor_features import precursor_features
 from alphadia.plexscoring.features.profile_features import profile_features
-from alphadia.plexscoring.features.reference_features import reference_features
 from alphadia.plexscoring.utils import (
     frame_profile_1d,
     frame_profile_2d,
@@ -35,6 +34,7 @@ from alphadia.plotting.debug import (
     plot_precursor,
     plot_template,
 )
+from alphadia.utilities.fragment_container import FragmentContainer
 
 logger = logging.getLogger()
 
@@ -74,7 +74,7 @@ class Candidate:
     isotope_mz: nb.float32[::1]
 
     # object properties
-    fragments: fragments.FragmentContainer.class_type.instance_type
+    fragments: FragmentContainer.class_type.instance_type
 
     fragment_feature_dict: nb.types.DictType(nb.types.unicode_type, nb.float32[:])
 
@@ -481,32 +481,6 @@ class Candidate:
         psm_proto_df.features[self.output_idx] = feature_array
         psm_proto_df.valid[self.output_idx] = True
 
-    def process_reference_channel(self, reference_candidate, fragment_container):
-        fragments = fragment_container.slice(
-            np.array([[self.frag_start_idx, self.frag_stop_idx, 1]])
-        )
-        if config.exclude_shared_ions:
-            fragments.filter_by_cardinality(1)
-
-        fragments.filter_top_k(config.top_k_fragments)
-        fragments.sort_by_mz()
-
-        self.features.update(
-            reference_features(
-                reference_candidate.observation_importance,
-                reference_candidate.fragments_scan_profile,
-                reference_candidate.fragments_frame_profile,
-                reference_candidate.template_scan_profile,
-                reference_candidate.template_frame_profile,
-                self.observation_importance,
-                self.fragments_scan_profile,
-                self.fragments_frame_profile,
-                self.template_scan_profile,
-                self.template_frame_profile,
-                fragments.intensity,
-            )
-        )
-
     def visualize_window(self, *args):
         with nb.objmode:
             plot_cycle(*args)
@@ -590,18 +564,7 @@ class ScoreGroup:
             )
 
         # process reference channel features
-        if config.reference_channel >= 0:
-            for idx, _ in enumerate(self.candidates):
-                if idx == reference_channel_idx:
-                    continue
-                # candidate.process_reference_channel(
-                #    self.candidates[reference_channel_idx]
-                # )
-
-                # update rank features
-                # candidate.features.update(
-                #    features.rank_features(idx, self.candidates)
-                # )
+        # TODO: code was unused, check if it needs re-implementation
 
 
 score_group_type = ScoreGroup.class_type.instance_type

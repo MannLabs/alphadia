@@ -1,11 +1,10 @@
 import numba as nb
 import numpy as np
 
-from alphadia import utils
-from alphadia.numba import numeric
 from alphadia.plexscoring.features.features_utils import (
     weighted_center_mean_2d,
 )
+from alphadia.plexscoring.utils import save_corrcoeff, tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 
@@ -48,10 +47,10 @@ def precursor_features(
     # weighted_ms1_intensity
     feature_array[7] = np.sum(weighted_sum_precursor_intensity * isotope_intensity)
 
-    expected_scan_center = utils.tile(
+    expected_scan_center = tile(
         dense_precursors.shape[3], n_isotopes * n_observations
     ).reshape(n_isotopes, -1)
-    expected_frame_center = utils.tile(
+    expected_frame_center = tile(
         dense_precursors.shape[2], n_isotopes * n_observations
     ).reshape(n_isotopes, -1)
 
@@ -93,11 +92,9 @@ def precursor_features(
     feature_array[14] = np.sum(observed_precursor_height * isotope_intensity)
 
     # isotope_intensity_correlation
-    feature_array[15] = numeric.save_corrcoeff(
+    feature_array[15] = save_corrcoeff(
         isotope_intensity, np.sum(sum_precursor_intensity, axis=-1)
     )
 
     # isotope_height_correlation
-    feature_array[16] = numeric.save_corrcoeff(
-        isotope_intensity, observed_precursor_height
-    )
+    feature_array[16] = save_corrcoeff(isotope_intensity, observed_precursor_height)

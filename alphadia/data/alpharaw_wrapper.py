@@ -3,13 +3,14 @@ import os
 
 import numba as nb
 import numpy as np
+import pandas as pd
 from alpharaw.ms_data_base import MSData_Base
 from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
-from alphadia import utils
 from alphadia.data.dia_cycle import determine_dia_cycle
+from alphadia.data.utils import get_frame_indices, mass_range
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -75,6 +76,18 @@ def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
     return np.array(precursor_idx_list)
 
 
+def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
+    """Check if the MS1 spectra follow a DIA cycle. This check is stricter than just relying on failing to determine a cycle.
+
+    Parameters
+    ----------
+    spectrum_df : pd.DataFrame
+        The spectrum dataframe.
+    """
+    ms1_df = spectrum_df[spectrum_df["ms_level"] == 1]
+    return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
+
+
 class AlphaRaw(MSData_Base):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -91,14 +104,16 @@ class AlphaRaw(MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        try:
+        if _is_ms1_dia(self.spectrum_df):
             # determine the DIA cycle
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
-        except ValueError:
+        else:
             logger.warning(
-                "Failed to determine DIA cycle, will retry without MS1 spectra."
+                "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
+                "AlphaDIA will therefore not be able to use the MS1 information.\n"
+                "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
@@ -312,7 +327,7 @@ class AlphaRawJIT:
 
         """
 
-        return utils.get_frame_indices(
+        return get_frame_indices(
             rt_values=rt_values,
             rt_values_array=self.rt_values,
             zeroth_frame=self.zeroth_frame,
@@ -417,7 +432,7 @@ class AlphaRawJIT:
         LOW_EPSILON = 1e-36
 
         # (n_tof_slices, 2) array of start, stop mz for each slice
-        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+        mz_query_slices = mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
 
         cycle_length = self.cycle.shape[1]
@@ -542,7 +557,7 @@ class AlphaRawJIT:
         """
 
         # (n_tof_slices, 2) array of start, stop mz for each slice
-        mz_query_slices = utils.mass_range(mz_query_list, mass_tolerance)
+        mz_query_slices = mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
 
         cycle_length = self.cycle.shape[1]

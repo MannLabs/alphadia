@@ -8,9 +8,25 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia import libtransform
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.libtransform.base import ProcessingPipeline
+from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.fasta_digest import FastaDigest
+from alphadia.libtransform.flatten import (
+    FlattenLibrary,
+    InitFlatColumns,
+    LogFlatLibraryStats,
+)
+from alphadia.libtransform.harmonize import (
+    AnnotateFasta,
+    IsotopeGenerator,
+    PrecursorInitializer,
+    RTNormalization,
+)
+from alphadia.libtransform.loader import DynamicLoader
+from alphadia.libtransform.multiplex import MultiplexLibrary
+from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.workflow.base import WorkflowBase
@@ -185,8 +201,6 @@ class SearchStep:
             return [] if mod_str == "" else mod_str.split(";")
 
         # 1. Check if library exists, else perform fasta digest
-        dynamic_loader = libtransform.DynamicLoader()
-
         prediction_config = self.config["library_prediction"]
 
         if self.library_path is None and not prediction_config["enabled"]:
@@ -195,7 +209,7 @@ class SearchStep:
         elif self.library_path is None and prediction_config["enabled"]:
             logger.progress("No library provided. Building library from fasta files.")
 
-            fasta_digest = libtransform.FastaDigest(
+            fasta_digest = FastaDigest(
                 enzyme=prediction_config["enzyme"],
                 fixed_modifications=_parse_modifications(
                     prediction_config["fixed_modifications"]
@@ -211,6 +225,7 @@ class SearchStep:
             )
             spectral_library = fasta_digest(self.fasta_path_list)
         else:
+            dynamic_loader = DynamicLoader()
             spectral_library = dynamic_loader(self.library_path)
 
         # 2. Check if properties should be predicted
@@ -220,7 +235,7 @@ class SearchStep:
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
-            pept_deep_prediction = libtransform.PeptDeepPrediction(
+            pept_deep_prediction = PeptDeepPrediction(
                 use_gpu=self.config["general"]["use_gpu"],
                 fragment_mz=prediction_config["fragment_mz"],
                 nce=prediction_config["nce"],
@@ -235,21 +250,19 @@ class SearchStep:
             spectral_library = pept_deep_prediction(spectral_library)
 
         # 3. import library and harmonize
-        harmonize_pipeline = libtransform.ProcessingPipeline(
+        harmonize_pipeline = ProcessingPipeline(
             [
-                libtransform.PrecursorInitializer(),
-                libtransform.AnnotateFasta(self.fasta_path_list),
-                libtransform.IsotopeGenerator(
-                    n_isotopes=4, mp_process_num=thread_count
-                ),
-                libtransform.RTNormalization(),
+                PrecursorInitializer(),
+                AnnotateFasta(self.fasta_path_list),
+                IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
+                RTNormalization(),
             ]
         )
         spectral_library = harmonize_pipeline(spectral_library)
 
         multiplexing_config = self.config["library_multiplexing"]
         if multiplexing_config["enabled"]:
-            multiplexing = libtransform.MultiplexLibrary(
+            multiplexing = MultiplexLibrary(
                 multiplex_mapping=multiplexing_config["multiplex_mapping"],
                 input_channel=multiplexing_config["input_channel"],
             )
@@ -261,15 +274,15 @@ class SearchStep:
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
-        prepare_pipeline = libtransform.ProcessingPipeline(
+        prepare_pipeline = ProcessingPipeline(
             [
-                libtransform.DecoyGenerator(
+                DecoyGenerator(
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                libtransform.FlattenLibrary(self.config["search"]["top_k_fragments"]),
-                libtransform.InitFlatColumns(),
-                libtransform.LogFlatLibraryStats(),
+                FlattenLibrary(self.config["search"]["top_k_fragments"]),
+                InitFlatColumns(),
+                LogFlatLibraryStats(),
             ]
         )
 

@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.fdrx.stats import add_q_values, fdr_to_q_values, get_pep, keep_best
+from alphadia._fdrx.stats import add_q_values, fdr_to_q_values, get_pep, keep_best
 
 
 def test_keep_best():

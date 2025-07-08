@@ -14,7 +14,7 @@ from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
-from alphadia.fdrexperimental import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow import base, optimization
 from alphadia.workflow.config import Config
@@ -454,7 +454,7 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
-    workflow.init_fdr_manager()
+    workflow._init_fdr_manager()
 
     class MockOptlock:
         total_elution_groups = 2000
@@ -1049,7 +1049,7 @@ def test_configurability():
         }
     )
 
-    ordered_optimizers = workflow.get_ordered_optimizers()
+    ordered_optimizers = workflow._get_ordered_optimizers()
 
     assert len(ordered_optimizers) == 3
 

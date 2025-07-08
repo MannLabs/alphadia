@@ -1,25 +1,35 @@
 """Main Implementation of Candidate Scoring System."""
 
-# native imports
 import logging
 
-# alpha family imports
 import alphatims.utils
 import numpy as np
-
-# third party imports
 import pandas as pd
 
-# alphadia imports
-from alphadia import quadrupole, utils, validate
 from alphadia.data import alpharaw_wrapper, bruker
-from alphadia.numba import fragments
+from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
-from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
+from alphadia.utilities.fragment_container import FragmentContainer
+from alphadia.utils import (
+    USE_NUMBA_CACHING,
+    get_isotope_columns,
+)
+from alphadia.validation.schemas import (
+    candidates_schema,
+    features_schema,
+    fragment_features_schema,
+    fragments_flat_schema,
+    precursors_flat_schema,
+)
 
 logger = logging.getLogger()
+
+
+def _get_isotope_column_names(colnames):
+    return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
@@ -74,11 +84,11 @@ class CandidateScoring:
 
         precursors_flat : pd.DataFrame
             A DataFrame containing precursor information.
-            The DataFrame will be validated by using the `alphadia.validate.precursors_flat` schema.
+            The DataFrame will be validated by using the `alphadia.validation.schemas.precursors_flat` schema.
 
         fragments_flat : pd.DataFrame
             A DataFrame containing fragment information.
-            The DataFrame will be validated by using the `alphadia.validate.fragments_flat` schema.
+            The DataFrame will be validated by using the `alphadia.validation.schemas.fragments_flat` schema.
 
         quadrupole_calibration : quadrupole.SimpleQuadrupole, default=None
             An object containing the quadrupole calibration information.
@@ -108,12 +118,10 @@ class CandidateScoring:
 
         self._dia_data = dia_data
 
-        # validate precursors_flat
-        validate.precursors_flat(precursors_flat)
+        precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
         self.precursors_flat_df = precursors_flat
 
-        # validate fragments_flat
-        validate.fragments_flat(fragments_flat)
+        fragments_flat_schema.validate(fragments_flat, warn_on_critical_values=True)
         self.fragments_flat = fragments_flat
 
         # check if a valid quadrupole calibration is provided
@@ -145,7 +153,9 @@ class CandidateScoring:
 
     @precursors_flat_df.setter
     def precursors_flat_df(self, precursors_flat_df):
-        validate.precursors_flat(precursors_flat_df)
+        precursors_flat_schema.validate(
+            precursors_flat_df, warn_on_critical_values=True
+        )
         self._precursors_flat_df = precursors_flat_df.sort_values(by="precursor_idx")
 
     @property
@@ -155,7 +165,7 @@ class CandidateScoring:
 
     @fragments_flat_df.setter
     def fragments_flat_df(self, fragments_flat):
-        validate.fragments_flat(fragments_flat)
+        fragments_flat_schema.validate(fragments_flat, warn_on_critical_values=True)
         self._fragments_flat = fragments_flat
 
     @property
@@ -213,9 +223,9 @@ class CandidateScoring:
             "decoy",
             "channel",
             self.precursor_mz_column,
-        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
 
-        candidates_df = utils.merge_missing_columns(
+        candidates_df = merge_missing_columns(
             candidates_df,
             self.precursors_flat_df,
             precursor_columns,
@@ -232,12 +242,12 @@ class CandidateScoring:
             candidates_df["i_0"] = np.ones(len(candidates_df), dtype=np.float32)
 
         # calculate score groups
-        candidates_df = utils.calculate_score_groups(
+        candidates_df = calculate_score_groups(
             candidates_df, group_channels=self.config.score_grouped
         )
 
         # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.candidates_df(candidates_df)
+        candidates_schema.validate(candidates_df, warn_on_critical_values=True)
 
         score_group_container = ScoreGroupContainer()
         score_group_container.build_from_df(
@@ -256,12 +266,12 @@ class CandidateScoring:
             candidates_df["frame_center"].values,
             candidates_df["charge"].values,
             candidates_df[self.precursor_mz_column].values,
-            candidates_df[utils.get_isotope_column_names(candidates_df.columns)].values,
+            candidates_df[_get_isotope_column_names(candidates_df.columns)].values,
         )
 
         return score_group_container
 
-    def assemble_fragments(self) -> fragments.FragmentContainer:
+    def assemble_fragments(self) -> FragmentContainer:
         """Assemble the Numba JIT compatible fragment container from a fragment dataframe.
 
         If not present, the `cardinality` column will be added to the fragment dataframe and set to 1.
@@ -287,9 +297,11 @@ class CandidateScoring:
             )
 
         # validate dataframe schema and prepare jitclass compatible dtypes
-        validate.fragments_flat(self.fragments_flat)
+        fragments_flat_schema.validate(
+            self.fragments_flat, warn_on_critical_values=True
+        )
 
-        return fragments.FragmentContainer(
+        return FragmentContainer(
             self.fragments_flat["mz_library"].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
@@ -390,7 +402,7 @@ class CandidateScoring:
 
         candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
 
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             candidates_df,
             candidate_df_columns,
@@ -413,7 +425,7 @@ class CandidateScoring:
             "sequence",
             "mods",
             "mod_sites",
-        ] + utils.get_isotope_column_names(self.precursors_flat_df.columns)
+        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
 
         precursor_df_columns += (
             [self.rt_column] if self.rt_column not in precursor_df_columns else []
@@ -429,7 +441,7 @@ class CandidateScoring:
             else []
         )
 
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             self.precursors_flat_df,
             precursor_df_columns,
@@ -503,7 +515,7 @@ class CandidateScoring:
             "elution_group_idx",
             "decoy",
         ]
-        df = utils.merge_missing_columns(
+        df = merge_missing_columns(
             df,
             self.precursors_flat_df,
             precursor_df_columns,
@@ -550,7 +562,8 @@ class CandidateScoring:
         logger.info("Starting candidate scoring")
 
         fragment_container = self.assemble_fragments()
-        validate.candidates_df(candidates_df)
+
+        candidates_schema.validate(candidates_df, warn_on_critical_values=True)
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         n_candidates = score_group_container.get_candidate_count()
@@ -578,11 +591,13 @@ class CandidateScoring:
         logger.info("Finished candidate processing")
         logger.info("Collecting candidate features")
         candidate_features_df = self.collect_candidates(candidates_df, psm_proto_df)
-        validate.candidate_features_df(candidate_features_df)
+        features_schema.validate(candidate_features_df, warn_on_critical_values=True)
 
         logger.info("Collecting fragment features")
         fragment_features_df = self.collect_fragments(candidates_df, psm_proto_df)
-        validate.fragment_features_df(fragment_features_df)
+        fragment_features_schema.validate(
+            fragment_features_df, warn_on_critical_values=True
+        )
 
         logger.info("Finished candidate scoring")
 

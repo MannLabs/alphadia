@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from alphadia.fdrx.utils import manage_torch_threads
+from alphadia.fdr.utils import manage_torch_threads
 
 
 @manage_torch_threads(max_threads=2)

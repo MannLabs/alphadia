@@ -5,8 +5,8 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
-from alphadia.fdrexperimental import get_scaled_training_params
-from alphadia.fdrx.base import TargetDecoyFDR
+from alphadia._fdrx.base import TargetDecoyFDR
+from alphadia.fdr.classifiers import _get_scaled_training_params
 
 
 @patch("matplotlib.pyplot.show")
@@ -68,7 +68,7 @@ def test_get_scaled_training_params(n_samples, expected_batch, expected_lr):
     df = pd.DataFrame({"col1": range(n_samples)})
 
     # Get scaled parameters
-    batch_size, learning_rate = get_scaled_training_params(df)
+    batch_size, learning_rate = _get_scaled_training_params(df)
 
     # Check batch size matches expected
     assert batch_size == expected_batch

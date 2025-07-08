@@ -13,13 +13,12 @@ import torch
 from alphabase.tools.data_downloader import DataShareDownloader
 
 import alphadia
-from alphadia import fdr, fdrexperimental
+from alphadia.fdr import fdr
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
 
 classifiers = {
-    "binary": fdrexperimental.BinaryClassifier,
-    "legacy": fdrexperimental.BinaryClassifierLegacy,
-    "legacy_new_batching": fdrexperimental.BinaryClassifierLegacyNewBatching,
+    "legacy_new_batching": BinaryClassifierLegacyNewBatching,
 }
 
 parser = argparse.ArgumentParser(description="Run the fdr test.")
