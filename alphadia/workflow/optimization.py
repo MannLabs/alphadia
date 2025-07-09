@@ -129,7 +129,6 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         super().__init__(workflow, reporter)
         self.history_df = pd.DataFrame()
-        self.estimator_name: str | None = None
 
         self.workflow.optimization_manager.update(
             **{self.parameter_name: initial_parameter}
@@ -890,7 +889,9 @@ class OptimizationLock:
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
 
-    def update_with_calibration(self, calibration_manager):
+    def update_with_calibration(
+        self, calibration_manager
+    ):  # why is this here? -> optimization_manager ?
         """Updates the batch library with the current calibrated values using the calibration manager.
 
         Parameters
