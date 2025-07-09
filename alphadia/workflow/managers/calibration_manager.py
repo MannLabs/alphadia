@@ -157,10 +157,11 @@ class CalibrationManager(BaseManager):
                 f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)'
             )
             for estimator in group["estimators"]:
-                if not self._has_mobility and estimator.name == "mobility":
+                if not self._has_mobility and estimator["name"] == "mobility":
                     self.reporter.log_string(
                         f'Skipping mobility estimator in group {group["name"]} as mobility is not available',
                     )
+                    group["estimators"].remove(estimator)
                     continue
                 try:
                     template = calibration_model_provider.get_model(estimator["model"])

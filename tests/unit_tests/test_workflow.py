@@ -104,7 +104,9 @@ def test_calibration_manager_init():
         "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
+        calibration_manager = CalibrationManager(
+            path=temp_path, load_from_file=False, has_mobility=False
+        )
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
@@ -174,7 +176,9 @@ def test_calibration_manager_fit_predict():
         "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
+        calibration_manager = CalibrationManager(
+            path=temp_path, load_from_file=False, has_mobility=False
+        )
 
     test_df = calibration_testdata()
 
@@ -200,7 +204,9 @@ def test_calibration_manager_save_load():
         "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
-        calibration_manager = CalibrationManager(path=temp_path, load_from_file=False)
+        calibration_manager = CalibrationManager(
+            path=temp_path, load_from_file=False, has_mobility=False
+        )
 
     test_df = calibration_testdata()
     calibration_manager.fit(test_df, "precursor", plot=False)
@@ -216,7 +222,7 @@ def test_calibration_manager_save_load():
         TEST_CALIBRATION_MANAGER_CONFIG,
     ):
         calibration_manager_loaded = CalibrationManager(
-            path=temp_path, load_from_file=True
+            path=temp_path, load_from_file=True, has_mobility=False
         )
     assert calibration_manager_loaded.is_fitted is True
     assert calibration_manager_loaded.is_loaded_from_file is True
@@ -439,6 +445,7 @@ def create_workflow_instance():
         path=os.path.join(workflow.path, workflow.CALIBRATION_MANAGER_PKL_NAME),
         load_from_file=workflow.config["general"]["reuse_calibration"],
         reporter=workflow.reporter,
+        has_mobility=True,
     )
 
     workflow._optimization_manager = OptimizationManager(
