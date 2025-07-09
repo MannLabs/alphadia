@@ -394,7 +394,7 @@ def _build_candidates(
         )
     if smooth_fragment.shape != dense_fragments.shape:
         print(
-            f"smooth_fragment shape does not match dense_precursors shape {smooth_fragment.shape} != {dense_fragments.shape}"
+            f"smooth_fragment shape does not match dense_fragments shape {smooth_fragment.shape} != {dense_fragments.shape}"
         )
 
     feature_matrix = _build_features(smooth_precursor, smooth_fragment).astype(
