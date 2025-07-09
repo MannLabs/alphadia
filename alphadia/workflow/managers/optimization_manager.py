@@ -31,31 +31,43 @@ class OptimizationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
-            rt_error = (
-                config["search_initial"]["initial_rt_tolerance"]
-                if config["search_initial"]["initial_rt_tolerance"] > 1
-                else config["search_initial"]["initial_rt_tolerance"] * gradient_length
-            )
-            initial_parameters = {
-                "ms1_error": config["search_initial"]["initial_ms1_tolerance"],
-                "ms2_error": config["search_initial"]["initial_ms2_tolerance"],
-                "rt_error": rt_error,
-                "mobility_error": config["search_initial"][
-                    "initial_mobility_tolerance"
-                ],
-                "column_type": "library",
-                "num_candidates": config["search_initial"]["initial_num_candidates"],
-                "classifier_version": -1,
-                "fwhm_rt": config["optimization_manager"]["fwhm_rt"],
-                "fwhm_mobility": config["optimization_manager"]["fwhm_mobility"],
-                "score_cutoff": config["optimization_manager"]["score_cutoff"],
-            }
-            self.__dict__.update(
-                initial_parameters
-            )  # TODO either store this as a dict or in individual instance variables
+            self.ms1_error = config["search_initial"][
+                "initial_ms1_tolerance"
+            ]  # TODO: rename to ms1_tolerance?
+            self.ms2_error = config["search_initial"]["initial_ms2_tolerance"]
 
-            for key, value in initial_parameters.items():
-                self.reporter.log_string(f"initial parameter: {key} = {value}")
+            initial_rt_tolerance = config["search_initial"]["initial_rt_tolerance"]
+            self.rt_error = (
+                initial_rt_tolerance
+                if initial_rt_tolerance > 1
+                else initial_rt_tolerance * gradient_length
+            )
+            self.mobility_error = config["search_initial"]["initial_mobility_tolerance"]
+
+            self.num_candidates = config["search_initial"]["initial_num_candidates"]
+
+            self.fwhm_rt = config["optimization_manager"]["fwhm_rt"]
+            self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
+            self.score_cutoff = config["optimization_manager"]["score_cutoff"]
+
+            self.column_type = "library"
+            self.classifier_version = -1
+
+            for key in [
+                "ms1_error",
+                "ms2_error",
+                "rt_error",
+                "mobility_error",
+                "num_candidates",
+                "fwhm_rt",
+                "fwhm_mobility",
+                "score_cutoff",
+                "column_type",
+                "classifier_version",
+            ]:
+                self.reporter.log_string(
+                    f"initial parameter: {key} = {self.__dict__[key]}"
+                )
 
     def fit(self, update_dict):  # TODO make this interface explicit
         """Update the parameters dict with the values in update_dict."""
