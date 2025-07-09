@@ -43,27 +43,7 @@ class OptimizationHandler:
         self.reporter = reporter
         self.spectral_library = spectral_library
         self.dia_data = dia_data
-
-        self._recalibration_handler = RecalibrationHandler(
-            self.config,
-            self.optimization_manager,
-            self.calibration_manager,
-            self.reporter,
-            figure_path,
-            self.dia_data.has_ms1,
-        )
-
-        self._extraction_handler = ExtractionHandler(
-            self.config,
-            self.optimization_manager,
-            self.reporter,
-            ColumnNameHandler(
-                self.optimization_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
-            ),
-            self.spectral_library,
-        )
+        self.figure_path = figure_path
 
         self.optlock: optimization.OptimizationLock | None = None
 
@@ -208,6 +188,15 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
+        recalibration_handler = RecalibrationHandler(
+            self.config,
+            self.optimization_manager,
+            self.calibration_manager,
+            self.reporter,
+            self.figure_path,
+            self.dia_data.has_ms1,
+        )
+
         self.optlock = optimization.OptimizationLock(self.spectral_library, self.config)
 
         insufficient_precursors_to_optimize = False
@@ -255,7 +244,7 @@ class OptimizationHandler:
                     )
 
                     self.optlock.update()
-                    self._recalibration_handler.recalibrate(
+                    recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
                     self.optlock.update_with_calibration(self.calibration_manager)
@@ -288,7 +277,7 @@ class OptimizationHandler:
                 precursor_df, self.optlock.fragments_df
             )
             if precursor_df_filtered.shape[0] >= 6:
-                self._recalibration_handler.recalibrate(
+                recalibration_handler.recalibrate(
                     precursor_df_filtered, fragments_df_filtered
                 )
 
@@ -315,7 +304,19 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
-        feature_df, fragment_df = self._extraction_handler.extract_batch(
+        extraction_handler = ExtractionHandler(
+            self.config,
+            self.optimization_manager,
+            self.reporter,
+            ColumnNameHandler(
+                self.optimization_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
+            self.spectral_library,
+        )
+
+        feature_df, fragment_df = extraction_handler.extract_batch(
             self.dia_data,
             self.optlock.batch_library.precursor_df,
             self.optlock.batch_library.fragment_df,
