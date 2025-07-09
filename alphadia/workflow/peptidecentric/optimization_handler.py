@@ -11,6 +11,7 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.utils import fdr_correction, log_precursor_df
@@ -27,11 +28,10 @@ class OptimizationHandler:
         optimization_manager: OptimizationManager,
         calibration_manager: CalibrationManager,
         fdr_manager: FDRManager,
-        extraction_handler: ExtractionHandler,
-        recalibration_handler: RecalibrationHandler,
         reporter: Pipeline,
         spectral_library: SpecLibBase,
         dia_data: AlphaRaw | TimsTOFTranspose,
+        figure_path: str = None,
     ):
         self.config = config
         # TODO decouple optimizers from workflow:
@@ -40,12 +40,30 @@ class OptimizationHandler:
         self.calibration_manager = calibration_manager
         self.fdr_manager = fdr_manager
 
-        self._extraction_handler = extraction_handler
-        self._recalibration_handler = recalibration_handler
-
         self.reporter = reporter
         self.spectral_library = spectral_library
         self.dia_data = dia_data
+
+        self._recalibration_handler = RecalibrationHandler(
+            self.config,
+            self.optimization_manager,
+            self.calibration_manager,
+            self.reporter,
+            figure_path,
+            self.dia_data.has_ms1,
+        )
+
+        self._extraction_handler = ExtractionHandler(
+            self.config,
+            self.optimization_manager,
+            self.reporter,
+            ColumnNameHandler(
+                self.optimization_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
+            self.spectral_library,
+        )
 
         self.optlock: optimization.OptimizationLock | None = None
 
