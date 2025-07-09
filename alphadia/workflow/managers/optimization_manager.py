@@ -57,18 +57,6 @@ class OptimizationManager(BaseManager):
             for key, value in initial_parameters.items():
                 self.reporter.log_string(f"initial parameter: {key} = {value}")
 
-    def fit(
-        self, update_dict
-    ):  # TODO siblings' implementations have different signatures
+    def fit(self, update_dict):  # TODO make this interface explicit
         """Update the parameters dict with the values in update_dict."""
         self.__dict__.update(update_dict)
-        self.is_fitted = True
-
-    def predict(self):
-        """Return the parameters dict."""
-        return self.parameters
-
-    def fit_predict(self, update_dict):
-        """Update the parameters dict with the values in update_dict and return the parameters dict."""
-        self.fit(update_dict)
-        return self.predict()

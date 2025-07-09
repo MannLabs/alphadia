@@ -88,6 +88,7 @@ class CalibrationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
+            self.is_fitted = False
             self.estimator_groups = []
             self.load_config(CALIBRATION_MANAGER_CONFIG)
 

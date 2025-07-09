@@ -177,8 +177,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """
         # First check to see if the calibration has already been performed. Return if so.
         if (
-            self.calibration_manager.is_fitted
-            and self.calibration_manager.is_loaded_from_file
+            self.calibration_manager.is_loaded_from_file
+            and self.calibration_manager.is_fitted
         ):
             self.reporter.log_string(
                 "Skipping calibration as existing calibration was found",

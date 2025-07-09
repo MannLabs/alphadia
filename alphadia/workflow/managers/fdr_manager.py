@@ -213,8 +213,6 @@ class FDRManager(BaseManager):
         else:
             raise ValueError(f"Invalid decoy_strategy: {decoy_strategy}")
 
-        self.is_fitted = True
-
         self._current_version += 1
         self.classifier_store[column_hash(available_columns)].append(classifier)
 
