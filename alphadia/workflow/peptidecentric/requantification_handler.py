@@ -135,11 +135,6 @@ class RequantificationHandler:
 
         multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)
 
-        target_channels = [
-            int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
-        ]
-        reference_channel = self.config["multiplexing"]["reference_channel"]
-
         psm_df = self.fdr_manager.fit_predict(
             multiplexed_features,
             decoy_strategy="channel",
