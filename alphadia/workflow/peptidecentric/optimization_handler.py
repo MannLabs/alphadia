@@ -31,7 +31,7 @@ class OptimizationHandler:
         reporter: Pipeline,
         spectral_library: SpecLibBase,
         dia_data: AlphaRaw | TimsTOFTranspose,
-        figure_path: str = None,
+        figure_path: str | None = None,
     ):
         self.config = config
         # TODO decouple optimizers from workflow:
