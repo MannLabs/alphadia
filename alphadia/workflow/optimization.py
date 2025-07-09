@@ -20,6 +20,11 @@ from alphadia.workflow.config import Config
 
 
 class BaseOptimizer(ABC):
+    parameter_name: str | None
+    estimator_name: str | None
+    estimator_group_name: str | None
+    feature_name: str | None
+
     def __init__(
         self,
         workflow,
@@ -39,7 +44,7 @@ class BaseOptimizer(ABC):
         """
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
-        self._num_prev_optimizations = 0
+        self._num_prev_optimizations: int = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -80,7 +85,7 @@ class BaseOptimizer(ABC):
         """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
 
     @abstractmethod
-    def _update_workflow():
+    def _update_workflow(self):
         """This method updates the optimization manager with the results of the optimization, namely:
         the classifier version,
         the optimal parameter,
@@ -91,7 +96,7 @@ class BaseOptimizer(ABC):
         """
 
     @abstractmethod
-    def _update_history():
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -124,6 +129,8 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         super().__init__(workflow, reporter)
         self.history_df = pd.DataFrame()
+        self.estimator_name: str | None = None
+
         self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
         self.has_converged = False
         self._num_prev_optimizations = 0
@@ -784,6 +791,8 @@ class OptimizationLock:
         self._set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+
+        self.batch_library: pd.DataFrame | None = None
         self.set_batch_dfs(eg_idxes)
 
         self.feature_dfs = []
