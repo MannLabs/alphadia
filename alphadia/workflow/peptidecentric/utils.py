@@ -133,29 +133,22 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
     reporter.log_string("Precursor Summary:", verbosity="progress")
 
     for channel in precursor_df["channel"].unique():
-        precursor_05fdr = len(
-            precursor_df[
-                (precursor_df["qval"] < 0.05)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]
-        )
-        precursor_01fdr = len(
-            precursor_df[
-                (precursor_df["qval"] < 0.01)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]
-        )
-        precursor_001fdr = len(
-            precursor_df[
-                (precursor_df["qval"] < 0.001)
-                & (precursor_df["decoy"] == 0)
-                & (precursor_df["channel"] == channel)
-            ]
-        )
+        fdr_counts = {
+            threshold: len(
+                precursor_df[
+                    (precursor_df["qval"] < threshold)
+                    & (precursor_df["decoy"] == 0)
+                    & (precursor_df["channel"] == channel)
+                ]
+            )
+            for threshold in [0.05, 0.01, 0.001]
+        }
         reporter.log_string(
-            f"Channel {channel:>3}:\t 0.05 FDR: {precursor_05fdr:>5,}; 0.01 FDR: {precursor_01fdr:>5,}; 0.001 FDR: {precursor_001fdr:>5,}",
+            f"Channel {channel:>3}:\t "
+            + "; ".join(
+                f"{threshold:.3f} FDR: {fdr_counts[threshold]:>5,}"
+                for threshold, fdr_count in fdr_counts.items()
+            ),
             verbosity="progress",
         )
 
@@ -163,23 +156,20 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
     reporter.log_string("Protein Summary:", verbosity="progress")
 
     for channel in precursor_df["channel"].unique():
-        proteins_05fdr = precursor_df[
-            (precursor_df["qval"] < 0.05)
-            & (precursor_df["decoy"] == 0)
-            & (precursor_df["channel"] == channel)
-        ]["proteins"].nunique()
-        proteins_01fdr = precursor_df[
-            (precursor_df["qval"] < 0.01)
-            & (precursor_df["decoy"] == 0)
-            & (precursor_df["channel"] == channel)
-        ]["proteins"].nunique()
-        proteins_001fdr = precursor_df[
-            (precursor_df["qval"] < 0.001)
-            & (precursor_df["decoy"] == 0)
-            & (precursor_df["channel"] == channel)
-        ]["proteins"].nunique()
+        fdr_counts = {
+            threshold: precursor_df[
+                (precursor_df["qval"] < threshold)
+                & (precursor_df["decoy"] == 0)
+                & (precursor_df["channel"] == channel)
+            ]["proteins"].nunique()
+            for threshold in [0.05, 0.01, 0.001]
+        }
         reporter.log_string(
-            f"Channel {channel:>3}:\t 0.05 FDR: {proteins_05fdr:>5,}; 0.01 FDR: {proteins_01fdr:>5,}; 0.001 FDR: {proteins_001fdr:>5,}",
+            f"Channel {channel:>3}:\t "
+            + "; ".join(
+                f"{threshold:.3f} FDR: {fdr_counts[threshold]:>5,}"
+                for threshold, fdr_count in fdr_counts.items()
+            ),
             verbosity="progress",
         )
 

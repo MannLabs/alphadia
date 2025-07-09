@@ -10,6 +10,9 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
+from alphadia.workflow.peptidecentric.fragment_requantification_handler import (
+    FragmentRequantificationHandler,
+)
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
@@ -87,7 +90,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.fdr_manager: FDRManager | None = None
         self._extraction_handler: ExtractionHandler | None = None
         self._recalibration_handler: RecalibrationHandler | None = None
-        self._requantification_handler: RequantificationHandler | None = None
         self._optimization_handler: OptimizationHandler | None = None
 
     def load(
@@ -168,18 +170,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.save()
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
-    def _lazy_init_requantification_handler(self):
-        """Initializes the requantification handler if it is not already initialized."""
-        if not self._requantification_handler:
-            self._requantification_handler = RequantificationHandler(
-                self.config,
-                self.calibration_manager,
-                self.fdr_manager,
-                self.reporter,
-                self._column_name_handler,
-                self.spectral_library,
-            )
-
     def search_parameter_optimization(self):
         """Performs optimization of the search parameters.
 
@@ -251,9 +241,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         Delegates to RequantificationHandler.requantify(), see docstring there for more details.
         """
-        self._lazy_init_requantification_handler()
 
-        psm_df = self._requantification_handler.requantify(self.dia_data, psm_df)
+        requantification_handler = RequantificationHandler(
+            self.config,
+            self.calibration_manager,
+            self.fdr_manager,
+            self.reporter,
+            self._column_name_handler,
+            self.spectral_library,
+        )
+
+        psm_df = requantification_handler.requantify(self.dia_data, psm_df)
 
         log_precursor_df(self.reporter, psm_df)
 
@@ -266,8 +264,14 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         Delegates to RequantificationHandler.requantify_fragments(), see docstring there for more details.
         """
-        self._lazy_init_requantification_handler()
 
-        return self._requantification_handler.requantify_fragments(
+        fragment_requantification_handler = FragmentRequantificationHandler(
+            self.config,
+            self.calibration_manager,
+            self.reporter,
+            self._column_name_handler,
+        )
+
+        return fragment_requantification_handler.requantify_fragments(
             self.dia_data, psm_df
         )
