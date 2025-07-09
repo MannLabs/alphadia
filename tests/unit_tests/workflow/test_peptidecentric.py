@@ -40,8 +40,6 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
         MagicMock(),
         MagicMock(),
         MagicMock(),
-        MagicMock(),
-        MagicMock(),
     )
 
     # when

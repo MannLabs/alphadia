@@ -15,7 +15,6 @@ from alphadia.workflow.peptidecentric.fragment_requantification_handler import (
 )
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
 from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
 )
@@ -88,9 +87,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             quant_path,
         )
         self.fdr_manager: FDRManager | None = None
-        self._extraction_handler: ExtractionHandler | None = None
-        self._recalibration_handler: RecalibrationHandler | None = None
-        self._optimization_handler: OptimizationHandler | None = None
 
     def load(
         self,
@@ -129,38 +125,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.reporter,
             self.spectral_library,
         )
-        self._column_name_handler = ColumnNameHandler(
-            self.optimization_manager,
-            dia_data_has_ms1=self.dia_data.has_ms1,
-            dia_data_has_mobility=self.dia_data.has_mobility,
-        )
-
-        self._extraction_handler = ExtractionHandler(
-            self.config,
-            self.optimization_manager,
-            self.reporter,
-            self._column_name_handler,
-            self.spectral_library,
-        )
-        self._recalibration_handler = RecalibrationHandler(
-            self.config,
-            self.optimization_manager,
-            self.calibration_manager,
-            self.reporter,
-            self._figure_path,
-            self.dia_data.has_ms1,
-        )
-        self._optimization_handler = OptimizationHandler(
-            self.config,
-            self.optimization_manager,
-            self.calibration_manager,
-            self.fdr_manager,
-            self._extraction_handler,
-            self._recalibration_handler,
-            self.reporter,
-            self.spectral_library,
-            self.dia_data,
-        )
 
     def _save_managers(self):
         """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
@@ -186,7 +150,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             return
 
-        self._optimization_handler.search_parameter_optimization()
+        optimization_handler = OptimizationHandler(
+            self.config,
+            self.optimization_manager,
+            self.calibration_manager,
+            self.fdr_manager,
+            self.reporter,
+            self.spectral_library,
+            self.dia_data,
+        )
+
+        optimization_handler.search_parameter_optimization()
 
         self._save_managers()
 
@@ -196,7 +170,19 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
 
-        features_df, fragments_df = self._extraction_handler.extract_batch(
+        extraction_handler = ExtractionHandler(
+            self.config,
+            self.optimization_manager,
+            self.reporter,
+            ColumnNameHandler(
+                self.optimization_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
+            self.spectral_library,
+        )
+
+        features_df, fragments_df = extraction_handler.extract_batch(
             self.dia_data,
             self.spectral_library.precursor_df,
             self.spectral_library._fragment_df,
@@ -247,7 +233,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.calibration_manager,
             self.fdr_manager,
             self.reporter,
-            self._column_name_handler,
+            ColumnNameHandler(
+                self.optimization_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
             self.spectral_library,
         )
 
@@ -269,7 +259,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config,
             self.calibration_manager,
             self.reporter,
-            self._column_name_handler,
+            ColumnNameHandler(
+                self.optimization_manager,
+                dia_data_has_ms1=self.dia_data.has_ms1,
+                dia_data_has_mobility=self.dia_data.has_mobility,
+            ),
         )
 
         return fragment_requantification_handler.requantify_fragments(
