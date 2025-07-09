@@ -131,7 +131,9 @@ class AutomaticOptimizer(BaseOptimizer):
         self.history_df = pd.DataFrame()
         self.estimator_name: str | None = None
 
-        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: initial_parameter}
+        )
         self.has_converged = False
         self._num_prev_optimizations = 0
         self._num_consecutive_skips = 0
@@ -205,7 +207,9 @@ class AutomaticOptimizer(BaseOptimizer):
                 else fragments_df
             )
 
-            self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
+            self.workflow.optimization_manager.update(
+                **{self.parameter_name: new_parameter}
+            )
 
             self.reporter.log_string(
                 f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
@@ -459,28 +463,28 @@ class AutomaticOptimizer(BaseOptimizer):
         index_of_optimum = self._find_index_of_optimum()
 
         optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: optimal_parameter}
+        )
 
         classifier_version_at_optimum = self.history_df["classifier_version"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.fit(
-            {"classifier_version": classifier_version_at_optimum}
+        self.workflow.optimization_manager.update(
+            classifier_version=classifier_version_at_optimum
         )
 
         score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit(
-            {"score_cutoff": score_cutoff_at_optimum}
-        )
+        self.workflow.optimization_manager.update(score_cutoff=score_cutoff_at_optimum)
 
         fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+        self.workflow.optimization_manager.update(fwhm_rt=fwhm_rt_at_optimum)
 
         fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.fit(
-            {"fwhm_mobility": fwhm_mobility_at_optimum}
+        self.workflow.optimization_manager.update(
+            fwhm_mobility=fwhm_mobility_at_optimum
         )
 
         batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
@@ -530,7 +534,9 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         super().__init__(workflow, reporter)
-        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: initial_parameter}
+        )
         self.target_parameter = target_parameter
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "targeted_update_factor"
@@ -592,9 +598,11 @@ class TargetedOptimizer(BaseOptimizer):
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
-        self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
-        self.workflow.optimization_manager.fit(
-            {"classifier_version": self.workflow.fdr_manager.current_version}
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: new_parameter}
+        )
+        self.workflow.optimization_manager.update(
+            classifier_version=self.workflow.fdr_manager.current_version
         )
 
         if just_converged:

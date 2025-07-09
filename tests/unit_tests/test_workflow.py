@@ -296,11 +296,10 @@ def test_optimization_manager_fit():
 
     assert optimization_manager.is_loaded_from_file is False
 
-    optimization_manager.fit({"fwhm_cycles": 10, "fwhm_mobility": 0.02})
+    optimization_manager.update(fwhm_mobility=0.02)
 
     assert optimization_manager.is_loaded_from_file is False
 
-    assert optimization_manager.fwhm_cycles == 10
     assert optimization_manager.fwhm_mobility == 0.02
 
     optimization_manager.save()

@@ -331,8 +331,8 @@ class OptimizationHandler:
     def _initiate_search_parameter_optimization(self):
         """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""
         self.optlock.previously_calibrated = True
-        self.optimization_manager.fit(
-            {"classifier_version": self.fdr_manager.current_version}
+        self.optimization_manager.update(
+            classifier_version=self.fdr_manager.current_version
         )
         self.reporter.log_string(
             "Required number of precursors found. Starting search parameter optimization.",

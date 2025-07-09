@@ -69,6 +69,37 @@ class OptimizationManager(BaseManager):
                     f"initial parameter: {key} = {self.__dict__[key]}"
                 )
 
-    def fit(self, update_dict):  # TODO make this interface explicit
+    def update(
+        self,
+        ms1_error: float | None = None,
+        ms2_error: float | None = None,
+        rt_error: float | None = None,
+        mobility_error: float | None = None,
+        column_type: str | None = None,
+        num_candidates: int | None = None,
+        classifier_version: int | None = None,
+        fwhm_rt: float | None = None,
+        fwhm_mobility: float | None = None,
+        score_cutoff: float | None = None,
+    ):
         """Update the parameters dict with the values in update_dict."""
-        self.__dict__.update(update_dict)
+        if ms1_error is not None:
+            self.ms1_error = ms1_error
+        if ms2_error is not None:
+            self.ms2_error = ms2_error
+        if rt_error is not None:
+            self.rt_error = rt_error
+        if mobility_error is not None:
+            self.mobility_error = mobility_error
+        if column_type is not None:
+            self.column_type = column_type
+        if num_candidates is not None:
+            self.num_candidates = num_candidates
+        if classifier_version is not None:
+            self.classifier_version = classifier_version
+        if fwhm_rt is not None:
+            self.fwhm_rt = fwhm_rt
+        if fwhm_mobility is not None:
+            self.fwhm_mobility = fwhm_mobility
+        if score_cutoff is not None:
+            self.score_cutoff = score_cutoff
