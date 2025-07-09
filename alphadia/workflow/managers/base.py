@@ -115,21 +115,3 @@ class BaseManager:
                 f"Failed to load {self.__class__.__name__} from {self.path}",
                 verbosity="error",
             )
-
-    def fit(self):
-        """Fit the workflow property of the manager."""
-        raise NotImplementedError(
-            f"fit() not implemented for {self.__class__.__name__}"
-        )
-
-    def predict(self):
-        """Return the predictions of the workflow property of the manager."""
-        raise NotImplementedError(
-            f"predict() not implemented for {self.__class__.__name__}"
-        )
-
-    def fit_predict(self):
-        """Fit and return the predictions of the workflow property of the manager."""
-        raise NotImplementedError(
-            f"fit_predict() not implemented for {self.__class__.__name__}"
-        )
