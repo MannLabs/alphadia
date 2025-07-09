@@ -34,7 +34,6 @@ def test_base_manager():
     my_base_manager = BaseManager()
     assert my_base_manager.path is None
     assert my_base_manager.is_loaded_from_file is False
-    assert my_base_manager.is_fitted is False
 
 
 def test_base_manager_save():
@@ -55,7 +54,6 @@ def test_base_manager_load():
     my_base_manager_loaded = BaseManager(path=tmp_path, load_from_file=True)
     assert my_base_manager_loaded.path == my_base_manager.path
     assert my_base_manager_loaded.is_loaded_from_file is True
-    assert my_base_manager_loaded.is_fitted is False
 
     os.remove(my_base_manager.path)
 
@@ -254,7 +252,6 @@ def test_optimization_manager():
     assert optimization_manager.fwhm_mobility == 0.01
 
     assert optimization_manager.is_loaded_from_file is False
-    assert optimization_manager.is_fitted is False
 
 
 def test_optimization_manager_rt_proportion():
@@ -269,7 +266,6 @@ def test_optimization_manager_rt_proportion():
     optimization_manager.rt_error = 600
 
     assert optimization_manager.is_loaded_from_file is False
-    assert optimization_manager.is_fitted is False
 
 
 def test_optimization_manager_save_load():
@@ -280,7 +276,6 @@ def test_optimization_manager_save_load():
     )
 
     assert optimization_manager.is_loaded_from_file is False
-    assert optimization_manager.is_fitted is False
 
     optimization_manager.save()
 
@@ -289,7 +284,6 @@ def test_optimization_manager_save_load():
     )
 
     assert optimization_manager_loaded.is_loaded_from_file is True
-    assert optimization_manager_loaded.is_fitted is False
 
     os.remove(temp_path)
 
@@ -301,12 +295,10 @@ def test_optimization_manager_fit():
     )
 
     assert optimization_manager.is_loaded_from_file is False
-    assert optimization_manager.is_fitted is False
 
     optimization_manager.fit({"fwhm_cycles": 10, "fwhm_mobility": 0.02})
 
     assert optimization_manager.is_loaded_from_file is False
-    assert optimization_manager.is_fitted is True
 
     assert optimization_manager.fwhm_cycles == 10
     assert optimization_manager.fwhm_mobility == 0.02
@@ -377,7 +369,6 @@ def test_fdr_manager():
     fdr_manager = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
 
     assert fdr_manager.is_loaded_from_file is False
-    assert fdr_manager.is_fitted is False
 
     assert fdr_manager.feature_columns == FDR_TEST_FEATURES
     assert fdr_manager.classifier_base == FDR_TEST_BASE_CLASSIFIER
