@@ -71,6 +71,7 @@ class OptimizationManager(BaseManager):
 
     def update(
         self,
+        *,
         ms1_error: float | None = None,
         ms2_error: float | None = None,
         rt_error: float | None = None,
