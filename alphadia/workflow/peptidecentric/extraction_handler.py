@@ -26,7 +26,6 @@ class ExtractionHandler:
         spectral_library: SpecLibBase,
     ):
         self._config: Config = config
-        # TODO think about passing only what is needed, e.g. rt_error, ms1_error, etc.
         self._optimization_manager: OptimizationManager = optimization_manager
         self._reporter: Pipeline = reporter
 
