@@ -215,10 +215,10 @@ class RequantificationHandler:
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,
-            rt_column=self._rt_column,
-            mobility_column=self._mobility_column,
-            precursor_mz_column=self._precursor_mz_column,
-            fragment_mz_column=self._fragment_mz_column,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
