@@ -64,9 +64,9 @@ CALIBRATION_MANAGER_CONFIG = [
 class CalibrationManager(BaseManager):
     def __init__(
         self,
-        has_mobility: bool,
         path: None | str = None,
         load_from_file: bool = True,
+        has_mobility: bool = True,
         **kwargs,
     ):
         """Contains, updates and applies all calibrations for a single run.
@@ -75,14 +75,14 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-        has_mobility : bool
-            If True, the calibration manager will include mobility calibration. This will add a mobility estimator to the precursor group.
-
         path : str, default=None
             Path where the current parameter set is saved to and loaded from.
 
         load_from_file : bool, default=True
             If True, the manager will be loaded from file if it exists.
+
+        has_mobility : bool, default=True
+            If True, the calibration manager will include mobility calibration. This will add a mobility estimator to the precursor group.
 
         kwargs :
              Will be passed to the parent class `BaseManager`, need to be valid keyword arguments.
