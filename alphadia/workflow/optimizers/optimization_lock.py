@@ -24,9 +24,9 @@ class OptimizationLock:
         self.previously_calibrated = False
         self.has_target_num_precursors = False
 
-        self.elution_group_order = library._precursor_df["elution_group_idx"].unique()
+        self._elution_group_order = library._precursor_df["elution_group_idx"].unique()
         rng = np.random.default_rng(seed=772)
-        rng.shuffle(self.elution_group_order)
+        rng.shuffle(self._elution_group_order)
 
         self._precursor_target_count = config["calibration"]["optimization_lock_target"]
         self._batch_size = config["calibration"]["batch_size"]
@@ -34,21 +34,21 @@ class OptimizationLock:
         self.batch_idx = 0
         self._set_batch_plan()
 
-        eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
 
         self.batch_library: pd.DataFrame | None = None
         self.set_batch_dfs(eg_idxes)
 
-        self.feature_dfs = []
-        self.fragment_dfs = []
+        self._feature_dfs = []
+        self._fragment_dfs = []
 
     @property
     def features_df(self) -> pd.DataFrame:
-        return pd.concat(self.feature_dfs)
+        return pd.concat(self._feature_dfs)
 
     @property
     def fragments_df(self) -> pd.DataFrame:
-        return pd.concat(self.fragment_dfs)
+        return pd.concat(self._fragment_dfs)
 
     @property
     def start_idx(self) -> int:
@@ -72,7 +72,7 @@ class OptimizationLock:
 
     def _set_batch_plan(self):
         """Gets an exponential batch plan based on the batch_size value in the config."""
-        n_eg = len(self.elution_group_order)
+        n_eg = len(self._elution_group_order)
 
         plan = []
 
@@ -105,8 +105,8 @@ class OptimizationLock:
             The fragment dataframe for the current batch of the optimization lock (from workflow.extract_batch).
         """
 
-        self.feature_dfs += [feature_df]
-        self.fragment_dfs += [fragment_df]
+        self._feature_dfs += [feature_df]
+        self._fragment_dfs += [fragment_df]
 
         self.total_elution_groups = self.features_df.elution_group_idx.nunique()
 
@@ -177,13 +177,13 @@ class OptimizationLock:
         """
         if self.has_target_num_precursors:
             self.decrease_batch_idx()
-            self.feature_dfs = []
-            self.fragment_dfs = []
+            self._feature_dfs = []
+            self._fragment_dfs = []
 
         else:
             self.increase_batch_idx()
 
-        eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+        eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
         self.set_batch_dfs(eg_idxes)
 
     def reset_after_convergence(self, calibration_manager):
@@ -196,8 +196,8 @@ class OptimizationLock:
 
         """
         self.has_target_num_precursors = True
-        self.feature_dfs = []
-        self.fragment_dfs = []
+        self._feature_dfs = []
+        self._fragment_dfs = []
         self.set_batch_dfs()
         self.update_with_calibration(calibration_manager)
 
@@ -211,7 +211,7 @@ class OptimizationLock:
             The elution group indexes to use for the next round of optimization. If None, the eg_idxes for the current self.start_idx and self.stop_idx are used.
         """
         if eg_idxes is None:
-            eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+            eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
         self.batch_library = SpecLibFlat()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(

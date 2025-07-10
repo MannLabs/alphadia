@@ -1081,7 +1081,7 @@ def test_optlock_reindex():
     optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.batch_plan = [[0, 100], [100, 200]]
     optlock.set_batch_dfs(
-        optlock.elution_group_order[optlock.start_idx : optlock.stop_idx]
+        optlock._elution_group_order[optlock.start_idx : optlock.stop_idx]
     )
 
     assert (
