@@ -509,7 +509,7 @@ def create_workflow_instance():
         total_elution_groups = 2000
         batch_idx = 1
 
-    workflow._optimization_handler.optlock = MockOptlock()
+    workflow._optimization_handler._optlock = MockOptlock()
 
     return workflow
 
@@ -528,7 +528,7 @@ def test_automatic_ms2_optimizer():
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
@@ -589,7 +589,7 @@ def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
     ms2_optimizer._favour_narrower_optimum = favour_narrower_optimum
@@ -615,7 +615,7 @@ def test_automatic_rt_optimizer():
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
@@ -675,7 +675,7 @@ def test_automatic_ms1_optimizer():
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
@@ -731,7 +731,7 @@ def test_automatic_mobility_optimizer():
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
@@ -1168,7 +1168,7 @@ def test_optimizer_skipping():
         workflow.optimization_manager,
         workflow.calibration_manager,
         workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
