@@ -6,11 +6,26 @@ from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.data.alpharaw_wrapper import AlphaRaw
 from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.reporting.reporting import Pipeline
-from alphadia.workflow import optimization
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.optimization_lock import OptimizationLock
+from alphadia.workflow.optimizers.automatic import (
+    AutomaticMobilityOptimizer,
+    AutomaticMS1Optimizer,
+    AutomaticMS2Optimizer,
+    AutomaticOptimizer,
+    AutomaticRTOptimizer,
+)
+from alphadia.workflow.optimizers.base import BaseOptimizer
+from alphadia.workflow.optimizers.targeted import (
+    TargetedMobilityOptimizer,
+    TargetedMS1Optimizer,
+    TargetedMS2Optimizer,
+    TargetedOptimizer,
+    TargetedRTOptimizer,
+)
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
@@ -45,9 +60,9 @@ class OptimizationHandler:
         self.dia_data = dia_data
         self.figure_path = figure_path
 
-        self.optlock: optimization.OptimizationLock | None = None
+        self.optlock: OptimizationLock | None = None
 
-    def _get_ordered_optimizers(self) -> list[list[optimization.BaseOptimizer]]:
+    def _get_ordered_optimizers(self) -> list[list[BaseOptimizer]]:
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
         if a value less than or equal to 0 is supplied, automatic optimization is used.
         Targeted optimizers are run simultaneously; automatic optimizers are run separately in the order MS2, RT, MS1, mobility.
@@ -63,13 +78,13 @@ class OptimizationHandler:
         config_search = self.config["search"]
 
         if config_search["target_ms2_tolerance"] > 0:
-            ms2_optimizer = optimization.TargetedMS2Optimizer(
+            ms2_optimizer = TargetedMS2Optimizer(
                 self.optimization_manager.ms2_error,
                 config_search["target_ms2_tolerance"],
                 self,
             )
         else:
-            ms2_optimizer = optimization.AutomaticMS2Optimizer(
+            ms2_optimizer = AutomaticMS2Optimizer(
                 self.optimization_manager.ms2_error,
                 self,
             )
@@ -81,25 +96,25 @@ class OptimizationHandler:
                 if config_search["target_rt_tolerance"] > 1
                 else config_search["target_rt_tolerance"] * gradient_length
             )
-            rt_optimizer = optimization.TargetedRTOptimizer(
+            rt_optimizer = TargetedRTOptimizer(
                 self.optimization_manager.rt_error,
                 target_rt_error,
                 self,
             )
         else:
-            rt_optimizer = optimization.AutomaticRTOptimizer(
+            rt_optimizer = AutomaticRTOptimizer(
                 self.optimization_manager.rt_error,
                 self,
             )
         if self.dia_data.has_ms1:
             if config_search["target_ms1_tolerance"] > 0:
-                ms1_optimizer = optimization.TargetedMS1Optimizer(
+                ms1_optimizer = TargetedMS1Optimizer(
                     self.optimization_manager.ms1_error,
                     config_search["target_ms1_tolerance"],
                     self,
                 )
             else:
-                ms1_optimizer = optimization.AutomaticMS1Optimizer(
+                ms1_optimizer = AutomaticMS1Optimizer(
                     self.optimization_manager.ms1_error,
                     self,
                 )
@@ -107,13 +122,13 @@ class OptimizationHandler:
             ms1_optimizer = None
         if self.dia_data.has_mobility:
             if config_search["target_mobility_tolerance"] > 0:
-                mobility_optimizer = optimization.TargetedMobilityOptimizer(
+                mobility_optimizer = TargetedMobilityOptimizer(
                     self.optimization_manager.mobility_error,
                     config_search["target_mobility_tolerance"],
                     self,
                 )
             else:
-                mobility_optimizer = optimization.AutomaticMobilityOptimizer(
+                mobility_optimizer = AutomaticMobilityOptimizer(
                     self.optimization_manager.mobility_error,
                     self,
                 )
@@ -131,13 +146,13 @@ class OptimizationHandler:
                 [
                     optimizer
                     for optimizer in optimizers
-                    if isinstance(optimizer, optimization.TargetedOptimizer)
+                    if isinstance(optimizer, TargetedOptimizer)
                 ]
             ]
             automatic_optimizers = [
                 [optimizer]
                 for optimizer in optimizers
-                if isinstance(optimizer, optimization.AutomaticOptimizer)
+                if isinstance(optimizer, AutomaticOptimizer)
             ]
 
             ordered_optimizers = (
@@ -197,7 +212,7 @@ class OptimizationHandler:
             self.dia_data.has_ms1,
         )
 
-        self.optlock = optimization.OptimizationLock(self.spectral_library, self.config)
+        self.optlock = OptimizationLock(self.spectral_library, self.config)
 
         insufficient_precursors_to_optimize = False
         # Start of optimization/recalibration loop
@@ -360,7 +375,7 @@ class OptimizationHandler:
 
     def _step_all_optimizers(
         self,
-        optimizers: list[optimization.BaseOptimizer],
+        optimizers: list[BaseOptimizer],
         precursor_df_filtered: pd.DataFrame,
         fragments_df_filtered: pd.DataFrame,
     ):
@@ -390,7 +405,7 @@ class OptimizationHandler:
 
     def _skip_all_optimizers(
         self,
-        optimizers: list[optimization.BaseOptimizer],
+        optimizers: list[BaseOptimizer],
     ):
         """All optimizers currently in use are stepped and their current state is logged.
 
