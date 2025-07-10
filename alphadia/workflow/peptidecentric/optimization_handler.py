@@ -49,8 +49,6 @@ class OptimizationHandler:
         figure_path: str | None = None,
     ):
         self.config = config
-        # TODO decouple optimizers from workflow:
-        #  there's an implicit coupling between this class and the Optimizers, which think this is a workflow object!
         self.optimization_manager = optimization_manager
         self.calibration_manager = calibration_manager
         self.fdr_manager = fdr_manager
@@ -61,6 +59,36 @@ class OptimizationHandler:
         self.figure_path = figure_path
 
         self.optlock: OptimizationLock | None = None
+
+    def _init_optimiser(
+        self,
+        clazz: type[AutomaticOptimizer | TargetedOptimizer],
+        initial_parameter: float,
+        target_parameter: float | None = None,
+    ):
+        """Returns an instance of the specified optimizer class with the given initial and target parameters."""
+        if issubclass(clazz, TargetedOptimizer):
+            return clazz(
+                initial_parameter,
+                target_parameter,
+                self.config,
+                self.optimization_manager,
+                self.calibration_manager,
+                self.fdr_manager,
+                self.reporter,
+            )
+        if issubclass(clazz, AutomaticOptimizer):
+            return clazz(
+                initial_parameter,
+                self.config,
+                self.optimization_manager,
+                self.calibration_manager,
+                self.fdr_manager,
+                self.optlock,
+                self.reporter,
+            )
+
+        raise ValueError(f"Unknown Optimiser type: {clazz}")
 
     def _get_ordered_optimizers(self) -> list[list[BaseOptimizer]]:
         """Select appropriate optimizers. Targeted optimization is used if a valid target value (i.e. a number greater than 0) is specified in the config;
@@ -78,15 +106,14 @@ class OptimizationHandler:
         config_search = self.config["search"]
 
         if config_search["target_ms2_tolerance"] > 0:
-            ms2_optimizer = TargetedMS2Optimizer(
+            ms2_optimizer = self._init_optimiser(
+                TargetedMS2Optimizer,
                 self.optimization_manager.ms2_error,
                 config_search["target_ms2_tolerance"],
-                self,
             )
         else:
-            ms2_optimizer = AutomaticMS2Optimizer(
-                self.optimization_manager.ms2_error,
-                self,
+            ms2_optimizer = self._init_optimiser(
+                AutomaticMS2Optimizer, self.optimization_manager.ms2_error
             )
 
         if config_search["target_rt_tolerance"] > 0:
@@ -96,41 +123,38 @@ class OptimizationHandler:
                 if config_search["target_rt_tolerance"] > 1
                 else config_search["target_rt_tolerance"] * gradient_length
             )
-            rt_optimizer = TargetedRTOptimizer(
-                self.optimization_manager.rt_error,
-                target_rt_error,
-                self,
+            rt_optimizer = self._init_optimiser(
+                TargetedRTOptimizer, self.optimization_manager.rt_error, target_rt_error
             )
         else:
-            rt_optimizer = AutomaticRTOptimizer(
-                self.optimization_manager.rt_error,
-                self,
+            rt_optimizer = self._init_optimiser(
+                AutomaticRTOptimizer, self.optimization_manager.rt_error
             )
+
         if self.dia_data.has_ms1:
             if config_search["target_ms1_tolerance"] > 0:
-                ms1_optimizer = TargetedMS1Optimizer(
+                ms1_optimizer = self._init_optimiser(
+                    TargetedMS1Optimizer,
                     self.optimization_manager.ms1_error,
                     config_search["target_ms1_tolerance"],
-                    self,
                 )
             else:
-                ms1_optimizer = AutomaticMS1Optimizer(
-                    self.optimization_manager.ms1_error,
-                    self,
+                ms1_optimizer = self._init_optimiser(
+                    AutomaticMS1Optimizer, self.optimization_manager.ms1_error
                 )
         else:
             ms1_optimizer = None
+
         if self.dia_data.has_mobility:
             if config_search["target_mobility_tolerance"] > 0:
-                mobility_optimizer = TargetedMobilityOptimizer(
+                mobility_optimizer = self._init_optimiser(
+                    TargetedMobilityOptimizer,
                     self.optimization_manager.mobility_error,
                     config_search["target_mobility_tolerance"],
-                    self,
                 )
             else:
-                mobility_optimizer = AutomaticMobilityOptimizer(
-                    self.optimization_manager.mobility_error,
-                    self,
+                mobility_optimizer = self._init_optimiser(
+                    AutomaticMobilityOptimizer, self.optimization_manager.mobility_error
                 )
         else:
             mobility_optimizer = None
