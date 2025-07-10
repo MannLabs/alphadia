@@ -16,9 +16,9 @@ class ColumnNameHandler:
         """
         Initializes the ColumnNameHandler.
         """
-        self.optimization_manager = optimization_manager
-        self.dia_data_has_ms1 = dia_data_has_ms1
-        self.dia_data_has_mobility = dia_data_has_mobility
+        self._optimization_manager = optimization_manager
+        self._dia_data_has_ms1 = dia_data_has_ms1
+        self._dia_data_has_mobility = dia_data_has_mobility
 
     def get_precursor_mz_column(self):
         """Get the precursor m/z column name.
@@ -33,20 +33,20 @@ class ColumnNameHandler:
 
         """
         return (
-            f"mz_{self.optimization_manager.column_type}"
-            if self.dia_data_has_ms1
+            f"mz_{self._optimization_manager.column_type}"
+            if self._dia_data_has_ms1
             else "mz_library"
         )
 
     def get_fragment_mz_column(self):
-        return f"mz_{self.optimization_manager.column_type}"
+        return f"mz_{self._optimization_manager.column_type}"
 
     def get_rt_column(self):
-        return f"rt_{self.optimization_manager.column_type}"
+        return f"rt_{self._optimization_manager.column_type}"
 
     def get_mobility_column(self):
         return (
-            f"mobility_{self.optimization_manager.column_type}"
-            if self.dia_data_has_mobility
+            f"mobility_{self._optimization_manager.column_type}"
+            if self._dia_data_has_mobility
             else "mobility_library"
         )
