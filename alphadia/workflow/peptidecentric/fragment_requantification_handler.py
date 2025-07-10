@@ -29,9 +29,9 @@ class FragmentRequantificationHandler:
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
     ):
-        self.config = config
-        self.calibration_manager = calibration_manager
-        self.reporter = reporter
+        self._config = config
+        self._calibration_manager = calibration_manager
+        self._reporter = reporter
         self._column_name_handler = column_name_handler
 
     def requantify_fragments(
@@ -55,15 +55,15 @@ class FragmentRequantificationHandler:
             Dataframe with fragments in long format
         """
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             "=== Transfer learning quantification ===",
             verbosity="progress",
         )
 
-        fragment_types = self.config["transfer_library"]["fragment_types"]
-        max_charge = self.config["transfer_library"]["max_charge"]
+        fragment_types = self._config["transfer_library"]["fragment_types"]
+        max_charge = self._config["transfer_library"]["max_charge"]
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"creating library for charged fragment types: {fragment_types}",
         )
 
@@ -71,17 +71,19 @@ class FragmentRequantificationHandler:
             psm_df, fragment_types=fragment_types, max_charge=max_charge
         )
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             "Calibrating library",
         )
 
         # calibrate
-        self.calibration_manager.predict(
+        self._calibration_manager.predict(
             candidate_speclib_flat.precursor_df, "precursor"
         )
-        self.calibration_manager.predict(candidate_speclib_flat.fragment_df, "fragment")
+        self._calibration_manager.predict(
+            candidate_speclib_flat.fragment_df, "fragment"
+        )
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
@@ -89,9 +91,11 @@ class FragmentRequantificationHandler:
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
-                "precursor_mz_tolerance": self.config["search"]["target_ms1_tolerance"],
-                "fragment_mz_tolerance": self.config["search"]["target_ms2_tolerance"],
-                "experimental_xic": self.config["search"]["experimental_xic"],
+                "precursor_mz_tolerance": self._config["search"][
+                    "target_ms1_tolerance"
+                ],
+                "fragment_mz_tolerance": self._config["search"]["target_ms2_tolerance"],
+                "experimental_xic": self._config["search"]["experimental_xic"],
             }
         )
 
