@@ -77,7 +77,7 @@ class TargetedOptimizer(BaseOptimizer, ABC):
         """
         return self.update_factor * max(
             self._calibration_manager.get_estimator(
-                self.estimator_group_name, self.estimator_name
+                self._estimator_group_name, self._estimator_name
             ).ci(df, self.update_percentile_range),
             self.target_parameter,
         )
@@ -89,14 +89,14 @@ class TargetedOptimizer(BaseOptimizer, ABC):
     ):
         """See base class."""
         if self.has_converged:
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
             return
         self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
-            precursors_df if self.estimator_group_name == "precursor" else fragments_df
+            precursors_df if self._estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
         self._optimization_manager.update(**{self.parameter_name: new_parameter})
@@ -106,13 +106,13 @@ class TargetedOptimizer(BaseOptimizer, ABC):
 
         if just_converged:
             self.has_converged = True
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
 
         else:
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"❌ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
                 verbosity="progress",
             )

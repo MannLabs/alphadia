@@ -11,9 +11,9 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 class BaseOptimizer(ABC):
     parameter_name: str | None
-    estimator_name: str | None
-    estimator_group_name: str | None
-    feature_name: str | None
+    _estimator_name: str | None
+    _estimator_group_name: str | None
+    _feature_name: str | None
 
     def __init__(
         self,
@@ -39,7 +39,7 @@ class BaseOptimizer(ABC):
         self._calibration_manager = calibration_manager
         self._fdr_manager = fdr_manager
         self._config = config
-        self.reporter = reporting.LogBackend() if reporter is None else reporter
+        self._reporter = reporting.LogBackend() if reporter is None else reporter
         self._num_prev_optimizations: int = 0
 
     @abstractmethod
@@ -64,14 +64,14 @@ class BaseOptimizer(ABC):
         """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
 
     def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
-        self.reporter.log_string(
+        self._reporter.log_string(
             "No more batches to process. Will proceed to extraction using best parameters available in optimization manager.",
             verbosity="warning",
         )
         self._update_history(precursors_df, fragments_df)
         self._update_workflow()
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"Using current optimal value for {self.parameter_name}: {self._optimization_manager.__dict__[self.parameter_name]:.2f}.",
             verbosity="warning",
         )

@@ -85,7 +85,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         It also resets the internal counter for the number of consecutive skips.
         """
         if self.has_converged:
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
@@ -93,7 +93,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
 
         self._num_consecutive_skips = 0
         self._num_prev_optimizations += 1
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self._config['calibration']['min_steps']} ===",
             verbosity="progress",
         )
@@ -105,7 +105,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
 
             self._update_workflow()
 
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
@@ -113,13 +113,13 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         else:
             new_parameter = self._propose_new_parameter(
                 precursors_df
-                if self.estimator_group_name == "precursor"
+                if self._estimator_group_name == "precursor"
                 else fragments_df
             )
 
             self._optimization_manager.update(**{self.parameter_name: new_parameter})
 
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
@@ -127,14 +127,14 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
     def skip(self):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
         self._num_consecutive_skips += 1
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self._config['calibration']['max_skips']} ===",
             verbosity="progress",
         )
         if self._batch_substantially_bigger:
             self.has_converged = True
             self._update_workflow()
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
@@ -146,7 +146,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         ax.vlines(
             x=self._optimization_manager.__dict__[self.parameter_name],
             ymin=0,
-            ymax=self.history_df.loc[self._find_index_of_optimum(), self.feature_name],
+            ymax=self.history_df.loc[self._find_index_of_optimum(), self._feature_name],
             color="red",
             zorder=0,
             label=f"Optimal {self.parameter_name}",
@@ -155,19 +155,19 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         sns.lineplot(
             data=self.history_df,
             x="parameter",
-            y=self.feature_name,
+            y=self._feature_name,
             ax=ax,
         )
         sns.scatterplot(
             data=self.history_df,
             x="parameter",
-            y=self.feature_name,
+            y=self._feature_name,
             ax=ax,
         )
 
         ax.set_xlabel(self.parameter_name)
         ax.xaxis.set_inverted(True)
-        ax.set_ylim(bottom=0, top=self.history_df[self.feature_name].max() * 1.1)
+        ax.set_ylim(bottom=0, top=self.history_df[self._feature_name].max() * 1.1)
         ax.legend(loc="upper left")
 
         plt.show()
@@ -195,7 +195,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         return (
             self.update_factor
             * self._calibration_manager.get_estimator(  # TODO save only estimators?
-                self.estimator_group_name, self.estimator_name
+                self._estimator_group_name, self._estimator_name
             ).ci(df, self.update_percentile_range)
         )
 
@@ -217,7 +217,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
                     "parameter": self._optimization_manager.__dict__[
                         self.parameter_name
                     ],
-                    self.feature_name: self._get_feature_value(
+                    self._feature_name: self._get_feature_value(
                         precursors_df, fragments_df
                     ),
                     "classifier_version": self._fdr_manager.current_version,  # TODO: only we need from fdr_manager
@@ -268,7 +268,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         if len(self.history_df) < 3:
             return False
 
-        feature_history = self.history_df[self.feature_name]
+        feature_history = self.history_df[self._feature_name]
         last_feature_value = feature_history.iloc[-1]
         second_last_feature_value = feature_history.iloc[-2]
         third_last_feature_value = feature_history.iloc[-3]
@@ -338,24 +338,24 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             return self.history_df.index[0]
 
         if self._favour_narrower_optimum:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
-            maximum_feature_value = self.history_df[self.feature_name].max()
+            maximum_feature_value = self.history_df[self._feature_name].max()
             threshold = (
                 maximum_feature_value
                 - self._maximum_decrease_from_maximum * np.abs(maximum_feature_value)
             )
 
             rows_within_thresh_of_max = self.history_df[
-                self.history_df[self.feature_name] > threshold
+                self.history_df[self._feature_name] > threshold
             ]
 
             if rows_within_thresh_of_max.empty:
                 # If no rows meet the threshold, return the index of the max feature value
-                return self.history_df[self.feature_name].idxmax()
+                return self.history_df[self._feature_name].idxmax()
             else:
                 return rows_within_thresh_of_max["parameter"].idxmin()
 
         else:
-            return self.history_df[self.feature_name].idxmax()
+            return self.history_df[self._feature_name].idxmax()
 
     def _update_workflow(self):
         """Updates the optimization manager with the results of the optimization, namely:
@@ -427,9 +427,9 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes retention time error."""
         self.parameter_name = "rt_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "rt"
-        self.feature_name = "precursor_proportion_detected"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "rt"
+        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
@@ -459,9 +459,9 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     ):
         """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
         self.parameter_name = "ms2_error"
-        self.estimator_group_name = "fragment"
-        self.estimator_name = "mz"
-        self.feature_name = "precursor_proportion_detected"
+        self._estimator_group_name = "fragment"
+        self._estimator_name = "mz"
+        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
@@ -491,9 +491,9 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes MS1 error."""
         self.parameter_name = "ms1_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mz"
-        self.feature_name = "mean_isotope_intensity_correlation"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mz"
+        self._feature_name = "mean_isotope_intensity_correlation"
         super().__init__(
             initial_parameter,
             config,
@@ -523,9 +523,9 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes mobility error."""
         self.parameter_name = "mobility_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mobility"
-        self.feature_name = "precursor_proportion_detected"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mobility"
+        self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
             config,
