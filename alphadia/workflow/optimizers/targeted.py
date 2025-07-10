@@ -143,8 +143,8 @@ class TargetedRTOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "rt_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "rt"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "rt"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -169,8 +169,8 @@ class TargetedMS2Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
-        self.estimator_group_name = "fragment"
-        self.estimator_name = "mz"
+        self._estimator_group_name = "fragment"
+        self._estimator_name = "mz"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -195,8 +195,8 @@ class TargetedMS1Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms1_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mz"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mz"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -221,8 +221,8 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "mobility_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mobility"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mobility"
         super().__init__(
             initial_parameter,
             target_parameter,
