@@ -22,13 +22,13 @@ from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.optimization_lock import OptimizationLock
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
     AutomaticMS2Optimizer,
     AutomaticRTOptimizer,
 )
+from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 from alphadia.workflow.optimizers.targeted import (
     TargetedMobilityOptimizer,
     TargetedMS1Optimizer,

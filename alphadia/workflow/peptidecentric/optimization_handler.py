@@ -10,7 +10,6 @@ from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.optimization_lock import OptimizationLock
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
@@ -19,6 +18,7 @@ from alphadia.workflow.optimizers.automatic import (
     AutomaticRTOptimizer,
 )
 from alphadia.workflow.optimizers.base import BaseOptimizer
+from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 from alphadia.workflow.optimizers.targeted import (
     TargetedMobilityOptimizer,
     TargetedMS1Optimizer,
