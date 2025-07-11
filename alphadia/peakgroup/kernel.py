@@ -1,14 +1,9 @@
-# native imports
 import logging
 
 import numba as nb
-
-# alpha family imports
-# third party imports
 import numpy as np
 
-# alphadia imports
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.data import DiaDataJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -53,9 +48,7 @@ def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
 class GaussianKernel:
     def __init__(
         self,
-        dia_data: bruker.TimsTOFTransposeJIT
-        | bruker.TimsTOFTranspose
-        | alpharaw_wrapper.AlphaRaw,
+        dia_data: DiaDataJIT,
         fwhm_rt: float = 10.0,
         sigma_scale_rt: float = 1.0,
         fwhm_mobility: float = 0.03,
@@ -72,8 +65,8 @@ class GaussianKernel:
         Parameters
         ----------
 
-        dia_data : typing.Union[bruker.TimsTOFTransposeJIT, bruker.TimsTOFTranspose]
-            alphatims dia_data object.
+        dia_data : DiaDataJIT
+            dia_data jit object.
 
         fwhm_rt : float
             Full width at half maximum in RT dimension of the peaks in the spectrum.

@@ -1,6 +1,7 @@
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.data import DiaData
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.plexscoring.utils import (
@@ -11,7 +12,6 @@ from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
-from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 

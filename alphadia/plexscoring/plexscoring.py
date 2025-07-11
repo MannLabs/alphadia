@@ -6,6 +6,7 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
+from alphadia.data import DiaData
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
@@ -23,7 +24,6 @@ from alphadia.validation.schemas import (
     fragments_flat_schema,
     precursors_flat_schema,
 )
-from alphadia.workflow.managers.raw_file_manager import DiaData
 
 logger = logging.getLogger()
 

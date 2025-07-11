@@ -3,6 +3,7 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.data import DiaData
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -12,7 +13,6 @@ from alphadia.plexscoring.utils import (
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
-from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 

@@ -3,12 +3,12 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
+from alphadia.data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,

@@ -5,11 +5,12 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
+from alphadia.data import DiaData
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
-from alphadia.workflow.managers.raw_file_manager import DiaData, RawFileManager
+from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
 
 logger = logging.getLogger()

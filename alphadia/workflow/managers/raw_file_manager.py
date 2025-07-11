@@ -5,13 +5,13 @@ import os
 
 import numpy as np
 
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.data import DiaData
+from alphadia.data.alpharaw_wrapper import AlphaRawBase, MzML, Sciex, Thermo
+from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
-
-DiaData = bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw
 
 
 class RawFileManager(BaseManager):
@@ -53,14 +53,14 @@ class RawFileManager(BaseManager):
 
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
-            dia_data = bruker.TimsTOFTranspose(
+            dia_data = TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".hdf":
             raw_data_type = "alpharaw"
-            dia_data = alpharaw_wrapper.AlphaRawBase(
+            dia_data = AlphaRawBase(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )
@@ -70,7 +70,7 @@ class RawFileManager(BaseManager):
 
             cv = self._config.get("raw_data_loading", {}).get("cv")
 
-            dia_data = alpharaw_wrapper.Thermo(
+            dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
                 astral_ms1=self._config["general"]["astral_ms1"],
@@ -80,7 +80,7 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = alpharaw_wrapper.MzML(
+            dia_data = MzML(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )
@@ -88,7 +88,7 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = alpharaw_wrapper.Sciex(
+            dia_data = Sciex(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )

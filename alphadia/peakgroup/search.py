@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.data import DiaData, DiaDataJIT
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateContainer,
@@ -30,7 +30,6 @@ from alphadia.peakgroup.utils import (
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
-from alphadia.workflow.managers.raw_file_manager import DiaData
 
 logger = logging.getLogger()
 
@@ -73,7 +72,7 @@ def _is_valid(
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
     i: int,  # pjit decorator changes the passed argument from an iterable to single index
-    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    jit_data: DiaDataJIT,
     precursor_container: PrecursorFlatContainer,
     fragment_container: FragmentContainer,
     config: HybridCandidateConfigJIT,
@@ -86,7 +85,7 @@ def _select_candidates_pjit(
     ----------
     i : int
         Index of the precursor to process.
-    jit_data : bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT
+    jit_data : DiaDataJIT
         JIT-compiled data object containing the raw data.
     precursor_container : PrecursorFlatContainer
         Container holding precursor information.
@@ -372,7 +371,7 @@ def _build_candidates(
     dense_precursors: np.ndarray,
     dense_fragments: np.ndarray,
     kernel: np.ndarray,
-    jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+    jit_data: DiaDataJIT,
     config: HybridCandidateConfigJIT,
     scan_limits: np.ndarray,
     frame_limits: np.ndarray,
@@ -593,7 +592,7 @@ class HybridCandidateSelection:
         fwhm_mobility : float, optional
             full width at half maximum in mobility dimension for the GaussianKernel, by default 0.012
         """
-        self.dia_data_jit = dia_data.jitclass()
+        self.dia_data_jit: DiaDataJIT = dia_data.jitclass()
 
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
             drop=True
