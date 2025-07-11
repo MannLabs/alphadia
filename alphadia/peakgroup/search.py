@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.data import DiaData, DiaDataJIT
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateContainer,
@@ -27,6 +26,7 @@ from alphadia.peakgroup.utils import (
     wrap0,
     wrap1,
 )
+from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema

@@ -6,12 +6,12 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.data import DiaData
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
 from alphadia.plexscoring.quadrupole import SimpleQuadrupole
 from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
+from alphadia.raw_data import DiaData
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import (
     USE_NUMBA_CACHING,

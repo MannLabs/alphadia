@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.raw_data import alpharaw_wrapper, bruker
 
 
 def test_transpose():

@@ -5,7 +5,7 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-from alphadia.data import DiaData
+from alphadia.raw_data import DiaData
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
