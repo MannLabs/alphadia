@@ -270,14 +270,6 @@ class TimsTOFTransposeJIT:
         """Convert array of mobility values into scan indices, njit compatible"""
         return np.searchsorted(self.mz_values, mz_values, "left")
 
-    def get_tof_indices_tolerance(
-        self,
-        mz_values: np.ndarray,
-        tolerance: float,
-    ):
-        mz_limits = mass_range(mz_values, tolerance)
-        return make_slice_2d(self.get_tof_indices(mz_limits))
-
     def _cycle_mask(self, quad_slices: np.ndarray, custom_cycle: np.ndarray = None):
         """Calculate the DIA cycle quadrupole mask for each score group.
 
