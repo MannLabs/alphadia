@@ -45,8 +45,8 @@ class RawFileManager(BaseManager):
 
         Returns
         -------
-        typing.Union[bruker.TimsTOFTranspose, thermo.Thermo],
-            TimsTOFTranspose object containing the DIA data
+        DiaData
+            object containing the DIA data
 
         """
         file_extension = os.path.splitext(dia_data_path)[1]

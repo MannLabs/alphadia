@@ -3,13 +3,12 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.data.alpharaw_wrapper import AlphaRaw
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
@@ -45,7 +44,7 @@ class OptimizationHandler:
         fdr_manager: FDRManager,
         reporter: Pipeline,
         spectral_library: SpecLibBase,
-        dia_data: AlphaRaw | TimsTOFTranspose,
+        dia_data: DiaData,
         figure_path: str | None = None,
     ):
         self._config = config
@@ -55,7 +54,7 @@ class OptimizationHandler:
 
         self._reporter = reporter
         self._spectral_library = spectral_library
-        self._dia_data = dia_data
+        self._dia_data: DiaData = dia_data
         self._figure_path = figure_path
 
         self._optlock: OptimizationLock = OptimizationLock(
