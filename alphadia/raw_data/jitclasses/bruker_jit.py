@@ -129,7 +129,7 @@ class TimsTOFTransposeJIT:
 
         self.has_mobility = True
 
-    def get_frame_indices(
+    def _get_frame_indices(
         self, rt_values: np.array, optimize_size: int = 16, min_size: int = 32
     ):
         """Convert an interval of two rt values to a frame index interval.
@@ -190,11 +190,11 @@ class TimsTOFTransposeJIT:
         """
         rt_limits = np.array([rt - tolerance, rt + tolerance], dtype=np.float32)
 
-        return self.get_frame_indices(
+        return self._get_frame_indices(
             rt_limits, optimize_size=optimize_size, min_size=min_size
         )
 
-    def get_scan_indices(self, mobility_values: np.array, optimize_size: int = 16):
+    def _get_scan_indices(self, mobility_values: np.array, optimize_size: int = 16):
         """Convert array of mobility values into scan indices, njit compatible.
 
         Parameters
@@ -261,9 +261,9 @@ class TimsTOFTransposeJIT:
             [mobility + tolerance, mobility - tolerance], dtype=np.float32
         )
 
-        return self.get_scan_indices(mobility_limits, optimize_size=optimize_size)
+        return self._get_scan_indices(mobility_limits, optimize_size=optimize_size)
 
-    def get_tof_indices(
+    def _get_tof_indices(
         self,
         mz_values: np.ndarray,
     ):
@@ -278,7 +278,7 @@ class TimsTOFTransposeJIT:
         mz_limits = mass_range(mz_values, tolerance)
         return make_slice_2d(self.get_tof_indices(mz_limits))
 
-    def cycle_mask(self, quad_slices: np.ndarray, custom_cycle: np.ndarray = None):
+    def _cycle_mask(self, quad_slices: np.ndarray, custom_cycle: np.ndarray = None):
         """Calculate the DIA cycle quadrupole mask for each score group.
 
         Parameters
@@ -313,7 +313,7 @@ class TimsTOFTransposeJIT:
 
         return mz_mask
 
-    def get_push_indices(
+    def _get_push_indices(
         self,
         frame_limits,
         scan_limits,
@@ -350,7 +350,7 @@ class TimsTOFTransposeJIT:
             absolute_precursor_cycle, dtype=np.int64
         )
 
-    def assemble_push(
+    def _assemble_push(
         self,
         tof_limits,
         mz_values,
@@ -504,7 +504,7 @@ class TimsTOFTransposeJIT:
 
         return dense_output, unique_precursor_index
 
-    def assemble_push_intensity(
+    def _assemble_push_intensity(
         self,
         tof_limits,
         mz_values,
@@ -595,16 +595,16 @@ class TimsTOFTransposeJIT:
         custom_cycle=None,
     ):
         tof_limits = make_slice_2d(
-            self.get_tof_indices(mass_range(mz_values, mass_tolerance))
+            self._get_tof_indices(mass_range(mz_values, mass_tolerance))
         )
 
-        mz_mask = self.cycle_mask(quadrupole_mz, custom_cycle)
+        mz_mask = self._cycle_mask(quadrupole_mz, custom_cycle)
 
-        push_query, _absolute_precursor_index = self.get_push_indices(
+        push_query, _absolute_precursor_index = self._get_push_indices(
             frame_limits, scan_limits, mz_mask
         )
 
-        return self.assemble_push(
+        return self._assemble_push(
             tof_limits,
             mz_values,
             push_query,
@@ -626,16 +626,16 @@ class TimsTOFTransposeJIT:
         custom_cycle=None,
     ) -> tuple[np.ndarray, np.ndarray]:
         tof_limits = make_slice_2d(
-            self.get_tof_indices(mass_range(mz_values, mass_tolerance))
+            self._get_tof_indices(mass_range(mz_values, mass_tolerance))
         )
 
-        mz_mask = self.cycle_mask(quadrupole_mz, custom_cycle)
+        mz_mask = self._cycle_mask(quadrupole_mz, custom_cycle)
 
-        push_query, _absolute_precursor_index = self.get_push_indices(
+        push_query, _absolute_precursor_index = self._get_push_indices(
             frame_limits, scan_limits, mz_mask
         )
 
-        return self.assemble_push_intensity(
+        return self._assemble_push_intensity(
             tof_limits,
             mz_values,
             push_query,

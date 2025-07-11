@@ -130,7 +130,7 @@ class AlphaRawJIT:
         self.scan_max_index = scan_max_index
         self.frame_max_index = frame_max_index
 
-    def get_frame_indices(
+    def _get_frame_indices(
         self, rt_values: np.array, optimize_size: int = 16, min_size: int = 32
     ):
         """Convert an interval of two rt values to a frame index interval.
@@ -191,7 +191,7 @@ class AlphaRawJIT:
         """
         rt_limits = np.array([rt - tolerance, rt + tolerance], dtype=np.float32)
 
-        return self.get_frame_indices(
+        return self._get_frame_indices(
             rt_limits, optimize_size=optimize_size, min_size=min_size
         )
 
