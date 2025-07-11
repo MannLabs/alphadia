@@ -195,9 +195,6 @@ class AlphaRawJIT:
             rt_limits, optimize_size=optimize_size, min_size=min_size
         )
 
-    def get_scan_indices(self, mobility_values: np.array, optimize_size: int = 16):
-        return np.array([[0, 2, 1]], dtype=np.int64)
-
     def get_scan_indices_tolerance(self, mobility, tolerance, optimize_size=16):
         return np.array([[0, 2, 1]], dtype=np.int64)
 
