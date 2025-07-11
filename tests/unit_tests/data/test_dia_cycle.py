@@ -4,14 +4,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.data.dia_cycle import (
+from alphadia.exceptions import NotValidDiaDataError
+from alphadia.raw_data.dia_cycle import (
     _get_cycle_length,
     _get_cycle_start,
     _is_valid_cycle,
     _normed_auto_correlation,
     determine_dia_cycle,
 )
-from alphadia.exceptions import NotValidDiaDataError
 
 
 def test_normed_auto_correlation():
@@ -214,7 +214,7 @@ def test_determine_dia_cycle_invalid_cycle():
         determine_dia_cycle(df)
 
 
-@patch("alphadia.data.dia_cycle._get_cycle_length")
+@patch("alphadia.raw_data.dia_cycle._get_cycle_length")
 def test_determine_dia_cycle_invalid_length(mock_get_cycle_length):
     # given
     mock_get_cycle_length.return_value = -1
@@ -226,8 +226,8 @@ def test_determine_dia_cycle_invalid_length(mock_get_cycle_length):
         determine_dia_cycle(MagicMock())
 
 
-@patch("alphadia.data.dia_cycle._get_cycle_length")
-@patch("alphadia.data.dia_cycle._get_cycle_start")
+@patch("alphadia.raw_data.dia_cycle._get_cycle_length")
+@patch("alphadia.raw_data.dia_cycle._get_cycle_start")
 def test_determine_dia_cycle_invalid_start(mock_get_cycle_start, mock_get_cycle_length):
     # given
     mock_get_cycle_length.return_value = 1
@@ -240,9 +240,9 @@ def test_determine_dia_cycle_invalid_start(mock_get_cycle_start, mock_get_cycle_
         determine_dia_cycle(MagicMock())
 
 
-@patch("alphadia.data.dia_cycle._get_cycle_length")
-@patch("alphadia.data.dia_cycle._get_cycle_start")
-@patch("alphadia.data.dia_cycle._is_valid_cycle")
+@patch("alphadia.raw_data.dia_cycle._get_cycle_length")
+@patch("alphadia.raw_data.dia_cycle._get_cycle_start")
+@patch("alphadia.raw_data.dia_cycle._is_valid_cycle")
 def test_determine_dia_cycle_invalid_cycle_(
     mock_is_valid_cycle, mock_get_cycle_start, mock_get_cycle_length
 ):

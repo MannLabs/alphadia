@@ -24,8 +24,7 @@ def get_frame_indices(
     optimize_size: int = 16,
     min_size: int = 32,
 ) -> np.ndarray:
-    """
-    Convert an interval of two rt values to a frame index interval.
+    """Convert an interval of two rt values to a frame index interval.
     The length of the interval is rounded up so that a multiple of `optimize_size` cycles are included.
 
     Parameters
@@ -49,6 +48,7 @@ def get_frame_indices(
     -------
     np.ndarray, shape = (1, 3), dtype = int64
         Array of frame indices (start, stop, 1)
+
     """
     if rt_values.shape != (2,):
         raise ValueError("rt_values must be a numpy array of shape (2,)")
@@ -119,7 +119,6 @@ def make_slice_2d(start_stop):
         Array of shape (N, 3) containing the start, stop and step value for each dimension.
 
     """
-
     out = np.ones((start_stop.shape[0], 3), dtype=start_stop.dtype)
     out[:, 0] = start_stop[:, 0]
     out[:, 1] = start_stop[:, 1]

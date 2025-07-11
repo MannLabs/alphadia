@@ -1,14 +1,13 @@
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.data.alpharaw_wrapper import AlphaRaw
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.plexscoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
+from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
@@ -37,9 +36,7 @@ class RequantificationHandler:
         self._column_name_handler = column_name_handler
         self._spectral_library = spectral_library
 
-    def requantify(
-        self, dia_data: TimsTOFTranspose | AlphaRaw, psm_df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def requantify(self, dia_data: DiaData, psm_df: pd.DataFrame) -> pd.DataFrame:
         self._calibration_manager.predict(
             self._spectral_library.precursor_df_unfiltered, "precursor"
         )

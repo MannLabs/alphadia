@@ -1,19 +1,46 @@
 import logging
-import os
 
 import numba as nb
 import numpy as np
-import pandas as pd
-from alpharaw.ms_data_base import MSData_Base
-from alpharaw.mzml import MzMLReader
-from alpharaw.sciex import SciexWiffData
-from alpharaw.thermo import ThermoRawData
 
-from alphadia.data.dia_cycle import determine_dia_cycle
-from alphadia.data.utils import get_frame_indices, mass_range
+from alphadia.raw_data.utils import get_frame_indices, mass_range
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
+    """Calculate the DIA cycle quadrupole mask for each score group.
+
+    Parameters
+    ----------
+    quad_slices : np.ndarray
+        The quadrupole slices for each score group. (1, 2)
+
+    cycle : np.ndarray
+        The DIA cycle quadrupole mask. (1, n_precursor, 1, 2)
+
+    Returns
+    -------
+    np.ndarray
+        The precursor index of all scans within the quad slices. (n_precursor_indices)
+
+    """
+    if not quad_slices.ndim == 2:
+        raise ValueError("quad_slices must be of shape (1, 2)")
+
+    if not cycle.ndim == 4:
+        raise ValueError("cycle must be of shape (1, n_precursor, 1, 2)")
+
+    flat_cycle = cycle.reshape(-1, 2)
+    precursor_idx_list = []
+
+    for i, (mz_start, mz_stop) in enumerate(flat_cycle):
+        if (quad_slices[0, 0] <= mz_stop) and (quad_slices[0, 1] >= mz_start):
+            precursor_idx_list.append(i)
+
+    return np.array(precursor_idx_list)
 
 
 @nb.njit(parallel=False, fastmath=True, cache=USE_NUMBA_CACHING)
@@ -39,203 +66,6 @@ def _search_sorted_reference_left(array, left, right, value):
         else:
             right = mid
     return left
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def _calculate_valid_scans(quad_slices: np.ndarray, cycle: np.ndarray):
-    """Calculate the DIA cycle quadrupole mask for each score group.
-
-    Parameters
-    ----------
-
-    quad_slices : np.ndarray
-        The quadrupole slices for each score group. (1, 2)
-
-    cycle : np.ndarray
-        The DIA cycle quadrupole mask. (1, n_precursor, 1, 2)
-
-    Returns
-    -------
-
-    np.ndarray
-        The precursor index of all scans within the quad slices. (n_precursor_indices)
-    """
-    if not quad_slices.ndim == 2:
-        raise ValueError("quad_slices must be of shape (1, 2)")
-
-    if not cycle.ndim == 4:
-        raise ValueError("cycle must be of shape (1, n_precursor, 1, 2)")
-
-    flat_cycle = cycle.reshape(-1, 2)
-    precursor_idx_list = []
-
-    for i, (mz_start, mz_stop) in enumerate(flat_cycle):
-        if (quad_slices[0, 0] <= mz_stop) and (quad_slices[0, 1] >= mz_start):
-            precursor_idx_list.append(i)
-
-    return np.array(precursor_idx_list)
-
-
-def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
-    """Check if the MS1 spectra follow a DIA cycle. This check is stricter than just relying on failing to determine a cycle.
-
-    Parameters
-    ----------
-    spectrum_df : pd.DataFrame
-        The spectrum dataframe.
-    """
-    ms1_df = spectrum_df[spectrum_df["ms_level"] == 1]
-    return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
-
-
-class AlphaRaw(MSData_Base):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.has_mobility = False
-        self.has_ms1 = True
-
-    def process_alpharaw(self, **kwargs):
-        self.sample_name = os.path.basename(self.raw_file_path)
-
-        # the filter spectra function is implemented in the sub-class
-        self.filter_spectra(**kwargs)
-
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
-        self.zeroth_frame = 0
-
-        if _is_ms1_dia(self.spectrum_df):
-            # determine the DIA cycle
-            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-                self.spectrum_df
-            )
-        else:
-            logger.warning(
-                "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
-                "AlphaDIA will therefore not be able to use the MS1 information.\n"
-                "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
-            )
-
-            self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
-            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-                self.spectrum_df
-            )
-            self.has_ms1 = False
-
-        self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
-
-        self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
-        self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
-
-        self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
-        self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
-
-        self.quad_max_mz_value = (
-            self.spectrum_df[self.spectrum_df["ms_level"] == 2]
-            .isolation_upper_mz.max()
-            .astype(np.float32)
-        )
-        self.quad_min_mz_value = (
-            self.spectrum_df[self.spectrum_df["ms_level"] == 2]
-            .isolation_lower_mz.min()
-            .astype(np.float32)
-        )
-
-        self.peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(
-            np.int64
-        )
-        self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
-        self.mz_values = self.peak_df.mz.values.astype(np.float32)
-        self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
-
-        self.scan_max_index = 1
-        self.frame_max_index = len(self.rt_values) - 1
-
-    def filter_spectra(self, **kwargs):
-        """Filter the spectra.
-        This function is implemented in the sub-class.
-        """
-
-    def jitclass(self):
-        return AlphaRawJIT(
-            self.cycle,
-            self.rt_values,
-            self.mobility_values,
-            self.zeroth_frame,
-            self.max_mz_value,
-            self.min_mz_value,
-            self.quad_max_mz_value,
-            self.quad_min_mz_value,
-            self.precursor_cycle_max_index,
-            self.peak_start_idx_list,
-            self.peak_stop_idx_list,
-            self.mz_values,
-            self.intensity_values,
-            self.scan_max_index,
-            self.frame_max_index,
-        )
-
-
-class AlphaRawBase(AlphaRaw, MSData_Base):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
-        self.load_hdf(raw_file_path)
-        self.process_alpharaw(**kwargs)
-
-
-class MzML(AlphaRaw, MzMLReader):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
-        self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
-
-
-class Sciex(AlphaRaw, SciexWiffData):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
-        self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
-
-
-class Thermo(AlphaRaw, ThermoRawData):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
-        self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
-
-    def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
-        """
-        Filter the spectra for MS1 or MS2 spectra.
-        """
-
-        # filter for Astral or Orbitrap MS1 spectra
-        if astral_ms1:
-            self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]
-            self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "ms_level"] = 1
-            self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "precursor_mz"] = -1.0
-            self.spectrum_df.loc[
-                self.spectrum_df["nce"] < 1.1, "isolation_lower_mz"
-            ] = -1.0
-            self.spectrum_df.loc[
-                self.spectrum_df["nce"] < 1.1, "isolation_upper_mz"
-            ] = -1.0
-        else:
-            self.spectrum_df = self.spectrum_df[
-                (self.spectrum_df["nce"] < 0.1) | (self.spectrum_df["nce"] > 1.1)
-            ]
-
-        # filter for cv values if multiple cv values are present
-        if cv is not None and "cv" in self.spectrum_df.columns:
-            # use np.isclose to account for floating point errors
-            logger.info(f"Filtering for CV {cv}")
-            logger.info(f"Before: {len(self.spectrum_df)}")
-            self.spectrum_df = self.spectrum_df[
-                np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
-            ]
-            logger.info(f"After: {len(self.spectrum_df)}")
-
-        self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))
 
 
 @nb.experimental.jitclass(
@@ -280,7 +110,6 @@ class AlphaRawJIT:
         frame_max_index: nb.core.types.int64,
     ):
         """Numba compatible AlphaRaw data structure."""
-
         self.has_mobility = False
 
         self.cycle = cycle
@@ -301,12 +130,10 @@ class AlphaRawJIT:
         self.scan_max_index = scan_max_index
         self.frame_max_index = frame_max_index
 
-    def get_frame_indices(
+    def _get_frame_indices(
         self, rt_values: np.array, optimize_size: int = 16, min_size: int = 32
     ):
-        """
-
-        Convert an interval of two rt values to a frame index interval.
+        """Convert an interval of two rt values to a frame index interval.
         The length of the interval is rounded up so that a multiple of 16 cycles are included.
 
         Parameters
@@ -326,7 +153,6 @@ class AlphaRawJIT:
             array of frame indices
 
         """
-
         return get_frame_indices(
             rt_values=rt_values,
             rt_values_array=self.rt_values,
@@ -340,8 +166,7 @@ class AlphaRawJIT:
     def get_frame_indices_tolerance(
         self, rt: float, tolerance: float, optimize_size: int = 16, min_size: int = 32
     ):
-        """
-        Determine the frame indices for a given retention time and tolerance.
+        """Determine the frame indices for a given retention time and tolerance.
         The frame indices will make sure to include full precursor cycles and will be optimized for fft.
 
         Parameters
@@ -364,15 +189,11 @@ class AlphaRawJIT:
             array which contains a slice object for the frame indices [[start, stop step]]
 
         """
-
         rt_limits = np.array([rt - tolerance, rt + tolerance], dtype=np.float32)
 
-        return self.get_frame_indices(
+        return self._get_frame_indices(
             rt_limits, optimize_size=optimize_size, min_size=min_size
         )
-
-    def get_scan_indices(self, mobility_values: np.array, optimize_size: int = 16):
-        return np.array([[0, 2, 1]], dtype=np.int64)
 
     def get_scan_indices_tolerance(self, mobility, tolerance, optimize_size=16):
         return np.array([[0, 2, 1]], dtype=np.int64)
@@ -387,12 +208,10 @@ class AlphaRawJIT:
         absolute_masses=False,
         custom_cycle=None,
     ):
-        """
-        Get a dense representation of the data for a given set of parameters.
+        """Get a dense representation of the data for a given set of parameters.
 
         Parameters
         ----------
-
         frame_limits : np.ndarray, shape = (1,2,)
             array of frame indices
 
@@ -416,11 +235,9 @@ class AlphaRawJIT:
 
         Returns
         -------
-
         np.ndarray, shape = (2, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
 
         """
-
         # intensities below HIGH_EPSILON will be set to zero
         HIGH_EPSILON = 1e-26
 
@@ -522,12 +339,10 @@ class AlphaRawJIT:
         absolute_masses=False,
         custom_cycle=None,
     ):
-        """
-        Get a dense representation of the data for a given set of parameters.
+        """Get a dense representation of the data for a given set of parameters.
 
         Parameters
         ----------
-
         frame_limits : np.ndarray, shape = (1,2,)
             array of frame indices
 
@@ -551,11 +366,9 @@ class AlphaRawJIT:
 
         Returns
         -------
-
         np.ndarray, shape = (1, n_tof_slices, n_precursor_indices, 2, n_precursor_cycles)
 
         """
-
         # (n_tof_slices, 2) array of start, stop mz for each slice
         mz_query_slices = mass_range(mz_query_list, mass_tolerance)
         n_tof_slices = len(mz_query_slices)
