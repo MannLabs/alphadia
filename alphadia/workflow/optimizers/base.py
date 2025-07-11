@@ -3,6 +3,10 @@ from abc import ABC, abstractmethod
 import pandas as pd
 
 from alphadia.reporting import reporting
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
 class BaseOptimizer(ABC):
@@ -13,7 +17,10 @@ class BaseOptimizer(ABC):
 
     def __init__(
         self,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class serves as a base class for the search parameter optimization process, which defines the parameters used for search.
@@ -28,7 +35,10 @@ class BaseOptimizer(ABC):
             The reporter object used to log information about the optimization process. If None, a new LogBackend object is created.
 
         """
-        self.workflow = workflow
+        self._optimization_manager = optimization_manager
+        self._calibration_manager = calibration_manager
+        self._fdr_manager = fdr_manager
+        self._config = config
         self.reporter = reporting.LogBackend() if reporter is None else reporter
         self._num_prev_optimizations: int = 0
 
@@ -54,15 +64,15 @@ class BaseOptimizer(ABC):
         """Record skipping of optimization. Can be overwritten with an empty method if there is no need to record skips."""
 
     def proceed_with_insufficient_precursors(self, precursors_df, fragments_df):
-        self.workflow.reporter.log_string(
+        self.reporter.log_string(
             "No more batches to process. Will proceed to extraction using best parameters available in optimization manager.",
             verbosity="warning",
         )
         self._update_history(precursors_df, fragments_df)
         self._update_workflow()
 
-        self.workflow.reporter.log_string(
-            f"Using current optimal value for {self.parameter_name}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.2f}.",
+        self.reporter.log_string(
+            f"Using current optimal value for {self.parameter_name}: {self._optimization_manager.__dict__[self.parameter_name]:.2f}.",
             verbosity="warning",
         )
 

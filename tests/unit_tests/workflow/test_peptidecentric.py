@@ -1,6 +1,6 @@
 """Unit test for the peptidecentric module."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -32,15 +32,18 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
     )
     instance = PeptideCentricWorkflow("test_instance", mock_config)
     instance.reporter = MagicMock()
-    instance._optimization_handler = OptimizationHandler(
-        mock_config,
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-        MagicMock(),
-    )
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
+    ):
+        instance._optimization_handler = OptimizationHandler(
+            mock_config,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+        )
 
     # when
     filtered_precursors, filtered_fragments = (
