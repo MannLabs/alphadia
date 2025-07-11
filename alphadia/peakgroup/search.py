@@ -592,13 +592,13 @@ class HybridCandidateSelection:
         fwhm_mobility : float, optional
             full width at half maximum in mobility dimension for the GaussianKernel, by default 0.012
         """
-        self.dia_data_jit: DiaDataJIT = dia_data.jitclass()
+        self.dia_data_jit: DiaDataJIT = dia_data.to_jitclass()
 
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
             drop=True
         )
         self.fragments_flat = fragments_flat
-        self.config_jit = config.jitclass()
+        self.config_jit = config.to_jitclass()
 
         self.rt_column = rt_column
         self.precursor_mz_column = precursor_mz_column

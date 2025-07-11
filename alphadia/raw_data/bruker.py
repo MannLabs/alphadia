@@ -121,17 +121,11 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             self._tof_indptr = tof_indptr
             self._intensity_values = intensity_values
 
-    def _import_data_from_hdf_file(
-        self,
-        bruker_d_folder_name: str,
-        mmap_detector_events: bool = False,
-    ):
-        raise NotImplementedError("Not implemented yet for TimsTOFTranspose")
-
     def _import_data_from_hdf_file(self, *args, **kwargs):
         raise NotImplementedError("Not implemented yet for TimsTOFTranspose")
 
-    def jitclass(self):
+    def to_jitclass(self) -> TimsTOFTransposeJIT:
+        """Create a TimsTOFTransposeJIT with the current state of this class."""
         return TimsTOFTransposeJIT(
             self._accumulation_times,
             self._cycle,
@@ -168,7 +162,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _transpose_chunk(
-    chunk_idx,
+    chunk_idx,  # pjit decorator changes the passed argument from an iterable to single index
     chunks,
     push_indices,
     push_indptr,
@@ -274,7 +268,7 @@ def _transpose(tof_indices, push_indptr, n_tof_indices, values):
         alphatims.utils.set_threads(20)
 
         _transpose_chunk(
-            range(len(chunks) - 1),
+            range(len(chunks) - 1),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             chunks,
             push_indices,
             push_indptr,

@@ -117,7 +117,7 @@ class RequantificationHandler:
         config.experimental_xic = self._config["search"]["experimental_xic"]
 
         multiplexed_scoring = CandidateScoring(
-            dia_data.jitclass(),
+            dia_data,
             self._spectral_library.precursor_df_unfiltered,
             self._spectral_library.fragment_df,
             config=config,
