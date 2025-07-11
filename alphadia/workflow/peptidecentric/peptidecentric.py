@@ -86,7 +86,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config,
             quant_path,
         )
-        self.fdr_manager: FDRManager | None = None
+        self._fdr_manager: FDRManager | None = None
 
     def load(
         self,
@@ -103,7 +103,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         config_fdr = self.config["fdr"]
-        self.fdr_manager = FDRManager(
+        self._fdr_manager = FDRManager(
             feature_columns=feature_columns,
             classifier_base=_get_classifier_base(
                 enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
@@ -154,7 +154,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config,
             self.optimization_manager,
             self.calibration_manager,
-            self.fdr_manager,
+            self._fdr_manager,
             self.reporter,
             self.spectral_library,
             self.dia_data,
@@ -194,7 +194,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         precursor_df = fdr_correction(
-            self.fdr_manager,
+            self._fdr_manager,
             self.config,
             self.dia_data.cycle,
             features_df,
@@ -231,7 +231,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         requantification_handler = RequantificationHandler(
             self.config,
             self.calibration_manager,
-            self.fdr_manager,
+            self._fdr_manager,
             self.reporter,
             ColumnNameHandler(
                 self.optimization_manager,

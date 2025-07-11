@@ -30,49 +30,51 @@ class RequantificationHandler:
         column_name_handler: ColumnNameHandler,
         spectral_library: SpecLibBase,
     ):
-        self.config = config
-        self.calibration_manager = calibration_manager
-        self.fdr_manager = fdr_manager
-        self.reporter = reporter
+        self._config = config
+        self._calibration_manager = calibration_manager
+        self._fdr_manager = fdr_manager
+        self._reporter = reporter
         self._column_name_handler = column_name_handler
-        self.spectral_library = spectral_library
+        self._spectral_library = spectral_library
 
     def requantify(
         self, dia_data: TimsTOFTranspose | AlphaRaw, psm_df: pd.DataFrame
     ) -> pd.DataFrame:
-        self.calibration_manager.predict(
-            self.spectral_library.precursor_df_unfiltered, "precursor"
+        self._calibration_manager.predict(
+            self._spectral_library.precursor_df_unfiltered, "precursor"
         )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        self._calibration_manager.predict(
+            self._spectral_library._fragment_df, "fragment"
+        )
 
         reference_candidates = candidate_features_to_candidates(psm_df)
 
-        if "multiplexing" not in self.config:
+        if "multiplexing" not in self._config:
             raise ValueError("no multiplexing config found")
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"=== Multiplexing {len(reference_candidates):,} precursors ===",
             verbosity="progress",
         )
 
         original_channels = psm_df["channel"].unique().tolist()
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"original channels: {original_channels}", verbosity="progress"
         )
 
-        reference_channel = self.config["multiplexing"]["reference_channel"]
-        self.reporter.log_string(
+        reference_channel = self._config["multiplexing"]["reference_channel"]
+        self._reporter.log_string(
             f"reference channel: {reference_channel}", verbosity="progress"
         )
 
         target_channels = [
-            int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
+            int(c) for c in self._config["multiplexing"]["target_channels"].split(",")
         ]
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"target channels: {target_channels}", verbosity="progress"
         )
 
-        decoy_channel = self.config["multiplexing"]["decoy_channel"]
-        self.reporter.log_string(
+        decoy_channel = self._config["multiplexing"]["decoy_channel"]
+        self._reporter.log_string(
             f"decoy channel: {decoy_channel}", verbosity="progress"
         )
 
@@ -86,27 +88,27 @@ class RequantificationHandler:
         )
         multiplexed_candidates = multiplex_candidates(
             reference_candidates,
-            self.spectral_library.precursor_df_unfiltered,
+            self._spectral_library.precursor_df_unfiltered,
             channels=channels,
         )
 
-        channel_count_lib = self.spectral_library.precursor_df_unfiltered[
+        channel_count_lib = self._spectral_library.precursor_df_unfiltered[
             "channel"
         ].value_counts()
         channel_count_multiplexed = multiplexed_candidates["channel"].value_counts()
         ## log channels with less than 100 precursors
         for channel in channels:
             if channel not in channel_count_lib:
-                self.reporter.log_string(
+                self._reporter.log_string(
                     f"channel {channel} not found in library", verbosity="warning"
                 )
             if channel not in channel_count_multiplexed:
-                self.reporter.log_string(
+                self._reporter.log_string(
                     f"channel {channel} could not be mapped to existing IDs.",
                     verbosity="warning",
                 )
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"=== Requantifying {len(multiplexed_candidates):,} precursors ===",
             verbosity="progress",
         )
@@ -114,13 +116,13 @@ class RequantificationHandler:
         config = CandidateConfig()
         config.score_grouped = True
         config.exclude_shared_ions = True
-        config.reference_channel = self.config["multiplexing"]["reference_channel"]
-        config.experimental_xic = self.config["search"]["experimental_xic"]
+        config.reference_channel = self._config["multiplexing"]["reference_channel"]
+        config.experimental_xic = self._config["search"]["experimental_xic"]
 
         multiplexed_scoring = CandidateScoring(
             dia_data.jitclass(),
-            self.spectral_library.precursor_df_unfiltered,
-            self.spectral_library.fragment_df,
+            self._spectral_library.precursor_df_unfiltered,
+            self._spectral_library.fragment_df,
             config=config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
@@ -132,10 +134,10 @@ class RequantificationHandler:
 
         multiplexed_features, fragments = multiplexed_scoring(multiplexed_candidates)
 
-        psm_df = self.fdr_manager.fit_predict(
+        psm_df = self._fdr_manager.fit_predict(
             multiplexed_features,
             decoy_strategy="channel",
-            competetive=self.config["multiplexing"]["competetive_scoring"],
+            competetive=self._config["multiplexing"]["competetive_scoring"],
             decoy_channel=decoy_channel,
         )
 

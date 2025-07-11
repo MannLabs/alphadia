@@ -469,7 +469,7 @@ def create_workflow_instance():
         reporter=workflow.reporter,
     )
 
-    workflow.fdr_manager = FDRManager(
+    workflow._fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=_get_classifier_base(
             enable_two_step_classifier=workflow.config["fdr"][
@@ -499,7 +499,7 @@ def create_workflow_instance():
             workflow.config,
             workflow._optimization_manager,
             workflow._calibration_manager,
-            fdr_manager=workflow.fdr_manager,
+            fdr_manager=workflow._fdr_manager,
             reporter=workflow.reporter,
             spectral_library=None,
             dia_data=workflow._dia_data,
@@ -509,7 +509,7 @@ def create_workflow_instance():
         total_elution_groups = 2000
         batch_idx = 1
 
-    workflow._optimization_handler.optlock = MockOptlock()
+    workflow._optimization_handler._optlock = MockOptlock()
 
     return workflow
 
@@ -527,15 +527,15 @@ def test_automatic_ms2_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
     assert ms2_optimizer.has_converged is False
     assert ms2_optimizer.parameter_name == "ms2_error"
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     ms2_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(ms2_optimizer.history_df) == 1
@@ -544,7 +544,7 @@ def test_automatic_ms2_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -554,7 +554,7 @@ def test_automatic_ms2_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -588,8 +588,8 @@ def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
     ms2_optimizer._favour_narrower_optimum = favour_narrower_optimum
@@ -614,15 +614,15 @@ def test_automatic_rt_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
     assert rt_optimizer.has_converged is False
     assert rt_optimizer.parameter_name == "rt_error"
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(rt_optimizer.history_df) == 1
@@ -631,7 +631,7 @@ def test_automatic_rt_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -641,7 +641,7 @@ def test_automatic_rt_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -674,15 +674,15 @@ def test_automatic_ms1_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
     assert ms1_optimizer.has_converged is False
     assert ms1_optimizer.parameter_name == "ms1_error"
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     ms1_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(ms1_optimizer.history_df) == 1
@@ -691,7 +691,7 @@ def test_automatic_ms1_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -701,7 +701,7 @@ def test_automatic_ms1_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -730,15 +730,15 @@ def test_automatic_mobility_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
     assert mobility_optimizer.has_converged is False
     assert mobility_optimizer.parameter_name == "mobility_error"
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     mobility_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(mobility_optimizer.history_df) == 1
@@ -747,7 +747,7 @@ def test_automatic_mobility_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
     mobility_optimizer.step(calibration_test_df1, calibration_test_df2)
@@ -756,7 +756,7 @@ def test_automatic_mobility_optimizer():
         [calibration_test_df1, pd.DataFrame(calibration_test_df1.loc[0]).T],
         ignore_index=True,
     )
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
 
     assert workflow.optimization_manager.classifier_version == -1
 
@@ -790,7 +790,7 @@ def test_targeted_ms2_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
+        workflow._fdr_manager,
         workflow.reporter,
     )
 
@@ -799,7 +799,7 @@ def test_targeted_ms2_optimizer():
     for current_step in range(workflow.config["calibration"]["min_steps"]):
         assert optimizer.has_converged is False
 
-        workflow.fdr_manager._current_version += 1
+        workflow._fdr_manager._current_version += 1
         optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
@@ -822,7 +822,7 @@ def test_targeted_rt_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
+        workflow._fdr_manager,
         workflow.reporter,
     )
 
@@ -831,7 +831,7 @@ def test_targeted_rt_optimizer():
     for current_step in range(workflow.config["calibration"]["min_steps"]):
         assert optimizer.has_converged is False
 
-        workflow.fdr_manager._current_version += 1
+        workflow._fdr_manager._current_version += 1
         optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
@@ -854,7 +854,7 @@ def test_targeted_ms1_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
+        workflow._fdr_manager,
         workflow.reporter,
     )
 
@@ -863,7 +863,7 @@ def test_targeted_ms1_optimizer():
     for current_step in range(workflow.config["calibration"]["min_steps"]):
         assert optimizer.has_converged is False
 
-        workflow.fdr_manager._current_version += 1
+        workflow._fdr_manager._current_version += 1
         optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
@@ -886,7 +886,7 @@ def test_targeted_mobility_optimizer():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
+        workflow._fdr_manager,
         workflow.reporter,
     )
 
@@ -895,7 +895,7 @@ def test_targeted_mobility_optimizer():
     for current_step in range(workflow.config["calibration"]["min_steps"]):
         assert optimizer.has_converged is False
 
-        workflow.fdr_manager._current_version += 1
+        workflow._fdr_manager._current_version += 1
         optimizer.step(calibration_test_df1, calibration_test_df2)
 
         assert workflow.optimization_manager.classifier_version == current_step
@@ -1081,7 +1081,7 @@ def test_optlock_reindex():
     optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.batch_plan = [[0, 100], [100, 200]]
     optlock.set_batch_dfs(
-        optlock.elution_group_order[optlock.start_idx : optlock.stop_idx]
+        optlock._elution_group_order[optlock.start_idx : optlock.stop_idx]
     )
 
     assert (
@@ -1167,15 +1167,15 @@ def test_optimizer_skipping():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
-        workflow._optimization_handler.optlock,
+        workflow._fdr_manager,
+        workflow._optimization_handler._optlock,
         workflow.reporter,
     )
 
     assert rt_optimizer.has_converged is False
     assert rt_optimizer.parameter_name == "rt_error"
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     assert len(rt_optimizer.history_df) == 1
@@ -1197,11 +1197,11 @@ def test_optimizer_skipping():
         workflow.config,
         workflow.optimization_manager,
         workflow.calibration_manager,
-        workflow.fdr_manager,
+        workflow._fdr_manager,
         workflow.reporter,
     )
 
-    workflow.fdr_manager._current_version += 1
+    workflow._fdr_manager._current_version += 1
     rt_optimizer.step(calibration_test_df1, calibration_test_df2)
 
     rt_optimizer.skip()
