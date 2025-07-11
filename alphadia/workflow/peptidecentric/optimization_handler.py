@@ -58,7 +58,9 @@ class OptimizationHandler:
         self.dia_data = dia_data
         self.figure_path = figure_path
 
-        self.optlock: OptimizationLock | None = None
+        self.optlock: OptimizationLock = OptimizationLock(
+            self.spectral_library, self.config
+        )
 
     def _init_optimiser(
         self,
@@ -219,7 +221,6 @@ class OptimizationHandler:
         """
         log_string = self.reporter.log_string
 
-        # Get the order of optimization
         ordered_optimizers = self._get_ordered_optimizers()
 
         log_string(
@@ -235,8 +236,6 @@ class OptimizationHandler:
             self.figure_path,
             self.dia_data.has_ms1,
         )
-
-        self.optlock = OptimizationLock(self.spectral_library, self.config)
 
         insufficient_precursors_to_optimize = False
         # Start of optimization/recalibration loop
