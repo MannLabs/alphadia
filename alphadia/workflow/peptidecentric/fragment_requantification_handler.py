@@ -3,8 +3,6 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.data.alpharaw_wrapper import AlphaRaw
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -14,6 +12,7 @@ from alphadia.plexscoring.utils import (
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
@@ -35,12 +34,15 @@ class FragmentRequantificationHandler:
         self._column_name_handler = column_name_handler
 
     def requantify_fragments(
-        self, dia_data: TimsTOFTranspose | AlphaRaw, psm_df: pd.DataFrame
+        self, dia_data: DiaData, psm_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
         Parameters
         ----------
+
+        dia_data: DiaData
+            DIA data object
 
         psm_df: pd.DataFrame
             Dataframe with peptide identifications

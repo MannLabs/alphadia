@@ -30,6 +30,7 @@ from alphadia.peakgroup.utils import (
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
+from alphadia.workflow.managers.raw_file_manager import DiaData
 
 logger = logging.getLogger()
 
@@ -546,7 +547,7 @@ def _find_peaks(
 class HybridCandidateSelection:
     def __init__(
         self,
-        dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT,
+        dia_data: DiaData,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         config: HybridCandidateConfig,
@@ -562,7 +563,7 @@ class HybridCandidateSelection:
         Parameters
         ----------
 
-        dia_data : bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT
+        dia_data : DiaData
             dia data object
 
         precursors_flat : pd.DataFrame

@@ -11,6 +11,8 @@ from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
+DiaData = bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw
+
 
 class RawFileManager(BaseManager):
     def __init__(
@@ -32,9 +34,7 @@ class RawFileManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-    def get_dia_data_object(
-        self, dia_data_path: str
-    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw:
+    def get_dia_data_object(self, dia_data_path: str) -> DiaData:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -106,9 +106,7 @@ class RawFileManager(BaseManager):
 
         return dia_data
 
-    def _calc_stats(
-        self, dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw
-    ):
+    def _calc_stats(self, dia_data: DiaData):
         """Calculate statistics from the DIA data."""
         rt_values = dia_data.rt_values
         cycle = dia_data.cycle

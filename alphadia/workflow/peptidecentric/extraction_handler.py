@@ -2,8 +2,6 @@ import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.data.alpharaw_wrapper import AlphaRaw
-from alphadia.data.bruker import TimsTOFTranspose
 from alphadia.peakgroup import search
 from alphadia.peakgroup.config_df import HybridCandidateConfig
 from alphadia.plexscoring.config import CandidateConfig
@@ -11,6 +9,7 @@ from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.managers.raw_file_manager import DiaData
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
@@ -34,7 +33,7 @@ class ExtractionHandler:
 
     def extract_batch(
         self,
-        dia_data: TimsTOFTranspose | AlphaRaw,
+        dia_data: DiaData,
         batch_precursor_df: pd.DataFrame,
         batch_fragment_df: pd.DataFrame,
         apply_cutoff: bool = False,
