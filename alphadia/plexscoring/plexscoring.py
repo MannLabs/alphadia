@@ -582,8 +582,8 @@ class CandidateScoring:
             score_group_container,
             psm_proto_df,
             fragment_container,
-            self.dia_data,
-            self.config.jitclass(),
+            self.dia_data.to_jitclass(),
+            self.config.to_jitclass(),
             self.quadrupole_calibration.jit,
             debug,
         )

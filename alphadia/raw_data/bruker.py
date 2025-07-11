@@ -121,17 +121,11 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             self._tof_indptr = tof_indptr
             self._intensity_values = intensity_values
 
-    def _import_data_from_hdf_file(
-        self,
-        bruker_d_folder_name: str,
-        mmap_detector_events: bool = False,
-    ):
-        raise NotImplementedError("Not implemented yet for TimsTOFTranspose")
-
     def _import_data_from_hdf_file(self, *args, **kwargs):
         raise NotImplementedError("Not implemented yet for TimsTOFTranspose")
 
-    def jitclass(self):
+    def to_jitclass(self) -> TimsTOFTransposeJIT:
+        """Create a TimsTOFTransposeJIT with the current state of this class."""
         return TimsTOFTransposeJIT(
             self._accumulation_times,
             self._cycle,

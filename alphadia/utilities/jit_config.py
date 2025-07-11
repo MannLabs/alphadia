@@ -74,8 +74,8 @@ class JITConfig:
             "JITConfig is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method."
         )
 
-    def jitclass(self):
-        """Returns a numba jitclass object.
+    def to_jitclass(self):
+        """Create a numba jitclass object with the current state of this class.
 
         Returns
         -------

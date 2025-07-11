@@ -118,7 +118,7 @@ class ExtractionHandler:
         )
 
         candidate_scoring = CandidateScoring(
-            dia_data.jitclass(),
+            dia_data,
             batch_precursor_df,
             batch_fragment_df,
             config=candidate_scoring_config,
