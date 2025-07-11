@@ -10,7 +10,7 @@ def test_transpose():
     push_ptr = np.array([0, 2, 4, 5, 7])
     n_tof_indices = 7
 
-    push_indices, tof_indptr, intensity_values = bruker.transpose(
+    push_indices, tof_indptr, intensity_values = bruker._transpose(
         tof_indices, push_ptr, n_tof_indices, values
     )
 

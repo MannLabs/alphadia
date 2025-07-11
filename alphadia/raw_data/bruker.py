@@ -101,7 +101,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             return
 
         logger.info("Transposing detector events")
-        push_indices, tof_indptr, intensity_values = transpose(
+        push_indices, tof_indptr, intensity_values = _transpose(
             self._tof_indices,
             self._push_indptr,
             len(self._mz_values),
@@ -167,7 +167,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
-def transpose_chunk(
+def _transpose_chunk(
     chunk_idx,
     chunks,
     push_indices,
@@ -197,7 +197,7 @@ def transpose_chunk(
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def build_chunks(number_of_elements, num_chunks):
+def _build_chunks(number_of_elements, num_chunks):
     # Calculate the number of chunks needed
     chunk_size = (number_of_elements + num_chunks - 1) // num_chunks
 
@@ -213,7 +213,7 @@ def build_chunks(number_of_elements, num_chunks):
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
-def transpose(tof_indices, push_indptr, n_tof_indices, values):
+def _transpose(tof_indices, push_indptr, n_tof_indices, values):
     """The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
     A lookup starts with a given push index p which points to the row. The start and stop indices of the row are accessed from dia_data.push_indptr[p] and dia_data.push_indptr[p+1].
     The tof indices are then accessed from dia_data.tof_indices[start:stop] and the corresponding intensities from dia_data.intensity_values[start:stop].
@@ -268,12 +268,12 @@ def transpose(tof_indices, push_indptr, n_tof_indices, values):
     push_indices = np.zeros((len(tof_indices)), dtype=np.uint32)
     new_values = np.zeros_like(values)
 
-    chunks = build_chunks(n_tof_indices, 20)
+    chunks = _build_chunks(n_tof_indices, 20)
 
     with nb.objmode:
         alphatims.utils.set_threads(20)
 
-        transpose_chunk(
+        _transpose_chunk(
             range(len(chunks) - 1),
             chunks,
             push_indices,

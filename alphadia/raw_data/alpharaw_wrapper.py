@@ -34,11 +34,11 @@ class AlphaRaw(MSData_Base):
         self.has_mobility = False
         self.has_ms1 = True
 
-    def process_alpharaw(self, **kwargs):
+    def _process_alpharaw(self, **kwargs):
         self.sample_name = os.path.basename(self.raw_file_path)
 
         # the filter spectra function is implemented in the sub-class
-        self.filter_spectra(**kwargs)
+        self._filter_spectra(**kwargs)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
@@ -91,7 +91,7 @@ class AlphaRaw(MSData_Base):
         self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
 
-    def filter_spectra(self, **kwargs):
+    def _filter_spectra(self, **kwargs):
         """Filter the spectra.
         This function is implemented in the sub-class.
         """
@@ -120,30 +120,30 @@ class AlphaRawBase(AlphaRaw, MSData_Base):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_hdf(raw_file_path)
-        self.process_alpharaw(**kwargs)
+        self._process_alpharaw(**kwargs)
 
 
 class MzML(AlphaRaw, MzMLReader):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
+        self._process_alpharaw(**kwargs)
 
 
 class Sciex(AlphaRaw, SciexWiffData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
+        self._process_alpharaw(**kwargs)
 
 
 class Thermo(AlphaRaw, ThermoRawData):
     def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
-        self.process_alpharaw(**kwargs)
+        self._process_alpharaw(**kwargs)
 
-    def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
+    def _filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
         """Filter the spectra for MS1 or MS2 spectra."""
         # filter for Astral or Orbitrap MS1 spectra
         if astral_ms1:
