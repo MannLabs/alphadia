@@ -6,8 +6,8 @@ import alphatims.tempmmap as tm
 import alphatims.utils
 import numba as nb
 import numpy as np
-from data.jitclasses.bruker_jit import TimsTOFTransposeJIT
 
+from alphadia.data.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.utils import USE_NUMBA_CACHING
 

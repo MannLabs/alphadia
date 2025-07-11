@@ -7,9 +7,9 @@ from alpharaw.ms_data_base import MSData_Base
 from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
-from data.jitclasses.alpharaw_jit import AlphaRawJIT
 
 from alphadia.data.dia_cycle import determine_dia_cycle
+from alphadia.data.jitclasses.alpharaw_jit import AlphaRawJIT
 
 logger = logging.getLogger()
 
