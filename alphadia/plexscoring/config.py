@@ -63,6 +63,8 @@ class CandidateConfigJIT:
 class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparameters
     """Config object for CandidateScoring."""
 
+    _jit_container_type = CandidateConfigJIT
+
     def __init__(self):
         """Create default config for CandidateScoring"""
         self.collect_fragments = True
@@ -76,11 +78,6 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
         self.experimental_xic = False
-
-    @property
-    def jit_container(self):
-        """The numba jitclass for this config object."""
-        return CandidateConfigJIT
 
     @property
     def collect_fragments(self) -> bool:

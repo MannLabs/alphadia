@@ -1,9 +1,11 @@
+from abc import ABC
+
 import numpy as np
 
 from alphadia.reporting import reporting
 
 
-class JITConfig:
+class JITConfig(ABC):
     """
     Base class for creating numba compatible config objects.
 
@@ -61,6 +63,8 @@ class JITConfig:
 
     """
 
+    _jit_container_type: type
+
     def __init__(self):
         """Base class for creating numba compatible config objects.
         Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own __init__ method.
@@ -86,7 +90,7 @@ class JITConfig:
 
         self.validate()
 
-        return self.jit_container(*self.__dict__.values())
+        return self._jit_container_type(*self.__dict__.values())
 
     def validate(self):
         """Validates the config object.
