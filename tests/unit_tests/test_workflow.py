@@ -492,15 +492,18 @@ def create_workflow_instance():
 
     workflow._dia_data = MockDIAData()
 
-    workflow._optimization_handler = OptimizationHandler(
-        workflow.config,
-        workflow._optimization_manager,
-        workflow._calibration_manager,
-        fdr_manager=workflow.fdr_manager,
-        reporter=workflow.reporter,
-        spectral_library=None,
-        dia_data=workflow._dia_data,
-    )
+    with patch(
+        "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
+    ):
+        workflow._optimization_handler = OptimizationHandler(
+            workflow.config,
+            workflow._optimization_manager,
+            workflow._calibration_manager,
+            fdr_manager=workflow.fdr_manager,
+            reporter=workflow.reporter,
+            spectral_library=None,
+            dia_data=workflow._dia_data,
+        )
 
     class MockOptlock:
         total_elution_groups = 2000
