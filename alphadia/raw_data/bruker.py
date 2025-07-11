@@ -7,8 +7,8 @@ import alphatims.utils
 import numba as nb
 import numpy as np
 
-from alphadia.data.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.exceptions import NotValidDiaDataError
+from alphadia.raw_data.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -34,8 +34,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         self.has_ms1 = True
         self.mmap_detector_events = mmap_detector_events
 
-        if bruker_d_folder_name.endswith("/"):
-            bruker_d_folder_name = bruker_d_folder_name[:-1]
+        bruker_d_folder_name = bruker_d_folder_name.removesuffix("/")
         logger.info(f"Importing data from {bruker_d_folder_name}")
         if bruker_d_folder_name.endswith(".d"):
             bruker_hdf_file_name = f"{bruker_d_folder_name[:-2]}.hdf"
@@ -189,7 +188,7 @@ def transpose_chunk(
         for idx in range(start_push_indptr, stop_push_indptr):
             # new row
             tof_index = tof_indices[idx]
-            if tof_index_chunk_start <= tof_index and tof_index < tof_index_chunk_stop:
+            if tof_index_chunk_start <= tof_index < tof_index_chunk_stop:
                 push_indices[tof_indptr[tof_index] + tof_indcount[tof_index]] = push_idx
                 new_values[tof_indptr[tof_index] + tof_indcount[tof_index]] = values[
                     idx
@@ -215,8 +214,7 @@ def build_chunks(number_of_elements, num_chunks):
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def transpose(tof_indices, push_indptr, n_tof_indices, values):
-    """
-    The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
+    """The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
     A lookup starts with a given push index p which points to the row. The start and stop indices of the row are accessed from dia_data.push_indptr[p] and dia_data.push_indptr[p+1].
     The tof indices are then accessed from dia_data.tof_indices[start:stop] and the corresponding intensities from dia_data.intensity_values[start:stop].
 
@@ -225,7 +223,6 @@ def transpose(tof_indices, push_indptr, n_tof_indices, values):
 
     Parameters
     ----------
-
     tof_indices : np.ndarray
         column indices (n_values)
 
@@ -243,7 +240,6 @@ def transpose(tof_indices, push_indptr, n_tof_indices, values):
 
     Returns
     -------
-
     push_indices : np.ndarray
         row indices (n_values)
 

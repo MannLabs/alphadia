@@ -8,8 +8,8 @@ from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
-from alphadia.data.dia_cycle import determine_dia_cycle
-from alphadia.data.jitclasses.alpharaw_jit import AlphaRawJIT
+from alphadia.raw_data.dia_cycle import determine_dia_cycle
+from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
 
 logger = logging.getLogger()
 
@@ -21,6 +21,7 @@ def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
     ----------
     spectrum_df : pd.DataFrame
         The spectrum dataframe.
+
     """
     ms1_df = spectrum_df[spectrum_df["ms_level"] == 1]
     return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
@@ -143,10 +144,7 @@ class Thermo(AlphaRaw, ThermoRawData):
         self.process_alpharaw(**kwargs)
 
     def filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
-        """
-        Filter the spectra for MS1 or MS2 spectra.
-        """
-
+        """Filter the spectra for MS1 or MS2 spectra."""
         # filter for Astral or Orbitrap MS1 spectra
         if astral_ms1:
             self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]

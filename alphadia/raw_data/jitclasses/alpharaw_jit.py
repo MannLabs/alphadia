@@ -3,7 +3,7 @@ import logging
 import numba as nb
 import numpy as np
 
-from alphadia.data.utils import get_frame_indices, mass_range
+from alphadia.raw_data.utils import get_frame_indices, mass_range
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()

@@ -4,7 +4,7 @@ import numpy as np
 from numba.core import types
 from numba.experimental import jitclass
 
-from alphadia.data.utils import (
+from alphadia.raw_data.utils import (
     get_frame_indices,
     make_slice_1d,
     make_slice_2d,
