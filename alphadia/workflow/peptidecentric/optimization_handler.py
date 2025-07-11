@@ -62,7 +62,7 @@ class OptimizationHandler:
             self._spectral_library, self._config
         )
 
-    def _init_optimiser(
+    def _init_optimizer(
         self,
         clazz: type[AutomaticOptimizer | TargetedOptimizer],
         initial_parameter: float,
@@ -108,13 +108,13 @@ class OptimizationHandler:
         config_search = self._config["search"]
 
         if config_search["target_ms2_tolerance"] > 0:
-            ms2_optimizer = self._init_optimiser(
+            ms2_optimizer = self._init_optimizer(
                 TargetedMS2Optimizer,
                 self._optimization_manager.ms2_error,
                 config_search["target_ms2_tolerance"],
             )
         else:
-            ms2_optimizer = self._init_optimiser(
+            ms2_optimizer = self._init_optimizer(
                 AutomaticMS2Optimizer, self._optimization_manager.ms2_error
             )
 
@@ -125,25 +125,25 @@ class OptimizationHandler:
                 if config_search["target_rt_tolerance"] > 1
                 else config_search["target_rt_tolerance"] * gradient_length
             )
-            rt_optimizer = self._init_optimiser(
+            rt_optimizer = self._init_optimizer(
                 TargetedRTOptimizer,
                 self._optimization_manager.rt_error,
                 target_rt_error,
             )
         else:
-            rt_optimizer = self._init_optimiser(
+            rt_optimizer = self._init_optimizer(
                 AutomaticRTOptimizer, self._optimization_manager.rt_error
             )
 
         if self._dia_data.has_ms1:
             if config_search["target_ms1_tolerance"] > 0:
-                ms1_optimizer = self._init_optimiser(
+                ms1_optimizer = self._init_optimizer(
                     TargetedMS1Optimizer,
                     self._optimization_manager.ms1_error,
                     config_search["target_ms1_tolerance"],
                 )
             else:
-                ms1_optimizer = self._init_optimiser(
+                ms1_optimizer = self._init_optimizer(
                     AutomaticMS1Optimizer, self._optimization_manager.ms1_error
                 )
         else:
@@ -151,13 +151,13 @@ class OptimizationHandler:
 
         if self._dia_data.has_mobility:
             if config_search["target_mobility_tolerance"] > 0:
-                mobility_optimizer = self._init_optimiser(
+                mobility_optimizer = self._init_optimizer(
                     TargetedMobilityOptimizer,
                     self._optimization_manager.mobility_error,
                     config_search["target_mobility_tolerance"],
                 )
             else:
-                mobility_optimizer = self._init_optimiser(
+                mobility_optimizer = self._init_optimizer(
                     AutomaticMobilityOptimizer,
                     self._optimization_manager.mobility_error,
                 )
