@@ -168,7 +168,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _transpose_chunk(
-    chunk_idx,
+    chunk_idx,  # pjit decorator changes the passed argument from an iterable to single index
     chunks,
     push_indices,
     push_indptr,
@@ -274,7 +274,7 @@ def _transpose(tof_indices, push_indptr, n_tof_indices, values):
         alphatims.utils.set_threads(20)
 
         _transpose_chunk(
-            range(len(chunks) - 1),
+            range(len(chunks) - 1),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             chunks,
             push_indices,
             push_indptr,

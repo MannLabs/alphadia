@@ -201,7 +201,11 @@ def multiplex_candidates(
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def transfer_feature(  # TODO: unused?
-    idx, score_group_container, feature_array, precursor_idx_array, rank_array
+    idx,  # pjit decorator changes the passed argument from an iterable to single index
+    score_group_container,
+    feature_array,
+    precursor_idx_array,
+    rank_array,
 ):
     feature_array[idx] = score_group_container[idx].candidates[0].feature_array
     precursor_idx_array[idx] = score_group_container[idx].candidates[0].precursor_idx
