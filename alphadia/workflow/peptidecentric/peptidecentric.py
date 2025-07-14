@@ -179,7 +179,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
-            self.spectral_library,
         )
 
         features_df, fragments_df = extraction_handler.extract_batch(

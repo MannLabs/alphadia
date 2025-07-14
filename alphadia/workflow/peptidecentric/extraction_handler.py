@@ -1,6 +1,5 @@
 import pandas as pd
 import seaborn as sns
-from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.peakgroup import search
 from alphadia.peakgroup.config_df import HybridCandidateConfig
@@ -22,12 +21,10 @@ class ExtractionHandler:
         optimization_manager: OptimizationManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
-        spectral_library: SpecLibBase,
     ):
         self._optimization_manager: OptimizationManager = optimization_manager
         self._reporter: Pipeline = reporter
 
-        self._spectral_library: SpecLibBase = spectral_library
         self._column_name_handler: ColumnNameHandler = column_name_handler
 
         self._thread_count = config["general"]["thread_count"]
