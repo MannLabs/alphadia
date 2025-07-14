@@ -219,9 +219,5 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
             self.fragment_mz_tolerance <= MAX_FRAGMENT_MZ_TOLERANCE
         ), f"fragment_mz_tolerance must be less than or equal {MAX_FRAGMENT_MZ_TOLERANCE}"
 
-    def copy(self):
-        """Create a copy of the config object."""
-        return CandidateConfig.from_dict(self.to_dict())
-
 
 candidate_config_type = CandidateConfigJIT.class_type.instance_type
