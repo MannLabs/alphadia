@@ -67,6 +67,8 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
 
     def __init__(self):
         """Create default config for CandidateScoring"""
+        super().__init__()
+
         self.collect_fragments = True
         self.score_grouped = False
         self.exclude_shared_ions = True
@@ -192,7 +194,7 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
     def experimental_xic(self, value):
         self._experimental_xic = value
 
-    def validate(self):
+    def _validate(self):
         """Validate all properties of the config object.
         Should be called whenever a property is changed."""
 
