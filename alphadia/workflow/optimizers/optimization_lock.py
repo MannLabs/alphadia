@@ -36,7 +36,7 @@ class OptimizationLock:
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
 
-        self.batch_library: pd.DataFrame | None = None
+        self.batch_library: SpecLibFlat | None = None
         self.set_batch_dfs(eg_idxes)
 
         self._feature_dfs = []

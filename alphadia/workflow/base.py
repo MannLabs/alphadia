@@ -1,7 +1,7 @@
 import logging
 import os
 
-from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
@@ -68,7 +68,7 @@ class WorkflowBase:
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
         self._dia_data: DiaData | None = None
-        self._spectral_library: SpecLibBase | None = None
+        self._spectral_library: SpecLibFlat | None = None
         self._calibration_manager: CalibrationManager | None = None
         self._optimization_manager: OptimizationManager | None = None
         self._timing_manager: TimingManager | None = None
@@ -84,7 +84,7 @@ class WorkflowBase:
     def load(
         self,
         dia_data_path: str,
-        spectral_library: SpecLibBase,
+        spectral_library: SpecLibFlat,
     ) -> None:
         self.reporter = reporting.Pipeline(
             backends=[
@@ -110,7 +110,7 @@ class WorkflowBase:
         self.reporter.log_event("loading_data", {"progress": 1})
 
         # load the spectral library
-        self._spectral_library = spectral_library.copy()
+        self._spectral_library: SpecLibFlat = spectral_library.copy()
 
         # initialize the calibration manager
         self._calibration_manager = CalibrationManager(
@@ -163,7 +163,7 @@ class WorkflowBase:
         return self._timing_manager
 
     @property
-    def spectral_library(self) -> SpecLibBase | None:
+    def spectral_library(self) -> SpecLibFlat | None:
         """Spectral library for the workflow. Owns the spectral library data"""
         return self._spectral_library
 
