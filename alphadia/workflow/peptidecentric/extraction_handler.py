@@ -110,16 +110,14 @@ class ExtractionHandler:
 
         if apply_cutoff:
             num_before = len(candidates_df)
-            self._reporter.log_string(
-                f"Applying score cutoff of {self._optimization_manager.score_cutoff}",
-            )
+
             candidates_df = candidates_df[
                 candidates_df["score"] > self._optimization_manager.score_cutoff
             ]
             num_after = len(candidates_df)
             num_removed = num_before - num_after
             self._reporter.log_string(
-                f"Removed {num_removed} precursors with score below cutoff",
+                f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
             )
 
         self._scoring_config.update(
