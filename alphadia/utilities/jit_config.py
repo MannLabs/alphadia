@@ -62,12 +62,12 @@ class JITConfig(ABC):
             Numba jitclass object with the type as defined in the _jit_container_type class attribute.
         """
 
-        self._validate()
+        self.validate()
 
         return self._jit_container_type(*self.__dict__.values())
 
     @abstractmethod
-    def _validate(self):
+    def validate(self):
         """Validates the config object.
         Note that this class is not meant to be instantiated. Classes inheriting from JITConfig must implement their own validate method.
         """

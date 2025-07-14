@@ -194,7 +194,7 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
     def experimental_xic(self, value):
         self._experimental_xic = value
 
-    def _validate(self):
+    def validate(self):
         """Validate all properties of the config object.
         Should be called whenever a property is changed."""
 
