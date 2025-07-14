@@ -28,13 +28,13 @@ class JITConfig(ABC):
 
 
     For defining default values and updating the config object, the JITConfig class is used as base class.
-    The config object must contain a class attribute `jit_container` pointing to the matching numba jitclass.
+    The config object must contain a class attribute `_jit_container_type` pointing to the matching numba jitclass.
     The config object must implement a __init__ method where all parameters are initialized in the same order as they appear in the numba constructor.
 
     .. code-block:: python
 
         class HybridCandidateConfig(JITConfig):
-            jit_container = HybridCandidateConfigJIT
+            _jit_container_type = HybridCandidateConfigJIT
             def __init__(self):
                 self.rt_tolerance = 0.5
 
@@ -46,7 +46,7 @@ class JITConfig(ABC):
     .. code-block:: python
 
         class HybridCandidateConfig(JITConfig):
-            jit_container = HybridCandidateConfigJIT
+            _jit_container_type = HybridCandidateConfigJIT
             def __init__(self, rt_tolerance = 0.5):
                 self.rt_tolerance = rt_tolerance
 
@@ -85,7 +85,7 @@ class JITConfig(ABC):
         -------
 
         jitclass : numba.experimental.jitclass.boxing.XXX
-            Numba jitclass object with the type as defined in the jit_container class attribute.
+            Numba jitclass object with the type as defined in the _jit_container_type class attribute.
         """
 
         self.validate()
@@ -117,7 +117,7 @@ class JITConfig(ABC):
         .. code-block:: python
 
             class HybridCandidateConfig(JITConfig):
-                jit_container = HybridCandidateConfigJIT
+                _jit_container_type = HybridCandidateConfigJIT
                 def __init__(self):
                     self.rt_tolerance = 0.5
 

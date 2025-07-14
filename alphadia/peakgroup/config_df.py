@@ -127,7 +127,7 @@ class HybridCandidateConfigJIT:
 class HybridCandidateConfig(
     JITConfig
 ):  # TODO rename to HybridCandidateScoringHyperparameters
-    jit_container = HybridCandidateConfigJIT
+    _jit_container_type = HybridCandidateConfigJIT
 
     def __init__(self):
         self.rt_tolerance = 60.0
