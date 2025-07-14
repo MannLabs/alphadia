@@ -220,7 +220,9 @@ class FDRManager(BaseManager):
 
         return psm_df
 
-    def save_classifier_store(self, path: None | str = None, version: int = -1):
+    def save_classifier_store(
+        self, path: None | str = None, version: int = -1
+    ):  # TODO: unused?
         """Saves the classifier store to disk.
 
         Parameters

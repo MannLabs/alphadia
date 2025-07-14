@@ -36,7 +36,7 @@ class OptimizationLock:
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
 
-        self.batch_library: pd.DataFrame | None = None
+        self.batch_library: SpecLibFlat | None = None
         self.set_batch_dfs(eg_idxes)
 
         self._feature_dfs = []
@@ -213,6 +213,7 @@ class OptimizationLock:
         if eg_idxes is None:
             eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
         self.batch_library = SpecLibFlat()
+        # TODO using batch_library.precursor_df here will trigger the setter method, which will additionally call refine_precursor_df()
         self.batch_library._precursor_df, (self.batch_library._fragment_df,) = (
             remove_unused_fragments(
                 self._library._precursor_df[

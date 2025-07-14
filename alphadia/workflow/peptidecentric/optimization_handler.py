@@ -353,7 +353,6 @@ class OptimizationHandler:
                 dia_data_has_ms1=self._dia_data.has_ms1,
                 dia_data_has_mobility=self._dia_data.has_mobility,
             ),
-            self._spectral_library,
         )
 
         feature_df, fragment_df = extraction_handler.extract_batch(
