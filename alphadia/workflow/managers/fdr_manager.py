@@ -300,15 +300,3 @@ class FDRManager(BaseManager):
     @property
     def current_version(self):
         return self._current_version
-
-    def predict(self):
-        """Return the parameters dict."""
-        raise NotImplementedError(
-            f"predict() not implemented for {self.__class__.__name__}"
-        )
-
-    def fit(self, update_dict):
-        """Update the parameters dict with the values in update_dict and return the parameters dict."""
-        raise NotImplementedError(
-            f"fit() not implemented for {self.__class__.__name__}"
-        )

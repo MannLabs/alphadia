@@ -33,9 +33,9 @@ def _get_isotope_column_names(colnames):
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
-def _executor(
-    i,
-    sg_container,
+def _process_score_groups(
+    i,  # pjit decorator changes the passed argument from an iterable to single index
+    sg_container: ScoreGroupContainer,
     psm_proto_df,
     fragment_container,
     jit_data,
@@ -577,13 +577,13 @@ class CandidateScoring:
             iterator_len = min(10, iterator_len)
 
         alphatims.utils.set_threads(thread_count)
-        _executor(
-            range(iterator_len),
+        _process_score_groups(
+            range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             score_group_container,
             psm_proto_df,
             fragment_container,
-            self.dia_data,
-            self.config.jitclass(),
+            self.dia_data.to_jitclass(),
+            self.config.to_jitclass(),
             self.quadrupole_calibration.jit,
             debug,
         )

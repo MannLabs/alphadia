@@ -2,7 +2,6 @@
 
 import logging
 
-import alphatims.utils
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -197,15 +196,6 @@ def multiplex_candidates(
     candidates_schema.validate(multiplexed_candidates_df, warn_on_critical_values=True)
 
     return multiplexed_candidates_df
-
-
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
-def transfer_feature(  # TODO: unused?
-    idx, score_group_container, feature_array, precursor_idx_array, rank_array
-):
-    feature_array[idx] = score_group_container[idx].candidates[0].feature_array
-    precursor_idx_array[idx] = score_group_container[idx].candidates[0].precursor_idx
-    rank_array[idx] = score_group_container[idx].candidates[0].rank
 
 
 def merge_missing_columns(

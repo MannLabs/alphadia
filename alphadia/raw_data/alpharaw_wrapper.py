@@ -96,7 +96,8 @@ class AlphaRaw(MSData_Base):
         This function is implemented in the sub-class.
         """
 
-    def jitclass(self):
+    def to_jitclass(self) -> AlphaRawJIT:
+        """Create a AlphaRawJIT with the current state of this class."""
         return AlphaRawJIT(
             self.cycle,
             self.rt_values,

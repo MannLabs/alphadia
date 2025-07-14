@@ -63,8 +63,12 @@ class CandidateConfigJIT:
 class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparameters
     """Config object for CandidateScoring."""
 
+    _jit_container_type = CandidateConfigJIT
+
     def __init__(self):
         """Create default config for CandidateScoring"""
+        super().__init__()
+
         self.collect_fragments = True
         self.score_grouped = False
         self.exclude_shared_ions = True
@@ -76,11 +80,6 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
         self.precursor_mz_tolerance = 15
         self.fragment_mz_tolerance = 15
         self.experimental_xic = False
-
-    @property
-    def jit_container(self):
-        """The numba jitclass for this config object."""
-        return CandidateConfigJIT
 
     @property
     def collect_fragments(self) -> bool:
@@ -219,10 +218,6 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
         assert (
             self.fragment_mz_tolerance <= MAX_FRAGMENT_MZ_TOLERANCE
         ), f"fragment_mz_tolerance must be less than or equal {MAX_FRAGMENT_MZ_TOLERANCE}"
-
-    def copy(self):
-        """Create a copy of the config object."""
-        return CandidateConfig.from_dict(self.to_dict())
 
 
 candidate_config_type = CandidateConfigJIT.class_type.instance_type
