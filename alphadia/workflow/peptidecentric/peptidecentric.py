@@ -164,12 +164,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self._save_managers()
 
-    def extraction(self):
         self.calibration_manager.predict(
             self.spectral_library.precursor_df, "precursor"
         )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        self.calibration_manager.predict(self.spectral_library.fragment_df, "fragment")
 
+    def extraction(self):
         extraction_handler = ExtractionHandler(
             self.config,
             self.optimization_manager,
