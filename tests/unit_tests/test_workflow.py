@@ -3,7 +3,7 @@ import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pandas as pd
@@ -384,7 +384,11 @@ def fdr_testdata(features):
 
 
 def test_fdr_manager():
-    fdr_manager = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config=MagicMock(),
+    )
 
     assert fdr_manager.is_loaded_from_file is False
 
@@ -393,17 +397,22 @@ def test_fdr_manager():
 
 
 def test_fdr_manager_fit_predict():
-    fdr_manager = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config={
+            "fdr": {"channel_wise_fdr": False, "competetive_scoring": False},
+            "search": {"compete_for_fragments": False},
+        },
+        dia_cycle=None,
+    )
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
     assert len(fdr_manager.classifier_store) == 1
 
     fdr_manager.fit_predict(
         test_features_df,
-        decoy_strategy="precursor",
-        competetive=False,
         df_fragments=None,
-        dia_cycle=None,
     )
 
     assert len(fdr_manager.classifier_store) == 2
@@ -412,10 +421,7 @@ def test_fdr_manager_fit_predict():
 
     fdr_manager.fit_predict(
         test_features_df,
-        decoy_strategy="precursor",
-        competetive=False,
         df_fragments=None,
-        dia_cycle=None,
         version=0,
     )
 
@@ -424,7 +430,11 @@ def test_fdr_manager_fit_predict():
 
     fdr_manager.save_classifier_store(tempfile.tempdir)
 
-    fdr_manager_new = FDRManager(FDR_TEST_FEATURES, FDR_TEST_BASE_CLASSIFIER)
+    fdr_manager_new = FDRManager(
+        feature_columns=FDR_TEST_FEATURES,
+        classifier_base=FDR_TEST_BASE_CLASSIFIER,
+        config=MagicMock(),
+    )
     fdr_manager_new.load_classifier_store(tempfile.tempdir)
 
     temp_path = os.path.join(tempfile.tempdir, f"{column_hash(FDR_TEST_FEATURES)}.pth")
@@ -483,6 +493,7 @@ def create_workflow_instance():
             ],
             fdr_cutoff=workflow.config["fdr"]["fdr"],
         ),
+        config=MagicMock(),
         figure_path=workflow._figure_path,
     )
 

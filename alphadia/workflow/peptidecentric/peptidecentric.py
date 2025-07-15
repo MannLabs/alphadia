@@ -19,7 +19,6 @@ from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
-    fdr_correction,
     feature_columns,
     log_precursor_df,
 )
@@ -30,7 +29,7 @@ def _get_classifier_base(
     two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
-):
+) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -115,6 +114,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=config_fdr["fdr"],
             ),
+            dia_cycle=self.dia_data.cycle,
+            config=self.config,
             figure_path=self._figure_path,
         )
 
@@ -192,13 +193,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        precursor_df = fdr_correction(
-            self._fdr_manager,
-            self.config,
-            self.dia_data.cycle,
+        precursor_df = self._fdr_manager.fit_predict(
             features_df,
-            fragments_df,
-            self.optimization_manager.classifier_version,
+            df_fragments=fragments_df,
+            version=self.optimization_manager.classifier_version,
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]

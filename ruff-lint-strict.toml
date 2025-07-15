@@ -72,8 +72,6 @@ ignore = [
     "PT011", #pytest.raises(ValueError) is too broad
     "G004", "EM102", # Logging statement uses f-string
     "TRY003", # Avoid specifying long messages outside the exception class
-    "ANN101", # Missing type annotation for `self` in method
-    "ANN102", # Missing type annotation for `cls` in classmethod
     "ANN002", # Missing type annotation for `*args`
     "ANN003", # Missing type annotation for `**kwargs
     "FA102", # Missing `from __future__ import annotations
