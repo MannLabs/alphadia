@@ -193,7 +193,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy_overwrite="precursor",
-        competetive=False,
+        competetive_overwrite=False,
     )
 
     regular_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -201,7 +201,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy_overwrite="precursor",
-        competetive=True,
+        competetive_overwrite=True,
     )
 
     competitive_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()

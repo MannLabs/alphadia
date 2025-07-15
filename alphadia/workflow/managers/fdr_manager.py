@@ -96,13 +96,16 @@ class FDRManager(BaseManager):
             else "precursor"
         )
 
+        self._competitive_scoring = config["fdr"]["competetive_scoring"]
+
     def fit_predict(
         self,
         features_df: pd.DataFrame,
         decoy_strategy_overwrite: typing.Literal[
             "precursor", "precursor_channel_wise", "channel"
-        ] = None,
-        competetive: bool = True,
+        ]
+        | None = None,
+        competetive_overwrite: bool | None = None,
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
@@ -112,8 +115,11 @@ class FDRManager(BaseManager):
 
         Parameters
         ----------
-        decoy_strategy_overwrite: typing.Literal["precursor", "precursor_channel_wise", "channel"]
+        decoy_strategy_overwrite: typing.Literal["precursor", "precursor_channel_wise", "channel"]| None
             Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
+            Defaults to None.
+        competetive_overwrite: bool | None
+            Value to overwrite the default competitive scoring. If None, uses the default value set in the constructor.
             Defaults to None.
 
         Notes
@@ -132,6 +138,12 @@ class FDRManager(BaseManager):
             self._decoy_strategy
             if decoy_strategy_overwrite is None
             else decoy_strategy_overwrite
+        )
+
+        competetive = (
+            competetive_overwrite
+            if competetive_overwrite is not None
+            else self._competitive_scoring
         )
 
         strategy_requires_decoy_column = (
