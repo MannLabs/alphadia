@@ -90,12 +90,18 @@ class FDRManager(BaseManager):
         self._current_version = -1
         self.load_classifier_store()
 
+        self._decoy_strategy = (
+            "precursor_channel_wise"
+            if config["fdr"]["channel_wise_fdr"]
+            else "precursor"
+        )
+
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        decoy_strategy: typing.Literal[
+        decoy_strategy_overwrite: typing.Literal[
             "precursor", "precursor_channel_wise", "channel"
-        ] = "precursor",
+        ] = None,
         competetive: bool = True,
         df_fragments: None | pd.DataFrame = None,
         dia_cycle: None | np.ndarray = None,
@@ -103,6 +109,12 @@ class FDRManager(BaseManager):
         version: int = -1,
     ):
         """Fit the classifier and perform FDR estimation.
+
+        Parameters
+        ----------
+        decoy_strategy_overwrite: typing.Literal["precursor", "precursor_channel_wise", "channel"]
+            Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
+            Defaults to None.
 
         Notes
         -----
@@ -115,6 +127,12 @@ class FDRManager(BaseManager):
         # perform sanity checks
         if len(available_columns) == 0:
             raise ValueError("No feature columns found in features_df")
+
+        decoy_strategy = (
+            self._decoy_strategy
+            if decoy_strategy_overwrite is None
+            else decoy_strategy_overwrite
+        )
 
         strategy_requires_decoy_column = (
             decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
