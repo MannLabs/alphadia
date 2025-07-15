@@ -142,10 +142,6 @@ class FDRManager(BaseManager):
             set(features_df.columns).intersection(set(self.feature_columns))
         )
 
-        # perform sanity checks
-        if len(available_columns) == 0:
-            raise ValueError("No feature columns found in features_df")
-
         decoy_strategy = (
             self._decoy_strategy
             if decoy_strategy_overwrite is None
@@ -158,36 +154,18 @@ class FDRManager(BaseManager):
             else self._competitive_scoring
         )
 
-        strategy_requires_decoy_column = (
-            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        self._check_valid_input(
+            available_columns, decoy_channel, decoy_strategy, features_df
         )
-        if strategy_requires_decoy_column and "decoy" not in features_df.columns:
-            raise ValueError("decoy column not found in features_df")
-
-        strategy_requires_channel_column = (
-            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
-        )
-        if strategy_requires_channel_column and "channel" not in features_df.columns:
-            raise ValueError("channel column not found in features_df")
-
-        if decoy_strategy == "channel" and decoy_channel == -1:
-            raise ValueError("decoy_channel must be set if decoy_type is channel")
 
         if (
             decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
         ) and decoy_channel > -1:
             self.reporter.log_string(
-                "decoy_channel is ignored if decoy_type is precursor",
+                "decoy_channel is ignored if decoy_strategy is 'precursor' or 'precursor_channel_wise'.",
                 verbosity="warning",
             )
             decoy_channel = -1
-
-        if (
-            decoy_strategy == "channel"
-            and decoy_channel > -1
-            and decoy_channel not in features_df["channel"].unique()
-        ):
-            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
         self.reporter.log_string(
             f"performing {decoy_strategy} FDR with {len(available_columns)} features"
@@ -272,6 +250,42 @@ class FDRManager(BaseManager):
         self.save()
 
         return psm_df
+
+    def _check_valid_input(
+        self,
+        available_columns: list[str],
+        decoy_channel: int,
+        decoy_strategy: str,
+        features_df: pd.DataFrame,
+    ):
+        """Checks if the input features_df is valid for the FDR estimation.
+
+        Raises ValueError if the input is not valid.
+        """
+        if len(available_columns) == 0:
+            raise ValueError("No feature columns found in features_df")
+
+        strategy_requires_decoy_column = (
+            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        )
+        if strategy_requires_decoy_column and "decoy" not in features_df.columns:
+            raise ValueError("decoy column not found in features_df")
+
+        strategy_requires_channel_column = (
+            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
+        )
+        if strategy_requires_channel_column and "channel" not in features_df.columns:
+            raise ValueError("channel column not found in features_df")
+
+        if decoy_strategy == "channel" and decoy_channel == -1:
+            raise ValueError("decoy_channel must be set if decoy_type is channel")
+
+        if (
+            decoy_strategy == "channel"
+            and decoy_channel > -1
+            and decoy_channel not in features_df["channel"].unique()
+        ):
+            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
     def save_classifier_store(
         self, path: None | str = None, version: int = -1
