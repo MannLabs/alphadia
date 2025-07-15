@@ -114,7 +114,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=config_fdr["fdr"],
             ),
-            dia_data=self.dia_data.cycle,
+            dia_cycle=self.dia_data.cycle,
             config=self.config,
             figure_path=self._figure_path,
         )

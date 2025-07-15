@@ -98,10 +98,10 @@ class FDRManager(BaseManager):
             if config["fdr"]["channel_wise_fdr"]
             else "precursor"
         )
-
-        self._dia_cycle = dia_cycle
         self._competitive_scoring = config["fdr"]["competetive_scoring"]
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+
+        self._dia_cycle = dia_cycle
 
     def fit_predict(
         self,
@@ -111,7 +111,7 @@ class FDRManager(BaseManager):
         ]
         | None = None,
         competetive_overwrite: bool | None = None,
-        df_fragments: None | pd.DataFrame = None,
+        df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
     ):

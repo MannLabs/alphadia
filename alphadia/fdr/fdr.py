@@ -4,7 +4,6 @@ import logging
 
 import numpy as np
 import pandas as pd
-from _fdrx.models.two_step_classifier import TwoStepClassifier
 
 from alphadia.fdr.classifiers import Classifier
 from alphadia.fdr.plotting import plot_fdr
@@ -18,7 +17,7 @@ logger = logging.getLogger()
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: PLR0913 # Too many arguments
-    classifier: Classifier | TwoStepClassifier,
+    classifier: Classifier,  # | TwoStepClassifier,  # TODO: fix circular import
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
