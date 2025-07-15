@@ -4,8 +4,9 @@ import logging
 
 import numpy as np
 import pandas as pd
-import sklearn
+from _fdrx.models.two_step_classifier import TwoStepClassifier
 
+from alphadia.fdr.classifiers import Classifier
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
@@ -17,7 +18,7 @@ logger = logging.getLogger()
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: PLR0913 # Too many arguments
-    classifier: sklearn.base.BaseEstimator,
+    classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
@@ -31,9 +32,11 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
+     Currently, it does not scale above 2 threads also for large problems, so thread number is limited to 2.
+
     Parameters
     ----------
-    classifier : sklearn.base.BaseEstimator
+    classifier : Classifier | TwoStepClassifier
         A classifier that implements the fit and predict_proba methods
 
     available_columns : list[str]
@@ -62,9 +65,6 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
-
-    max_num_threads : int, default=2
-        The number of threads to use for the classifier. Currently, it does not scale above 2 threads also for large problems.
 
     Returns
     -------

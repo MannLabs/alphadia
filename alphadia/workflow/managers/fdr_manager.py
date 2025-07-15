@@ -1,8 +1,8 @@
 import logging
 import os
-import typing
 from collections import defaultdict
 from copy import deepcopy
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -106,7 +106,7 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        decoy_strategy_overwrite: typing.Literal[
+        decoy_strategy_overwrite: Literal[
             "precursor", "precursor_channel_wise", "channel"
         ]
         | None = None,
@@ -119,12 +119,20 @@ class FDRManager(BaseManager):
 
         Parameters
         ----------
-        decoy_strategy_overwrite: typing.Literal["precursor", "precursor_channel_wise", "channel"]| None
+        features_df: pd.DataFrame
+            Dataframe containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
+        decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
             Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
             Defaults to None.
         competetive_overwrite: bool | None
             Value to overwrite the default competitive scoring. If None, uses the default value set in the constructor.
             Defaults to None.
+        df_fragments: None | pd.DataFrame
+            Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
+        decoy_channel: int
+            Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
+        version: int
+            Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
 
         Notes
         -----
@@ -321,7 +329,9 @@ class FDRManager(BaseManager):
                         )
                         self.classifier_store[classifier_hash].append(classifier)
 
-    def get_classifier(self, available_columns: list, version: int = -1):
+    def get_classifier(
+        self, available_columns: list, version: int = -1
+    ) -> Classifier | TwoStepClassifier:
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
 
         Parameters
