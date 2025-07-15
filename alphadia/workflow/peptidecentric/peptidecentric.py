@@ -19,7 +19,6 @@ from alphadia.workflow.peptidecentric.requantification_handler import (
     RequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
-    fdr_correction,
     feature_columns,
     log_precursor_df,
 )
@@ -194,13 +193,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        precursor_df = fdr_correction(
-            self._fdr_manager,
-            self.config,
-            self.dia_data.cycle,
+        precursor_df = self._fdr_manager.fit_predict(
             features_df,
-            fragments_df,
-            self.optimization_manager.classifier_version,
+            df_fragments=fragments_df,
+            version=self.optimization_manager.classifier_version,
         )
 
         precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]

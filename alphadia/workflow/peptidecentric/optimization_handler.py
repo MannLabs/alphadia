@@ -28,7 +28,7 @@ from alphadia.workflow.optimizers.targeted import (
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.recalibration_handler import RecalibrationHandler
-from alphadia.workflow.peptidecentric.utils import fdr_correction, log_precursor_df
+from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 
 class OptimizationHandler:
@@ -367,13 +367,10 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
-        precursor_df = fdr_correction(
-            self._fdr_manager,
-            self._config,
-            self._dia_data.cycle,
+        precursor_df = self._fdr_manager.fit_predict(
             self._optlock.features_df,
-            self._optlock.fragments_df,
-            self._optimization_manager.classifier_version,
+            df_fragments=self._optlock.fragments_df,
+            version=self._optimization_manager.classifier_version,
         )
 
         self._optlock.update_with_fdr(precursor_df)
