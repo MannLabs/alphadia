@@ -89,9 +89,7 @@ def fdr_correction(
     """Peptide-centric specific FDR correction."""
     return fdr_manager.fit_predict(
         features_df,
-        df_fragments=df_fragments
-        if config["search"]["compete_for_fragments"]
-        else None,
+        df_fragments=df_fragments,
         dia_cycle=dia_cycle,
         version=version,
     )

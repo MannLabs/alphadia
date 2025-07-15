@@ -97,6 +97,7 @@ class FDRManager(BaseManager):
         )
 
         self._competitive_scoring = config["fdr"]["competetive_scoring"]
+        self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
     def fit_predict(
         self,
@@ -193,7 +194,8 @@ class FDRManager(BaseManager):
                     features_df[features_df["decoy"] == 1].copy(),
                     competetive=competetive,
                     group_channels=True,
-                    df_fragments=df_fragments,
+                    # TODO move this logic to perform_fdr():
+                    df_fragments=df_fragments if self._compete_for_fragments else None,
                     dia_cycle=dia_cycle,
                     figure_path=self.figure_path,
                 )
@@ -221,7 +223,9 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["decoy"] == 1].copy(),
                         competetive=competetive,
                         group_channels=True,
-                        df_fragments=df_fragments,
+                        df_fragments=df_fragments
+                        if self._compete_for_fragments
+                        else None,
                         dia_cycle=dia_cycle,
                         figure_path=self.figure_path,
                     )
