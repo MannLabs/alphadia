@@ -401,6 +401,7 @@ def test_fdr_manager_fit_predict():
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
         config={"fdr": {"channel_wise_fdr": False, "competetive_scoring": False}},
+        dia_cycle=None,
     )
     test_features_df = fdr_testdata(FDR_TEST_FEATURES)
 
@@ -409,7 +410,6 @@ def test_fdr_manager_fit_predict():
     fdr_manager.fit_predict(
         test_features_df,
         df_fragments=None,
-        dia_cycle=None,
     )
 
     assert len(fdr_manager.classifier_store) == 2
@@ -419,7 +419,6 @@ def test_fdr_manager_fit_predict():
     fdr_manager.fit_predict(
         test_features_df,
         df_fragments=None,
-        dia_cycle=None,
         version=0,
     )
 

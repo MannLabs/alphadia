@@ -58,6 +58,7 @@ class FDRManager(BaseManager):
         feature_columns: list,
         classifier_base: Classifier | TwoStepClassifier,
         config: Config,
+        dia_cycle: None | np.ndarray = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
@@ -72,6 +73,8 @@ class FDRManager(BaseManager):
             Base classifier object to use for the FDR estimation
         config: Config
             The workflow configuration object
+        dia_cycle: None | np.ndarray
+            DIA cycle information, if applicable. If None, no DIA cycle information is used.
         path : str, optional
             Path to the manager pickle on disk.
         load_from_file : bool, optional
@@ -96,6 +99,7 @@ class FDRManager(BaseManager):
             else "precursor"
         )
 
+        self._dia_cycle = dia_cycle
         self._competitive_scoring = config["fdr"]["competetive_scoring"]
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
@@ -108,7 +112,6 @@ class FDRManager(BaseManager):
         | None = None,
         competetive_overwrite: bool | None = None,
         df_fragments: None | pd.DataFrame = None,
-        dia_cycle: None | np.ndarray = None,
         decoy_channel: int = -1,
         version: int = -1,
     ):
@@ -196,7 +199,7 @@ class FDRManager(BaseManager):
                     group_channels=True,
                     # TODO move this logic to perform_fdr():
                     df_fragments=df_fragments if self._compete_for_fragments else None,
-                    dia_cycle=dia_cycle,
+                    dia_cycle=self._dia_cycle,
                     figure_path=self.figure_path,
                 )
             else:
@@ -226,7 +229,7 @@ class FDRManager(BaseManager):
                         df_fragments=df_fragments
                         if self._compete_for_fragments
                         else None,
-                        dia_cycle=dia_cycle,
+                        dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                     )
                 )

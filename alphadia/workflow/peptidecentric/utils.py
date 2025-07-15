@@ -90,7 +90,6 @@ def fdr_correction(
     return fdr_manager.fit_predict(
         features_df,
         df_fragments=df_fragments,
-        dia_cycle=dia_cycle,
         version=version,
     )
 
