@@ -12,6 +12,8 @@ import xxhash
 import alphadia
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr import fdr
+from alphadia.fdr.classifiers import Classifier
+from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
@@ -54,12 +56,13 @@ class FDRManager(BaseManager):
     def __init__(
         self,
         feature_columns: list,
-        classifier_base,
+        classifier_base: Classifier | TwoStepClassifier,
+        config: Config,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
-        """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
+        """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
 
         Parameters
         ----------
@@ -67,7 +70,12 @@ class FDRManager(BaseManager):
             List of feature columns to use for the classifier
         classifier_base: object
             Base classifier object to use for the FDR estimation
-
+        config: Config
+            The workflow configuration object
+        path : str, optional
+            Path to the manager pickle on disk.
+        load_from_file : bool, optional
+            If True, the manager will be loaded from file if it exists.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")

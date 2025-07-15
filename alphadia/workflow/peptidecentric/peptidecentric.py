@@ -30,7 +30,7 @@ def _get_classifier_base(
     two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
-):
+) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -115,6 +115,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=config_fdr["fdr"],
             ),
+            config=self.config,
             figure_path=self._figure_path,
         )
 

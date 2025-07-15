@@ -1,6 +1,7 @@
 import os
 import tempfile
 import warnings
+from unittest.mock import MagicMock
 
 import matplotlib
 import numpy as np
@@ -186,6 +187,7 @@ def test_fdr():
     fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=classifier_base,
+        config=MagicMock(),
     )
 
     psm_df = fdr_manager.fit_predict(
