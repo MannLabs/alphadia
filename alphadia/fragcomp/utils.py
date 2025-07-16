@@ -40,8 +40,8 @@ def add_frag_start_stop_idx(
 
     frag_df["frag_idx"] = np.arange(len(frag_df))
     index_df = frag_df.groupby("_candidate_idx", as_index=False).agg(
-        _frag_start_idx=pd.NamedAgg("frag_idx", min),
-        _frag_stop_idx=pd.NamedAgg("frag_idx", max),
+        _frag_start_idx=pd.NamedAgg("frag_idx", "min"),
+        _frag_stop_idx=pd.NamedAgg("frag_idx", "max"),
     )
     index_df["_frag_stop_idx"] += 1
 

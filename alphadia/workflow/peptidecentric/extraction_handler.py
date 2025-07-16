@@ -1,5 +1,6 @@
 import pandas as pd
 import seaborn as sns
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.peakgroup import search
 from alphadia.peakgroup.config_df import HybridCandidateConfig
@@ -54,14 +55,18 @@ class ExtractionHandler:
     def extract_batch(
         self,
         dia_data: DiaData,
-        batch_precursor_df: pd.DataFrame,
-        batch_fragment_df: pd.DataFrame,
+        spectral_library: SpecLibFlat,
         apply_cutoff: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         self._reporter.log_string(
-            f"Extracting batch of {len(batch_precursor_df)} precursors",
+            f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
             verbosity="progress",
         )
+
+        rt_column = self._column_name_handler.get_rt_column()
+        mobility_column = self._column_name_handler.get_mobility_column()
+        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
+        fragment_mz_column = self._column_name_handler.get_fragment_mz_column()
 
         self._selection_config.update(
             {
@@ -84,15 +89,10 @@ class ExtractionHandler:
         ]:
             self._reporter.log_string(log_line, verbosity="debug")
 
-        rt_column = self._column_name_handler.get_rt_column()
-        mobility_column = self._column_name_handler.get_mobility_column()
-        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
-        fragment_mz_column = self._column_name_handler.get_fragment_mz_column()
-
         extraction = search.HybridCandidateSelection(
             dia_data,
-            batch_precursor_df,
-            batch_fragment_df,
+            spectral_library.precursor_df,
+            spectral_library.fragment_df,
             self._selection_config,
             rt_column=rt_column,
             mobility_column=mobility_column,
@@ -126,8 +126,8 @@ class ExtractionHandler:
 
         candidate_scoring = CandidateScoring(
             dia_data,
-            batch_precursor_df,
-            batch_fragment_df,
+            spectral_library.precursor_df,
+            spectral_library.fragment_df,
             config=self._scoring_config,
             rt_column=rt_column,
             mobility_column=mobility_column,

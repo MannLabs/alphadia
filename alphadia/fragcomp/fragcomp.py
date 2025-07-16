@@ -215,8 +215,8 @@ class FragmentCompetition:
         """
         psm_df["_thread_idx"] = np.arange(len(psm_df))
         index_df = psm_df.groupby("window_idx", as_index=False).agg(
-            start_idx=pd.NamedAgg("_thread_idx", min),
-            stop_idx=pd.NamedAgg("_thread_idx", max),
+            start_idx=pd.NamedAgg("_thread_idx", "min"),
+            stop_idx=pd.NamedAgg("_thread_idx", "max"),
         )
         index_df["stop_idx"] += 1
 
