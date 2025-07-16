@@ -68,7 +68,9 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
 
-            cv = self._config.get("raw_data_loading", {}).get("cv")
+            cv = self._config.get("raw_data_loading", {}).get(
+                "cv"
+            )  # TODO: remove, also downstream
 
             dia_data = Thermo(
                 dia_data_path,
