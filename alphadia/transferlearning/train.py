@@ -241,7 +241,13 @@ class FinetuneManager(ModelManager):
         if set(self.charged_frag_types) != set(
             self.ms2_model.model.supported_charged_frag_types
         ):
-            self.reinitialize_ms2_model(charged_frag_types=self.charged_frag_types)
+            try:
+                self.reinitialize_ms2_model(charged_frag_types=self.charged_frag_types)
+            except AttributeError:
+                # TODO this is just a patch for the E2E tests, remove after peptdeep version bump
+                logger.warning(
+                    "Found custom charged frag types, but the MS2 model does not support them. This functionality requires peptdeep>=1.5.0"
+                )
         self.load_installed_models()
 
     def _reset_frag_idx(self, df):
