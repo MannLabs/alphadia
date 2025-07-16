@@ -159,6 +159,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.reporter,
             self.spectral_library,
             self.dia_data,
+            self._figure_path,
         )
 
         optimization_handler.search_parameter_optimization()
