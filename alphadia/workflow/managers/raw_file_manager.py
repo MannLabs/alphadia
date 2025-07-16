@@ -29,7 +29,7 @@ class RawFileManager(BaseManager):
 
         self._config: Config = config
 
-        # deliberately not saving the actual raw data here to avoid the saved manager file being too large
+        # deliberately not storing the dia_data object as an instance variable to avoid the saved manager file being too large
 
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
