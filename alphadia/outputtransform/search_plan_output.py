@@ -317,10 +317,10 @@ class SearchPlanOutput:
 
         logger.info("Performing protein inference")
 
-        psm_df["mods"].fillna("", inplace=True)
+        psm_df["mods"] = psm_df["mods"].fillna("")
         # make mods column a string not object
         psm_df["mods"] = psm_df["mods"].astype(str)
-        psm_df["mod_sites"].fillna("", inplace=True)
+        psm_df["mod_sites"] = psm_df["mod_sites"].fillna("")
         # make mod_sites column a string not object
         psm_df["mod_sites"] = psm_df["mod_sites"].astype(str)
         psm_df = precursor.hash_precursor_df(psm_df)
