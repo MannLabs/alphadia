@@ -120,9 +120,23 @@ class BasicStats(Metrics):
         """Calculate metrics."""
         df = self._data_store[OutputFiles.STAT]
 
-        for col in ["proteins", "precursors", "ms1_accuracy", "fwhm_rt"]:
-            self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
-            self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+        for col in [
+            "proteins",
+            "precursors",
+            "optimization.ms2_error",
+            "optimization.ms1_error",
+            "optimization.rt_error",
+            "optimization.mobility_error",
+            "calibration.ms2_median_accuracy",
+            "calibration.ms2_median_precision",
+            "calibration.ms1_median_accuracy",
+            "calibration.ms1_median_precision",
+        ]:
+            try:
+                self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()
+                self._metrics[f"{self._name}/{col}_std"] = df[col].std()
+            except Exception as e:
+                print(f"Error calculating {self._name} from {col}: {e}")
 
 
 def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str = None):
@@ -156,20 +170,24 @@ def _basic_plot(df: pd.DataFrame, test_case: str, metric: str, metric_std: str =
 
         labels.append(f"{x}:\n{y} [{z}]")
 
-    ax.set_xticks(df.index, labels, rotation=66)
+    ax.set_xticks(df.index, labels, rotation=90)
 
     return fig
 
 
-def _get_history_plots(test_results: dict, metrics_classes: list):
-    """Get all past runs from neptune, add the current one and create plots."""
+def _get_history_plots(test_results: dict, metrics_classes: list, limit: int = 30):
+    """Get last `limit` runs from neptune for test_case_name, add the current one and create plots."""
+
+    test_case_name = test_results["test_case"]
 
     test_results = test_results.copy()
     test_results["sys/creation_time"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
     test_results_df = pd.DataFrame(test_results, index=[0])
 
     project = neptune.init_project(project=NEPTUNE_PROJECT_NAME, mode="read-only")
-    runs_table_df = project.fetch_runs_table().to_pandas()
+    runs_table_df = project.fetch_runs_table(
+        tag=test_case_name, limit=limit
+    ).to_pandas()
 
     df = pd.concat([runs_table_df, test_results_df])
 
@@ -211,12 +229,12 @@ if __name__ == "__main__":
     try:
         data_store = DataStore(output_path)
 
-        for cl in metrics_classes:
-            metrics = cl(data_store).get()
-            print(cl, metrics)
+        for metrics_class in metrics_classes:
+            metrics = metrics_class(data_store).get()
+            print(metrics_class, metrics)
             test_results |= metrics
     except Exception as e:
-        print(e)
+        print("Exception calculating metrics: ", e)
 
     print(test_results)
 
@@ -242,7 +260,7 @@ if __name__ == "__main__":
         print("adding", file_name)
         file_path = os.path.join(output_path, file_name)
         if os.path.exists(file_path):
-            neptune_run["output/" + file_name].track_files(file_path)
+            neptune_run["output/" + file_name].upload(file_path)
 
     try:
         history_plots = _get_history_plots(test_results, metrics_classes)
