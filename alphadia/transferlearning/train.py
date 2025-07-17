@@ -6,14 +6,17 @@ import torch
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
+from peptdeep.model.charge import ChargeModelForModAASeq
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
+from peptdeep.settings import global_settings
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
 from alphadia.transferlearning.metrics import (
     AbsErrorPercentileTestMetric,
-    BinaryCrossEntropyTestMetric,
+    AccuracyTestMetric,
+    CELossTestMetric,
     L1LossTestMetric,
     LinearRegressionTestMetric,
     MetricManager,
@@ -215,7 +218,6 @@ class FinetuneManager(ModelManager):
         max_lr: float = 0.0005,
         nce: float = 25,
         instrument: str = "Lumos",
-        charged_frag_types: list[str] | None = None,
     ):
         super().__init__(mask_modloss, device)
         self._test_interval = test_interval
@@ -228,7 +230,7 @@ class FinetuneManager(ModelManager):
         self._max_lr = max_lr
         self.nce = nce
         self.instrument = instrument
-        self.charged_frag_types = charged_frag_types or ["b_z1", "b_z2", "y_z1", "y_z2"]
+
         self.device = device
         self.early_stopping = EarlyStopping(patience=(lr_patience // test_interval) * 4)
 
@@ -236,13 +238,6 @@ class FinetuneManager(ModelManager):
             self._train_fraction + self._validation_fraction + self._test_fraction
             <= 1.0
         ), "The sum of the train, validation and test fractions should be less than or equal to 1.0"
-
-        # if requested charged frag types are different than the default ones, update the ms2 model
-        if set(self.charged_frag_types) != set(
-            self.ms2_model.model.supported_charged_frag_types
-        ):
-            self.reinitialize_ms2_model(charged_frag_types=self.charged_frag_types)
-        self.load_installed_models()
 
     def _reset_frag_idx(self, df):
         """
@@ -330,7 +325,7 @@ class FinetuneManager(ModelManager):
         property_name : str
             The property name to accumulate the metrics for.
         """
-        loss_name = "bce_loss" if property_name == "charge" else "l1_loss"
+        loss_name = "ce_loss" if property_name == "charge" else "l1_loss"
         metric_accumulator.accumulate_metrics(
             epoch,
             metric=epoch_loss,
@@ -386,7 +381,7 @@ class FinetuneManager(ModelManager):
             test_input, epoch, data_split=data_split, property_name=property_name
         )
         if epoch != -1 and data_split == "validation":
-            loss_name = "bce_loss" if property_name == "charge" else "l1_loss"
+            loss_name = "ce_loss" if property_name == "charge" else "l1_loss"
             self._accumulate_training_metrics(
                 metric_accumulator, epoch, epoch_loss, current_lr, property_name
             )
@@ -458,9 +453,7 @@ class FinetuneManager(ModelManager):
             precursor_df["nce"] = default_nce
 
         precursor_copy = precursor_df.copy()
-        pred_intensities = self.ms2_model.predict(
-            precursor_copy, allow_unsafe_predictions=True
-        )
+        pred_intensities = self.ms2_model.predict(precursor_copy)
 
         test_input = {
             "psm_df": precursor_df,
@@ -543,13 +536,12 @@ class FinetuneManager(ModelManager):
         test_psm_df = psm_df.drop(train_psm_df.index).drop(val_psm_df.index).copy()
 
         train_intensity_df = pd.DataFrame()
-        for frag_type in self.charged_frag_types:
+        for frag_type in self.ms2_model.charged_frag_types:
             if frag_type in matched_intensity_df.columns:
                 train_intensity_df[frag_type] = matched_intensity_df[frag_type]
             else:
                 train_intensity_df[frag_type] = 0.0
-        # selected fragment types
-        train_intensity_df = train_intensity_df[self.charged_frag_types]
+
         val_intensity_df = train_intensity_df.copy()
         test_intensity_df = train_intensity_df.copy()
 
@@ -607,17 +599,14 @@ class FinetuneManager(ModelManager):
         self.early_stopping.reset()
 
         # Test the model before training
-        if set(self.charged_frag_types).issubset(
-            set(self.ms2_model.model.supported_charged_frag_types)
-        ):
-            self._test_ms2(
-                -1,
-                0,
-                reordered_val_psm_df,
-                reordered_val_intensity_df,
-                test_metric_manager,
-                data_split="validation",
-            )
+        self._test_ms2(
+            -1,
+            0,
+            reordered_val_psm_df,
+            reordered_val_intensity_df,
+            test_metric_manager,
+            data_split="validation",
+        )
         # Train the model
         logger.progress(" Fine-tuning MS2 model with the following settings:")
         logger.info(
@@ -810,7 +799,7 @@ class FinetuneManager(ModelManager):
             return continue_training
 
         self.charge_model.model.eval()
-        test_df = test_df.copy()
+
         pred = self.charge_model.predict(test_df)
         test_input = {
             "target": np.array(test_df["charge_indicators"].values.tolist()),
@@ -845,11 +834,32 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
+        max_charge = np.max(psm_df["charge"])
+        min_charge = np.min(psm_df["charge"])
 
-        # create the charge indicators column and group by the mod_seq
-        psm_df = self.charge_model.create_charge_indicators(
-            psm_df,
-            group_by_modseq=True,
+        if self.charge_model is None:
+            self.charge_model = ChargeModelForModAASeq(
+                max_charge=max_charge, min_charge=min_charge, device=self.device
+            )
+            self.charge_model.predict_batch_size = global_settings["model_mgr"][
+                "predict"
+            ]["batch_size_charge"]
+            self.charge_prob_cutoff = global_settings["model_mgr"]["charge_prob_cutoff"]
+            self.use_predicted_charge_in_speclib = global_settings["model_mgr"][
+                "use_predicted_charge_in_speclib"
+            ]
+
+        template_charge_indicators = np.zeros(max_charge - min_charge + 1)
+        all_possible_charge_indicators = {
+            charge: template_charge_indicators.copy()
+            for charge in range(min_charge, max_charge + 1)
+        }
+        for charge in all_possible_charge_indicators:
+            all_possible_charge_indicators[charge][charge - min_charge] = 1.0
+
+        # map charge to a new column where the new column value is charge_indicators[charge-min_charge] = 1.0
+        psm_df["charge_indicators"] = psm_df["charge"].map(
+            all_possible_charge_indicators
         )
 
         # Shuffle the psm_df and split it into train and test
@@ -861,14 +871,15 @@ class FinetuneManager(ModelManager):
 
         test_metric_manager = MetricManager(
             test_metrics=[
-                BinaryCrossEntropyTestMetric(),
-                PrecisionRecallTestMetric(self.charge_prob_cutoff),
+                CELossTestMetric(),
+                AccuracyTestMetric(),
+                PrecisionRecallTestMetric(),
             ],
         )
 
         callback_handler = CustomCallbackHandler(
             self._test_charge,
-            test_df=val_df.copy(),
+            test_df=val_df,
             metric_accumulator=test_metric_manager,
             data_split="validation",
         )
