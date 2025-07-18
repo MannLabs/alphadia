@@ -153,7 +153,7 @@ class GaussianKernel:
         sigma_scaled = sigma * self.sigma_scale_mobility / mobility_resolution
         return sigma_scaled
 
-    def get_dense_matrix(self, verbose: bool = True):
+    def get_dense_matrix(self, verbose: bool = True) -> np.ndarray:
         """
         Calculate the gaussian kernel for the given data set and parameters.
 

@@ -6,8 +6,13 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
+from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.peakgroup import fft
-from alphadia.peakgroup.config_df import CandidateDF, PrecursorFlatDF
+from alphadia.peakgroup.config_df import (
+    CandidateDF,
+    HybridCandidateConfig,
+    PrecursorFlatDF,
+)
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
     amean1,
@@ -30,24 +35,56 @@ logger = logging.getLogger()
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
     i,
-    jit_data,
+    dia_data_jit,
     precursor_container,
     candidate_container,
     fragment_container,
-    config,
+    config_jit,
     kernel,
-    debug,
 ):
     _select_candidates(
         i,
-        jit_data,
+        dia_data_jit,
         precursor_container,
         candidate_container,
         fragment_container,
-        config,
+        config_jit,
         kernel,
-        debug,
     )
+
+
+def _is_valid(
+    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: pd.DataFrame
+) -> bool:
+    """Perform sanity checks and return False if any of them fails."""
+
+    if dense_fragments.shape[0] == 0:
+        # "Empty dense fragment matrix"
+        return False
+
+    if dense_precursors.shape[0] == 0:
+        # "Empty dense precursor matrix"
+        return False
+
+    if dense_fragments.shape[2] % 2 != 0:
+        # "Dense fragment matrix not divisible by 2"
+        return False
+
+    if (
+        dense_precursors.shape[2] < kernel.shape[0]
+        or dense_precursors.shape[3] < kernel.shape[1]
+    ):
+        # "Precursor matrix smaller than convolution kernel"
+        return False
+
+    if (
+        dense_fragments.shape[2] < kernel.shape[0]
+        or dense_fragments.shape[3] < kernel.shape[1]
+    ):
+        # "Fragment matrix smaller than convolution kernel"
+        return False
+
+    return True
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
@@ -59,7 +96,6 @@ def _select_candidates(
     fragment_container,
     config,
     kernel,
-    debug,
 ):
     # prepare precursor isotope intensity
     # (n_isotopes)
@@ -124,31 +160,7 @@ def _select_candidates(
     # FLAG: needed for debugging
     # self.dense_fragments = dense_fragments
 
-    # perform sanity checks
-    if dense_fragments.shape[0] == 0:
-        # "Empty dense fragment matrix"
-        return
-
-    if dense_precursors.shape[0] == 0:
-        # "Empty dense precursor matrix"
-        return
-
-    if dense_fragments.shape[2] % 2 != 0:
-        # "Dense fragment matrix not divisible by 2"
-        return
-
-    if (
-        dense_precursors.shape[2] < kernel.shape[0]
-        or dense_precursors.shape[3] < kernel.shape[1]
-    ):
-        # "Precursor matrix smaller than convolution kernel"
-        return
-
-    if (
-        dense_fragments.shape[2] < kernel.shape[0]
-        or dense_fragments.shape[3] < kernel.shape[1]
-    ):
-        # "Fragment matrix smaller than convolution kernel"
+    if not _is_valid(dense_fragments, dense_precursors, kernel):
         return
 
     if config.use_weighted_score:
@@ -165,18 +177,14 @@ def _select_candidates(
         precursor_container.precursor_idx[i],
         candidate_container,
         precursor_container.candidate_start_idx[i],
-        precursor_container.candidate_stop_idx[i],
         dense_precursors,
         dense_fragments,
-        isotope_intensity,
-        fragment_container_slice.intensity,
         kernel,
         jit_data,
         config,
         scan_limits,
         frame_limits,
         candidate_count=config.candidate_count,
-        debug=debug,
         weights=weights,
         mean=mean,
         std=std,
@@ -345,18 +353,14 @@ def _build_candidates(
     precursor_idx,
     candidate_container,
     candidate_start_idx,
-    candidate_stop_idx,
     dense_precursors,
     dense_fragments,
-    precursor_intensity,
-    fragment_intensity,
     kernel,
     jit_data,
     config,
     scan_limits,
     frame_limits,
     candidate_count=3,
-    debug=False,
     weights=None,
     mean=None,
     std=None,
@@ -517,28 +521,33 @@ def _build_candidates(
 class HybridCandidateSelection:
     def __init__(
         self,
-        dia_data,
-        precursors_flat,
-        fragments_flat,
-        config,
-        rt_column="rt_library",
-        mobility_column="mobility_library",
-        precursor_mz_column="mz_library",
-        fragment_mz_column="mz_library",
-        fwhm_rt=5.0,
-        fwhm_mobility=0.012,
-        feature_path=None,
+        dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT,
+        precursors_flat: pd.DataFrame,
+        fragments_flat: pd.DataFrame,
+        config: HybridCandidateConfig,
+        rt_column: str = "rt_library",
+        mobility_column: str = "mobility_library",
+        precursor_mz_column: str = "mz_library",
+        fragment_mz_column: str = "mz_library",
+        fwhm_rt: float = 5.0,
+        fwhm_mobility: float = 0.012,
     ):
         """select candidates for MS2 extraction based on MS1 features
 
         Parameters
         ----------
 
-        dia_data : alphadia.data.bruker.TimsTOFDIA
+        dia_data : bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT
             dia data object
 
-        precursors_flat : pandas.DataFrame
+        precursors_flat : pd.DataFrame
             flattened precursor dataframe
+
+        fragments_flat : pd.DataFrame
+            flattened fragment dataframe
+
+        config : HybridCandidateConfig
+            config object
 
         rt_column : str, optional
             name of the rt column in the precursor dataframe, by default 'rt_library'
@@ -552,12 +561,19 @@ class HybridCandidateSelection:
         fragment_mz_column : str, optional
             name of the fragment mz column in the fragment dataframe, by default 'mz_library'
 
+        fwhm_rt : float, optional
+            full width at half maximum in RT dimension for the GaussianKernel, by default 5.0
+
+        fwhm_mobility : float, optional
+            full width at half maximum in mobility dimension for the GaussianKernel, by default 0.012
         """
-        self.dia_data = dia_data
+        self.dia_data_jit = dia_data.jitclass()
+
         self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
             drop=True
         )
         self.fragments_flat = fragments_flat
+        self.config_jit = config.jitclass()
 
         self.rt_column = rt_column
         self.precursor_mz_column = precursor_mz_column
@@ -565,23 +581,17 @@ class HybridCandidateSelection:
         self.mobility_column = mobility_column
 
         gaussian_filter = GaussianKernel(
-            dia_data,
+            self.dia_data_jit,
             fwhm_rt=fwhm_rt,
-            sigma_scale_rt=config.sigma_scale_rt,
+            sigma_scale_rt=self.config_jit.sigma_scale_rt,
             fwhm_mobility=fwhm_mobility,
-            sigma_scale_mobility=config.sigma_scale_mobility,
-            kernel_width=config.kernel_size,
-            kernel_height=min(config.kernel_size, dia_data.scan_max_index + 1),
+            sigma_scale_mobility=self.config_jit.sigma_scale_mobility,
+            kernel_width=self.config_jit.kernel_size,
+            kernel_height=min(
+                self.config_jit.kernel_size, self.dia_data_jit.scan_max_index + 1
+            ),
         )
         self.kernel = gaussian_filter.get_dense_matrix()
-
-        self.available_isotopes = utils.get_isotope_columns(
-            self.precursors_flat.columns
-        )
-        self.available_isotope_columns = [f"i_{i}" for i in self.available_isotopes]
-
-        self.config = config
-        self.feature_path = feature_path
 
     def __call__(self, thread_count: int = 10, debug: bool = False) -> pd.DataFrame:
         """
@@ -594,7 +604,7 @@ class HybridCandidateSelection:
         The candidate selection is performed in parallel using the alphatims.utils.pjit function.
 
         3. Finally, the candidates are collected from the ElutionGroup,
-        assembled into a pandas.DataFrame and precursor information is appended.
+        assembled into a pd.DataFrame and precursor information is appended.
 
         Returns
         -------
@@ -608,27 +618,26 @@ class HybridCandidateSelection:
         # initialize input container
         precursor_container = self._assemble_precursor_df(self.precursors_flat)
         candidate_container = CandidateDF(
-            len(self.precursors_flat) * self.config.candidate_count
+            len(self.precursors_flat) * self.config_jit.candidate_count
         )
         fragment_container = self._assemble_fragments()
 
-        # if debug mode, only iterate over 10 elution groups
-        iterator_len = (
-            min(10, len(self.precursors_flat)) if debug else len(self.precursors_flat)
-        )
-        thread_count = 1 if debug else thread_count
+        iterator_len = len(self.precursors_flat)
+
+        if debug:
+            iterator_len = min(10, len(self.precursors_flat))
+            thread_count = 1
 
         alphatims.utils.set_threads(thread_count)
 
         _select_candidates_pjit(
             range(iterator_len),
-            self.dia_data,
+            self.dia_data_jit,
             precursor_container,
             candidate_container,
             fragment_container,
-            self.config,
+            self.config_jit,
             self.kernel,
-            debug,
         )
 
         return self._collect_candidates(candidate_container)
@@ -702,12 +711,12 @@ class HybridCandidateSelection:
 
         candidate_start_index = np.arange(
             0,
-            len(precursors_flat) * self.config.candidate_count,
-            self.config.candidate_count,
+            len(precursors_flat) * self.config_jit.candidate_count,
+            self.config_jit.candidate_count,
             dtype=np.uint32,
         )
         candidate_stop_index = (
-            candidate_start_index + self.config.candidate_count
+            candidate_start_index + self.config_jit.candidate_count
         ).astype(np.uint32)
 
         return PrecursorFlatDF(
