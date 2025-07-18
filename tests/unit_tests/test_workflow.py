@@ -350,7 +350,7 @@ def test_workflow_base():
             my_workflow.load(file, pd.DataFrame({}))
 
             assert my_workflow.config["output_directory"] == config["output_directory"]
-            assert my_workflow._instance_name == workflow_name
+            assert my_workflow.instance_name == workflow_name
             assert my_workflow.path == os.path.join(
                 config["output_directory"], base.QUANT_FOLDER_NAME, workflow_name
             )
