@@ -340,7 +340,7 @@ class SearchStep:
                         )
                         is_already_processed = True
                     logger.info(
-                        f"reuse_quant: found no existing quantification for {raw_name}, pcostroceeding with processing .."
+                        f"reuse_quant: found no existing quantification for {raw_name}, proceeding with processing .."
                     )
 
                 if not is_already_processed:
@@ -388,8 +388,6 @@ class SearchStep:
 
         psm_df, frag_df = workflow.extraction()
 
-        psm_df["run"] = workflow.instance_name
-
         if self.config["multiplexing"]["enabled"]:
             psm_df = workflow.requantify(psm_df)
 
@@ -398,14 +396,18 @@ class SearchStep:
         else:
             frag_transfer_df = None
 
-        workflow.reporter.log_string("Saving results ..")
         workflow_path = Path(workflow.path)
-        psm_df.to_parquet(workflow_path / SearchStepFiles.PSM_FILE_NAME, index=False)
-        frag_df.to_parquet(workflow_path / SearchStepFiles.FRAG_FILE_NAME, index=False)
-        if frag_transfer_df is not None:
-            frag_transfer_df.to_parquet(
-                workflow_path / SearchStepFiles.FRAG_TRANSFER_FILE_NAME, index=False
-            )
+        psm_df["run"] = workflow.instance_name
+
+        for file_name, df in {
+            SearchStepFiles.PSM_FILE_NAME: psm_df,
+            SearchStepFiles.FRAG_FILE_NAME: frag_df,
+            SearchStepFiles.FRAG_TRANSFER_FILE_NAME: frag_transfer_df,
+        }.items():
+            if df is not None:
+                file_path = workflow_path / file_name
+                workflow.reporter.log_string(f"Saving results to {file_path}")
+                df.to_parquet(file_path, index=False)
 
         workflow.timing_manager.set_end_time("total")
         workflow.timing_manager.save()
