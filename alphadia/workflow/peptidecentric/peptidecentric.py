@@ -1,3 +1,5 @@
+import os
+
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
@@ -8,6 +10,7 @@ from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.fragment_requantification_handler import (
@@ -86,6 +89,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             quant_path,
         )
         self._fdr_manager: FDRManager | None = None
+
+        self._timing_manager: TimingManager = TimingManager(
+            path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
+            load_from_file=self.config["general"]["reuse_calibration"],
+        )
 
     def load(
         self,
