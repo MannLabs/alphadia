@@ -62,8 +62,8 @@ class SearchPlanOutput:
         Parameters
         ----------
 
-        config: dict
-            Configuration dictionary
+        config: Config
+            Configuration object
 
         output_folder: str
             Output folder

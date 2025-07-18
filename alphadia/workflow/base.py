@@ -40,10 +40,10 @@ class WorkflowBase:
         ----------
 
         instance_name: str
-            Name for the particular workflow instance. this will usually be the name of the raw file
+            Name for the particular workflow instance, e.g. the name of the raw file
 
-        config: dict
-            Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
+        config: Config
+            Configuration for the workflow.
 
         quant_path: str
             path to directory holding quant folders, relevant for distributed searches
