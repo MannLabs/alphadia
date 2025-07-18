@@ -108,7 +108,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Initializing workflow {self._instance_name}", verbosity="progress"
+            f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
 
         config_fdr = self.config["fdr"]

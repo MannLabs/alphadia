@@ -49,7 +49,7 @@ class WorkflowBase:
             path to directory holding quant folders, relevant for distributed searches
 
         """
-        self._instance_name: str = instance_name
+        self.instance_name: str = instance_name
 
         quant_path_ = quant_path or os.path.join(
             config[ConfigKeys.OUTPUT_DIRECTORY], QUANT_FOLDER_NAME
@@ -57,7 +57,7 @@ class WorkflowBase:
 
         logger.info(f"Quantification results path: {quant_path_}")
 
-        self._path = os.path.join(quant_path_, self._instance_name)
+        self._path = os.path.join(quant_path_, self.instance_name)
 
         self._figure_path: str = (
             os.path.join(self.path, FIGURES_FOLDER_NAME)

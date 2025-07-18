@@ -296,12 +296,8 @@ class SearchStep:
             raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
-        for i, raw_location in enumerate(self.raw_path_list):
+        for raw_location in self.raw_path_list:
             raw_name = Path(raw_location).stem
-            logger.progress(
-                f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
-            )
-
             yield raw_name, raw_location, self.spectral_library
 
     def run(
@@ -311,10 +307,45 @@ class SearchStep:
 
         workflow_folder_list = []
 
-        for raw_name, dia_path, speclib in self.get_run_data():
+        for i, (raw_name, dia_path, speclib) in enumerate(self.get_run_data()):
             workflow = None
+            logger.progress(
+                f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
+            )
+
             try:
-                workflow = self._process_raw_file(dia_path, raw_name, speclib)
+                workflow = PeptideCentricWorkflow(
+                    raw_name,
+                    self.config,
+                    quant_path=self.config["quant_directory"],
+                )
+                workflow_path = Path(workflow.path)
+
+                # check if the raw file is already processed, i.e. if all relevant files exist
+                do_process = True
+                if self.config["general"]["reuse_quant"]:
+                    required_files = [
+                        SearchStepFiles.PSM_FILE_NAME,
+                        SearchStepFiles.FRAG_FILE_NAME,
+                    ]
+                    if self.config["transfer_library"]["enabled"]:
+                        required_files.append(SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
+
+                    if all(
+                        (workflow_path / file_name).exists()
+                        for file_name in required_files
+                    ):
+                        logger.info(
+                            f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
+                        )
+                        do_process = False
+                    logger.info(
+                        f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
+                    )
+
+                if do_process:
+                    self._process_raw_file(workflow, dia_path, speclib)
+
                 workflow_folder_list.append(workflow.path)
 
             except Exception as e:
@@ -346,45 +377,18 @@ class SearchStep:
         logger.progress("=================== Search Finished ===================")
 
     def _process_raw_file(
-        self, dia_path: str, raw_name: str, speclib: SpecLibFlat
-    ) -> PeptideCentricWorkflow:
-        """Process a single raw file."""
-
-        workflow = PeptideCentricWorkflow(
-            raw_name,
-            self.config,
-            quant_path=self.config["quant_directory"],
-        )
+        self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat
+    ) -> None:
+        """Process a single raw file, storing the results on disk."""
         workflow.timing_manager.set_start_time("total")
-
-        # check if the raw file is already processed
-        psm_location = os.path.join(workflow.path, SearchStepFiles.PSM_FILE_NAME)
-        frag_location = os.path.join(workflow.path, SearchStepFiles.FRAG_FILE_NAME)
-        frag_transfer_location = os.path.join(
-            workflow.path, SearchStepFiles.FRAG_TRANSFER_FILE_NAME
-        )
-
-        if self.config["general"]["reuse_quant"]:
-            files_exist = os.path.exists(psm_location) and os.path.exists(frag_location)
-            if self.config["transfer_library"]["enabled"]:
-                files_exist = files_exist and os.path.exists(frag_transfer_location)
-
-            if files_exist:
-                logger.info(
-                    f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
-                )
-                return workflow
-            logger.info(
-                f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
-            )
 
         workflow.load(dia_path, speclib)
 
         workflow.search_parameter_optimization()
 
         psm_df, frag_df = workflow.extraction()
-        frag_df.to_parquet(frag_location, index=False)
 
+        psm_df["run"] = workflow.instance_name
         psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
         if self.config["multiplexing"]["enabled"]:
@@ -393,15 +397,20 @@ class SearchStep:
 
         if self.config["transfer_library"]["enabled"]:
             psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)
-            frag_transfer_df.to_parquet(frag_transfer_location, index=False)
+        else:
+            frag_transfer_df = None
 
-        psm_df["run"] = raw_name
-        psm_df.to_parquet(psm_location, index=False)
+        workflow.reporter.log_string("Saving results ..")
+        workflow_path = Path(workflow.path)
+        psm_df.to_parquet(workflow_path / SearchStepFiles.PSM_FILE_NAME, index=False)
+        frag_df.to_parquet(workflow_path / SearchStepFiles.FRAG_FILE_NAME, index=False)
+        if frag_transfer_df is not None:
+            frag_transfer_df.to_parquet(
+                workflow_path / SearchStepFiles.FRAG_TRANSFER_FILE_NAME, index=False
+            )
 
         workflow.timing_manager.set_end_time("total")
         workflow.timing_manager.save()
-
-        return workflow
 
     def _clean(self):
         if not self.config["general"]["save_library"]:
