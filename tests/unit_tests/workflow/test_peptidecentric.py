@@ -12,7 +12,7 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 @pytest.fixture
 def mock_config():
     return {
-        "general": {"save_figures": True},
+        "general": {"save_figures": True, "reuse_calibration": False},
         "output_directory": "",
         "calibration": {"min_correlation": 0.55, "max_fragments": 3},
     }
