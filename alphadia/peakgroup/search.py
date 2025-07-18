@@ -9,10 +9,11 @@ from alphadia import utils
 from alphadia.data import alpharaw_wrapper, bruker
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
-    CandidateDF,
+    CandidateContainer,
     HybridCandidateConfig,
     HybridCandidateConfigJIT,
-    PrecursorFlatDF,
+    PrecursorFlatContainer,
+    candidate_container_to_df,
 )
 from alphadia.peakgroup.kernel import GaussianKernel
 from alphadia.peakgroup.utils import (
@@ -35,10 +36,10 @@ logger = logging.getLogger()
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
-    i: int,
+    i: int,  # pjit decorator changes the passed argument from an iterable to single index
     dia_data_jit: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
-    precursor_container: PrecursorFlatDF,
-    candidate_container: CandidateDF,
+    precursor_container: PrecursorFlatContainer,
+    candidate_container: CandidateContainer,
     fragment_container: FragmentContainer,
     config_jit: HybridCandidateConfigJIT,
     kernel: np.ndarray,
@@ -54,8 +55,9 @@ def _select_candidates_pjit(
     )
 
 
+@nb.njit(cache=USE_NUMBA_CACHING)
 def _is_valid(
-    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: pd.DataFrame
+    dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: np.ndarray
 ) -> bool:
     """Perform sanity checks and return False if any of them fails."""
 
@@ -92,8 +94,8 @@ def _is_valid(
 def _select_candidates(
     i: int,
     jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
-    precursor_container: PrecursorFlatDF,
-    candidate_container: CandidateDF,
+    precursor_container: PrecursorFlatContainer,
+    candidate_container: CandidateContainer,
     fragment_container: FragmentContainer,
     config: HybridCandidateConfigJIT,
     kernel: np.ndarray,
@@ -361,7 +363,7 @@ def _join_overlapping_candidates(
 @nb.njit(fastmath=True, cache=USE_NUMBA_CACHING)
 def _build_candidates(
     precursor_idx: int,
-    candidate_container: CandidateDF,
+    candidate_container: CandidateContainer,
     candidate_start_idx: int,
     dense_precursors: np.ndarray,
     dense_fragments: np.ndarray,
@@ -378,42 +380,41 @@ def _build_candidates(
     cycle_length = jit_data.cycle.shape[1]
 
     feature_weights = np.ones(1) if weights is None else weights
-
     feature_weights = feature_weights.reshape(-1, 1, 1)
 
     smooth_precursor = fft.convolve_fourier(dense_precursors, kernel)
     smooth_fragment = fft.convolve_fourier(dense_fragments, kernel)
 
     if smooth_precursor.shape != dense_precursors.shape:
-        print(smooth_precursor.shape, dense_precursors.shape)
-        print("smooth_precursor shape does not match dense_precursors shape")
+        print(
+            f"smooth_precursor shape does not match dense_precursors shape {smooth_precursor.shape} != {dense_precursors.shape}"
+        )
     if smooth_fragment.shape != dense_fragments.shape:
-        print(smooth_fragment.shape, dense_fragments.shape)
-        print("smooth_fragment shape does not match dense_fragments shape")
+        print(
+            f"smooth_fragment shape does not match dense_precursors shape {smooth_fragment.shape} != {dense_fragments.shape}"
+        )
 
     feature_matrix = _build_features(smooth_precursor, smooth_fragment).astype(
         "float32"
     )
 
     # get mean and std to normalize features
-    # if trained, use the mean and std from training
-    # otherwise calculate the mean and std from the current data
-    if mean is None:
-        feature_mean = amean1(feature_matrix).reshape(-1, 1, 1)
-    else:
-        feature_mean = mean.reshape(-1, 1, 1)
-    # feature_mean = feature_mean.reshape(-1,1,1)
+    # if trained, use the mean and std from training, otherwise calculate the mean and std from the current data
+    feature_mean = (
+        amean1(feature_matrix).reshape(-1, 1, 1)
+        if mean is None
+        else mean.reshape(-1, 1, 1)
+    )
 
-    if std is None:
-        feature_std = astd1(feature_matrix).reshape(-1, 1, 1)
-    else:
-        feature_std = std.reshape(-1, 1, 1)
-    # feature_std = feature_std.reshape(-1,1,1)
+    feature_std = (
+        astd1(feature_matrix).reshape(-1, 1, 1)
+        if std is None
+        else std.reshape(-1, 1, 1)
+    )
 
-    # make sure that mean, std and weights have the same shape
     if not (feature_std.shape == feature_mean.shape == feature_weights.shape):
         raise ValueError(
-            "feature_mean, feature_std and feature_weights must have the same shape"
+            f"feature_mean.shape={feature_mean.shape}, feature_std.shape={feature_std.shape} and feature_weights.shape={feature_weights.shape} must be equal"
         )
 
     feature_matrix_norm = (
@@ -422,16 +423,9 @@ def _build_candidates(
 
     score = np.sum(feature_matrix_norm, axis=0)
 
-    # identify distinct peaks
-    #  check if there is a real ion mobility dimension
-    if score.shape[0] <= 2:
-        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_1d(
-            score, top_n=candidate_count
-        )
-    else:
-        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_2d(
-            score, top_n=candidate_count
-        )
+    peak_scan_list, peak_cycle_list, peak_score_list = _find_peaks(
+        score, candidate_count
+    )
 
     peak_mask = _join_close_peaks(
         peak_scan_list, peak_cycle_list, peak_score_list, 3, 3
@@ -526,6 +520,24 @@ def _build_candidates(
         candidate_container.frame_center[candidate_index] = frame_absolute
         candidate_container.frame_start[candidate_index] = frame_limits_absolute[0]
         candidate_container.frame_stop[candidate_index] = frame_limits_absolute[1]
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def _find_peaks(
+    score: np.ndarray,
+    candidate_count: int,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Identify distinct peaks."""
+    #  check if there is a real ion mobility dimension
+    if score.shape[0] <= 2:
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_1d(
+            score, top_n=candidate_count
+        )
+    else:
+        peak_scan_list, peak_cycle_list, peak_score_list = find_peaks_2d(
+            score, top_n=candidate_count
+        )
+    return peak_scan_list, peak_cycle_list, peak_score_list
 
 
 class HybridCandidateSelection:
@@ -626,11 +638,11 @@ class HybridCandidateSelection:
         logging.info("Starting candidate selection")
 
         # initialize input container
-        precursor_container = self._assemble_precursor_df(self.precursors_flat)
-        candidate_container = CandidateDF(
+        precursor_container = self._assemble_precursor_container(self.precursors_flat)
+        candidate_container = CandidateContainer(
             len(self.precursors_flat) * self.config_jit.candidate_count
         )
-        fragment_container = self._assemble_fragments()
+        fragment_container = self._assemble_fragment_container()
 
         iterator_len = len(self.precursors_flat)
 
@@ -641,7 +653,7 @@ class HybridCandidateSelection:
         alphatims.utils.set_threads(thread_count)
 
         _select_candidates_pjit(
-            range(iterator_len),
+            range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             self.dia_data_jit,
             precursor_container,
             candidate_container,
@@ -652,48 +664,29 @@ class HybridCandidateSelection:
 
         return self._collect_candidates(candidate_container)
 
-    def _collect_candidates(self, candidate_container: CandidateDF) -> pd.DataFrame:
-        candidate_df = pd.DataFrame(
-            {
-                key: value
-                for key, value in zip(
-                    [
-                        "precursor_idx",
-                        "rank",
-                        "score",
-                        "scan_center",
-                        "scan_start",
-                        "scan_stop",
-                        "frame_center",
-                        "frame_start",
-                        "frame_stop",
-                    ],
-                    candidate_container.to_candidate_df(),
-                    strict=True,
-                )
-            }
-        )
-        candidate_df = candidate_df.merge(
+    def _collect_candidates(
+        self, candidate_container: CandidateContainer
+    ) -> pd.DataFrame:
+        candidate_df = candidate_container_to_df(candidate_container)
+
+        candidate_with_precursors_df = candidate_df.merge(
             self.precursors_flat[["precursor_idx", "elution_group_idx", "decoy"]],
             on="precursor_idx",
             how="left",
         )
-        return candidate_df
+        return candidate_with_precursors_df
 
-    def _assemble_fragments(self) -> FragmentContainer:
+    def _assemble_fragment_container(self) -> FragmentContainer:
         # set cardinality to 1 if not present
         if "cardinality" in self.fragments_flat.columns:
-            self.fragments_flat["cardinality"] = self.fragments_flat[
-                "cardinality"
-            ].values
-
+            cardinality_values = self.fragments_flat["cardinality"].values
         else:
             logging.warning(
                 "Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1."
             )
-            self.fragments_flat["cardinality"] = np.ones(
-                len(self.fragments_flat), dtype=np.uint8
-            )
+            cardinality_values = np.ones(len(self.fragments_flat), dtype=np.uint8)
+
+        self.fragments_flat["cardinality"] = cardinality_values
 
         # prepare jitclass compatible dtypes
         fragments_flat_schema.validate(
@@ -712,7 +705,9 @@ class HybridCandidateSelection:
             self.fragments_flat["cardinality"].values,
         )
 
-    def _assemble_precursor_df(self, precursors_flat: pd.DataFrame) -> PrecursorFlatDF:
+    def _assemble_precursor_container(
+        self, precursors_flat: pd.DataFrame
+    ) -> PrecursorFlatContainer:
         # prepare jitclass compatible dtypes
         precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
 
@@ -729,7 +724,7 @@ class HybridCandidateSelection:
             candidate_start_index + self.config_jit.candidate_count
         ).astype(np.uint32)
 
-        return PrecursorFlatDF(
+        return PrecursorFlatContainer(
             precursors_flat["precursor_idx"].values,
             precursors_flat["flat_frag_start_idx"].values,
             precursors_flat["flat_frag_stop_idx"].values,

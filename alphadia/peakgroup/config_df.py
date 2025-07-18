@@ -2,6 +2,7 @@ import logging
 
 import numba as nb
 import numpy as np
+import pandas as pd
 
 from alphadia.utilities.jit_config import JITConfig
 
@@ -176,9 +177,8 @@ class HybridCandidateConfig(JITConfig):
         pass
 
 
-# TODO what is "DF"?
 @nb.experimental.jitclass
-class PrecursorFlatDF:
+class PrecursorFlatContainer:
     precursor_idx: nb.uint32[::1]
 
     frag_start_idx: nb.uint32[::1]
@@ -220,7 +220,7 @@ class PrecursorFlatDF:
 
 
 @nb.experimental.jitclass
-class CandidateDF:
+class CandidateContainer:
     precursor_idx: nb.uint32[::1]
     rank: nb.uint8[::1]
     score: nb.float32[::1]
@@ -249,28 +249,46 @@ class CandidateDF:
         self.frame_start = np.zeros(n_candidates, dtype=np.uint32)
         self.frame_stop = np.zeros(n_candidates, dtype=np.uint32)
 
-    def to_candidate_df(self, min_score=0):
+    def get_candidate_df_column_names(self) -> list[str]:
+        """Get the column names for the candidate DataFrame."""
+        return [
+            "precursor_idx",
+            "rank",
+            "score",
+            "scan_center",
+            "scan_start",
+            "scan_stop",
+            "frame_center",
+            "frame_start",
+            "frame_stop",
+        ]
+
+    def get_candidate_df_data(self, min_score: int = 0) -> tuple[np.ndarray, ...]:
+        """Prepare a tuple with the candidate data, filtering by minimum score."""
         mask = self.score > min_score
-        self.precursor_idx = self.precursor_idx[mask]
-        self.rank = self.rank[mask]
-        self.score = self.score[mask]
-
-        self.scan_center = self.scan_center[mask]
-        self.scan_start = self.scan_start[mask]
-        self.scan_stop = self.scan_stop[mask]
-
-        self.frame_center = self.frame_center[mask]
-        self.frame_start = self.frame_start[mask]
-        self.frame_stop = self.frame_stop[mask]
 
         return (
-            self.precursor_idx,
-            self.rank,
-            self.score,
-            self.scan_center,
-            self.scan_start,
-            self.scan_stop,
-            self.frame_center,
-            self.frame_start,
-            self.frame_stop,
+            self.precursor_idx[mask],
+            self.rank[mask],
+            self.score[mask],
+            self.scan_center[mask],
+            self.scan_start[mask],
+            self.scan_stop[mask],
+            self.frame_center[mask],
+            self.frame_start[mask],
+            self.frame_stop[mask],
         )
+
+
+def candidate_container_to_df(candidate_container: CandidateContainer) -> pd.DataFrame:
+    """Convert a CandidateContainer to pd.DataFrame."""
+    return pd.DataFrame(
+        {
+            key: value
+            for key, value in zip(
+                candidate_container.get_candidate_df_column_names(),
+                candidate_container.get_candidate_df_data(),
+                strict=True,
+            )
+        }
+    )
