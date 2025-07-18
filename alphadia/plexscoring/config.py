@@ -60,7 +60,7 @@ class CandidateConfigJIT:
         self.experimental_xic = experimental_xic
 
 
-class CandidateConfig(JITConfig):
+class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparameters
     """Config object for CandidateScoring."""
 
     def __init__(self):
