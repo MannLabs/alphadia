@@ -378,21 +378,12 @@ class SearchStep:
                 f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
             )
 
-        workflow.timing_manager.set_start_time("loading")
         workflow.load(dia_path, speclib)
-        workflow.timing_manager.set_end_time("loading")
 
-        workflow.timing_manager.set_start_time("optimization")
         workflow.search_parameter_optimization()
-        workflow.timing_manager.set_end_time("optimization")
-
-        workflow.timing_manager.set_start_time("extraction")
 
         psm_df, frag_df = workflow.extraction()
         frag_df.to_parquet(frag_location, index=False)
-
-        workflow.timing_manager.set_end_time("extraction")
-        workflow.timing_manager.save()
 
         psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
@@ -408,6 +399,7 @@ class SearchStep:
         psm_df.to_parquet(psm_location, index=False)
 
         workflow.timing_manager.set_end_time("total")
+        workflow.timing_manager.save()
 
         return workflow
 

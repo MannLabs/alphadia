@@ -104,9 +104,7 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
-        self._timing_manager.set_start_time("loading_raw_data")
         self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
-        self._timing_manager.set_end_time("loading_raw_data")
         raw_file_manager.save()
 
         self.reporter.log_event("loading_data", {"progress": 1})
