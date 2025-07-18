@@ -24,6 +24,7 @@ from alphadia.workflow.peptidecentric.requantification_handler import (
 from alphadia.workflow.peptidecentric.utils import (
     feature_columns,
     log_precursor_df,
+    use_timing_manager,
 )
 
 
@@ -95,6 +96,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             load_from_file=self.config["general"]["reuse_calibration"],
         )
 
+    @use_timing_manager("load")
     def load(
         self,
         dia_data_path: str,
@@ -143,6 +145,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.save()
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
+    @use_timing_manager("optimization")
     def search_parameter_optimization(self):
         """Performs optimization of the search parameters.
 
@@ -179,6 +182,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         self.calibration_manager.predict(self.spectral_library.fragment_df, "fragment")
 
+    @use_timing_manager("extraction")
     def extraction(self):
         extraction_handler = ExtractionHandler(
             self.config,
@@ -227,6 +231,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return precursor_df, fragments_df
 
+    @use_timing_manager("requantify")
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         """TODO.
 
@@ -252,6 +257,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         return psm_df
 
+    @use_timing_manager("requantify_fragments")
     def requantify_fragments(
         self, psm_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:

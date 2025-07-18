@@ -1,3 +1,5 @@
+from functools import wraps
+
 import pandas as pd
 
 from alphadia.reporting.reporting import Pipeline
@@ -151,3 +153,33 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
         "=========================================================================",
         verbosity="progress",
     )
+
+
+def use_timing_manager(phase_name: str):
+    """Decorator to record timing in TimingManager for a specific phase.
+
+    Works only if the first argument of the decorated function is a workflow instance with `timing_manager` attribute,
+    will do nothing otherwise.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            workflow_instance = args[0] if args else None
+            is_timing_supported = workflow_instance and hasattr(
+                workflow_instance, "timing_manager"
+            )
+
+            if is_timing_supported:
+                workflow_instance.timing_manager.set_start_time(phase_name)
+
+            result = func(*args, **kwargs)
+
+            if is_timing_supported:
+                workflow_instance.timing_manager.set_end_time(phase_name)
+
+            return result
+
+        return wrapper
+
+    return decorator
