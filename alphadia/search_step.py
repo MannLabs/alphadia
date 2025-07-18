@@ -322,7 +322,7 @@ class SearchStep:
                 workflow_path = Path(workflow.path)
 
                 # check if the raw file is already processed, i.e. if all relevant files exist
-                do_process = True
+                is_already_processed = False
                 if self.config["general"]["reuse_quant"]:
                     required_files = [
                         SearchStepFiles.PSM_FILE_NAME,
@@ -338,12 +338,12 @@ class SearchStep:
                         logger.info(
                             f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
                         )
-                        do_process = False
+                        is_already_processed = True
                     logger.info(
-                        f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
+                        f"reuse_quant: found no existing quantification for {raw_name}, pcostroceeding with processing .."
                     )
 
-                if do_process:
+                if not is_already_processed:
                     self._process_raw_file(workflow, dia_path, speclib)
 
                 workflow_folder_list.append(workflow.path)
