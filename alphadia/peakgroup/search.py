@@ -1,6 +1,6 @@
 import logging
 
-import alphatims
+import alphatims.utils
 import numba as nb
 import numpy as np
 import pandas as pd
@@ -34,27 +34,6 @@ from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_s
 logger = logging.getLogger()
 
 
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
-def _select_candidates_pjit(
-    i: int,  # pjit decorator changes the passed argument from an iterable to single index
-    dia_data_jit: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
-    precursor_container: PrecursorFlatContainer,
-    candidate_container: CandidateContainer,
-    fragment_container: FragmentContainer,
-    config_jit: HybridCandidateConfigJIT,
-    kernel: np.ndarray,
-) -> None:
-    _select_candidates(
-        i,
-        dia_data_jit,
-        precursor_container,
-        candidate_container,
-        fragment_container,
-        config_jit,
-        kernel,
-    )
-
-
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _is_valid(
     dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: np.ndarray
@@ -71,6 +50,10 @@ def _is_valid(
 
     if dense_fragments.shape[2] % 2 != 0:
         # "Dense fragment matrix not divisible by 2"
+        return False
+
+    if dense_precursors.shape[2] % 2 != 0:
+        # "Dense precursor matrix not divisible by 2"
         return False
 
     if (
@@ -90,16 +73,40 @@ def _is_valid(
     return True
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
-def _select_candidates(
-    i: int,
+@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
+def _select_candidates_pjit(
+    i: int,  # pjit decorator changes the passed argument from an iterable to single index
     jit_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
     precursor_container: PrecursorFlatContainer,
-    candidate_container: CandidateContainer,
     fragment_container: FragmentContainer,
     config: HybridCandidateConfigJIT,
     kernel: np.ndarray,
+    candidate_container: CandidateContainer,
 ) -> None:
+    """Select candidates for MS2 extraction based on MS1 features.
+
+    Parameters
+    ----------
+    i : int
+        Index of the precursor to process.
+    jit_data : bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT
+        JIT-compiled data object containing the raw data.
+    precursor_container : PrecursorFlatContainer
+        Container holding precursor information.
+    fragment_container : FragmentContainer
+        Container holding fragment information.
+    config : HybridCandidateConfigJIT
+        Configuration object containing parameters for candidate selection.
+    kernel : np.ndarray
+        Convolution kernel for smoothing the precursor and fragment data.
+    candidate_container : CandidateContainer
+        Container to store the selected candidates.
+
+    Returns
+    -------
+    None, results are stored in `candidate_container`.
+    """
+
     # prepare precursor isotope intensity
     # (n_isotopes)
     isotope_intensity = precursor_container.isotopes[i][: config.top_k_precursors]
@@ -630,19 +637,19 @@ class HybridCandidateSelection:
 
         Returns
         -------
-
         pd.DataFrame
             dataframe containing the extracted candidates
         """
 
         logging.info("Starting candidate selection")
 
-        # initialize input container
         precursor_container = self._assemble_precursor_container(self.precursors_flat)
+        fragment_container = self._assemble_fragment_container()
+
+        # initialize output container
         candidate_container = CandidateContainer(
             len(self.precursors_flat) * self.config_jit.candidate_count
         )
-        fragment_container = self._assemble_fragment_container()
 
         iterator_len = len(self.precursors_flat)
 
@@ -656,17 +663,12 @@ class HybridCandidateSelection:
             range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             self.dia_data_jit,
             precursor_container,
-            candidate_container,
             fragment_container,
             self.config_jit,
             self.kernel,
+            candidate_container,
         )
 
-        return self._collect_candidates(candidate_container)
-
-    def _collect_candidates(
-        self, candidate_container: CandidateContainer
-    ) -> pd.DataFrame:
         candidate_df = candidate_container_to_df(candidate_container)
 
         candidate_with_precursors_df = candidate_df.merge(
@@ -674,6 +676,7 @@ class HybridCandidateSelection:
             on="precursor_idx",
             how="left",
         )
+
         return candidate_with_precursors_df
 
     def _assemble_fragment_container(self) -> FragmentContainer:
