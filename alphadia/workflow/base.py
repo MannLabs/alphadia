@@ -104,15 +104,15 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
+        self._timing_manager.set_start_time("loading_raw_data")
         self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
+        self._timing_manager.set_end_time("loading_raw_data")
         raw_file_manager.save()
 
         self.reporter.log_event("loading_data", {"progress": 1})
 
-        # load the spectral library
         self._spectral_library: SpecLibFlat = spectral_library.copy()
 
-        # initialize the calibration manager
         self._calibration_manager = CalibrationManager(
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
@@ -120,7 +120,6 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
-        # initialize the optimization manager
         self._optimization_manager = OptimizationManager(
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
@@ -129,12 +128,6 @@ class WorkflowBase:
             figure_path=self._figure_path,
             reporter=self.reporter,
         )
-
-        self._timing_manager = TimingManager(
-            path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
-        )
-
         self.reporter.log_event("section_stop", {})
 
     @property

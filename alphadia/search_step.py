@@ -355,6 +355,7 @@ class SearchStep:
             self.config,
             quant_path=self.config["quant_directory"],
         )
+        workflow.timing_manager.set_start_time("total")
 
         # check if the raw file is already processed
         psm_location = os.path.join(workflow.path, SearchStepFiles.PSM_FILE_NAME)
@@ -377,7 +378,9 @@ class SearchStep:
                 f"reuse_quant: no existing quantification found for {raw_name}, proceeding with processing .."
             )
 
+        workflow.timing_manager.set_start_time("loading")
         workflow.load(dia_path, speclib)
+        workflow.timing_manager.set_end_time("loading")
 
         workflow.timing_manager.set_start_time("optimization")
         workflow.search_parameter_optimization()
@@ -403,6 +406,8 @@ class SearchStep:
 
         psm_df["run"] = raw_name
         psm_df.to_parquet(psm_location, index=False)
+
+        workflow.timing_manager.set_end_time("total")
 
         return workflow
 
