@@ -13,6 +13,7 @@ from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.peakgroup import search
+from alphadia.peakgroup.config_df import HybridCandidateConfig
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.plexscoring.utils import (
@@ -826,7 +827,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             verbosity="progress",
         )
 
-        config = search.HybridCandidateConfig()
+        config = HybridCandidateConfig()
         config.update(self.config["selection_config"])
         config.update(
             {
