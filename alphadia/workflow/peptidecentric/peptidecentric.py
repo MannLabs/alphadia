@@ -253,6 +253,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         psm_df = requantification_handler.requantify(self.dia_data, psm_df)
 
+        psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
+
         log_precursor_df(self.reporter, psm_df)
 
         return psm_df

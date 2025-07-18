@@ -393,7 +393,6 @@ class SearchStep:
 
         if self.config["multiplexing"]["enabled"]:
             psm_df = workflow.requantify(psm_df)
-            psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
         if self.config["transfer_library"]["enabled"]:
             psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)
