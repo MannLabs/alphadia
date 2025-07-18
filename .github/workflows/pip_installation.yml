@@ -35,7 +35,7 @@ jobs:
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
-      test-script: ./run_unit_tests.sh alphadia-env true
+      test-script: ./run_unit_tests.sh alphadia-env all
 
   run-unit-tests-loose:
     if: contains(github.event.pull_request.labels.*.name, 'test:unit') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -51,4 +51,4 @@ jobs:
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
       install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
-      test-script: ./run_unit_tests.sh alphadia-env true
+      test-script: ./run_unit_tests.sh alphadia-env all
