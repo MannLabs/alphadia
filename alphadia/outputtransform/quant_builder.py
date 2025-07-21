@@ -151,16 +151,14 @@ class QuantBuilder:
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-        # {col: self._add_annotation(df) for df, col in zip(df_list, self.columns)}
-
         # annotate protein group
         annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
             {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
         )
 
-        return {col: self._add_annotation(df, annotate_df) for col, df in zip(self.columns, df_list)}
+        return {col: self.add_annotation(df, annotate_df) for col, df in zip(self.columns, df_list)}
 
-    def _add_annotation(self, df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
+    def add_annotation(self, df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
         """
         Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
 
