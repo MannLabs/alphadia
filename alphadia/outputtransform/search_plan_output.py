@@ -558,7 +558,7 @@ class SearchPlanOutput:
         ]
 
         lfq_results = {}
-
+    
         for quantlevel_config in quantlevel_configs:
             if not quantlevel_config.should_process:
                 continue
@@ -594,7 +594,13 @@ class SearchPlanOutput:
                 group_column=quantlevel_config.quant_level,
             )
 
-            lfq_results[quantlevel_config.level_name] = lfq_df
+            if quantlevel_config.level_name != "pg":
+                annotate_df = psm_df.groupby(quantlevel_config.quant_level, as_index=False).agg(
+                    {"pg": "first", "sequence": "first"}
+                )
+                lfq_results[quantlevel_config.level_name] = lfq_df.merge(annotate_df, on=quantlevel_config.quant_level, how="left")
+            else:
+                lfq_results[quantlevel_config.level_name] = lfq_df
 
             if save:
                 logger.info(f"Writing {quantlevel_config.level_name} output to disk")
