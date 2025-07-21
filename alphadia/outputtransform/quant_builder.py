@@ -66,7 +66,9 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
-def prepare_df(df, psm_df, columns=["intensity", "correlation"]):
+def prepare_df(
+    df: pd.DataFrame, psm_df: pd.DataFrame, columns: list[str]
+) -> pd.DataFrame:
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = _ion_hash(
         df["precursor_idx"].values,
@@ -79,9 +81,9 @@ def prepare_df(df, psm_df, columns=["intensity", "correlation"]):
 
 
 class QuantBuilder:
-    def __init__(self, psm_df, columns=["intensity", "correlation"]):
+    def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
         self.psm_df = psm_df
-        self.columns = columns
+        self.columns = ["intensity", "correlation"] if columns is None else columns
 
     def accumulate_frag_df_from_folders(
         self, folder_list: list[str]
@@ -156,9 +158,15 @@ class QuantBuilder:
             {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
         )
 
-        return {col: self.add_annotation(df, annotate_df) for col, df in zip(self.columns, df_list)}
+        return {
+            col: self.add_annotation(df, annotate_df)
+            for col, df in zip(self.columns, df_list)
+        }
 
-    def add_annotation(self, df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
+    @staticmethod
+    def add_annotation(
+        df: pd.DataFrame, annotate_df: pd.DataFrame
+    ) -> pd.DataFrame:
         """
         Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
 
