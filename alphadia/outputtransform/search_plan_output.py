@@ -539,20 +539,21 @@ class SearchPlanOutput:
 
         quantlevel_configs = [
             LFQOutputConfig(
-                self.config["search_output"]["precursor_level_lfq"],
-                "mod_seq_charge_hash",
-                "precursor",
-                self.config["search_output"]["save_fragment_quant_matrix"],
+                should_process=True,  # always process precursor level
+                quant_level="mod_seq_charge_hash",
+                level_name="precursor",
+                save_fragments=True, # default save
             ),
             LFQOutputConfig(
-                self.config["search_output"]["peptide_level_lfq"],
-                "mod_seq_hash",
-                "peptide",
+                should_process=True,  # always process peptide level
+                quant_level="mod_seq_hash",
+                level_name="peptide",
+                save_fragments=True, # default save
             ),
             LFQOutputConfig(
-                True,  # always process protein group level
-                "pg",
-                "pg",
+                should_process=True,  # always process protein group level
+                quant_level="pg",
+                level_name="pg",
             ),
         ]
 
