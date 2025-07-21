@@ -66,7 +66,7 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
-def prepare_df(df, psm_df, column="intensity"):
+def prepare_df(df, psm_df, columns=["intensity", "correlation"]):
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = _ion_hash(
         df["precursor_idx"].values,
@@ -75,13 +75,13 @@ def prepare_df(df, psm_df, column="intensity"):
         df["charge"].values,
         df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion", column, "correlation"]]
+    return df[["precursor_idx", "ion"] + columns]
 
 
 class QuantBuilder:
-    def __init__(self, psm_df, column="intensity"):
+    def __init__(self, psm_df, columns=["intensity", "correlation"]):
         self.psm_df = psm_df
-        self.column = column
+        self.columns = columns
 
     def accumulate_frag_df_from_folders(
         self, folder_list: list[str]
@@ -96,11 +96,8 @@ class QuantBuilder:
 
         Returns
         -------
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        dict
+            Dictionary with column name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
         """
 
         df_iterable = get_frag_df_generator(folder_list)
@@ -133,47 +130,54 @@ class QuantBuilder:
             logger.warning(f"no frag file found for {raw_name}")
             return None
 
-        df = prepare_df(df, self.psm_df, column=self.column)
+        df = prepare_df(df, self.psm_df, columns=self.columns)
 
-        intensity_df = df[["precursor_idx", "ion", self.column]].copy()
-        intensity_df.rename(columns={self.column: raw_name}, inplace=True)
-
-        quality_df = df[["precursor_idx", "ion", "correlation"]].copy()
-        quality_df.rename(columns={"correlation": raw_name}, inplace=True)
+        df_list = []
+        for col in self.columns:
+            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df.rename(columns={col: raw_name}, inplace=True)
+            df_list.append(feat_df)
 
         for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, column=self.column)
+            df = prepare_df(df, self.psm_df, columns=self.columns)
 
-            intensity_df = intensity_df.merge(
-                df[["ion", self.column, "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            intensity_df.rename(columns={self.column: raw_name}, inplace=True)
+            for idx, col in enumerate(self.columns):
+                df_list[idx] = df_list[idx].merge(
+                    df[["ion", col, "precursor_idx"]],
+                    on=["ion", "precursor_idx"],
+                    how="outer",
+                )
+                df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-            quality_df = quality_df.merge(
-                df[["ion", "correlation", "precursor_idx"]],
-                on=["ion", "precursor_idx"],
-                how="outer",
-            )
-            quality_df.rename(columns={"correlation": raw_name}, inplace=True)
-
-        # replace nan with 0
-        intensity_df.fillna(0, inplace=True)
-        quality_df.fillna(0, inplace=True)
-
-        intensity_df["precursor_idx"] = intensity_df["precursor_idx"].astype(np.uint32)
-        quality_df["precursor_idx"] = quality_df["precursor_idx"].astype(np.uint32)
+        # {col: self._add_annotation(df) for df, col in zip(df_list, self.columns)}
 
         # annotate protein group
         annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
             {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
         )
 
-        intensity_df = intensity_df.merge(annotate_df, on="precursor_idx", how="left")
-        quality_df = quality_df.merge(annotate_df, on="precursor_idx", how="left")
+        return {col: self._add_annotation(df, annotate_df) for col, df in zip(self.columns, df_list)}
 
-        return intensity_df, quality_df
+    def _add_annotation(self, df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
+
+        Parameters
+        ----------
+        df: pd.DataFrame
+            Fragment data
+
+        Returns
+        -------
+        pd.DataFrame
+            Fragment data with annotation
+        """
+        df.fillna(0, inplace=True)
+        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
+
+        df = df.merge(annotate_df, on="precursor_idx", how="left")
+
+        return df
 
     def filter_frag_df(
         self,
