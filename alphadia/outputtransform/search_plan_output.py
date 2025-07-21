@@ -528,7 +528,7 @@ class SearchPlanOutput:
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
 
-        intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
+        feature_dfs = qb.accumulate_frag_df_from_folders(folder_list)
 
         @dataclass
         class LFQOutputConfig:
@@ -567,8 +567,8 @@ class SearchPlanOutput:
             )
 
             group_intensity_df, _ = qb.filter_frag_df(
-                intensity_df,
-                quality_df,
+                feature_dfs["intensity"],
+                feature_dfs["correlation"],
                 top_n=self.config["search_output"]["min_k_fragments"],
                 min_correlation=self.config["search_output"]["min_correlation"],
                 group_column=quantlevel_config.quant_level,
@@ -583,7 +583,7 @@ class SearchPlanOutput:
 
             lfq_df = qb.lfq(
                 group_intensity_df,
-                quality_df,
+                feature_dfs["correlation"],
                 num_cores=self.config["general"]["thread_count"],
                 min_nonan=self.config["search_output"]["min_nonnan"],
                 num_samples_quadratic=self.config["search_output"][
