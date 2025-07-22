@@ -53,8 +53,8 @@ def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
 
     Returns
     -------
-    np.ndarray (np.uint64)
+    np.ndarray (np.int64)
         A 64 bit hash of the precursor_idx and rank.
 
     """
-    return (precursor_idx + (rank << 32)).astype(np.uint64)
+    return (precursor_idx + (rank << 32)).astype(np.int64)

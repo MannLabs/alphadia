@@ -93,7 +93,7 @@ def test_fragment_competition():
                 "mz_observed": np.array([100, 100, 200, 200]),
                 "proba": np.array([0.1, 0.2, 0.4, 0.6]),
                 "rank": np.array([0, 0, 0, 0], dtype=np.uint8),
-                "_candidate_idx": np.array([0, 1, 3, 5], dtype=np.uint64),
+                "_candidate_idx": np.array([0, 1, 3, 5], dtype=np.int64),
             }
         ),
     )
