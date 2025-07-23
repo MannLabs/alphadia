@@ -2,11 +2,8 @@
 
 import logging
 
-import numba as nb
 import numpy as np
 import pandas as pd
-
-from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
 
@@ -49,63 +46,11 @@ def add_frag_start_stop_idx(
 
 
 def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
-    """Create a 64 bit hash from the precursor_idx, and rank.
+    """Create a 64 bit hash from precursor_idx and rank.
 
     The precursor_idx is the lower 32 bits.
     The rank is the next 8 bits.
+
+    Note: the explicit casting is important to ensure it returns a 64-bit integer.
     """
-    errors = []
-
-    # simple = precursor_idx + (rank << 32)
-    original = _candidate_hash(precursor_idx, rank)
-    # castuint64 = (precursor_idx + (rank << 32)).astype(np.uint64)
-    castint64 = (precursor_idx.astype(np.int64) + (rank.astype(np.int64) << 32)).astype(
-        np.int64
-    )
-
-    # for key, hash_values in {
-    #     "simple": simple,
-    #     "original": original,
-    #     "castuint64": castuint64,
-    #     "castint64": castint64,
-    # }.items():
-    #     if len(hash_values) != len(set(hash_values)):
-    #         unique_vals, counts = np.unique(hash_values, return_counts=True)
-    #         duplicates = unique_vals[counts > 1]
-    # num_diff = np.sum(castint64 != original)
-    if any(castint64 != original):
-        key = "castint64!=original"
-        errors.append(
-            f"Hash value {key} {type(original)} {type(original[0])} {type(castint64)} {type(castint64[0])}: hash_values {original[:10]}..{original[-10:]} not unique"
-        )
-
-        num_diff = np.sum(castint64 != original)
-        mismatches = np.where(castint64 != original)[0]
-        mismatch_values = [(original[i], castint64[i]) for i in mismatches]
-        key = "castint64!=original"
-        errors.append(
-            f"Hash value {key} {type(original)} {type(original[0])} {type(castint64)} {type(castint64[0])}: {num_diff} differing values; "
-        )
-        errors.append(
-            f"mismatches: {mismatch_values}; hash_values {original[:10]}..{original[-10:]} not unique"
-        )
-        errors.append(f"original {original[:10]}..{original[-10:]}  ")
-        errors.append(f"castint64 {castint64[:10]}..{castint64[-10:]}  ")
-
-    for error in errors:
-        logger.error(error)
-
-    if errors:
-        raise RuntimeError(errors)
-
-    return castint64
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def _candidate_hash(precursor_idx: int, rank: int) -> int:
-    """Create a 64 bit hash from the precursor_idx, and rank.
-
-    The precursor_idx is the lower 32 bits.
-    The rank is the next 8 bits.
-    """
-    return precursor_idx + (rank << 32)
+    return precursor_idx.astype(np.int64) + (rank.astype(np.int64) << 32)
