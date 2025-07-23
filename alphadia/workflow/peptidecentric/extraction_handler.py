@@ -1,9 +1,12 @@
+from abc import ABC, abstractmethod
+
 import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.peakgroup import search
+# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.peakgroup.config_df import HybridCandidateConfig
+from alphadia.peakgroup.search import HybridCandidateSelection
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
 from alphadia.raw_data import DiaData
@@ -13,8 +16,8 @@ from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
-class ExtractionHandler:
-    """Manages precursor and fragment extraction operations."""
+class ExtractionHandler(ABC):
+    """Base class for managing precursor and fragment extraction operations."""
 
     def __init__(
         self,
@@ -23,13 +26,176 @@ class ExtractionHandler:
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
     ):
+        """
+        Parameters
+        ----------
+        config : Config
+            Workflow configuration
+        optimization_manager : OptimizationManager
+            Optimization manager with current parameters
+        reporter : Pipeline
+            Reporter for logging
+        column_name_handler : ColumnNameHandler
+            Column name handler for data access
+        """
+        self._config: Config = config
         self._optimization_manager: OptimizationManager = optimization_manager
         self._reporter: Pipeline = reporter
 
         self._column_name_handler: ColumnNameHandler = column_name_handler
 
-        self._thread_count = config["general"]["thread_count"]
+    @staticmethod
+    def create_handler(
+        config: Config,
+        optimization_manager: OptimizationManager,
+        reporter: Pipeline,
+        column_name_handler: ColumnNameHandler,
+    ) -> "ExtractionHandler":
+        """Create an extraction handler based on configuration.
 
+        Parameters
+        ----------
+        config : Config
+            AlphaDIA configuration
+        optimization_manager : OptimizationManager
+            Optimization manager with current parameters
+        reporter : Pipeline
+            Reporter for logging
+        column_name_handler : ColumnNameHandler
+            Column name handler for data access
+
+        Returns
+        -------
+        ExtractionHandler
+            Configured extraction handler
+
+        Raises
+        ------
+        ValueError
+            If extraction_backend is not supported
+        """
+        backend = config["search"].get("extraction_backend", "classic").lower()
+
+        if backend == "classic":
+            reporter.log_string("Using classic extraction backend", verbosity="info")
+            return ClassicExtractionHandler(
+                config, optimization_manager, reporter, column_name_handler
+            )
+
+        else:
+            raise ValueError(
+                f"Invalid extraction backend '{backend}'. "
+                "Supported backends are: 'classic'"
+            )
+
+    def extract_batch(
+        self,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+        apply_cutoff: bool = False,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Extract precursors and fragments from DIA data.
+
+        Parameters
+        ----------
+        dia_data : DiaData
+            DIA data to extract from
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        apply_cutoff : bool
+            Whether to apply score cutoff filtering
+
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Features dataframe and fragments dataframe
+        """
+        self._reporter.log_string(
+            f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
+            verbosity="progress",
+        )
+        candidates_df = self._select_candidates(dia_data, spectral_library)
+
+        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+
+        if apply_cutoff:
+            candidates_df = self._apply_score_cutoff(candidates_df)
+
+        features_df, fragments_df = self._score_candidates(
+            candidates_df, dia_data, spectral_library
+        )
+
+        return features_df, fragments_df
+
+    def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
+        """Apply score cutoff to candidates dataframe."""
+        num_before = len(candidates_df)
+        candidates_df = candidates_df[
+            candidates_df["score"] > self._optimization_manager.score_cutoff
+        ]
+        num_after = len(candidates_df)
+        num_removed = num_before - num_after
+        self._reporter.log_string(
+            f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
+        )
+        return candidates_df
+
+    @abstractmethod
+    def _select_candidates(
+        self, dia_data: DiaData, spectral_library: SpecLibFlat
+    ) -> pd.DataFrame:
+        """Select candidates from DIA data based on spectral library.
+
+        Parameters
+        ----------
+        dia_data : DiaData
+            DIA data to extract from
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with selected candidates
+        """
+
+    @abstractmethod
+    def _score_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Score candidates.
+
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        dia_data : DiaData
+            DIA data to extract from
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Features dataframe and fragments dataframe
+        """
+
+
+class ClassicExtractionHandler(ExtractionHandler):
+    """Extraction handler using HybridCandidateSelection."""
+
+    def __init__(
+        self,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        reporter: Pipeline,
+        column_name_handler: ColumnNameHandler,
+    ):
+        super().__init__(config, optimization_manager, reporter, column_name_handler)
+
+        # Initialize selection configuration
         self._selection_config = HybridCandidateConfig()
         self._selection_config.update(
             {
@@ -52,22 +218,13 @@ class ExtractionHandler:
             }
         )
 
-    def extract_batch(
-        self,
-        dia_data: DiaData,
-        spectral_library: SpecLibFlat,
-        apply_cutoff: bool = False,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        self._reporter.log_string(
-            f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
-            verbosity="progress",
-        )
+    def _select_candidates(
+        self, dia_data: DiaData, spectral_library: SpecLibFlat
+    ) -> pd.DataFrame:
+        """Select candidates from DIA data using HybridCandidateSelection.
 
-        rt_column = self._column_name_handler.get_rt_column()
-        mobility_column = self._column_name_handler.get_mobility_column()
-        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
-        fragment_mz_column = self._column_name_handler.get_fragment_mz_column()
-
+        See documentation of superclass details on the interface.
+        """
         self._selection_config.update(
             {
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -77,7 +234,6 @@ class ExtractionHandler:
                 "fragment_mz_tolerance": self._optimization_manager.ms2_error,
             }
         )
-
         for log_line in [
             "=== Search parameters used ===",
             f"{'rt_tolerance':<15}: {self._selection_config.rt_tolerance}",
@@ -89,55 +245,51 @@ class ExtractionHandler:
         ]:
             self._reporter.log_string(log_line, verbosity="debug")
 
-        extraction = search.HybridCandidateSelection(
+        extraction = HybridCandidateSelection(
             dia_data,
             spectral_library.precursor_df,
             spectral_library.fragment_df,
             self._selection_config,
-            rt_column=rt_column,
-            mobility_column=mobility_column,
-            precursor_mz_column=precursor_mz_column,
-            fragment_mz_column=fragment_mz_column,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
             fwhm_rt=self._optimization_manager.fwhm_rt,
             fwhm_mobility=self._optimization_manager.fwhm_mobility,
         )
-        candidates_df = extraction(thread_count=self._thread_count)
+        candidates_df = extraction(thread_count=self._config["general"]["thread_count"])
 
-        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+        return candidates_df
 
-        if apply_cutoff:
-            num_before = len(candidates_df)
+    def _score_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Score candidates using CandidateScoring.
 
-            candidates_df = candidates_df[
-                candidates_df["score"] > self._optimization_manager.score_cutoff
-            ]
-            num_after = len(candidates_df)
-            num_removed = num_before - num_after
-            self._reporter.log_string(
-                f"Removed {num_removed} precursors with score below cutoff {self._optimization_manager.score_cutoff}",
-            )
-
+        See documentation of superclass details on the interface.
+        """
         self._scoring_config.update(
             {
                 "precursor_mz_tolerance": self._optimization_manager.ms1_error,
                 "fragment_mz_tolerance": self._optimization_manager.ms2_error,
             }
         )
-
         candidate_scoring = CandidateScoring(
             dia_data,
             spectral_library.precursor_df,
             spectral_library.fragment_df,
             config=self._scoring_config,
-            rt_column=rt_column,
-            mobility_column=mobility_column,
-            precursor_mz_column=precursor_mz_column,
-            fragment_mz_column=fragment_mz_column,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
         )
-
         features_df, fragments_df = candidate_scoring(
             candidates_df,
-            thread_count=self._thread_count,
+            thread_count=self._config["general"]["thread_count"],
             include_decoy_fragment_features=True,
         )
 
