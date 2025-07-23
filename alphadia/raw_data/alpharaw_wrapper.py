@@ -1,3 +1,5 @@
+"""Module providing methods to read and process raw data in the following formats: Thermo, Sciex, MzML, AlphaRawBase."""
+
 import logging
 
 import numpy as np
