@@ -28,37 +28,39 @@ class AlphaRaw(MSData_Base):
 
         self.has_mobility: bool = False
         self.has_ms1: bool = True
-        self.zeroth_frame: int = 0
-        self.scan_max_index: int = 1
+        self._zeroth_frame: int = 0
+        self._scan_max_index: int = 1
         self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
             [1e-6, 0], dtype=np.float32
         )
 
-        self.mz_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
-        self.rt_values: np.ndarray | None = None
-        self.intensity_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+        self._mz_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self.rt_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self._intensity_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
             None
         )
 
-        self.cycle: np.ndarray | None = None
-        self.cycle_start: int | None = None
-        self.cycle_length: int | None = None
-        self.precursor_cycle_max_index: int | None = None
+        self.cycle: (
+            np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]] | None
+        ) = None
+        self._cycle_start: int | None = None
+        self._cycle_length: int | None = None
+        self._precursor_cycle_max_index: int | None = None
 
-        self.max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
-        self.min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self._max_mz_value: np.float32 | None = None
+        self._min_mz_value: np.float32 | None = None
 
-        self.quad_max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+        self._quad_max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
             None
         )
-        self.quad_min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+        self._quad_min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
             None
         )
 
-        self.peak_start_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
+        self._peak_start_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
             None
         )
-        self.peak_stop_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
+        self._peak_stop_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
             None
         )
         self.frame_max_index: int | None = None
@@ -76,35 +78,37 @@ class AlphaRaw(MSData_Base):
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
             self.has_ms1 = False
 
-        self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+        self.cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
             self.spectrum_df
         )
 
-        self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
+        self.spectrum_df = self.spectrum_df.iloc[self._cycle_start :]
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
 
-        self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
+        self._precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
 
-        self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
-        self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
+        self._max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
+        self._min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
 
-        self.quad_max_mz_value = (
+        self._quad_max_mz_value = (
             self.spectrum_df[self.spectrum_df["ms_level"] == 2]
             .isolation_upper_mz.max()
             .astype(np.float32)
         )
-        self.quad_min_mz_value = (
+        self._quad_min_mz_value = (
             self.spectrum_df[self.spectrum_df["ms_level"] == 2]
             .isolation_lower_mz.min()
             .astype(np.float32)
         )
 
-        self.peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(
+        self._peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(
             np.int64
         )
-        self.peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(np.int64)
-        self.mz_values = self.peak_df.mz.values.astype(np.float32)
-        self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
+        self._peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(
+            np.int64
+        )
+        self._mz_values = self.peak_df.mz.values.astype(np.float32)
+        self._intensity_values = self.peak_df.intensity.values.astype(np.float32)
 
         self.frame_max_index = len(self.rt_values) - 1
 
@@ -122,17 +126,17 @@ class AlphaRaw(MSData_Base):
             self.cycle,
             self.rt_values,
             self.mobility_values,
-            self.zeroth_frame,
-            self.max_mz_value,
-            self.min_mz_value,
-            self.quad_max_mz_value,
-            self.quad_min_mz_value,
-            self.precursor_cycle_max_index,
-            self.peak_start_idx_list,
-            self.peak_stop_idx_list,
-            self.mz_values,
-            self.intensity_values,
-            self.scan_max_index,
+            self._zeroth_frame,
+            self._max_mz_value,
+            self._min_mz_value,
+            self._quad_max_mz_value,
+            self._quad_min_mz_value,
+            self._precursor_cycle_max_index,
+            self._peak_start_idx_list,
+            self._peak_stop_idx_list,
+            self._mz_values,
+            self._intensity_values,
+            self._scan_max_index,
             self.frame_max_index,
         )
 
