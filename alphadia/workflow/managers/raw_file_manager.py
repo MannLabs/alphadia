@@ -60,10 +60,7 @@ class RawFileManager(BaseManager):
 
         elif file_extension.lower() == ".hdf":
             raw_data_type = "alpharaw"
-            dia_data = AlphaRawBase(
-                dia_data_path,
-                process_count=self._config["general"]["thread_count"],
-            )
+            dia_data = AlphaRawBase(dia_data_path)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
@@ -79,7 +76,6 @@ class RawFileManager(BaseManager):
 
             dia_data = MzML(
                 dia_data_path,
-                process_count=self._config["general"]["thread_count"],
             )
 
         elif file_extension.lower() == ".wiff":
@@ -87,7 +83,6 @@ class RawFileManager(BaseManager):
 
             dia_data = Sciex(
                 dia_data_path,
-                process_count=self._config["general"]["thread_count"],
             )
 
         else:

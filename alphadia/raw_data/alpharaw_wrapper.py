@@ -1,5 +1,4 @@
 import logging
-import os
 
 import numpy as np
 import pandas as pd
@@ -28,23 +27,27 @@ def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
 
 
 class AlphaRaw(MSData_Base):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, centroided: bool = True, save_as_hdf: bool = False):
+        """
+        Parameters
+        ----------
+        centroided : bool, optional
+            If peaks will be centroided after loading, by default True
+        save_as_hdf : bool, optional
+            If automatically save the data into HDF5 format, by default False
+        """
+        super().__init__(centroided, save_as_hdf)
 
         self.has_mobility = False
         self.has_ms1 = True
 
-    def _process_alpharaw(self, **kwargs):
-        self.sample_name = os.path.basename(self.raw_file_path)
-
-        # the filter spectra function is implemented in the sub-class
-        self._filter_spectra(**kwargs)
+    def _process_alpharaw(self, astral_ms1: bool = False):
+        self._filter_spectra(astral_ms1)
 
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
         if _is_ms1_dia(self.spectrum_df):
-            # determine the DIA cycle
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
@@ -91,10 +94,8 @@ class AlphaRaw(MSData_Base):
         self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
 
-    def _filter_spectra(self, **kwargs):
-        """Filter the spectra.
-        This function is implemented in the sub-class.
-        """
+    def _filter_spectra(self, astral_ms1: bool = False) -> None:
+        """Filter the spectra."""
 
     def to_jitclass(self) -> AlphaRawJIT:
         """Create a AlphaRawJIT with the current state of this class."""
@@ -118,33 +119,35 @@ class AlphaRaw(MSData_Base):
 
 
 class AlphaRawBase(AlphaRaw, MSData_Base):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
+    def __init__(self, raw_file_path: str):
+        super().__init__()
         self.load_hdf(raw_file_path)
-        self._process_alpharaw(**kwargs)
+        self._process_alpharaw()
 
 
 class MzML(AlphaRaw, MzMLReader):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
+    def __init__(self, raw_file_path: str):
+        super().__init__()
         self.load_raw(raw_file_path)
-        self._process_alpharaw(**kwargs)
+        self._process_alpharaw()
 
 
 class Sciex(AlphaRaw, SciexWiffData):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
-        super().__init__(process_count=process_count)
+    def __init__(self, raw_file_path: str):
+        super().__init__()
         self.load_raw(raw_file_path)
-        self._process_alpharaw(**kwargs)
+        self._process_alpharaw()
 
 
 class Thermo(AlphaRaw, ThermoRawData):
-    def __init__(self, raw_file_path: str, process_count: int = 10, **kwargs):
+    def __init__(
+        self, raw_file_path: str, process_count: int = 10, astral_ms1: bool = False
+    ):
         super().__init__(process_count=process_count)
         self.load_raw(raw_file_path)
-        self._process_alpharaw(**kwargs)
+        self._process_alpharaw(astral_ms1)
 
-    def _filter_spectra(self, astral_ms1: bool = False, **kwargs):
+    def _filter_spectra(self, astral_ms1: bool = False):
         """Filter the spectra for MS1 or MS2 spectra."""
         # filter for Astral or Orbitrap MS1 spectra
         if astral_ms1:
