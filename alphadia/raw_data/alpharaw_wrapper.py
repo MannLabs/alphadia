@@ -3,7 +3,6 @@
 import logging
 
 import numpy as np
-import pandas as pd
 from alpharaw.ms_data_base import MSData_Base
 from alpharaw.mzml import MzMLReader
 from alpharaw.sciex import SciexWiffData
@@ -13,19 +12,6 @@ from alphadia.raw_data.dia_cycle import determine_dia_cycle
 from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
 
 logger = logging.getLogger()
-
-
-def _is_ms1_dia(spectrum_df: pd.DataFrame) -> bool:
-    """Check if the MS1 spectra follow a DIA cycle. This check is stricter than just relying on failing to determine a cycle.
-
-    Parameters
-    ----------
-    spectrum_df : pd.DataFrame
-        The spectrum dataframe.
-
-    """
-    ms1_df = spectrum_df[spectrum_df["ms_level"] == 1]
-    return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
 
 
 class AlphaRaw(MSData_Base):
@@ -49,7 +35,7 @@ class AlphaRaw(MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
-        if _is_ms1_dia(self.spectrum_df):
+        if self._is_ms1_dia():
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
                 self.spectrum_df
             )
@@ -95,6 +81,11 @@ class AlphaRaw(MSData_Base):
 
         self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
+
+    def _is_ms1_dia(self) -> bool:
+        """Return whether the MS1 spectra follow a DIA cycle."""
+        ms1_df = self.spectrum_df[self.spectrum_df["ms_level"] == 1]
+        return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
 
     def _filter_spectra(self, astral_ms1: bool = False) -> None:
         """Filter the spectra."""
