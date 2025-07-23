@@ -46,11 +46,13 @@ def add_frag_start_stop_idx(
 
 
 def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
-    """Create a 64 bit hash from precursor_idx and rank.
+    """Create a 64 bit hash (np.ndarray[np.uint64]) from precursor_idx and rank.
 
     The precursor_idx is the lower 32 bits.
     The rank is the next 8 bits.
 
     Note: the explicit casting is important to ensure it returns a 64-bit integer.
     """
-    return precursor_idx.astype(np.int64) + (rank.astype(np.int64) << 32)
+    return (precursor_idx.astype(np.int64) + (rank.astype(np.int64) << 32)).astype(
+        np.uint64
+    )
