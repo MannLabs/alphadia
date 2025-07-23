@@ -63,11 +63,7 @@ class AlphaRaw(MSData_Base):
     def _process_alpharaw(self, astral_ms1: bool = False):
         self._filter_spectra(astral_ms1)
 
-        if self._is_ms1_dia():
-            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-                self.spectrum_df
-            )
-        else:
+        if not self._is_ms1_dia():
             logger.warning(
                 "The MS1 spectra in the raw file do not follow a DIA cycle.\n"
                 "AlphaDIA will therefore not be able to use the MS1 information.\n"
@@ -75,10 +71,11 @@ class AlphaRaw(MSData_Base):
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
-            self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
-                self.spectrum_df
-            )
             self.has_ms1 = False
+
+        self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
+            self.spectrum_df
+        )
 
         self.spectrum_df = self.spectrum_df.iloc[self.cycle_start :]
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
