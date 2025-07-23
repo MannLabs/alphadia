@@ -46,6 +46,7 @@ class OptimizationHandler:
         spectral_library: SpecLibBase,
         dia_data: DiaData,
         figure_path: str | None = None,
+        dia_data_ng: "DiaDataNG" = None,  # noqa: F821
     ):
         self._config = config
         self._optimization_manager = optimization_manager
@@ -55,6 +56,7 @@ class OptimizationHandler:
         self._reporter = reporter
         self._spectral_library = spectral_library
         self._dia_data: DiaData = dia_data
+        self._dia_data_ng: DiaDataNG = dia_data_ng  # noqa: F821
         self._figure_path = figure_path
 
         self._optlock: OptimizationLock = OptimizationLock(
@@ -356,7 +358,9 @@ class OptimizationHandler:
         )
 
         feature_df, fragment_df = extraction_handler.extract_batch(
-            self._dia_data,
+            (self._dia_data, self._dia_data_ng)
+            if self._dia_data_ng is not None
+            else self._dia_data,
             self._optlock.batch_library,
         )
         self._optlock.update_with_extraction(feature_df, fragment_df)
