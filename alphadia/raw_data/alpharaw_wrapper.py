@@ -26,8 +26,39 @@ class AlphaRaw(MSData_Base):
         """
         super().__init__(centroided, save_as_hdf)
 
-        self.has_mobility = False
-        self.has_ms1 = True
+        self.has_mobility: bool = False
+        self.has_ms1: bool = True
+
+        self.rt_values: np.ndarray | None = None
+        self.zeroth_frame: int | None = None
+
+        self.cycle: np.ndarray | None = None
+        self.cycle_start: int | None = None
+        self.cycle_length: int | None = None
+        self.precursor_cycle_max_index: int | None = None
+        self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self.max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self.min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+
+        self.quad_max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+            None
+        )
+        self.quad_min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+            None
+        )
+
+        self.peak_start_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
+            None
+        )
+        self.peak_stop_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
+            None
+        )
+        self.mz_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self.intensity_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
+            None
+        )
+        self.scan_max_index: int | None = None
+        self.frame_max_index: int | None = None
 
     def _process_alpharaw(self, astral_ms1: bool = False):
         self._filter_spectra(astral_ms1)
