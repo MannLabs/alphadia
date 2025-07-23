@@ -30,7 +30,7 @@ class AlphaRaw(MSData_Base):
         self.has_ms1: bool = True
 
         self.rt_values: np.ndarray | None = None
-        self.zeroth_frame: int | None = None
+        self.zeroth_frame: int = 0
 
         self.cycle: np.ndarray | None = None
         self.cycle_start: int | None = None
@@ -62,8 +62,6 @@ class AlphaRaw(MSData_Base):
 
     def _process_alpharaw(self, astral_ms1: bool = False):
         self._filter_spectra(astral_ms1)
-
-        self.zeroth_frame = 0
 
         if self._is_ms1_dia():
             self.cycle, self.cycle_start, self.cycle_length = determine_dia_cycle(
