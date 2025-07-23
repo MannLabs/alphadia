@@ -59,7 +59,7 @@ class AlphaRaw(MSData_Base):
         self.intensity_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
             None
         )
-        self.scan_max_index: int | None = None
+        self.scan_max_index: int = 1
         self.frame_max_index: int | None = None
 
     def _process_alpharaw(self, astral_ms1: bool = False):
@@ -105,7 +105,6 @@ class AlphaRaw(MSData_Base):
         self.mz_values = self.peak_df.mz.values.astype(np.float32)
         self.intensity_values = self.peak_df.intensity.values.astype(np.float32)
 
-        self.scan_max_index = 1
         self.frame_max_index = len(self.rt_values) - 1
 
     def _is_ms1_dia(self) -> bool:
