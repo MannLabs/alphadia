@@ -74,7 +74,7 @@ class ExtractionHandler(ABC):
         ValueError
             If extraction_backend is not supported
         """
-        backend = config["search"].get("extraction_backend", "classic").lower()
+        backend = config["search"]["extraction_backend"].lower()
 
         if backend == "classic":
             reporter.log_string("Using classic extraction backend", verbosity="info")
