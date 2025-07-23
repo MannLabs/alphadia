@@ -56,24 +56,26 @@ def candidate_hash(precursor_idx: int, rank: int) -> int:
     """
     errors = []
 
-    simple = precursor_idx + (rank << 32)
+    # simple = precursor_idx + (rank << 32)
     original = _candidate_hash(precursor_idx, rank)
-    castuint64 = (precursor_idx + (rank << 32)).astype(np.uint64)
+    # castuint64 = (precursor_idx + (rank << 32)).astype(np.uint64)
     castint64 = (precursor_idx + (rank << 32)).astype(np.int64)
 
-    for key, hash_values in {
-        "simple": simple,
-        "original": original,
-        "castuint64": castuint64,
-        "castint64": castint64,
-    }.items():
-        if len(hash_values) != len(set(hash_values)):
-            unique_vals, counts = np.unique(hash_values, return_counts=True)
-            duplicates = unique_vals[counts > 1]
+    # for key, hash_values in {
+    #     "simple": simple,
+    #     "original": original,
+    #     "castuint64": castuint64,
+    #     "castint64": castint64,
+    # }.items():
+    #     if len(hash_values) != len(set(hash_values)):
+    #         unique_vals, counts = np.unique(hash_values, return_counts=True)
+    #         duplicates = unique_vals[counts > 1]
 
-            errors.append(
-                f"Hash value {key} {type(hash_values)}: hash_values {hash_values[:10]}..{hash_values[-10:]} not unique: {len(hash_values)=} {len(set(hash_values))=} {duplicates=} {counts=}"
-            )
+    if any(castint64 != original):
+        key = "castint64!=original"
+        errors.append(
+            f"Hash value {key} {type(original)} {type(original[0])} {type(castint64)} {type(castint64[0])}: hash_values {original[:10]}..{original[-10:]} not unique"
+        )
 
     for error in errors:
         logger.error(error)
@@ -81,7 +83,7 @@ def candidate_hash(precursor_idx: int, rank: int) -> int:
     if errors:
         raise RuntimeError(errors)
 
-    return castuint64
+    return castint64
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
