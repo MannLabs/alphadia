@@ -70,12 +70,25 @@ def candidate_hash(precursor_idx: int, rank: int) -> int:
     #     if len(hash_values) != len(set(hash_values)):
     #         unique_vals, counts = np.unique(hash_values, return_counts=True)
     #         duplicates = unique_vals[counts > 1]
-
+    # num_diff = np.sum(castint64 != original)
     if any(castint64 != original):
         key = "castint64!=original"
         errors.append(
             f"Hash value {key} {type(original)} {type(original[0])} {type(castint64)} {type(castint64[0])}: hash_values {original[:10]}..{original[-10:]} not unique"
         )
+
+        num_diff = np.sum(castint64 != original)
+        mismatches = np.where(castint64 != original)[0]
+        mismatch_values = [(original[i], castint64[i]) for i in mismatches]
+        key = "castint64!=original"
+        errors.append(
+            f"Hash value {key} {type(original)} {type(original[0])} {type(castint64)} {type(castint64[0])}: {num_diff} differing values; "
+        )
+        errors.append(
+            f"mismatches: {mismatch_values}; hash_values {original[:10]}..{original[-10:]} not unique"
+        )
+        errors.append(f"original {original[:10]}..{original[-10:]}  ")
+        errors.append(f"castint64 {castint64[:10]}..{castint64[-10:]}  ")
 
     for error in errors:
         logger.error(error)
