@@ -2,8 +2,11 @@
 
 import logging
 
+import numba as nb
 import numpy as np
 import pandas as pd
+
+from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger(__name__)
 
@@ -45,16 +48,11 @@ def add_frag_start_stop_idx(
     return psm_df.merge(index_df, "inner", on="_candidate_idx")
 
 
-def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
-    """Create a 64 bit hash from the precursor_idx and rank.
+@nb.njit(cache=USE_NUMBA_CACHING)
+def candidate_hash(precursor_idx: int, rank: int) -> int:
+    """Create a 64 bit hash from the precursor_idx, and rank.
 
     The precursor_idx is the lower 32 bits.
     The rank is the next 8 bits.
-
-    Returns
-    -------
-    np.ndarray (np.int64)
-        A 64 bit hash of the precursor_idx and rank.
-
     """
-    return (precursor_idx + (rank << 32)).astype(np.int64)
+    return precursor_idx + (rank << 32)
