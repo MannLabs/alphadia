@@ -1,6 +1,7 @@
 """Module providing methods to read and process raw data in the following formats: Thermo, Sciex, MzML, AlphaRawBase."""
 
 import logging
+from abc import ABC
 
 import numpy as np
 from alpharaw.ms_data_base import MSData_Base
@@ -14,9 +15,10 @@ from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
 logger = logging.getLogger()
 
 
-class AlphaRaw(MSData_Base):
+class AlphaRaw(MSData_Base, ABC):
     def __init__(self, centroided: bool = True, save_as_hdf: bool = False):
-        """
+        """Abstract class providing data structures and methods for reading and pre-processing raw data.
+
         Parameters
         ----------
         centroided : bool, optional
@@ -65,7 +67,8 @@ class AlphaRaw(MSData_Base):
         )
         self.frame_max_index: int | None = None
 
-    def _process_alpharaw(self, astral_ms1: bool = False):
+    def _preprocess_raw_data(self, astral_ms1: bool = False):
+        """Process the raw data to extract relevant information."""
         self._filter_spectra(astral_ms1)
 
         if not self._is_ms1_dia():
@@ -142,34 +145,42 @@ class AlphaRaw(MSData_Base):
 
 
 class AlphaRawBase(AlphaRaw, MSData_Base):
+    """Class holding pre-processed raw data in AlphaBase format."""
+
     def __init__(self, raw_file_path: str):
         super().__init__()
         self.load_hdf(raw_file_path)
-        self._process_alpharaw()
+        self._preprocess_raw_data()
 
 
 class MzML(AlphaRaw, MzMLReader):
+    """Class holding pre-processed MzML raw data."""
+
     def __init__(self, raw_file_path: str):
         super().__init__()
         self.load_raw(raw_file_path)
-        self._process_alpharaw()
+        self._preprocess_raw_data()
 
 
 class Sciex(AlphaRaw, SciexWiffData):
+    """Class holding pre-processed Sciex raw data."""
+
     def __init__(self, raw_file_path: str):
         super().__init__()
         self.load_raw(raw_file_path)
-        self._process_alpharaw()
+        self._preprocess_raw_data()
 
 
 class Thermo(AlphaRaw, ThermoRawData):
+    """Class holding pre-processed Thermo raw data."""
+
     def __init__(
         self, raw_file_path: str, process_count: int = 10, astral_ms1: bool = False
     ):
         AlphaRaw.__init__(self)
         ThermoRawData.__init__(self, process_count=process_count)
         self.load_raw(raw_file_path)
-        self._process_alpharaw(astral_ms1)
+        self._preprocess_raw_data(astral_ms1)
 
     def _filter_spectra(self, astral_ms1: bool = False):
         """Filter the spectra for MS1 or MS2 spectra."""

@@ -74,16 +74,12 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = MzML(
-                dia_data_path,
-            )
+            dia_data = MzML(dia_data_path)
 
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = Sciex(
-                dia_data_path,
-            )
+            dia_data = Sciex(dia_data_path)
 
         else:
             raise ValueError(
