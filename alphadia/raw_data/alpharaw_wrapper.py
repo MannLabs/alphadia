@@ -144,7 +144,7 @@ class Thermo(AlphaRaw, ThermoRawData):
         self.load_raw(raw_file_path)
         self._process_alpharaw(**kwargs)
 
-    def _filter_spectra(self, cv: float = None, astral_ms1: bool = False, **kwargs):
+    def _filter_spectra(self, astral_ms1: bool = False, **kwargs):
         """Filter the spectra for MS1 or MS2 spectra."""
         # filter for Astral or Orbitrap MS1 spectra
         if astral_ms1:
@@ -161,15 +161,5 @@ class Thermo(AlphaRaw, ThermoRawData):
             self.spectrum_df = self.spectrum_df[
                 (self.spectrum_df["nce"] < 0.1) | (self.spectrum_df["nce"] > 1.1)
             ]
-
-        # filter for cv values if multiple cv values are present
-        if cv is not None and "cv" in self.spectrum_df.columns:
-            # use np.isclose to account for floating point errors
-            logger.info(f"Filtering for CV {cv}")
-            logger.info(f"Before: {len(self.spectrum_df)}")
-            self.spectrum_df = self.spectrum_df[
-                np.isclose(self.spectrum_df["cv"], cv, atol=0.1)
-            ]
-            logger.info(f"After: {len(self.spectrum_df)}")
 
         self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))

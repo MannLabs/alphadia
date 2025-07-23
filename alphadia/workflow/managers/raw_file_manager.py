@@ -68,15 +68,10 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
 
-            cv = self._config.get("raw_data_loading", {}).get(
-                "cv"
-            )  # TODO: remove, also downstream
-
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
                 astral_ms1=self._config["general"]["astral_ms1"],
-                cv=cv,
             )
 
         elif file_extension.lower() == ".mzml":
