@@ -63,7 +63,6 @@ class AlphaRaw(MSData_Base):
     def _process_alpharaw(self, astral_ms1: bool = False):
         self._filter_spectra(astral_ms1)
 
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
         self.zeroth_frame = 0
 
         if self._is_ms1_dia():
