@@ -81,7 +81,7 @@ class ExtractionHandler(ABC):
             return ClassicExtractionHandler(
                 config, optimization_manager, reporter, column_name_handler
             )
-
+        # add implementations for other backends here
         else:
             raise ValueError(
                 f"Invalid extraction backend '{backend}'. "
@@ -128,7 +128,18 @@ class ExtractionHandler(ABC):
         return features_df, fragments_df
 
     def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
-        """Apply score cutoff to candidates dataframe."""
+        """Apply score cutoff (taken from optimization_manager) to candidates dataframe.
+
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame containing candidate matches
+
+        Returns
+        -------
+        pd.DataFrame
+            Filtered DataFrame with only candidates above score cutoff
+        """
         num_before = len(candidates_df)
         candidates_df = candidates_df[
             candidates_df["score"] > self._optimization_manager.score_cutoff
@@ -223,7 +234,7 @@ class ClassicExtractionHandler(ExtractionHandler):
     ) -> pd.DataFrame:
         """Select candidates from DIA data using HybridCandidateSelection.
 
-        See documentation of superclass details on the interface.
+        See superclass documentation for interface details.
         """
         self._selection_config.update(
             {
@@ -269,7 +280,7 @@ class ClassicExtractionHandler(ExtractionHandler):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score candidates using CandidateScoring.
 
-        See documentation of superclass details on the interface.
+        See superclass documentation for interface details.
         """
         self._scoring_config.update(
             {
