@@ -6,6 +6,7 @@ from alphadia.fragcomp.fragcomp import (
     _compete_for_fragments,
     _get_fragment_overlap,
 )
+from alphadia.fragcomp.utils import candidate_hash
 
 
 def test_fragment_overlap():
@@ -97,3 +98,16 @@ def test_fragment_competition():
             }
         ),
     )
+
+
+def test_candidate_hash():
+    """Test the candidate_hash function to ensure it generates correct hashes."""
+    # last element required 64 bit representation
+    precursor_idx = np.array([1, 2, 1000000])
+    rank = np.array([0, 1, 2])
+
+    # Test the candidate_hash function
+    hash_values = candidate_hash(precursor_idx, rank)
+
+    assert all(hash_values == np.array([1, 4294967298, 8590934592]))
+    assert hash_values.dtype == np.int64
