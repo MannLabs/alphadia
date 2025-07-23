@@ -36,7 +36,9 @@ class AlphaRaw(MSData_Base):
         self.cycle_start: int | None = None
         self.cycle_length: int | None = None
         self.precursor_cycle_max_index: int | None = None
-        self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
+            [1e-6, 0], dtype=np.float32
+        )
         self.max_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
         self.min_mz_value: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
 
@@ -81,7 +83,6 @@ class AlphaRaw(MSData_Base):
         self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
 
         self.precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
-        self.mobility_values = np.array([1e-6, 0], dtype=np.float32)
 
         self.max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
         self.min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
