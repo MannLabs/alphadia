@@ -48,7 +48,7 @@ def add_frag_start_stop_idx(
     return psm_df.merge(index_df, "inner", on="_candidate_idx")
 
 
-def candidate_hash(precursor_idx: int, rank: int) -> int:
+def candidate_hash(precursor_idx: np.ndarray, rank: np.ndarray) -> np.ndarray:
     """Create a 64 bit hash from the precursor_idx, and rank.
 
     The precursor_idx is the lower 32 bits.
@@ -59,7 +59,9 @@ def candidate_hash(precursor_idx: int, rank: int) -> int:
     # simple = precursor_idx + (rank << 32)
     original = _candidate_hash(precursor_idx, rank)
     # castuint64 = (precursor_idx + (rank << 32)).astype(np.uint64)
-    castint64 = (precursor_idx + (rank << 32)).astype(np.int64)
+    castint64 = (precursor_idx.astype(np.int64) + (rank.astype(np.int64) << 32)).astype(
+        np.int64
+    )
 
     # for key, hash_values in {
     #     "simple": simple,
