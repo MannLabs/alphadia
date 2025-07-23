@@ -48,8 +48,42 @@ def add_frag_start_stop_idx(
     return psm_df.merge(index_df, "inner", on="_candidate_idx")
 
 
-@nb.njit(cache=USE_NUMBA_CACHING)
 def candidate_hash(precursor_idx: int, rank: int) -> int:
+    """Create a 64 bit hash from the precursor_idx, and rank.
+
+    The precursor_idx is the lower 32 bits.
+    The rank is the next 8 bits.
+    """
+    errors = []
+
+    simple = precursor_idx + (rank << 32)
+    original = _candidate_hash(precursor_idx, rank)
+    castuint64 = (precursor_idx + (rank << 32)).astype(np.uint64)
+    castint64 = (precursor_idx + (rank << 32)).astype(np.int64)
+
+    for key, hash_values in {
+        "simple": simple,
+        "original": original,
+        "castuint64": castuint64,
+        "castint64": castint64,
+    }.items():
+        if len(hash_values) != len(set(hash_values)):
+            duplicates = set([x for x in hash_values if hash_values.count(x) > 1])  # noqa: C403
+            errors.append(
+                f"Hash value {key} {type(hash_values)}: {hash_values} not unique: {len(hash_values)=} {len(set(hash_values))=} {duplicates=}"
+            )
+
+    for error in errors:
+        logger.error(error)
+
+    if errors:
+        raise RuntimeError(errors)
+
+    return castuint64
+
+
+@nb.njit(cache=USE_NUMBA_CACHING)
+def _candidate_hash(precursor_idx: int, rank: int) -> int:
     """Create a 64 bit hash from the precursor_idx, and rank.
 
     The precursor_idx is the lower 32 bits.
