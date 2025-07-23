@@ -162,7 +162,8 @@ class Thermo(AlphaRaw, ThermoRawData):
     def __init__(
         self, raw_file_path: str, process_count: int = 10, astral_ms1: bool = False
     ):
-        super().__init__(process_count=process_count)
+        AlphaRaw.__init__(self)
+        ThermoRawData.__init__(self, process_count=process_count)
         self.load_raw(raw_file_path)
         self._process_alpharaw(astral_ms1)
 
