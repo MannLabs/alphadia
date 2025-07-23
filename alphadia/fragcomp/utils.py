@@ -68,9 +68,11 @@ def candidate_hash(precursor_idx: int, rank: int) -> int:
         "castint64": castint64,
     }.items():
         if len(hash_values) != len(set(hash_values)):
-            duplicates = set([x for x in hash_values if hash_values.count(x) > 1])  # noqa: C403
+            unique_vals, counts = np.unique(hash_values, return_counts=True)
+            duplicates = unique_vals[counts > 1]
+
             errors.append(
-                f"Hash value {key} {type(hash_values)}: {hash_values} not unique: {len(hash_values)=} {len(set(hash_values))=} {duplicates=}"
+                f"Hash value {key} {type(hash_values)}: hash_values {hash_values[:10]}..{hash_values[-10:]} not unique: {len(hash_values)=} {len(set(hash_values))=} {duplicates=} {counts=}"
             )
 
     for error in errors:
