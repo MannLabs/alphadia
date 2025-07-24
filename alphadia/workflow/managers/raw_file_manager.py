@@ -5,7 +5,9 @@ import os
 
 import numpy as np
 
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.raw_data import DiaData
+from alphadia.raw_data.alpharaw_wrapper import AlphaRawBase, MzML, Sciex, Thermo
+from alphadia.raw_data.bruker import TimsTOFTranspose
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -32,9 +34,7 @@ class RawFileManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-    def get_dia_data_object(
-        self, dia_data_path: str
-    ) -> bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw:
+    def get_dia_data_object(self, dia_data_path: str) -> DiaData:
         """Get the correct data class depending on the file extension of the DIA data file.
 
         Parameters
@@ -45,22 +45,22 @@ class RawFileManager(BaseManager):
 
         Returns
         -------
-        typing.Union[bruker.TimsTOFTranspose, thermo.Thermo],
-            TimsTOFTranspose object containing the DIA data
+        DiaData
+            object containing the DIA data
 
         """
         file_extension = os.path.splitext(dia_data_path)[1]
 
         if file_extension.lower() == ".d":
             raw_data_type = "bruker"
-            dia_data = bruker.TimsTOFTranspose(
+            dia_data = TimsTOFTranspose(
                 dia_data_path,
                 mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".hdf":
             raw_data_type = "alpharaw"
-            dia_data = alpharaw_wrapper.AlphaRawBase(
+            dia_data = AlphaRawBase(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )
@@ -70,7 +70,7 @@ class RawFileManager(BaseManager):
 
             cv = self._config.get("raw_data_loading", {}).get("cv")
 
-            dia_data = alpharaw_wrapper.Thermo(
+            dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
                 astral_ms1=self._config["general"]["astral_ms1"],
@@ -80,7 +80,7 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = alpharaw_wrapper.MzML(
+            dia_data = MzML(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )
@@ -88,7 +88,7 @@ class RawFileManager(BaseManager):
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = alpharaw_wrapper.Sciex(
+            dia_data = Sciex(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
             )
@@ -106,9 +106,7 @@ class RawFileManager(BaseManager):
 
         return dia_data
 
-    def _calc_stats(
-        self, dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw
-    ):
+    def _calc_stats(self, dia_data: DiaData):
         """Calculate statistics from the DIA data."""
         rt_values = dia_data.rt_values
         cycle = dia_data.cycle

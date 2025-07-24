@@ -5,7 +5,7 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.raw_data import DiaData
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
@@ -67,9 +67,7 @@ class WorkflowBase:
 
         self._config: Config = config
         self.reporter: reporting.Pipeline | None = None
-        self._dia_data: bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRaw | None = (
-            None
-        )
+        self._dia_data: DiaData | None = None
         self._spectral_library: SpecLibBase | None = None
         self._calibration_manager: CalibrationManager | None = None
         self._optimization_manager: OptimizationManager | None = None
@@ -172,8 +170,6 @@ class WorkflowBase:
     @property
     def dia_data(
         self,
-    ) -> (
-        bruker.TimsTOFTranspose | alpharaw_wrapper.AlphaRawJIT
-    ):  # TODO is this type annotation correct?
+    ) -> DiaData:
         """DIA data for the workflow. Owns the DIA data"""
         return self._dia_data

@@ -6,12 +6,12 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.data import alpharaw_wrapper, bruker
-from alphadia.plexscoring import quadrupole
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
+from alphadia.plexscoring.quadrupole import SimpleQuadrupole
 from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
+from alphadia.raw_data import DiaData
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import (
     USE_NUMBA_CACHING,
@@ -63,11 +63,11 @@ class CandidateScoring:
 
     def __init__(
         self,
-        dia_data: bruker.TimsTOFTransposeJIT | alpharaw_wrapper.AlphaRawJIT,
+        dia_data: DiaData,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
-        quadrupole_calibration: quadrupole.SimpleQuadrupole = None,
-        config: CandidateConfig = None,
+        quadrupole_calibration: SimpleQuadrupole | None = None,
+        config: CandidateConfig | None = None,
         rt_column: str = "rt_library",
         mobility_column: str = "mobility_library",
         precursor_mz_column: str = "mz_library",
@@ -79,8 +79,8 @@ class CandidateScoring:
         Parameters
         ----------
 
-        dia_data : data.TimsTOFTransposeJIT
-            The raw mass spec data as a TimsTOFTransposeJIT object.
+        dia_data : DiaData
+            DIA data object.
 
         precursors_flat : pd.DataFrame
             A DataFrame containing precursor information.
@@ -90,7 +90,7 @@ class CandidateScoring:
             A DataFrame containing fragment information.
             The DataFrame will be validated by using the `alphadia.validation.schemas.fragments_flat` schema.
 
-        quadrupole_calibration : quadrupole.SimpleQuadrupole, default=None
+        quadrupole_calibration : SimpleQuadrupole, default=None
             An object containing the quadrupole calibration information.
             If None, an uncalibrated quadrupole will be used.
             The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
@@ -116,7 +116,7 @@ class CandidateScoring:
             This property needs to be changed to `mz_calibrated` if the data has been calibrated.
         """
 
-        self._dia_data = dia_data
+        self._dia_data: DiaData = dia_data
 
         precursors_flat_schema.validate(precursors_flat, warn_on_critical_values=True)
         self.precursors_flat_df = precursors_flat
@@ -126,7 +126,7 @@ class CandidateScoring:
 
         # check if a valid quadrupole calibration is provided
         if quadrupole_calibration is None:
-            self.quadrupole_calibration = quadrupole.SimpleQuadrupole(dia_data.cycle)
+            self.quadrupole_calibration = SimpleQuadrupole(dia_data.cycle)
         else:
             self.quadrupole_calibration = quadrupole_calibration
 
@@ -142,50 +142,50 @@ class CandidateScoring:
         self.fragment_mz_column = fragment_mz_column
 
     @property
-    def dia_data(self):
-        """Get the raw mass spec data as a TimsTOFTransposeJIT object."""
+    def dia_data(self) -> DiaData:
+        """Get the raw mass spec data as a DiaData object."""
         return self._dia_data
 
     @property
-    def precursors_flat_df(self):
+    def precursors_flat_df(self) -> pd.DataFrame:
         """Get the DataFrame containing precursor information."""
         return self._precursors_flat_df
 
     @precursors_flat_df.setter
-    def precursors_flat_df(self, precursors_flat_df):
+    def precursors_flat_df(self, precursors_flat_df) -> None:
         precursors_flat_schema.validate(
             precursors_flat_df, warn_on_critical_values=True
         )
         self._precursors_flat_df = precursors_flat_df.sort_values(by="precursor_idx")
 
     @property
-    def fragments_flat_df(self):
+    def fragments_flat_df(self) -> pd.DataFrame:
         """Get the DataFrame containing fragment information."""
         return self._fragments_flat
 
     @fragments_flat_df.setter
-    def fragments_flat_df(self, fragments_flat):
+    def fragments_flat_df(self, fragments_flat: pd.DataFrame) -> None:
         fragments_flat_schema.validate(fragments_flat, warn_on_critical_values=True)
         self._fragments_flat = fragments_flat
 
     @property
-    def quadrupole_calibration(self):
+    def quadrupole_calibration(self) -> SimpleQuadrupole:
         """Get the quadrupole calibration object."""
         return self._quadrupole_calibration
 
     @quadrupole_calibration.setter
-    def quadrupole_calibration(self, quadrupole_calibration):
+    def quadrupole_calibration(self, quadrupole_calibration: SimpleQuadrupole) -> None:
         if not hasattr(quadrupole_calibration, "jit"):
             raise AttributeError("quadrupole_calibration must have a jit method")
         self._quadrupole_calibration = quadrupole_calibration
 
     @property
-    def config(self):
+    def config(self) -> CandidateConfig:
         """Get the configuration object."""
         return self._config
 
     @config.setter
-    def config(self, config):
+    def config(self, config: CandidateConfig) -> None:
         config.validate()
         self._config = config
 

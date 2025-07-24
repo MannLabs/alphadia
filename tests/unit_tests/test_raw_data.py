@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.data import alpharaw_wrapper, bruker
+from alphadia.raw_data import alpharaw_wrapper, bruker
 
 
 def test_transpose():
@@ -10,7 +10,7 @@ def test_transpose():
     push_ptr = np.array([0, 2, 4, 5, 7])
     n_tof_indices = 7
 
-    push_indices, tof_indptr, intensity_values = bruker.transpose(
+    push_indices, tof_indptr, intensity_values = bruker._transpose(
         tof_indices, push_ptr, n_tof_indices, values
     )
 
@@ -58,7 +58,7 @@ def fuzz_get_frame_indices(jit_data):
         )[0]
 
         rt = jit_data.rt_values[[start_index, stop_index]]
-        frame_indices = jit_data.get_frame_indices(rt, 16)
+        frame_indices = jit_data._get_frame_indices(rt, 16)
 
         # make sure the shape matches
         assert frame_indices.shape == (1, 3)
@@ -118,7 +118,7 @@ def fuzz_get_scan_indices(jit_data):
         )[0]
 
         mobility = jit_data.mobility_values[[start_index, stop_index]]
-        scan_indices = jit_data.get_scan_indices(mobility, 16)
+        scan_indices = jit_data._get_scan_indices(mobility, 16)
 
         # make sure the shape matches
         assert scan_indices.shape == (1, 3)
@@ -271,7 +271,7 @@ def test_get_frame_indices(mock_alpha_raw_jit):
     expected_indices = np.array([[10, 20, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
@@ -287,7 +287,7 @@ def test_get_frame_indices_optimization_right(mock_alpha_raw_jit):
     expected_indices = np.array([[10, 30, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
@@ -303,7 +303,7 @@ def test_get_frame_indices_optimization_right_min_size(mock_alpha_raw_jit):
     expected_indices = np.array([[10, 50, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
@@ -319,7 +319,7 @@ def test_get_frame_indices_optimization_left(mock_alpha_raw_jit):
     expected_indices = np.array([[75, 95, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
@@ -337,7 +337,7 @@ def test_get_frame_indices_optimization_left_min_size(mock_alpha_raw_jit):
     expected_indices = np.array([[55, 95, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
@@ -353,7 +353,7 @@ def test_get_frame_indices_optimization_left_min_size_overflow(mock_alpha_raw_ji
     expected_indices = np.array([[5, 95, 1]], dtype=np.int64)
 
     # when
-    frame_indices = mock_alpha_raw_jit.get_frame_indices(
+    frame_indices = mock_alpha_raw_jit._get_frame_indices(
         rt_values, optimize_size, min_size
     )
 
