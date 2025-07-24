@@ -31,7 +31,6 @@ class BaseManager:
 
         self._path = path
         self.is_loaded_from_file = False
-        self.is_fitted = False
         self.figure_path = figure_path
         self._version = alphadia.__version__
         self.reporter = reporting.LogBackend() if reporter is None else reporter
@@ -53,15 +52,6 @@ class BaseManager:
     @is_loaded_from_file.setter
     def is_loaded_from_file(self, value):
         self._is_loaded_from_file = value
-
-    @property
-    def is_fitted(self):
-        """Check if all estimators in all calibration groups are fitted."""
-        return self._is_fitted
-
-    @is_fitted.setter
-    def is_fitted(self, value):
-        self._is_fitted = value
 
     def save(self):
         """Save the state to pickle file."""
@@ -115,21 +105,3 @@ class BaseManager:
                 f"Failed to load {self.__class__.__name__} from {self.path}",
                 verbosity="error",
             )
-
-    def fit(self):
-        """Fit the workflow property of the manager."""
-        raise NotImplementedError(
-            f"fit() not implemented for {self.__class__.__name__}"
-        )
-
-    def predict(self):
-        """Return the predictions of the workflow property of the manager."""
-        raise NotImplementedError(
-            f"predict() not implemented for {self.__class__.__name__}"
-        )
-
-    def fit_predict(self):
-        """Fit and return the predictions of the workflow property of the manager."""
-        raise NotImplementedError(
-            f"fit_predict() not implemented for {self.__class__.__name__}"
-        )
