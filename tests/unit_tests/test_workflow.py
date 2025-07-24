@@ -16,12 +16,25 @@ from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
-from alphadia.workflow import base, optimization
+from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.fdr_manager import FDRManager, column_hash
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
+from alphadia.workflow.optimization_lock import OptimizationLock
+from alphadia.workflow.optimizers.automatic import (
+    AutomaticMobilityOptimizer,
+    AutomaticMS1Optimizer,
+    AutomaticMS2Optimizer,
+    AutomaticRTOptimizer,
+)
+from alphadia.workflow.optimizers.targeted import (
+    TargetedMobilityOptimizer,
+    TargetedMS1Optimizer,
+    TargetedMS2Optimizer,
+    TargetedRTOptimizer,
+)
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
@@ -506,7 +519,7 @@ def test_automatic_ms2_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df2, "fragment", plot=False)
 
-    ms2_optimizer = optimization.AutomaticMS2Optimizer(
+    ms2_optimizer = AutomaticMS2Optimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -562,7 +575,7 @@ def test_automatic_ms2_optimizer_no_convergence(favour_narrower_optimum):
 
     workflow.calibration_manager.fit(calibration_test_df2, "fragment", plot=False)
 
-    ms2_optimizer = optimization.AutomaticMS2Optimizer(
+    ms2_optimizer = AutomaticMS2Optimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -583,7 +596,7 @@ def test_automatic_rt_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    rt_optimizer = optimization.AutomaticRTOptimizer(
+    rt_optimizer = AutomaticRTOptimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -638,7 +651,7 @@ def test_automatic_ms1_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    ms1_optimizer = optimization.AutomaticMS1Optimizer(
+    ms1_optimizer = AutomaticMS1Optimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -689,7 +702,7 @@ def test_automatic_mobility_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    mobility_optimizer = optimization.AutomaticMobilityOptimizer(
+    mobility_optimizer = AutomaticMobilityOptimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -743,7 +756,7 @@ def test_targeted_ms2_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    optimizer = optimization.TargetedMS2Optimizer(
+    optimizer = TargetedMS2Optimizer(
         100,
         7,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
@@ -771,7 +784,7 @@ def test_targeted_rt_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    optimizer = optimization.TargetedRTOptimizer(
+    optimizer = TargetedRTOptimizer(
         100,
         7,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
@@ -799,7 +812,7 @@ def test_targeted_ms1_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    optimizer = optimization.TargetedMS1Optimizer(
+    optimizer = TargetedMS1Optimizer(
         100,
         7,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
@@ -827,7 +840,7 @@ def test_targeted_mobility_optimizer():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    optimizer = optimization.TargetedMobilityOptimizer(
+    optimizer = TargetedMobilityOptimizer(
         100,
         7,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
@@ -910,7 +923,7 @@ def test_optlock_spot_on_target():
 
     # edge case where the number of precursors is exactly the target
     library = create_test_library(2000)
-    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
 
     assert optlock.start_idx == optlock.batch_plan[0][0]
 
@@ -944,7 +957,7 @@ TEST_OPTLOCK_CONFIG = {
 
 def test_optlock():
     library = create_test_library()
-    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
 
     assert optlock.start_idx == optlock.batch_plan[0][0]
 
@@ -996,7 +1009,7 @@ def test_optlock():
 
 def test_optlock_batch_idx():
     library = create_test_library()
-    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
 
     optlock.batch_plan = [[0, 100], [100, 2000], [2000, 8000]]
 
@@ -1021,7 +1034,7 @@ def test_optlock_batch_idx():
 
 def test_optlock_reindex():
     library = create_test_library_for_indexing()
-    optlock = optimization.OptimizationLock(library, TEST_OPTLOCK_CONFIG)
+    optlock = OptimizationLock(library, TEST_OPTLOCK_CONFIG)
     optlock.batch_plan = [[0, 100], [100, 200]]
     optlock.set_batch_dfs(
         optlock.elution_group_order[optlock.start_idx : optlock.stop_idx]
@@ -1081,16 +1094,16 @@ def test_configurability():
     assert len(ordered_optimizers) == 3
 
     assert ordered_optimizers[0][0].parameter_name == "rt_error"
-    assert isinstance(ordered_optimizers[0][0], optimization.AutomaticRTOptimizer)
+    assert isinstance(ordered_optimizers[0][0], AutomaticRTOptimizer)
     assert ordered_optimizers[0][0].update_percentile_range == 0.99
     assert ordered_optimizers[0][0].update_factor == 1.3
 
     assert ordered_optimizers[1][0].parameter_name == "ms1_error"
     assert ordered_optimizers[1][0].update_percentile_range == 0.95
-    assert isinstance(ordered_optimizers[1][0], optimization.TargetedMS1Optimizer)
+    assert isinstance(ordered_optimizers[1][0], TargetedMS1Optimizer)
 
     assert ordered_optimizers[1][1].parameter_name == "ms2_error"
-    assert isinstance(ordered_optimizers[1][1], optimization.TargetedMS2Optimizer)
+    assert isinstance(ordered_optimizers[1][1], TargetedMS2Optimizer)
     assert ordered_optimizers[1][1].update_percentile_range == 0.995
     assert ordered_optimizers[1][1].update_factor == 1.2
 
@@ -1105,7 +1118,7 @@ def test_optimizer_skipping():
 
     workflow.calibration_manager.fit(calibration_test_df1, "precursor", plot=False)
 
-    rt_optimizer = optimization.AutomaticRTOptimizer(
+    rt_optimizer = AutomaticRTOptimizer(
         100,
         workflow._optimization_handler,  # TODO only temporary fix, decouple optimizers from workflow!
     )
@@ -1129,7 +1142,7 @@ def test_optimizer_skipping():
     assert len(rt_optimizer.history_df) == 2
     assert rt_optimizer.has_converged is True
 
-    rt_optimizer = optimization.TargetedRTOptimizer(
+    rt_optimizer = TargetedRTOptimizer(
         100,
         10,
         workflow,
