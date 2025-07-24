@@ -66,6 +66,7 @@ class CalibrationManager(BaseManager):
         self,
         path: None | str = None,
         load_from_file: bool = True,
+        has_mobility: bool = True,
         **kwargs,
     ):
         """Contains, updates and applies all calibrations for a single run.
@@ -80,9 +81,17 @@ class CalibrationManager(BaseManager):
         load_from_file : bool, default=True
             If True, the manager will be loaded from file if it exists.
 
+        has_mobility : bool, default=True
+            If True, the calibration manager will include mobility calibration. This will add a mobility estimator to the precursor group.
+
+        kwargs :
+             Will be passed to the parent class `BaseManager`, need to be valid keyword arguments.
+
         """
 
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
+
+        self._has_mobility = has_mobility
 
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
@@ -100,16 +109,6 @@ class CalibrationManager(BaseManager):
     @estimator_groups.setter
     def estimator_groups(self, value):
         self._estimator_groups = value
-
-    def disable_mobility_calibration(self):
-        """Iterate all estimators and remove the mobility estimator from each group."""
-        for group in self.estimator_groups:
-            for estimator in group["estimators"]:
-                if estimator.name == "mobility":
-                    group["estimators"].remove(estimator)
-                    self.reporter.log_string(
-                        f'removed mobility estimator from group {group["name"]}'
-                    )
 
     def load_config(self, config: dict):
         """Load calibration config from config Dict.
@@ -158,6 +157,12 @@ class CalibrationManager(BaseManager):
                 f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)'
             )
             for estimator in group["estimators"]:
+                if not self._has_mobility and estimator["name"] == "mobility":
+                    self.reporter.log_string(
+                        f'Skipping mobility estimator in group {group["name"]} as mobility is not available',
+                    )
+                    group["estimators"].remove(estimator)
+                    continue
                 try:
                     template = calibration_model_provider.get_model(estimator["model"])
                     model_args = estimator.get("model_args", {})

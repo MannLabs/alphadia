@@ -118,12 +118,9 @@ class WorkflowBase:
         self._calibration_manager = CalibrationManager(
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
+            has_mobility=self._dia_data.has_mobility,
             reporter=self.reporter,
         )
-
-        if not self._dia_data.has_mobility:
-            logging.info("Disabling ion mobility calibration")
-            self._calibration_manager.disable_mobility_calibration()
 
         # initialize the optimization manager
         self._optimization_manager = OptimizationManager(
