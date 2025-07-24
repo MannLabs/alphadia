@@ -1,5 +1,5 @@
 import pandas as pd
-from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
@@ -91,7 +91,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def load(
         self,
         dia_data_path: str,
-        spectral_library: SpecLibBase,
+        spectral_library: SpecLibFlat,
     ) -> None:
         super().load(
             dia_data_path,
@@ -164,12 +164,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         self._save_managers()
 
-    def extraction(self):
         self.calibration_manager.predict(
             self.spectral_library.precursor_df, "precursor"
         )
-        self.calibration_manager.predict(self.spectral_library._fragment_df, "fragment")
+        self.calibration_manager.predict(self.spectral_library.fragment_df, "fragment")
 
+    def extraction(self):
         extraction_handler = ExtractionHandler(
             self.config,
             self.optimization_manager,
@@ -179,13 +179,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
-            self.spectral_library,
         )
 
         features_df, fragments_df = extraction_handler.extract_batch(
             self.dia_data,
             self.spectral_library.precursor_df,
-            self.spectral_library._fragment_df,
+            self.spectral_library.fragment_df,
             apply_cutoff=True,
         )
 
