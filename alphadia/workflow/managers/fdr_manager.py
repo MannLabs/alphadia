@@ -1,8 +1,8 @@
 import logging
 import os
-import typing
 from collections import defaultdict
 from copy import deepcopy
+from typing import Literal
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,8 @@ import xxhash
 import alphadia
 from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr import fdr
+from alphadia.fdr.classifiers import Classifier
+from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
@@ -54,12 +56,14 @@ class FDRManager(BaseManager):
     def __init__(
         self,
         feature_columns: list,
-        classifier_base,
+        classifier_base: Classifier | TwoStepClassifier,
+        config: Config,
+        dia_cycle: None | np.ndarray = None,
         path: None | str = None,
         load_from_file: bool = True,
         **kwargs,
     ):
-        """Contains, updates and applies classifiers for target-decoy competitio-based false discovery rate (FDR) estimation.
+        """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
 
         Parameters
         ----------
@@ -67,7 +71,14 @@ class FDRManager(BaseManager):
             List of feature columns to use for the classifier
         classifier_base: object
             Base classifier object to use for the FDR estimation
-
+        config: Config
+            The workflow configuration object
+        dia_cycle: None | np.ndarray
+            DIA cycle information, if applicable. If None, no DIA cycle information is used.
+        path : str, optional
+            Path to the manager pickle on disk.
+        load_from_file : bool, optional
+            If True, the manager will be loaded from file if it exists.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -82,19 +93,46 @@ class FDRManager(BaseManager):
         self._current_version = -1
         self.load_classifier_store()
 
+        self._decoy_strategy = (
+            "precursor_channel_wise"
+            if config["fdr"]["channel_wise_fdr"]
+            else "precursor"
+        )
+        self._competitive_scoring = config["fdr"]["competetive_scoring"]
+        self._compete_for_fragments = config["search"]["compete_for_fragments"]
+
+        self._dia_cycle = dia_cycle
+
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        decoy_strategy: typing.Literal[
+        decoy_strategy_overwrite: Literal[
             "precursor", "precursor_channel_wise", "channel"
-        ] = "precursor",
-        competetive: bool = True,
-        df_fragments: None | pd.DataFrame = None,
-        dia_cycle: None | np.ndarray = None,
+        ]
+        | None = None,
+        competetive_overwrite: bool | None = None,
+        df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
     ):
         """Fit the classifier and perform FDR estimation.
+
+        Parameters
+        ----------
+        features_df: pd.DataFrame
+            Dataframe containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
+        decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
+            Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
+            Defaults to None.
+        competetive_overwrite: bool | None
+            Value to overwrite the default competitive scoring. If None, uses the default value set in the constructor.
+            Defaults to None.
+        df_fragments: None | pd.DataFrame
+            Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
+        decoy_channel: int
+            Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
+        version: int
+            Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
 
         Notes
         -----
@@ -104,40 +142,30 @@ class FDRManager(BaseManager):
             set(features_df.columns).intersection(set(self.feature_columns))
         )
 
-        # perform sanity checks
-        if len(available_columns) == 0:
-            raise ValueError("No feature columns found in features_df")
-
-        strategy_requires_decoy_column = (
-            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        decoy_strategy = (
+            self._decoy_strategy
+            if decoy_strategy_overwrite is None
+            else decoy_strategy_overwrite
         )
-        if strategy_requires_decoy_column and "decoy" not in features_df.columns:
-            raise ValueError("decoy column not found in features_df")
 
-        strategy_requires_channel_column = (
-            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
+        competetive = (
+            competetive_overwrite
+            if competetive_overwrite is not None
+            else self._competitive_scoring
         )
-        if strategy_requires_channel_column and "channel" not in features_df.columns:
-            raise ValueError("channel column not found in features_df")
 
-        if decoy_strategy == "channel" and decoy_channel == -1:
-            raise ValueError("decoy_channel must be set if decoy_type is channel")
+        self._check_valid_input(
+            available_columns, decoy_channel, decoy_strategy, features_df
+        )
 
         if (
             decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
         ) and decoy_channel > -1:
             self.reporter.log_string(
-                "decoy_channel is ignored if decoy_type is precursor",
+                "decoy_channel is ignored if decoy_strategy is 'precursor' or 'precursor_channel_wise'.",
                 verbosity="warning",
             )
             decoy_channel = -1
-
-        if (
-            decoy_strategy == "channel"
-            and decoy_channel > -1
-            and decoy_channel not in features_df["channel"].unique()
-        ):
-            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
         self.reporter.log_string(
             f"performing {decoy_strategy} FDR with {len(available_columns)} features"
@@ -155,8 +183,9 @@ class FDRManager(BaseManager):
                     features_df[features_df["decoy"] == 1].copy(),
                     competetive=competetive,
                     group_channels=True,
-                    df_fragments=df_fragments,
-                    dia_cycle=dia_cycle,
+                    # TODO move this logic to perform_fdr():
+                    df_fragments=df_fragments if self._compete_for_fragments else None,
+                    dia_cycle=self._dia_cycle,
                     figure_path=self.figure_path,
                 )
             else:
@@ -183,8 +212,10 @@ class FDRManager(BaseManager):
                         channel_df[channel_df["decoy"] == 1].copy(),
                         competetive=competetive,
                         group_channels=True,
-                        df_fragments=df_fragments,
-                        dia_cycle=dia_cycle,
+                        df_fragments=df_fragments
+                        if self._compete_for_fragments
+                        else None,
+                        dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                     )
                 )
@@ -219,6 +250,42 @@ class FDRManager(BaseManager):
         self.save()
 
         return psm_df
+
+    def _check_valid_input(
+        self,
+        available_columns: list[str],
+        decoy_channel: int,
+        decoy_strategy: str,
+        features_df: pd.DataFrame,
+    ):
+        """Checks if the input features_df is valid for the FDR estimation.
+
+        Raises ValueError if the input is not valid.
+        """
+        if len(available_columns) == 0:
+            raise ValueError("No feature columns found in features_df")
+
+        strategy_requires_decoy_column = (
+            decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
+        )
+        if strategy_requires_decoy_column and "decoy" not in features_df.columns:
+            raise ValueError("decoy column not found in features_df")
+
+        strategy_requires_channel_column = (
+            decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
+        )
+        if strategy_requires_channel_column and "channel" not in features_df.columns:
+            raise ValueError("channel column not found in features_df")
+
+        if decoy_strategy == "channel" and decoy_channel == -1:
+            raise ValueError("decoy_channel must be set if decoy_type is channel")
+
+        if (
+            decoy_strategy == "channel"
+            and decoy_channel > -1
+            and decoy_channel not in features_df["channel"].unique()
+        ):
+            raise ValueError(f"decoy_channel {decoy_channel} not found in features_df")
 
     def save_classifier_store(
         self, path: None | str = None, version: int = -1
@@ -276,7 +343,9 @@ class FDRManager(BaseManager):
                         )
                         self.classifier_store[classifier_hash].append(classifier)
 
-    def get_classifier(self, available_columns: list, version: int = -1):
+    def get_classifier(
+        self, available_columns: list, version: int = -1
+    ) -> Classifier | TwoStepClassifier:
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
 
         Parameters

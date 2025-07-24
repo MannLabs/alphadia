@@ -1,6 +1,7 @@
 import os
 import tempfile
 import warnings
+from unittest.mock import MagicMock
 
 import matplotlib
 import numpy as np
@@ -186,20 +187,21 @@ def test_fdr():
     fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=classifier_base,
+        config=MagicMock(),
     )
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy="precursor",
-        competetive=False,
+        decoy_strategy_overwrite="precursor",
+        competetive_overwrite=False,
     )
 
     regular_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy="precursor",
-        competetive=True,
+        decoy_strategy_overwrite="precursor",
+        competetive_overwrite=True,
     )
 
     competitive_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -210,8 +212,8 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy="precursor_channel_wise",
-        competetive=True,
+        decoy_strategy_overwrite="precursor_channel_wise",
+        competetive_overwrite=True,
     )
 
     channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -219,8 +221,8 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy="channel",
-        competetive=True,
+        decoy_strategy_overwrite="channel",
+        competetive_overwrite=True,
         decoy_channel=8,
     )
 
