@@ -112,7 +112,7 @@ class FDRManager(BaseManager):
         ----------
         features_df: pd.DataFrame
             DataFrame containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
-        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"]| None
+        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"]
             The decoy strategy.
         competetive: bool
             Whether competetive scoring should be used.

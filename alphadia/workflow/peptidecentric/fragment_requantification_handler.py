@@ -35,7 +35,7 @@ class TransferLibraryRequantificationHandler:
         self._reporter = reporter
         self._column_name_handler = column_name_handler
 
-    def requantify_fragments(
+    def requantify(
         self, dia_data: DiaData, psm_df: pd.DataFrame
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.

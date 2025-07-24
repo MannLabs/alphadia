@@ -22,7 +22,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     *,
-    competetive: bool = False,
+    competetive: bool = False,  # TODO: rename all occurrences to `competitive` (also in config -> breaking change)
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
