@@ -21,19 +21,19 @@ logger = logging.getLogger()
 
 def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
     """
-    Determine the group columns based on competitiveness and channel grouping.
+    Determine the group columns based on competetiveness and channel grouping.
 
-    competitive : bool
+    competetive : bool
         If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
     group_channels : bool
-        If True and 'competitive' is also True, further groups candidates by 'channel'.
+        If True and 'competetive' is also True, further groups candidates by 'channel'.
 
     Returns
     -------
     list
-        A list of column names to be used for grouping in the analysis. If competitive, this could be either
+        A list of column names to be used for grouping in the analysis. If competetive, this could be either
         ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
-        If not competitive, the list will always be ['precursor_idx'].
+        If not competetive, the list will always be ['precursor_idx'].
 
     """
     if competetive:
@@ -119,9 +119,9 @@ class FDRManager(BaseManager):
         Parameters
         ----------
         features_df: pd.DataFrame
-            Dataframe containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
+            DataFrame containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
         competetive: bool | None
-            Wheter competitive scoring should be used.
+            Whether competetive scoring should be used.
         decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
             Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
             Defaults to None.
