@@ -10,13 +10,14 @@ import numba as nb
 import numpy as np
 
 from alphadia.exceptions import NotValidDiaDataError
+from alphadia.raw_data.interface import DiaData
 from alphadia.raw_data.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
 
 
-class TimsTOFTranspose(alphatims.bruker.TimsTOF):
+class TimsTOFTranspose(alphatims.bruker.TimsTOF, DiaData):
     """Transposed TimsTOF data structure."""
 
     def __init__(
@@ -32,10 +33,11 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         drop_polarity: bool = True,
         convert_polarity_to_int: bool = True,
     ):
-        self.has_mobility = True
-        self.has_ms1 = True
-        self.mmap_detector_events = mmap_detector_events
+        self._has_mobility = True
+        self._has_ms1 = True
+        self._mmap_detector_events = mmap_detector_events
 
+        # TODO: resolve code duplication with TimsTOF.__init__()
         bruker_d_folder_name = bruker_d_folder_name.removesuffix("/")
         logger.info(f"Importing data from {bruker_d_folder_name}")
         if bruker_d_folder_name.endswith(".d"):
@@ -114,7 +116,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         self._tof_indices = np.zeros(1, np.uint32)
         self._push_indptr = np.zeros(1, np.int64)
 
-        if self.mmap_detector_events:
+        if self._mmap_detector_events:
             self._push_indices = tm.clone(push_indices)
             self._tof_indptr = tm.clone(tof_indptr)
             self._intensity_values = tm.clone(intensity_values)
@@ -160,6 +162,31 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             self._push_indices,
             self._tof_indptr,
         )
+
+    @property
+    def has_mobility(self) -> bool:
+        """Whether the data contains mobility values."""
+        return self._has_mobility
+
+    @property
+    def has_ms1(self) -> bool:
+        """Whether the data contains MS1 scans."""
+        return self._has_ms1
+
+    @property
+    def mobility_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
+        """Mobility values."""
+        return self._mobility_values
+
+    @property
+    def rt_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
+        """Retention time values."""
+        return self._rt_values
+
+    @property
+    def cycle(self) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
+        """Cycle information."""
+        return self._cycle
 
 
 @alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
