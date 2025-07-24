@@ -401,7 +401,9 @@ def test_fdr_manager_fit_predict():
         feature_columns=FDR_TEST_FEATURES,
         classifier_base=FDR_TEST_BASE_CLASSIFIER,
         config={
-            "fdr": {"channel_wise_fdr": False, "competetive_scoring": False},
+            "fdr": {
+                "channel_wise_fdr": False,
+            },
             "search": {"compete_for_fragments": False},
         },
         dia_cycle=None,
@@ -412,6 +414,7 @@ def test_fdr_manager_fit_predict():
 
     fdr_manager.fit_predict(
         test_features_df,
+        competetive=False,
         df_fragments=None,
     )
 
