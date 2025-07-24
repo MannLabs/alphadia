@@ -8,6 +8,7 @@ from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
@@ -126,16 +127,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library,
             self.config["search"]["channel_filter"],
         )
+        self._column_name_handler = ColumnNameHandler(
+            self.optimization_manager,
+            dia_data_has_ms1=self.dia_data.has_ms1,
+            dia_data_has_mobility=self.dia_data.has_mobility,
+        )
 
         self._extraction_handler = ExtractionHandler(
             self.config,
             self.optimization_manager,
             self.reporter,
+            self._column_name_handler,
             self.spectral_library,
-            rt_column=self._get_rt_column(),
-            mobility_column=self._get_mobility_column(),
-            precursor_mz_column=self._get_precursor_mz_column(),
-            fragment_mz_column=self._get_fragment_mz_column(),
         )
         self._recalibration_handler = RecalibrationHandler(
             self.config,
@@ -157,36 +160,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.dia_data,
         )
 
-    def _get_precursor_mz_column(self):
-        """Get the precursor m/z column name.
-        This function will return `mz_calibrated` if precursor calibration has happened, otherwise it will return `mz_library`.
-        If no MS1 data is present, it will always return `mz_library`.
-
-        Returns
-        -------
-        str
-            Name of the precursor m/z column
-
-        """
-        return (
-            f"mz_{self.optimization_manager.column_type}"
-            if self.dia_data.has_ms1
-            else "mz_library"
-        )
-
-    def _get_fragment_mz_column(self):
-        return f"mz_{self.optimization_manager.column_type}"
-
-    def _get_rt_column(self):
-        return f"rt_{self.optimization_manager.column_type}"
-
-    def _get_mobility_column(self):
-        return (
-            f"mobility_{self.optimization_manager.column_type}"
-            if self.dia_data.has_mobility
-            else "mobility_library"
-        )
-
     def _save_managers(self):
         """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
@@ -203,11 +176,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 self.calibration_manager,
                 self.fdr_manager,
                 self.reporter,
+                self._column_name_handler,
                 self.spectral_library,
-                rt_column=self._get_rt_column(),
-                mobility_column=self._get_mobility_column(),
-                precursor_mz_column=self._get_precursor_mz_column(),
-                fragment_mz_column=self._get_fragment_mz_column(),
             )
 
     def search_parameter_optimization(self):
@@ -239,7 +209,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         features_df, fragments_df = self._extraction_handler.extract_batch(
             self.dia_data,
             self.spectral_library.precursor_df,
-            self._spectral_library._fragment_df,
+            self.spectral_library._fragment_df,
             apply_cutoff=True,
         )
 
