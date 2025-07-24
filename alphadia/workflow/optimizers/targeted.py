@@ -77,7 +77,7 @@ class TargetedOptimizer(BaseOptimizer, ABC):
         """
         return self.update_factor * max(
             self._calibration_manager.get_estimator(
-                self.estimator_group_name, self.estimator_name
+                self._estimator_group_name, self._estimator_name
             ).ci(df, self.update_percentile_range),
             self.target_parameter,
         )
@@ -89,14 +89,14 @@ class TargetedOptimizer(BaseOptimizer, ABC):
     ):
         """See base class."""
         if self.has_converged:
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
             return
         self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
-            precursors_df if self.estimator_group_name == "precursor" else fragments_df
+            precursors_df if self._estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
         self._optimization_manager.update(**{self.parameter_name: new_parameter})
@@ -106,13 +106,13 @@ class TargetedOptimizer(BaseOptimizer, ABC):
 
         if just_converged:
             self.has_converged = True
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
 
         else:
-            self.reporter.log_string(
+            self._reporter.log_string(
                 f"❌ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
                 verbosity="progress",
             )
@@ -143,8 +143,8 @@ class TargetedRTOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "rt_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "rt"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "rt"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -169,8 +169,8 @@ class TargetedMS2Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
-        self.estimator_group_name = "fragment"
-        self.estimator_name = "mz"
+        self._estimator_group_name = "fragment"
+        self._estimator_name = "mz"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -195,8 +195,8 @@ class TargetedMS1Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms1_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mz"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mz"
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -221,8 +221,8 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "mobility_error"
-        self.estimator_group_name = "precursor"
-        self.estimator_name = "mobility"
+        self._estimator_group_name = "precursor"
+        self._estimator_name = "mobility"
         super().__init__(
             initial_parameter,
             target_parameter,

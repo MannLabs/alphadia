@@ -48,21 +48,21 @@ class OptimizationHandler:
         dia_data: AlphaRaw | TimsTOFTranspose,
         figure_path: str | None = None,
     ):
-        self.config = config
-        self.optimization_manager = optimization_manager
-        self.calibration_manager = calibration_manager
-        self.fdr_manager = fdr_manager
+        self._config = config
+        self._optimization_manager = optimization_manager
+        self._calibration_manager = calibration_manager
+        self._fdr_manager = fdr_manager
 
-        self.reporter = reporter
-        self.spectral_library = spectral_library
-        self.dia_data = dia_data
-        self.figure_path = figure_path
+        self._reporter = reporter
+        self._spectral_library = spectral_library
+        self._dia_data = dia_data
+        self._figure_path = figure_path
 
-        self.optlock: OptimizationLock = OptimizationLock(
-            self.spectral_library, self.config
+        self._optlock: OptimizationLock = OptimizationLock(
+            self._spectral_library, self._config
         )
 
-    def _init_optimiser(
+    def _init_optimizer(
         self,
         clazz: type[AutomaticOptimizer | TargetedOptimizer],
         initial_parameter: float,
@@ -73,21 +73,21 @@ class OptimizationHandler:
             return clazz(
                 initial_parameter,
                 target_parameter,
-                self.config,
-                self.optimization_manager,
-                self.calibration_manager,
-                self.fdr_manager,
-                self.reporter,
+                self._config,
+                self._optimization_manager,
+                self._calibration_manager,
+                self._fdr_manager,
+                self._reporter,
             )
         if issubclass(clazz, AutomaticOptimizer):
             return clazz(
                 initial_parameter,
-                self.config,
-                self.optimization_manager,
-                self.calibration_manager,
-                self.fdr_manager,
-                self.optlock,
-                self.reporter,
+                self._config,
+                self._optimization_manager,
+                self._calibration_manager,
+                self._fdr_manager,
+                self._optlock,
+                self._reporter,
             )
 
         raise ValueError(f"Unknown Optimiser type: {clazz}")
@@ -105,63 +105,66 @@ class OptimizationHandler:
             List of lists of optimizers
 
         """
-        config_search = self.config["search"]
+        config_search = self._config["search"]
 
         if config_search["target_ms2_tolerance"] > 0:
-            ms2_optimizer = self._init_optimiser(
+            ms2_optimizer = self._init_optimizer(
                 TargetedMS2Optimizer,
-                self.optimization_manager.ms2_error,
+                self._optimization_manager.ms2_error,
                 config_search["target_ms2_tolerance"],
             )
         else:
-            ms2_optimizer = self._init_optimiser(
-                AutomaticMS2Optimizer, self.optimization_manager.ms2_error
+            ms2_optimizer = self._init_optimizer(
+                AutomaticMS2Optimizer, self._optimization_manager.ms2_error
             )
 
         if config_search["target_rt_tolerance"] > 0:
-            gradient_length = self.dia_data.rt_values.max()
+            gradient_length = self._dia_data.rt_values.max()
             target_rt_error = (
                 config_search["target_rt_tolerance"]
                 if config_search["target_rt_tolerance"] > 1
                 else config_search["target_rt_tolerance"] * gradient_length
             )
-            rt_optimizer = self._init_optimiser(
-                TargetedRTOptimizer, self.optimization_manager.rt_error, target_rt_error
+            rt_optimizer = self._init_optimizer(
+                TargetedRTOptimizer,
+                self._optimization_manager.rt_error,
+                target_rt_error,
             )
         else:
-            rt_optimizer = self._init_optimiser(
-                AutomaticRTOptimizer, self.optimization_manager.rt_error
+            rt_optimizer = self._init_optimizer(
+                AutomaticRTOptimizer, self._optimization_manager.rt_error
             )
 
-        if self.dia_data.has_ms1:
+        if self._dia_data.has_ms1:
             if config_search["target_ms1_tolerance"] > 0:
-                ms1_optimizer = self._init_optimiser(
+                ms1_optimizer = self._init_optimizer(
                     TargetedMS1Optimizer,
-                    self.optimization_manager.ms1_error,
+                    self._optimization_manager.ms1_error,
                     config_search["target_ms1_tolerance"],
                 )
             else:
-                ms1_optimizer = self._init_optimiser(
-                    AutomaticMS1Optimizer, self.optimization_manager.ms1_error
+                ms1_optimizer = self._init_optimizer(
+                    AutomaticMS1Optimizer, self._optimization_manager.ms1_error
                 )
         else:
             ms1_optimizer = None
 
-        if self.dia_data.has_mobility:
+        if self._dia_data.has_mobility:
             if config_search["target_mobility_tolerance"] > 0:
-                mobility_optimizer = self._init_optimiser(
+                mobility_optimizer = self._init_optimizer(
                     TargetedMobilityOptimizer,
-                    self.optimization_manager.mobility_error,
+                    self._optimization_manager.mobility_error,
                     config_search["target_mobility_tolerance"],
                 )
             else:
-                mobility_optimizer = self._init_optimiser(
-                    AutomaticMobilityOptimizer, self.optimization_manager.mobility_error
+                mobility_optimizer = self._init_optimizer(
+                    AutomaticMobilityOptimizer,
+                    self._optimization_manager.mobility_error,
                 )
         else:
             mobility_optimizer = None
 
-        if self.config["optimization"]["order_of_optimization"] is None:
+        if self._config["optimization"]["order_of_optimization"] is None:
             optimizers = [
                 ms2_optimizer,
                 rt_optimizer,
@@ -196,7 +199,7 @@ class OptimizationHandler:
                 "mobility_error": mobility_optimizer,
             }
             ordered_optimizers = []
-            for optimizers_in_ordering in self.config["optimization"][
+            for optimizers_in_ordering in self._config["optimization"][
                 "order_of_optimization"
             ]:
                 ordered_optimizers += [
@@ -219,7 +222,7 @@ class OptimizationHandler:
             The optimization loop is repeated for each list of optimizers in ordered_optimizers.
 
         """
-        log_string = self.reporter.log_string
+        log_string = self._reporter.log_string
 
         ordered_optimizers = self._get_ordered_optimizers()
 
@@ -229,12 +232,12 @@ class OptimizationHandler:
         )
 
         recalibration_handler = RecalibrationHandler(
-            self.config,
-            self.optimization_manager,
-            self.calibration_manager,
-            self.reporter,
-            self.figure_path,
-            self.dia_data.has_ms1,
+            self._config,
+            self._optimization_manager,
+            self._calibration_manager,
+            self._reporter,
+            self._figure_path,
+            self._dia_data.has_ms1,
         )
 
         insufficient_precursors_to_optimize = False
@@ -243,7 +246,7 @@ class OptimizationHandler:
             if insufficient_precursors_to_optimize:
                 break
             for current_step in range(
-                self.config["calibration"]["max_steps"]
+                self._config["calibration"]["max_steps"]
             ):  # Note current_step here refers to a different step than the attribute of the same name in the optimizer -- this should be rectified
                 if np.all([optimizer.has_converged for optimizer in optimizers]):
                     log_string(
@@ -251,7 +254,7 @@ class OptimizationHandler:
                         verbosity="progress",
                     )
 
-                    self.optlock.reset_after_convergence(self.calibration_manager)
+                    self._optlock.reset_after_convergence(self._calibration_manager)
 
                     for optimizer in optimizers:
                         optimizer.plot()
@@ -262,32 +265,32 @@ class OptimizationHandler:
 
                 precursor_df = self._process_batch()
 
-                if not self.optlock.has_target_num_precursors:
-                    if not self.optlock.batches_remaining():
+                if not self._optlock.has_target_num_precursors:
+                    if not self._optlock.batches_remaining():
                         insufficient_precursors_to_optimize = True
                         break
 
-                    self.optlock.update()
+                    self._optlock.update()
 
-                    if self.optlock.previously_calibrated:
-                        self.optlock.update_with_calibration(
-                            self.calibration_manager
+                    if self._optlock.previously_calibrated:
+                        self._optlock.update_with_calibration(
+                            self._calibration_manager
                         )  # This is needed so that the addition to the batch libary has the most recent calibration
 
                         self._skip_all_optimizers(optimizers)
 
                 else:
                     precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
-                        precursor_df, self.optlock.fragments_df
+                        precursor_df, self._optlock.fragments_df
                     )
 
-                    self.optlock.update()
+                    self._optlock.update()
                     recalibration_handler.recalibrate(
                         precursor_df_filtered, fragments_df_filtered
                     )
-                    self.optlock.update_with_calibration(self.calibration_manager)
+                    self._optlock.update_with_calibration(self._calibration_manager)
 
-                    if not self.optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached.
+                    if not self._optlock.previously_calibrated:  # Updates classifier but does not optimize the first time the target is reached.
                         # Optimization is more stable when done with calibrated values.
                         self._initiate_search_parameter_optimization()
                         continue
@@ -298,7 +301,7 @@ class OptimizationHandler:
 
             else:
                 log_string(
-                    f"Optimization did not converge within the maximum number of steps, which is {self.config['calibration']['max_steps']}.",
+                    f"Optimization did not converge within the maximum number of steps, which is {self._config['calibration']['max_steps']}.",
                     verbosity="warning",
                 )
 
@@ -312,7 +315,7 @@ class OptimizationHandler:
 
         if insufficient_precursors_to_optimize:
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
-                precursor_df, self.optlock.fragments_df
+                precursor_df, self._optlock.fragments_df
             )
             if precursor_df_filtered.shape[0] >= 6:
                 recalibration_handler.recalibrate(
@@ -322,13 +325,13 @@ class OptimizationHandler:
             for optimizers in ordered_optimizers:
                 for optimizer in optimizers:
                     optimizer.proceed_with_insufficient_precursors(
-                        precursor_df_filtered, self.optlock.fragments_df
+                        precursor_df_filtered, self._optlock.fragments_df
                     )
 
         for optimizers in ordered_optimizers:
             for optimizer in optimizers:
                 log_string(
-                    f"{optimizer.parameter_name:<15}: {self.optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
+                    f"{optimizer.parameter_name:<15}: {self._optimization_manager.__dict__[optimizer.parameter_name]:.4f}",
                     verbosity="progress",
                 )
         log_string(
@@ -337,61 +340,61 @@ class OptimizationHandler:
 
     def _process_batch(self):
         """Extracts precursors and fragments from the spectral library, performs FDR correction and logs the precursor dataframe."""
-        self.reporter.log_string(
-            f"=== Extracting elution groups {self.optlock.start_idx} to {self.optlock.stop_idx} ===",
+        self._reporter.log_string(
+            f"=== Extracting elution groups {self._optlock.start_idx} to {self._optlock.stop_idx} ===",
             verbosity="progress",
         )
 
         extraction_handler = ExtractionHandler(
-            self.config,
-            self.optimization_manager,
-            self.reporter,
+            self._config,
+            self._optimization_manager,
+            self._reporter,
             ColumnNameHandler(
-                self.optimization_manager,
-                dia_data_has_ms1=self.dia_data.has_ms1,
-                dia_data_has_mobility=self.dia_data.has_mobility,
+                self._optimization_manager,
+                dia_data_has_ms1=self._dia_data.has_ms1,
+                dia_data_has_mobility=self._dia_data.has_mobility,
             ),
-            self.spectral_library,
+            self._spectral_library,
         )
 
         feature_df, fragment_df = extraction_handler.extract_batch(
-            self.dia_data,
-            self.optlock.batch_library.precursor_df,
-            self.optlock.batch_library.fragment_df,
+            self._dia_data,
+            self._optlock.batch_library.precursor_df,
+            self._optlock.batch_library.fragment_df,
         )
-        self.optlock.update_with_extraction(feature_df, fragment_df)
+        self._optlock.update_with_extraction(feature_df, fragment_df)
 
-        self.reporter.log_string(
-            f"=== Extracted {len(self.optlock.features_df)} precursors and {len(self.optlock.fragments_df)} fragments ===",
+        self._reporter.log_string(
+            f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
             verbosity="progress",
         )
 
         precursor_df = fdr_correction(
-            self.fdr_manager,
-            self.config,
-            self.dia_data.cycle,
-            self.optlock.features_df,
-            self.optlock.fragments_df,
-            self.optimization_manager.classifier_version,
+            self._fdr_manager,
+            self._config,
+            self._dia_data.cycle,
+            self._optlock.features_df,
+            self._optlock.fragments_df,
+            self._optimization_manager.classifier_version,
         )
 
-        self.optlock.update_with_fdr(precursor_df)
+        self._optlock.update_with_fdr(precursor_df)
 
-        self.reporter.log_string(
-            f"=== FDR correction performed with classifier version {self.optimization_manager.classifier_version} ===",
+        self._reporter.log_string(
+            f"=== FDR correction performed with classifier version {self._optimization_manager.classifier_version} ===",
         )
 
-        log_precursor_df(self.reporter, precursor_df)
+        log_precursor_df(self._reporter, precursor_df)
 
         return precursor_df
 
     def _initiate_search_parameter_optimization(self):
         """Saves the classifier version just before search parameter optimization begins and updates the optimization lock to show that calibration has been performed."""
-        self.optlock.previously_calibrated = True
-        self.optimization_manager.update(
-            classifier_version=self.fdr_manager.current_version
+        self._optlock.previously_calibrated = True
+        self._optimization_manager.update(
+            classifier_version=self._fdr_manager.current_version
         )
-        self.reporter.log_string(
+        self._reporter.log_string(
             "Required number of precursors found. Starting search parameter optimization.",
             verbosity="progress",
         )
@@ -415,14 +418,14 @@ class OptimizationHandler:
         fragments_df_filtered : pd.DataFrame
             Filtered fragment dataframe (see filter_dfs).
         """
-        self.reporter.log_string(
+        self._reporter.log_string(
             "=== checking if optimization conditions were reached ===",
         )
 
         for optimizer in optimizers:
             optimizer.step(precursor_df_filtered, fragments_df_filtered)
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             "==============================================",
         )
 
@@ -438,7 +441,7 @@ class OptimizationHandler:
             List of optimizers to be stepped.
 
         """
-        self.reporter.log_string(
+        self._reporter.log_string(
             "=== skipping optimization until target number of precursors are found ===",
         )
 
@@ -485,17 +488,17 @@ class OptimizationHandler:
         # Determine the number of fragments to keep
         high_corr_count = (
             fragments_df_filtered["correlation"]
-            > self.config["calibration"]["min_correlation"]
+            > self._config["calibration"]["min_correlation"]
         ).sum()
         stop_rank = min(
             high_corr_count,
-            self.config["calibration"]["max_fragments"],
+            self._config["calibration"]["max_fragments"],
         )
 
         # Select top fragments
         fragments_df_filtered = fragments_df_filtered.head(stop_rank)
 
-        self.reporter.log_string(
+        self._reporter.log_string(
             f"fragments_df: keeping {len(fragments_df_filtered)} of {len(fragments_df)} [{sum(precursor_idx_mask)=} {sum(mass_error_mask)=} {stop_rank=}"
         )
 
