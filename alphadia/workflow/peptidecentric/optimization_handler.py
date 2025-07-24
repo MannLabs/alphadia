@@ -368,6 +368,7 @@ class OptimizationHandler:
 
         precursor_df = self._fdr_manager.fit_predict(
             self._optlock.features_df,
+            competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=self._optlock.fragments_df,
             version=self._optimization_manager.classifier_version,
         )

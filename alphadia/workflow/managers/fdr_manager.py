@@ -98,7 +98,6 @@ class FDRManager(BaseManager):
             if config["fdr"]["channel_wise_fdr"]
             else "precursor"
         )
-        self._competitive_scoring = config["fdr"]["competetive_scoring"]
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
@@ -106,11 +105,11 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
+        competetive: bool,
         decoy_strategy_overwrite: Literal[
             "precursor", "precursor_channel_wise", "channel"
         ]
         | None = None,
-        competetive_overwrite: bool | None = None,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
@@ -121,11 +120,11 @@ class FDRManager(BaseManager):
         ----------
         features_df: pd.DataFrame
             Dataframe containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
+        competetive: bool | None
+            Wheter competitive scoring should be used.
         decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
             Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
             Defaults to None.
-        competetive_overwrite: bool | None
-            Value to overwrite the default competitive scoring. If None, uses the default value set in the constructor.
             Defaults to None.
         df_fragments: None | pd.DataFrame
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
@@ -146,12 +145,6 @@ class FDRManager(BaseManager):
             self._decoy_strategy
             if decoy_strategy_overwrite is None
             else decoy_strategy_overwrite
-        )
-
-        competetive = (
-            competetive_overwrite
-            if competetive_overwrite is not None
-            else self._competitive_scoring
         )
 
         self._check_valid_input(
