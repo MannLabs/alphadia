@@ -26,8 +26,8 @@ from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHa
 from alphadia.workflow.peptidecentric.peptidecentric import (
     PeptideCentricWorkflow,
     _get_classifier_base,
-    feature_columns,
 )
+from alphadia.workflow.peptidecentric.utils import feature_columns
 
 
 def test_base_manager():
