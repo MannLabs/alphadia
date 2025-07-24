@@ -52,6 +52,10 @@ def _is_valid(
         # "Dense fragment matrix not divisible by 2"
         return False
 
+    if dense_precursors.shape[2] % 2 != 0:
+        # "Dense precursor matrix not divisible by 2"
+        return False
+
     if (
         dense_precursors.shape[2] < kernel.shape[0]
         or dense_precursors.shape[3] < kernel.shape[1]
