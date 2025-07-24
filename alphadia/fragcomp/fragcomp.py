@@ -51,12 +51,12 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     precursor_start_idxs: np.ndarray,
     precursor_stop_idxs: np.ndarray,
     rt: np.ndarray,
-    valid: np.ndarray,
     frag_start_idx: np.ndarray,
     frag_stop_idx: np.ndarray,
     fragment_mz: np.ndarray,
     rt_tol_seconds: float,
     mass_tol_ppm: float,
+    valid: np.ndarray,
 ) -> None:
     """Remove PSMs that share fragments with other PSMs.
 
@@ -81,9 +81,6 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     rt: np.ndarray
         The retention times of the precursors.
 
-    valid: np.ndarray
-        Array of length n_psms. The validity of each PSM. This is where the method output will be stored.
-
     frag_start_idx: np.ndarray
         Array of length n_psms. The start indices of the fragments in the fragment dataframe.
 
@@ -98,6 +95,9 @@ def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
 
     mass_tol_ppm: float
         The mass tolerance in ppm.
+
+    valid: np.ndarray
+        Array of length n_psms. The validity of each PSM. This is where the method output will be stored.
 
     Returns
     -------
@@ -269,12 +269,12 @@ class FragmentCompetition:
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
             psm_df["rt_observed"].values,
-            valid,
             psm_df["_frag_start_idx"].values,
             psm_df["_frag_stop_idx"].values,
             frag_df["mz_observed"].values,
             self.rt_tol_seconds,
             self.mass_tol_ppm,
+            valid,
         )
 
         psm_df["valid"] = valid

@@ -47,12 +47,12 @@ def test_compete_for_fragments():
         np.array([0, 3]),
         np.array([3, 6]),
         rt,
-        valid,
         frag_start_idx,
         frag_stop_idx,
         fragment_mz,
         3,
         15,
+        valid,
     )
 
     assert np.all(valid == np.array([True, True, False, True, False, True]))
