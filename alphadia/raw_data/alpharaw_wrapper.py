@@ -1,7 +1,7 @@
 """Module providing methods to read and process raw data in the following formats: Thermo, Sciex, MzML, AlphaRawBase."""
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 
 import numpy as np
 from alpharaw.ms_data_base import MSData_Base
@@ -145,31 +145,26 @@ class AlphaRaw(MSData_Base, DiaData, ABC):
         )
 
     @property
-    @abstractmethod
     def has_mobility(self) -> bool:
         """Whether the data contains mobility values."""
         return self._has_mobility
 
     @property
-    @abstractmethod
     def has_ms1(self) -> bool:
         """Whether the data contains MS1 scans."""
         return self._has_ms1
 
     @property
-    @abstractmethod
     def mobility_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
         """Mobility values."""
         return self._mobility_values
 
     @property
-    @abstractmethod
     def rt_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
         """Retention time values."""
         return self._rt_values
 
     @property
-    @abstractmethod
     def cycle(self) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
         """Cycle information."""
         return self._cycle

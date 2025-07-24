@@ -1,8 +1,13 @@
-"""Interface for the (non-JIT) DIA data."""
+"""Interface for DIA data."""
 
 from abc import ABC, abstractmethod
 
 import numpy as np
+
+from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
+from alphadia.raw_data.jitclasses.bruker_jit import TimsTOFTransposeJIT
+
+DiaDataJIT = TimsTOFTransposeJIT | AlphaRawJIT
 
 
 class DiaData(ABC):
@@ -32,3 +37,7 @@ class DiaData(ABC):
     @abstractmethod
     def cycle(self) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
         """Cycle information."""
+
+    @abstractmethod
+    def to_jitclass(self) -> DiaDataJIT:
+        """Create a JIT-compatible class with the current state."""

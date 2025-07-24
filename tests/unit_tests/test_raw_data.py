@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
 
-from alphadia.raw_data import DiaDataJIT, alpharaw_wrapper, bruker
+from alphadia.raw_data import alpharaw_wrapper, bruker
+from alphadia.raw_data.interface import DiaDataJIT
 
 
 def test_transpose():

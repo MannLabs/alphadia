@@ -26,8 +26,7 @@ from alphadia.peakgroup.utils import (
     wrap0,
     wrap1,
 )
-from alphadia.raw_data import DiaDataJIT
-from alphadia.raw_data.interface import DiaData
+from alphadia.raw_data.interface import DiaData, DiaDataJIT
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
