@@ -1,7 +1,7 @@
 """Module providing methods to read and process raw data in the following formats: Thermo, Sciex, MzML, AlphaRawBase."""
 
 import logging
-from abc import ABC
+from abc import ABC, abstractmethod
 
 import numpy as np
 from alpharaw.ms_data_base import MSData_Base
@@ -10,12 +10,13 @@ from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
 from alphadia.raw_data.dia_cycle import determine_dia_cycle
+from alphadia.raw_data.interface import DiaData
 from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
 
 logger = logging.getLogger()
 
 
-class AlphaRaw(MSData_Base, ABC):
+class AlphaRaw(MSData_Base, DiaData, ABC):
     def __init__(self, centroided: bool = True, save_as_hdf: bool = False):
         """Abstract class providing data structures and methods for reading and pre-processing raw data.
 
@@ -28,21 +29,21 @@ class AlphaRaw(MSData_Base, ABC):
         """
         super().__init__(centroided, save_as_hdf)
 
-        self.has_mobility: bool = False
-        self.has_ms1: bool = True
+        self._has_mobility: bool = False
+        self._has_ms1: bool = True
         self._zeroth_frame: int = 0
         self._scan_max_index: int = 1
-        self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
+        self._mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
             [1e-6, 0], dtype=np.float32
         )
 
         self._mz_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
-        self.rt_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
+        self._rt_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
         self._intensity_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = (
             None
         )
 
-        self.cycle: (
+        self._cycle: (
             np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]] | None
         ) = None
         self._cycle_start: int | None = None
@@ -65,7 +66,7 @@ class AlphaRaw(MSData_Base, ABC):
         self._peak_stop_idx_list: np.ndarray[tuple[int], np.dtype[np.int64]] | None = (
             None
         )
-        self.frame_max_index: int | None = None
+        self._frame_max_index: int | None = None
 
     def _preprocess_raw_data(self, astral_ms1: bool = False):
         """Process the raw data to extract relevant information."""
@@ -79,16 +80,16 @@ class AlphaRaw(MSData_Base, ABC):
             )
 
             self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
-            self.has_ms1 = False
+            self._has_ms1 = False
 
-        self.cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
+        self._cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
             self.spectrum_df
         )
 
         self.spectrum_df = self.spectrum_df.iloc[self._cycle_start :]
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+        self._rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
 
-        self._precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
+        self._precursor_cycle_max_index = len(self._rt_values) // self._cycle.shape[1]
 
         self._max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
         self._min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
@@ -113,7 +114,7 @@ class AlphaRaw(MSData_Base, ABC):
         self._mz_values = self.peak_df.mz.values.astype(np.float32)
         self._intensity_values = self.peak_df.intensity.values.astype(np.float32)
 
-        self.frame_max_index = len(self.rt_values) - 1
+        self._frame_max_index = len(self._rt_values) - 1
 
     def _is_ms1_dia(self) -> bool:
         """Return whether the MS1 spectra follow a DIA cycle."""
@@ -126,9 +127,9 @@ class AlphaRaw(MSData_Base, ABC):
     def to_jitclass(self) -> AlphaRawJIT:
         """Create a AlphaRawJIT with the current state of this class."""
         return AlphaRawJIT(
-            self.cycle,
-            self.rt_values,
-            self.mobility_values,
+            self._cycle,
+            self._rt_values,
+            self._mobility_values,
             self._zeroth_frame,
             self._max_mz_value,
             self._min_mz_value,
@@ -140,8 +141,38 @@ class AlphaRaw(MSData_Base, ABC):
             self._mz_values,
             self._intensity_values,
             self._scan_max_index,
-            self.frame_max_index,
+            self._frame_max_index,
         )
+
+    @property
+    @abstractmethod
+    def has_mobility(self) -> bool:
+        """Whether the data contains mobility values."""
+        return self._has_mobility
+
+    @property
+    @abstractmethod
+    def has_ms1(self) -> bool:
+        """Whether the data contains MS1 scans."""
+        return self._has_ms1
+
+    @property
+    @abstractmethod
+    def mobility_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
+        """Mobility values."""
+        return self._mobility_values
+
+    @property
+    @abstractmethod
+    def rt_values(self) -> np.ndarray[tuple[int], np.dtype[np.float32]]:
+        """Retention time values."""
+        return self._rt_values
+
+    @property
+    @abstractmethod
+    def cycle(self) -> np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]]:
+        """Cycle information."""
+        return self._cycle
 
 
 class AlphaRawBase(AlphaRaw, MSData_Base):

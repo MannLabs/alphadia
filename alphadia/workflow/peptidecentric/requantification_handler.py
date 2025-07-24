@@ -9,7 +9,7 @@ from alphadia.plexscoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
-from alphadia.raw_data import DiaData
+from alphadia.raw_data.interface import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
