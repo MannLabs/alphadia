@@ -357,8 +357,7 @@ class OptimizationHandler:
 
         feature_df, fragment_df = extraction_handler.extract_batch(
             self._dia_data,
-            self._optlock.batch_library.precursor_df,
-            self._optlock.batch_library.fragment_df,
+            self._optlock.batch_library,
         )
         self._optlock.update_with_extraction(feature_df, fragment_df)
 

@@ -159,6 +159,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.reporter,
             self.spectral_library,
             self.dia_data,
+            self._figure_path,
         )
 
         optimization_handler.search_parameter_optimization()
@@ -184,8 +185,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
         features_df, fragments_df = extraction_handler.extract_batch(
             self.dia_data,
-            self.spectral_library.precursor_df,
-            self.spectral_library.fragment_df,
+            self.spectral_library,
             apply_cutoff=True,
         )
 
