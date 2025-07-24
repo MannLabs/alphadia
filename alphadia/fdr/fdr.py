@@ -252,6 +252,8 @@ def get_q_values(
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
-    fdr_values = decoy_cumsum / target_cumsum
+    fdr_values = (
+        decoy_cumsum / target_cumsum
+    )  # TODO: RuntimeWarning: divide by zero encountered in divide
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

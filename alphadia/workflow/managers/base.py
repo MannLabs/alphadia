@@ -1,3 +1,8 @@
+"""Base class for Managers.
+
+In AlphaDIA, a "manager" is a stateful object, and can be saved/loaded from disk. Additionally, it may offer functionality to change its state.
+"""
+
 import logging
 import os
 import pickle
