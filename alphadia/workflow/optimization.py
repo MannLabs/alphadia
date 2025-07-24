@@ -20,6 +20,11 @@ from alphadia.workflow.config import Config
 
 
 class BaseOptimizer(ABC):
+    parameter_name: str | None
+    estimator_name: str | None
+    estimator_group_name: str | None
+    feature_name: str | None
+
     def __init__(
         self,
         workflow,
@@ -39,7 +44,7 @@ class BaseOptimizer(ABC):
         """
         self.workflow = workflow
         self.reporter = reporting.LogBackend() if reporter is None else reporter
-        self._num_prev_optimizations = 0
+        self._num_prev_optimizations: int = 0
 
     @abstractmethod
     def step(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
@@ -80,7 +85,7 @@ class BaseOptimizer(ABC):
         """Plots the progress of the optimization. Can be overwritten with an empty method if there is no need to plot the progress."""
 
     @abstractmethod
-    def _update_workflow():
+    def _update_workflow(self):
         """This method updates the optimization manager with the results of the optimization, namely:
         the classifier version,
         the optimal parameter,
@@ -91,7 +96,7 @@ class BaseOptimizer(ABC):
         """
 
     @abstractmethod
-    def _update_history():
+    def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """This method updates the history dataframe with relevant values.
 
         Parameters
@@ -124,7 +129,10 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         super().__init__(workflow, reporter)
         self.history_df = pd.DataFrame()
-        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
+
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: initial_parameter}
+        )
         self.has_converged = False
         self._num_prev_optimizations = 0
         self._num_consecutive_skips = 0
@@ -198,7 +206,9 @@ class AutomaticOptimizer(BaseOptimizer):
                 else fragments_df
             )
 
-            self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
+            self.workflow.optimization_manager.update(
+                **{self.parameter_name: new_parameter}
+            )
 
             self.reporter.log_string(
                 f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
@@ -452,28 +462,28 @@ class AutomaticOptimizer(BaseOptimizer):
         index_of_optimum = self._find_index_of_optimum()
 
         optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit({self.parameter_name: optimal_parameter})
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: optimal_parameter}
+        )
 
         classifier_version_at_optimum = self.history_df["classifier_version"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.fit(
-            {"classifier_version": classifier_version_at_optimum}
+        self.workflow.optimization_manager.update(
+            classifier_version=classifier_version_at_optimum
         )
 
         score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit(
-            {"score_cutoff": score_cutoff_at_optimum}
-        )
+        self.workflow.optimization_manager.update(score_cutoff=score_cutoff_at_optimum)
 
         fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-        self.workflow.optimization_manager.fit({"fwhm_rt": fwhm_rt_at_optimum})
+        self.workflow.optimization_manager.update(fwhm_rt=fwhm_rt_at_optimum)
 
         fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.fit(
-            {"fwhm_mobility": fwhm_mobility_at_optimum}
+        self.workflow.optimization_manager.update(
+            fwhm_mobility=fwhm_mobility_at_optimum
         )
 
         batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
@@ -523,7 +533,9 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         super().__init__(workflow, reporter)
-        self.workflow.optimization_manager.fit({self.parameter_name: initial_parameter})
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: initial_parameter}
+        )
         self.target_parameter = target_parameter
         self.update_factor = workflow.config["optimization"][self.parameter_name][
             "targeted_update_factor"
@@ -585,9 +597,11 @@ class TargetedOptimizer(BaseOptimizer):
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
-        self.workflow.optimization_manager.fit({self.parameter_name: new_parameter})
-        self.workflow.optimization_manager.fit(
-            {"classifier_version": self.workflow.fdr_manager.current_version}
+        self.workflow.optimization_manager.update(
+            **{self.parameter_name: new_parameter}
+        )
+        self.workflow.optimization_manager.update(
+            classifier_version=self.workflow.fdr_manager.current_version
         )
 
         if just_converged:
@@ -784,6 +798,8 @@ class OptimizationLock:
         self._set_batch_plan()
 
         eg_idxes = self.elution_group_order[self.start_idx : self.stop_idx]
+
+        self.batch_library: pd.DataFrame | None = None
         self.set_batch_dfs(eg_idxes)
 
         self.feature_dfs = []
@@ -873,7 +889,9 @@ class OptimizationLock:
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
 
-    def update_with_calibration(self, calibration_manager):
+    def update_with_calibration(
+        self, calibration_manager
+    ):  # why is this here? -> optimization_manager ?
         """Updates the batch library with the current calibrated values using the calibration manager.
 
         Parameters

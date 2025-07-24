@@ -97,7 +97,7 @@ def test_output_transform():
         ):  # simulate the case that the search fails such that the optimization and timing managers are not saved
             pass
         else:
-            optimization_manager.fit({"ms2_error": 6})
+            optimization_manager.update(ms2_error=6)
             optimization_manager.save()
             timing_manager.set_start_time("extraction")
             timing_manager.set_end_time("extraction")

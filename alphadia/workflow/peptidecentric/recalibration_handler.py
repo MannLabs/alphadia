@@ -62,11 +62,9 @@ class RecalibrationHandler:
             figure_path=self._figure_path,
         )
 
-        self._optimization_manager.fit(
-            {
-                "column_type": "calibrated",
-                "num_candidates": self._config["search"]["target_num_candidates"],
-            }
+        self._optimization_manager.update(
+            column_type="calibrated",
+            num_candidates=self._config["search"]["target_num_candidates"],
         )
 
         score = precursor_df_filtered["score"]
@@ -80,10 +78,8 @@ class RecalibrationHandler:
 
         self._reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
 
-        self._optimization_manager.fit(
-            {
-                "fwhm_rt": precursor_df_filtered["cycle_fwhm"].median(),
-                "fwhm_mobility": precursor_df_filtered["mobility_fwhm"].median(),
-                "score_cutoff": score_cutoff,
-            }
+        self._optimization_manager.update(
+            fwhm_rt=precursor_df_filtered["cycle_fwhm"].median(),
+            fwhm_mobility=precursor_df_filtered["mobility_fwhm"].median(),
+            score_cutoff=score_cutoff,
         )
