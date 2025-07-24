@@ -245,7 +245,7 @@ class FragmentCompetition:
             The PSM dataframe with the valid column.
 
         """
-        psm_df = psm_df.copy()
+        psm_df = psm_df.copy()  # to avoid SettingWithCopyWarning
 
         psm_df["_candidate_idx"] = candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
