@@ -12,6 +12,12 @@ class RecalibrationHandler:
     Handles recalibration of peptide-centric data.
     """
 
+    DEFAULT_FAC = 0.95
+    DEFAULT_Q = 3
+
+    OPTIMIZED_FAC = 0.99
+    OPTIMIZED_Q = 1
+
     def __init__(
         self,
         config: Config,
@@ -66,9 +72,9 @@ class RecalibrationHandler:
         score = precursor_df_filtered["score"]
         if self._config["search"]["optimized_peak_group_score"]:
             # these values give benefits on max memory and runtime, with a small precursor penalty
-            fac, q = 0.95, 3
+            fac, q = self.DEFAULT_FAC, self.DEFAULT_Q
         else:
-            fac, q = 0.99, 1
+            fac, q = self.OPTIMIZED_FAC, self.OPTIMIZED_Q
 
         score_cutoff = fac * np.percentile(score, q)
 
