@@ -192,7 +192,7 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy_overwrite="precursor",
+        decoy_strategy="precursor",
         competetive=False,
     )
 
@@ -200,7 +200,7 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy_overwrite="precursor",
+        decoy_strategy="precursor",
         competetive=True,
     )
 
@@ -212,7 +212,7 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy_overwrite="precursor_channel_wise",
+        decoy_strategy="precursor_channel_wise",
         competetive=True,
     )
 
@@ -221,7 +221,7 @@ def test_fdr():
 
     psm_df = fdr_manager.fit_predict(
         test_df,
-        decoy_strategy_overwrite="channel",
+        decoy_strategy="channel",
         competetive=True,
         decoy_channel=8,
     )

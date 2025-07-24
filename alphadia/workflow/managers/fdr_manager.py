@@ -93,11 +93,6 @@ class FDRManager(BaseManager):
         self._current_version = -1
         self.load_classifier_store()
 
-        self._decoy_strategy = (
-            "precursor_channel_wise"
-            if config["fdr"]["channel_wise_fdr"]
-            else "precursor"
-        )
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
@@ -105,11 +100,8 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
+        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"],
         competetive: bool,
-        decoy_strategy_overwrite: Literal[
-            "precursor", "precursor_channel_wise", "channel"
-        ]
-        | None = None,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
@@ -120,12 +112,10 @@ class FDRManager(BaseManager):
         ----------
         features_df: pd.DataFrame
             DataFrame containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
-        competetive: bool | None
+        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"]| None
+            The decoy strategy.
+        competetive: bool
             Whether competetive scoring should be used.
-        decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
-            Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
-            Defaults to None.
-            Defaults to None.
         df_fragments: None | pd.DataFrame
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
         decoy_channel: int
@@ -139,12 +129,6 @@ class FDRManager(BaseManager):
         """
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
-        )
-
-        decoy_strategy = (
-            self._decoy_strategy
-            if decoy_strategy_overwrite is None
-            else decoy_strategy_overwrite
         )
 
         self._check_valid_input(

@@ -205,8 +205,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
+        decoy_strategy = (
+            "precursor_channel_wise"
+            if self._config["fdr"]["channel_wise_fdr"]
+            else "precursor"
+        )
+
         precursor_df = self._fdr_manager.fit_predict(
             features_df,
+            decoy_strategy=decoy_strategy,
             competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=fragments_df,
             version=self.optimization_manager.classifier_version,
