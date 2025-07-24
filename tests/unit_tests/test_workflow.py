@@ -484,8 +484,6 @@ def create_workflow_instance():
         workflow._optimization_manager,
         workflow._calibration_manager,
         fdr_manager=workflow.fdr_manager,
-        extraction_handler=None,
-        recalibration_handler=None,
         reporter=workflow.reporter,
         spectral_library=None,
         dia_data=workflow._dia_data,
