@@ -102,7 +102,7 @@ class FragmentRequantificationHandler:
         )
 
         scoring = CandidateScoring(
-            dia_data.jitclass(),  # TODO: move jitclass() in
+            dia_data,
             candidate_speclib_flat.precursor_df,
             candidate_speclib_flat.fragment_df,
             config=config,

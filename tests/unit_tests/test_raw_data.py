@@ -32,9 +32,9 @@ def test_raw_data():  # TODO this is never executed as TEST_DATA_DIR (cf. confte
     for name, file_list in pytest.test_data.items():
         for file in file_list:
             if name == "bruker":
-                jit_data = bruker.TimsTOFTranspose(file).jitclass()
+                jit_data = bruker.TimsTOFTranspose(file).to_jitclass()
             elif name == "thermo":
-                jit_data = alpharaw_wrapper.Thermo(file).jitclass()
+                jit_data = alpharaw_wrapper.Thermo(file).to_jitclass()
             else:
                 continue
 
