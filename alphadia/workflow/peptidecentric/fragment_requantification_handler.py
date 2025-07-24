@@ -1,3 +1,5 @@
+"""Handles the requantification of fragments for transfer library building."""
+
 import pandas as pd
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
@@ -16,9 +18,9 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
-class FragmentRequantificationHandler:
+class TransferLibraryRequantificationHandler:
     """
-    Handles the requantification of fragments.
+    Handles the requantification of fragments for transfer library building.
     """
 
     def __init__(

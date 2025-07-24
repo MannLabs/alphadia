@@ -14,12 +14,12 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.fragment_requantification_handler import (
-    FragmentRequantificationHandler,
+    TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.requantification_handler import (
-    RequantificationHandler,
+    MultiplexingRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
     feature_columns,
@@ -238,7 +238,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         Delegates to RequantificationHandler.requantify(), see docstring there for more details.
         """
 
-        requantification_handler = RequantificationHandler(
+        requantification_handler = MultiplexingRequantificationHandler(
             self.config,
             self.calibration_manager,
             self._fdr_manager,
@@ -268,7 +268,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         Delegates to RequantificationHandler.requantify_fragments(), see docstring there for more details.
         """
 
-        fragment_requantification_handler = FragmentRequantificationHandler(
+        fragment_requantification_handler = TransferLibraryRequantificationHandler(
             self.config,
             self.calibration_manager,
             self.reporter,
@@ -279,6 +279,4 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
-        return fragment_requantification_handler.requantify_fragments(
-            self.dia_data, psm_df
-        )
+        return fragment_requantification_handler.requantify(self.dia_data, psm_df)

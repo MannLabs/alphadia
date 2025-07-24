@@ -1,3 +1,5 @@
+"""Handles the requantification of peptide-centric data for multiplexing."""
+
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -15,9 +17,9 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
-class RequantificationHandler:
+class MultiplexingRequantificationHandler:
     """
-    Handles the requantification of peptide-centric data.
+    Handles the requantification of peptide-centric data for multiplexing.
     """
 
     def __init__(
