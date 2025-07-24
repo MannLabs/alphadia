@@ -184,7 +184,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
     @use_timing_manager("extraction")
     def extraction(self):
-        extraction_handler = ExtractionHandler(
+        extraction_handler = ExtractionHandler.create_handler(
             self.config,
             self.optimization_manager,
             self.reporter,
