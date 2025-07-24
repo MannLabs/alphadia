@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.raw_data import alpharaw_wrapper, bruker
+from alphadia.raw_data import DiaDataJIT, alpharaw_wrapper, bruker
 
 
 def test_transpose():
@@ -41,7 +41,7 @@ def test_raw_data():  # TODO this is never executed as TEST_DATA_DIR (cf. confte
         run_test_on_raw(name, jit_data)
 
 
-def run_test_on_raw(name, jit_data):
+def run_test_on_raw(name, jit_data: DiaDataJIT):
     print("Testing", name)
     fuzz_get_frame_indices(jit_data)
     fuzz_get_frame_indices_tolerance(jit_data)
@@ -50,7 +50,7 @@ def run_test_on_raw(name, jit_data):
     fuzz_get_dense(jit_data)
 
 
-def fuzz_get_frame_indices(jit_data):
+def fuzz_get_frame_indices(jit_data: DiaDataJIT):
     for _ in range(1):
         start_index = np.random.randint(0, jit_data.rt_values.shape[0], size=1)[0]
         stop_index = np.random.randint(
@@ -81,7 +81,7 @@ def fuzz_get_frame_indices(jit_data):
         assert cycle_len % 16 == 0
 
 
-def fuzz_get_frame_indices_tolerance(jit_data):
+def fuzz_get_frame_indices_tolerance(jit_data: DiaDataJIT):
     for _ in range(1000):
         rt = jit_data.rt_values[
             np.random.randint(0, jit_data.rt_values.shape[0], size=1)
@@ -110,7 +110,7 @@ def fuzz_get_frame_indices_tolerance(jit_data):
         assert cycle_len % 16 == 0
 
 
-def fuzz_get_scan_indices(jit_data):
+def fuzz_get_scan_indices(jit_data: DiaDataJIT):
     for _ in range(1000):
         start_index = np.random.randint(0, jit_data.mobility_values.shape[0], size=1)[0]
         stop_index = np.random.randint(
@@ -135,7 +135,7 @@ def fuzz_get_scan_indices(jit_data):
         assert scan_len % 16 == 0 or scan_len == 2
 
 
-def fuzz_get_scan_indices_tolerance(jit_data):
+def fuzz_get_scan_indices_tolerance(jit_data: DiaDataJIT):
     for _ in range(1000):
         mobility = jit_data.mobility_values[
             np.random.randint(0, jit_data.mobility_values.shape[0], size=1)
@@ -164,7 +164,7 @@ def fuzz_get_scan_indices_tolerance(jit_data):
         assert scan_len % 16 == 0 or scan_len == 2
 
 
-def fuzz_get_dense(jit_data):
+def fuzz_get_dense(jit_data: DiaDataJIT):
     for _ in range(100):
         min_mz = jit_data.mz_values.min()
         max_mz = jit_data.mz_values.max()
