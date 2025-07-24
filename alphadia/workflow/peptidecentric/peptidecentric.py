@@ -14,12 +14,12 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 from alphadia.workflow.peptidecentric.fragment_requantification_handler import (
-    FragmentRequantificationHandler,
+    TransferLibraryRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
 from alphadia.workflow.peptidecentric.requantification_handler import (
-    RequantificationHandler,
+    MultiplexingRequantificationHandler,
 )
 from alphadia.workflow.peptidecentric.utils import (
     feature_columns,
@@ -205,8 +205,16 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
+        decoy_strategy = (
+            "precursor_channel_wise"
+            if self._config["fdr"]["channel_wise_fdr"]
+            else "precursor"
+        )
+
         precursor_df = self._fdr_manager.fit_predict(
             features_df,
+            decoy_strategy=decoy_strategy,
+            competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=fragments_df,
             version=self.optimization_manager.classifier_version,
         )
@@ -235,10 +243,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     def requantify(self, psm_df: pd.DataFrame) -> pd.DataFrame:
         """TODO.
 
-        Delegates to RequantificationHandler.requantify(), see docstring there for more details.
+        Delegates to MultiplexingRequantificationHandler.requantify(), see docstring there for more details.
         """
 
-        requantification_handler = RequantificationHandler(
+        requantification_handler = MultiplexingRequantificationHandler(
             self.config,
             self.calibration_manager,
             self._fdr_manager,
@@ -265,10 +273,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Requantify confident precursor identifications for transfer learning.
 
-        Delegates to RequantificationHandler.requantify_fragments(), see docstring there for more details.
+        Delegates to TransferLibraryRequantificationHandler.requantify(), see docstring there for more details.
         """
 
-        fragment_requantification_handler = FragmentRequantificationHandler(
+        fragment_requantification_handler = TransferLibraryRequantificationHandler(
             self.config,
             self.calibration_manager,
             self.reporter,
@@ -279,6 +287,4 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
-        return fragment_requantification_handler.requantify_fragments(
-            self.dia_data, psm_df
-        )
+        return fragment_requantification_handler.requantify(self.dia_data, psm_df)

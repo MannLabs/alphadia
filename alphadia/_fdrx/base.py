@@ -170,7 +170,7 @@ class TargetDecoyFDR:
         _plot_fdr_curve(psm_df["qval"])
         return psm_df
 
-    def fit_predict_qval(  # TODO not used?
+    def fit_predict_qval(
         self,
         psm_df: pd.DataFrame,
         fragments_df: pd.DataFrame | None = None,

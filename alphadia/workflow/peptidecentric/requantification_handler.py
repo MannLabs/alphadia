@@ -1,3 +1,5 @@
+"""Handles the requantification of peptide-centric data for multiplexing."""
+
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
@@ -15,9 +17,9 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
-class RequantificationHandler:
+class MultiplexingRequantificationHandler:
     """
-    Handles the requantification of peptide-centric data.
+    Handles the requantification of peptide-centric data for multiplexing.
     """
 
     def __init__(
@@ -133,8 +135,8 @@ class RequantificationHandler:
 
         psm_df = self._fdr_manager.fit_predict(
             multiplexed_features,
-            decoy_strategy_overwrite="channel",
-            competetive_overwrite=self._config["multiplexing"]["competetive_scoring"],
+            decoy_strategy="channel",
+            competetive=self._config["multiplexing"]["competetive_scoring"],
             decoy_channel=decoy_channel,
         )
 
