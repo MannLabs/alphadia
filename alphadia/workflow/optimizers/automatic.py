@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,14 +6,23 @@ import pandas as pd
 import seaborn as sns
 
 from alphadia.reporting import reporting
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
+from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
 
-class AutomaticOptimizer(BaseOptimizer):
+class AutomaticOptimizer(BaseOptimizer, ABC):
     def __init__(
         self,
         initial_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        optlock: OptimizationLock,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class automatically optimizes the search parameter and stores the progres of optimization in a dataframe, history_df.
@@ -26,38 +35,41 @@ class AutomaticOptimizer(BaseOptimizer):
         See base class for other parameters.
 
         """
-        super().__init__(workflow, reporter)
+        super().__init__(
+            config, optimization_manager, calibration_manager, fdr_manager, reporter
+        )
+
+        self._optlock = optlock
+
         self.history_df = pd.DataFrame()
 
-        self.workflow.optimization_manager.update(
-            **{self.parameter_name: initial_parameter}
-        )
+        self._optimization_manager.update(**{self.parameter_name: initial_parameter})
         self.has_converged = False
         self._num_prev_optimizations = 0
         self._num_consecutive_skips = 0
-        self.update_factor = workflow.config["optimization"][self.parameter_name][
+        self.update_factor = self._config["optimization"][self.parameter_name][
             "automatic_update_factor"
         ]
-        self.update_percentile_range = workflow.config["optimization"][
+        self.update_percentile_range = self._config["optimization"][
             self.parameter_name
         ]["automatic_update_percentile_range"]
 
-        self._try_narrower_values = workflow.config["optimization"][
-            self.parameter_name
-        ]["try_narrower_values"]
+        self._try_narrower_values = self._config["optimization"][self.parameter_name][
+            "try_narrower_values"
+        ]
 
         self._maximal_decrease = (
-            workflow.config["optimization"][self.parameter_name]["maximal_decrease"]
+            self._config["optimization"][self.parameter_name]["maximal_decrease"]
             if self._try_narrower_values
             else None
         )
 
-        self._favour_narrower_optimum = workflow.config["optimization"][
+        self._favour_narrower_optimum = self._config["optimization"][
             self.parameter_name
         ]["favour_narrower_optimum"]
 
         self._maximum_decrease_from_maximum = (
-            workflow.config["optimization"][self.parameter_name][
+            self._config["optimization"][self.parameter_name][
                 "maximum_decrease_from_maximum"
             ]
             if self._favour_narrower_optimum
@@ -74,7 +86,7 @@ class AutomaticOptimizer(BaseOptimizer):
         """
         if self.has_converged:
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
             return
@@ -82,7 +94,7 @@ class AutomaticOptimizer(BaseOptimizer):
         self._num_consecutive_skips = 0
         self._num_prev_optimizations += 1
         self.reporter.log_string(
-            f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self.workflow.config['calibration']['min_steps']} ===",
+            f"=== Optimization of {self.parameter_name} has been performed {self._num_prev_optimizations} time(s); minimum number is {self._config['calibration']['min_steps']} ===",
             verbosity="progress",
         )
 
@@ -94,7 +106,7 @@ class AutomaticOptimizer(BaseOptimizer):
             self._update_workflow()
 
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -105,12 +117,10 @@ class AutomaticOptimizer(BaseOptimizer):
                 else fragments_df
             )
 
-            self.workflow.optimization_manager.update(
-                **{self.parameter_name: new_parameter}
-            )
+            self._optimization_manager.update(**{self.parameter_name: new_parameter})
 
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f}.",
+                f"❌ {self.parameter_name:<15}: optimization incomplete after {len(self.history_df)} search(es). Will search with parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f}.",
                 verbosity="progress",
             )
 
@@ -118,14 +128,14 @@ class AutomaticOptimizer(BaseOptimizer):
         """Increments the internal counter for the number of consecutive skips and checks if the optimization should be stopped."""
         self._num_consecutive_skips += 1
         self.reporter.log_string(
-            f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self.workflow.config['calibration']['max_skips']} ===",
+            f"=== Optimization of {self.parameter_name} has been skipped {self._num_consecutive_skips} time(s); maximum number is {self._config['calibration']['max_skips']} ===",
             verbosity="progress",
         )
         if self._batch_substantially_bigger:
             self.has_converged = True
             self._update_workflow()
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -134,7 +144,7 @@ class AutomaticOptimizer(BaseOptimizer):
         fig, ax = plt.subplots()
 
         ax.vlines(
-            x=self.workflow.optimization_manager.__dict__[self.parameter_name],
+            x=self._optimization_manager.__dict__[self.parameter_name],
             ymin=0,
             ymax=self.history_df.loc[self._find_index_of_optimum(), self.feature_name],
             color="red",
@@ -182,9 +192,12 @@ class AutomaticOptimizer(BaseOptimizer):
             The proposed new value for the search parameter.
 
         """
-        return self.update_factor * self.workflow.calibration_manager.get_estimator(
-            self.estimator_group_name, self.estimator_name
-        ).ci(df, self.update_percentile_range)
+        return (
+            self.update_factor
+            * self._calibration_manager.get_estimator(  # TODO save only estimators?
+                self.estimator_group_name, self.estimator_name
+            ).ci(df, self.update_percentile_range)
+        )
 
     def _update_history(self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame):
         """This method updates the history dataframe with relevant values.
@@ -201,17 +214,17 @@ class AutomaticOptimizer(BaseOptimizer):
         new_row = pd.DataFrame(
             [
                 {
-                    "parameter": self.workflow.optimization_manager.__dict__[
+                    "parameter": self._optimization_manager.__dict__[
                         self.parameter_name
                     ],
                     self.feature_name: self._get_feature_value(
                         precursors_df, fragments_df
                     ),
-                    "classifier_version": self.workflow.fdr_manager.current_version,
-                    "score_cutoff": self.workflow.optimization_manager.score_cutoff,
-                    "fwhm_rt": self.workflow.optimization_manager.fwhm_rt,
-                    "fwhm_mobility": self.workflow.optimization_manager.fwhm_mobility,
-                    "batch_idx": self.workflow.optlock.batch_idx,
+                    "classifier_version": self._fdr_manager.current_version,  # TODO: only we need from fdr_manager
+                    "score_cutoff": self._optimization_manager.score_cutoff,
+                    "fwhm_rt": self._optimization_manager.fwhm_rt,
+                    "fwhm_mobility": self._optimization_manager.fwhm_mobility,
+                    "batch_idx": self._optlock.batch_idx,
                 }
             ]
         )
@@ -229,12 +242,10 @@ class AutomaticOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self._num_prev_optimizations
-            >= self.workflow.config["calibration"]["min_steps"]
+            self._num_prev_optimizations >= self._config["calibration"]["min_steps"]
         )
         max_skips_reached = (
-            self._num_consecutive_skips
-            > self.workflow.config["calibration"]["max_skips"]
+            self._num_consecutive_skips > self._config["calibration"]["max_skips"]
         )
         return min_steps_reached and max_skips_reached
 
@@ -264,8 +275,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         if self._try_narrower_values:  # This setting can be useful for optimizing parameters for which many parameter values have similar feature values.
             min_steps_reached = (
-                self._num_prev_optimizations
-                >= self.workflow.config["calibration"]["min_steps"]
+                self._num_prev_optimizations >= self._config["calibration"]["min_steps"]
             )
 
             feature_substantially_decreased = (
@@ -292,8 +302,7 @@ class AutomaticOptimizer(BaseOptimizer):
 
         else:
             min_steps_reached = (
-                self._num_prev_optimizations
-                >= self.workflow.config["calibration"]["min_steps"]
+                self._num_prev_optimizations >= self._config["calibration"]["min_steps"]
             )
 
             feature_not_substantially_increased = (
@@ -361,34 +370,30 @@ class AutomaticOptimizer(BaseOptimizer):
         index_of_optimum = self._find_index_of_optimum()
 
         optimal_parameter = self.history_df["parameter"].loc[index_of_optimum]
-        self.workflow.optimization_manager.update(
-            **{self.parameter_name: optimal_parameter}
-        )
+        self._optimization_manager.update(**{self.parameter_name: optimal_parameter})
 
         classifier_version_at_optimum = self.history_df["classifier_version"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.update(
+        self._optimization_manager.update(
             classifier_version=classifier_version_at_optimum
         )
 
         score_cutoff_at_optimum = self.history_df["score_cutoff"].loc[index_of_optimum]
-        self.workflow.optimization_manager.update(score_cutoff=score_cutoff_at_optimum)
+        self._optimization_manager.update(score_cutoff=score_cutoff_at_optimum)
 
         fwhm_rt_at_optimum = self.history_df["fwhm_rt"].loc[index_of_optimum]
-        self.workflow.optimization_manager.update(fwhm_rt=fwhm_rt_at_optimum)
+        self._optimization_manager.update(fwhm_rt=fwhm_rt_at_optimum)
 
         fwhm_mobility_at_optimum = self.history_df["fwhm_mobility"].loc[
             index_of_optimum
         ]
-        self.workflow.optimization_manager.update(
-            fwhm_mobility=fwhm_mobility_at_optimum
-        )
+        self._optimization_manager.update(fwhm_mobility=fwhm_mobility_at_optimum)
 
         batch_index_at_optimum = self.history_df["batch_idx"].loc[index_of_optimum]
         # Take the batch index of the optimum, at the cost of potentially getting the batch library twice if this is the same as the current batch index.
         # The time impact of this is negligible and the benefits can be significant.
-        self.workflow.optlock.batch_idx = batch_index_at_optimum
+        self._optlock.batch_idx = batch_index_at_optimum
 
     @abstractmethod
     def _get_feature_value(
@@ -413,7 +418,11 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        optlock: OptimizationLock,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class. Optimizes retention time error."""
@@ -421,19 +430,31 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
         self.feature_name = "precursor_proportion_detected"
-        super().__init__(initial_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            optlock,
+            reporter,
+        )
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_elution_groups
+        return len(precursors_df) / self._optlock.total_elution_groups
 
 
 class AutomaticMS2Optimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        optlock: OptimizationLock,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
@@ -441,19 +462,31 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
         self.feature_name = "precursor_proportion_detected"
-        super().__init__(initial_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            optlock,
+            reporter,
+        )
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_elution_groups
+        return len(precursors_df) / self._optlock.total_elution_groups
 
 
 class AutomaticMS1Optimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        optlock: OptimizationLock,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class. Optimizes MS1 error."""
@@ -461,7 +494,15 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
         self.feature_name = "mean_isotope_intensity_correlation"
-        super().__init__(initial_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            optlock,
+            reporter,
+        )
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
@@ -473,7 +514,11 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     def __init__(
         self,
         initial_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
+        optlock: OptimizationLock,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class. Optimizes mobility error."""
@@ -481,9 +526,17 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
         self.feature_name = "precursor_proportion_detected"
-        super().__init__(initial_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            optlock,
+            reporter,
+        )
 
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return len(precursors_df) / self.workflow.optlock.total_elution_groups
+        return len(precursors_df) / self._optlock.total_elution_groups

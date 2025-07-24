@@ -1,15 +1,24 @@
+from abc import ABC
+
 import pandas as pd
 
 from alphadia.reporting import reporting
+from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.fdr_manager import FDRManager
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
 
 
-class TargetedOptimizer(BaseOptimizer):
+class TargetedOptimizer(BaseOptimizer, ABC):
     def __init__(
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """This class optimizes the search parameter until it reaches a user-specified target value.
@@ -26,15 +35,15 @@ class TargetedOptimizer(BaseOptimizer):
         See base class for other parameters.
 
         """
-        super().__init__(workflow, reporter)
-        self.workflow.optimization_manager.update(
-            **{self.parameter_name: initial_parameter}
+        super().__init__(
+            config, optimization_manager, calibration_manager, fdr_manager, reporter
         )
+        self._optimization_manager.update(**{self.parameter_name: initial_parameter})
         self.target_parameter = target_parameter
-        self.update_factor = workflow.config["optimization"][self.parameter_name][
+        self.update_factor = self._config["optimization"][self.parameter_name][
             "targeted_update_factor"
         ]
-        self.update_percentile_range = workflow.config["optimization"][
+        self.update_percentile_range = self._config["optimization"][
             self.parameter_name
         ]["targeted_update_percentile_range"]
         self.has_converged = False
@@ -55,8 +64,7 @@ class TargetedOptimizer(BaseOptimizer):
 
         """
         min_steps_reached = (
-            self._num_prev_optimizations
-            >= self.workflow.config["calibration"]["min_steps"]
+            self._num_prev_optimizations >= self._config["calibration"]["min_steps"]
         )
         return proposed_parameter <= self.target_parameter and min_steps_reached
 
@@ -68,7 +76,7 @@ class TargetedOptimizer(BaseOptimizer):
         This is implemented by the ci method for the estimator.
         """
         return self.update_factor * max(
-            self.workflow.calibration_manager.get_estimator(
+            self._calibration_manager.get_estimator(
                 self.estimator_group_name, self.estimator_name
             ).ci(df, self.update_percentile_range),
             self.target_parameter,
@@ -82,7 +90,7 @@ class TargetedOptimizer(BaseOptimizer):
         """See base class."""
         if self.has_converged:
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
             return
@@ -91,23 +99,21 @@ class TargetedOptimizer(BaseOptimizer):
             precursors_df if self.estimator_group_name == "precursor" else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
-        self.workflow.optimization_manager.update(
-            **{self.parameter_name: new_parameter}
-        )
-        self.workflow.optimization_manager.update(
-            classifier_version=self.workflow.fdr_manager.current_version
+        self._optimization_manager.update(**{self.parameter_name: new_parameter})
+        self._optimization_manager.update(
+            classifier_version=self._fdr_manager.current_version
         )
 
         if just_converged:
             self.has_converged = True
             self.reporter.log_string(
-                f"✅ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
+                f"✅ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} <= {self.target_parameter:.4f}",
                 verbosity="progress",
             )
 
         else:
             self.reporter.log_string(
-                f"❌ {self.parameter_name:<15}: {self.workflow.optimization_manager.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
+                f"❌ {self.parameter_name:<15}: {self._optimization_manager.__dict__[self.parameter_name]:.4f} > {self.target_parameter:.4f} or insufficient steps taken.",
                 verbosity="progress",
             )
 
@@ -129,14 +135,25 @@ class TargetedRTOptimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "rt_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "rt"
-        super().__init__(initial_parameter, target_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            target_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            reporter,
+        )
 
 
 class TargetedMS2Optimizer(TargetedOptimizer):
@@ -144,14 +161,25 @@ class TargetedMS2Optimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
         self.estimator_group_name = "fragment"
         self.estimator_name = "mz"
-        super().__init__(initial_parameter, target_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            target_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            reporter,
+        )
 
 
 class TargetedMS1Optimizer(TargetedOptimizer):
@@ -159,14 +187,25 @@ class TargetedMS1Optimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "ms1_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mz"
-        super().__init__(initial_parameter, target_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            target_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            reporter,
+        )
 
 
 class TargetedMobilityOptimizer(TargetedOptimizer):
@@ -174,11 +213,22 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
         self,
         initial_parameter: float,
         target_parameter: float,
-        workflow,
+        config: Config,
+        optimization_manager: OptimizationManager,
+        calibration_manager: CalibrationManager,
+        fdr_manager: FDRManager,
         reporter: None | reporting.Pipeline | reporting.Backend = None,
     ):
         """See base class."""
         self.parameter_name = "mobility_error"
         self.estimator_group_name = "precursor"
         self.estimator_name = "mobility"
-        super().__init__(initial_parameter, target_parameter, workflow, reporter)
+        super().__init__(
+            initial_parameter,
+            target_parameter,
+            config,
+            optimization_manager,
+            calibration_manager,
+            fdr_manager,
+            reporter,
+        )
