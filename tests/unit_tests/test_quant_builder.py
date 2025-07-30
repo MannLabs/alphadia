@@ -1036,3 +1036,396 @@ class TestQuantBuilderFilterFragDf:
         # then
         assert len(filtered_intensity) == expected_count
         assert len(filtered_quality) == expected_count
+
+
+class TestQuantBuilderLfq:
+    """Test cases for QuantBuilder.lfq() method."""
+
+    @pytest.fixture
+    def basic_lfq_data(self):
+        """Create basic intensity and quality dataframes for LFQ tests."""
+        intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 0, 1, 1, 2, 2],
+                "ion": [100, 100, 101, 101, 102, 102],
+                "run1": [1000.0, 0.0, 2000.0, 0.0, 3000.0, 1500.0],
+                "run2": [0.0, 1100.0, 0.0, 2100.0, 3100.0, 1600.0],
+                "run3": [1200.0, 1300.0, 2200.0, 2300.0, 0.0, 0.0],
+                "pg": ["PG001", "PG001", "PG002", "PG002", "PG003", "PG003"],
+                "mod_seq_hash": [1, 1, 2, 2, 3, 3],
+                "mod_seq_charge_hash": [10, 10, 20, 20, 30, 30],
+            }
+        )
+
+        quality_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 0, 1, 1, 2, 2],
+                "ion": [100, 100, 101, 101, 102, 102],
+                "run1": [0.9, 0.0, 0.8, 0.0, 0.7, 0.8],
+                "run2": [0.0, 0.9, 0.0, 0.8, 0.7, 0.8],
+                "run3": [0.8, 0.9, 0.8, 0.9, 0.0, 0.0],
+                "pg": ["PG001", "PG001", "PG002", "PG002", "PG003", "PG003"],
+                "mod_seq_hash": [1, 1, 2, 2, 3, 3],
+                "mod_seq_charge_hash": [10, 10, 20, 20, 30, 30],
+            }
+        )
+
+        return intensity_df, quality_df
+
+    @pytest.fixture
+    def mock_directlfq_functions(self):
+        """Mock directLFQ functions for testing."""
+        with (
+            patch("alphadia.outputtransform.quant_builder.lfqconfig") as mock_config,
+            patch("alphadia.outputtransform.quant_builder.lfqutils") as mock_utils,
+            patch("alphadia.outputtransform.quant_builder.lfqnorm") as mock_norm,
+            patch(
+                "alphadia.outputtransform.quant_builder.lfqprot_estimation"
+            ) as mock_prot,
+        ):
+            # Configure mock return values
+            mock_utils.index_and_log_transform_input_df.return_value = pd.DataFrame(
+                {
+                    "pg": ["PG001", "PG002", "PG003"],
+                    "ion": [100, 101, 102],
+                    "run1": [10.0, 11.0, 12.0],
+                    "run2": [10.5, 11.5, 12.5],
+                    "run3": [9.5, 10.5, 11.5],
+                }
+            )
+
+            mock_utils.remove_allnan_rows_input_df.return_value = pd.DataFrame(
+                {
+                    "pg": ["PG001", "PG002", "PG003"],
+                    "ion": [100, 101, 102],
+                    "run1": [10.0, 11.0, 12.0],
+                    "run2": [10.5, 11.5, 12.5],
+                    "run3": [9.5, 10.5, 11.5],
+                }
+            )
+
+            # Mock normalization manager
+            mock_norm_manager = (
+                mock_norm.NormalizationManagerSamplesOnSelectedProteins.return_value
+            )
+            mock_norm_manager.complete_dataframe = pd.DataFrame(
+                {
+                    "pg": ["PG001", "PG002", "PG003"],
+                    "ion": [100, 101, 102],
+                    "run1": [9.8, 10.8, 11.8],
+                    "run2": [10.3, 11.3, 12.3],
+                    "run3": [9.3, 10.3, 11.3],
+                }
+            )
+
+            # Mock protein intensity estimation
+            mock_prot.estimate_protein_intensities.return_value = (
+                pd.DataFrame(
+                    {
+                        "pg": ["PG001", "PG002", "PG003"],
+                        "run1": [20.0, 21.0, 22.0],
+                        "run2": [20.5, 21.5, 22.5],
+                        "run3": [19.5, 20.5, 21.5],
+                    }
+                ),
+                None,  # Second return value not used
+            )
+
+            yield {
+                "config": mock_config,
+                "utils": mock_utils,
+                "norm": mock_norm,
+                "prot": mock_prot,
+            }
+
+    def test_lfq_should_perform_basic_quantification(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq performs basic label-free quantification."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        result_df = builder.lfq(intensity_df, quality_df)
+
+        # then
+        assert isinstance(result_df, pd.DataFrame)
+        assert len(result_df) == 3  # Three protein groups
+        assert "pg" in result_df.columns
+        assert "run1" in result_df.columns
+        assert "run2" in result_df.columns
+        assert "run3" in result_df.columns
+
+        # Verify expected protein groups
+        assert set(result_df["pg"]) == {"PG001", "PG002", "PG003"}
+
+    def test_lfq_should_configure_directlfq_settings(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq configures directLFQ settings correctly."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, group_column="pg")
+
+        # then
+        mock_config = mock_directlfq_functions["config"]
+        mock_config.set_global_protein_and_ion_id.assert_called_once_with(
+            protein_id="pg", quant_id="ion"
+        )
+        mock_config.set_compile_normalized_ion_table.assert_called_once_with(
+            compile_normalized_ion_table=False
+        )
+        mock_config.check_wether_to_copy_numpy_arrays_derived_from_pandas.assert_called_once()
+        mock_config.set_log_processed_proteins.assert_called_once_with(
+            log_processed_proteins=True
+        )
+
+    def test_lfq_should_drop_metadata_columns_except_group_column(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq drops metadata columns but keeps the group column."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, group_column="pg")
+
+        # then
+        mock_utils = mock_directlfq_functions["utils"]
+
+        # Check that the DataFrame passed to directLFQ has the right columns
+        called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
+
+        # Should have group column (pg) and run columns, but not other metadata
+        expected_columns = {"pg", "ion", "run1", "run2", "run3"}
+        assert set(called_df.columns) == expected_columns
+        assert "precursor_idx" not in called_df.columns
+        assert "mod_seq_hash" not in called_df.columns
+        assert "mod_seq_charge_hash" not in called_df.columns
+
+    def test_lfq_should_use_custom_group_column(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq uses custom group column correctly."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, group_column="mod_seq_hash")
+
+        # then
+        mock_config = mock_directlfq_functions["config"]
+        mock_config.set_global_protein_and_ion_id.assert_called_with(
+            protein_id="mod_seq_hash", quant_id="ion"
+        )
+
+        # Check that mod_seq_hash is kept in the DataFrame
+        mock_utils = mock_directlfq_functions["utils"]
+        called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
+        assert "mod_seq_hash" in called_df.columns
+        assert "pg" not in called_df.columns  # pg should be dropped
+
+    def test_lfq_should_sort_by_group_column(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq sorts data by group column before processing."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        # Shuffle the data to test sorting
+        intensity_df = intensity_df.sample(frac=1).reset_index(drop=True)
+
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, group_column="pg")
+
+        # then
+        mock_utils = mock_directlfq_functions["utils"]
+        called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
+
+        # Check that data is sorted by pg column
+        pg_values = called_df["pg"].tolist()
+        assert pg_values == sorted(pg_values)
+
+    def test_lfq_with_normalization_enabled_should_apply_normalization(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq applies normalization when normalize=True."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, normalize=True, num_samples_quadratic=25)
+
+        # then
+        mock_norm = mock_directlfq_functions["norm"]
+        mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
+
+        # Check that normalization was called with correct parameters
+        call_args = mock_norm.NormalizationManagerSamplesOnSelectedProteins.call_args
+        assert call_args[1]["num_samples_quadratic"] == 25
+        assert call_args[1]["selected_proteins_file"] is None
+
+    def test_lfq_with_normalization_disabled_should_skip_normalization(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq skips normalization when normalize=False."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df, normalize=False)
+
+        # then
+        mock_norm = mock_directlfq_functions["norm"]
+        mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
+
+    def test_lfq_should_call_protein_intensity_estimation_with_parameters(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq calls protein intensity estimation with correct parameters."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(
+            intensity_df, quality_df, min_nonan=2, num_samples_quadratic=30, num_cores=4
+        )
+
+        # then
+        mock_prot = mock_directlfq_functions["prot"]
+        mock_prot.estimate_protein_intensities.assert_called_once()
+
+        call_args = mock_prot.estimate_protein_intensities.call_args
+        assert call_args[1]["min_nonan"] == 2
+        assert call_args[1]["num_samples_quadratic"] == 30
+        assert call_args[1]["num_cores"] == 4
+
+    def test_lfq_should_process_data_through_directlfq_pipeline(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq processes data through the complete directLFQ pipeline."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df)
+
+        # then
+        mock_utils = mock_directlfq_functions["utils"]
+        mock_prot = mock_directlfq_functions["prot"]
+
+        # Verify the pipeline steps are called in order
+        mock_utils.index_and_log_transform_input_df.assert_called_once()
+        mock_utils.remove_allnan_rows_input_df.assert_called_once()
+        mock_prot.estimate_protein_intensities.assert_called_once()
+
+        # Verify data flows through the pipeline
+        log_transform_result = mock_utils.index_and_log_transform_input_df.return_value
+        mock_utils.remove_allnan_rows_input_df.assert_called_with(log_transform_result)
+
+    def test_lfq_with_empty_dataframe_should_handle_gracefully(
+        self, mock_directlfq_functions
+    ):
+        """Test that lfq handles empty input dataframes gracefully."""
+        # given
+        empty_intensity = pd.DataFrame(
+            columns=[
+                "precursor_idx",
+                "ion",
+                "run1",
+                "pg",
+                "mod_seq_hash",
+                "mod_seq_charge_hash",
+            ]
+        )
+        empty_quality = pd.DataFrame(
+            columns=[
+                "precursor_idx",
+                "ion",
+                "run1",
+                "pg",
+                "mod_seq_hash",
+                "mod_seq_charge_hash",
+            ]
+        )
+        psm_df = pd.DataFrame({"precursor_idx": []})
+        builder = QuantBuilder(psm_df)
+
+        # Configure mocks for empty data
+        mock_utils = mock_directlfq_functions["utils"]
+        mock_utils.index_and_log_transform_input_df.return_value = pd.DataFrame(
+            columns=["pg", "ion", "run1"]
+        )
+        mock_utils.remove_allnan_rows_input_df.return_value = pd.DataFrame(
+            columns=["pg", "ion", "run1"]
+        )
+
+        mock_prot = mock_directlfq_functions["prot"]
+        mock_prot.estimate_protein_intensities.return_value = (
+            pd.DataFrame(columns=["pg", "run1"]),
+            None,
+        )
+
+        # when
+        result_df = builder.lfq(empty_intensity, empty_quality)
+
+        # then
+        assert isinstance(result_df, pd.DataFrame)
+        assert len(result_df) == 0
+        mock_utils.index_and_log_transform_input_df.assert_called_once()
+
+    @patch("alphadia.outputtransform.quant_builder.logger")
+    def test_lfq_should_log_processing_start(
+        self, mock_logger, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq logs the start of processing."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        builder.lfq(intensity_df, quality_df)
+
+        # then
+        mock_logger.info.assert_called_with(
+            "Performing label-free quantification using directLFQ"
+        )
+
+    def test_lfq_should_return_only_protein_dataframe(
+        self, basic_lfq_data, mock_directlfq_functions
+    ):
+        """Test that lfq returns only the protein dataframe from directLFQ estimation."""
+        # given
+        intensity_df, quality_df = basic_lfq_data
+        psm_df = pd.DataFrame({"precursor_idx": [0, 1, 2]})
+        builder = QuantBuilder(psm_df)
+
+        # when
+        result_df = builder.lfq(intensity_df, quality_df)
+
+        # then
+        # Should return the first element of the tuple from estimate_protein_intensities
+        mock_prot = mock_directlfq_functions["prot"]
+        expected_df = mock_prot.estimate_protein_intensities.return_value[0]
+        pd.testing.assert_frame_equal(result_df, expected_df)
