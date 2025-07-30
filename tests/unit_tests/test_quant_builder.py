@@ -522,6 +522,173 @@ class TestQuantBuilderAccumulateFragDf:
         pd.testing.assert_frame_equal(quality_df, expected_quality_df)
 
 
+class TestQuantBuilderAccumulateFragDfFromFolders:
+    """Test cases for QuantBuilder.accumulate_frag_df_from_folders() method."""
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    def test_accumulate_frag_df_from_folders_should_call_accumulate_frag_df_with_generator(
+        self, mock_accumulate_frag_df, basic_psm_df
+    ):
+        """Test that accumulate_frag_df_from_folders calls accumulate_frag_df with generator from folders."""
+        # given
+        folder_list = ["folder1", "folder2", "folder3"]
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+
+        expected_intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1],
+                "ion": [100, 200],
+                "run1": [110.0, 220.0],
+                "pg": ["PG001", "PG002"],
+            }
+        )
+        expected_quality_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1],
+                "ion": [100, 200],
+                "run1": [0.8, 0.9],
+                "pg": ["PG001", "PG002"],
+            }
+        )
+        mock_accumulate_frag_df.return_value = (
+            expected_intensity_df,
+            expected_quality_df,
+        )
+
+        # when
+        intensity_df, quality_df = builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        mock_accumulate_frag_df.assert_called_once()
+
+        # Verify the argument passed to accumulate_frag_df is an iterator
+        call_args = mock_accumulate_frag_df.call_args[0][0]
+        assert hasattr(call_args, "__iter__")
+        assert hasattr(call_args, "__next__")
+
+        # Verify the return values are passed through
+        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
+        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    def test_accumulate_frag_df_from_folders_should_return_none_when_accumulate_returns_none(
+        self, mock_accumulate_frag_df, basic_psm_df
+    ):
+        """Test that accumulate_frag_df_from_folders returns None when accumulate_frag_df returns None."""
+        # given
+        folder_list = ["empty_folder"]
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+        mock_accumulate_frag_df.return_value = None
+
+        # when
+        result = builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        assert result is None
+        mock_accumulate_frag_df.assert_called_once()
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    def test_accumulate_frag_df_from_folders_should_pass_empty_list_correctly(
+        self, mock_accumulate_frag_df, basic_psm_df
+    ):
+        """Test that accumulate_frag_df_from_folders handles empty folder list correctly."""
+        # given
+        folder_list = []
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+        mock_accumulate_frag_df.return_value = None
+
+        # when
+        result = builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        assert result is None
+        mock_accumulate_frag_df.assert_called_once()
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    @patch("os.path.exists")
+    @patch("pandas.read_parquet")
+    def test_accumulate_frag_df_from_folders_should_pass_generator_with_valid_data(
+        self,
+        mock_read_parquet,
+        mock_exists,
+        mock_accumulate_frag_df,
+        basic_psm_df,
+        simple_fragment_df,
+    ):
+        """Test that accumulate_frag_df_from_folders passes generator with data from valid folders."""
+        # given
+        folder_list = ["folder1", "folder2"]
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+
+        mock_exists.return_value = True
+        mock_read_parquet.return_value = simple_fragment_df
+
+        expected_result = (pd.DataFrame(), pd.DataFrame())
+        mock_accumulate_frag_df.return_value = expected_result
+
+        # when
+        builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        mock_accumulate_frag_df.assert_called_once()
+
+        # Verify the generator passed contains expected data
+        call_args = mock_accumulate_frag_df.call_args[0][0]
+        generator_items = list(call_args)
+
+        assert len(generator_items) == 2
+        assert generator_items[0][0] == "folder1"  # raw_name
+        assert generator_items[1][0] == "folder2"  # raw_name
+        pd.testing.assert_frame_equal(generator_items[0][1], simple_fragment_df)
+        pd.testing.assert_frame_equal(generator_items[1][1], simple_fragment_df)
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    @patch("os.path.exists")
+    def test_accumulate_frag_df_from_folders_should_skip_missing_files(
+        self, mock_exists, mock_accumulate_frag_df, basic_psm_df
+    ):
+        """Test that accumulate_frag_df_from_folders skips folders without frag.parquet files."""
+        # given
+        folder_list = ["missing_folder1", "missing_folder2"]
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+
+        mock_exists.return_value = False  # No frag.parquet files exist
+        mock_accumulate_frag_df.return_value = None
+
+        # when
+        builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        mock_accumulate_frag_df.assert_called_once()
+
+        # Verify empty generator is passed
+        call_args = mock_accumulate_frag_df.call_args[0][0]
+        generator_items = list(call_args)
+        assert len(generator_items) == 0
+
+    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
+    def test_accumulate_frag_df_from_folders_should_use_correct_column(
+        self, mock_accumulate_frag_df, basic_psm_df
+    ):
+        """Test that accumulate_frag_df_from_folders preserves the builder's column setting."""
+        # given
+        folder_list = ["folder1"]
+        builder = QuantBuilder(
+            basic_psm_df, column="height"
+        )  # Use height instead of intensity
+
+        expected_result = (pd.DataFrame(), pd.DataFrame())
+        mock_accumulate_frag_df.return_value = expected_result
+
+        # when
+        builder.accumulate_frag_df_from_folders(folder_list)
+
+        # then
+        # The column setting should be preserved in the builder instance
+        assert builder.column == "height"
+        mock_accumulate_frag_df.assert_called_once()
+
+
 class TestQuantBuilderHelperFunctions:
     """Test cases for helper functions used by QuantBuilder."""
 
