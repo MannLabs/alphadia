@@ -108,7 +108,7 @@ class QuantBuilder:
 
     def accumulate_frag_df(
         self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
         """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
 
         Parameters
@@ -124,14 +124,16 @@ class QuantBuilder:
 
         quality_df: pd.DataFrame
             Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+
+        (None, None) if df_iterable is empty
         """
 
         logger.info("Accumulating fragment data")
 
         raw_name, df = next(df_iterable, (None, None))
         if df is None:
-            logger.warning(f"no frag file found for {raw_name}")
-            return None
+            logger.warning(f"No frag file found for {raw_name}")
+            return None, None
 
         df = prepare_df(df, self.psm_df, column=self.column)
 

@@ -254,7 +254,7 @@ class TestQuantBuilderAccumulateFragDf:
         result = builder.accumulate_frag_df(empty_iterable)
 
         # then
-        assert result is None
+        assert result == (None, None)
 
     def test_accumulate_frag_df_should_fill_nan_with_zero(self):
         """Test that accumulate_frag_df fills NaN values with zero."""
