@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
+import pytest
 from conftest import mock_precursor_df
 
 from alphadia.outputtransform.quant_builder import QuantBuilder, _ion_hash, prepare_df
@@ -32,40 +33,127 @@ def create_mock_fragment_df(n_fragments: int = 4, n_precursor: int = 3) -> pd.Da
     )
 
 
+@pytest.fixture
+def basic_psm_df():
+    """Basic PSM DataFrame with 2 precursors."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1],
+            "pg": ["PG001", "PG002"],
+            "mod_seq_hash": [1, 2],
+            "mod_seq_charge_hash": [10, 20],
+        }
+    )
+
+
+@pytest.fixture
+def extended_psm_df():
+    """Extended PSM DataFrame with 5 precursors."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3, 4],
+            "pg": ["PG001", "PG002", "PG001", "PG003", "PG002"],
+            "mod_seq_hash": [1, 2, 3, 4, 5],
+            "mod_seq_charge_hash": [10, 20, 30, 40, 50],
+        }
+    )
+
+
+@pytest.fixture
+def simple_fragment_df():
+    """Simple fragment DataFrame with basic structure."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 0, 1, 1, 2, 2],
+            "mz": [500.1, 600.2, 700.3, 800.4, 900.5, 1000.6],
+            "charge": np.array([1, 2, 1, 2, 1, 2], dtype=np.uint8),
+            "number": np.array([1, 2, 1, 2, 1, 2], dtype=np.uint8),
+            "type": np.array([98, 121, 98, 121, 98, 121], dtype=np.uint8),
+            "position": np.array([0, 1, 0, 1, 0, 1], dtype=np.uint8),
+            "height": [100.0, 200.0, 300.0, 400.0, 500.0, 600.0],
+            "intensity": [110.0, 220.0, 330.0, 440.0, 550.0, 660.0],
+            "correlation": [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
+            "loss_type": np.array([1, 1, 1, 1, 1, 1], dtype=np.uint8),
+        }
+    )
+
+
+@pytest.fixture
+def basic_fragment_df():
+    """Basic fragment DataFrame for 2 precursors."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1],
+            "mz": [500.1, 600.2],
+            "charge": np.array([1, 2], dtype=np.uint8),
+            "number": np.array([1, 1], dtype=np.uint8),
+            "type": np.array([98, 121], dtype=np.uint8),
+            "position": np.array([0, 0], dtype=np.uint8),
+            "height": [100.0, 200.0],
+            "intensity": [110.0, 220.0],
+            "correlation": [0.8, 0.9],
+            "loss_type": np.array([1, 1], dtype=np.uint8),
+        }
+    )
+
+
+@pytest.fixture
+def duplicate_fragment_df():
+    """Fragment DataFrame with duplicate ion hashes for testing."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 0, 0, 1],  # precursor 0 has duplicate fragments
+            "mz": [500.1, 500.1, 600.2, 700.3],  # Same mz for duplicates
+            "charge": np.array(
+                [1, 1, 2, 1], dtype=np.uint8
+            ),  # Same charge for duplicates
+            "number": np.array(
+                [1, 1, 2, 1], dtype=np.uint8
+            ),  # Same number for duplicates
+            "type": np.array(
+                [98, 98, 121, 98], dtype=np.uint8
+            ),  # Same type for duplicates
+            "position": np.array([0, 0, 1, 0], dtype=np.uint8),
+            "height": [100.0, 150.0, 200.0, 300.0],  # Different heights
+            "intensity": [110.0, 160.0, 220.0, 330.0],  # Different intensities
+            "correlation": [0.8, 0.85, 0.9, 0.7],  # Different correlations
+            "loss_type": np.array([1, 1, 1, 1], dtype=np.uint8),  # Same loss_type
+        }
+    )
+
+
+@pytest.fixture
+def helper_psm_df():
+    """PSM DataFrame for helper function tests."""
+    return pd.DataFrame({"precursor_idx": [0, 1, 2], "pg": ["PG001", "PG002", "PG003"]})
+
+
+@pytest.fixture
+def helper_fragment_df():
+    """Fragment DataFrame for helper function tests."""
+    return pd.DataFrame(
+        {
+            "precursor_idx": [0, 1, 2, 3, 4],  # More precursors than in PSM
+            "number": [1, 2, 3, 4, 5],
+            "type": [98, 121, 98, 121, 98],  # b and y ions
+            "charge": [1, 1, 2, 2, 1],
+            "loss_type": [1, 1, 1, 1, 1],
+            "intensity": [100, 200, 300, 400, 500],
+            "correlation": [0.8, 0.9, 0.7, 0.6, 0.5],
+        }
+    )
+
+
 class TestQuantBuilderAccumulateFragDf:
     """Test cases for QuantBuilder.accumulate_frag_df() method."""
 
     def test_accumulate_frag_df_single_run_should_return_intensity_and_quality_dfs(
-        self,
+        self, extended_psm_df, simple_fragment_df
     ):
         """Test that accumulate_frag_df returns correct dataframes for single run."""
         # given
-        psm_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2, 3, 4],
-                "pg": ["PG001", "PG002", "PG001", "PG003", "PG002"],
-                "mod_seq_hash": [1, 2, 3, 4, 5],
-                "mod_seq_charge_hash": [10, 20, 30, 40, 50],
-            }
-        )
-
-        frag_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 0, 1, 1, 2, 2],
-                "mz": [500.1, 600.2, 700.3, 800.4, 900.5, 1000.6],
-                "charge": np.array([1, 2, 1, 2, 1, 2], dtype=np.uint8),
-                "number": np.array([1, 2, 1, 2, 1, 2], dtype=np.uint8),
-                "type": np.array([98, 121, 98, 121, 98, 121], dtype=np.uint8),
-                "position": np.array([0, 1, 0, 1, 0, 1], dtype=np.uint8),
-                "height": [100.0, 200.0, 300.0, 400.0, 500.0, 600.0],
-                "intensity": [110.0, 220.0, 330.0, 440.0, 550.0, 660.0],
-                "correlation": [0.8, 0.9, 0.7, 0.6, 0.5, 0.4],
-                "loss_type": np.array([1, 1, 1, 1, 1, 1], dtype=np.uint8),
-            }
-        )
-
-        builder = QuantBuilder(psm_df, column="intensity")
-        df_iterable = [("run1", frag_df)]
+        builder = QuantBuilder(extended_psm_df, column="intensity")
+        df_iterable = [("run1", simple_fragment_df)]
 
         # when
         intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
@@ -110,50 +198,18 @@ class TestQuantBuilderAccumulateFragDf:
         pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
         pd.testing.assert_frame_equal(quality_df, expected_quality_df)
 
-    def test_accumulate_frag_df_multiple_runs_should_merge_data_correctly(self):
+    def test_accumulate_frag_df_multiple_runs_should_merge_data_correctly(
+        self, basic_psm_df, basic_fragment_df
+    ):
         """Test that accumulate_frag_df correctly merges data from multiple runs."""
         # given
-        psm_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1],
-                "pg": ["PG001", "PG002"],
-                "mod_seq_hash": [1, 2],
-                "mod_seq_charge_hash": [10, 20],
-            }
-        )
+        frag_df2 = basic_fragment_df.copy()
+        frag_df2["height"] = [150.0, 250.0]
+        frag_df2["intensity"] = [160.0, 270.0]
+        frag_df2["correlation"] = [0.7, 0.6]
 
-        frag_df1 = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1],
-                "mz": [500.1, 600.2],
-                "charge": np.array([1, 2], dtype=np.uint8),
-                "number": np.array([1, 1], dtype=np.uint8),
-                "type": np.array([98, 121], dtype=np.uint8),
-                "position": np.array([0, 0], dtype=np.uint8),
-                "height": [100.0, 200.0],
-                "intensity": [110.0, 220.0],
-                "correlation": [0.8, 0.9],
-                "loss_type": np.array([1, 1], dtype=np.uint8),
-            }
-        )
-
-        frag_df2 = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1],
-                "mz": [500.1, 600.2],
-                "charge": np.array([1, 2], dtype=np.uint8),
-                "number": np.array([1, 1], dtype=np.uint8),
-                "type": np.array([98, 121], dtype=np.uint8),
-                "position": np.array([0, 0], dtype=np.uint8),
-                "height": [150.0, 250.0],
-                "intensity": [160.0, 270.0],
-                "correlation": [0.7, 0.6],
-                "loss_type": np.array([1, 1], dtype=np.uint8),
-            }
-        )
-
-        builder = QuantBuilder(psm_df, column="intensity")
-        df_iterable = [("run1", frag_df1), ("run2", frag_df2)]
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+        df_iterable = [("run1", basic_fragment_df), ("run2", frag_df2)]
 
         # when
         intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
@@ -186,11 +242,12 @@ class TestQuantBuilderAccumulateFragDf:
         pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
         pd.testing.assert_frame_equal(quality_df, expected_quality_df)
 
-    def test_accumulate_frag_df_with_empty_iterator_should_return_none(self):
+    def test_accumulate_frag_df_with_empty_iterator_should_return_none(
+        self, extended_psm_df
+    ):
         """Test that accumulate_frag_df returns None when iterator is empty."""
         # given
-        psm_df = mock_precursor_df(n_precursor=5, with_decoy=False)
-        builder = QuantBuilder(psm_df, column="intensity")
+        builder = QuantBuilder(extended_psm_df, column="intensity")
         empty_iterable = iter([])
 
         # when
@@ -372,31 +429,109 @@ class TestQuantBuilderAccumulateFragDf:
         )  # Same ions from both runs
         assert all(intensity_df["ion"] == quality_df["ion"])
 
+    def test_accumulate_frag_df_with_duplicate_ion_hashes_should_handle_correctly(
+        self, basic_psm_df, duplicate_fragment_df
+    ):
+        """Test that accumulate_frag_df handles duplicate ion hashes correctly by merging data."""
+        # given
+        frag_df2 = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 1],  # Different coverage
+                "mz": [500.1, 700.3, 800.4],
+                "charge": np.array([1, 1, 2], dtype=np.uint8),
+                "number": np.array([1, 1, 1], dtype=np.uint8),
+                "type": np.array([98, 98, 121], dtype=np.uint8),
+                "position": np.array([0, 0, 0], dtype=np.uint8),
+                "height": [120.0, 350.0, 400.0],
+                "intensity": [130.0, 380.0, 440.0],
+                "correlation": [0.75, 0.65, 0.6],
+                "loss_type": np.array([1, 1, 1], dtype=np.uint8),
+            }
+        )
+
+        builder = QuantBuilder(basic_psm_df, column="intensity")
+        df_iterable = [("run1", duplicate_fragment_df), ("run2", frag_df2)]
+
+        # when
+        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+
+        # then
+        # Should handle duplicates by keeping ALL occurrences (pandas merge behavior)
+        # and merge properly across runs via outer join
+        expected_intensity_df = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 0, 1, 1, 0], dtype=np.uint32),
+                "ion": [
+                    72446825449127936,  # precursor 0, number 1, type b, charge 1 (duplicate #1)
+                    72446825449127936,  # precursor 0, number 1, type b, charge 1 (duplicate #2)
+                    72446825449127937,  # precursor 1, number 1, type b, charge 1
+                    72753589193277441,  # precursor 1, number 1, type y, charge 2
+                    72753593488244736,  # precursor 0, number 2, type y, charge 2
+                ],
+                "run1": [
+                    110.0,
+                    160.0,
+                    330.0,
+                    0.0,
+                    220.0,
+                ],  # Both duplicates kept, missing ion gets 0.0
+                "run2": [
+                    130.0,
+                    130.0,
+                    380.0,
+                    440.0,
+                    0.0,
+                ],  # Both duplicate rows get the same run2 value
+                "pg": ["PG001", "PG001", "PG002", "PG002", "PG001"],
+                "mod_seq_hash": [1, 1, 2, 2, 1],
+                "mod_seq_charge_hash": [10, 10, 20, 20, 10],
+            }
+        )
+
+        expected_quality_df = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 0, 1, 1, 0], dtype=np.uint32),
+                "ion": [
+                    72446825449127936,  # precursor 0, number 1, type b, charge 1 (duplicate #1)
+                    72446825449127936,  # precursor 0, number 1, type b, charge 1 (duplicate #2)
+                    72446825449127937,  # precursor 1, number 1, type b, charge 1
+                    72753589193277441,  # precursor 1, number 1, type y, charge 2
+                    72753593488244736,  # precursor 0, number 2, type y, charge 2
+                ],
+                "run1": [
+                    0.8,
+                    0.85,
+                    0.7,
+                    0.0,
+                    0.9,
+                ],  # Both duplicates kept, missing ion gets 0.0
+                "run2": [
+                    0.75,
+                    0.75,
+                    0.65,
+                    0.6,
+                    0.0,
+                ],  # Both duplicate rows get the same run2 value
+                "pg": ["PG001", "PG001", "PG002", "PG002", "PG001"],
+                "mod_seq_hash": [1, 1, 2, 2, 1],
+                "mod_seq_charge_hash": [10, 10, 20, 20, 10],
+            }
+        )
+
+        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
+        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+
 
 class TestQuantBuilderHelperFunctions:
     """Test cases for helper functions used by QuantBuilder."""
 
-    def test_prepare_df_should_filter_by_precursor_idx(self):
+    def test_prepare_df_should_filter_by_precursor_idx(
+        self, helper_psm_df, helper_fragment_df
+    ):
         """Test that prepare_df filters fragments by precursor_idx from PSM data."""
         # given
-        psm_df = pd.DataFrame(
-            {"precursor_idx": [0, 1, 2], "pg": ["PG001", "PG002", "PG003"]}
-        )
-
-        frag_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2, 3, 4],  # More precursors than in PSM
-                "number": [1, 2, 3, 4, 5],
-                "type": [98, 121, 98, 121, 98],  # b and y ions
-                "charge": [1, 1, 2, 2, 1],
-                "loss_type": [1, 1, 1, 1, 1],
-                "intensity": [100, 200, 300, 400, 500],
-                "correlation": [0.8, 0.9, 0.7, 0.6, 0.5],
-            }
-        )
-
         # when
-        result_df = prepare_df(frag_df, psm_df, column="intensity")
+        result_df = prepare_df(helper_fragment_df, helper_psm_df, column="intensity")
 
         # then
         assert len(result_df) == 3  # Only first 3 fragments should remain
@@ -440,11 +575,3 @@ class TestQuantBuilderHelperFunctions:
 
         # then
         assert hash1 == hash2
-
-
-# Additional test cases to implement:
-# test_accumulate_frag_df_with_missing_required_columns_should_raise_error
-# test_accumulate_frag_df_with_duplicate_ion_hashes_should_handle_correctly
-# test_accumulate_frag_df_should_preserve_data_types
-# test_accumulate_frag_df_with_very_large_datasets_should_not_exceed_memory_limits
-# test_accumulate_frag_df_should_handle_unicode_raw_names
