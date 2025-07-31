@@ -107,7 +107,7 @@ class QuantBuilder:
 
     def accumulate_frag_df(
         self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
-    ) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    ) -> dict[str, pd.DataFrame]:
         """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
 
         Parameters
@@ -118,12 +118,8 @@ class QuantBuilder:
 
         Returns
         -------
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
+        dict
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
         (None, None) if df_iterable is empty
         """
 
