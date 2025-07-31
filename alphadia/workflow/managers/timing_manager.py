@@ -33,6 +33,7 @@ class TimingManager(BaseManager):
 
     def set_end_time(self, workflow_stage: str):
         """Stores the end time of the given stage of the workflow in the timings attribute and calculates the duration. Also saves the timing manager to disk.
+
         Parameters
         ----------
         workflow_stage : str

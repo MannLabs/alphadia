@@ -40,10 +40,10 @@ class WorkflowBase:
         ----------
 
         instance_name: str
-            Name for the particular workflow instance. this will usually be the name of the raw file
+            Name for the particular workflow instance, e.g. the name of the raw file
 
-        config: dict
-            Configuration for the workflow. This will be used to initialize the calibration manager and fdr manager
+        config: Config
+            Configuration for the workflow.
 
         quant_path: str
             path to directory holding quant folders, relevant for distributed searches
@@ -109,10 +109,8 @@ class WorkflowBase:
 
         self.reporter.log_event("loading_data", {"progress": 1})
 
-        # load the spectral library
         self._spectral_library: SpecLibFlat = spectral_library.copy()
 
-        # initialize the calibration manager
         self._calibration_manager = CalibrationManager(
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
@@ -120,7 +118,6 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
-        # initialize the optimization manager
         self._optimization_manager = OptimizationManager(
             self.config,
             gradient_length=self.dia_data.rt_values.max(),
@@ -129,12 +126,6 @@ class WorkflowBase:
             figure_path=self._figure_path,
             reporter=self.reporter,
         )
-
-        self._timing_manager = TimingManager(
-            path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
-        )
-
         self.reporter.log_event("section_stop", {})
 
     @property
