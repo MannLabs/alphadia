@@ -1,5 +1,3 @@
-import time
-
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -7,20 +5,6 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.raw_data import DiaData
 
 
-def print_runtime(func):
-    """Decorator to print the runtime of a function."""
-
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        end = time.time()
-        print(f"Runtime of {func.__name__}: {end - start:.4f} seconds")
-        return result
-
-    return wrapper
-
-
-@print_runtime
 def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
     """Convert DIA data from classic to ng format."""
     from alpha_ng import DIADataNextGen as DiaDataNG
@@ -52,7 +36,6 @@ def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
     )
 
 
-@print_runtime
 def speclib_to_ng(
     speclib: SpecLibFlat,
     *,
