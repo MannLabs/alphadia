@@ -528,7 +528,7 @@ class SearchPlanOutput:
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
 
-        intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
+        feature_dfs_dict = qb.accumulate_frag_df_from_folders(folder_list)
 
         @dataclass
         class LFQOutputConfig:
@@ -539,20 +539,21 @@ class SearchPlanOutput:
 
         quantlevel_configs = [
             LFQOutputConfig(
-                self.config["search_output"]["precursor_level_lfq"],
-                "mod_seq_charge_hash",
-                "precursor",
-                self.config["search_output"]["save_fragment_quant_matrix"],
+                should_process=True,
+                quant_level="mod_seq_charge_hash",
+                level_name="precursor",
+                save_fragments=True,  
             ),
             LFQOutputConfig(
-                self.config["search_output"]["peptide_level_lfq"],
-                "mod_seq_hash",
-                "peptide",
+                should_process=True,
+                quant_level="mod_seq_hash",
+                level_name="peptide",
+                save_fragments=True, 
             ),
             LFQOutputConfig(
-                True,  # always process protein group level
-                "pg",
-                "pg",
+                should_process=True,
+                quant_level="pg",
+                level_name="pg",
             ),
         ]
 
@@ -567,8 +568,8 @@ class SearchPlanOutput:
             )
 
             group_intensity_df, _ = qb.filter_frag_df(
-                intensity_df,
-                quality_df,
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
                 top_n=self.config["search_output"]["min_k_fragments"],
                 min_correlation=self.config["search_output"]["min_correlation"],
                 group_column=quantlevel_config.quant_level,
@@ -583,7 +584,7 @@ class SearchPlanOutput:
 
             lfq_df = qb.lfq(
                 group_intensity_df,
-                quality_df,
+                feature_dfs_dict["correlation"],
                 num_cores=self.config["general"]["thread_count"],
                 min_nonan=self.config["search_output"]["min_nonnan"],
                 num_samples_quadratic=self.config["search_output"][
@@ -593,7 +594,15 @@ class SearchPlanOutput:
                 group_column=quantlevel_config.quant_level,
             )
 
-            lfq_results[quantlevel_config.level_name] = lfq_df
+            if quantlevel_config.level_name != "pg":
+                annotate_df = psm_df.groupby(
+                    quantlevel_config.quant_level, as_index=False
+                ).agg({"pg": "first", "sequence": "first"})
+                lfq_results[quantlevel_config.level_name] = lfq_df.merge(
+                    annotate_df, on=quantlevel_config.quant_level, how="left"
+                )
+            else:
+                lfq_results[quantlevel_config.level_name] = lfq_df
 
             if save:
                 logger.info(f"Writing {quantlevel_config.level_name} output to disk")
