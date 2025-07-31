@@ -13,7 +13,7 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
-from alphadia.workflow.peptidecentric.ng_mapper import dia_data_to_ng
+from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
 
 logger = logging.getLogger()
 
