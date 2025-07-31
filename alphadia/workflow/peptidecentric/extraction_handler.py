@@ -321,6 +321,8 @@ class ClassicExtractionHandler(ExtractionHandler):
 
 
 class NgExtractionHandler(ClassicExtractionHandler):
+    """Extraction handler using AlphaNG backend for candidate selection and scoring."""
+
     def _select_candidates(
         self,
         dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821

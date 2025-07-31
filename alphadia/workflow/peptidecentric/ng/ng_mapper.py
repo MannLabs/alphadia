@@ -1,3 +1,8 @@
+"""Conversion of AlphaDIA to NG data structure and back.
+
+TODO: This module is a temporary solution, the mapping should be moved to the NG module.
+"""
+
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
