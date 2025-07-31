@@ -1,7 +1,6 @@
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.raw_data import DiaData
 from alphadia.workflow.peptidecentric.extraction_handler import ClassicExtractionHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
@@ -21,8 +20,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         from alpha_ng import PeakGroupScoring, ScoringParameters
 
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
-        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
         dia_data: DiaData = dia_data[0]
+        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
 
         # TODO needs to be stored
         speclib_ng = speclib_to_ng(
