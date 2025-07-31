@@ -1596,3 +1596,26 @@ class TestQuantBuilderLfq:
         mock_prot = mock_directlfq_functions["prot"]
         expected_df = mock_prot.estimate_protein_intensities.return_value[0]
         pd.testing.assert_frame_equal(result_df, expected_df)
+
+    def test_add_annotation_should_merge_annotation_data(self):
+        """Test that add_annotation correctly merges annotation data with fragment data."""
+        # given
+        df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 2],
+                "intensity": [100.0, 200.0, 300.0],
+            }
+        )
+
+        annotate_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 2],
+                "pg": ["PG001", "PG002", "PG003"],
+            }
+        )
+
+        # when
+        result_df = QuantBuilder.add_annotation(df, annotate_df)
+
+        # then
+        assert result_df["pg"].tolist() == ["PG001", "PG002", "PG003"]
