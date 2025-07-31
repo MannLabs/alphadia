@@ -1,6 +1,5 @@
 import time
 from abc import ABC, abstractmethod
-from typing import Any
 
 import pandas as pd
 import seaborn as sns
@@ -323,7 +322,9 @@ class ClassicExtractionHandler(ExtractionHandler):
 
 class NgExtractionHandler(ClassicExtractionHandler):
     def _select_candidates(
-        self, dia_data: tuple[DiaData, Any], spectral_library: SpecLibFlat
+        self,
+        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
+        spectral_library: SpecLibFlat,
     ) -> pd.DataFrame:
         """Select candidates using NG backend.
 
@@ -337,8 +338,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
 
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
-        dia_data: DiaData = dia_data[0]
-        dia_data_ng: Any = dia_data[1]  # noqa: F821
+        dia_data_: DiaData = dia_data[0]
+        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
 
         # TODO needs to be stored
         speclib_ng = speclib_to_ng(
@@ -373,12 +374,12 @@ class NgExtractionHandler(ClassicExtractionHandler):
 
         candidates = peak_group_scoring.search_next_gen(dia_data_ng, speclib_ng)
 
-        return parse_candidates(dia_data, candidates, spectral_library.precursor_df)
+        return parse_candidates(dia_data_, candidates, spectral_library.precursor_df)
 
     def _score_candidates(
         self,
         candidates_df: pd.DataFrame,
-        dia_data: tuple[DiaData, Any],
+        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
         spectral_library: SpecLibFlat,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
