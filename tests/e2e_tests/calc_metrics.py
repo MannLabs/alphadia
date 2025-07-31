@@ -256,7 +256,7 @@ if __name__ == "__main__":
         neptune_run[k] = v
 
     # files
-    for file_name in OutputFiles.all_values():
+    for file_name in [OutputFiles.LOG, OutputFiles.STAT, OutputFiles.PG_MATRIX]:
         print("adding", file_name)
         file_path = os.path.join(output_path, file_name)
         if os.path.exists(file_path):
