@@ -355,7 +355,9 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "fwhm_rt": self._optimization_manager.fwhm_rt,  # 3.0,
+                "fwhm_rt": max(
+                    self._optimization_manager.fwhm_rt, 30
+                ),  # TODO magic number
                 # 'kernel_size': 20,  # 15?
                 "peak_length": self._config["search"]["quant_window"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
