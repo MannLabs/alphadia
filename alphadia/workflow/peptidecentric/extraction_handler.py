@@ -20,8 +20,9 @@ try:
     )
 
     HAS_ALPHADIA_NG = True
-except ImportError:
+except ModuleNotFoundError:
     HAS_ALPHADIA_NG = False
+
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
