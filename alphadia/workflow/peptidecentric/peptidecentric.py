@@ -108,7 +108,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         self.reporter.log_string(
-            f"Initializing workflow {self._instance_name}", verbosity="progress"
+            f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
 
         config_fdr = self.config["fdr"]
@@ -252,6 +252,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
         psm_df = requantification_handler.requantify(self.dia_data, psm_df)
+
+        psm_df = psm_df[psm_df["qval"] <= self.config["fdr"]["fdr"]]
 
         log_precursor_df(self.reporter, psm_df)
 
