@@ -58,10 +58,18 @@ def speclib_to_ng(
         precursor_df["precursor_idx"].values.astype(np.uint64),
         precursor_df[precursor_mz_column].values.astype(np.float32),  # 'precursor_mz'
         precursor_df[rt_column].values.astype(np.float32),  # rt_pred
+        precursor_df["nAA"].values.astype(np.uint8),  # added in e5f3e32d
         precursor_df["flat_frag_start_idx"].values.astype(np.uint64),
         precursor_df["flat_frag_stop_idx"].values.astype(np.uint64),
         fragment_df[fragment_mz_column].values.astype(np.float32),  # mz
         fragment_df["intensity"].values.astype(np.float32),
+        # added in 802c323
+        fragment_df["cardinality"].values.astype(np.uint8),
+        fragment_df["charge"].values.astype(np.uint8),
+        fragment_df["loss_type"].values.astype(np.uint8),
+        fragment_df["number"].values.astype(np.uint8),
+        fragment_df["position"].values.astype(np.uint8),
+        fragment_df["type"].values.astype(np.uint8),
     )
 
     return speclib_ng
