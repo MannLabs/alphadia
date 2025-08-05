@@ -16,7 +16,7 @@ general:
   transfer_step_enabled: false
 
   # Enables separate MBR step
-  mbr_step_enabled: true
+  mbr_step_enabled: false
 
   # === advanced settings ===
   # whether to reuse previously calculated calibration data
