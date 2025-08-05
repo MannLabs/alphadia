@@ -6,13 +6,14 @@ TODO: This module is a temporary solution, the mapping should be moved to the NG
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_ng import DIADataNextGen as DiaDataNG
+from alphadia_ng import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
 
 def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
     """Convert DIA data from classic to ng format."""
-    from alpha_ng import DIADataNextGen as DiaDataNG
 
     spectrum_df = dia_data.spectrum_df
     peak_df = dia_data.peak_df
@@ -50,7 +51,6 @@ def speclib_to_ng(
     mobility_column: str,
 ) -> "SpecLibFlatNG":  # noqa: F821
     """Convert speclib from classic to ng format."""
-    from alpha_ng import SpecLibFlat as SpecLibFlatNG
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
@@ -63,6 +63,7 @@ def speclib_to_ng(
         fragment_df[fragment_mz_column].values.astype(np.float32),  # mz
         fragment_df["intensity"].values.astype(np.float32),
     )
+
     return speclib_ng
 
 
@@ -102,13 +103,10 @@ def parse_candidates(
         how="left",
     )
 
-    candidates_df["frame_start"] = (
-        candidates_df["frame_start"] * dia_data.cycle.shape[1]
-    )
-    candidates_df["frame_stop"] = candidates_df["frame_stop"] * dia_data.cycle.shape[1]
-    candidates_df["frame_center"] = (
-        candidates_df["frame_center"] * dia_data.cycle.shape[1]
-    )
+    cycle_len = dia_data.cycle.shape[1]
+    candidates_df["frame_start"] = candidates_df["frame_start"] * cycle_len
+    candidates_df["frame_stop"] = candidates_df["frame_stop"] * cycle_len
+    candidates_df["frame_center"] = candidates_df["frame_center"] * cycle_len
 
     candidates_df["scan_start"] = 0
     candidates_df["scan_stop"] = 1
