@@ -3,7 +3,7 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.raw_data import DiaData
+from alphadia.raw_data.interface import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager

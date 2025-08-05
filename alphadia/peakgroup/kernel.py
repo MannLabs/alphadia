@@ -3,7 +3,7 @@ import logging
 import numba as nb
 import numpy as np
 
-from alphadia.raw_data import DiaDataJIT
+from alphadia.raw_data.interface import DiaDataJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
