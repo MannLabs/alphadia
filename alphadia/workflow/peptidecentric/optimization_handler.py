@@ -344,7 +344,7 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
-        extraction_handler = ExtractionHandler(
+        extraction_handler = ExtractionHandler.create_handler(
             self._config,
             self._optimization_manager,
             self._reporter,
