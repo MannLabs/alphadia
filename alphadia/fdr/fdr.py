@@ -22,7 +22,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     *,
-    competetive: bool = False,  # TODO: fix typo (also in config)
+    competetive: bool = False,  # TODO: rename all occurrences to `competitive` (also in config -> breaking change)
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
@@ -252,6 +252,8 @@ def get_q_values(
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)
-    fdr_values = decoy_cumsum / target_cumsum
+    fdr_values = (
+        decoy_cumsum / target_cumsum
+    )  # TODO: RuntimeWarning: divide by zero encountered in divide
     df[qval_column] = _fdr_to_q_values(fdr_values)
     return df

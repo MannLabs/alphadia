@@ -37,7 +37,8 @@ class RecalibrationHandler:
     def recalibrate(
         self, precursor_df_filtered: pd.DataFrame, fragments_df_filtered: pd.DataFrame
     ) -> None:
-        """Performs recalibration of the MS1, MS2, RT and mobility properties. Also fits the convolution kernel and the score cutoff.
+        """Performs recalibration of the MS1, MS2, RT and mobility properties and fits the convolution kernel and the score cutoff.
+
         The calibration manager is used to fit the data and predict the calibrated values.
 
         Parameters

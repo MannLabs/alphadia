@@ -366,8 +366,16 @@ class OptimizationHandler:
             verbosity="progress",
         )
 
+        decoy_strategy = (
+            "precursor_channel_wise"
+            if self._config["fdr"]["channel_wise_fdr"]
+            else "precursor"
+        )
+
         precursor_df = self._fdr_manager.fit_predict(
             self._optlock.features_df,
+            decoy_strategy=decoy_strategy,
+            competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=self._optlock.fragments_df,
             version=self._optimization_manager.classifier_version,
         )

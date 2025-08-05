@@ -21,19 +21,19 @@ logger = logging.getLogger()
 
 def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
     """
-    Determine the group columns based on competitiveness and channel grouping.
+    Determine the group columns based on competetiveness and channel grouping.
 
-    competitive : bool
+    competetive : bool
         If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
     group_channels : bool
-        If True and 'competitive' is also True, further groups candidates by 'channel'.
+        If True and 'competetive' is also True, further groups candidates by 'channel'.
 
     Returns
     -------
     list
-        A list of column names to be used for grouping in the analysis. If competitive, this could be either
+        A list of column names to be used for grouping in the analysis. If competetive, this could be either
         ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
-        If not competitive, the list will always be ['precursor_idx'].
+        If not competetive, the list will always be ['precursor_idx'].
 
     """
     if competetive:
@@ -93,12 +93,6 @@ class FDRManager(BaseManager):
         self._current_version = -1
         self.load_classifier_store()
 
-        self._decoy_strategy = (
-            "precursor_channel_wise"
-            if config["fdr"]["channel_wise_fdr"]
-            else "precursor"
-        )
-        self._competitive_scoring = config["fdr"]["competetive_scoring"]
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
@@ -106,11 +100,8 @@ class FDRManager(BaseManager):
     def fit_predict(
         self,
         features_df: pd.DataFrame,
-        decoy_strategy_overwrite: Literal[
-            "precursor", "precursor_channel_wise", "channel"
-        ]
-        | None = None,
-        competetive_overwrite: bool | None = None,
+        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"],
+        competetive: bool,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
@@ -120,13 +111,11 @@ class FDRManager(BaseManager):
         Parameters
         ----------
         features_df: pd.DataFrame
-            Dataframe containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
-        decoy_strategy_overwrite: Literal["precursor", "precursor_channel_wise", "channel"]| None
-            Value to overwrite the default decoy strategy. If None, uses the default strategy set in the constructor.
-            Defaults to None.
-        competetive_overwrite: bool | None
-            Value to overwrite the default competitive scoring. If None, uses the default value set in the constructor.
-            Defaults to None.
+            DataFrame containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
+        decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"]
+            The decoy strategy.
+        competetive: bool
+            Whether competetive scoring should be used.
         df_fragments: None | pd.DataFrame
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
         decoy_channel: int
@@ -140,18 +129,6 @@ class FDRManager(BaseManager):
         """
         available_columns = list(
             set(features_df.columns).intersection(set(self.feature_columns))
-        )
-
-        decoy_strategy = (
-            self._decoy_strategy
-            if decoy_strategy_overwrite is None
-            else decoy_strategy_overwrite
-        )
-
-        competetive = (
-            competetive_overwrite
-            if competetive_overwrite is not None
-            else self._competitive_scoring
         )
 
         self._check_valid_input(

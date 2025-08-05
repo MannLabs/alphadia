@@ -458,7 +458,8 @@ class Calibration:
             fig.savefig(file_name)
         else:
             plt.show()
-            plt.close()
+
+        plt.close()
 
 
 class CalibrationModelProvider:
