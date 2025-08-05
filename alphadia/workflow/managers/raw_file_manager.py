@@ -60,40 +60,26 @@ class RawFileManager(BaseManager):
 
         elif file_extension.lower() == ".hdf":
             raw_data_type = "alpharaw"
-            dia_data = AlphaRawBase(
-                dia_data_path,
-                process_count=self._config["general"]["thread_count"],
-            )
+            dia_data = AlphaRawBase(dia_data_path)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
-
-            cv = self._config.get("raw_data_loading", {}).get(
-                "cv"
-            )  # TODO: remove, also downstream
 
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
                 astral_ms1=self._config["general"]["astral_ms1"],
-                cv=cv,
             )
 
         elif file_extension.lower() == ".mzml":
             raw_data_type = "mzml"
 
-            dia_data = MzML(
-                dia_data_path,
-                process_count=self._config["general"]["thread_count"],
-            )
+            dia_data = MzML(dia_data_path)
 
         elif file_extension.lower() == ".wiff":
             raw_data_type = "sciex"
 
-            dia_data = Sciex(
-                dia_data_path,
-                process_count=self._config["general"]["thread_count"],
-            )
+            dia_data = Sciex(dia_data_path)
 
         else:
             raise ValueError(

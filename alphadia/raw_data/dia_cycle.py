@@ -135,7 +135,7 @@ def _is_valid_cycle(
 def determine_dia_cycle(
     spectrum_df: pd.DataFrame,
     subset_for_cycle_detection: int = 10000,
-) -> tuple[np.ndarray, int, int]:
+) -> tuple[np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]], int, int]:
     """Determine the DIA cycle.
 
     Parameters

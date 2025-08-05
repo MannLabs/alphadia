@@ -1,3 +1,5 @@
+"""Module providing methods to read and process raw data in the following formats: Bruker."""
+
 import logging
 import os
 
