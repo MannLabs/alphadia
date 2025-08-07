@@ -1,11 +1,13 @@
 """The fragment competition module contains functionality to maintain the exclusive assignment of signal to identifications."""
 
 import logging
+import warnings
 
 import numba as nb
 import numpy as np
 import pandas as pd
 from alphatims import utils as timsutils
+from pandas.errors import SettingWithCopyWarning
 
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.utils import USE_NUMBA_CACHING
@@ -245,7 +247,9 @@ class FragmentCompetition:
             The PSM dataframe with the valid column.
 
         """
-        psm_df = psm_df.copy()  # to avoid SettingWithCopyWarning
+        # TODO: this method raises SettingWithCopyWarning. Resolve without increasing memory usage.
+
+        warnings.simplefilter(action="ignore", category=(SettingWithCopyWarning))
 
         psm_df["_candidate_idx"] = candidate_hash(
             psm_df["precursor_idx"].values, psm_df["rank"].values
@@ -286,4 +290,5 @@ class FragmentCompetition:
             columns=["_frag_start_idx", "_frag_stop_idx", "window_idx"], inplace=True
         )
 
+        warnings.simplefilter(action="default", category=(SettingWithCopyWarning))
         return psm_df[psm_df["valid"]]

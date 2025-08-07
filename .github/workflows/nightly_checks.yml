@@ -20,4 +20,4 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh tests alphadia-env 3.11 true
-      test-script: ./run_unit_tests.sh alphadia-env false
+      test-script: ./run_unit_tests.sh alphadia-env all
