@@ -39,37 +39,39 @@ def init_spectral_library(
             - precursor_df_unfiltered attribute is set to the original precursor dataframe.
     """
     # normalize RT
-    spectral_library.precursor_df["rt_library"] = _norm_to_rt(
-        dia_rt_values, spectral_library.precursor_df["rt_library"].values
+    spectral_library._precursor_df["rt_library"] = _norm_to_rt(
+        dia_rt_values, spectral_library._precursor_df["rt_library"].values
     )
 
     # filter based on precursor observability
     lower_mz_limit = dia_cycle[dia_cycle > 0].min()
     upper_mz_limit = dia_cycle[dia_cycle > 0].max()
 
-    n_precursor_before = np.sum(spectral_library.precursor_df["decoy"] == 0)
-    spectral_library.precursor_df = spectral_library.precursor_df[
-        (spectral_library.precursor_df["mz_library"] >= lower_mz_limit)
-        & (spectral_library.precursor_df["mz_library"] <= upper_mz_limit)
+    # TODO using spectral_library.precursor_df (no underscore) here will trigger the setter method, which will additionally call refine_precursor_df()
+
+    n_precursor_before = np.sum(spectral_library._precursor_df["decoy"] == 0)
+    spectral_library._precursor_df = spectral_library._precursor_df[
+        (spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
+        & (spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
     ]
-    n_precursors_after = np.sum(spectral_library.precursor_df["decoy"] == 0)
+    n_precursors_after = np.sum(spectral_library._precursor_df["decoy"] == 0)
     reporter.log_string(
         f"Initializing spectral library: {n_precursors_after:,} target precursors potentially observable ({n_precursor_before - n_precursors_after:,} removed)",
         verbosity="progress",
     )
 
     # filter spectral library to only contain precursors from allowed channels
-    spectral_library.precursor_df_unfiltered = spectral_library.precursor_df.copy()
+    spectral_library.precursor_df_unfiltered = spectral_library._precursor_df.copy()
 
     if channel_filter:
         selected_channels = [int(c) for c in channel_filter.split(",")]
 
-        spectral_library.precursor_df = spectral_library.precursor_df_unfiltered[
+        spectral_library._precursor_df = spectral_library.precursor_df_unfiltered[
             spectral_library.precursor_df_unfiltered["channel"].isin(selected_channels)
         ].copy()
 
         reporter.log_string(
-            f"Initializing spectral library: applied channel filter using only {selected_channels}, {len(spectral_library.precursor_df):,} precursors left",
+            f"Initializing spectral library: applied channel filter using only {selected_channels}, {len(spectral_library._precursor_df):,} precursors left",
         )
 
 
