@@ -246,13 +246,13 @@ class FDRManager(BaseManager):
             decoy_strategy == "precursor" or decoy_strategy == "precursor_channel_wise"
         )
         if strategy_requires_decoy_column and "decoy" not in features_df.columns:
-            raise ValueError("decoy column not found in features_df")
+            raise ValueError("Column 'decoy' not found in features_df")
 
         strategy_requires_channel_column = (
             decoy_strategy == "precursor_channel_wise" or decoy_strategy == "channel"
         )
         if strategy_requires_channel_column and "channel" not in features_df.columns:
-            raise ValueError("channel column not found in features_df")
+            raise ValueError("Column 'channel' not found in features_df")
 
         if decoy_strategy == "channel" and decoy_channel == -1:
             raise ValueError("decoy_channel must be set if decoy_type is channel")
