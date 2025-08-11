@@ -152,11 +152,11 @@ class TestQuantBuilderAccumulateFragDf:
     ):
         """Test that accumulate_frag_df returns correct dataframes for single run."""
         # given
-        builder = QuantBuilder(extended_psm_df, column="intensity")
+        builder = QuantBuilder(extended_psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", simple_fragment_df)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         expected_intensity_df = pd.DataFrame(
@@ -195,8 +195,8 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
-        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+        pd.testing.assert_frame_equal(result_dict["intensity"], expected_intensity_df)
+        pd.testing.assert_frame_equal(result_dict["correlation"], expected_quality_df)
 
     def test_accumulate_frag_df_multiple_runs_should_merge_data_correctly(
         self, basic_psm_df, basic_fragment_df
@@ -208,11 +208,11 @@ class TestQuantBuilderAccumulateFragDf:
         frag_df2["intensity"] = [160.0, 270.0]
         frag_df2["correlation"] = [0.7, 0.6]
 
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", basic_fragment_df), ("run2", frag_df2)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         expected_intensity_df = pd.DataFrame(
@@ -239,15 +239,15 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
-        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+        pd.testing.assert_frame_equal(result_dict["intensity"], expected_intensity_df)
+        pd.testing.assert_frame_equal(result_dict["correlation"], expected_quality_df)
 
     def test_accumulate_frag_df_with_empty_iterator_should_return_none(
         self, extended_psm_df
     ):
         """Test that accumulate_frag_df returns None when iterator is empty."""
         # given
-        builder = QuantBuilder(extended_psm_df, column="intensity")
+        builder = QuantBuilder(extended_psm_df, columns=["intensity", "correlation"])
         empty_iterable = iter([])
 
         # when
@@ -299,11 +299,11 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        builder = QuantBuilder(psm_df, column="intensity")
+        builder = QuantBuilder(psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", frag_df1), ("run2", frag_df2)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         expected_intensity_df = pd.DataFrame(
@@ -334,8 +334,8 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
-        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+        pd.testing.assert_frame_equal(result_dict["intensity"], expected_intensity_df)
+        pd.testing.assert_frame_equal(result_dict["correlation"], expected_quality_df)
 
     def test_accumulate_frag_df_should_filter_by_psm_precursor_idx(self):
         """Test that accumulate_frag_df only includes fragments for precursors in PSM data."""
@@ -348,15 +348,15 @@ class TestQuantBuilderAccumulateFragDf:
         # Create fragment data with more precursors than in PSM
         frag_df = create_mock_fragment_df(n_fragments=4, n_precursor=5)
 
-        builder = QuantBuilder(psm_df, column="intensity")
+        builder = QuantBuilder(psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", frag_df)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         # Should only contain precursors that exist in PSM data
-        unique_precursor_idx = intensity_df["precursor_idx"].unique()
+        unique_precursor_idx = result_dict["intensity"]["precursor_idx"].unique()
         assert all(
             idx in psm_df["precursor_idx"].values for idx in unique_precursor_idx
         )
@@ -372,17 +372,16 @@ class TestQuantBuilderAccumulateFragDf:
         frag_df = create_mock_fragment_df(n_fragments=4, n_precursor=3)
 
         builder = QuantBuilder(
-            psm_df, column="height"
+            psm_df, columns=["height"]
         )  # Use height instead of intensity
         df_iterable = [("run1", frag_df)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
-        assert "run1" in intensity_df.columns
         # Values should come from height column, not intensity
-        assert intensity_df["run1"].notna().any()
+        assert result_dict["height"]["run1"].notna().any()
 
     @patch("alphadia.outputtransform.quant_builder.logger")
     def test_accumulate_frag_df_should_log_accumulation_start(self, mock_logger):
@@ -395,7 +394,7 @@ class TestQuantBuilderAccumulateFragDf:
 
         frag_df = create_mock_fragment_df(n_fragments=4, n_precursor=2)
 
-        builder = QuantBuilder(psm_df, column="intensity")
+        builder = QuantBuilder(psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", frag_df)]
 
         # when
@@ -416,18 +415,18 @@ class TestQuantBuilderAccumulateFragDf:
         frag_df1 = create_mock_fragment_df(n_fragments=4, n_precursor=2)
         frag_df2 = frag_df1.copy()
 
-        builder = QuantBuilder(psm_df, column="intensity")
+        builder = QuantBuilder(psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", frag_df1), ("run2", frag_df2)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         # Should have same ion hashes in both dataframes
-        assert len(intensity_df["ion"].unique()) == len(
+        assert len(result_dict["intensity"]["ion"].unique()) == len(
             frag_df1
         )  # Same ions from both runs
-        assert all(intensity_df["ion"] == quality_df["ion"])
+        assert all(result_dict["intensity"]["ion"] == result_dict["correlation"]["ion"])
 
     def test_accumulate_frag_df_with_duplicate_ion_hashes_should_handle_correctly(
         self, basic_psm_df, duplicate_fragment_df
@@ -449,11 +448,11 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
         df_iterable = [("run1", duplicate_fragment_df), ("run2", frag_df2)]
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df(iter(df_iterable))
+        result_dict = builder.accumulate_frag_df(iter(df_iterable))
 
         # then
         # Should handle duplicates by keeping ALL occurrences (pandas merge behavior)
@@ -518,8 +517,8 @@ class TestQuantBuilderAccumulateFragDf:
             }
         )
 
-        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
-        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+        pd.testing.assert_frame_equal(result_dict["intensity"], expected_intensity_df)
+        pd.testing.assert_frame_equal(result_dict["correlation"], expected_quality_df)
 
 
 class TestQuantBuilderAccumulateFragDfFromFolders:
@@ -532,7 +531,7 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         """Test that accumulate_frag_df_from_folders calls accumulate_frag_df with generator from folders."""
         # given
         folder_list = ["folder1", "folder2", "folder3"]
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
 
         expected_intensity_df = pd.DataFrame(
             {
@@ -550,13 +549,13 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
                 "pg": ["PG001", "PG002"],
             }
         )
-        mock_accumulate_frag_df.return_value = (
-            expected_intensity_df,
-            expected_quality_df,
-        )
+        mock_accumulate_frag_df.return_value = {
+            "intensity": expected_intensity_df,
+            "correlation": expected_quality_df,
+        }
 
         # when
-        intensity_df, quality_df = builder.accumulate_frag_df_from_folders(folder_list)
+        result_dict = builder.accumulate_frag_df_from_folders(folder_list)
 
         # then
         mock_accumulate_frag_df.assert_called_once()
@@ -567,8 +566,8 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         assert hasattr(call_args, "__next__")
 
         # Verify the return values are passed through
-        pd.testing.assert_frame_equal(intensity_df, expected_intensity_df)
-        pd.testing.assert_frame_equal(quality_df, expected_quality_df)
+        pd.testing.assert_frame_equal(result_dict["intensity"], expected_intensity_df)
+        pd.testing.assert_frame_equal(result_dict["correlation"], expected_quality_df)
 
     @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
     def test_accumulate_frag_df_from_folders_should_return_none_when_accumulate_returns_none(
@@ -577,7 +576,7 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         """Test that accumulate_frag_df_from_folders returns None when accumulate_frag_df returns None."""
         # given
         folder_list = ["empty_folder"]
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
         mock_accumulate_frag_df.return_value = None
 
         # when
@@ -594,7 +593,7 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         """Test that accumulate_frag_df_from_folders handles empty folder list correctly."""
         # given
         folder_list = []
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
         mock_accumulate_frag_df.return_value = None
 
         # when
@@ -618,7 +617,7 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         """Test that accumulate_frag_df_from_folders passes generator with data from valid folders."""
         # given
         folder_list = ["folder1", "folder2"]
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
 
         mock_exists.return_value = True
         mock_read_parquet.return_value = simple_fragment_df
@@ -650,7 +649,7 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         """Test that accumulate_frag_df_from_folders skips folders without frag.parquet files."""
         # given
         folder_list = ["missing_folder1", "missing_folder2"]
-        builder = QuantBuilder(basic_psm_df, column="intensity")
+        builder = QuantBuilder(basic_psm_df, columns=["intensity", "correlation"])
 
         mock_exists.return_value = False  # No frag.parquet files exist
         mock_accumulate_frag_df.return_value = None
@@ -666,28 +665,6 @@ class TestQuantBuilderAccumulateFragDfFromFolders:
         generator_items = list(call_args)
         assert len(generator_items) == 0
 
-    @patch("alphadia.outputtransform.quant_builder.QuantBuilder.accumulate_frag_df")
-    def test_accumulate_frag_df_from_folders_should_use_correct_column(
-        self, mock_accumulate_frag_df, basic_psm_df
-    ):
-        """Test that accumulate_frag_df_from_folders preserves the builder's column setting."""
-        # given
-        folder_list = ["folder1"]
-        builder = QuantBuilder(
-            basic_psm_df, column="height"
-        )  # Use height instead of intensity
-
-        expected_result = (pd.DataFrame(), pd.DataFrame())
-        mock_accumulate_frag_df.return_value = expected_result
-
-        # when
-        builder.accumulate_frag_df_from_folders(folder_list)
-
-        # then
-        # The column setting should be preserved in the builder instance
-        assert builder.column == "height"
-        mock_accumulate_frag_df.assert_called_once()
-
 
 class TestQuantBuilderHelperFunctions:
     """Test cases for helper functions used by QuantBuilder."""
@@ -698,7 +675,9 @@ class TestQuantBuilderHelperFunctions:
         """Test that prepare_df filters fragments by precursor_idx from PSM data."""
         # given
         # when
-        result_df = prepare_df(helper_fragment_df, helper_psm_df, column="intensity")
+        result_df = prepare_df(
+            helper_fragment_df, helper_psm_df, columns=["intensity", "correlation"]
+        )
 
         # then
         assert len(result_df) == 3  # Only first 3 fragments should remain
@@ -1596,3 +1575,26 @@ class TestQuantBuilderLfq:
         mock_prot = mock_directlfq_functions["prot"]
         expected_df = mock_prot.estimate_protein_intensities.return_value[0]
         pd.testing.assert_frame_equal(result_df, expected_df)
+
+    def test_add_annotation_should_merge_annotation_data(self):
+        """Test that add_annotation correctly merges annotation data with fragment data."""
+        # given
+        df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 2],
+                "intensity": [100.0, 200.0, 300.0],
+            }
+        )
+
+        annotate_df = pd.DataFrame(
+            {
+                "precursor_idx": [0, 1, 2],
+                "pg": ["PG001", "PG002", "PG003"],
+            }
+        )
+
+        # when
+        result_df = QuantBuilder.add_annotation(df, annotate_df)
+
+        # then
+        assert result_df["pg"].tolist() == ["PG001", "PG002", "PG003"]
