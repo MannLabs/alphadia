@@ -160,9 +160,7 @@ class QuantBuilder:
         }
 
     @staticmethod
-    def add_annotation(
-        df: pd.DataFrame, annotate_df: pd.DataFrame
-    ) -> pd.DataFrame:
+    def add_annotation(df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
         """
         Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
 

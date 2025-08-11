@@ -542,13 +542,13 @@ class SearchPlanOutput:
                 should_process=True,
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                save_fragments=True,  
+                save_fragments=True,
             ),
             LFQOutputConfig(
                 should_process=True,
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                save_fragments=True, 
+                save_fragments=True,
             ),
             LFQOutputConfig(
                 should_process=True,
