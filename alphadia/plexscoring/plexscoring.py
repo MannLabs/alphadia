@@ -389,20 +389,29 @@ class CandidateScoring:
         self,
         candidates_df: pd.DataFrame,
         psm_proto_df: OutputPsmDF,
-        feature_columns=None,
-        candidate_columns=None,
-        precursor_df_columns=None,
+        feature_columns: list[str] | None = None,
+        candidate_columns: list[str] | None = None,
+        precursor_df_columns: list[str] | None = None,
     ) -> pd.DataFrame:
         """Collect the features from the score group container and return a DataFrame.
 
         Parameters
         ----------
 
-        score_group_container : ScoreGroupContainer
-            A Numba JIT compatible score group container.
-
         candidates_df : pd.DataFrame
             A DataFrame containing the features for each candidate.
+
+        psm_proto_df : OutputPsmDF
+            A Numba JIT compatible OutputPsmDF object containing the features for each candidate.
+
+        feature_columns : list[str], default=None
+            The columns to use for the features. If None, the `DEFAULT_FEATURE_COLUMNS` will be used
+
+        candidate_columns : list[str], default=None
+            The columns to use for the candidates. If None, the `DEFAULT_CANDIDATE_COLUMNS` will be used
+
+        precursor_df_columns : list[str], default=None
+            The columns to use for the precursor DataFrame. If None, the DEFAULT_PRECURSOR_COLUMNS will be used.
 
         Returns
         -------
@@ -420,18 +429,18 @@ class CandidateScoring:
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
-        df = pd.DataFrame(features, columns=feature_columns)
-        df["precursor_idx"] = precursor_idx
-        df["rank"] = rank
+        candidates_psm_df = pd.DataFrame(features, columns=feature_columns)
+        candidates_psm_df["precursor_idx"] = precursor_idx
+        candidates_psm_df["rank"] = rank
 
-        df = self.merge_candidate_data(
-            df,
+        candidates_psm_df = self.merge_candidate_data(
+            candidates_psm_df,
             candidates_df,
             candidate_columns,
         )
 
-        df = self.merge_precursor_data(
-            df,
+        candidates_psm_df = self.merge_precursor_data(
+            candidates_psm_df,
             self.precursors_flat_df,
             self.rt_column,
             self.mobility_column,
@@ -440,40 +449,51 @@ class CandidateScoring:
         )
 
         # calculate delta_rt
-        df["delta_rt"] = df["rt_observed"] - df[self.rt_column]
+        candidates_psm_df["delta_rt"] = (
+            candidates_psm_df["rt_observed"] - candidates_psm_df[self.rt_column]
+        )
 
         # calculate number of certain amino acids in sequence # TODO unused?
-        df["n_K"] = df["sequence"].str.count("K")
-        df["n_R"] = df["sequence"].str.count("R")
-        df["n_P"] = df["sequence"].str.count("P")
+        candidates_psm_df["n_K"] = candidates_psm_df["sequence"].str.count("K")
+        candidates_psm_df["n_R"] = candidates_psm_df["sequence"].str.count("R")
+        candidates_psm_df["n_P"] = candidates_psm_df["sequence"].str.count("P")
 
-        return df
+        return candidates_psm_df
 
     @staticmethod
     def merge_candidate_data(
-        df, candidates_df, candidate_columns=DEFAULT_CANDIDATE_COLUMNS
+        df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        candidate_columns: list[str] | None = None,
     ):
-        # join candidate columns
+        """Merge `candidate_columns` from `candidates_df` into `df`."""
+
+        if candidate_columns is None:
+            candidate_columns = DEFAULT_CANDIDATE_COLUMNS.copy()
+
         candidate_columns += ["score"] if "score" in candidates_df.columns else []
-        df = merge_missing_columns(
+
+        return merge_missing_columns(
             df,
             candidates_df,
             candidate_columns,
             on=["precursor_idx", "rank"],
             how="left",
         )
-        return df
 
     @staticmethod
     def merge_precursor_data(
-        df,
-        precursors_flat_df,
-        rt_column,
-        mobility_column,
-        precursor_mz_column,
-        precursor_df_columns=DEFAULT_PRECURSOR_COLUMNS,
+        df: pd.DataFrame,
+        precursors_flat_df: pd.DataFrame,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        precursor_df_columns: list[str] | None = None,
     ):
-        # join precursor columns
+        """Merge `rt_column`, `mobility_column`, `precursor_mz_column`, `precursor_df_columns` from `precursors_flat_df` into `df`."""
+
+        if precursor_df_columns is None:
+            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS.copy()
 
         precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
             precursors_flat_df.columns
@@ -483,15 +503,13 @@ class CandidateScoring:
             if col not in precursor_df_columns:
                 precursor_df_columns.append(col)
 
-        df = merge_missing_columns(
+        return merge_missing_columns(
             df,
             precursors_flat_df,
             precursor_df_columns,
             on=["precursor_idx"],
             how="left",
         )
-
-        return df
 
     def collect_fragments(
         self, candidates_df: pd.DataFrame, psm_proto_df
