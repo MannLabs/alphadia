@@ -424,32 +424,19 @@ class CandidateScoring:
         df["precursor_idx"] = precursor_idx
         df["rank"] = rank
 
-        # join candidate columns
-        candidate_columns += ["score"] if "score" in candidates_df.columns else []
-
-        df = merge_missing_columns(
+        df = self.merge_candidate_data(
             df,
             candidates_df,
             candidate_columns,
-            on=["precursor_idx", "rank"],
-            how="left",
         )
 
-        # join precursor columns
-        precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
-            self.precursors_flat_df.columns
-        )
-
-        for col in [self.rt_column, self.mobility_column, self.precursor_mz_column]:
-            if col not in precursor_df_columns:
-                precursor_df_columns.append(col)
-
-        df = merge_missing_columns(
+        df = self.merge_precursor_data(
             df,
             self.precursors_flat_df,
+            self.rt_column,
+            self.mobility_column,
+            self.precursor_mz_column,
             precursor_df_columns,
-            on=["precursor_idx"],
-            how="left",
         )
 
         # calculate delta_rt
@@ -459,6 +446,50 @@ class CandidateScoring:
         df["n_K"] = df["sequence"].str.count("K")
         df["n_R"] = df["sequence"].str.count("R")
         df["n_P"] = df["sequence"].str.count("P")
+
+        return df
+
+    @staticmethod
+    def merge_candidate_data(
+        df, candidates_df, candidate_columns=DEFAULT_CANDIDATE_COLUMNS
+    ):
+        # join candidate columns
+        candidate_columns += ["score"] if "score" in candidates_df.columns else []
+        df = merge_missing_columns(
+            df,
+            candidates_df,
+            candidate_columns,
+            on=["precursor_idx", "rank"],
+            how="left",
+        )
+        return df
+
+    @staticmethod
+    def merge_precursor_data(
+        df,
+        precursors_flat_df,
+        rt_column,
+        mobility_column,
+        precursor_mz_column,
+        precursor_df_columns=DEFAULT_PRECURSOR_COLUMNS,
+    ):
+        # join precursor columns
+
+        precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
+            precursors_flat_df.columns
+        )
+
+        for col in [rt_column, mobility_column, precursor_mz_column]:
+            if col not in precursor_df_columns:
+                precursor_df_columns.append(col)
+
+        df = merge_missing_columns(
+            df,
+            precursors_flat_df,
+            precursor_df_columns,
+            on=["precursor_idx"],
+            how="left",
+        )
 
         return df
 
