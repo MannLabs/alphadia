@@ -453,13 +453,9 @@ class CandidateScoring:
         )
 
         # calculate delta_rt
+        df["delta_rt"] = df["rt_observed"] - df[self.rt_column]
 
-        if self.rt_column == "rt_library":
-            df["delta_rt"] = df["rt_observed"] - df["rt_library"]
-        else:
-            df["delta_rt"] = df["rt_observed"] - df[self.rt_column]
-
-        # calculate number of K in sequence
+        # calculate number of certain amino acids in sequence # TODO unused?
         df["n_K"] = df["sequence"].str.count("K")
         df["n_R"] = df["sequence"].str.count("R")
         df["n_P"] = df["sequence"].str.count("P")
