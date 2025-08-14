@@ -303,11 +303,3 @@ class TestCandidateScoringCollectCandidates:
         expected_df = expected_df[result_df.columns]
 
         pd.testing.assert_frame_equal(result_df, expected_df, check_dtype=False)
-
-
-# Additional test cases to consider next:
-# - test_collect_candidates_with_calibrated_columns
-# - test_collect_candidates_with_score_column
-# - test_collect_candidates_merges_precursor_data_correctly
-# - test_collect_candidates_calculates_delta_rt_with_calibrated_rt
-# - test_collect_candidates_handles_missing_columns_gracefully
