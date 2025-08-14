@@ -10,13 +10,24 @@ from alphadia.peakgroup.config_df import HybridCandidateConfig
 from alphadia.peakgroup.search import HybridCandidateSelection
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.workflow.managers.fdr_manager import FDRManager
 
 try:
-    from alphadia_ng import PeakGroupSelection, SelectionParameters
+    from alphadia_ng import (
+        PeakGroupQuantification,
+        PeakGroupScoring,
+        PeakGroupSelection,
+        QuantificationParameters,
+        ScoringParameters,
+        SelectionParameters,
+    )
 
     from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+        candidates_to_ng,
         parse_candidates,
+        parse_quantification,
         speclib_to_ng,
+        to_features_df,
     )
 
     HAS_ALPHADIA_NG = True
@@ -151,7 +162,8 @@ class ExtractionHandler(ABC):
             f"Scoring took: {time.time() - time_start}"
         )  # TODO: debug?
 
-        return features_df, fragments_df
+        is_ng = fragments_df is None  # TODO: hack!
+        return features_df, candidates_df if is_ng else fragments_df
 
     def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
         """Apply score cutoff (taken from optimization_manager) to candidates dataframe.
@@ -166,6 +178,7 @@ class ExtractionHandler(ABC):
         pd.DataFrame
             Filtered DataFrame with only candidates above score cutoff
         """
+        # This is filter 1
         num_before = len(candidates_df)
         candidates_df = candidates_df[
             candidates_df["score"] > self._optimization_manager.score_cutoff
@@ -209,6 +222,33 @@ class ExtractionHandler(ABC):
         ----------
         candidates_df : pd.DataFrame
             DataFrame with selected candidates
+        dia_data : DiaData
+            DIA data to extract from
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Features dataframe and fragments dataframe
+        """
+
+    def quantify_ng(  # noqa: B027
+        self,
+        candidates_df: pd.DataFrame,
+        features_df: pd.DataFrame,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+        fdr_manager: FDRManager,
+        classifier_version: int,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Quantify candidates.
+
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        features_df : pd.DataFrame
+            DataFrame with features
         dia_data : DiaData
             DIA data to extract from
         spectral_library : SpecLibFlat
@@ -280,7 +320,7 @@ class ClassicExtractionHandler(ExtractionHandler):
             f"{'fragment_mz_tolerance':<15}: {self._selection_config.fragment_mz_tolerance}",
             "==============================================",
         ]:
-            self._reporter.log_string(log_line, verbosity="debug")
+            self._reporter.log_string(log_line, verbosity="info")
 
         extraction = HybridCandidateSelection(
             dia_data,
@@ -348,6 +388,10 @@ class NgExtractionHandler(ClassicExtractionHandler):
                 "Please install 'alphadia-ng' to use this extraction handler."
             )
 
+        self.cycle_len = (
+            None  # TODO: only temporarily needed for forth-and-back conversion
+        )
+
     def _select_candidates(
         self,
         dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
@@ -360,6 +404,12 @@ class NgExtractionHandler(ClassicExtractionHandler):
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
         dia_data_: DiaData = dia_data[0]
         dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
+
+        if self.cycle_len is None:
+            # TODO: lazy init is a hack
+            self.cycle_len = dia_data_.cycle.shape[
+                1
+            ]  # ms_data.spectrum_df['cycle_idx'].max() + 1
 
         # TODO needs to be stored
         speclib_ng = speclib_to_ng(
@@ -390,11 +440,9 @@ class NgExtractionHandler(ClassicExtractionHandler):
             f"rt_tolerance={scoring_params.rt_tolerance}"
         )
 
-        peak_group_scoring = PeakGroupSelection(scoring_params)
+        candidates = PeakGroupSelection(scoring_params).search(dia_data_ng, speclib_ng)
 
-        candidates = peak_group_scoring.search(dia_data_ng, speclib_ng)
-
-        return parse_candidates(dia_data_, candidates, spectral_library.precursor_df)
+        return parse_candidates(candidates, spectral_library, self.cycle_len)
 
     def _score_candidates(
         self,
@@ -402,5 +450,134 @@ class NgExtractionHandler(ClassicExtractionHandler):
         dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
         spectral_library: SpecLibFlat,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        # return super()._score_candidates(candidates_df, dia_data[0], spectral_library)
+
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
-        return super()._score_candidates(candidates_df, dia_data[0], spectral_library)
+        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
+
+        # TODO needs to be stored
+        speclib_ng = speclib_to_ng(
+            spectral_library,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
+        )
+
+        candidates = candidates_to_ng(candidates_df, self.cycle_len)
+
+        scoring_params = ScoringParameters()
+        scoring_params.update(
+            {
+                "top_k_fragments": 99,
+                "mass_tolerance": 7.0,
+            }
+        )
+
+        candidate_features = PeakGroupScoring(scoring_params).score(
+            dia_data_ng, speclib_ng, candidates
+        )
+
+        features_df = to_features_df(candidate_features, spectral_library)
+
+        # features_df["elution_group_idx"] = 1 # search_parameter_optimization -> _optlock.update_with_extraction
+        # features_df["decoy"] = 0 # search_parameter_optimization -> fdr_manager.fit_predict
+        # features_df["mz_observed"] = 1 # perform_fdr -> fragment_competition
+        # features_df["rt_observed"] = 1 # perform_fdr -> fragment_competition
+        # features_df["channel"] = 0 # perform_fdr -> keep_best
+        # features_df["proteins"] = 1000 # log_precursor_df
+
+        return features_df, None
+
+    def quantify_ng(
+        self,
+        candidates_df: pd.DataFrame,
+        features_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        fdr_manager: FDRManager,
+        classifier_version: int,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        # TODO needs to be stored
+        speclib_ng = speclib_to_ng(
+            spectral_library,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
+        )
+
+        # TODO: why not use candidate_hash here?
+        features_df["precursor_idx_rank"] = (
+            features_df["precursor_idx"].astype(str)
+            + "_"
+            + features_df["rank"].astype(str)
+        )
+        candidates_df["precursor_idx_rank"] = (
+            candidates_df["precursor_idx"].astype(str)
+            + "_"
+            + candidates_df["rank"].astype(str)
+        )
+        # TODO: think about how to making filtering nice XXX
+
+        # apply FDR to PSMs
+        precursor_fdr_df = fdr_manager.fit_predict(
+            features_df,
+            decoy_strategy="precursor",  # TODO support channel_wise
+            competetive=False,  # self._config["fdr"]["competetive_scoring"],
+            df_fragments=None,  # TODO: support fragments_df,
+            version=classifier_version,
+        )
+        precursor_fdr_df = precursor_fdr_df[
+            precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
+        ]
+
+        # filter2: candidates by precursors
+        candidates_filtered = candidates_df[
+            candidates_df["precursor_idx_rank"].isin(
+                precursor_fdr_df["precursor_idx_rank"]
+            )
+        ].copy()
+
+        candidates_collection = candidates_to_ng(candidates_filtered, self.cycle_len)
+
+        # run quantification
+        quant_params = QuantificationParameters()
+
+        peak_group_quantification = PeakGroupQuantification(quant_params)
+        quantified_lib = peak_group_quantification.quantify(
+            dia_data, speclib_ng, candidates_collection
+        )
+        precursor_df, fragments_df = parse_quantification(
+            quantified_lib, precursor_fdr_df, spectral_library
+        )  # TODO WiP: throw away previous precursor_df  XXX
+
+        # TODO XXX set has_ms1 = False until we get the mz_observed for precursor df XXX
+
+        # merge in missing columns
+        precursor_df = CandidateScoring.merge_candidate_data(
+            precursor_df, candidates_df
+        )
+
+        # TODO: needed because of common column_type bug
+        rt_column = self._column_name_handler.get_rt_column()
+        mobility_column = self._column_name_handler.get_mobility_column()
+        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
+        if not (
+            rt_column in spectral_library.precursor_df.columns
+            and mobility_column in spectral_library.precursor_df.columns
+            and precursor_mz_column in spectral_library.precursor_df.columns
+        ):
+            rt_column = rt_column.replace("_calibrated", "_library")
+            mobility_column = mobility_column.replace("_calibrated", "_library")
+            precursor_mz_column = precursor_mz_column.replace("_calibrated", "_library")
+
+        precursor_df = CandidateScoring.merge_precursor_data(
+            precursor_df,
+            spectral_library.precursor_df,
+            rt_column=rt_column,
+            mobility_column=mobility_column,
+            precursor_mz_column=precursor_mz_column,
+        )
+
+        return precursor_df, fragments_df
