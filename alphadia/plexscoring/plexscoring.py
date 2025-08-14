@@ -421,11 +421,11 @@ class CandidateScoring:
         """
 
         if feature_columns is None:
-            feature_columns = DEFAULT_FEATURE_COLUMNS
+            feature_columns = DEFAULT_FEATURE_COLUMNS.copy()
         if candidate_columns is None:
-            candidate_columns = DEFAULT_CANDIDATE_COLUMNS
+            candidate_columns = DEFAULT_CANDIDATE_COLUMNS.copy()
         if precursor_df_columns is None:
-            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS
+            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS.copy()
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
