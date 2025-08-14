@@ -27,6 +27,81 @@ from alphadia.validation.schemas import (
 
 logger = logging.getLogger()
 
+DEFAULT_FEATURE_COLUMNS = [
+    "base_width_mobility",
+    "base_width_rt",
+    "rt_observed",
+    "mobility_observed",
+    "mono_ms1_intensity",
+    "top_ms1_intensity",
+    "sum_ms1_intensity",
+    "weighted_ms1_intensity",
+    "weighted_mass_deviation",
+    "weighted_mass_error",
+    "mz_observed",
+    "mono_ms1_height",
+    "top_ms1_height",
+    "sum_ms1_height",
+    "weighted_ms1_height",
+    "isotope_intensity_correlation",
+    "isotope_height_correlation",
+    "n_observations",
+    "intensity_correlation",
+    "height_correlation",
+    "intensity_fraction",
+    "height_fraction",
+    "intensity_fraction_weighted",
+    "height_fraction_weighted",
+    "mean_observation_score",
+    "sum_b_ion_intensity",
+    "sum_y_ion_intensity",
+    "diff_b_y_ion_intensity",
+    "f_masked",
+    "fragment_scan_correlation",
+    "template_scan_correlation",
+    "fragment_frame_correlation",
+    "top3_frame_correlation",
+    "template_frame_correlation",
+    "top3_b_ion_correlation",
+    "n_b_ions",
+    "top3_y_ion_correlation",
+    "n_y_ions",
+    "cycle_fwhm",
+    "mobility_fwhm",
+    "delta_frame_peak",
+    "top_3_ms2_mass_error",
+    "mean_ms2_mass_error",
+    "n_overlapping",
+    "mean_overlapping_intensity",
+    "mean_overlapping_mass_error",
+]
+
+DEFAULT_CANDIDATE_COLUMNS = [
+    "elution_group_idx",
+    "scan_center",
+    "scan_start",
+    "scan_stop",
+    "frame_center",
+    "frame_start",
+    "frame_stop",
+]
+
+DEFAULT_PRECURSOR_COLUMNS = [
+    "rt_library",
+    "mobility_library",
+    "mz_library",
+    "charge",
+    "decoy",
+    "channel",
+    "flat_frag_start_idx",
+    "flat_frag_stop_idx",
+    "proteins",
+    "genes",
+    "sequence",
+    "mods",
+    "mod_sites",
+]
+
 
 def _get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
@@ -285,10 +360,7 @@ class CandidateScoring:
         """
 
         # set cardinality to 1 if not present
-        if "cardinality" in self.fragments_flat.columns:
-            pass
-
-        else:
+        if "cardinality" not in self.fragments_flat.columns:
             logger.warning(
                 "Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1."
             )
@@ -314,7 +386,12 @@ class CandidateScoring:
         )
 
     def collect_candidates(
-        self, candidates_df: pd.DataFrame, psm_proto_df
+        self,
+        candidates_df: pd.DataFrame,
+        psm_proto_df: OutputPsmDF,
+        feature_columns=None,
+        candidate_columns=None,
+        precursor_df_columns=None,
     ) -> pd.DataFrame:
         """Collect the features from the score group container and return a DataFrame.
 
@@ -334,54 +411,12 @@ class CandidateScoring:
             A DataFrame containing the features for each candidate.
         """
 
-        feature_columns = [
-            "base_width_mobility",
-            "base_width_rt",
-            "rt_observed",
-            "mobility_observed",
-            "mono_ms1_intensity",
-            "top_ms1_intensity",
-            "sum_ms1_intensity",
-            "weighted_ms1_intensity",
-            "weighted_mass_deviation",
-            "weighted_mass_error",
-            "mz_observed",
-            "mono_ms1_height",
-            "top_ms1_height",
-            "sum_ms1_height",
-            "weighted_ms1_height",
-            "isotope_intensity_correlation",
-            "isotope_height_correlation",
-            "n_observations",
-            "intensity_correlation",
-            "height_correlation",
-            "intensity_fraction",
-            "height_fraction",
-            "intensity_fraction_weighted",
-            "height_fraction_weighted",
-            "mean_observation_score",
-            "sum_b_ion_intensity",
-            "sum_y_ion_intensity",
-            "diff_b_y_ion_intensity",
-            "f_masked",
-            "fragment_scan_correlation",
-            "template_scan_correlation",
-            "fragment_frame_correlation",
-            "top3_frame_correlation",
-            "template_frame_correlation",
-            "top3_b_ion_correlation",
-            "n_b_ions",
-            "top3_y_ion_correlation",
-            "n_y_ions",
-            "cycle_fwhm",
-            "mobility_fwhm",
-            "delta_frame_peak",
-            "top_3_ms2_mass_error",
-            "mean_ms2_mass_error",
-            "n_overlapping",
-            "mean_overlapping_intensity",
-            "mean_overlapping_mass_error",
-        ]
+        if feature_columns is None:
+            feature_columns = DEFAULT_FEATURE_COLUMNS
+        if candidate_columns is None:
+            candidate_columns = DEFAULT_CANDIDATE_COLUMNS
+        if precursor_df_columns is None:
+            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
@@ -390,56 +425,24 @@ class CandidateScoring:
         df["rank"] = rank
 
         # join candidate columns
-        candidate_df_columns = [
-            "elution_group_idx",
-            "scan_center",
-            "scan_start",
-            "scan_stop",
-            "frame_center",
-            "frame_start",
-            "frame_stop",
-        ]
-
-        candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
+        candidate_columns += ["score"] if "score" in candidates_df.columns else []
 
         df = merge_missing_columns(
             df,
             candidates_df,
-            candidate_df_columns,
+            candidate_columns,
             on=["precursor_idx", "rank"],
             how="left",
         )
 
         # join precursor columns
-        precursor_df_columns = [
-            "rt_library",
-            "mobility_library",
-            "mz_library",
-            "charge",
-            "decoy",
-            "channel",
-            "flat_frag_start_idx",
-            "flat_frag_stop_idx",
-            "proteins",
-            "genes",
-            "sequence",
-            "mods",
-            "mod_sites",
-        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
+        precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
+            self.precursors_flat_df.columns
+        )
 
-        precursor_df_columns += (
-            [self.rt_column] if self.rt_column not in precursor_df_columns else []
-        )
-        precursor_df_columns += (
-            [self.mobility_column]
-            if self.mobility_column not in precursor_df_columns
-            else []
-        )
-        precursor_df_columns += (
-            [self.precursor_mz_column]
-            if self.precursor_mz_column not in precursor_df_columns
-            else []
-        )
+        for col in [self.rt_column, self.mobility_column, self.precursor_mz_column]:
+            if col not in precursor_df_columns:
+                precursor_df_columns.append(col)
 
         df = merge_missing_columns(
             df,
