@@ -146,7 +146,7 @@ custom_modifications:
 
 search:
   # which backend to be used for the extraction. Current only option: classic
-  extraction_backend: classic
+  extraction_backend: ng
   # target ms1 tolerance in ppm
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
