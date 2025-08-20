@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
 
@@ -12,6 +13,12 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
+
+try:  # noqa: SIM105
+    from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
+except ModuleNotFoundError:
+    # in case extraction_backend="ng", this will raise below
+    pass
 
 logger = logging.getLogger()
 
@@ -104,7 +111,22 @@ class WorkflowBase:
             reporter=self.reporter,
         )
 
+        time_start = time.time()
         self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
+        self.reporter.log_string(
+            f"Creating DIA data object took: {time.time() - time_start}"
+        )  # TODO: debug?
+
+        # alternatively, dia_data.to_ng()
+        time_start = time.time()
+        self._dia_data_ng = (
+            dia_data_to_ng(self._dia_data)
+            if self._config["search"]["extraction_backend"] == "ng"
+            else None
+        )
+        self.reporter.log_string(
+            f"Creating DIA data NG object took: {time.time() - time_start}"
+        )  # TODO: debug?
         raw_file_manager.save()
 
         self.reporter.log_event("loading_data", {"progress": 1})
