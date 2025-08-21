@@ -170,11 +170,7 @@ class Calibration:
         """
 
         if not self.validate_columns(dataframe):
-            logging.warning(f"{self.name} calibration was skipped")
-            return
-
-        if self.function is None:
-            raise ValueError("No estimator function provided")
+            raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
@@ -184,7 +180,7 @@ class Calibration:
             self.is_fitted = True
         except Exception as e:
             logging.exception(f"Could not fit estimator {self.name}: {e}")
-            return
+            raise e
 
         self._save_metrics(dataframe)
 
@@ -215,8 +211,10 @@ class Calibration:
             )
             return None
 
-        if not set(self.input_columns).issubset(dataframe.columns):
-            logging.warning(
+        if not set(self.input_columns).issubset(
+            dataframe.columns
+        ):  # TODO use validate_columns here
+            raise ValueError(
                 f"{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe"
             )
             return None

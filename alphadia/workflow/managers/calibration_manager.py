@@ -234,16 +234,10 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of estimator names
-
         """
 
         group = self.get_group(group_name)
-        if group is not None:
-            return [x.name for x in group["estimators"]]
-        self.reporter.log_string(
-            f"could not get_estimator_names: {group_name}", verbosity="error"
-        )
-        return None
+        return [x.name for x in group["estimators"]]
 
     def get_estimator(self, group_name: str, estimator_name: str):
         """Get an estimator from a calibration group.
@@ -264,16 +258,13 @@ class CalibrationManager(BaseManager):
 
         """
         group = self.get_group(group_name)
-        if group is not None:
-            for estimator in group["estimators"]:
-                if estimator.name == estimator_name:
-                    return estimator
+        for estimator in group["estimators"]:
+            if estimator.name == estimator_name:
+                return estimator
 
-        self.reporter.log_string(
-            f"could not get_estimator: {group_name}, {estimator_name}",
-            verbosity="error",
+        raise ValueError(
+            f"could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
         )
-        return None
 
     def fit(
         self,
