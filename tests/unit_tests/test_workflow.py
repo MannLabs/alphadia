@@ -196,7 +196,8 @@ def test_calibration_manager_fit_predict():
     test_df = calibration_testdata()
 
     # fit only the precursor mz calibration
-    calibration_manager.fit_predict(test_df, "precursor", plot=False)
+    calibration_manager.fit(test_df, "precursor", plot=False)
+    calibration_manager.predict(test_df, "precursor")
 
     assert "mz_calibrated" in test_df.columns
     assert "rt_calibrated" in test_df.columns
