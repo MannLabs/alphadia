@@ -127,9 +127,7 @@ class OptimizationLock:
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
 
-    def update_with_calibration(
-        self, calibration_manager
-    ):  # why is this here? -> optimization_manager ?
+    def update_with_calibration(self, calibration_manager):
         """Updates the batch library with the current calibrated values using the calibration manager.
 
         Parameters

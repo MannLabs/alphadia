@@ -295,7 +295,7 @@ class CalibrationManager(BaseManager):
                 return estimator
 
         raise ValueError(
-            f"could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
+            f"Could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
         )
 
     def fit(
@@ -329,7 +329,7 @@ class CalibrationManager(BaseManager):
         for group_idx in group_indices:
             for estimator in self.estimator_groups[group_idx]["estimators"]:
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, fitting {estimator.name} estimator.."
+                    f"calibration group: {group_name}, fitting {estimator.name} estimator .."
                 )
                 estimator.fit(df, plot=plot, figure_path=figure_path)
 
@@ -375,6 +375,6 @@ class CalibrationManager(BaseManager):
         for group_idx in group_indices:
             for estimator in self.estimator_groups[group_idx]["estimators"]:
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, predicting {estimator.name}"
+                    f"calibration group: {group_name}, predicting {estimator.name} .."
                 )
-                estimator.predict(df, inplace=True)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
+                estimator.predict(df, inplace=True)

@@ -178,7 +178,7 @@ class Calibration:
         if not self._validate_columns(
             dataframe, self.input_columns + self.target_columns
         ):
-            raise ValueError(f"{self.name} calibration: failed input validation")
+            raise ValueError(f"{self.name} calibration fitting: failed input validation")
 
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
@@ -222,7 +222,7 @@ class Calibration:
             return None
 
         if not self._validate_columns(dataframe, self.input_columns):
-            raise ValueError(f"{self.name} calibration: failed input validation")
+            raise ValueError(f"{self.name} calibration prediction: failed input validation")
 
         input_values = dataframe[self.input_columns].values
         predicted_values = self.function.predict(input_values)
