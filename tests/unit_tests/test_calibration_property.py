@@ -3,24 +3,10 @@ import tempfile
 
 import numpy as np
 import pandas as pd
-import pytest
 from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
 from alphadia.calibration.property import Calibration
-
-
-def test_uninitialized_calibration():
-    library_mz = np.linspace(100, 1000, 100)
-    observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
-    mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
-
-    # test that an error is raised if the calibration is not initialized
-    mz_calibration = Calibration()
-    with pytest.raises(ValueError):
-        mz_calibration.fit(mz_df)
-
-    assert mz_calibration.metrics is None
 
 
 def test_fit_predict_linear():
@@ -87,8 +73,7 @@ def test_save_load():
     path = os.path.join(tempfile.tempdir, "mz_calibration.pkl")
     mz_calibration.save(path)
 
-    mz_calibration_loaded = Calibration()
-    mz_calibration_loaded.load(path)
+    mz_calibration_loaded = Calibration.from_file(path)
     mz_calibration_loaded.predict(df_loaded)
 
     assert np.allclose(df_original["calibrated_mz"], df_loaded["calibrated_mz"])

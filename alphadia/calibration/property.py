@@ -1,11 +1,8 @@
-# native imports
 import logging
 import os
 import pickle
 
 import numpy as np
-
-# third party imports
 import pandas as pd
 import sklearn.base
 from matplotlib import pyplot as plt
@@ -14,33 +11,32 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
 from alphadia.calibration.models import LOESSRegression
-
-# alphadia imports
 from alphadia.plotting.utils import density_scatter
 
 
 class Calibration:
     def __init__(
         self,
-        name: str = "",
-        function: object = None,
-        input_columns: list[str] | None = None,
-        target_columns: list[str] | None = None,
-        output_columns: list[str] | None = None,
+        name: str,
+        function: sklearn.base.BaseEstimator,
+        input_columns: list[str],
+        target_columns: list[str],
+        output_columns: list[str],
         transform_deviation: None | float = None,
-        **kwargs,
     ):
         """A single estimator for a property (mz, rt, etc.).
 
-        Calibration is performed by modeling the deviation of an input values (e.g. mz_library) from an observed property (e.g. mz_observed) using a function (e.g. LinearRegression). Once calibrated, calibrated values (e.g. mz_calibrated) can be predicted from input values (e.g. mz_library). Additional explaining variabels can be added to the input values (e.g. rt_library) to improve the calibration.
+        Calibration is performed by modeling the deviation of an input values (e.g. mz_library) from
+        an observed property (e.g. mz_observed) using a function (e.g. LinearRegression).
+        Once calibrated, calibrated values (e.g. mz_calibrated) can be predicted from input values (e.g. mz_library).
+        Additional explaining variables can be added to the input values (e.g. rt_library) to improve the calibration.
 
         Parameters
         ----------
-
         name : str
             Name of the estimator for logging and plotting e.g. 'mz'
 
-        function : object
+        function : sklearn.base.BaseEstimator
             The estimator object instance which must have a fit and predict method.
             This will usually be a sklearn estimator or a custom estimator.
 
@@ -61,12 +57,6 @@ class Calibration:
             If set to None, the deviation is expressed in absolute units.
 
         """
-        if output_columns is None:
-            output_columns = []
-        if target_columns is None:
-            target_columns = []
-        if input_columns is None:
-            input_columns = []
         self.name = name
         self.function = function
         self.input_columns = input_columns
@@ -75,8 +65,14 @@ class Calibration:
         self.transform_deviation = (
             float(transform_deviation) if transform_deviation is not None else None
         )
+
         self.is_fitted = False
         self.metrics = None
+
+        if len(output_columns) != 1 or len(target_columns) != 1:
+            raise ValueError(
+                f"{self.name} calibration: only one output and target column is supported, got {len(output_columns)=} {len(target_columns)=}"
+            )
 
     def __repr__(self) -> str:
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"
@@ -95,7 +91,8 @@ class Calibration:
         with open(file_name, "wb") as f:
             pickle.dump(self, f)
 
-    def load(self, file_name: str):
+    @classmethod
+    def from_file(cls, file_name: str):
         """Load the estimator from pickle file.
 
         Parameters
@@ -108,15 +105,27 @@ class Calibration:
 
         with open(file_name, "rb") as f:
             loaded_calibration = pickle.load(f)
-            self.__dict__.update(loaded_calibration.__dict__)
 
-    def validate_columns(self, dataframe: pd.DataFrame):
+        new_calibration = Calibration(
+            name=loaded_calibration.name,
+            function=loaded_calibration.function,
+            input_columns=loaded_calibration.input_columns,
+            target_columns=loaded_calibration.target_columns,
+            output_columns=loaded_calibration.output_columns,
+            transform_deviation=loaded_calibration.transform_deviation,
+        )
+        new_calibration.__dict__.update(loaded_calibration.__dict__)
+        return new_calibration
+
+    def _validate_columns(self, dataframe: pd.DataFrame, required_columns: list[str]):
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
         ----------
         dataframe : pandas.DataFrame
             Dataframe containing the input and target columns
+        required_columns : list[str]
+            List of required columns to check in the dataframe
 
         Returns
         -------
@@ -131,7 +140,7 @@ class Calibration:
             logging.warning("Only one target column supported")
             valid = False
 
-        required_columns = set(self.input_columns + self.target_columns)
+        required_columns = set(required_columns)
         if not required_columns.issubset(dataframe.columns):
             logging.warning(
                 f"{self.name}, at least one column {required_columns} not found in dataframe"
@@ -169,12 +178,10 @@ class Calibration:
 
         """
 
-        if not self.validate_columns(dataframe):
-            logging.warning(f"{self.name} calibration was skipped")
-            return
-
-        if self.function is None:
-            raise ValueError("No estimator function provided")
+        if not self._validate_columns(
+            dataframe, self.input_columns + self.target_columns
+        ):
+            raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
@@ -184,23 +191,25 @@ class Calibration:
             self.is_fitted = True
         except Exception as e:
             logging.exception(f"Could not fit estimator {self.name}: {e}")
-            return
+            raise e
 
         self._save_metrics(dataframe)
 
         if plot:
             self.plot(dataframe, figure_path=figure_path)
 
-    def predict(self, dataframe, inplace=True):
+    def predict(
+        self, dataframe: pd.DataFrame, inplace: bool = True
+    ) -> np.ndarray | None:
         """Perform a prediction based on the input columns of the dataframe.
 
         Parameters
         ----------
-        dataframe : pandas.DataFrame
+        dataframe : pd.DataFrame
             Dataframe containing the input and target columns
 
         inplace : bool, default=True
-            If True, the prediction is added as a new column to the dataframe. If False, the prediction is returned as a numpy array.
+            If True, the prediction is added as a new column to the dataframe.
 
         Returns
         -------
@@ -209,24 +218,24 @@ class Calibration:
 
         """
 
-        if self.is_fitted is False:
+        if not self.is_fitted:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
             )
             return None
 
-        if not set(self.input_columns).issubset(dataframe.columns):
-            logging.warning(
-                f"{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe"
-            )
-            return None
+        if not self._validate_columns(dataframe, self.input_columns):
+            raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
+        predicted_values = self.function.predict(input_values)
 
         if inplace:
-            dataframe[self.output_columns[0]] = self.function.predict(input_values)
+            dataframe[self.output_columns[0]] = predicted_values
         else:
-            return self.function.predict(input_values)
+            return predicted_values
+
+        return None
 
     def fit_predict(
         self, dataframe: pd.DataFrame, plot: bool = True, inplace: bool = True
@@ -475,7 +484,7 @@ class CalibrationModelProvider:
         return string
 
     def register_model(
-        self, model_name: str, model_template: sklearn.base.BaseEstimator
+        self, model_name: str, model_template: type[sklearn.base.BaseEstimator]
     ):
         """Register a model template with a given name.
 
@@ -484,13 +493,13 @@ class CalibrationModelProvider:
         model_name : str
             Name of the model
 
-        model_template : sklearn.base.BaseEstimator
+        model_template : type[sklearn.base.BaseEstimator]
             The model template which must have a fit and predict method.
 
         """
         self.model_dict[model_name] = model_template
 
-    def get_model(self, model_name: str):
+    def get_model(self, model_name: str) -> type[sklearn.base.BaseEstimator]:
         """Get a model template by name.
 
         Parameters
@@ -501,7 +510,7 @@ class CalibrationModelProvider:
 
         Returns
         -------
-        sklearn.base.BaseEstimator
+        type[sklearn.base.BaseEstimator]
             The model template which must have a fit and predict method.
 
         """
