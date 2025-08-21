@@ -74,6 +74,11 @@ class Calibration:
         self.is_fitted = False
         self.metrics = None
 
+        if len(output_columns) != 1 or len(target_columns) != 1:
+            raise ValueError(
+                f"{self.name} calibration: only one output and target column is supported, got {len(output_columns)=} {len(target_columns)=}"
+            )
+
     def __repr__(self) -> str:
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"
 
@@ -215,14 +220,16 @@ class Calibration:
             raise ValueError(
                 f"{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe"
             )
-            return None
 
         input_values = dataframe[self.input_columns].values
+        predicted_values = self.function.predict(input_values)
 
         if inplace:
-            dataframe[self.output_columns[0]] = self.function.predict(input_values)
+            dataframe[self.output_columns[0]] = predicted_values
         else:
-            return self.function.predict(input_values)
+            return predicted_values
+
+        return None
 
     def fit_predict(
         self, dataframe: pd.DataFrame, plot: bool = True, inplace: bool = True

@@ -306,7 +306,7 @@ class CalibrationManager(BaseManager):
                 if estimator.name in skip:
                     continue
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, fitting {estimator.name} estimator "
+                    f"calibration group: {group_name}, fitting {estimator.name} estimator.."
                 )
                 estimator.fit(df, *args, **kwargs)
 
