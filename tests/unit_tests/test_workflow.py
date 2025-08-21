@@ -123,7 +123,7 @@ def test_calibration_manager_init():
 
     assert calibration_manager.path == temp_path
     assert calibration_manager.is_loaded_from_file is False
-    assert calibration_manager.is_fitted is False
+    assert calibration_manager.all_fitted is False
 
     assert len(calibration_manager.estimator_groups) == 2
     assert len(calibration_manager.get_estimator_names("precursor")) == 2
@@ -202,13 +202,13 @@ def test_calibration_manager_fit_predict():
     assert "rt_calibrated" in test_df.columns
     # will be false as the the fragment mz calibration is not fitted
 
-    assert calibration_manager.is_fitted is False
+    assert calibration_manager.all_fitted is False
     assert calibration_manager.is_loaded_from_file is False
 
     # fit the fragment mz calibration
     calibration_manager.fit(test_df, "fragment", plot=False)
 
-    assert calibration_manager.is_fitted is True
+    assert calibration_manager.all_fitted is True
 
 
 def test_calibration_manager_save_load():
@@ -225,7 +225,7 @@ def test_calibration_manager_save_load():
     calibration_manager.fit(test_df, "precursor", plot=False)
     calibration_manager.fit(test_df, "fragment", plot=False)
 
-    assert calibration_manager.is_fitted is True
+    assert calibration_manager.all_fitted is True
     assert calibration_manager.is_loaded_from_file is False
 
     calibration_manager.save()
@@ -237,7 +237,7 @@ def test_calibration_manager_save_load():
         calibration_manager_loaded = CalibrationManager(
             path=temp_path, load_from_file=True, has_mobility=False
         )
-    assert calibration_manager_loaded.is_fitted is True
+    assert calibration_manager_loaded.all_fitted is True
     assert calibration_manager_loaded.is_loaded_from_file is True
 
     calibration_manager_loaded.predict(test_df, "precursor")

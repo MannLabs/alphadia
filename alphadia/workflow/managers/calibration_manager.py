@@ -102,7 +102,7 @@ class CalibrationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
-            self.is_fitted = False
+            self.all_fitted = False
             self.estimator_groups = []
             self.load_config(CALIBRATION_MANAGER_CONFIG)
 
@@ -310,13 +310,12 @@ class CalibrationManager(BaseManager):
                 )
                 estimator.fit(df, *args, **kwargs)
 
-        is_fitted = True
-        # check if all estimators are fitted
+        all_fitted = True
         for group in self.estimator_groups:
             for estimator in group["estimators"]:
-                is_fitted &= estimator.is_fitted
+                all_fitted &= estimator.is_fitted
 
-        self.is_fitted = is_fitted
+        self.all_fitted = all_fitted
 
     def predict(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
         """Predict all estimators in a calibration group.
