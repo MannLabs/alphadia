@@ -1,11 +1,8 @@
-# native imports
 import logging
 import os
 import pickle
 
 import numpy as np
-
-# third party imports
 import pandas as pd
 import sklearn.base
 from matplotlib import pyplot as plt
@@ -14,8 +11,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
 from alphadia.calibration.models import LOESSRegression
-
-# alphadia imports
 from alphadia.plotting.utils import density_scatter
 
 
@@ -478,7 +473,7 @@ class CalibrationModelProvider:
         return string
 
     def register_model(
-        self, model_name: str, model_template: sklearn.base.BaseEstimator
+        self, model_name: str, model_template: type[sklearn.base.BaseEstimator]
     ):
         """Register a model template with a given name.
 
@@ -487,13 +482,13 @@ class CalibrationModelProvider:
         model_name : str
             Name of the model
 
-        model_template : sklearn.base.BaseEstimator
+        model_template : type[sklearn.base.BaseEstimator]
             The model template which must have a fit and predict method.
 
         """
         self.model_dict[model_name] = model_template
 
-    def get_model(self, model_name: str):
+    def get_model(self, model_name: str) -> type[sklearn.base.BaseEstimator]:
         """Get a model template by name.
 
         Parameters
@@ -504,7 +499,7 @@ class CalibrationModelProvider:
 
         Returns
         -------
-        sklearn.base.BaseEstimator
+        type[sklearn.base.BaseEstimator]
             The model template which must have a fit and predict method.
 
         """
