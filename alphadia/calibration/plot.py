@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -92,18 +92,21 @@ def plot_calibration(
     fig.tight_layout()
 
     if figure_path is not None:
+        figure_path_ = Path(figure_path)
         i = 0
-        file_name = os.path.join(
-            figure_path,
-            f"calibration_{calibration.input_columns[input_property]}_{i}.pdf",
+        figure_file_path = (
+            figure_path_
+            / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
         )
-        while os.path.exists(file_name):
-            file_name = os.path.join(
-                figure_path,
-                f"calibration_{calibration.input_columns[input_property]}_{i}.pdf",
+
+        while figure_file_path.exists():
+            figure_file_path = (
+                figure_path_
+                / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
             )
+
             i += 1
-        fig.savefig(file_name)
+        fig.savefig(figure_file_path)
     else:
         plt.show()
 
