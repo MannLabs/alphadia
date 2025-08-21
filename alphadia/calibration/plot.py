@@ -1,7 +1,10 @@
 """Plotting functionality for the Calibration class."""
 
+from __future__ import annotations
+
 import logging
 import os
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -9,16 +12,22 @@ from matplotlib import pyplot as plt
 
 from alphadia.plotting.utils import density_scatter
 
+if TYPE_CHECKING:
+    from alphadia.calibration.property import Calibration
+
 
 def plot_calibration(
-    calibration,
+    calibration: Calibration,
     dataframe: pd.DataFrame,
     figure_path: str = None,
-):
+) -> None:
     """Plot the data and calibration model.
 
     Parameters
     ----------
+
+    calibration : Calibration
+        Calibration object.
 
     dataframe : pandas.DataFrame
         Dataframe containing the input and target columns
