@@ -13,6 +13,14 @@ CalibrationConfig: type = list[
     dict[str, str | list[dict[str, list[str] | str | dict[str, str | int | list[str]]]]]
 ]
 
+
+class CalibrationGroups:
+    """A group of calibrations, each group is applied to a single data structure (precursor dataframe, fragment dataframe, etc.)."""
+
+    FRAGMENT = "fragment"
+    PRECURSOR = "precursor"
+
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
@@ -20,6 +28,7 @@ CalibrationConfig: type = list[
 # TODO simplify this structure and the config loading
 CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
     {
+        "name": CalibrationGroups.FRAGMENT,
         "estimators": [
             {
                 "input_columns": [MRMCols.MZ_LIBRARY],
@@ -31,9 +40,9 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "transform_deviation": "1e6",
             }
         ],
-        "name": "fragment",
     },
     {
+        "name": CalibrationGroups.PRECURSOR,
         "estimators": [
             {
                 "input_columns": [MRMCols.MZ_LIBRARY],
@@ -61,7 +70,6 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "target_columns": [MRMCols.MOBILITY_OBSERVED],
             },
         ],
-        "name": "precursor",
     },
 ]
 

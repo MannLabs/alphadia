@@ -4,7 +4,10 @@ import pandas as pd
 from alphadia.constants.keys import COLUMN_TYPE_CALIBRATED
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
@@ -53,9 +56,11 @@ class RecalibrationHandler:
         """
         self._calibration_manager.fit(
             precursor_df_filtered,
-            "precursor",
+            CalibrationGroups.PRECURSOR,
             figure_path=self._figure_path,
-            skip=["mz"] if not self._dia_data_has_ms1 else [],
+            skip=["mz"]
+            if not self._dia_data_has_ms1
+            else [],  # TODO exclude from estimators in the first place
         )
 
         self._calibration_manager.fit(

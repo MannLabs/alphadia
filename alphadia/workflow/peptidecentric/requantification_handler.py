@@ -12,7 +12,10 @@ from alphadia.plexscoring.utils import (
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
@@ -40,7 +43,7 @@ class MultiplexingRequantificationHandler:
 
     def requantify(self, dia_data: DiaData, psm_df: pd.DataFrame) -> pd.DataFrame:
         self._calibration_manager.predict(
-            self._spectral_library.precursor_df_unfiltered, "precursor"
+            self._spectral_library.precursor_df_unfiltered, CalibrationGroups.PRECURSOR
         )
         self._calibration_manager.predict(
             self._spectral_library._fragment_df, "fragment"

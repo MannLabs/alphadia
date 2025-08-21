@@ -5,6 +5,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 
 
 class OptimizationLock:
@@ -138,8 +139,7 @@ class OptimizationLock:
 
         """
         calibration_manager.predict(
-            self.batch_library._precursor_df,
-            "precursor",
+            self.batch_library._precursor_df, CalibrationGroups.PRECURSOR
         )
 
         calibration_manager.predict(
