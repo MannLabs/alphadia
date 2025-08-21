@@ -302,7 +302,6 @@ class CalibrationManager(BaseManager):
         self,
         df: pd.DataFrame,
         group_name: str,
-        skip: list | None = None,
         plot: bool = True,
         figure_path: None | str = None,
     ):
@@ -317,9 +316,6 @@ class CalibrationManager(BaseManager):
         group_name : str
             Name of the calibration group
 
-        skip: list[str], default=None
-            List of estimator names (e.g. "mz") to skip during fitting. If None, no estimators are skipped.
-
         plot: bool, default=True
             If True, a plot of the calibration is generated.
 
@@ -327,17 +323,11 @@ class CalibrationManager(BaseManager):
             If set, the generated plot is saved to the given path.
 
         """
-
-        if skip is None:
-            skip = []
-
         group_indices = self._get_indices_for_group_name(group_name)
 
         # only iterate over the first group with the given name
         for group_idx in group_indices:
             for estimator in self.estimator_groups[group_idx]["estimators"]:
-                if estimator.name in skip:
-                    continue
                 self.reporter.log_string(
                     f"calibration group: {group_name}, fitting {estimator.name} estimator.."
                 )
