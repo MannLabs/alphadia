@@ -115,12 +115,12 @@ class Calibration:
         new_calibration.__dict__.update(loaded_calibration.__dict__)
         return new_calibration
 
-    def _validate_columns(self, dataframe: pd.DataFrame, required_columns: list[str]):
+    def _validate_columns(self, df: pd.DataFrame, required_columns: list[str]):
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
         ----------
-        dataframe : pandas.DataFrame
+        df : pd.DataFrame
             Dataframe containing the input and target columns
         required_columns : list[str]
             List of required columns to check in the dataframe
@@ -128,24 +128,17 @@ class Calibration:
         Returns
         -------
         bool
-            True if all columns are present, False otherwise
+            True if df is valid, False otherwise
 
         """
-
-        valid = True
-
-        if len(self.target_columns) > 1:
-            logging.warning("Only one target column supported")
-            valid = False
-
         required_columns = set(required_columns)
-        if not required_columns.issubset(dataframe.columns):
+        if not required_columns.issubset(df.columns):
             logging.warning(
                 f"{self.name}, at least one column {required_columns} not found in dataframe"
             )
-            valid = False
+            return False
 
-        return valid
+        return True
 
     def fit(
         self,
@@ -178,7 +171,9 @@ class Calibration:
         if not self._validate_columns(
             dataframe, self.input_columns + self.target_columns
         ):
-            raise ValueError(f"{self.name} calibration fitting: failed input validation")
+            raise ValueError(
+                f"{self.name} calibration fitting: failed input validation"
+            )
 
         input_values = dataframe[self.input_columns].values
         target_value = dataframe[self.target_columns].values
@@ -222,7 +217,9 @@ class Calibration:
             return None
 
         if not self._validate_columns(dataframe, self.input_columns):
-            raise ValueError(f"{self.name} calibration prediction: failed input validation")
+            raise ValueError(
+                f"{self.name} calibration prediction: failed input validation"
+            )
 
         input_values = dataframe[self.input_columns].values
         predicted_values = self.function.predict(input_values)
