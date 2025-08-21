@@ -3,29 +3,29 @@
 from __future__ import annotations
 
 import logging
-import os
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
 
 from alphadia.plotting.utils import density_scatter
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from alphadia.calibration.property import Calibration
 
 
 def plot_calibration(
     calibration: Calibration,
     df: pd.DataFrame,
-    figure_path: str = None,
+    figure_path: str | None = None,
 ) -> None:
     """Plot the data and calibration model.
 
     Parameters
     ----------
-
     calibration : Calibration
         Calibration object.
 
@@ -34,6 +34,7 @@ def plot_calibration(
 
     figure_path : str, default=None
         If set, the figure is saved to the given path.
+
     """
     deviation = calibration.calc_deviation(df)
 
@@ -91,30 +92,32 @@ def plot_calibration(
     fig.tight_layout()
 
     if figure_path is not None:
+        figure_path_ = Path(figure_path)
         i = 0
-        file_name = os.path.join(
-            figure_path,
-            f"calibration_{calibration.input_columns[input_property]}_{i}.pdf",
+        figure_file_path = (
+            figure_path_
+            / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
         )
-        while os.path.exists(file_name):
-            file_name = os.path.join(
-                figure_path,
-                f"calibration_{calibration.input_columns[input_property]}_{i}.pdf",
+
+        while figure_file_path.exists():
+            figure_file_path = (
+                figure_path_
+                / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
             )
+
             i += 1
-        fig.savefig(file_name)
+        fig.savefig(figure_file_path)
     else:
         plt.show()
 
     plt.close()
 
 
-def _get_transform_unit(transform_deviation: None | float):
+def _get_transform_unit(transform_deviation: None | float) -> str:
     """Get the unit of the deviation based on the transform deviation.
 
     Parameters
     ----------
-
     transform_deviation : typing.Union[None, float]
         If set to a valid float, the deviation is expressed as a fraction of the input value e.g. 1e6 for ppm.
 
@@ -127,9 +130,7 @@ def _get_transform_unit(transform_deviation: None | float):
     if transform_deviation is not None:
         if np.isclose(transform_deviation, 1e6):
             return "(ppm)"
-        elif np.isclose(transform_deviation, 1e2):
+        if np.isclose(transform_deviation, 1e2):
             return "(%)"
-        else:
-            return f"({transform_deviation})"
-    else:
-        return "(absolute)"
+        return f"({transform_deviation})"
+    return "(absolute)"

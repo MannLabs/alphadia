@@ -20,7 +20,6 @@ exclude = [
     "alphadia/search_step.py",
     "alphadia/utils.py",
     "alphadia/validate.py",
-    "alphadia/calibration/*.py",
     "alphadia/consensus/*.py",
     "alphadia/constants/*.py",
     "alphadia/raw_data/alpharaw_wrapper.py",
