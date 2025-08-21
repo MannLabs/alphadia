@@ -314,9 +314,9 @@ class CalibrationManager(BaseManager):
         # check if all estimators are fitted
         for group in self.estimator_groups:
             for estimator in group["estimators"]:
-                is_fitted = is_fitted and estimator.is_fitted
+                is_fitted &= estimator.is_fitted
 
-        self.is_fitted = is_fitted and len(self.estimator_groups) > 0
+        self.is_fitted = is_fitted
 
     def predict(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
         """Predict all estimators in a calibration group.
