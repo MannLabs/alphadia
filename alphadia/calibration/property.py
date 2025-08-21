@@ -64,8 +64,8 @@ class Calibration:
         self.name = name
         self._model = model
         self.input_columns = input_columns
-        self.target_columns = target_columns
-        self.output_columns = output_columns
+        self._target_columns = target_columns
+        self._output_columns = output_columns
         self.transform_deviation = (
             float(transform_deviation) if transform_deviation is not None else None
         )
@@ -105,14 +105,14 @@ class Calibration:
 
         """
         with Path(file_name).open("rb") as f:
-            loaded_calibration = pickle.load(f)  # noqa: S301
+            loaded_calibration: Calibration = pickle.load(f)  # noqa: S301
 
         new_calibration = Calibration(
             name=loaded_calibration.name,
-            model=loaded_calibration.function,
+            model=loaded_calibration._model,  # noqa: SLF001
             input_columns=loaded_calibration.input_columns,
-            target_columns=loaded_calibration.target_columns,
-            output_columns=loaded_calibration.output_columns,
+            target_columns=loaded_calibration._target_columns,  # noqa: SLF001
+            output_columns=loaded_calibration._output_columns,  # noqa: SLF001
             transform_deviation=loaded_calibration.transform_deviation,
         )
         new_calibration.__dict__.update(loaded_calibration.__dict__)
@@ -169,13 +169,13 @@ class Calibration:
             Array of shape (n_input_columns, ) containing the mean absolute deviation of the residual deviation at the given confidence interval
 
         """
-        if not self._validate_columns(df, self.input_columns + self.target_columns):
+        if not self._validate_columns(df, self.input_columns + self._target_columns):
             raise ValueError(
                 f"{self.name} calibration fitting: failed input validation"
             )
 
         input_values = df[self.input_columns].to_numpy()
-        target_value = df[self.target_columns].to_numpy()
+        target_value = df[self._target_columns].to_numpy()
 
         try:
             self._model.fit(input_values, target_value)
@@ -221,7 +221,7 @@ class Calibration:
         predicted_values = self._model.predict(input_values)
 
         if inplace:
-            df[self.output_columns[0]] = predicted_values
+            df[self._output_columns[0]] = predicted_values
         else:
             return predicted_values
 
@@ -250,7 +250,7 @@ class Calibration:
         uncalibrated_values = input_values[:, [0]]
 
         # only one target column is supported
-        target_values = df[self.target_columns].to_numpy()[:, [0]]
+        target_values = df[self._target_columns].to_numpy()[:, [0]]
         input_transform = self.transform_deviation
 
         calibrated_values = self.predict(df, inplace=False)
