@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
 from alphadia.calibration.models import LOESSRegression
+from alphadia.calibration.plot import plot_calibration
 from alphadia.plotting.utils import density_scatter
 
 
@@ -195,7 +196,7 @@ class Calibration:
         self.metrics = self._get_metrics(dataframe)
 
         if plot:
-            self.plot(dataframe, figure_path=figure_path)
+            plot_calibration(self, dataframe, figure_path=figure_path)
 
     def predict(
         self, dataframe: pd.DataFrame, inplace: bool = True
