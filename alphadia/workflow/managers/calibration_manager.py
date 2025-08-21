@@ -208,7 +208,7 @@ class CalibrationManager(BaseManager):
                 initialized_estimators.append(
                     Calibration(
                         name=estimator["name"],
-                        function=model(**model_args),
+                        model=model(**model_args),
                         input_columns=estimator["input_columns"],
                         target_columns=estimator["target_columns"],
                         output_columns=estimator["output_columns"],

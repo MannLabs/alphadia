@@ -6,12 +6,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import sklearn.base
 from sklearn.linear_model import LinearRegression
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import PolynomialFeatures
 
-from alphadia.calibration.models import LOESSRegression
+from alphadia.calibration.models import (
+    CalibrationModel,
+    LOESSRegression,
+    construct_polynomial_regression,
+)
 from alphadia.calibration.plot import plot_calibration
 
 
@@ -21,11 +22,11 @@ class Calibration:
     def __init__(  # noqa: PLR0913 # Too many arguments
         self,
         name: str,
-        function: sklearn.base.BaseEstimator,
+        model: CalibrationModel,
         input_columns: list[str],
         target_columns: list[str],
         output_columns: list[str],
-        transform_deviation: None | float = None,
+        transform_deviation: None | str | float = None,
     ):
         """A single estimator for a property (mz, rt, etc.).
 
@@ -39,29 +40,29 @@ class Calibration:
         name : str
             Name of the estimator for logging and plotting e.g. 'mz'
 
-        function : sklearn.base.BaseEstimator
+        model : CalibrationModel
             The estimator object instance which must have a fit and predict method.
             This will usually be a sklearn estimator or a custom estimator.
 
-        input_columns : list of str
+        input_columns : list[str]
             The columns of the dataframe that are used as input for the estimator e.g. ['mz_library'].
             The first column is the property which should be calibrated, additional columns can be used as explaining variables e.g. ['mz_library', 'rt_library'].
 
-        target_columns : list of str
+        target_columns : list[str]
             The columns of the dataframe that are used as target for the estimator e.g. ['mz_observed'].
             At the moment only one target column is supported.
 
-        output_columns : list of str
+        output_columns : list[str]
             The columns of the dataframe that are used as output for the estimator e.g. ['mz_calibrated'].
             At the moment only one output column is supported.
 
-        transform_deviation : typing.List[Union[None, float]]
+        transform_deviation : typing.List[Union[None, float, str]]
             If set to a valid float, the deviation is expressed as a fraction of the input value e.g. 1e6 for ppm.
             If set to None, the deviation is expressed in absolute units.
 
         """
         self.name = name
-        self.function = function
+        self.model = model
         self.input_columns = input_columns
         self.target_columns = target_columns
         self.output_columns = output_columns
@@ -108,7 +109,7 @@ class Calibration:
 
         new_calibration = Calibration(
             name=loaded_calibration.name,
-            function=loaded_calibration.function,
+            model=loaded_calibration.function,
             input_columns=loaded_calibration.input_columns,
             target_columns=loaded_calibration.target_columns,
             output_columns=loaded_calibration.output_columns,
@@ -177,7 +178,7 @@ class Calibration:
         target_value = df[self.target_columns].to_numpy()
 
         try:
-            self.function.fit(input_values, target_value)
+            self.model.fit(input_values, target_value)
             self.is_fitted = True
         except Exception:
             logging.exception(f"Could not fit estimator {self.name}")
@@ -217,7 +218,7 @@ class Calibration:
             )
 
         input_values = df[self.input_columns].to_numpy()
-        predicted_values = self.function.predict(input_values)
+        predicted_values = self.model.predict(input_values)
 
         if inplace:
             df[self.output_columns[0]] = predicted_values
@@ -340,7 +341,7 @@ class CalibrationModelProvider:
         return string
 
     def register_model(
-        self, model_name: str, model_template: type[sklearn.base.BaseEstimator]
+        self, model_name: str, model_template: type[CalibrationModel]
     ) -> None:
         """Register a model template with a given name.
 
@@ -349,13 +350,13 @@ class CalibrationModelProvider:
         model_name : str
             Name of the model
 
-        model_template : type[sklearn.base.BaseEstimator]
+        model_template : type[CalibrationModel]
             The model template which must have a fit and predict method.
 
         """
         self.model_dict[model_name] = model_template
 
-    def get_model(self, model_name: str) -> type[sklearn.base.BaseEstimator]:
+    def get_model(self, model_name: str) -> type[CalibrationModel]:
         """Get a model template by name.
 
         Parameters
@@ -365,7 +366,7 @@ class CalibrationModelProvider:
 
         Returns
         -------
-        type[sklearn.base.BaseEstimator]
+        type[CalibrationModel]
             The model template which must have a fit and predict method.
 
         """
@@ -374,21 +375,9 @@ class CalibrationModelProvider:
         return self.model_dict[model_name]
 
 
-def get_polynomial_regression(
-    degree: int = 2, *, include_bias: bool = False
-) -> Pipeline:
-    """Create a polynomial regression model."""
-    return Pipeline(
-        [
-            ("poly", PolynomialFeatures(degree=degree, include_bias=include_bias)),
-            ("linear", LinearRegression()),
-        ]
-    )
-
-
 calibration_model_provider = CalibrationModelProvider()
 calibration_model_provider.register_model("LinearRegression", LinearRegression)
 calibration_model_provider.register_model("LOESSRegression", LOESSRegression)
 calibration_model_provider.register_model(
-    "PolynomialRegression", get_polynomial_regression
+    "PolynomialRegression", construct_polynomial_regression
 )
