@@ -80,12 +80,10 @@ class Calibration:
 
         Parameters
         ----------
-
         file_name : str
             Path to the pickle file
 
         """
-
         with open(file_name, "wb") as f:
             pickle.dump(self, f)
 
@@ -95,12 +93,10 @@ class Calibration:
 
         Parameters
         ----------
-
         file_name : str
             Path to the pickle file
 
         """
-
         with open(file_name, "rb") as f:
             loaded_calibration = pickle.load(f)
 
@@ -150,7 +146,6 @@ class Calibration:
 
         Parameters
         ----------
-
         df : pd.DataFrame
             Dataframe containing the input and target columns
 
@@ -162,12 +157,10 @@ class Calibration:
 
         Returns
         -------
-
         np.ndarray
             Array of shape (n_input_columns, ) containing the mean absolute deviation of the residual deviation at the given confidence interval
 
         """
-
         if not self._validate_columns(df, self.input_columns + self.target_columns):
             raise ValueError(
                 f"{self.name} calibration fitting: failed input validation"
@@ -205,7 +198,6 @@ class Calibration:
             Array of shape (n_samples, ) containing the prediction
 
         """
-
         if not self.is_fitted:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
@@ -242,7 +234,6 @@ class Calibration:
             The second dimension contains the observed deviation, calibrated deviation, residual deviation and the input values.
 
         """
-
         # the first column is the unclaibrated input property
         # all other columns are explaining variables
         input_values = df[self.input_columns].values
@@ -301,7 +292,6 @@ class Calibration:
 
         Parameters
         ----------
-
         df : pandas.DataFrame
             Dataframe containing the input and target columns
 
@@ -310,11 +300,10 @@ class Calibration:
 
         Returns
         -------
-
         float
             the confidence interval of the residual deviation after calibration
-        """
 
+        """
         if not 0 < ci < 1:
             raise ValueError("Confidence interval must be between 0 and 1")
 
@@ -361,7 +350,6 @@ class CalibrationModelProvider:
 
         Parameters
         ----------
-
         model_name : str
             Name of the model
 
@@ -371,11 +359,9 @@ class CalibrationModelProvider:
             The model template which must have a fit and predict method.
 
         """
-
         if model_name not in self.model_dict:
             raise ValueError(f"Unknown model {model_name}")
-        else:
-            return self.model_dict[model_name]
+        return self.model_dict[model_name]
 
 
 def PolynomialRegression(degree: int = 2, include_bias: bool = False) -> Pipeline:

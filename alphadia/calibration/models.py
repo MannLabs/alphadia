@@ -8,7 +8,6 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
     Parameters
     ----------
-
     n_kernels : int
         default = 6, The number of local polynomial functions used to approximate the data. The location and extend of the kernels will be distributed to contain an equal number of datapoints in the training set.
 
@@ -53,8 +52,8 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         -------
         numpy.ndarray, float
             of shape (n_kernels, 2)
-        """
 
+        """
         minval = x[0]
         maxval = x[-1]
 
@@ -81,7 +80,6 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             of shape (n_kernels, 2)
 
         """
-
         indices = np.searchsorted(x, self._intervals_uniform(x))
 
         return indices.astype(int)
@@ -101,7 +99,6 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             of shape (n_kernels, 2)
 
         """
-
         num_datapoints = len(x)
         interval_size = num_datapoints // self.n_kernels
 
@@ -119,11 +116,10 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         return np.column_stack([start, end]).astype(int)
 
     def fit(self, x: np.ndarray, y: np.ndarray):
-        """fit the model passed on provided training data.
+        """Fit the model passed on provided training data.
 
         Parameters
         ----------
-
         x : numpy.ndarray
             float, of shape (n_samples,) or (n_samples, 1), Training data. Note that only a single feature is supported at the moment.
 
@@ -132,12 +128,10 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         Returns
         -------
-
         self: object
             Returns the fitted estimator.
 
         """
-
         # As required by scikit-learn estimator guidelines
         self.n_features_in_ = 1
 
@@ -254,19 +248,16 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         Parameters
         ----------
-
         x : numpy.ndarray
             float, of shape (n_samples,) or (n_samples, 1) Feature data. Note that only a single feature is supported at the moment.
 
         Returns
         -------
-
         y : numpy.ndarray, float
         of shape (n_samples,)
             Target values.
 
         """
-
         if len(x.shape) == 1:
             x = x[..., np.newaxis]
 
@@ -284,14 +275,12 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         Parameters
         ----------
-
         x: numpy.ndarray
             Numpy array of shape (n_datapoints, 1) which should be transformed to weights.
 
 
         Returns
         -------
-
         numpy.ndarray
             Weight matrix with the shape (n_datapoints, n_kernels).
 
@@ -330,21 +319,21 @@ def _apply_kernel(w):
 
 
 def _tricubic(x, EPSILON=1e-6):
-    """tricubic weight kernel"""
+    """Tricubic weight kernel"""
     epsilon = EPSILON
     mask = np.abs(x) <= 1
     return mask * (np.power(1 - np.power(np.abs(x), 3), 3) + epsilon)
 
 
 def _left_open_tricubic(x):
-    """tricubic weight kernel which weights assigns 1 to values x < 0"""
+    """Tricubic weight kernel which weights assigns 1 to values x < 0"""
     y = _tricubic(x)
     y[x < 0] = 1
     return y
 
 
 def _right_open_tricubic(x):
-    """tricubic weight kernel which weights assigns 1 to values x > 0"""
+    """Tricubic weight kernel which weights assigns 1 to values x > 0"""
     y = _tricubic(x)
     y[x > 0] = 1
     return y

@@ -25,7 +25,6 @@ def plot_calibration(
 
     Parameters
     ----------
-
     calibration : Calibration
         Calibration object.
 
@@ -34,6 +33,7 @@ def plot_calibration(
 
     figure_path : str, default=None
         If set, the figure is saved to the given path.
+
     """
     deviation = calibration.calc_deviation(df)
 
@@ -114,7 +114,6 @@ def _get_transform_unit(transform_deviation: None | float):
 
     Parameters
     ----------
-
     transform_deviation : typing.Union[None, float]
         If set to a valid float, the deviation is expressed as a fraction of the input value e.g. 1e6 for ppm.
 
@@ -127,9 +126,7 @@ def _get_transform_unit(transform_deviation: None | float):
     if transform_deviation is not None:
         if np.isclose(transform_deviation, 1e6):
             return "(ppm)"
-        elif np.isclose(transform_deviation, 1e2):
+        if np.isclose(transform_deviation, 1e2):
             return "(%)"
-        else:
-            return f"({transform_deviation})"
-    else:
-        return "(absolute)"
+        return f"({transform_deviation})"
+    return "(absolute)"
