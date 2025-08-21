@@ -168,15 +168,13 @@ class CalibrationManager(BaseManager):
                     )
                     continue
 
-                model_constructor = calibration_model_provider.get_model(
-                    estimator["model"]
-                )
+                model = calibration_model_provider.get_model(estimator["model"])
                 model_args = estimator.get("model_args", {})
 
                 initialized_estimators.append(
                     Calibration(
                         name=estimator["name"],
-                        function=model_constructor(**model_args),
+                        function=model(**model_args),
                         input_columns=estimator["input_columns"],
                         target_columns=estimator["target_columns"],
                         output_columns=estimator["output_columns"],
@@ -271,8 +269,8 @@ class CalibrationManager(BaseManager):
         df: pd.DataFrame,
         group_name: str,
         skip: list | None = None,
-        *args,
-        **kwargs,
+        plot: bool = True,
+        figure_path: None | str = None,
     ):
         """Fit all estimators in a calibration group.
 
@@ -285,7 +283,14 @@ class CalibrationManager(BaseManager):
         group_name : str
             Name of the calibration group
 
-        skip: TODO
+        skip: list[str], default=None
+            List of estimator names (e.g. "mz")to skip during fitting. If None, no estimators are skipped.
+
+        plot: bool, default=True
+            If True, a plot of the calibration is generated.
+
+        figure_path: str, default=None
+            If set, the generated plot is saved to the given path.
 
         """
 
@@ -308,7 +313,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"calibration group: {group_name}, fitting {estimator.name} estimator.."
                 )
-                estimator.fit(df, *args, **kwargs)
+                estimator.fit(df, plot=plot, figure_path=figure_path)
 
         all_fitted = True
         for group in self.estimator_groups:
@@ -344,7 +349,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"calibration group: {group_name}, predicting {estimator.name}"
                 )
-                estimator.predict(df, inplace=True, *args, **kwargs)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
+                estimator.predict(df, inplace=True)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
 
     def fit_predict(
         self,

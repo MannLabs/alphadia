@@ -154,7 +154,6 @@ class Calibration:
         dataframe: pd.DataFrame,
         plot: bool = True,
         figure_path: str | None = None,
-        **kwargs,
     ):
         """Fit the estimator based on the input and target columns of the dataframe.
 
@@ -193,7 +192,7 @@ class Calibration:
             logging.exception(f"Could not fit estimator {self.name}: {e}")
             raise e
 
-        self._save_metrics(dataframe)
+        self.metrics = self._get_metrics(dataframe)
 
         if plot:
             self.plot(dataframe, figure_path=figure_path)
@@ -319,9 +318,9 @@ class Calibration:
             axis=1,
         )
 
-    def _save_metrics(self, dataframe):
-        deviation = self.deviation(dataframe)
-        self.metrics = {
+    def _get_metrics(self, dataframe: pd.DataFrame) -> dict[str, float]:
+        deviation = self.calc_deviation(dataframe)
+        return {
             "median_accuracy": np.median(np.abs(deviation[:, 1])),
             "median_precision": np.median(np.abs(deviation[:, 2])),
         }
