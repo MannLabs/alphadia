@@ -1,4 +1,6 @@
-# config template for "first search"
-# (Default settings are suitable for the first search.)
+# config used for "predict_library" and "first search" steps
+# (Default settings are suitable for the first search, except the multi-step search which has to be deactivated)
+general:
+  mbr_step_enabled: false # do not change for "first search"
 
-# adapt the rest of the config to your use case ...
+# Add remaining config settings per your use case ...
