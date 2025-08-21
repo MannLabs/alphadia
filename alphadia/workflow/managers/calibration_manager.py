@@ -160,14 +160,12 @@ class CalibrationManager(BaseManager):
             })
 
         """
-        self.reporter.log_string(
-            f"Setting up calibration estimators from: {calibration_config}"
-        )
+        self.reporter.log_string("Setting up calibration estimators ..")
 
         estimator_groups: EstimatorGroups = {}
         for group_name, estimators_params_in_group in calibration_config.items():
             self.reporter.log_string(
-                f"Calibration group: {group_name}, found {len(estimators_params_in_group)} estimator(s)"
+                f"Found {len(estimators_params_in_group)} estimator(s) in calibration group '{group_name}'"
             )
 
             initialized_estimators: dict[str, Calibration] = {}
@@ -194,6 +192,9 @@ class CalibrationManager(BaseManager):
                 model = calibration_model_provider.get_model(estimator_params["model"])
                 model_args = estimator_params.get("model_args", {})
 
+                self.reporter.log_string(
+                    f"Initializing estimator '{estimator_name}' in group '{group_name}' with '{estimator_params}' .."
+                )
                 initialized_estimators[estimator_name] = Calibration(
                     name=estimator_name,
                     model=model(**model_args),
@@ -206,6 +207,8 @@ class CalibrationManager(BaseManager):
                 )
 
             estimator_groups[group_name] = initialized_estimators
+
+        self.reporter.log_string("Done setting up calibration estimators.")
 
         return estimator_groups
 
@@ -258,7 +261,7 @@ class CalibrationManager(BaseManager):
         # only iterate over the first group with the given name
         for estimator in self.estimator_groups[group_name].values():
             self.reporter.log_string(
-                f"calibration group: {group_name}, fitting {estimator.name} estimator .."
+                f"Fitting estimator '{estimator.name}' in calibration group '{group_name}' .."
             )
             estimator.fit(df, plot=plot, figure_path=figure_path)
 
@@ -284,6 +287,6 @@ class CalibrationManager(BaseManager):
 
         for estimator in self.estimator_groups[group_name].values():
             self.reporter.log_string(
-                f"calibration group: {group_name}, predicting {estimator.name} .."
+                f"Predicting estimator '{estimator.name}' in calibration group '{group_name}' .."
             )
             estimator.predict(df, inplace=True)
