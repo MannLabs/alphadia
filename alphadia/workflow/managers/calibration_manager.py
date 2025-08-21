@@ -34,7 +34,7 @@ class CalibrationEstimators:
 # each group consists of datapoints which have multiple properties.
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
 # TODO simplify this structure and the config loading
-CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
+CALIBRATION_GROUPS_CONFIG: CalibrationConfig = [
     {
         "name": CalibrationGroups.FRAGMENT,
         "estimators": [
@@ -125,7 +125,7 @@ class CalibrationManager(BaseManager):
         if not self.is_loaded_from_file:
             self.all_fitted = False
             self.estimator_groups = []
-            self.load_config(CALIBRATION_MANAGER_CONFIG)
+            self.load_config(CALIBRATION_GROUPS_CONFIG)
 
     @property
     def estimator_groups(self) -> list[dict[str, str | list[Calibration]]]:
