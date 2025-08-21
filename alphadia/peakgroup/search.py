@@ -555,10 +555,10 @@ class HybridCandidateSelection:
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         config: HybridCandidateConfig,
-        rt_column: str = MRMCols.RT_LIBRARY,  # TODO remove defaults
-        mobility_column: str = MRMCols.MOBILITY_LIBRARY,
-        precursor_mz_column: str = MRMCols.MZ_LIBRARY,
-        fragment_mz_column: str = MRMCols.MZ_LIBRARY,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        fragment_mz_column: str,
         fwhm_rt: float = 5.0,
         fwhm_mobility: float = 0.012,
     ) -> None:
@@ -579,17 +579,17 @@ class HybridCandidateSelection:
         config : HybridCandidateConfig
             config object
 
-        rt_column : str, optional
-            name of the rt column in the precursor dataframe, by default 'rt_library'
+        rt_column : str
+            name of the rt column in the precursor dataframe
 
-        mobility_column : str, optional
-            name of the mobility column in the precursor dataframe, by default 'mobility_library'
+        mobility_column : str
+            name of the mobility column in the precursor dataframe
 
-        precursor_mz_column : str, optional
-            name of the precursor mz column in the precursor dataframe, by default 'mz_library'
+        precursor_mz_column : str
+            name of the precursor mz column in the precursor dataframe
 
-        fragment_mz_column : str, optional
-            name of the fragment mz column in the fragment dataframe, by default 'mz_library'
+        fragment_mz_column : str
+            name of the fragment mz column in the fragment dataframe
 
         fwhm_rt : float, optional
             full width at half maximum in RT dimension for the GaussianKernel, by default 5.0
