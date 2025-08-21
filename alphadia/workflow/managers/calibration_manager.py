@@ -373,27 +373,3 @@ class CalibrationManager(BaseManager):
                     f"calibration group: {group_name}, predicting {estimator.name}"
                 )
                 estimator.predict(df, inplace=True)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
-
-    def fit_predict(
-        self,
-        df: pd.DataFrame,
-        group_name: str,
-        plot: bool = True,
-    ):
-        """Fit and predict all estimators in a calibration group.
-
-        Parameters
-        ----------
-
-        df : pandas.DataFrame
-            Dataframe containing the input and target columns
-
-        group_name : str
-            Name of the calibration group
-
-        plot : bool, default=True
-            If True, a plot of the calibration is generated.
-
-        """
-        self.fit(df, group_name, plot=plot)
-        self.predict(df, group_name)
