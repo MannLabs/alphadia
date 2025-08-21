@@ -1,4 +1,4 @@
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import COLUMN_TYPE_CALIBRATED, COLUMN_TYPE_LIBRARY, MRMCols
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
@@ -21,33 +21,92 @@ class ColumnNameHandler:
         self._dia_data_has_ms1 = dia_data_has_ms1
         self._dia_data_has_mobility = dia_data_has_mobility
 
-    def get_precursor_mz_column(self):
+    def get_precursor_mz_column(self) -> str:
         """Get the precursor m/z column name.
 
-        This function will return `mz_calibrated` if precursor calibration has happened, otherwise it will return `mz_library`.
-        If no MS1 data is present, it will always return `mz_library`.
+        This function will return MRMCols.MZ_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.MZ_LIBRARY.
+        If no MS1 data is present, it will always return MRMCols.MZ_LIBRARY.
 
         Returns
         -------
         str
             Name of the precursor m/z column
-
         """
-        return (
-            f"mz_{self._optimization_manager.column_type}"
-            if self._dia_data_has_ms1
-            else MRMCols.MZ_LIBRARY
+        if (
+            not self._dia_data_has_ms1
+            or self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY
+        ):
+            return MRMCols.MZ_LIBRARY
+
+        if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
+            return MRMCols.MZ_CALIBRATED
+
+        raise ValueError(
+            f"Unknown column type: {self._optimization_manager.column_type}"
         )
 
-    def get_fragment_mz_column(self):
-        return f"mz_{self._optimization_manager.column_type}"
+    def get_fragment_mz_column(self) -> str:
+        """Get the fragment m/z column name.
 
-    def get_rt_column(self):
-        return f"rt_{self._optimization_manager.column_type}"
+        This function will return MRMCols.MZ_CALIBRATED if fragment calibration has happened, otherwise it will return MRMCols.MZ_LIBRARY.
 
-    def get_mobility_column(self):
-        return (
-            f"mobility_{self._optimization_manager.column_type}"
-            if self._dia_data_has_mobility
-            else MRMCols.MOBILITY_LIBRARY
+        Returns
+        -------
+        str
+            Name of the fragment m/z column
+        """
+
+        if self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY:
+            return MRMCols.MZ_LIBRARY
+
+        if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
+            return MRMCols.MZ_CALIBRATED
+
+        raise ValueError(
+            f"Unknown column type: {self._optimization_manager.column_type}"
+        )
+
+    def get_rt_column(self) -> str:
+        """Get the precursor rt column name.
+
+        This function will return MRMCols.RT_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.RT_LIBRARY.
+        If no MS1 data is present, it will always return MRMCols.RT_LIBRARY.
+
+        Returns
+        -------
+        str
+            Name of the precursor rt column
+        """
+        if self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY:
+            return MRMCols.RT_LIBRARY
+
+        if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
+            return MRMCols.RT_CALIBRATED
+
+        raise ValueError(
+            f"Unknown column type: {self._optimization_manager.column_type}"
+        )
+
+    def get_mobility_column(self) -> str:
+        """Get the precursor mobility column name.
+
+        This function will return MRMCols.MOBILITY_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.MOBILITY_LIBRARY.
+        If no mobility data is present, it will always return MRMCols.MOBILITY_LIBRARY.
+
+        Returns
+        -------
+        str
+            Name of the precursor mobility column
+        """
+        if (
+            not self._dia_data_has_mobility
+            or self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY
+        ):
+            return MRMCols.MOBILITY_LIBRARY
+
+        if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
+            return MRMCols.MOBILITY_CALIBRATED
+
+        raise ValueError(
+            f"Unknown column type: {self._optimization_manager.column_type}"
         )
