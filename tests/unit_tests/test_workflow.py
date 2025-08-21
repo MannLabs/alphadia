@@ -71,7 +71,7 @@ def test_base_manager_load():
     os.remove(my_base_manager.path)
 
 
-TEST_CALIBRATION_MANAGER_CONFIG = [
+TEST_CALIBRATION_GROUPS_CONFIG = [
     {
         "name": "precursor",
         "estimators": [
@@ -114,8 +114,8 @@ def test_calibration_manager_init():
     # initialize the calibration manager
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
-        TEST_CALIBRATION_MANAGER_CONFIG,
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
+        TEST_CALIBRATION_GROUPS_CONFIG,
     ):
         calibration_manager = CalibrationManager(
             path=temp_path, load_from_file=False, has_mobility=False
@@ -186,8 +186,8 @@ def calibration_testdata():
 def test_calibration_manager_fit_predict():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
-        TEST_CALIBRATION_MANAGER_CONFIG,
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
+        TEST_CALIBRATION_GROUPS_CONFIG,
     ):
         calibration_manager = CalibrationManager(
             path=temp_path, load_from_file=False, has_mobility=False
@@ -196,7 +196,8 @@ def test_calibration_manager_fit_predict():
     test_df = calibration_testdata()
 
     # fit only the precursor mz calibration
-    calibration_manager.fit_predict(test_df, "precursor", plot=False)
+    calibration_manager.fit(test_df, "precursor", plot=False)
+    calibration_manager.predict(test_df, "precursor")
 
     assert "mz_calibrated" in test_df.columns
     assert "rt_calibrated" in test_df.columns
@@ -214,8 +215,8 @@ def test_calibration_manager_fit_predict():
 def test_calibration_manager_save_load():
     temp_path = os.path.join(tempfile.tempdir, "calibration_manager.pkl")
     with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
-        TEST_CALIBRATION_MANAGER_CONFIG,
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
+        TEST_CALIBRATION_GROUPS_CONFIG,
     ):
         calibration_manager = CalibrationManager(
             path=temp_path, load_from_file=False, has_mobility=False
@@ -231,8 +232,8 @@ def test_calibration_manager_save_load():
     calibration_manager.save()
 
     with patch(
-        "alphadia.workflow.managers.calibration_manager.CALIBRATION_MANAGER_CONFIG",
-        TEST_CALIBRATION_MANAGER_CONFIG,
+        "alphadia.workflow.managers.calibration_manager.CALIBRATION_GROUPS_CONFIG",
+        TEST_CALIBRATION_GROUPS_CONFIG,
     ):
         calibration_manager_loaded = CalibrationManager(
             path=temp_path, load_from_file=True, has_mobility=False

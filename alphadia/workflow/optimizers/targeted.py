@@ -4,7 +4,11 @@ import pandas as pd
 
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
@@ -96,7 +100,9 @@ class TargetedOptimizer(BaseOptimizer, ABC):
             return
         self._num_prev_optimizations += 1
         new_parameter = self._propose_new_parameter(
-            precursors_df if self._estimator_group_name == "precursor" else fragments_df
+            precursors_df
+            if self._estimator_group_name == CalibrationGroups.PRECURSOR
+            else fragments_df
         )
         just_converged = self._check_convergence(new_parameter)
         self._optimization_manager.update(**{self.parameter_name: new_parameter})
@@ -143,8 +149,8 @@ class TargetedRTOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "rt_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "rt"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.RT
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -169,8 +175,8 @@ class TargetedMS2Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
-        self._estimator_group_name = "fragment"
-        self._estimator_name = "mz"
+        self._estimator_group_name = CalibrationGroups.FRAGMENT
+        self._estimator_name = CalibrationEstimators.MZ
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -195,8 +201,8 @@ class TargetedMS1Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms1_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "mz"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.MZ
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -221,8 +227,8 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "mobility_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "mobility"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.MOBILITY
         super().__init__(
             initial_parameter,
             target_parameter,

@@ -1,17 +1,15 @@
 import logging
-import os
 import pickle
 
 import numpy as np
 import pandas as pd
 import sklearn.base
-from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 
 from alphadia.calibration.models import LOESSRegression
-from alphadia.plotting.utils import density_scatter
+from alphadia.calibration.plot import plot_calibration
 
 
 class Calibration:
@@ -117,12 +115,12 @@ class Calibration:
         new_calibration.__dict__.update(loaded_calibration.__dict__)
         return new_calibration
 
-    def _validate_columns(self, dataframe: pd.DataFrame, required_columns: list[str]):
+    def _validate_columns(self, df: pd.DataFrame, required_columns: list[str]):
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
         ----------
-        dataframe : pandas.DataFrame
+        df : pd.DataFrame
             Dataframe containing the input and target columns
         required_columns : list[str]
             List of required columns to check in the dataframe
@@ -130,38 +128,30 @@ class Calibration:
         Returns
         -------
         bool
-            True if all columns are present, False otherwise
+            True if df is valid, False otherwise
 
         """
-
-        valid = True
-
-        if len(self.target_columns) > 1:
-            logging.warning("Only one target column supported")
-            valid = False
-
         required_columns = set(required_columns)
-        if not required_columns.issubset(dataframe.columns):
+        if not required_columns.issubset(df.columns):
             logging.warning(
                 f"{self.name}, at least one column {required_columns} not found in dataframe"
             )
-            valid = False
+            return False
 
-        return valid
+        return True
 
     def fit(
         self,
-        dataframe: pd.DataFrame,
+        df: pd.DataFrame,
         plot: bool = True,
         figure_path: str | None = None,
-        **kwargs,
     ):
         """Fit the estimator based on the input and target columns of the dataframe.
 
         Parameters
         ----------
 
-        dataframe : pandas.DataFrame
+        df : pd.DataFrame
             Dataframe containing the input and target columns
 
         plot : bool, default=True
@@ -178,13 +168,13 @@ class Calibration:
 
         """
 
-        if not self._validate_columns(
-            dataframe, self.input_columns + self.target_columns
-        ):
-            raise ValueError(f"{self.name} calibration: failed input validation")
+        if not self._validate_columns(df, self.input_columns + self.target_columns):
+            raise ValueError(
+                f"{self.name} calibration fitting: failed input validation"
+            )
 
-        input_values = dataframe[self.input_columns].values
-        target_value = dataframe[self.target_columns].values
+        input_values = df[self.input_columns].values
+        target_value = df[self.target_columns].values
 
         try:
             self.function.fit(input_values, target_value)
@@ -193,19 +183,17 @@ class Calibration:
             logging.exception(f"Could not fit estimator {self.name}: {e}")
             raise e
 
-        self._save_metrics(dataframe)
+        self.metrics = self._get_metrics(df)
 
         if plot:
-            self.plot(dataframe, figure_path=figure_path)
+            plot_calibration(self, df, figure_path=figure_path)
 
-    def predict(
-        self, dataframe: pd.DataFrame, inplace: bool = True
-    ) -> np.ndarray | None:
+    def predict(self, df: pd.DataFrame, inplace: bool = True) -> np.ndarray | None:
         """Perform a prediction based on the input columns of the dataframe.
 
         Parameters
         ----------
-        dataframe : pd.DataFrame
+        df : pd.DataFrame
             Dataframe containing the input and target columns
 
         inplace : bool, default=True
@@ -224,46 +212,27 @@ class Calibration:
             )
             return None
 
-        if not self._validate_columns(dataframe, self.input_columns):
-            raise ValueError(f"{self.name} calibration: failed input validation")
+        if not self._validate_columns(df, self.input_columns):
+            raise ValueError(
+                f"{self.name} calibration prediction: failed input validation"
+            )
 
-        input_values = dataframe[self.input_columns].values
+        input_values = df[self.input_columns].values
         predicted_values = self.function.predict(input_values)
 
         if inplace:
-            dataframe[self.output_columns[0]] = predicted_values
+            df[self.output_columns[0]] = predicted_values
         else:
             return predicted_values
 
         return None
 
-    def fit_predict(
-        self, dataframe: pd.DataFrame, plot: bool = True, inplace: bool = True
-    ):
-        """Fit the estimator and perform a prediction based on the input columns of the dataframe.
-
-        Parameters
-        ----------
-
-        dataframe : pandas.DataFrame
-            Dataframe containing the input and target columns
-
-        plot : bool, default=False
-            If True, a plot of the calibration is generated.
-
-        inplace : bool, default=True
-            If True, the prediction is added as a new column to the dataframe. If False, the prediction is returned as a numpy array.
-
-        """
-        self.fit(dataframe, plot=plot)
-        return self.predict(dataframe, inplace=inplace)
-
-    def deviation(self, dataframe: pd.DataFrame):
+    def calc_deviation(self, df: pd.DataFrame):
         """Calculate the deviations between the input, target and calibrated values.
 
         Parameters
         ----------
-        dataframe : pandas.DataFrame
+        df : pd.DataFrame
             Dataframe containing the input and target columns
 
         Returns
@@ -276,16 +245,16 @@ class Calibration:
 
         # the first column is the unclaibrated input property
         # all other columns are explaining variables
-        input_values = dataframe[self.input_columns].values
+        input_values = df[self.input_columns].values
 
         # the first column is the unclaibrated input property
         uncalibrated_values = input_values[:, [0]]
 
         # only one target column is supported
-        target_values = dataframe[self.target_columns].values[:, [0]]
+        target_values = df[self.target_columns].values[:, [0]]
         input_transform = self.transform_deviation
 
-        calibrated_values = self.predict(dataframe, inplace=False)
+        calibrated_values = self.predict(df, inplace=False)
         if calibrated_values.ndim == 1:
             calibrated_values = calibrated_values[:, np.newaxis]
 
@@ -319,20 +288,21 @@ class Calibration:
             axis=1,
         )
 
-    def _save_metrics(self, dataframe):
-        deviation = self.deviation(dataframe)
-        self.metrics = {
+    def _get_metrics(self, df: pd.DataFrame) -> dict[str, float]:
+        """Calculate the metrics for the calibration."""
+        deviation = self.calc_deviation(df)
+        return {
             "median_accuracy": np.median(np.abs(deviation[:, 1])),
             "median_precision": np.median(np.abs(deviation[:, 2])),
         }
 
-    def ci(self, dataframe, ci: float = 0.95):
+    def ci(self, df: pd.DataFrame, ci: float = 0.95) -> float:
         """Calculate the residual deviation at the given confidence interval.
 
         Parameters
         ----------
 
-        dataframe : pandas.DataFrame
+        df : pandas.DataFrame
             Dataframe containing the input and target columns
 
         ci : float, default=0.95
@@ -353,122 +323,9 @@ class Calibration:
 
         ci_percentile = [100 * (1 - ci) / 2, 100 * (1 + ci) / 2]
 
-        deviation = self.deviation(dataframe)
+        deviation = self.calc_deviation(df)
         residual_deviation = deviation[:, 2]
         return np.mean(np.abs(np.percentile(residual_deviation, ci_percentile)))
-
-    def get_transform_unit(self, transform_deviation: None | float):
-        """Get the unit of the deviation based on the transform deviation.
-
-        Parameters
-        ----------
-
-        transform_deviation : typing.Union[None, float]
-            If set to a valid float, the deviation is expressed as a fraction of the input value e.g. 1e6 for ppm.
-
-        Returns
-        -------
-        str
-            The unit of the deviation
-
-        """
-        if transform_deviation is not None:
-            if np.isclose(transform_deviation, 1e6):
-                return "(ppm)"
-            elif np.isclose(transform_deviation, 1e2):
-                return "(%)"
-            else:
-                return f"({transform_deviation})"
-        else:
-            return "(absolute)"
-
-    def plot(
-        self,
-        dataframe: pd.DataFrame,
-        figure_path: str = None,
-    ):
-        """Plot the data and calibration model.
-
-        Parameters
-        ----------
-
-        dataframe : pandas.DataFrame
-            Dataframe containing the input and target columns
-
-        figure_path : str, default=None
-            If set, the figure is saved to the given path.
-        """
-        deviation = self.deviation(dataframe)
-
-        n_input_properties = deviation.shape[1] - 3
-        input_property = None
-        if n_input_properties <= 0:
-            logging.warning("No input properties found for plotting calibration")
-            return
-
-        transform_unit = self.get_transform_unit(self.transform_deviation)
-
-        fig, axs = plt.subplots(
-            n_input_properties,
-            2,
-            figsize=(6.5, 3.5 * n_input_properties),
-            squeeze=False,
-        )
-
-        for input_property in range(n_input_properties):
-            # plot the relative observed deviation
-            density_scatter(
-                deviation[:, 3 + input_property],
-                deviation[:, 0],
-                axis=axs[input_property, 0],
-                s=1,
-            )
-
-            # plot the calibration model
-            x_values = deviation[:, 3 + input_property]
-            y_values = deviation[:, 1]
-            order = np.argsort(x_values)
-            x_values = x_values[order]
-            y_values = y_values[order]
-
-            axs[input_property, 0].plot(x_values, y_values, color="red")
-
-            # plot the calibrated deviation
-
-            density_scatter(
-                deviation[:, 3 + input_property],
-                deviation[:, 2],
-                axis=axs[input_property, 1],
-                s=1,
-            )
-
-            for ax, dim in zip(axs[input_property, :], [0, 2], strict=True):
-                ax.set_xlabel(self.input_columns[input_property])
-                ax.set_ylabel(f"observed deviation {transform_unit}")
-
-                # get absolute y value and set limits to plus minus absolute y
-                y = deviation[:, dim]
-                y_abs = np.abs(y)
-                ax.set_ylim(-y_abs.max() * 1.05, y_abs.max() * 1.05)
-
-        fig.tight_layout()
-
-        if figure_path is not None:
-            i = 0
-            file_name = os.path.join(
-                figure_path, f"calibration_{self.input_columns[input_property]}_{i}.pdf"
-            )
-            while os.path.exists(file_name):
-                file_name = os.path.join(
-                    figure_path,
-                    f"calibration_{self.input_columns[input_property]}_{i}.pdf",
-                )
-                i += 1
-            fig.savefig(file_name)
-        else:
-            plt.show()
-
-        plt.close()
 
 
 class CalibrationModelProvider:
@@ -485,7 +342,7 @@ class CalibrationModelProvider:
 
     def register_model(
         self, model_name: str, model_template: type[sklearn.base.BaseEstimator]
-    ):
+    ) -> None:
         """Register a model template with a given name.
 
         Parameters
@@ -521,7 +378,7 @@ class CalibrationModelProvider:
             return self.model_dict[model_name]
 
 
-def PolynomialRegression(degree=2, include_bias=False):
+def PolynomialRegression(degree: int = 2, include_bias: bool = False) -> Pipeline:
     return Pipeline(
         [
             ("poly", PolynomialFeatures(degree=degree, include_bias=include_bias)),

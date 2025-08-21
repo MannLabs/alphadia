@@ -7,7 +7,11 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import StatOutputKeys
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -112,7 +116,7 @@ def build_run_stat_df(
 
             if (
                 fragment_mz_estimator := calibration_manager.get_estimator(
-                    "fragment", "mz"
+                    CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
                 calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[
@@ -124,7 +128,7 @@ def build_run_stat_df(
 
             if (
                 precursor_mz_estimator := calibration_manager.get_estimator(
-                    "precursor", "mz"
+                    CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
                 calibration_stats["ms1_median_accuracy"] = precursor_mz_metrics[

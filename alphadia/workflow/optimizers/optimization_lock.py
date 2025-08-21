@@ -5,6 +5,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.exceptions import NoOptimizationLockTargetError
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 
 
 class OptimizationLock:
@@ -126,9 +127,7 @@ class OptimizationLock:
             self._precursor_at_fdr_count >= self._precursor_target_count
         )
 
-    def update_with_calibration(
-        self, calibration_manager
-    ):  # why is this here? -> optimization_manager ?
+    def update_with_calibration(self, calibration_manager):
         """Updates the batch library with the current calibrated values using the calibration manager.
 
         Parameters
@@ -138,13 +137,11 @@ class OptimizationLock:
 
         """
         calibration_manager.predict(
-            self.batch_library._precursor_df,
-            "precursor",
+            self.batch_library._precursor_df, CalibrationGroups.PRECURSOR
         )
 
         calibration_manager.predict(
-            self.batch_library._fragment_df,
-            "fragment",
+            self.batch_library._fragment_df, CalibrationGroups.FRAGMENT
         )
 
     def increase_batch_idx(self):

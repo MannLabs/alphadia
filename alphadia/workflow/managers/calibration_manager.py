@@ -13,33 +13,50 @@ CalibrationConfig: type = list[
     dict[str, str | list[dict[str, list[str] | str | dict[str, str | int | list[str]]]]]
 ]
 
+
+class CalibrationGroups:
+    """String constants for calibration groups."""
+
+    FRAGMENT = "fragment"
+    PRECURSOR = "precursor"
+
+
+class CalibrationEstimators:
+    """String constants for calibration estimators."""
+
+    MZ = "mz"
+    RT = "rt"
+    MOBILITY = "mobility"
+
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
 # TODO simplify this structure and the config loading
-CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
+CALIBRATION_GROUPS_CONFIG: CalibrationConfig = [
     {
+        "name": CalibrationGroups.FRAGMENT,
         "estimators": [
             {
                 "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mz",
+                "name": CalibrationEstimators.MZ,
                 "output_columns": [MRMCols.MZ_CALIBRATED],
                 "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
             }
         ],
-        "name": "fragment",
     },
     {
+        "name": CalibrationGroups.PRECURSOR,
         "estimators": [
             {
                 "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mz",
+                "name": CalibrationEstimators.MZ,
                 "output_columns": [MRMCols.MZ_CALIBRATED],
                 "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
@@ -48,7 +65,7 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.RT_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 6},
-                "name": "rt",
+                "name": CalibrationEstimators.RT,
                 "output_columns": [MRMCols.RT_CALIBRATED],
                 "target_columns": [MRMCols.RT_OBSERVED],
             },
@@ -56,12 +73,11 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.MOBILITY_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mobility",
+                "name": CalibrationEstimators.MOBILITY,
                 "output_columns": [MRMCols.MOBILITY_CALIBRATED],
                 "target_columns": [MRMCols.MOBILITY_OBSERVED],
             },
         ],
-        "name": "precursor",
     },
 ]
 
@@ -71,6 +87,7 @@ class CalibrationManager(BaseManager):
         self,
         path: None | str = None,
         load_from_file: bool = True,
+        has_ms1: bool = True,
         has_mobility: bool = True,
         **kwargs,
     ):
@@ -86,8 +103,11 @@ class CalibrationManager(BaseManager):
         load_from_file : bool, default=True
             If True, the manager will be loaded from file if it exists.
 
+        has_ms1 : bool, default=True
+            If True, the calibration manager will include MS1 calibration. This will include an MS1 estimator in the precursor group.
+
         has_mobility : bool, default=True
-            If True, the calibration manager will include mobility calibration. This will add a mobility estimator to the precursor group.
+            If True, the calibration manager will include mobility calibration. This will include a mobility estimator in the precursor group.
 
         kwargs :
              Will be passed to the parent class `BaseManager`, need to be valid keyword arguments.
@@ -97,6 +117,7 @@ class CalibrationManager(BaseManager):
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         self._has_mobility = has_mobility
+        self._has_ms1 = has_ms1
 
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
@@ -104,7 +125,7 @@ class CalibrationManager(BaseManager):
         if not self.is_loaded_from_file:
             self.all_fitted = False
             self.estimator_groups = []
-            self.load_config(CALIBRATION_MANAGER_CONFIG)
+            self.load_config(CALIBRATION_GROUPS_CONFIG)
 
     @property
     def estimator_groups(self) -> list[dict[str, str | list[Calibration]]]:
@@ -162,21 +183,32 @@ class CalibrationManager(BaseManager):
 
             initialized_estimators = []
             for estimator in group["estimators"]:
-                if not self._has_mobility and estimator["name"] == "mobility":
+                if (
+                    not self._has_mobility
+                    and estimator["name"] == CalibrationEstimators.MOBILITY
+                ):
                     self.reporter.log_string(
-                        f"Skipping mobility estimator in group {group_name} as mobility is not available",
+                        f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{group_name}' as it is not available in the raw data",
                     )
                     continue
 
-                model_constructor = calibration_model_provider.get_model(
-                    estimator["model"]
-                )
+                if (
+                    not self._has_ms1
+                    and group_name == CalibrationGroups.PRECURSOR
+                    and estimator["name"] == CalibrationEstimators.MZ
+                ):
+                    self.reporter.log_string(
+                        f"Skipping estimator '{CalibrationEstimators.MZ}' in group '{group_name}' as it is not available in the raw data",
+                    )
+                    continue
+
+                model = calibration_model_provider.get_model(estimator["model"])
                 model_args = estimator.get("model_args", {})
 
                 initialized_estimators.append(
                     Calibration(
                         name=estimator["name"],
-                        function=model_constructor(**model_args),
+                        function=model(**model_args),
                         input_columns=estimator["input_columns"],
                         target_columns=estimator["target_columns"],
                         output_columns=estimator["output_columns"],
@@ -263,16 +295,15 @@ class CalibrationManager(BaseManager):
                 return estimator
 
         raise ValueError(
-            f"could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
+            f"Could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
         )
 
     def fit(
         self,
         df: pd.DataFrame,
         group_name: str,
-        skip: list | None = None,
-        *args,
-        **kwargs,
+        plot: bool = True,
+        figure_path: None | str = None,
     ):
         """Fit all estimators in a calibration group.
 
@@ -285,39 +316,47 @@ class CalibrationManager(BaseManager):
         group_name : str
             Name of the calibration group
 
-        skip: TODO
+        plot: bool, default=True
+            If True, a plot of the calibration is generated.
+
+        figure_path: str, default=None
+            If set, the generated plot is saved to the given path.
 
         """
-
-        if skip is None:
-            skip = []
-        if len(self.estimator_groups) == 0:
-            raise ValueError("No estimators defined")
-
-        group_idx = [
-            i for i, x in enumerate(self.estimator_groups) if x["name"] == group_name
-        ]
-        if len(group_idx) == 0:
-            raise ValueError(f"No group named {group_name} found")
+        group_indices = self._get_indices_for_group_name(group_name)
 
         # only iterate over the first group with the given name
-        for group in group_idx:
-            for estimator in self.estimator_groups[group]["estimators"]:
-                if estimator.name in skip:
-                    continue
+        for group_idx in group_indices:
+            for estimator in self.estimator_groups[group_idx]["estimators"]:
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, fitting {estimator.name} estimator.."
+                    f"calibration group: {group_name}, fitting {estimator.name} estimator .."
                 )
-                estimator.fit(df, *args, **kwargs)
+                estimator.fit(df, plot=plot, figure_path=figure_path)
 
         all_fitted = True
         for group in self.estimator_groups:
             for estimator in group["estimators"]:
                 all_fitted &= estimator.is_fitted
-
         self.all_fitted = all_fitted
 
-    def predict(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
+    def _get_indices_for_group_name(self, group_name: str) -> list[int]:
+        """Get the indices of the calibration group with the given name."""
+
+        if len(self.estimator_groups) == 0:
+            raise ValueError("No estimators defined")
+
+        group_idx = [
+            i
+            for i, group in enumerate(self.estimator_groups)
+            if group["name"] == group_name
+        ]
+
+        if len(group_idx) == 0:
+            raise ValueError(f"No group named {group_name} found")
+
+        return group_idx
+
+    def predict(self, df: pd.DataFrame, group_name: str):
         """Predict all estimators in a calibration group.
 
         Parameters
@@ -331,41 +370,11 @@ class CalibrationManager(BaseManager):
 
         """
 
-        if len(self.estimator_groups) == 0:
-            raise ValueError("No estimators defined")
+        group_indices = self._get_indices_for_group_name(group_name)
 
-        group_idx = [
-            i for i, x in enumerate(self.estimator_groups) if x["name"] == group_name
-        ]
-        if len(group_idx) == 0:
-            raise ValueError(f"No group named {group_name} found")
-        for group in group_idx:
-            for estimator in self.estimator_groups[group]["estimators"]:
+        for group_idx in group_indices:
+            for estimator in self.estimator_groups[group_idx]["estimators"]:
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, predicting {estimator.name}"
+                    f"calibration group: {group_name}, predicting {estimator.name} .."
                 )
-                estimator.predict(df, inplace=True, *args, **kwargs)  # noqa: B026 Star-arg unpacking after a keyword argument is strongly discouraged
-
-    def fit_predict(
-        self,
-        df: pd.DataFrame,
-        group_name: str,
-        plot: bool = True,
-    ):
-        """Fit and predict all estimators in a calibration group.
-
-        Parameters
-        ----------
-
-        df : pandas.DataFrame
-            Dataframe containing the input and target columns
-
-        group_name : str
-            Name of the calibration group
-
-        plot : bool, default=True
-            If True, a plot of the calibration is generated.
-
-        """
-        self.fit(df, group_name, plot=plot)
-        self.predict(df, group_name)
+                estimator.predict(df, inplace=True)

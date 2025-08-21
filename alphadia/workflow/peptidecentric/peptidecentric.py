@@ -9,6 +9,7 @@ from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.calibration_manager import CalibrationGroups
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
@@ -179,9 +180,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self._save_managers()
 
         self.calibration_manager.predict(
-            self.spectral_library.precursor_df, "precursor"
+            self.spectral_library.precursor_df, CalibrationGroups.PRECURSOR
         )
-        self.calibration_manager.predict(self.spectral_library.fragment_df, "fragment")
+        self.calibration_manager.predict(
+            self.spectral_library.fragment_df, CalibrationGroups.FRAGMENT
+        )
 
     @use_timing_manager("extraction")
     def extraction(self):
