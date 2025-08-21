@@ -37,8 +37,15 @@ class ConfigKeys(metaclass=ConstantsClass):
     SAVE_FIGURES = "save_figures"
 
 
+COLUMN_TYPE_LIBRARY = "library"
+COLUMN_TYPE_CALIBRATED = "calibrated"
+
+
 class MRMCols(metaclass=ConstantsClass):
-    """String constants for accessing (mz, rt, mobility) (MRM) columns."""
+    """String constants for accessing (mz, rt, mobility) (MRM) columns.
+
+    "library" and "calibrated" related to COLUMN_TYPE_LIBRARY and COLUMN_TYPE_CALIBRATED, respectively.
+    """
 
     MZ_OBSERVED = "mz_observed"
     MZ_LIBRARY = "mz_library"

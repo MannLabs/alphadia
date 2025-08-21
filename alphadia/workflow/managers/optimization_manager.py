@@ -1,5 +1,6 @@
 import logging
 
+from alphadia.constants.keys import COLUMN_TYPE_LIBRARY
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -50,7 +51,7 @@ class OptimizationManager(BaseManager):
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
 
-            self.column_type = "library"
+            self.column_type = COLUMN_TYPE_LIBRARY
             self.classifier_version = -1
 
             for key in [
