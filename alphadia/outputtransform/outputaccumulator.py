@@ -129,8 +129,8 @@ def build_speclibflat_from_quant(
     for col in ["rt", "mz", "mobility"]:
         if f"{col}_observed" in psm_df.columns:
             values = psm_df[f"{col}_observed"]
-        elif "{col}_calibrated" in psm_df.columns:
-            values = psm_df["{col}_calibrated"]
+        elif f"{col}_calibrated" in psm_df.columns:
+            values = psm_df[f"{col}_calibrated"]
         else:
             values = psm_df[f"{col}_library"]
         speclib._precursor_df[col] = values
