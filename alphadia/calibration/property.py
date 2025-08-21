@@ -91,7 +91,8 @@ class Calibration:
         with open(file_name, "wb") as f:
             pickle.dump(self, f)
 
-    def load(self, file_name: str):
+    @classmethod
+    def from_file(cls, file_name: str):
         """Load the estimator from pickle file.
 
         Parameters
@@ -104,7 +105,17 @@ class Calibration:
 
         with open(file_name, "rb") as f:
             loaded_calibration = pickle.load(f)
-            self.__dict__.update(loaded_calibration.__dict__)
+
+        new_calibration = Calibration(
+            name=loaded_calibration.name,
+            function=loaded_calibration.function,
+            input_columns=loaded_calibration.input_columns,
+            target_columns=loaded_calibration.target_columns,
+            output_columns=loaded_calibration.output_columns,
+            transform_deviation=loaded_calibration.transform_deviation,
+        )
+        new_calibration.__dict__.update(loaded_calibration.__dict__)
+        return new_calibration
 
     def validate_columns(self, dataframe: pd.DataFrame):
         """Validate that the input and target columns are present in the dataframe.
