@@ -9,9 +9,8 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
-CalibrationConfig: type = dict[
-    str, list[dict[str, list[str] | str | dict[str, str | int | list[str]]]]
-]
+EstimatorGroups: type = dict[str, dict[str, Calibration]]
+CalibrationConfig: type = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
 class CalibrationGroups:
@@ -35,9 +34,8 @@ class CalibrationEstimators:
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
 # TODO simplify this structure and the config loading
 CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
-    CalibrationGroups.FRAGMENT: [
-        {
-            "name": CalibrationEstimators.MZ,
+    CalibrationGroups.FRAGMENT: {
+        CalibrationEstimators.MZ: {
             "input_columns": [MRMCols.MZ_LIBRARY],
             "target_columns": [MRMCols.MZ_OBSERVED],
             "output_columns": [MRMCols.MZ_CALIBRATED],
@@ -45,10 +43,9 @@ CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
             "model_args": {"n_kernels": 2},
             "transform_deviation": "1e6",
         }
-    ],
-    CalibrationGroups.PRECURSOR: [
-        {
-            "name": CalibrationEstimators.MZ,
+    },
+    CalibrationGroups.PRECURSOR: {
+        CalibrationEstimators.MZ: {
             "input_columns": [MRMCols.MZ_LIBRARY],
             "target_columns": [MRMCols.MZ_OBSERVED],
             "output_columns": [MRMCols.MZ_CALIBRATED],
@@ -56,23 +53,21 @@ CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
             "model_args": {"n_kernels": 2},
             "transform_deviation": "1e6",
         },
-        {
-            "name": CalibrationEstimators.RT,
+        CalibrationEstimators.RT: {
             "input_columns": [MRMCols.RT_LIBRARY],
             "target_columns": [MRMCols.RT_OBSERVED],
             "output_columns": [MRMCols.RT_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 6},
         },
-        {
-            "name": CalibrationEstimators.MOBILITY,
+        CalibrationEstimators.MOBILITY: {
             "input_columns": [MRMCols.MOBILITY_LIBRARY],
             "target_columns": [MRMCols.MOBILITY_OBSERVED],
             "output_columns": [MRMCols.MOBILITY_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 2},
         },
-    ],
+    },
 }
 
 
@@ -118,17 +113,17 @@ class CalibrationManager(BaseManager):
 
         if not self.is_loaded_from_file:
             self.all_fitted = False
-            self.estimator_groups: dict[str, list[Calibration]] = (
-                self.setup_estimator_groups(CALIBRATION_GROUPS_CONFIG)
+            self.estimator_groups: EstimatorGroups = self.setup_estimator_groups(
+                CALIBRATION_GROUPS_CONFIG
             )
 
     @property
-    def estimator_groups(self) -> dict[str, list[Calibration]]:
+    def estimator_groups(self) -> EstimatorGroups:
         """List of calibration groups."""
         return self._estimator_groups
 
     @estimator_groups.setter
-    def estimator_groups(self, value: dict[str, list[Calibration]]):
+    def estimator_groups(self, value: EstimatorGroups):
         self._estimator_groups = value
 
     def setup_estimator_groups(self, calibration_config: CalibrationConfig):
@@ -169,17 +164,17 @@ class CalibrationManager(BaseManager):
             f"Setting up calibration estimators from: {calibration_config}"
         )
 
-        estimator_groups: dict[str, list[Calibration]] = {}
+        estimator_groups: EstimatorGroups = {}
         for group_name, estimators_params_in_group in calibration_config.items():
             self.reporter.log_string(
                 f"Calibration group: {group_name}, found {len(estimators_params_in_group)} estimator(s)"
             )
 
-            initialized_estimators = []
-            for estimator_params in estimators_params_in_group:
+            initialized_estimators: dict[str, Calibration] = {}
+            for estimator_name, estimator_params in estimators_params_in_group.items():
                 if (
                     not self._has_mobility
-                    and estimator_params["name"] == CalibrationEstimators.MOBILITY
+                    and estimator_name == CalibrationEstimators.MOBILITY
                 ):
                     self.reporter.log_string(
                         f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{group_name}' as it is not available in the raw data",
@@ -189,7 +184,7 @@ class CalibrationManager(BaseManager):
                 if (
                     not self._has_ms1
                     and group_name == CalibrationGroups.PRECURSOR
-                    and estimator_params["name"] == CalibrationEstimators.MZ
+                    and estimator_name == CalibrationEstimators.MZ
                 ):
                     self.reporter.log_string(
                         f"Skipping estimator '{CalibrationEstimators.MZ}' in group '{group_name}' as it is not available in the raw data",
@@ -199,17 +194,15 @@ class CalibrationManager(BaseManager):
                 model = calibration_model_provider.get_model(estimator_params["model"])
                 model_args = estimator_params.get("model_args", {})
 
-                initialized_estimators.append(
-                    Calibration(
-                        name=estimator_params["name"],
-                        model=model(**model_args),
-                        input_columns=estimator_params["input_columns"],
-                        target_columns=estimator_params["target_columns"],
-                        output_columns=estimator_params["output_columns"],
-                        transform_deviation=estimator_params.get(
-                            "transform_deviation", None
-                        ),
-                    )
+                initialized_estimators[estimator_name] = Calibration(
+                    name=estimator_name,
+                    model=model(**model_args),
+                    input_columns=estimator_params["input_columns"],
+                    target_columns=estimator_params["target_columns"],
+                    output_columns=estimator_params["output_columns"],
+                    transform_deviation=estimator_params.get(
+                        "transform_deviation", None
+                    ),
                 )
 
             estimator_groups[group_name] = initialized_estimators
@@ -234,11 +227,7 @@ class CalibrationManager(BaseManager):
             The estimator object
 
         """
-        return [
-            estimator
-            for estimator in self.estimator_groups[group_name]
-            if estimator.name == estimator_name
-        ][0]
+        return self.estimator_groups[group_name][estimator_name]
 
     def fit(
         self,
@@ -267,7 +256,7 @@ class CalibrationManager(BaseManager):
         """
 
         # only iterate over the first group with the given name
-        for estimator in self.estimator_groups["group_name"]:
+        for estimator in self.estimator_groups["group_name"].values():
             self.reporter.log_string(
                 f"calibration group: {group_name}, fitting {estimator.name} estimator .."
             )
@@ -275,7 +264,7 @@ class CalibrationManager(BaseManager):
 
         all_fitted = True
         for group in self.estimator_groups.values():
-            for estimator in group:
+            for estimator in group.values():
                 all_fitted &= estimator.is_fitted
         self.all_fitted = all_fitted
 
@@ -293,7 +282,7 @@ class CalibrationManager(BaseManager):
 
         """
 
-        for estimator in self.estimator_groups[group_name]:
+        for estimator in self.estimator_groups[group_name].values():
             self.reporter.log_string(
                 f"calibration group: {group_name}, predicting {estimator.name} .."
             )
