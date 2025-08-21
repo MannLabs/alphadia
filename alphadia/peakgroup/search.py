@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
+from alphadia.constants.keys import MRMCols
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateContainer,
@@ -554,10 +555,10 @@ class HybridCandidateSelection:
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         config: HybridCandidateConfig,
-        rt_column: str = "rt_library",
-        mobility_column: str = "mobility_library",
-        precursor_mz_column: str = "mz_library",
-        fragment_mz_column: str = "mz_library",
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        fragment_mz_column: str,
         fwhm_rt: float = 5.0,
         fwhm_mobility: float = 0.012,
     ) -> None:
@@ -578,17 +579,17 @@ class HybridCandidateSelection:
         config : HybridCandidateConfig
             config object
 
-        rt_column : str, optional
-            name of the rt column in the precursor dataframe, by default 'rt_library'
+        rt_column : str
+            name of the rt column in the precursor dataframe
 
-        mobility_column : str, optional
-            name of the mobility column in the precursor dataframe, by default 'mobility_library'
+        mobility_column : str
+            name of the mobility column in the precursor dataframe
 
-        precursor_mz_column : str, optional
-            name of the precursor mz column in the precursor dataframe, by default 'mz_library'
+        precursor_mz_column : str
+            name of the precursor mz column in the precursor dataframe
 
-        fragment_mz_column : str, optional
-            name of the fragment mz column in the fragment dataframe, by default 'mz_library'
+        fragment_mz_column : str
+            name of the fragment mz column in the fragment dataframe
 
         fwhm_rt : float, optional
             full width at half maximum in RT dimension for the GaussianKernel, by default 5.0
@@ -697,7 +698,7 @@ class HybridCandidateSelection:
         )
 
         return FragmentContainer(
-            self.fragments_flat["mz_library"].values,
+            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,

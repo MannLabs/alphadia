@@ -3,6 +3,7 @@ import logging
 import pandas as pd
 
 from alphadia.calibration.property import Calibration, calibration_model_provider
+from alphadia.constants.keys import MRMCols
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
@@ -17,12 +18,12 @@ CALIBRATION_MANAGER_CONFIG = [
     {
         "estimators": [
             {
-                "input_columns": ["mz_library"],
+                "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
                 "name": "mz",
-                "output_columns": ["mz_calibrated"],
-                "target_columns": ["mz_observed"],
+                "output_columns": [MRMCols.MZ_CALIBRATED],
+                "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
             }
         ],
@@ -31,29 +32,29 @@ CALIBRATION_MANAGER_CONFIG = [
     {
         "estimators": [
             {
-                "input_columns": ["mz_library"],
+                "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
                 "name": "mz",
-                "output_columns": ["mz_calibrated"],
-                "target_columns": ["mz_observed"],
+                "output_columns": [MRMCols.MZ_CALIBRATED],
+                "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
             },
             {
-                "input_columns": ["rt_library"],
+                "input_columns": [MRMCols.RT_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 6},
                 "name": "rt",
-                "output_columns": ["rt_calibrated"],
-                "target_columns": ["rt_observed"],
+                "output_columns": [MRMCols.RT_CALIBRATED],
+                "target_columns": [MRMCols.RT_OBSERVED],
             },
             {
-                "input_columns": ["mobility_library"],
+                "input_columns": [MRMCols.MOBILITY_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
                 "name": "mobility",
-                "output_columns": ["mobility_calibrated"],
-                "target_columns": ["mobility_observed"],
+                "output_columns": [MRMCols.MOBILITY_CALIBRATED],
+                "target_columns": [MRMCols.MOBILITY_OBSERVED],
             },
         ],
         "name": "precursor",
@@ -140,9 +141,9 @@ class CalibrationManager(BaseManager):
                         'model_args': {
                             'n_kernels': 2
                         },
-                        'input_columns': ['mz_library'],
-                        'target_columns': ['mz_observed'],
-                        'output_columns': ['mz_calibrated'],
+                        'input_columns': ['MRMCols.MZ_LIBRARY'],
+                        'target_columns': ['MRMCols.MZ_OBSERVED'],
+                        'output_columns': ['MRMCols.MZ_CALIBRATED'],
                         'transform_deviation': 1e6
                     },
 

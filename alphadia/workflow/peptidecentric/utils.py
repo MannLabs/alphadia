@@ -2,6 +2,7 @@ from functools import wraps
 
 import pandas as pd
 
+from alphadia.constants.keys import MRMCols
 from alphadia.reporting.reporting import Pipeline
 
 feature_columns = [
@@ -28,17 +29,17 @@ feature_columns = [
     "weighted_mass_error_rank",
     "base_width_mobility",
     "base_width_rt",
-    "rt_observed",
+    MRMCols.RT_OBSERVED,
     "delta_rt",
-    "mobility_observed",
+    MRMCols.MOBILITY_OBSERVED,
     "mono_ms1_intensity",
     "top_ms1_intensity",
     "sum_ms1_intensity",
     "weighted_ms1_intensity",
     "weighted_mass_deviation",
     "weighted_mass_error",
-    "mz_library",
-    "mz_observed",
+    MRMCols.MZ_LIBRARY,
+    MRMCols.MZ_OBSERVED,
     "mono_ms1_height",
     "top_ms1_height",
     "sum_ms1_height",

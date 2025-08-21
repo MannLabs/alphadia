@@ -315,9 +315,9 @@ class ClassicExtractionHandler(ExtractionHandler):
             }
         )
         candidate_scoring = CandidateScoring(
-            dia_data,
-            spectral_library.precursor_df,
-            spectral_library.fragment_df,
+            dia_data=dia_data,
+            precursors_flat=spectral_library.precursor_df,
+            fragments_flat=spectral_library.fragment_df,
             config=self._scoring_config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
