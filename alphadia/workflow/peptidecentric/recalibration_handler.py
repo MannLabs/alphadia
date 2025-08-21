@@ -5,6 +5,7 @@ from alphadia.constants.keys import COLUMN_TYPE_CALIBRATED
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
     CalibrationGroups,
     CalibrationManager,
 )
@@ -58,7 +59,7 @@ class RecalibrationHandler:
             precursor_df_filtered,
             CalibrationGroups.PRECURSOR,
             figure_path=self._figure_path,
-            skip=["mz"]
+            skip=[CalibrationEstimators.MZ]
             if not self._dia_data_has_ms1
             else [],  # TODO exclude from estimators in the first place
         )

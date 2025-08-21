@@ -105,6 +105,7 @@ class LinearRegressionTestMetric(TestMetricBase):
 
         property_name : str
             The name of the property. e.g. "charge", "rt"
+
         Returns
         -------
         pd.DataFrame

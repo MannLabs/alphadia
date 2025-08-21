@@ -5,6 +5,7 @@ import pandas as pd
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
     CalibrationGroups,
     CalibrationManager,
 )
@@ -149,7 +150,7 @@ class TargetedRTOptimizer(TargetedOptimizer):
         """See base class."""
         self.parameter_name = "rt_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = "rt"
+        self._estimator_name = CalibrationEstimators.RT
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -175,7 +176,7 @@ class TargetedMS2Optimizer(TargetedOptimizer):
         """See base class."""
         self.parameter_name = "ms2_error"
         self._estimator_group_name = CalibrationGroups.FRAGMENT
-        self._estimator_name = "mz"
+        self._estimator_name = CalibrationEstimators.MZ
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -201,7 +202,7 @@ class TargetedMS1Optimizer(TargetedOptimizer):
         """See base class."""
         self.parameter_name = "ms1_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = "mz"
+        self._estimator_name = CalibrationEstimators.MZ
         super().__init__(
             initial_parameter,
             target_parameter,
@@ -227,7 +228,7 @@ class TargetedMobilityOptimizer(TargetedOptimizer):
         """See base class."""
         self.parameter_name = "mobility_error"
         self._estimator_group_name = CalibrationGroups.PRECURSOR
-        self._estimator_name = "mobility"
+        self._estimator_name = CalibrationEstimators.MOBILITY
         super().__init__(
             initial_parameter,
             target_parameter,

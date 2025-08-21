@@ -15,10 +15,18 @@ CalibrationConfig: type = list[
 
 
 class CalibrationGroups:
-    """A group of calibrations, each group is applied to a single data structure (precursor dataframe, fragment dataframe, etc.)."""
+    """String constants for calibration groups."""
 
     FRAGMENT = "fragment"
     PRECURSOR = "precursor"
+
+
+class CalibrationEstimators:
+    """String constants for calibration estimators."""
+
+    MZ = "mz"
+    RT = "rt"
+    MOBILITY = "mobility"
 
 
 # configuration for the calibration manager
@@ -34,7 +42,7 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mz",
+                "name": CalibrationEstimators.MZ,
                 "output_columns": [MRMCols.MZ_CALIBRATED],
                 "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
@@ -48,7 +56,7 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.MZ_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mz",
+                "name": CalibrationEstimators.MZ,
                 "output_columns": [MRMCols.MZ_CALIBRATED],
                 "target_columns": [MRMCols.MZ_OBSERVED],
                 "transform_deviation": "1e6",
@@ -57,7 +65,7 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.RT_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 6},
-                "name": "rt",
+                "name": CalibrationEstimators.RT,
                 "output_columns": [MRMCols.RT_CALIBRATED],
                 "target_columns": [MRMCols.RT_OBSERVED],
             },
@@ -65,7 +73,7 @@ CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
                 "input_columns": [MRMCols.MOBILITY_LIBRARY],
                 "model": "LOESSRegression",
                 "model_args": {"n_kernels": 2},
-                "name": "mobility",
+                "name": CalibrationEstimators.MOBILITY,
                 "output_columns": [MRMCols.MOBILITY_CALIBRATED],
                 "target_columns": [MRMCols.MOBILITY_OBSERVED],
             },
@@ -170,9 +178,12 @@ class CalibrationManager(BaseManager):
 
             initialized_estimators = []
             for estimator in group["estimators"]:
-                if not self._has_mobility and estimator["name"] == "mobility":
+                if (
+                    not self._has_mobility
+                    and estimator["name"] == CalibrationEstimators.MOBILITY
+                ):
                     self.reporter.log_string(
-                        f"Skipping mobility estimator in group {group_name} as mobility is not available",
+                        f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{group_name}' as it is not available in the raw data",
                     )
                     continue
 
@@ -292,7 +303,7 @@ class CalibrationManager(BaseManager):
             Name of the calibration group
 
         skip: list[str], default=None
-            List of estimator names (e.g. "mz")to skip during fitting. If None, no estimators are skipped.
+            List of estimator names (e.g. "mz") to skip during fitting. If None, no estimators are skipped.
 
         plot: bool, default=True
             If True, a plot of the calibration is generated.
