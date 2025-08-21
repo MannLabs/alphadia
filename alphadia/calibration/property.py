@@ -62,7 +62,7 @@ class Calibration:
 
         """
         self.name = name
-        self.model = model
+        self._model = model
         self.input_columns = input_columns
         self.target_columns = target_columns
         self.output_columns = output_columns
@@ -178,7 +178,7 @@ class Calibration:
         target_value = df[self.target_columns].to_numpy()
 
         try:
-            self.model.fit(input_values, target_value)
+            self._model.fit(input_values, target_value)
             self.is_fitted = True
         except Exception:
             logging.exception(f"Could not fit estimator {self.name}")
@@ -218,7 +218,7 @@ class Calibration:
             )
 
         input_values = df[self.input_columns].to_numpy()
-        predicted_values = self.model.predict(input_values)
+        predicted_values = self._model.predict(input_values)
 
         if inplace:
             df[self.output_columns[0]] = predicted_values
