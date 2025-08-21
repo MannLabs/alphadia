@@ -87,6 +87,7 @@ class CalibrationManager(BaseManager):
         self,
         path: None | str = None,
         load_from_file: bool = True,
+        has_ms1: bool = True,
         has_mobility: bool = True,
         **kwargs,
     ):
@@ -102,8 +103,11 @@ class CalibrationManager(BaseManager):
         load_from_file : bool, default=True
             If True, the manager will be loaded from file if it exists.
 
+        has_ms1 : bool, default=True
+            If True, the calibration manager will include MS1 calibration. This will include an MS1 estimator in the precursor group.
+
         has_mobility : bool, default=True
-            If True, the calibration manager will include mobility calibration. This will add a mobility estimator to the precursor group.
+            If True, the calibration manager will include mobility calibration. This will include a mobility estimator in the precursor group.
 
         kwargs :
              Will be passed to the parent class `BaseManager`, need to be valid keyword arguments.
@@ -113,6 +117,7 @@ class CalibrationManager(BaseManager):
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
 
         self._has_mobility = has_mobility
+        self._has_ms1 = has_ms1
 
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
@@ -184,6 +189,16 @@ class CalibrationManager(BaseManager):
                 ):
                     self.reporter.log_string(
                         f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{group_name}' as it is not available in the raw data",
+                    )
+                    continue
+
+                if (
+                    not self._has_ms1
+                    and group_name == CalibrationGroups.PRECURSOR
+                    and estimator["name"] == CalibrationEstimators.MZ
+                ):
+                    self.reporter.log_string(
+                        f"Skipping estimator '{CalibrationEstimators.MZ}' in group '{group_name}' as it is not available in the raw data",
                     )
                     continue
 
