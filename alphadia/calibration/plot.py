@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 def plot_calibration(
     calibration: Calibration,
-    dataframe: pd.DataFrame,
+    df: pd.DataFrame,
     figure_path: str = None,
 ) -> None:
     """Plot the data and calibration model.
@@ -29,13 +29,13 @@ def plot_calibration(
     calibration : Calibration
         Calibration object.
 
-    dataframe : pandas.DataFrame
+    df : pd.DataFrame
         Dataframe containing the input and target columns
 
     figure_path : str, default=None
         If set, the figure is saved to the given path.
     """
-    deviation = calibration.calc_deviation(dataframe)
+    deviation = calibration.calc_deviation(df)
 
     n_input_properties = deviation.shape[1] - 3
     input_property = None
