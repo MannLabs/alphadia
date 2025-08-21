@@ -75,7 +75,7 @@ class Calibration:
     def __repr__(self) -> str:
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"
 
-    def save(self, file_name: str):
+    def save(self, file_name: str) -> None:
         """Save the estimator to pickle file.
 
         Parameters
@@ -111,7 +111,7 @@ class Calibration:
         new_calibration.__dict__.update(loaded_calibration.__dict__)
         return new_calibration
 
-    def _validate_columns(self, df: pd.DataFrame, required_columns: list[str]):
+    def _validate_columns(self, df: pd.DataFrame, required_columns: list[str]) -> bool:
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
@@ -141,7 +141,7 @@ class Calibration:
         df: pd.DataFrame,
         plot: bool = True,
         figure_path: str | None = None,
-    ):
+    ) -> None:
         """Fit the estimator based on the input and target columns of the dataframe.
 
         Parameters
@@ -174,7 +174,7 @@ class Calibration:
             self.is_fitted = True
         except Exception as e:
             logging.exception(f"Could not fit estimator {self.name}: {e}")
-            raise e
+            raise
 
         self.metrics = self._get_metrics(df)
 

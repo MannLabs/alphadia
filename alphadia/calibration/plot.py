@@ -7,19 +7,20 @@ import os
 from typing import TYPE_CHECKING
 
 import numpy as np
-import pandas as pd
 from matplotlib import pyplot as plt
 
 from alphadia.plotting.utils import density_scatter
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from alphadia.calibration.property import Calibration
 
 
 def plot_calibration(
     calibration: Calibration,
     df: pd.DataFrame,
-    figure_path: str = None,
+    figure_path: str | None = None,
 ) -> None:
     """Plot the data and calibration model.
 
@@ -109,7 +110,7 @@ def plot_calibration(
     plt.close()
 
 
-def _get_transform_unit(transform_deviation: None | float):
+def _get_transform_unit(transform_deviation: None | float) -> str:
     """Get the unit of the deviation based on the transform deviation.
 
     Parameters

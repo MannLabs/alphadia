@@ -1,3 +1,5 @@
+import logging
+
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import PolynomialFeatures
@@ -151,20 +153,24 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
 
         if len(x.flat) < degrees_freedom:
-            print(
+            logging.info(
                 f"Curve fitting with {self.n_kernels} kernels and polynomials of {self.polynomial_degree} degree requires at least {degrees_freedom} datapoints."
             )
 
             self.n_kernels = np.max([len(x.flat) // (1 + self.polynomial_degree), 1])
 
-            print(f"Number of kernels will be reduced to {self.n_kernels} kernels.")
+            logging.info(
+                f"Number of kernels will be reduced to {self.n_kernels} kernels."
+            )
 
         # sanity check for number of datapoints, reduce degree of polynomial if necessary
         degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
         if len(x.flat) < degrees_freedom:
             self.polynomial_degree = len(x.flat) - 1
 
-            print(f"Polynomial degree will be reduced to {self.polynomial_degree}.")
+            logging.info(
+                f"Polynomial degree will be reduced to {self.polynomial_degree}."
+            )
 
         # reshape both arrays to column arrays
         if len(x.shape) == 1:
@@ -195,7 +201,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
             # check number of datapoints per kernel
             if np.any(np.diff(kernel_indices) < (1 + self.polynomial_degree)):
-                print(
+                logging.info(
                     "Too few datapoints per kernel. Uniform kernels will be replaced by density kernels."
                 )
                 uniform = False
@@ -293,9 +299,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         # apply weighting kernel
         w = _apply_kernel(w)
 
-        w = w / np.sum(w, axis=1, keepdims=True)
-
-        return w
+        return w / np.sum(w, axis=1, keepdims=True)
 
 
 def _apply_kernel(w):
@@ -316,24 +320,25 @@ def _apply_kernel(w):
         w[:, -1] = _right_open_tricubic(w[:, -1])
 
         return w
+    return None
 
 
 def _tricubic(x, EPSILON=1e-6):
-    """Tricubic weight kernel"""
+    """Tricubic weight kernel."""
     epsilon = EPSILON
     mask = np.abs(x) <= 1
     return mask * (np.power(1 - np.power(np.abs(x), 3), 3) + epsilon)
 
 
 def _left_open_tricubic(x):
-    """Tricubic weight kernel which weights assigns 1 to values x < 0"""
+    """Tricubic weight kernel which weights assigns 1 to values x < 0."""
     y = _tricubic(x)
     y[x < 0] = 1
     return y
 
 
 def _right_open_tricubic(x):
-    """Tricubic weight kernel which weights assigns 1 to values x > 0"""
+    """Tricubic weight kernel which weights assigns 1 to values x > 0."""
     y = _tricubic(x)
     y[x > 0] = 1
     return y
