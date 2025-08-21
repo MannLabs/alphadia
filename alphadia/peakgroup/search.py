@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
+from alphadia.constants.keys import MRMCols
 from alphadia.peakgroup import fft
 from alphadia.peakgroup.config_df import (
     CandidateContainer,
@@ -554,10 +555,10 @@ class HybridCandidateSelection:
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
         config: HybridCandidateConfig,
-        rt_column: str = "rt_library",
-        mobility_column: str = "mobility_library",
-        precursor_mz_column: str = "mz_library",
-        fragment_mz_column: str = "mz_library",
+        rt_column: str = MRMCols.RT_LIBRARY,  # TODO remove defaults
+        mobility_column: str = MRMCols.MOBILITY_LIBRARY,
+        precursor_mz_column: str = MRMCols.MZ_LIBRARY,
+        fragment_mz_column: str = MRMCols.MZ_LIBRARY,
         fwhm_rt: float = 5.0,
         fwhm_mobility: float = 0.012,
     ) -> None:
@@ -697,7 +698,7 @@ class HybridCandidateSelection:
         )
 
         return FragmentContainer(
-            self.fragments_flat["mz_library"].values,
+            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,

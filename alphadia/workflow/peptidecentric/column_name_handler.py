@@ -1,3 +1,4 @@
+from alphadia.constants.keys import MRMCols
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
@@ -35,7 +36,7 @@ class ColumnNameHandler:
         return (
             f"mz_{self._optimization_manager.column_type}"
             if self._dia_data_has_ms1
-            else "mz_library"
+            else MRMCols.MZ_LIBRARY
         )
 
     def get_fragment_mz_column(self):
@@ -48,5 +49,5 @@ class ColumnNameHandler:
         return (
             f"mobility_{self._optimization_manager.column_type}"
             if self._dia_data_has_mobility
-            else "mobility_library"
+            else MRMCols.MOBILITY_LIBRARY
         )

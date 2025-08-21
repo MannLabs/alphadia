@@ -5,6 +5,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import utils
+from alphadia.constants.keys import MRMCols
 from alphadia.libtransform.base import ProcessingStep
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 
@@ -65,8 +66,8 @@ class InitFlatColumns(ProcessingStep):
     def forward(self, input: SpecLibFlat) -> SpecLibFlat:
         """Initialize the columns of a `SpecLibFlat` object for alphadia search."""
         precursor_columns = {
-            "mz_library": ["mz_library", "mz", "precursor_mz"],
-            "rt_library": [
+            MRMCols.MZ_LIBRARY: ["mz_library", "mz", "precursor_mz"],
+            MRMCols.RT_LIBRARY: [
                 "rt_library",
                 "rt",
                 "rt_norm",
@@ -74,11 +75,11 @@ class InitFlatColumns(ProcessingStep):
                 "rt_norm_pred",
                 "irt",
             ],
-            "mobility_library": ["mobility_library", "mobility", "mobility_pred"],
+            MRMCols.MOBILITY_LIBRARY: ["mobility_library", "mobility", "mobility_pred"],
         }
 
         fragment_columns = {
-            "mz_library": ["mz_library", "mz", "predicted_mz"],
+            MRMCols.MZ_LIBRARY: ["mz_library", "mz", "predicted_mz"],
         }
 
         for column_mapping, df in [
@@ -92,8 +93,8 @@ class InitFlatColumns(ProcessingStep):
                         # break after first match
                         break
 
-        if "mobility_library" not in input.precursor_df.columns:
-            input.precursor_df["mobility_library"] = 0
+        if MRMCols.MOBILITY_LIBRARY not in input.precursor_df.columns:
+            input.precursor_df[MRMCols.MOBILITY_LIBRARY] = 0
             logger.warning("Library contains no ion mobility annotations")
 
         precursors_flat_schema.validate(input.precursor_df)

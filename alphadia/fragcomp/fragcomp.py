@@ -9,6 +9,7 @@ import pandas as pd
 from alphatims import utils as timsutils
 from pandas.errors import SettingWithCopyWarning
 
+from alphadia.constants.keys import MRMCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -191,9 +192,9 @@ class FragmentCompetition:
         lower_limit = np.min(cycle[0, :, :, 0], axis=1, keepdims=True).T
         upper_limit = np.max(cycle[0, :, :, 1], axis=1, keepdims=True).T
 
-        idx = (np.expand_dims(psm_df["mz_observed"].values, axis=-1) >= lower_limit) & (
-            np.expand_dims(psm_df["mz_observed"].values, axis=-1) < upper_limit
-        )
+        idx = (
+            np.expand_dims(psm_df[MRMCols.MZ_OBSERVED].values, axis=-1) >= lower_limit
+        ) & (np.expand_dims(psm_df[MRMCols.MZ_OBSERVED].values, axis=-1) < upper_limit)
 
         psm_df["window_idx"] = np.argmax(idx, axis=1)
         return psm_df
@@ -274,10 +275,10 @@ class FragmentCompetition:
             np.arange(len(thread_plan_df)),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             thread_plan_df["start_idx"].values,
             thread_plan_df["stop_idx"].values,
-            psm_df["rt_observed"].values,
+            psm_df[MRMCols.RT_OBSERVED].values,
             psm_df["_frag_start_idx"].values,
             psm_df["_frag_stop_idx"].values,
-            frag_df["mz_observed"].values,
+            frag_df[MRMCols.MZ_OBSERVED].values,
             self.rt_tol_seconds,
             self.mass_tol_ppm,
             valid,

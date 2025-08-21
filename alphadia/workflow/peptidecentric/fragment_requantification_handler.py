@@ -5,6 +5,7 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import MRMCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
@@ -157,9 +158,9 @@ def _build_candidate_speclib_flat(
             "score",
             "qval",
             "channel",
-            "rt_library",
-            "mz_library",
-            "mobility_library",
+            MRMCols.RT_LIBRARY,
+            MRMCols.MZ_LIBRARY,
+            MRMCols.MOBILITY_LIBRARY,
             "genes",
             "proteins",
             "decoy",
@@ -167,7 +168,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
-            "rt_observed", "mobility_observed", "mz_observed"
+            MRMCols.RT_OBSERVED, MRMCols.MOBILITY_OBSERVED, MRMCols.MZ_OBSERVED
         ]
 
     Returns
@@ -188,9 +189,9 @@ def _build_candidate_speclib_flat(
             "score",
             "qval",
             "channel",
-            "rt_library",
-            "mz_library",
-            "mobility_library",
+            MRMCols.RT_LIBRARY,
+            MRMCols.MZ_LIBRARY,
+            MRMCols.MOBILITY_LIBRARY,
             "genes",
             "proteins",
             "decoy",
@@ -198,9 +199,9 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
-            "rt_observed",
-            "mobility_observed",
-            "mz_observed",
+            MRMCols.RT_OBSERVED,
+            MRMCols.MOBILITY_OBSERVED,
+            MRMCols.MZ_OBSERVED,
         ]
 
     scored_candidates = candidate_features_to_candidates(
@@ -228,7 +229,7 @@ def _build_candidate_speclib_flat(
     del candidate_speclib
 
     candidate_speclib_flat.fragment_df.rename(
-        columns={"mz": "mz_library"}, inplace=True
+        columns={"mz": MRMCols.MZ_LIBRARY}, inplace=True
     )
     candidate_speclib_flat.fragment_df["cardinality"] = 0
     return candidate_speclib_flat, scored_candidates
