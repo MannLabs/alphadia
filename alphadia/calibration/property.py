@@ -117,13 +117,15 @@ class Calibration:
         new_calibration.__dict__.update(loaded_calibration.__dict__)
         return new_calibration
 
-    def _validate_columns(self, dataframe: pd.DataFrame):
+    def _validate_columns(self, dataframe: pd.DataFrame, required_columns: list[str]):
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
         ----------
         dataframe : pandas.DataFrame
             Dataframe containing the input and target columns
+        required_columns : list[str]
+            List of required columns to check in the dataframe
 
         Returns
         -------
@@ -138,7 +140,7 @@ class Calibration:
             logging.warning("Only one target column supported")
             valid = False
 
-        required_columns = set(self.input_columns + self.target_columns)
+        required_columns = set(required_columns)
         if not required_columns.issubset(dataframe.columns):
             logging.warning(
                 f"{self.name}, at least one column {required_columns} not found in dataframe"
@@ -176,7 +178,9 @@ class Calibration:
 
         """
 
-        if not self._validate_columns(dataframe):
+        if not self._validate_columns(
+            dataframe, self.input_columns + self.target_columns
+        ):
             raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
@@ -220,7 +224,7 @@ class Calibration:
             )
             return None
 
-        if not self._validate_columns(dataframe):
+        if not self._validate_columns(dataframe, self.input_columns):
             raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
