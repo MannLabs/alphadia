@@ -22,25 +22,26 @@ from alphadia.plotting.utils import density_scatter
 class Calibration:
     def __init__(
         self,
-        name: str = "",
-        function: object = None,
-        input_columns: list[str] | None = None,
-        target_columns: list[str] | None = None,
-        output_columns: list[str] | None = None,
+        name: str,
+        function: sklearn.base.BaseEstimator,
+        input_columns: list[str],
+        target_columns: list[str],
+        output_columns: list[str],
         transform_deviation: None | float = None,
-        **kwargs,
     ):
         """A single estimator for a property (mz, rt, etc.).
 
-        Calibration is performed by modeling the deviation of an input values (e.g. mz_library) from an observed property (e.g. mz_observed) using a function (e.g. LinearRegression). Once calibrated, calibrated values (e.g. mz_calibrated) can be predicted from input values (e.g. mz_library). Additional explaining variabels can be added to the input values (e.g. rt_library) to improve the calibration.
+        Calibration is performed by modeling the deviation of an input values (e.g. mz_library) from
+        an observed property (e.g. mz_observed) using a function (e.g. LinearRegression).
+        Once calibrated, calibrated values (e.g. mz_calibrated) can be predicted from input values (e.g. mz_library).
+        Additional explaining variables can be added to the input values (e.g. rt_library) to improve the calibration.
 
         Parameters
         ----------
-
         name : str
             Name of the estimator for logging and plotting e.g. 'mz'
 
-        function : object
+        function : sklearn.base.BaseEstimator
             The estimator object instance which must have a fit and predict method.
             This will usually be a sklearn estimator or a custom estimator.
 
@@ -61,12 +62,6 @@ class Calibration:
             If set to None, the deviation is expressed in absolute units.
 
         """
-        if output_columns is None:
-            output_columns = []
-        if target_columns is None:
-            target_columns = []
-        if input_columns is None:
-            input_columns = []
         self.name = name
         self.function = function
         self.input_columns = input_columns
@@ -75,6 +70,7 @@ class Calibration:
         self.transform_deviation = (
             float(transform_deviation) if transform_deviation is not None else None
         )
+
         self.is_fitted = False
         self.metrics = None
 
@@ -187,16 +183,18 @@ class Calibration:
         if plot:
             self.plot(dataframe, figure_path=figure_path)
 
-    def predict(self, dataframe, inplace=True):
+    def predict(
+        self, dataframe: pd.DataFrame, inplace: bool = True
+    ) -> np.ndarray | None:
         """Perform a prediction based on the input columns of the dataframe.
 
         Parameters
         ----------
-        dataframe : pandas.DataFrame
+        dataframe : pd.DataFrame
             Dataframe containing the input and target columns
 
         inplace : bool, default=True
-            If True, the prediction is added as a new column to the dataframe. If False, the prediction is returned as a numpy array.
+            If True, the prediction is added as a new column to the dataframe.
 
         Returns
         -------
@@ -205,7 +203,7 @@ class Calibration:
 
         """
 
-        if self.is_fitted is False:
+        if not self.is_fitted:
             logging.warning(
                 f"{self.name} prediction was skipped as it has not been fitted yet"
             )
