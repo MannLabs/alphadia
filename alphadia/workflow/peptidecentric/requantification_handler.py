@@ -119,9 +119,9 @@ class MultiplexingRequantificationHandler:
         config.experimental_xic = self._config["search"]["experimental_xic"]
 
         multiplexed_scoring = CandidateScoring(
-            dia_data,
-            self._spectral_library.precursor_df_unfiltered,
-            self._spectral_library.fragment_df,
+            dia_data=dia_data,
+            precursors_flat=self._spectral_library.precursor_df_unfiltered,
+            fragments_flat=self._spectral_library.fragment_df,
             config=config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),

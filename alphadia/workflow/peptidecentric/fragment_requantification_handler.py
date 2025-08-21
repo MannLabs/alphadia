@@ -105,9 +105,9 @@ class TransferLibraryRequantificationHandler:
         )
 
         scoring = CandidateScoring(
-            dia_data,
-            candidate_speclib_flat.precursor_df,
-            candidate_speclib_flat.fragment_df,
+            dia_data=dia_data,
+            precursors_flat=candidate_speclib_flat.precursor_df,
+            fragments_flat=candidate_speclib_flat.fragment_df,
             config=config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),

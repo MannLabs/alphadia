@@ -189,6 +189,10 @@ class TestCandidateScoringCollectCandidates:
             fragments_flat=minimal_fragments_flat_df,
             quadrupole_calibration=mock_quadrupole,
             config=CandidateConfig(),
+            rt_column="rt_library",
+            mobility_column="mobility_library",
+            precursor_mz_column="mz_library",
+            fragment_mz_column="mz_library",
         )
 
     def test_collect_candidates_should_return_dataframe_with_expected_columns(

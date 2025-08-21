@@ -139,15 +139,16 @@ class CandidateScoring:
 
     def __init__(
         self,
+        *,
         dia_data: DiaData,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
-        quadrupole_calibration: SimpleQuadrupole | None = None,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        fragment_mz_column: str,
         config: CandidateConfig | None = None,
-        rt_column: str = MRMCols.RT_LIBRARY,  # TODO remove defaults
-        mobility_column: str = MRMCols.MOBILITY_LIBRARY,
-        precursor_mz_column: str = MRMCols.MZ_LIBRARY,
-        fragment_mz_column: str = MRMCols.MZ_LIBRARY,
+        quadrupole_calibration: SimpleQuadrupole | None = None,
     ):
         """Initialize candidate scoring step.
         The features can then be used for scoring, calibration and quantification.
@@ -166,30 +167,31 @@ class CandidateScoring:
             A DataFrame containing fragment information.
             The DataFrame will be validated by using the `alphadia.validation.schemas.fragments_flat` schema.
 
-        quadrupole_calibration : SimpleQuadrupole, default=None
-            An object containing the quadrupole calibration information.
-            If None, an uncalibrated quadrupole will be used.
-            The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
+        rt_column : str
+            The name of the column in `precursors_flat` containing the RT information.
+            This property needs to be changed to `rt_calibrated` if the data has been calibrated.
+
+        mobility_column : str
+            The name of the column in `precursors_flat` containing the mobility information.
+            This property needs to be changed to `mobility_calibrated` if the data has been calibrated.
+
+        precursor_mz_column : str
+            The name of the column in `precursors_flat` containing the precursor m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
+
+        fragment_mz_column : str
+            The name of the column in `fragments_flat` containing the fragment m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
 
         config : CandidateConfig, default = None
             A Numba jit compatible object containing the configuration for the candidate scoring.
             If None, the default configuration will be used.
 
-        rt_column : str, default='rt_library'
-            The name of the column in `precursors_flat` containing the RT information.
-            This property needs to be changed to `rt_calibrated` if the data has been calibrated.
+        quadrupole_calibration : SimpleQuadrupole, default=None
+            An object containing the quadrupole calibration information.
+            If None, an uncalibrated quadrupole will be used.
+            The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
 
-        mobility_column : str, default='mobility_library'
-            The name of the column in `precursors_flat` containing the mobility information.
-            This property needs to be changed to `mobility_calibrated` if the data has been calibrated.
-
-        precursor_mz_column : str, default='mz_library'
-            The name of the column in `precursors_flat` containing the precursor m/z information.
-            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
-
-        fragment_mz_column : str, default='mz_library'
-            The name of the column in `fragments_flat` containing the fragment m/z information.
-            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
         """
 
         self._dia_data: DiaData = dia_data
