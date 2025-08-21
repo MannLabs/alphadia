@@ -117,7 +117,7 @@ class Calibration:
         new_calibration.__dict__.update(loaded_calibration.__dict__)
         return new_calibration
 
-    def validate_columns(self, dataframe: pd.DataFrame):
+    def _validate_columns(self, dataframe: pd.DataFrame):
         """Validate that the input and target columns are present in the dataframe.
 
         Parameters
@@ -176,7 +176,7 @@ class Calibration:
 
         """
 
-        if not self.validate_columns(dataframe):
+        if not self._validate_columns(dataframe):
             raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
@@ -220,12 +220,8 @@ class Calibration:
             )
             return None
 
-        if not set(self.input_columns).issubset(
-            dataframe.columns
-        ):  # TODO use validate_columns here
-            raise ValueError(
-                f"{self.name} calibration was skipped as input column {self.input_columns} not found in dataframe"
-            )
+        if not self._validate_columns(dataframe):
+            raise ValueError(f"{self.name} calibration: failed input validation")
 
         input_values = dataframe[self.input_columns].values
         predicted_values = self.function.predict(input_values)
