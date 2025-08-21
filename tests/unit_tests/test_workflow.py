@@ -126,8 +126,8 @@ def test_calibration_manager_init():
     assert calibration_manager.all_fitted is False
 
     assert len(calibration_manager.estimator_groups) == 2
-    assert len(calibration_manager.get_estimator_names("precursor")) == 2
-    assert len(calibration_manager.get_estimator_names("fragment")) == 1
+    assert len(calibration_manager.estimator_groups["precursor"]) == 2
+    assert len(calibration_manager.estimator_groups["fragment"]) == 1
 
     assert calibration_manager.get_estimator("precursor", "mz").name == "mz"
     assert calibration_manager.get_estimator("precursor", "rt").name == "rt"
