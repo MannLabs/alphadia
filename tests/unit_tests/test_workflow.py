@@ -71,43 +71,34 @@ def test_base_manager_load():
     os.remove(my_base_manager.path)
 
 
-TEST_CALIBRATION_GROUPS_CONFIG = [
-    {
-        "name": "precursor",
-        "estimators": [
-            {
-                "name": "mz",
-                "model": "LinearRegression",
-                "input_columns": ["mz_library"],
-                "target_columns": ["mz_observed"],
-                "output_columns": ["mz_calibrated"],
-                "transform_deviation": 1e6,
-            },
-            {
-                "name": "rt",
-                "model": "LOESSRegression",
-                "model_args": {"n_kernels": 2},
-                "input_columns": ["rt_library"],
-                "target_columns": ["rt_observed"],
-                "output_columns": ["rt_calibrated"],
-                "transform_deviation": None,
-            },
-        ],
+TEST_CALIBRATION_GROUPS_CONFIG = {
+    "precursor": {
+        "mz": {
+            "model": "LinearRegression",
+            "input_columns": ["mz_library"],
+            "target_columns": ["mz_observed"],
+            "output_columns": ["mz_calibrated"],
+            "transform_deviation": 1e6,
+        },
+        "rt": {
+            "model": "LOESSRegression",
+            "model_args": {"n_kernels": 2},
+            "input_columns": ["rt_library"],
+            "target_columns": ["rt_observed"],
+            "output_columns": ["rt_calibrated"],
+            "transform_deviation": None,
+        },
     },
-    {
-        "name": "fragment",
-        "estimators": [
-            {
-                "name": "mz",
-                "model": "LinearRegression",
-                "input_columns": ["mz_library"],
-                "target_columns": ["mz_observed"],
-                "output_columns": ["mz_calibrated"],
-                "transform_deviation": 1e6,
-            }
-        ],
+    "fragment": {
+        "mz": {
+            "model": "LinearRegression",
+            "input_columns": ["mz_library"],
+            "target_columns": ["mz_observed"],
+            "output_columns": ["mz_calibrated"],
+            "transform_deviation": 1e6,
+        }
     },
-]
+}
 
 
 def test_calibration_manager_init():
@@ -138,13 +129,13 @@ def test_calibration_manager_init():
     assert isinstance(calibration_manager.get_estimator("fragment", "mz"), Calibration)
 
     assert isinstance(
-        calibration_manager.get_estimator("precursor", "mz").function, LinearRegression
+        calibration_manager.get_estimator("precursor", "mz")._model, LinearRegression
     )
     assert isinstance(
-        calibration_manager.get_estimator("precursor", "rt").function, LOESSRegression
+        calibration_manager.get_estimator("precursor", "rt")._model, LOESSRegression
     )
     assert isinstance(
-        calibration_manager.get_estimator("fragment", "mz").function, LinearRegression
+        calibration_manager.get_estimator("fragment", "mz")._model, LinearRegression
     )
 
 

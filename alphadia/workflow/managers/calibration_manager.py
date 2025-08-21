@@ -256,7 +256,7 @@ class CalibrationManager(BaseManager):
         """
 
         # only iterate over the first group with the given name
-        for estimator in self.estimator_groups["group_name"].values():
+        for estimator in self.estimator_groups[group_name].values():
             self.reporter.log_string(
                 f"calibration group: {group_name}, fitting {estimator.name} estimator .."
             )
