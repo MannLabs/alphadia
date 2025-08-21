@@ -296,18 +296,12 @@ class CalibrationManager(BaseManager):
 
         if skip is None:
             skip = []
-        if len(self.estimator_groups) == 0:
-            raise ValueError("No estimators defined")
 
-        group_idx = [
-            i for i, x in enumerate(self.estimator_groups) if x["name"] == group_name
-        ]
-        if len(group_idx) == 0:
-            raise ValueError(f"No group named {group_name} found")
+        group_indices = self._get_indices_for_group_name(group_name)
 
         # only iterate over the first group with the given name
-        for group in group_idx:
-            for estimator in self.estimator_groups[group]["estimators"]:
+        for group_idx in group_indices:
+            for estimator in self.estimator_groups[group_idx]["estimators"]:
                 if estimator.name in skip:
                     continue
                 self.reporter.log_string(
@@ -319,10 +313,26 @@ class CalibrationManager(BaseManager):
         for group in self.estimator_groups:
             for estimator in group["estimators"]:
                 all_fitted &= estimator.is_fitted
-
         self.all_fitted = all_fitted
 
-    def predict(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
+    def _get_indices_for_group_name(self, group_name: str) -> list[int]:
+        """Get the indices of the calibration group with the given name."""
+
+        if len(self.estimator_groups) == 0:
+            raise ValueError("No estimators defined")
+
+        group_idx = [
+            i
+            for i, group in enumerate(self.estimator_groups)
+            if group["name"] == group_name
+        ]
+
+        if len(group_idx) == 0:
+            raise ValueError(f"No group named {group_name} found")
+
+        return group_idx
+
+    def predict(self, df: pd.DataFrame, group_name: str):
         """Predict all estimators in a calibration group.
 
         Parameters
@@ -336,16 +346,10 @@ class CalibrationManager(BaseManager):
 
         """
 
-        if len(self.estimator_groups) == 0:
-            raise ValueError("No estimators defined")
+        group_indices = self._get_indices_for_group_name(group_name)
 
-        group_idx = [
-            i for i, x in enumerate(self.estimator_groups) if x["name"] == group_name
-        ]
-        if len(group_idx) == 0:
-            raise ValueError(f"No group named {group_name} found")
-        for group in group_idx:
-            for estimator in self.estimator_groups[group]["estimators"]:
+        for group_idx in group_indices:
+            for estimator in self.estimator_groups[group_idx]["estimators"]:
                 self.reporter.log_string(
                     f"calibration group: {group_name}, predicting {estimator.name}"
                 )
