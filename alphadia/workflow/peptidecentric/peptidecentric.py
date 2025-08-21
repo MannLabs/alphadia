@@ -182,7 +182,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.calibration_manager.predict(
             self.spectral_library.precursor_df, CalibrationGroups.PRECURSOR
         )
-        self.calibration_manager.predict(self.spectral_library.fragment_df, "fragment")
+        self.calibration_manager.predict(
+            self.spectral_library.fragment_df, CalibrationGroups.FRAGMENT
+        )
 
     @use_timing_manager("extraction")
     def extraction(self):

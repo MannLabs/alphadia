@@ -88,7 +88,7 @@ class TransferLibraryRequantificationHandler:
             candidate_speclib_flat.precursor_df, CalibrationGroups.PRECURSOR
         )
         self._calibration_manager.predict(
-            candidate_speclib_flat.fragment_df, "fragment"
+            candidate_speclib_flat.fragment_df, CalibrationGroups.FRAGMENT
         )
 
         self._reporter.log_string(

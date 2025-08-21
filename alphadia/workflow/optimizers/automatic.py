@@ -462,7 +462,7 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     ):
         """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
         self.parameter_name = "ms2_error"
-        self._estimator_group_name = "fragment"
+        self._estimator_group_name = CalibrationGroups.FRAGMENT
         self._estimator_name = "mz"
         self._feature_name = "precursor_proportion_detected"
         super().__init__(

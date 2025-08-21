@@ -143,8 +143,7 @@ class OptimizationLock:
         )
 
         calibration_manager.predict(
-            self.batch_library._fragment_df,
-            "fragment",
+            self.batch_library._fragment_df, CalibrationGroups.FRAGMENT
         )
 
     def increase_batch_idx(self):

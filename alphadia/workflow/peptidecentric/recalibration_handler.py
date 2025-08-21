@@ -65,7 +65,7 @@ class RecalibrationHandler:
 
         self._calibration_manager.fit(
             fragments_df_filtered,
-            "fragment",
+            CalibrationGroups.FRAGMENT,
             figure_path=self._figure_path,
         )
 

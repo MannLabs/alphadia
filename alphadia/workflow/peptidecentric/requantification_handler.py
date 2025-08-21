@@ -46,7 +46,7 @@ class MultiplexingRequantificationHandler:
             self._spectral_library.precursor_df_unfiltered, CalibrationGroups.PRECURSOR
         )
         self._calibration_manager.predict(
-            self._spectral_library._fragment_df, "fragment"
+            self._spectral_library._fragment_df, CalibrationGroups.FRAGMENT
         )
 
         reference_candidates = candidate_features_to_candidates(psm_df)

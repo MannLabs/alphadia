@@ -115,7 +115,7 @@ def build_run_stat_df(
 
             if (
                 fragment_mz_estimator := calibration_manager.get_estimator(
-                    "fragment", "mz"
+                    CalibrationGroups.FRAGMENT, "mz"
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
                 calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[

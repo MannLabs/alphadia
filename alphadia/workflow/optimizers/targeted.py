@@ -174,7 +174,7 @@ class TargetedMS2Optimizer(TargetedOptimizer):
     ):
         """See base class."""
         self.parameter_name = "ms2_error"
-        self._estimator_group_name = "fragment"
+        self._estimator_group_name = CalibrationGroups.FRAGMENT
         self._estimator_name = "mz"
         super().__init__(
             initial_parameter,
