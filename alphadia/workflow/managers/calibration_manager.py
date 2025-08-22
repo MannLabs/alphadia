@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 
 from alphadia.calibration.property import Calibration, calibration_model_provider
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import ConstantsClass, MRMCols
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
@@ -13,14 +13,14 @@ EstimatorGroups: type = dict[str, dict[str, Calibration]]
 CalibrationConfig: type = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
-class CalibrationGroups:
+class CalibrationGroups(metaclass=ConstantsClass):
     """String constants for calibration groups."""
 
     FRAGMENT = "fragment"
     PRECURSOR = "precursor"
 
 
-class CalibrationEstimators:
+class CalibrationEstimators(metaclass=ConstantsClass):
     """String constants for calibration estimators."""
 
     MZ = "mz"
@@ -162,6 +162,8 @@ class CalibrationManager(BaseManager):
         """
         self.reporter.log_string("Setting up calibration estimators ..")
 
+        self._validate_calibration_config(calibration_config)
+
         estimator_groups: EstimatorGroups = {}
         for group_name, estimators_params_in_group in calibration_config.items():
             self.reporter.log_string(
@@ -211,6 +213,27 @@ class CalibrationManager(BaseManager):
         self.reporter.log_string("Done setting up calibration estimators.")
 
         return estimator_groups
+
+    def _validate_calibration_config(
+        self, calibration_config: CalibrationConfig
+    ) -> None:
+        """Validate the calibration configuration is using only allowed keys."""
+        allowed_groups = CalibrationGroups.get_values()
+        allowed_estimators = CalibrationEstimators.get_values()
+
+        errors = []
+        for group_name, group in calibration_config.items():
+            if group_name not in allowed_groups:
+                errors.append(
+                    f"Invalid calibration group '{group_name}'. Allowed groups are: {allowed_groups}"
+                )
+                for estimator_name in group:
+                    if estimator_name not in allowed_estimators:
+                        errors.append(
+                            f"Invalid estimator '{estimator_name}' in group '{group_name}'. Allowed estimators are: {allowed_estimators}"
+                        )
+        if errors:
+            raise ValueError("Invalid calibration configuration:\n" + "\n".join(errors))
 
     def get_estimator(self, group_name: str, estimator_name: str):
         """Get an estimator from a calibration group.
