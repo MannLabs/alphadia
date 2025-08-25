@@ -22,6 +22,7 @@ library:
   # override settings that could have been set by the user:
   quant_directory: null
   general:
+    save_mbr_library: True
     save_library: False
     reuse_quant: False
   transfer_library:
