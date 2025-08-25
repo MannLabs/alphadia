@@ -507,7 +507,8 @@ class SearchPlanOutput:
         logger.progress("Performing label free quantification")
 
         # as we want to retain decoys in the output we are only removing them for lfq
-        qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
+        psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
+        qb = QuantBuilder(psm_no_decoys_df)
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
