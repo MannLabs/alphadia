@@ -390,7 +390,7 @@ class SearchPlanOutput:
     def _build_stat_df(
         self,
         folder_list: list[str],
-        psm_df: pd.DataFrame | None = None,
+        psm_df: pd.DataFrame,
         save: bool = True,
     ):
         """Build stat table from a list of search outputs
@@ -401,8 +401,8 @@ class SearchPlanOutput:
         folder_list: List[str]
             List of folders containing the search outputs
 
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
 
         save: bool
             Save the precursor table to disk
@@ -426,8 +426,6 @@ class SearchPlanOutput:
             )
         all_channels = sorted([int(c) for c in all_channels])
 
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         stat_df_list = []
@@ -501,7 +499,7 @@ class SearchPlanOutput:
     def _build_lfq_tables(
         self,
         folder_list: list[str],
-        psm_df: pd.DataFrame | None = None,
+        psm_df: pd.DataFrame,
         save: bool = True,
     ):
         """Accumulate fragment information and perform label-free protein quantification.
@@ -510,15 +508,12 @@ class SearchPlanOutput:
         ----------
         folder_list: List[str]
             List of folders containing the search outputs
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
         save: bool
             Save the precursor table to disk
         """
         logger.progress("Performing label free quantification")
-
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
 
         # as we want to retain decoys in the output we are only removing them for lfq
         qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
@@ -654,8 +649,6 @@ class SearchPlanOutput:
         """
         logger.progress("Building spectral library")
 
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         if len(psm_df) == 0:
