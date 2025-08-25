@@ -297,9 +297,21 @@ class SearchStep:
     def run(
         self,
     ):
+        """Run the search step.
+
+        This has three main parts:
+        1. Load or build the spectral library
+        2. Iterate over all raw files and perform the search workflow
+        3. Collect and summarize the results
+        """
+
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
             self.load_library()
+
+        if not self.raw_path_list:
+            logger.warning("No raw files provided, nothing to search.")
+            return
 
         logger.progress("Starting Search Workflows")
 
