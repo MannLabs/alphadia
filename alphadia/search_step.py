@@ -90,8 +90,7 @@ class SearchStep:
 
         self.spectral_library = None
 
-        self.init_alphabase()
-        self.load_library()
+        self._init_alphabase()
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
@@ -176,7 +175,7 @@ class SearchStep:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def init_alphabase(self):
+    def _init_alphabase(self):
         """Init alphabase by registering custom modifications."""
 
         new_modifications = {}
@@ -204,8 +203,7 @@ class SearchStep:
         prediction_config = self.config["library_prediction"]
 
         if self.library_path is None and not prediction_config["enabled"]:
-            logger.error("No library provided and prediction disabled.")
-            return
+            raise NoLibraryAvailableError()
         elif self.library_path is None and prediction_config["enabled"]:
             logger.progress("No library provided. Building library from fasta files.")
 
@@ -288,12 +286,8 @@ class SearchStep:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
-    def get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
+    def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
-
-        if self.spectral_library is None:
-            # TODO: check alternative: more fine-grained errors could be raised on the level of search_plan
-            raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_path_list:
@@ -303,11 +297,15 @@ class SearchStep:
     def run(
         self,
     ):
+        if self.spectral_library is None:
+            logger.progress("Loading spectral library")
+            self.load_library()
+
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
 
-        for i, (raw_name, dia_path, speclib) in enumerate(self.get_run_data()):
+        for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             logger.progress(
                 f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
