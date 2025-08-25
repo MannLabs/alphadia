@@ -110,17 +110,7 @@ class SearchPlanOutput:
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
-            mbr_spec_lib = self._build_mbr_library(
-                base_spec_lib,
-                psm_df=psm_df,
-            )
-
-            logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(
-                os.path.join(
-                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                )
-            )
+            self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
 
         if self.config["transfer_library"]["enabled"]:
             self._build_transfer_library(folder_list, save=True)
@@ -644,7 +634,8 @@ class SearchPlanOutput:
     def _build_mbr_library(
         self,
         base_spec_lib: base.SpecLibBase,
-        psm_df: pd.DataFrame | None = None,
+        psm_df: pd.DataFrame,
+        save: bool = True,
     ) -> SpecLibBase | None:
         """Build MBR spectral library.
 
@@ -654,8 +645,11 @@ class SearchPlanOutput:
         base_spec_lib: base.SpecLibBase
             Base spectral library
 
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
+
+        save: bool
+            Save the MBR spectral library to disk
 
         """
         logger.progress("Building spectral library")
@@ -681,5 +675,13 @@ class SearchPlanOutput:
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
+
+        if save:
+            logger.info("Writing MBR spectral library to disk")
+            mbr_spec_lib.save_hdf(
+                os.path.join(
+                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
+                )
+            )
 
         return mbr_spec_lib
