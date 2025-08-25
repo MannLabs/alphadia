@@ -19,10 +19,6 @@ transfer:
   # TODO: think about enforcing optimization of rt here
 
 library:
-# the step following TL needs to have this. It will be forced to true only (by code) if transfer step was done before
-#  library_prediction:
-#    predict: True
-
   # override settings that could have been set by the user:
   quant_directory: null
   general:
@@ -32,6 +28,10 @@ library:
     enabled: False
   transfer_learning:
     enabled: False
+# will be set in search_plan.py if transfer step is enabled:
+#  library_prediction:
+#    enabled: True
+#    peptdeep_model_path: <value from transfer step>
 
 mbr:
   fasta_paths: []
@@ -49,3 +49,8 @@ mbr:
     enabled: False
   transfer_learning:
     enabled: False
+# will be set in search_plan.py if mbr step is enabled:
+#  library_path: <value from library step>
+#  search:
+#    target_ms1_tolerance: <value from transfer or library step>
+#    target_ms2_tolerance: <value from transfer or library step>
