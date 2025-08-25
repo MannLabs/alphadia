@@ -102,9 +102,7 @@ class SearchPlanOutput:
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self._build_precursor_table(
-            folder_list, save=False, base_spec_lib=base_spec_lib
-        )
+        psm_df = self._build_precursor_table(folder_list, save=False)
         self._build_stat_df(folder_list, psm_df=psm_df, save=True)
         self._build_internal_df(folder_list, save=True)
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
@@ -262,7 +260,6 @@ class SearchPlanOutput:
         self,
         folder_list: list[str],
         save: bool = True,
-        base_spec_lib: base.SpecLibBase = None,
     ):
         """Build precursor table from a list of search outputs
 
@@ -306,13 +303,6 @@ class SearchPlanOutput:
 
         if len(psm_df) == 0:
             raise NoPsmFoundError()
-
-        if base_spec_lib is not None:
-            psm_df = psm_df.merge(
-                base_spec_lib.precursor_df[["precursor_idx"]],
-                on="precursor_idx",
-                how="left",
-            )
 
         logger.info("Performing protein inference")
 
