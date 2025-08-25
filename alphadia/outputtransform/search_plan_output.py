@@ -110,7 +110,7 @@ class SearchPlanOutput:
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
-            mbr_spec_lib = self._build_library(
+            mbr_spec_lib = self._build_mbr_library(
                 base_spec_lib,
                 psm_df=psm_df,
             )
@@ -274,7 +274,7 @@ class SearchPlanOutput:
         save: bool = True,
         base_spec_lib: base.SpecLibBase = None,
     ):
-        """Build precursor table from a list of seach outputs
+        """Build precursor table from a list of search outputs
 
         Parameters
         ----------
@@ -403,7 +403,7 @@ class SearchPlanOutput:
         psm_df: pd.DataFrame | None = None,
         save: bool = True,
     ):
-        """Build stat table from a list of seach outputs
+        """Build stat table from a list of search outputs
 
         Parameters
         ----------
@@ -469,7 +469,7 @@ class SearchPlanOutput:
         folder_list: list[str],
         save: bool = True,
     ):
-        """Build internal data table from a list of seach outputs
+        """Build internal data table from a list of search outputs
 
         Parameters
         ----------
@@ -641,12 +641,12 @@ class SearchPlanOutput:
 
         return lfq_results
 
-    def _build_library(
+    def _build_mbr_library(
         self,
         base_spec_lib: base.SpecLibBase,
         psm_df: pd.DataFrame | None = None,
-    ):
-        """Build spectral library
+    ) -> SpecLibBase | None:
+        """Build MBR spectral library.
 
         Parameters
         ----------
