@@ -302,11 +302,11 @@ class SearchPlanOutput:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
 
-        if len(psm_df_list) == 0:
-            raise NoPsmFoundError()
-
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
+
+        if len(psm_df) == 0:
+            raise NoPsmFoundError()
 
         if base_spec_lib is not None:
             psm_df = psm_df.merge(
@@ -324,10 +324,6 @@ class SearchPlanOutput:
         # make mod_sites column a string not object
         psm_df["mod_sites"] = psm_df["mod_sites"].astype(str)
         psm_df = precursor.hash_precursor_df(psm_df)
-
-        if len(psm_df) == 0:
-            logger.error("combined psm file is empty, can't continue")
-            raise FileNotFoundError("combined psm file is empty, can't continue")
 
         if self.config["fdr"]["inference_strategy"] == "library":
             logger.info(
