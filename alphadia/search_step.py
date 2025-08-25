@@ -375,10 +375,15 @@ class SearchStep:
                 del workflow
 
         try:
-            base_spec_lib = SpecLibBase()
-            base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
-            )
+            if self.config["general"]["save_mbr_library"]:
+                # TODO: find a way to avoid loading the library again from disk
+                base_spec_lib = SpecLibBase()
+                base_spec_lib.load_hdf(
+                    os.path.join(self.output_folder, SPECLIB_FILE_NAME),
+                    load_mod_seq=True,
+                )
+            else:
+                base_spec_lib = None
 
             output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
