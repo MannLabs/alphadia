@@ -4,7 +4,21 @@ import logging
 
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
+from sklearn.linear_model import LinearRegression
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
+
+
+def construct_polynomial_regression(
+    degree: int = 2, *, include_bias: bool = False
+) -> Pipeline:
+    """Create a polynomial regression model."""
+    return Pipeline(
+        [
+            ("poly", PolynomialFeatures(degree=degree, include_bias=include_bias)),
+            ("linear", LinearRegression()),
+        ]
+    )
 
 
 class LOESSRegression(BaseEstimator, RegressorMixin):
@@ -349,3 +363,6 @@ def _right_open_tricubic(x: np.ndarray) -> np.ndarray:
     y = _tricubic(x)
     y[x > 0] = 1
     return y
+
+
+CalibrationModel = LOESSRegression | LinearRegression | Pipeline
