@@ -17,7 +17,9 @@ def test_output_transform():
     run_columns = ["run_0", "run_1", "run_2"]
 
     config = {
-        "general": {"thread_count": 8, "save_figures": True},
+        "general": {"thread_count": 8, "save_figures": True, "save_mbr_library": False},
+        "transfer_library": {"enabled": False},
+        "transfer_learning": {"enabled": False},
         "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
@@ -103,15 +105,11 @@ def test_output_transform():
             timing_manager.set_end_time("extraction")
             timing_manager.save()
 
-    output = SearchPlanOutput(config, temp_folder)
-    _ = output._build_precursor_table(raw_folders, save=True)
-    _ = output._build_stat_df(raw_folders, save=True)
-    _ = output._build_internal_df(raw_folders, save=True)
-    _ = output._build_lfq_tables(raw_folders, save=True)
+    SearchPlanOutput(config, temp_folder).build(raw_folders, None)
 
     # validate psm_df output
     psm_df = pd.read_parquet(
-        os.path.join(temp_folder, f"{output.PRECURSOR_OUTPUT}.parquet"),
+        os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet"),
     )
     assert all(
         [
@@ -134,7 +132,7 @@ def test_output_transform():
 
     # validate stat_df output
     stat_df = pd.read_csv(
-        os.path.join(temp_folder, f"{output.STAT_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, f"{SearchPlanOutput.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
 
@@ -172,7 +170,7 @@ def test_output_transform():
     )
 
     internal_df = pd.read_csv(
-        os.path.join(temp_folder, f"{output.INTERNAL_OUTPUT}.tsv"), sep="\t"
+        os.path.join(temp_folder, f"{SearchPlanOutput.INTERNAL_OUTPUT}.tsv"), sep="\t"
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
     # validate protein_df output
