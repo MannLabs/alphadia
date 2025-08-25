@@ -79,12 +79,9 @@ class SearchPlanOutput:
         if self._figure_path and not os.path.exists(self._figure_path):
             os.makedirs(self._figure_path)
 
-    def build(
-        self,
-        folder_list: list[str],
-        base_spec_lib: base.SpecLibBase,
-    ):
-        """Build output from a list of seach outputs
+    def build(self, folder_list: list[str], base_spec_lib: base.SpecLibBase | None):
+        """Build output from a list of search outputs.
+
         The following files are written to the output folder:
         - precursor.tsv
         - protein_groups.tsv
@@ -97,7 +94,7 @@ class SearchPlanOutput:
         folder_list: List[str]
             List of folders containing the search outputs
 
-        base_spec_lib: base.SpecLibBase
+        base_spec_lib: base.SpecLibBase, optional
             Base spectral library
 
         """
@@ -108,6 +105,10 @@ class SearchPlanOutput:
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
+            if base_spec_lib is None:
+                raise ValueError(
+                    "Passing base spectral library is required for MBR library building."
+                )
             self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
 
         if self.config["transfer_library"]["enabled"]:
@@ -637,19 +638,17 @@ class SearchPlanOutput:
             Save the MBR spectral library to disk
 
         """
-        logger.progress("Building spectral library")
+        logger.progress("Building MBR spectral library")
 
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         if len(psm_df) == 0:
-            logger.warning("No precursors found, skipping library building")
+            logger.warning("No precursors found, skipping MBR library building")
             return None
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
         )
-
-        logger.info("Building MBR spectral library")
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
         precursor_number = len(mbr_spec_lib.precursor_df)

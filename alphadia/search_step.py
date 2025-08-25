@@ -266,9 +266,13 @@ class SearchStep:
             )
             spectral_library = multiplexing(spectral_library)
 
-        library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
-        logger.info(f"Saving library to {library_path}")
-        spectral_library.save_hdf(library_path)
+        if (
+            self.config["general"]["save_library"]
+            or self.config["general"]["save_mbr_library"]
+        ):
+            library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
+            logger.info(f"Saving library to {library_path}")
+            spectral_library.save_hdf(library_path)
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
@@ -427,7 +431,7 @@ class SearchStep:
             try:
                 os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
-                logger.exception(f"Error deleting library: {e}")
+                logger.exception(f"Error removing library: {e}")
 
     def _log_inputs(self):
         """Log all relevant inputs."""
