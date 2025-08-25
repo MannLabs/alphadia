@@ -88,7 +88,7 @@ class SearchStep:
         self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
         self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
-        self.spectral_library = None
+        self.spectral_library: SpecLibFlat | None = None
 
         self._init_alphabase()
 
@@ -202,26 +202,29 @@ class SearchStep:
         # 1. Check if library exists, else perform fasta digest
         prediction_config = self.config["library_prediction"]
 
-        if self.library_path is None and not prediction_config["enabled"]:
-            raise NoLibraryAvailableError()
-        elif self.library_path is None and prediction_config["enabled"]:
-            logger.progress("No library provided. Building library from fasta files.")
+        if self.library_path is None:
+            if not prediction_config["enabled"]:
+                raise NoLibraryAvailableError()
+            else:
+                logger.progress(
+                    "No library provided. Building library from fasta files."
+                )
 
-            fasta_digest = FastaDigest(
-                enzyme=prediction_config["enzyme"],
-                fixed_modifications=_parse_modifications(
-                    prediction_config["fixed_modifications"]
-                ),
-                variable_modifications=_parse_modifications(
-                    prediction_config["variable_modifications"]
-                ),
-                max_var_mod_num=prediction_config["max_var_mod_num"],
-                missed_cleavages=prediction_config["missed_cleavages"],
-                precursor_len=prediction_config["precursor_len"],
-                precursor_charge=prediction_config["precursor_charge"],
-                precursor_mz=prediction_config["precursor_mz"],
-            )
-            spectral_library = fasta_digest(self.fasta_path_list)
+                fasta_digest = FastaDigest(
+                    enzyme=prediction_config["enzyme"],
+                    fixed_modifications=_parse_modifications(
+                        prediction_config["fixed_modifications"]
+                    ),
+                    variable_modifications=_parse_modifications(
+                        prediction_config["variable_modifications"]
+                    ),
+                    max_var_mod_num=prediction_config["max_var_mod_num"],
+                    missed_cleavages=prediction_config["missed_cleavages"],
+                    precursor_len=prediction_config["precursor_len"],
+                    precursor_charge=prediction_config["precursor_charge"],
+                    precursor_mz=prediction_config["precursor_mz"],
+                )
+                spectral_library = fasta_digest(self.fasta_path_list)
         else:
             dynamic_loader = DynamicLoader()
             spectral_library = dynamic_loader(self.library_path)
