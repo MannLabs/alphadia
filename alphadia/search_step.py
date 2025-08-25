@@ -88,10 +88,9 @@ class SearchStep:
         self.library_path = self._config[ConfigKeys.LIBRARY_PATH]
         self.fasta_path_list = self._config[ConfigKeys.FASTA_PATHS]
 
-        self.spectral_library = None
+        self.spectral_library: SpecLibFlat | None = None
 
-        self.init_alphabase()
-        self.load_library()
+        self._init_alphabase()
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
@@ -176,7 +175,7 @@ class SearchStep:
     def spectral_library(self, spectral_library: SpecLibFlat) -> None:
         self._spectral_library = spectral_library
 
-    def init_alphabase(self):
+    def _init_alphabase(self):
         """Init alphabase by registering custom modifications."""
 
         new_modifications = {}
@@ -203,27 +202,29 @@ class SearchStep:
         # 1. Check if library exists, else perform fasta digest
         prediction_config = self.config["library_prediction"]
 
-        if self.library_path is None and not prediction_config["enabled"]:
-            logger.error("No library provided and prediction disabled.")
-            return
-        elif self.library_path is None and prediction_config["enabled"]:
-            logger.progress("No library provided. Building library from fasta files.")
+        if self.library_path is None:
+            if not prediction_config["enabled"]:
+                raise NoLibraryAvailableError()
+            else:
+                logger.progress(
+                    "No library provided. Building library from fasta files."
+                )
 
-            fasta_digest = FastaDigest(
-                enzyme=prediction_config["enzyme"],
-                fixed_modifications=_parse_modifications(
-                    prediction_config["fixed_modifications"]
-                ),
-                variable_modifications=_parse_modifications(
-                    prediction_config["variable_modifications"]
-                ),
-                max_var_mod_num=prediction_config["max_var_mod_num"],
-                missed_cleavages=prediction_config["missed_cleavages"],
-                precursor_len=prediction_config["precursor_len"],
-                precursor_charge=prediction_config["precursor_charge"],
-                precursor_mz=prediction_config["precursor_mz"],
-            )
-            spectral_library = fasta_digest(self.fasta_path_list)
+                fasta_digest = FastaDigest(
+                    enzyme=prediction_config["enzyme"],
+                    fixed_modifications=_parse_modifications(
+                        prediction_config["fixed_modifications"]
+                    ),
+                    variable_modifications=_parse_modifications(
+                        prediction_config["variable_modifications"]
+                    ),
+                    max_var_mod_num=prediction_config["max_var_mod_num"],
+                    missed_cleavages=prediction_config["missed_cleavages"],
+                    precursor_len=prediction_config["precursor_len"],
+                    precursor_charge=prediction_config["precursor_charge"],
+                    precursor_mz=prediction_config["precursor_mz"],
+                )
+                spectral_library = fasta_digest(self.fasta_path_list)
         else:
             dynamic_loader = DynamicLoader()
             spectral_library = dynamic_loader(self.library_path)
@@ -268,9 +269,13 @@ class SearchStep:
             )
             spectral_library = multiplexing(spectral_library)
 
-        library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
-        logger.info(f"Saving library to {library_path}")
-        spectral_library.save_hdf(library_path)
+        if (
+            self.config["general"]["save_library"]
+            or self.config["general"]["save_mbr_library"]
+        ):
+            library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
+            logger.info(f"Saving library to {library_path}")
+            spectral_library.save_hdf(library_path)
 
         # 4. prepare library for search
         # This part is always performed, even if a fully compliant library is provided
@@ -288,12 +293,8 @@ class SearchStep:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
-    def get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
+    def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
-
-        if self.spectral_library is None:
-            # TODO: check alternative: more fine-grained errors could be raised on the level of search_plan
-            raise NoLibraryAvailableError()
 
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_path_list:
@@ -303,11 +304,27 @@ class SearchStep:
     def run(
         self,
     ):
+        """Run the search step.
+
+        This has three main parts:
+        1. Load or build the spectral library
+        2. Iterate over all raw files and perform the search workflow
+        3. Collect and summarize the results
+        """
+
+        if self.spectral_library is None:
+            logger.progress("Loading spectral library")
+            self.load_library()
+
+        if not self.raw_path_list:
+            logger.warning("No raw files provided, nothing to search.")
+            return
+
         logger.progress("Starting Search Workflows")
 
         workflow_folder_list = []
 
-        for i, (raw_name, dia_path, speclib) in enumerate(self.get_run_data()):
+        for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             logger.progress(
                 f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
@@ -361,10 +378,15 @@ class SearchStep:
                 del workflow
 
         try:
-            base_spec_lib = SpecLibBase()
-            base_spec_lib.load_hdf(
-                os.path.join(self.output_folder, SPECLIB_FILE_NAME), load_mod_seq=True
-            )
+            if self.config["general"]["save_mbr_library"]:
+                # TODO: find a way to avoid loading the library again from disk
+                base_spec_lib = SpecLibBase()
+                base_spec_lib.load_hdf(
+                    os.path.join(self.output_folder, SPECLIB_FILE_NAME),
+                    load_mod_seq=True,
+                )
+            else:
+                base_spec_lib = None
 
             output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
@@ -417,7 +439,7 @@ class SearchStep:
             try:
                 os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
             except Exception as e:
-                logger.exception(f"Error deleting library: {e}")
+                logger.exception(f"Error removing library: {e}")
 
     def _log_inputs(self):
         """Log all relevant inputs."""
