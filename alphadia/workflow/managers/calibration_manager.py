@@ -9,8 +9,8 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
-EstimatorGroups: type = dict[str, dict[str, Calibration]]
-CalibrationConfig: type = dict[str, dict[str, dict[str, str | int | list[str]]]]
+EstimatorGroups = dict[str, dict[str, Calibration]]
+CalibrationConfig = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
 class CalibrationGroups(metaclass=ConstantsClass):
@@ -32,7 +32,7 @@ class CalibrationEstimators(metaclass=ConstantsClass):
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
-# TODO simplify this structure and the config loading
+
 CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
     CalibrationGroups.FRAGMENT: {
         CalibrationEstimators.MZ: {
@@ -151,9 +151,9 @@ class CalibrationManager(BaseManager):
                         'name': 'mz',
                         'model': 'LOESSRegression',
                         'model_args': { 'n_kernels': 2 },
-                        'input_columns': ['MRMCols.MZ_LIBRARY'],
-                        'target_columns': ['MRMCols.MZ_OBSERVED'],
-                        'output_columns': ['MRMCols.MZ_CALIBRATED'],
+                        'input_columns': [MRMCols.MZ_LIBRARY],
+                        'target_columns': [MRMCols.MZ_OBSERVED],
+                        'output_columns': [MRMCols.MZ_CALIBRATED],
                         'transform_deviation': 1e6
                     }
                 ]
@@ -161,8 +161,6 @@ class CalibrationManager(BaseManager):
 
         """
         self.reporter.log_string("Setting up calibration estimators ..")
-
-        self._validate_calibration_config(calibration_config)
 
         estimator_groups: EstimatorGroups = {}
         for group_name, estimators_params_in_group in calibration_config.items():
@@ -213,27 +211,6 @@ class CalibrationManager(BaseManager):
         self.reporter.log_string("Done setting up calibration estimators.")
 
         return estimator_groups
-
-    def _validate_calibration_config(
-        self, calibration_config: CalibrationConfig
-    ) -> None:
-        """Validate the calibration configuration is using only allowed keys."""
-        allowed_groups = CalibrationGroups.get_values()
-        allowed_estimators = CalibrationEstimators.get_values()
-
-        errors = []
-        for group_name, group in calibration_config.items():
-            if group_name not in allowed_groups:
-                errors.append(
-                    f"Invalid calibration group '{group_name}'. Allowed groups are: {allowed_groups}"
-                )
-                for estimator_name in group:
-                    if estimator_name not in allowed_estimators:
-                        errors.append(
-                            f"Invalid estimator '{estimator_name}' in group '{group_name}'. Allowed estimators are: {allowed_estimators}"
-                        )
-        if errors:
-            raise ValueError("Invalid calibration configuration:\n" + "\n".join(errors))
 
     def get_estimator(self, group_name: str, estimator_name: str):
         """Get an estimator from a calibration group.
