@@ -86,6 +86,11 @@ def speclib_to_ng(
     return speclib_ng
 
 
+def get_feature_names() -> list[str]:
+    """Get feature names from NG CandidateFeatureCollection."""
+    return CandidateFeatureCollection.get_feature_names()
+
+
 def parse_candidates(
     candidates: CandidateCollection, spectral_library: SpecLibFlat, cycle_len: int
 ) -> pd.DataFrame:
