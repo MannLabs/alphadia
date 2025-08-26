@@ -9,12 +9,16 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
+CalibrationConfig: type = list[
+    dict[str, str | list[dict[str, list[str] | str | dict[str, str | int | list[str]]]]]
+]
+
 # configuration for the calibration manager
 # the config has to start with the calibration keyword and consists of a list of calibration groups.
 # each group consists of datapoints which have multiple properties.
 # This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
 # TODO simplify this structure and the config loading
-CALIBRATION_MANAGER_CONFIG = [
+CALIBRATION_MANAGER_CONFIG: CalibrationConfig = [
     {
         "estimators": [
             {
@@ -98,35 +102,33 @@ class CalibrationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
-            self.is_fitted = False
+            self.all_fitted = False
             self.estimator_groups = []
             self.load_config(CALIBRATION_MANAGER_CONFIG)
 
     @property
-    def estimator_groups(self):
+    def estimator_groups(self) -> list[dict[str, str | list[Calibration]]]:
         """List of calibration groups."""
         return self._estimator_groups
 
     @estimator_groups.setter
-    def estimator_groups(self, value):
+    def estimator_groups(self, value: list[dict[str, str | list[Calibration]]]):
         self._estimator_groups = value
 
-    def load_config(self, config: dict):
-        """Load calibration config from config Dict.
+    def load_config(self, calibration_config: CalibrationConfig):
+        """Load calibration configuration.
 
-        each calibration config is a list of calibration groups which consist of multiple estimators.
+        Each calibration config is a list of calibration groups which consist of multiple estimators.
         For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
         The estimator is then initialized with the `Calibration` class and added to the group.
 
         Parameters
         ----------
-
-        config : dict
-            Calibration config dict
+        calibration_config : CalibrationConfig
+            Calibration configuration
 
         Example
         -------
-
         Create a calibration manager with a single group and a single estimator:
 
         .. code-block:: python
@@ -138,45 +140,53 @@ class CalibrationManager(BaseManager):
                     {
                         'name': 'mz',
                         'model': 'LOESSRegression',
-                        'model_args': {
-                            'n_kernels': 2
-                        },
+                        'model_args': { 'n_kernels': 2 },
                         'input_columns': ['MRMCols.MZ_LIBRARY'],
                         'target_columns': ['MRMCols.MZ_OBSERVED'],
                         'output_columns': ['MRMCols.MZ_CALIBRATED'],
                         'transform_deviation': 1e6
-                    },
-
+                    }
                 ]
             }])
 
         """
-        self.reporter.log_string("Loading calibration config")
-        self.reporter.log_string(f"Calibration config: {config}")
-        for group in config:
+        self.reporter.log_string(
+            f"Loading calibration configuration: {calibration_config}"
+        )
+
+        for group in calibration_config:
+            group_name = group["name"]
             self.reporter.log_string(
-                f'Calibration group :{group["name"]}, found {len(group["estimators"])} estimator(s)'
+                f'Calibration group: {group_name}, found {len(group["estimators"])} estimator(s)'
             )
+
+            initialized_estimators = []
             for estimator in group["estimators"]:
                 if not self._has_mobility and estimator["name"] == "mobility":
                     self.reporter.log_string(
-                        f'Skipping mobility estimator in group {group["name"]} as mobility is not available',
+                        f"Skipping mobility estimator in group {group_name} as mobility is not available",
                     )
-                    group["estimators"].remove(estimator)
                     continue
-                try:
-                    template = calibration_model_provider.get_model(estimator["model"])
-                    model_args = estimator.get("model_args", {})
-                    estimator["function"] = template(**model_args)
-                except Exception as e:
-                    self.reporter.log_string(
-                        f'Could not load estimator {estimator["name"]}: {e}',
-                        verbosity="error",
-                    )
 
-            group_copy = {"name": group["name"]}
-            group_copy["estimators"] = [Calibration(**x) for x in group["estimators"]]
-            self.estimator_groups.append(group_copy)
+                model_constructor = calibration_model_provider.get_model(
+                    estimator["model"]
+                )
+                model_args = estimator.get("model_args", {})
+
+                initialized_estimators.append(
+                    Calibration(
+                        name=estimator["name"],
+                        function=model_constructor(**model_args),
+                        input_columns=estimator["input_columns"],
+                        target_columns=estimator["target_columns"],
+                        output_columns=estimator["output_columns"],
+                        transform_deviation=estimator.get("transform_deviation", None),
+                    )
+                )
+
+            self.estimator_groups.append(
+                {"name": group_name, "estimators": initialized_estimators}
+            )
 
     def get_group_names(self):
         """Get the names of all calibration groups.
@@ -209,10 +219,7 @@ class CalibrationManager(BaseManager):
             if group["name"] == group_name:
                 return group
 
-        self.reporter.log_string(
-            f"could not get_group: {group_name}", verbosity="error"
-        )
-        return None
+        raise ValueError(f"Could not get {group_name} from {self.estimator_groups}")
 
     def get_estimator_names(self, group_name: str):
         """Get the names of all estimators in a calibration group.
@@ -227,16 +234,10 @@ class CalibrationManager(BaseManager):
         -------
         list of str
             List of estimator names
-
         """
 
         group = self.get_group(group_name)
-        if group is not None:
-            return [x.name for x in group["estimators"]]
-        self.reporter.log_string(
-            f"could not get_estimator_names: {group_name}", verbosity="error"
-        )
-        return None
+        return [x.name for x in group["estimators"]]
 
     def get_estimator(self, group_name: str, estimator_name: str):
         """Get an estimator from a calibration group.
@@ -257,16 +258,13 @@ class CalibrationManager(BaseManager):
 
         """
         group = self.get_group(group_name)
-        if group is not None:
-            for estimator in group["estimators"]:
-                if estimator.name == estimator_name:
-                    return estimator
+        for estimator in group["estimators"]:
+            if estimator.name == estimator_name:
+                return estimator
 
-        self.reporter.log_string(
-            f"could not get_estimator: {group_name}, {estimator_name}",
-            verbosity="error",
+        raise ValueError(
+            f"could not get estimator {estimator_name} for group {group_name} from  {group['estimators']}"
         )
-        return None
 
     def fit(
         self,
@@ -308,17 +306,16 @@ class CalibrationManager(BaseManager):
                 if estimator.name in skip:
                     continue
                 self.reporter.log_string(
-                    f"calibration group: {group_name}, fitting {estimator.name} estimator "
+                    f"calibration group: {group_name}, fitting {estimator.name} estimator.."
                 )
                 estimator.fit(df, *args, **kwargs)
 
-        is_fitted = True
-        # check if all estimators are fitted
+        all_fitted = True
         for group in self.estimator_groups:
             for estimator in group["estimators"]:
-                is_fitted = is_fitted and estimator.is_fitted
+                all_fitted &= estimator.is_fitted
 
-        self.is_fitted = is_fitted and len(self.estimator_groups) > 0
+        self.all_fitted = all_fitted
 
     def predict(self, df: pd.DataFrame, group_name: str, *args, **kwargs):
         """Predict all estimators in a calibration group.
