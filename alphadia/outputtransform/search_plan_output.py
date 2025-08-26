@@ -111,13 +111,6 @@ class SearchPlanOutput:
                 )
             self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
 
-            logger.info("Writing MBR spectral library to disk")
-            mbr_spec_lib.save_hdf(
-                os.path.join(
-                    self.output_folder, f"{SearchPlanOutput.LIBRARY_OUTPUT}.hdf"
-                )
-            )
-
         if self.config["transfer_library"]["enabled"]:
             self._build_transfer_library(folder_list, save=True)
 
