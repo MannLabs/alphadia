@@ -1,3 +1,7 @@
+"""Models for calibration."""
+
+import logging
+
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import PolynomialFeatures
@@ -8,7 +12,6 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
     Parameters
     ----------
-
     n_kernels : int
         default = 6, The number of local polynomial functions used to approximate the data. The location and extend of the kernels will be distributed to contain an equal number of datapoints in the training set.
 
@@ -30,31 +33,34 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         n_kernels: int = 6,
         kernel_size: float = 2.0,
         polynomial_degree: int = 2,
-        uniform=False,
+        *,
+        uniform: bool = False,
     ):
+        """Initialize the LOESS regression model."""
         self.n_kernels = n_kernels
         self.kernel_size = kernel_size
         self.polynomial_degree = polynomial_degree
         self.uniform = uniform
 
-    def _more_tags(self):
+    def _more_tags(self) -> dict[str, list[str]]:
         return {"X_types": ["1darray"]}
 
-    def _intervals_uniform(self, x: np.ndarray):
+    def _intervals_uniform(self, x: np.ndarray) -> np.ndarray:
         """Determine the intervals of the kernels.
+
         The kernels are distributed uniformly over the input space.
 
         Parameters
         ----------
-        x : numpy.ndarray
+        x : np.ndarray
             float, of shape (n_datapoints)
 
         Returns
         -------
-        numpy.ndarray, float
+        np.ndarray, float
             of shape (n_kernels, 2)
-        """
 
+        """
         minval = x[0]
         maxval = x[-1]
 
@@ -66,42 +72,42 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         stop = start + interval_size + (interval_size) * (self.kernel_size - 1)
         return np.column_stack([start, stop])
 
-    def _kernel_indices_uniform(self, x: np.ndarray):
+    def _kernel_indices_uniform(self, x: np.ndarray) -> np.ndarray:
         """Determine the indices of the datapoints belonging to each kernel.
+
         The kernels are distributed uniformly over the input space.
 
         Parameters
         ----------
-        x : numpy.ndarray
+        x : np.ndarray
             float, of shape (n_datapoints)
 
         Returns
         -------
-        numpy.ndarray, int
+        np.ndarray, int
             of shape (n_kernels, 2)
 
         """
-
         indices = np.searchsorted(x, self._intervals_uniform(x))
 
         return indices.astype(int)
 
-    def _kernel_indices_density(self, x: np.ndarray):
+    def _kernel_indices_density(self, x: np.ndarray) -> np.ndarray:
         """Determine the indices of the datapoints belonging to each kernel.
+
         The kernels are distributed to contain an equal number of datapoints.
 
         Parameters
         ----------
-        x : numpy.ndarray
+        x : np.ndarray
             float, of shape (n_datapoints)
 
         Returns
         -------
-        numpy.ndarray, int
+        np.ndarray, int
             of shape (n_kernels, 2)
 
         """
-
         num_datapoints = len(x)
         interval_size = num_datapoints // self.n_kernels
 
@@ -118,26 +124,23 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         return np.column_stack([start, end]).astype(int)
 
-    def fit(self, x: np.ndarray, y: np.ndarray):
-        """fit the model passed on provided training data.
+    def fit(self, x: np.ndarray, y: np.ndarray) -> "LOESSRegression":  # noqa: C901, PLR0912 Too complex, too many branches
+        """Fit the model passed on provided training data.
 
         Parameters
         ----------
-
-        x : numpy.ndarray
+        x : np.ndarray
             float, of shape (n_samples,) or (n_samples, 1), Training data. Note that only a single feature is supported at the moment.
 
-        y : numpy.ndarray, float
+        y : np.ndarray, float
             of shape (n_samples,) or (n_samples, 1) Target values.
 
         Returns
         -------
-
         self: object
             Returns the fitted estimator.
 
         """
-
         # As required by scikit-learn estimator guidelines
         self.n_features_in_ = 1
 
@@ -150,27 +153,31 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             )
 
         # at least two datapoints required
-        if len(x.flat) < 2:
+        if len(x.flat) < 2:  # noqa: PLR2004
             raise ValueError("At least two datapoints required for fitting.")
 
         # sanity check for number of datapoints, reduce n_kernels if needed
         degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
 
         if len(x.flat) < degrees_freedom:
-            print(
+            logging.info(
                 f"Curve fitting with {self.n_kernels} kernels and polynomials of {self.polynomial_degree} degree requires at least {degrees_freedom} datapoints."
             )
 
             self.n_kernels = np.max([len(x.flat) // (1 + self.polynomial_degree), 1])
 
-            print(f"Number of kernels will be reduced to {self.n_kernels} kernels.")
+            logging.info(
+                f"Number of kernels will be reduced to {self.n_kernels} kernels."
+            )
 
         # sanity check for number of datapoints, reduce degree of polynomial if necessary
         degrees_freedom = (1 + self.polynomial_degree) * self.n_kernels
         if len(x.flat) < degrees_freedom:
             self.polynomial_degree = len(x.flat) - 1
 
-            print(f"Polynomial degree will be reduced to {self.polynomial_degree}.")
+            logging.info(
+                f"Polynomial degree will be reduced to {self.polynomial_degree}."
+            )
 
         # reshape both arrays to column arrays
         if len(x.shape) == 1:
@@ -201,7 +208,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
             # check number of datapoints per kernel
             if np.any(np.diff(kernel_indices) < (1 + self.polynomial_degree)):
-                print(
+                logging.info(
                     "Too few datapoints per kernel. Uniform kernels will be replaced by density kernels."
                 )
                 uniform = False
@@ -249,24 +256,21 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         return self
 
-    def predict(self, x: np.ndarray):
+    def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict using the LOESS model.
 
         Parameters
         ----------
-
-        x : numpy.ndarray
+        x : np.ndarray
             float, of shape (n_samples,) or (n_samples, 1) Feature data. Note that only a single feature is supported at the moment.
 
         Returns
         -------
-
-        y : numpy.ndarray, float
+        y : np.ndarray, float
         of shape (n_samples,)
             Target values.
 
         """
-
         if len(x.shape) == 1:
             x = x[..., np.newaxis]
 
@@ -276,7 +280,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         return np.sum(x_design @ self.beta * w, axis=1)
 
-    def _get_weight_matrix(self, x: np.ndarray):
+    def _get_weight_matrix(self, x: np.ndarray) -> np.ndarray:
         """Applies the fitted scaling parameter and the kernel to yield a weight matrix.
 
         The weight matrix is calculated based on the self.scale_mean and self.scale_max parameters which need to be calculated before calling this function.
@@ -284,15 +288,13 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
 
         Parameters
         ----------
-
-        x: numpy.ndarray
+        x: np.ndarray
             Numpy array of shape (n_datapoints, 1) which should be transformed to weights.
 
 
         Returns
         -------
-
-        numpy.ndarray
+        np.ndarray
             Weight matrix with the shape (n_datapoints, n_kernels).
 
         """
@@ -304,47 +306,46 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
         # apply weighting kernel
         w = _apply_kernel(w)
 
-        w = w / np.sum(w, axis=1, keepdims=True)
-
-        return w
+        return w / np.sum(w, axis=1, keepdims=True)
 
 
-def _apply_kernel(w):
+def _apply_kernel(w: np.ndarray) -> np.ndarray | None:
+    """Applies the tricubic kernel."""
     num_cols = w.shape[1]
 
     if num_cols == 1:
         return np.ones(w.shape)
 
-    if num_cols == 2:
+    if num_cols == 2:  # noqa: PLR2004
         w[:, 0] = _left_open_tricubic(w[:, 0])
         w[:, 1] = _right_open_tricubic(w[:, 1])
 
         return w
 
-    if num_cols > 2:
+    if num_cols > 2:  # noqa: PLR2004
         w[:, 0] = _left_open_tricubic(w[:, 0])
         w[:, 1:-1] = _tricubic(w[:, 1:-1])
         w[:, -1] = _right_open_tricubic(w[:, -1])
 
         return w
+    return None
 
 
-def _tricubic(x, EPSILON=1e-6):
-    """tricubic weight kernel"""
-    epsilon = EPSILON
+def _tricubic(x: np.ndarray, epsilon: float = 1e-6) -> np.ndarray:
+    """Tricubic weight kernel."""
     mask = np.abs(x) <= 1
     return mask * (np.power(1 - np.power(np.abs(x), 3), 3) + epsilon)
 
 
-def _left_open_tricubic(x):
-    """tricubic weight kernel which weights assigns 1 to values x < 0"""
+def _left_open_tricubic(x: np.ndarray) -> np.ndarray:
+    """Tricubic weight kernel which weights assigns 1 to values x < 0."""
     y = _tricubic(x)
     y[x < 0] = 1
     return y
 
 
-def _right_open_tricubic(x):
-    """tricubic weight kernel which weights assigns 1 to values x > 0"""
+def _right_open_tricubic(x: np.ndarray) -> np.ndarray:
+    """Tricubic weight kernel which weights assigns 1 to values x > 0."""
     y = _tricubic(x)
     y[x > 0] = 1
     return y
