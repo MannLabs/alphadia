@@ -208,9 +208,4 @@ def parse_quantification(
         }
     )
 
-    fragments_df = fragments_df.merge(
-        spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
-        on="precursor_idx",
-        how="left",
-    )
     return precursor_df, fragments_df
