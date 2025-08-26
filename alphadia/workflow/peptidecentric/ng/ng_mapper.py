@@ -175,12 +175,6 @@ def to_features_df(
                 "proteins",
                 "rt_library",
             ]
-            # TODO revisit
-            + (
-                ["rt_calibrated"]
-                if "rt_calibrated" in spectral_library.precursor_df.columns
-                else []
-            )
         ],
         on="precursor_idx",
         how="left",
