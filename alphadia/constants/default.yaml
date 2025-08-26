@@ -36,10 +36,11 @@ general:
 
   # whether to save the pre-processed input library to the output directory
   save_library: True
+  save_flat_library: False
   # type of input library, either 'base' or 'flat'
   # A 'flat' library can be used 'as is', whereas a 'base' library needs to be processed first.
   # Using 'flat' here can save some time during startup, which is handy for debugging and single-file runs.
-  input_library_type: base
+  input_library_type: flat
 
   # whether to save the output (mbr) library to the output directory
   save_mbr_library: True

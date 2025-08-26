@@ -280,10 +280,7 @@ class SearchStep:
             )
             spectral_library = multiplexing(spectral_library)
 
-        if (
-            general_config["save_library"]
-            and general_config["input_library_type"] != "flat"
-        ) or general_config["save_mbr_library"]:
+        if general_config["save_library"] or general_config["save_mbr_library"]:
             library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
             logger.info(f"Saving library to {library_path}")
             spectral_library.save_hdf(library_path)
@@ -304,10 +301,7 @@ class SearchStep:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
-        if (
-            general_config["save_library"]
-            and general_config["input_library_type"] == "flat"
-        ):
+        if general_config["save_flat_library"]:
             library_path = os.path.join(self.output_folder, SPECLIB_FLAT_FILE_NAME)
             logger.info(f"Saving flat library to {library_path}")
             self.spectral_library.save_hdf(library_path)
