@@ -560,18 +560,9 @@ class NgExtractionHandler(ClassicExtractionHandler):
             precursor_df, candidates_df
         )
 
-        # TODO: needed because of common column_type bug
         rt_column = self._column_name_handler.get_rt_column()
         mobility_column = self._column_name_handler.get_mobility_column()
         precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
-        if not (
-            rt_column in spectral_library.precursor_df.columns
-            and mobility_column in spectral_library.precursor_df.columns
-            and precursor_mz_column in spectral_library.precursor_df.columns
-        ):
-            rt_column = rt_column.replace("_calibrated", "_library")
-            mobility_column = mobility_column.replace("_calibrated", "_library")
-            precursor_mz_column = precursor_mz_column.replace("_calibrated", "_library")
 
         precursor_df = CandidateScoring.merge_precursor_data(
             precursor_df,
