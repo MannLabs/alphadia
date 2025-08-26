@@ -2,7 +2,7 @@ import logging
 
 import pandas as pd
 
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
@@ -22,7 +22,7 @@ class MbrLibraryBuilder(ProcessingStep):
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         rt_df = psm_df.groupby("elution_group_idx", as_index=False).agg(
-            rt=pd.NamedAgg(column=MRMCols.RT_OBSERVED, aggfunc="median"),
+            rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
 

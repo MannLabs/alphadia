@@ -41,10 +41,10 @@ COLUMN_TYPE_LIBRARY = "library"
 COLUMN_TYPE_CALIBRATED = "calibrated"
 
 
-class MRMCols(metaclass=ConstantsClass):
-    """String constants for accessing (mz, rt, mobility) (MRM) columns.
+class CalibCols(metaclass=ConstantsClass):
+    """String constants for accessing (mz, rt, mobility) columns in the context of calibration.
 
-    "library" and "calibrated" related to COLUMN_TYPE_LIBRARY and COLUMN_TYPE_CALIBRATED, respectively.
+    "library" and "calibrated" relate to COLUMN_TYPE_LIBRARY and COLUMN_TYPE_CALIBRATED, respectively.
     """
 
     MZ_OBSERVED = "mz_observed"
