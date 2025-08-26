@@ -6,6 +6,7 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.keys import MRMCols
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
 from alphadia.plexscoring.output import OutputPsmDF
@@ -30,15 +31,15 @@ logger = logging.getLogger()
 DEFAULT_FEATURE_COLUMNS = [
     "base_width_mobility",
     "base_width_rt",
-    "rt_observed",
-    "mobility_observed",
+    MRMCols.RT_OBSERVED,
+    MRMCols.MOBILITY_OBSERVED,
     "mono_ms1_intensity",
     "top_ms1_intensity",
     "sum_ms1_intensity",
     "weighted_ms1_intensity",
     "weighted_mass_deviation",
     "weighted_mass_error",
-    "mz_observed",
+    MRMCols.MZ_OBSERVED,
     "mono_ms1_height",
     "top_ms1_height",
     "sum_ms1_height",
@@ -87,9 +88,9 @@ DEFAULT_CANDIDATE_COLUMNS = [
 ]
 
 DEFAULT_PRECURSOR_COLUMNS = [
-    "rt_library",
-    "mobility_library",
-    "mz_library",
+    MRMCols.RT_LIBRARY,
+    MRMCols.MOBILITY_LIBRARY,
+    MRMCols.MZ_LIBRARY,
     "charge",
     "decoy",
     "channel",
@@ -138,15 +139,16 @@ class CandidateScoring:
 
     def __init__(
         self,
+        *,
         dia_data: DiaData,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
-        quadrupole_calibration: SimpleQuadrupole | None = None,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        fragment_mz_column: str,
         config: CandidateConfig | None = None,
-        rt_column: str = "rt_library",
-        mobility_column: str = "mobility_library",
-        precursor_mz_column: str = "mz_library",
-        fragment_mz_column: str = "mz_library",
+        quadrupole_calibration: SimpleQuadrupole | None = None,
     ):
         """Initialize candidate scoring step.
         The features can then be used for scoring, calibration and quantification.
@@ -165,30 +167,31 @@ class CandidateScoring:
             A DataFrame containing fragment information.
             The DataFrame will be validated by using the `alphadia.validation.schemas.fragments_flat` schema.
 
-        quadrupole_calibration : SimpleQuadrupole, default=None
-            An object containing the quadrupole calibration information.
-            If None, an uncalibrated quadrupole will be used.
-            The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
+        rt_column : str
+            The name of the column in `precursors_flat` containing the RT information.
+            This property needs to be changed to `rt_calibrated` if the data has been calibrated.
+
+        mobility_column : str
+            The name of the column in `precursors_flat` containing the mobility information.
+            This property needs to be changed to `mobility_calibrated` if the data has been calibrated.
+
+        precursor_mz_column : str
+            The name of the column in `precursors_flat` containing the precursor m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
+
+        fragment_mz_column : str
+            The name of the column in `fragments_flat` containing the fragment m/z information.
+            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
 
         config : CandidateConfig, default = None
             A Numba jit compatible object containing the configuration for the candidate scoring.
             If None, the default configuration will be used.
 
-        rt_column : str, default='rt_library'
-            The name of the column in `precursors_flat` containing the RT information.
-            This property needs to be changed to `rt_calibrated` if the data has been calibrated.
+        quadrupole_calibration : SimpleQuadrupole, default=None
+            An object containing the quadrupole calibration information.
+            If None, an uncalibrated quadrupole will be used.
+            The object musst have a `jit` method which returns a Numba JIT compiled instance of the calibration function.
 
-        mobility_column : str, default='mobility_library'
-            The name of the column in `precursors_flat` containing the mobility information.
-            This property needs to be changed to `mobility_calibrated` if the data has been calibrated.
-
-        precursor_mz_column : str, default='mz_library'
-            The name of the column in `precursors_flat` containing the precursor m/z information.
-            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
-
-        fragment_mz_column : str, default='mz_library'
-            The name of the column in `fragments_flat` containing the fragment m/z information.
-            This property needs to be changed to `mz_calibrated` if the data has been calibrated.
         """
 
         self._dia_data: DiaData = dia_data
@@ -374,7 +377,7 @@ class CandidateScoring:
         )
 
         return FragmentContainer(
-            self.fragments_flat["mz_library"].values,
+            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,
@@ -450,7 +453,7 @@ class CandidateScoring:
 
         # calculate delta_rt
         candidates_psm_df["delta_rt"] = (
-            candidates_psm_df["rt_observed"] - candidates_psm_df[self.rt_column]
+            candidates_psm_df[MRMCols.RT_OBSERVED] - candidates_psm_df[self.rt_column]
         )
 
         # calculate number of certain amino acids in sequence # TODO unused?
@@ -536,9 +539,9 @@ class CandidateScoring:
         colnames = [
             "precursor_idx",
             "rank",
-            "mz_library",
+            MRMCols.MZ_LIBRARY,
             "mz",
-            "mz_observed",
+            MRMCols.MZ_OBSERVED,
             "height",
             "intensity",
             "mass_error",

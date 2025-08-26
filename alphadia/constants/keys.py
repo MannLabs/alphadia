@@ -37,6 +37,29 @@ class ConfigKeys(metaclass=ConstantsClass):
     SAVE_FIGURES = "save_figures"
 
 
+COLUMN_TYPE_LIBRARY = "library"
+COLUMN_TYPE_CALIBRATED = "calibrated"
+
+
+class MRMCols(metaclass=ConstantsClass):
+    """String constants for accessing (mz, rt, mobility) (MRM) columns.
+
+    "library" and "calibrated" related to COLUMN_TYPE_LIBRARY and COLUMN_TYPE_CALIBRATED, respectively.
+    """
+
+    MZ_OBSERVED = "mz_observed"
+    MZ_LIBRARY = "mz_library"
+    MZ_CALIBRATED = "mz_calibrated"
+
+    RT_OBSERVED = "rt_observed"
+    RT_LIBRARY = "rt_library"
+    RT_CALIBRATED = "rt_calibrated"
+
+    MOBILITY_OBSERVED = "mobility_observed"
+    MOBILITY_LIBRARY = "mobility_library"
+    MOBILITY_CALIBRATED = "mobility_calibrated"
+
+
 class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"
     FRAG_FILE_NAME = "frag.parquet"

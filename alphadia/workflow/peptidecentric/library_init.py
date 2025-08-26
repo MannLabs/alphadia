@@ -1,6 +1,7 @@
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.constants.keys import MRMCols
 from alphadia.reporting.reporting import Pipeline
 
 
@@ -39,8 +40,8 @@ def init_spectral_library(
             - precursor_df_unfiltered attribute is set to the original precursor dataframe.
     """
     # normalize RT
-    spectral_library._precursor_df["rt_library"] = _norm_to_rt(
-        dia_rt_values, spectral_library._precursor_df["rt_library"].values
+    spectral_library._precursor_df[MRMCols.RT_LIBRARY] = _norm_to_rt(
+        dia_rt_values, spectral_library._precursor_df[MRMCols.RT_LIBRARY].values
     )
 
     # filter based on precursor observability
@@ -51,8 +52,8 @@ def init_spectral_library(
 
     n_precursor_before = np.sum(spectral_library._precursor_df["decoy"] == 0)
     spectral_library._precursor_df = spectral_library._precursor_df[
-        (spectral_library._precursor_df["mz_library"] >= lower_mz_limit)
-        & (spectral_library._precursor_df["mz_library"] <= upper_mz_limit)
+        (spectral_library._precursor_df[MRMCols.MZ_LIBRARY] >= lower_mz_limit)
+        & (spectral_library._precursor_df[MRMCols.MZ_LIBRARY] <= upper_mz_limit)
     ]
     n_precursors_after = np.sum(spectral_library._precursor_df["decoy"] == 0)
     reporter.log_string(
