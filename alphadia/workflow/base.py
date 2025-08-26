@@ -136,6 +136,7 @@ class WorkflowBase:
         self._calibration_manager = CalibrationManager(
             path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
+            has_ms1=self._dia_data.has_ms1,
             has_mobility=self._dia_data.has_mobility,
             reporter=self.reporter,
         )

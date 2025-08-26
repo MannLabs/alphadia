@@ -15,7 +15,10 @@ from alphadia.plexscoring.utils import (
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
@@ -82,10 +85,10 @@ class TransferLibraryRequantificationHandler:
 
         # calibrate
         self._calibration_manager.predict(
-            candidate_speclib_flat.precursor_df, "precursor"
+            candidate_speclib_flat.precursor_df, CalibrationGroups.PRECURSOR
         )
         self._calibration_manager.predict(
-            candidate_speclib_flat.fragment_df, "fragment"
+            candidate_speclib_flat.fragment_df, CalibrationGroups.FRAGMENT
         )
 
         self._reporter.log_string(

@@ -7,7 +7,11 @@ import seaborn as sns
 
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
-from alphadia.workflow.managers.calibration_manager import CalibrationManager
+from alphadia.workflow.managers.calibration_manager import (
+    CalibrationEstimators,
+    CalibrationGroups,
+    CalibrationManager,
+)
 from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.optimizers.base import BaseOptimizer
@@ -113,7 +117,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         else:
             new_parameter = self._propose_new_parameter(
                 precursors_df
-                if self._estimator_group_name == "precursor"
+                if self._estimator_group_name == CalibrationGroups.PRECURSOR
                 else fragments_df
             )
 
@@ -427,8 +431,8 @@ class AutomaticRTOptimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes retention time error."""
         self.parameter_name = "rt_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "rt"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.RT
         self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
@@ -459,8 +463,8 @@ class AutomaticMS2Optimizer(AutomaticOptimizer):
     ):
         """See base class. This class automatically optimizes the MS2 tolerance parameter by tracking the number of precursor identifications and stopping when further changes do not increase this number."""
         self.parameter_name = "ms2_error"
-        self._estimator_group_name = "fragment"
-        self._estimator_name = "mz"
+        self._estimator_group_name = CalibrationGroups.FRAGMENT
+        self._estimator_name = CalibrationEstimators.MZ
         self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
@@ -491,8 +495,8 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes MS1 error."""
         self.parameter_name = "ms1_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "mz"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.MZ
         self._feature_name = "mean_isotope_intensity_correlation"
         super().__init__(
             initial_parameter,
@@ -523,8 +527,8 @@ class AutomaticMobilityOptimizer(AutomaticOptimizer):
     ):
         """See base class. Optimizes mobility error."""
         self.parameter_name = "mobility_error"
-        self._estimator_group_name = "precursor"
-        self._estimator_name = "mobility"
+        self._estimator_group_name = CalibrationGroups.PRECURSOR
+        self._estimator_name = CalibrationEstimators.MOBILITY
         self._feature_name = "precursor_proportion_detected"
         super().__init__(
             initial_parameter,
