@@ -16,7 +16,7 @@ def test_fit_predict_linear():
 
     mz_calibration = Calibration(
         name="mz_calibration",
-        function=LinearRegression(),
+        model=LinearRegression(),
         input_columns=["library_mz"],
         target_columns=["observed_mz"],
         output_columns=["calibrated_mz"],
@@ -37,7 +37,7 @@ def test_fit_predict_loess():
 
     mz_calibration = Calibration(
         name="mz_calibration",
-        function=LOESSRegression(),
+        model=LOESSRegression(),
         input_columns=["library_mz"],
         target_columns=["observed_mz"],
         output_columns=["calibrated_mz"],
@@ -58,7 +58,7 @@ def test_save_load():
 
     mz_calibration = Calibration(
         name="mz_calibration",
-        function=LinearRegression(),
+        model=LinearRegression(),
         input_columns=["library_mz"],
         target_columns=["observed_mz"],
         output_columns=["calibrated_mz"],

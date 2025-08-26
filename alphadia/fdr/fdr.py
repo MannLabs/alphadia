@@ -1,14 +1,20 @@
 """Module performing False Discovery Rate (FDR) control."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 
-from alphadia.fdr.classifiers import Classifier
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
+
+if TYPE_CHECKING:
+    from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
+    from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
 
@@ -17,7 +23,7 @@ logger = logging.getLogger()
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: PLR0913 # Too many arguments
-    classifier: Classifier,  # | TwoStepClassifier,  # TODO: fix circular import
+    classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
