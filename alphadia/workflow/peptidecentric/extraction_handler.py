@@ -549,7 +549,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
             dia_data, speclib_ng, candidates_collection
         )
         precursor_df, fragments_df = parse_quantification(
-            quantified_lib, precursor_fdr_df, spectral_library
+            quantified_lib, precursor_fdr_df
         )
 
         # merge in missing columns
@@ -557,16 +557,12 @@ class NgExtractionHandler(ClassicExtractionHandler):
             precursor_df, candidates_df
         )
 
-        rt_column = self._column_name_handler.get_rt_column()
-        mobility_column = self._column_name_handler.get_mobility_column()
-        precursor_mz_column = self._column_name_handler.get_precursor_mz_column()
-
         precursor_df = CandidateScoring.merge_precursor_data(
             precursor_df,
             spectral_library.precursor_df,
-            rt_column=rt_column,
-            mobility_column=mobility_column,
-            precursor_mz_column=precursor_mz_column,
+            rt_column=self._column_name_handler.get_rt_column(),
+            mobility_column=self._column_name_handler.get_mobility_column(),
+            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
         )
 
         return precursor_df, fragments_df
