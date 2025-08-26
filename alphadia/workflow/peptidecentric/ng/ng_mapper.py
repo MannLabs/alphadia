@@ -61,17 +61,6 @@ def speclib_to_ng(
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
 
-    # TODO: very dirty hack that comes from the fact that the ng library is rebuilt everytime, which causes troubles if not all columns are present
-    #  probably related to 'common column_type bug'
-    if not (
-        rt_column in precursor_df.columns
-        and precursor_mz_column in precursor_df.columns
-        and fragment_mz_column in fragment_df.columns
-    ):
-        rt_column = rt_column.replace("_calibrated", "_library")
-        precursor_mz_column = precursor_mz_column.replace("_calibrated", "_library")
-        fragment_mz_column = fragment_mz_column.replace("_calibrated", "_library")
-
     # precursor_df_filtered["cycle_fwhm"] is mz_calibrated -> where does it come from? # TODO
     speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
