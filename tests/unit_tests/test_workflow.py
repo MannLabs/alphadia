@@ -13,7 +13,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
-from alphadia.calibration.property import Calibration
+from alphadia.calibration.property import CalibrationEstimator
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow import base
@@ -124,9 +124,15 @@ def test_calibration_manager_init():
     assert calibration_manager.get_estimator("precursor", "rt").name == "rt"
     assert calibration_manager.get_estimator("fragment", "mz").name == "mz"
 
-    assert isinstance(calibration_manager.get_estimator("precursor", "mz"), Calibration)
-    assert isinstance(calibration_manager.get_estimator("precursor", "rt"), Calibration)
-    assert isinstance(calibration_manager.get_estimator("fragment", "mz"), Calibration)
+    assert isinstance(
+        calibration_manager.get_estimator("precursor", "mz"), CalibrationEstimator
+    )
+    assert isinstance(
+        calibration_manager.get_estimator("precursor", "rt"), CalibrationEstimator
+    )
+    assert isinstance(
+        calibration_manager.get_estimator("fragment", "mz"), CalibrationEstimator
+    )
 
     assert isinstance(
         calibration_manager.get_estimator("precursor", "mz")._model, LinearRegression

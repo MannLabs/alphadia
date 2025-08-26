@@ -2,14 +2,17 @@ import logging
 
 import pandas as pd
 
-from alphadia.calibration.property import Calibration, calibration_model_provider
+from alphadia.calibration.property import (
+    CalibrationEstimator,
+    calibration_model_provider,
+)
 from alphadia.constants.keys import CalibCols, ConstantsClass
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
 
-EstimatorGroups = dict[str, dict[str, Calibration]]
+EstimatorGroups = dict[str, dict[str, CalibrationEstimator]]
 CalibrationConfig = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
@@ -168,7 +171,7 @@ class CalibrationManager(BaseManager):
                 f"Found {len(estimators_params_in_group)} estimator(s) in calibration group '{group_name}'"
             )
 
-            initialized_estimators: dict[str, Calibration] = {}
+            initialized_estimators: dict[str, CalibrationEstimator] = {}
             for estimator_name, estimator_params in estimators_params_in_group.items():
                 if (
                     not self._has_mobility
@@ -195,7 +198,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"Initializing estimator '{estimator_name}' in group '{group_name}' with '{estimator_params}' .."
                 )
-                initialized_estimators[estimator_name] = Calibration(
+                initialized_estimators[estimator_name] = CalibrationEstimator(
                     name=estimator_name,
                     model=model(**model_args),
                     input_columns=estimator_params["input_columns"],
@@ -226,7 +229,7 @@ class CalibrationManager(BaseManager):
 
         Returns
         -------
-        Calibration
+        CalibrationEstimator
             The estimator object
 
         """

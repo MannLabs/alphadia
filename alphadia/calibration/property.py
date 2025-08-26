@@ -16,7 +16,7 @@ from alphadia.calibration.models import (
 from alphadia.calibration.plot import plot_calibration
 
 
-class Calibration:
+class CalibrationEstimator:
     """A single estimator for a property."""
 
     def __init__(  # noqa: PLR0913 # Too many arguments
@@ -95,7 +95,7 @@ class Calibration:
             pickle.dump(self, f)
 
     @classmethod
-    def from_file(cls, file_name: str) -> "Calibration":
+    def from_file(cls, file_name: str) -> "CalibrationEstimator":
         """Load the estimator from pickle file.
 
         Parameters
@@ -105,9 +105,9 @@ class Calibration:
 
         """
         with Path(file_name).open("rb") as f:
-            loaded_calibration: Calibration = pickle.load(f)  # noqa: S301
+            loaded_calibration: CalibrationEstimator = pickle.load(f)  # noqa: S301
 
-        new_calibration = Calibration(
+        new_calibration = CalibrationEstimator(
             name=loaded_calibration.name,
             model=loaded_calibration._model,  # noqa: SLF001
             input_columns=loaded_calibration.input_columns,

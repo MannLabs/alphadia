@@ -6,7 +6,7 @@ import pandas as pd
 from sklearn.linear_model import LinearRegression
 
 from alphadia.calibration.models import LOESSRegression
-from alphadia.calibration.property import Calibration
+from alphadia.calibration.property import CalibrationEstimator
 
 
 def test_fit_predict_linear():
@@ -14,7 +14,7 @@ def test_fit_predict_linear():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = Calibration(
+    mz_calibration = CalibrationEstimator(
         name="mz_calibration",
         model=LinearRegression(),
         input_columns=["library_mz"],
@@ -35,7 +35,7 @@ def test_fit_predict_loess():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = Calibration(
+    mz_calibration = CalibrationEstimator(
         name="mz_calibration",
         model=LOESSRegression(),
         input_columns=["library_mz"],
@@ -56,7 +56,7 @@ def test_save_load():
     observed_mz = library_mz + np.random.normal(0, 0.1, 100) + library_mz * 0.001
     mz_df = pd.DataFrame({"library_mz": library_mz, "observed_mz": observed_mz})
 
-    mz_calibration = Calibration(
+    mz_calibration = CalibrationEstimator(
         name="mz_calibration",
         model=LinearRegression(),
         input_columns=["library_mz"],
@@ -73,7 +73,7 @@ def test_save_load():
     path = os.path.join(tempfile.tempdir, "mz_calibration.pkl")
     mz_calibration.save(path)
 
-    mz_calibration_loaded = Calibration.from_file(path)
+    mz_calibration_loaded = CalibrationEstimator.from_file(path)
     mz_calibration_loaded.predict(df_loaded)
 
     assert np.allclose(df_original["calibrated_mz"], df_loaded["calibrated_mz"])
