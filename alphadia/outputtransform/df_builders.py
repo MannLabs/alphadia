@@ -142,12 +142,7 @@ def build_run_stat_df(
             logger.warning(f"Error reading calibration manager for {raw_name}")
 
         prefix = "calibration."
-        for key in [
-            "ms2_median_accuracy",
-            "ms2_median_precision",
-            "ms1_median_accuracy",
-            "ms1_median_precision",
-        ]:
+        for key in calibration_stats:
             stats[f"{prefix}{key}"] = calibration_stats[key]
 
         # collect raw stats
