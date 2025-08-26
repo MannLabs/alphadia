@@ -20,7 +20,7 @@ try:
     )
 
     HAS_ALPHADIA_NG = True
-except ModuleNotFoundError:
+except ImportError:
     HAS_ALPHADIA_NG = False
 
 from alphadia.raw_data import DiaData
