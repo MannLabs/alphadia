@@ -8,7 +8,7 @@ The calibration module provides functionality to calibrate measured quantities l
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.calibration.property
+.. automodule:: alphadia.calibration.estimator
    :members:
    :undoc-members:
    :show-inheritance:

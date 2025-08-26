@@ -1,4 +1,8 @@
-from alphadia.constants.keys import COLUMN_TYPE_CALIBRATED, COLUMN_TYPE_LIBRARY, MRMCols
+from alphadia.constants.keys import (
+    COLUMN_TYPE_CALIBRATED,
+    COLUMN_TYPE_LIBRARY,
+    CalibCols,
+)
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
@@ -36,10 +40,10 @@ class ColumnNameHandler:
             not self._dia_data_has_ms1
             or self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY
         ):
-            return MRMCols.MZ_LIBRARY
+            return CalibCols.MZ_LIBRARY
 
         if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
-            return MRMCols.MZ_CALIBRATED
+            return CalibCols.MZ_CALIBRATED
 
         raise ValueError(
             f"Unknown column type: {self._optimization_manager.column_type}"
@@ -57,10 +61,10 @@ class ColumnNameHandler:
         """
 
         if self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY:
-            return MRMCols.MZ_LIBRARY
+            return CalibCols.MZ_LIBRARY
 
         if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
-            return MRMCols.MZ_CALIBRATED
+            return CalibCols.MZ_CALIBRATED
 
         raise ValueError(
             f"Unknown column type: {self._optimization_manager.column_type}"
@@ -78,10 +82,10 @@ class ColumnNameHandler:
             Name of the precursor rt column
         """
         if self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY:
-            return MRMCols.RT_LIBRARY
+            return CalibCols.RT_LIBRARY
 
         if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
-            return MRMCols.RT_CALIBRATED
+            return CalibCols.RT_CALIBRATED
 
         raise ValueError(
             f"Unknown column type: {self._optimization_manager.column_type}"
@@ -102,10 +106,10 @@ class ColumnNameHandler:
             not self._dia_data_has_mobility
             or self._optimization_manager.column_type == COLUMN_TYPE_LIBRARY
         ):
-            return MRMCols.MOBILITY_LIBRARY
+            return CalibCols.MOBILITY_LIBRARY
 
         if self._optimization_manager.column_type == COLUMN_TYPE_CALIBRATED:
-            return MRMCols.MOBILITY_CALIBRATED
+            return CalibCols.MOBILITY_CALIBRATED
 
         raise ValueError(
             f"Unknown column type: {self._optimization_manager.column_type}"
