@@ -551,9 +551,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
         precursor_df, fragments_df = parse_quantification(
             quantified_lib, precursor_fdr_df, spectral_library
-        )  # TODO WiP: throw away previous precursor_df  XXX
-
-        # TODO XXX set has_ms1 = False until we get the mz_observed for precursor df XXX
+        )
 
         # merge in missing columns
         precursor_df = CandidateScoring.merge_candidate_data(
