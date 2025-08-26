@@ -185,7 +185,6 @@ def to_features_df(
 def parse_quantification(
     quantified_speclib: "SpecLibFlatQuantified",  # noqa: F821
     precursor_fdr_df: pd.DataFrame,
-    spectral_library: SpecLibFlat,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Convert NG quantified spectral library to classic precursor and fragments DataFrame."""
 
