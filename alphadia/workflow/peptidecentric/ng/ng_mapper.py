@@ -195,8 +195,8 @@ def parse_quantification(
     precursor_df = pd.DataFrame(precursor_dict).rename(columns={"idx": "precursor_idx"})
 
     precursor_df = precursor_df.merge(
-        precursor_fdr_df[["precursor_idx", "qval", "proba"]],
-        on="precursor_idx",
+        precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+        on=["precursor_idx", "rank"],
         how="left",
     )
 
