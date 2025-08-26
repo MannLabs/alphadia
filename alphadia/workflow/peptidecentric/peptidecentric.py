@@ -5,6 +5,10 @@ import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from workflow.peptidecentric.ng.ng_mapper import get_feature_names
 
+try:  # noqa: SIM105
+    from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
+except ImportError:
+    pass
 from alphadia.fdr._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
