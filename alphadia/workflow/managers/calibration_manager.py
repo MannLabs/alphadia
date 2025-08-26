@@ -215,7 +215,9 @@ class CalibrationManager(BaseManager):
 
         return estimator_groups
 
-    def get_estimator(self, group_name: str, estimator_name: str):
+    def get_estimator(
+        self, group_name: str, estimator_name: str
+    ) -> CalibrationEstimator | None:
         """Get an estimator from a calibration group.
 
         Parameters
@@ -229,11 +231,14 @@ class CalibrationManager(BaseManager):
 
         Returns
         -------
-        CalibrationEstimator
-            The estimator object
+        CalibrationEstimator | None
+            The estimator object or None if not found
 
         """
-        return self.estimator_groups[group_name][estimator_name]
+        try:
+            return self.estimator_groups[group_name][estimator_name]
+        except KeyError:
+            return None
 
     def fit(
         self,
