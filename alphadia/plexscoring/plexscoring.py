@@ -27,6 +27,81 @@ from alphadia.validation.schemas import (
 
 logger = logging.getLogger()
 
+DEFAULT_FEATURE_COLUMNS = [
+    "base_width_mobility",
+    "base_width_rt",
+    "rt_observed",
+    "mobility_observed",
+    "mono_ms1_intensity",
+    "top_ms1_intensity",
+    "sum_ms1_intensity",
+    "weighted_ms1_intensity",
+    "weighted_mass_deviation",
+    "weighted_mass_error",
+    "mz_observed",
+    "mono_ms1_height",
+    "top_ms1_height",
+    "sum_ms1_height",
+    "weighted_ms1_height",
+    "isotope_intensity_correlation",
+    "isotope_height_correlation",
+    "n_observations",
+    "intensity_correlation",
+    "height_correlation",
+    "intensity_fraction",
+    "height_fraction",
+    "intensity_fraction_weighted",
+    "height_fraction_weighted",
+    "mean_observation_score",
+    "sum_b_ion_intensity",
+    "sum_y_ion_intensity",
+    "diff_b_y_ion_intensity",
+    "f_masked",
+    "fragment_scan_correlation",
+    "template_scan_correlation",
+    "fragment_frame_correlation",
+    "top3_frame_correlation",
+    "template_frame_correlation",
+    "top3_b_ion_correlation",
+    "n_b_ions",
+    "top3_y_ion_correlation",
+    "n_y_ions",
+    "cycle_fwhm",
+    "mobility_fwhm",
+    "delta_frame_peak",
+    "top_3_ms2_mass_error",
+    "mean_ms2_mass_error",
+    "n_overlapping",
+    "mean_overlapping_intensity",
+    "mean_overlapping_mass_error",
+]
+
+DEFAULT_CANDIDATE_COLUMNS = [
+    "elution_group_idx",
+    "scan_center",
+    "scan_start",
+    "scan_stop",
+    "frame_center",
+    "frame_start",
+    "frame_stop",
+]
+
+DEFAULT_PRECURSOR_COLUMNS = [
+    "rt_library",
+    "mobility_library",
+    "mz_library",
+    "charge",
+    "decoy",
+    "channel",
+    "flat_frag_start_idx",
+    "flat_frag_stop_idx",
+    "proteins",
+    "genes",
+    "sequence",
+    "mods",
+    "mod_sites",
+]
+
 
 def _get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
@@ -285,10 +360,7 @@ class CandidateScoring:
         """
 
         # set cardinality to 1 if not present
-        if "cardinality" in self.fragments_flat.columns:
-            pass
-
-        else:
+        if "cardinality" not in self.fragments_flat.columns:
             logger.warning(
                 "Fragment cardinality column not found in fragment dataframe. Setting cardinality to 1."
             )
@@ -314,18 +386,32 @@ class CandidateScoring:
         )
 
     def collect_candidates(
-        self, candidates_df: pd.DataFrame, psm_proto_df
+        self,
+        candidates_df: pd.DataFrame,
+        psm_proto_df: OutputPsmDF,
+        feature_columns: list[str] | None = None,
+        candidate_columns: list[str] | None = None,
+        precursor_df_columns: list[str] | None = None,
     ) -> pd.DataFrame:
         """Collect the features from the score group container and return a DataFrame.
 
         Parameters
         ----------
 
-        score_group_container : ScoreGroupContainer
-            A Numba JIT compatible score group container.
-
         candidates_df : pd.DataFrame
             A DataFrame containing the features for each candidate.
+
+        psm_proto_df : OutputPsmDF
+            A Numba JIT compatible OutputPsmDF object containing the features for each candidate.
+
+        feature_columns : list[str], default=None
+            The columns to use for the features. If None, the `DEFAULT_FEATURE_COLUMNS` will be used
+
+        candidate_columns : list[str], default=None
+            The columns to use for the candidates. If None, the `DEFAULT_CANDIDATE_COLUMNS` will be used
+
+        precursor_df_columns : list[str], default=None
+            The columns to use for the precursor DataFrame. If None, the DEFAULT_PRECURSOR_COLUMNS will be used.
 
         Returns
         -------
@@ -334,134 +420,96 @@ class CandidateScoring:
             A DataFrame containing the features for each candidate.
         """
 
-        feature_columns = [
-            "base_width_mobility",
-            "base_width_rt",
-            "rt_observed",
-            "mobility_observed",
-            "mono_ms1_intensity",
-            "top_ms1_intensity",
-            "sum_ms1_intensity",
-            "weighted_ms1_intensity",
-            "weighted_mass_deviation",
-            "weighted_mass_error",
-            "mz_observed",
-            "mono_ms1_height",
-            "top_ms1_height",
-            "sum_ms1_height",
-            "weighted_ms1_height",
-            "isotope_intensity_correlation",
-            "isotope_height_correlation",
-            "n_observations",
-            "intensity_correlation",
-            "height_correlation",
-            "intensity_fraction",
-            "height_fraction",
-            "intensity_fraction_weighted",
-            "height_fraction_weighted",
-            "mean_observation_score",
-            "sum_b_ion_intensity",
-            "sum_y_ion_intensity",
-            "diff_b_y_ion_intensity",
-            "f_masked",
-            "fragment_scan_correlation",
-            "template_scan_correlation",
-            "fragment_frame_correlation",
-            "top3_frame_correlation",
-            "template_frame_correlation",
-            "top3_b_ion_correlation",
-            "n_b_ions",
-            "top3_y_ion_correlation",
-            "n_y_ions",
-            "cycle_fwhm",
-            "mobility_fwhm",
-            "delta_frame_peak",
-            "top_3_ms2_mass_error",
-            "mean_ms2_mass_error",
-            "n_overlapping",
-            "mean_overlapping_intensity",
-            "mean_overlapping_mass_error",
-        ]
+        if feature_columns is None:
+            feature_columns = DEFAULT_FEATURE_COLUMNS.copy()
+        if candidate_columns is None:
+            candidate_columns = DEFAULT_CANDIDATE_COLUMNS.copy()
+        if precursor_df_columns is None:
+            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS.copy()
 
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
-        df = pd.DataFrame(features, columns=feature_columns)
-        df["precursor_idx"] = precursor_idx
-        df["rank"] = rank
+        candidates_psm_df = pd.DataFrame(features, columns=feature_columns)
+        candidates_psm_df["precursor_idx"] = precursor_idx
+        candidates_psm_df["rank"] = rank
 
-        # join candidate columns
-        candidate_df_columns = [
-            "elution_group_idx",
-            "scan_center",
-            "scan_start",
-            "scan_stop",
-            "frame_center",
-            "frame_start",
-            "frame_stop",
-        ]
+        candidates_psm_df = self.merge_candidate_data(
+            candidates_psm_df,
+            candidates_df,
+            candidate_columns,
+        )
 
-        candidate_df_columns += ["score"] if "score" in candidates_df.columns else []
+        candidates_psm_df = self.merge_precursor_data(
+            candidates_psm_df,
+            self.precursors_flat_df,
+            self.rt_column,
+            self.mobility_column,
+            self.precursor_mz_column,
+            precursor_df_columns,
+        )
 
-        df = merge_missing_columns(
+        # calculate delta_rt
+        candidates_psm_df["delta_rt"] = (
+            candidates_psm_df["rt_observed"] - candidates_psm_df[self.rt_column]
+        )
+
+        # calculate number of certain amino acids in sequence # TODO unused?
+        candidates_psm_df["n_K"] = candidates_psm_df["sequence"].str.count("K")
+        candidates_psm_df["n_R"] = candidates_psm_df["sequence"].str.count("R")
+        candidates_psm_df["n_P"] = candidates_psm_df["sequence"].str.count("P")
+
+        return candidates_psm_df
+
+    @staticmethod
+    def merge_candidate_data(
+        df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        candidate_columns: list[str] | None = None,
+    ):
+        """Merge `candidate_columns` from `candidates_df` into `df`."""
+
+        if candidate_columns is None:
+            candidate_columns = DEFAULT_CANDIDATE_COLUMNS.copy()
+
+        candidate_columns += ["score"] if "score" in candidates_df.columns else []
+
+        return merge_missing_columns(
             df,
             candidates_df,
-            candidate_df_columns,
+            candidate_columns,
             on=["precursor_idx", "rank"],
             how="left",
         )
 
-        # join precursor columns
-        precursor_df_columns = [
-            "rt_library",
-            "mobility_library",
-            "mz_library",
-            "charge",
-            "decoy",
-            "channel",
-            "flat_frag_start_idx",
-            "flat_frag_stop_idx",
-            "proteins",
-            "genes",
-            "sequence",
-            "mods",
-            "mod_sites",
-        ] + _get_isotope_column_names(self.precursors_flat_df.columns)
+    @staticmethod
+    def merge_precursor_data(
+        df: pd.DataFrame,
+        precursors_flat_df: pd.DataFrame,
+        rt_column: str,
+        mobility_column: str,
+        precursor_mz_column: str,
+        precursor_df_columns: list[str] | None = None,
+    ):
+        """Merge `rt_column`, `mobility_column`, `precursor_mz_column`, `precursor_df_columns` from `precursors_flat_df` into `df`."""
 
-        precursor_df_columns += (
-            [self.rt_column] if self.rt_column not in precursor_df_columns else []
-        )
-        precursor_df_columns += (
-            [self.mobility_column]
-            if self.mobility_column not in precursor_df_columns
-            else []
-        )
-        precursor_df_columns += (
-            [self.precursor_mz_column]
-            if self.precursor_mz_column not in precursor_df_columns
-            else []
+        if precursor_df_columns is None:
+            precursor_df_columns = DEFAULT_PRECURSOR_COLUMNS.copy()
+
+        precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
+            precursors_flat_df.columns
         )
 
-        df = merge_missing_columns(
+        for col in [rt_column, mobility_column, precursor_mz_column]:
+            if col not in precursor_df_columns:
+                precursor_df_columns.append(col)
+
+        return merge_missing_columns(
             df,
-            self.precursors_flat_df,
+            precursors_flat_df,
             precursor_df_columns,
             on=["precursor_idx"],
             how="left",
         )
-
-        # calculate delta_rt
-
-        if self.rt_column == "rt_library":
-            df["delta_rt"] = df["rt_observed"] - df["rt_library"]
-        else:
-            df["delta_rt"] = df["rt_observed"] - df[self.rt_column]
-
-        # calculate number of K in sequence
-        df["n_K"] = df["sequence"].str.count("K")
-        df["n_R"] = df["sequence"].str.count("R")
-        df["n_P"] = df["sequence"].str.count("P")
-
-        return df
 
     def collect_fragments(
         self, candidates_df: pd.DataFrame, psm_proto_df
