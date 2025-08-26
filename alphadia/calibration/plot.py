@@ -14,7 +14,7 @@ from alphadia.plotting.utils import density_scatter
 if TYPE_CHECKING:
     import pandas as pd
 
-    from alphadia.calibration.property import CalibrationEstimator
+    from alphadia.calibration.estimator import CalibrationEstimator
 
 
 def plot_calibration(

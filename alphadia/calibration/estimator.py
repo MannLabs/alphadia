@@ -1,4 +1,4 @@
-"""Calibration property module."""
+"""Calibration estimator module."""
 
 import logging
 import pickle

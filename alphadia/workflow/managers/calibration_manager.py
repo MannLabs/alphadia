@@ -2,7 +2,7 @@ import logging
 
 import pandas as pd
 
-from alphadia.calibration.property import (
+from alphadia.calibration.estimator import (
     CalibrationEstimator,
     calibration_model_provider,
 )

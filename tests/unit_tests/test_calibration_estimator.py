@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 
+from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.calibration.models import LOESSRegression
-from alphadia.calibration.property import CalibrationEstimator
 
 
 def test_fit_predict_linear():

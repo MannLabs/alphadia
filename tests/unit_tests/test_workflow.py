@@ -12,8 +12,8 @@ import yaml
 from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
 
+from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.calibration.models import LOESSRegression
-from alphadia.calibration.property import CalibrationEstimator
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
 from alphadia.workflow import base
