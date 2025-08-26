@@ -79,12 +79,9 @@ class SearchPlanOutput:
         if self._figure_path and not os.path.exists(self._figure_path):
             os.makedirs(self._figure_path)
 
-    def build(
-        self,
-        folder_list: list[str],
-        base_spec_lib: base.SpecLibBase,
-    ):
-        """Build output from a list of seach outputs
+    def build(self, folder_list: list[str], base_spec_lib: base.SpecLibBase | None):
+        """Build output from a list of search outputs.
+
         The following files are written to the output folder:
         - precursor.tsv
         - protein_groups.tsv
@@ -97,21 +94,22 @@ class SearchPlanOutput:
         folder_list: List[str]
             List of folders containing the search outputs
 
-        base_spec_lib: base.SpecLibBase
+        base_spec_lib: base.SpecLibBase, optional
             Base spectral library
 
         """
         logger.progress("Processing search outputs")
-        psm_df = self._build_precursor_table(
-            folder_list, save=False, base_spec_lib=base_spec_lib
-        )
+        psm_df = self._build_precursor_table(folder_list, save=False)
         self._build_stat_df(folder_list, psm_df=psm_df, save=True)
         self._build_internal_df(folder_list, save=True)
         self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
-        self._build_library(
-            base_spec_lib,
-            psm_df=psm_df,
-        )
+
+        if self.config["general"]["save_mbr_library"]:
+            if base_spec_lib is None:
+                raise ValueError(
+                    "Passing base spectral library is required for MBR library building."
+                )
+            self._build_mbr_library(base_spec_lib, psm_df=psm_df, save=True)
 
         if self.config["transfer_library"]["enabled"]:
             self._build_transfer_library(folder_list, save=True)
@@ -263,9 +261,8 @@ class SearchPlanOutput:
         self,
         folder_list: list[str],
         save: bool = True,
-        base_spec_lib: base.SpecLibBase = None,
     ):
-        """Build precursor table from a list of seach outputs
+        """Build precursor table from a list of search outputs
 
         Parameters
         ----------
@@ -302,18 +299,11 @@ class SearchPlanOutput:
                     logger.warning(f"Error reading psm file for {raw_name}")
                     logger.warning(e)
 
-        if len(psm_df_list) == 0:
-            raise NoPsmFoundError()
-
         logger.info("Building combined output")
         psm_df = pd.concat(psm_df_list)
 
-        if base_spec_lib is not None:
-            psm_df = psm_df.merge(
-                base_spec_lib.precursor_df[["precursor_idx"]],
-                on="precursor_idx",
-                how="left",
-            )
+        if len(psm_df) == 0:
+            raise NoPsmFoundError()
 
         logger.info("Performing protein inference")
 
@@ -324,10 +314,6 @@ class SearchPlanOutput:
         # make mod_sites column a string not object
         psm_df["mod_sites"] = psm_df["mod_sites"].astype(str)
         psm_df = precursor.hash_precursor_df(psm_df)
-
-        if len(psm_df) == 0:
-            logger.error("combined psm file is empty, can't continue")
-            raise FileNotFoundError("combined psm file is empty, can't continue")
 
         if self.config["fdr"]["inference_strategy"] == "library":
             logger.info(
@@ -395,10 +381,10 @@ class SearchPlanOutput:
     def _build_stat_df(
         self,
         folder_list: list[str],
-        psm_df: pd.DataFrame | None = None,
+        psm_df: pd.DataFrame,
         save: bool = True,
     ):
-        """Build stat table from a list of seach outputs
+        """Build stat table from a list of search outputs
 
         Parameters
         ----------
@@ -406,8 +392,8 @@ class SearchPlanOutput:
         folder_list: List[str]
             List of folders containing the search outputs
 
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
 
         save: bool
             Save the precursor table to disk
@@ -431,8 +417,6 @@ class SearchPlanOutput:
             )
         all_channels = sorted([int(c) for c in all_channels])
 
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         stat_df_list = []
@@ -464,7 +448,7 @@ class SearchPlanOutput:
         folder_list: list[str],
         save: bool = True,
     ):
-        """Build internal data table from a list of seach outputs
+        """Build internal data table from a list of search outputs
 
         Parameters
         ----------
@@ -506,7 +490,7 @@ class SearchPlanOutput:
     def _build_lfq_tables(
         self,
         folder_list: list[str],
-        psm_df: pd.DataFrame | None = None,
+        psm_df: pd.DataFrame,
         save: bool = True,
     ):
         """Accumulate fragment information and perform label-free protein quantification.
@@ -515,18 +499,16 @@ class SearchPlanOutput:
         ----------
         folder_list: List[str]
             List of folders containing the search outputs
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
         save: bool
             Save the precursor table to disk
         """
         logger.progress("Performing label free quantification")
 
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
-
         # as we want to retain decoys in the output we are only removing them for lfq
-        qb = QuantBuilder(psm_df[psm_df["decoy"] == 0])
+        psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
+        qb = QuantBuilder(psm_no_decoys_df)
 
         intensity_df, quality_df = qb.accumulate_frag_df_from_folders(folder_list)
 
@@ -636,12 +618,13 @@ class SearchPlanOutput:
 
         return lfq_results
 
-    def _build_library(
+    def _build_mbr_library(
         self,
         base_spec_lib: base.SpecLibBase,
-        psm_df: pd.DataFrame | None = None,
-    ):
-        """Build spectral library
+        psm_df: pd.DataFrame,
+        save: bool = True,
+    ) -> SpecLibBase | None:
+        """Build MBR spectral library.
 
         Parameters
         ----------
@@ -649,25 +632,24 @@ class SearchPlanOutput:
         base_spec_lib: base.SpecLibBase
             Base spectral library
 
-        psm_df: Union[pd.DataFrame, None]
-            Combined precursor table. If None, the precursor table is loaded from disk.
+        psm_df: pd.DataFrame
+            Combined precursor table
+
+        save: bool
+            Save the MBR spectral library to disk
 
         """
-        logger.progress("Building spectral library")
+        logger.progress("Building MBR spectral library")
 
-        if psm_df is None:
-            psm_df = self._load_precursor_table()
         psm_df = psm_df[psm_df["decoy"] == 0]
 
         if len(psm_df) == 0:
-            logger.warning("No precursors found, skipping library building")
+            logger.warning("No precursors found, skipping MBR library building")
             return None
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
         )
-
-        logger.info("Building MBR spectral library")
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
         precursor_number = len(mbr_spec_lib.precursor_df)
@@ -677,7 +659,7 @@ class SearchPlanOutput:
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
         )
 
-        if self.config["general"]["save_mbr_library"]:
+        if save:
             logger.info("Writing MBR spectral library to disk")
             mbr_spec_lib.save_hdf(
                 os.path.join(
