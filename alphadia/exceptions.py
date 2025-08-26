@@ -7,6 +7,7 @@ class CustomError(Exception):
     _error_code = ""
     _msg = ""
     _detail_msg = ""
+    _user_msg = ""
 
     @property
     def error_code(self):
