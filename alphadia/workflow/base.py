@@ -117,16 +117,15 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )  # TODO: debug?
 
-        # alternatively, dia_data.to_ng()
-        time_start = time.time()
-        self._dia_data_ng = (
-            dia_data_to_ng(self._dia_data)
-            if self._config["search"]["extraction_backend"] == "ng"
-            else None
-        )
-        self.reporter.log_string(
-            f"Creating DIA data NG object took: {time.time() - time_start}"
-        )  # TODO: debug?
+        if self._config["search"]["extraction_backend"] == "ng":
+            time_start = time.time()
+            self._dia_data_ng = dia_data_to_ng(self._dia_data)
+            self.reporter.log_string(
+                f"Creating DIA data NG object took: {time.time() - time_start}"
+            )  # TODO: debug?
+        else:
+            self._dia_data_ng = None
+
         raw_file_manager.save()
 
         self.reporter.log_event("loading_data", {"progress": 1})
