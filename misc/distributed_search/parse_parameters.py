@@ -55,7 +55,7 @@ with open(os.path.join(args.input_directory, args.config_filename)) as file:
 safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")
 
 # library must be predicted/annotated prior to chunking
-safe_add_key(config, "library_prediction", "predict", False)
+safe_add_key(config, "library_prediction", "enabled", False)
 
 # remove any fasta if one is present in the config file
 config.pop("fasta_paths", None)
