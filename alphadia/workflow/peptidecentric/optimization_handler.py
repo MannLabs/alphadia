@@ -395,7 +395,7 @@ class OptimizationHandler:
                 self._optimization_manager.classifier_version,
             )
             # TODO: get these from the ng backend
-            precursor_df["cycle_fwhm"] = 30
+            precursor_df["cycle_fwhm"] = 5
             precursor_df["mobility_fwhm"] = -1
 
             self._optlock.update_with_extraction(features_df, fragments_df)
