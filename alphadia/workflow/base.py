@@ -124,7 +124,7 @@ class WorkflowBase:
                 f"Creating DIA data NG object took: {time.time() - time_start}"
             )  # TODO: debug?
 
-            self.dia_data.has_ms1 = False  # TODO: disable MS1 for now in NG
+            self.dia_data.has_ms1 = False  # TODO: re-enable MS1 for NG once supported
         else:
             self._dia_data_ng = None
 
