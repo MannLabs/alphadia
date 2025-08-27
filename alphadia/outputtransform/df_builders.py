@@ -148,7 +148,7 @@ def build_run_stat_df(
             "ms1_median_accuracy",
             "ms1_median_precision",
         ]:
-            stats[f"{prefix}{key}"] = calibration_stats[key]
+            stats[f"{prefix}{key}"] = calibration_stats.get(key, "NaN")
 
         # collect raw stats
         raw_stats = defaultdict(lambda: np.nan)
