@@ -259,6 +259,21 @@ class ExtractionHandler(ABC):
             Features dataframe and fragments dataframe
         """
 
+    def _log_parameters(self) -> None:
+        """Log current extraction parameters."""
+        for log_line in [
+            "=== Search parameters used ===",
+            f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
+            f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
+            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
+            f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
+            f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
+            f"{'quant_window':<15}: {self._config['search']['quant_window']}",
+            "==============================================",
+        ]:
+            self._reporter.log_string(log_line, verbosity="info")
+
 
 class ClassicExtractionHandler(ExtractionHandler):
     """Extraction handler using HybridCandidateSelection."""
@@ -302,6 +317,9 @@ class ClassicExtractionHandler(ExtractionHandler):
 
         See superclass documentation for interface details.
         """
+
+        self._log_parameters()
+
         self._selection_config.update(
             {
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -311,16 +329,6 @@ class ClassicExtractionHandler(ExtractionHandler):
                 "fragment_mz_tolerance": self._optimization_manager.ms2_error,
             }
         )
-        for log_line in [
-            "=== Search parameters used ===",
-            f"{'rt_tolerance':<15}: {self._selection_config.rt_tolerance}",
-            f"{'mobility_tolerance':<15}: {self._selection_config.mobility_tolerance}",
-            f"{'candidate_count':<15}: {self._selection_config.candidate_count}",
-            f"{'precursor_mz_tolerance':<15}: {self._selection_config.precursor_mz_tolerance}",
-            f"{'fragment_mz_tolerance':<15}: {self._selection_config.fragment_mz_tolerance}",
-            "==============================================",
-        ]:
-            self._reporter.log_string(log_line, verbosity="info")
 
         extraction = HybridCandidateSelection(
             dia_data,
@@ -404,6 +412,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
         dia_data_: DiaData = dia_data[0]
         dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
+
+        self._log_parameters()
 
         if self.cycle_len is None:
             # TODO: lazy init is a hack
