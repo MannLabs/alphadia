@@ -480,8 +480,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "top_k_fragments": 99,
-                "mass_tolerance": 7.0,
+                "top_k_fragments": 99,  # TODO: hardcoded value
+                "mass_tolerance": 7.0,  # TODO: hardcoded value
             }
         )
 
@@ -490,13 +490,6 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
 
         features_df = to_features_df(candidate_features, spectral_library)
-
-        # features_df["elution_group_idx"] = 1 # search_parameter_optimization -> _optlock.update_with_extraction
-        # features_df["decoy"] = 0 # search_parameter_optimization -> fdr_manager.fit_predict
-        # features_df["mz_observed"] = 1 # perform_fdr -> fragment_competition
-        # features_df["rt_observed"] = 1 # perform_fdr -> fragment_competition
-        # features_df["channel"] = 0 # perform_fdr -> keep_best
-        # features_df["proteins"] = 1000 # log_precursor_df
 
         return features_df, None
 
@@ -535,7 +528,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         precursor_fdr_df = fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise
-            competetive=False,  # self._config["fdr"]["competetive_scoring"],
+            competetive=False,  # TODO support self._config["fdr"]["competetive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=classifier_version,
         )
@@ -549,6 +542,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
                 precursor_fdr_df["precursor_idx_rank"]
             )
         ].copy()
+        del candidates_filtered["precursor_idx_rank"]
 
         candidates_collection = candidates_to_ng(candidates_filtered, self.cycle_len)
 
