@@ -449,10 +449,11 @@ class SearchStep:
 
     def _clean(self):
         if not self.config["general"]["save_library"]:
+            library_path = Path(self.output_folder) / SPECLIB_FILE_NAME
             try:
-                os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
+                library_path.unlink(missing_ok=True)
             except Exception as e:
-                logger.exception(f"Error removing library: {e}")
+                logger.exception(f"Error removing library {library_path}: {e}")
 
     def _log_inputs(self):
         """Log all relevant inputs."""
