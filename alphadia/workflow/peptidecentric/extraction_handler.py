@@ -527,7 +527,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         precursor_fdr_df = fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise
-            competetive=False,  # TODO support self._config["fdr"]["competetive_scoring"],
+            competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=classifier_version,
         )
