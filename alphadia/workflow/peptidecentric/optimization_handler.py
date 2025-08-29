@@ -357,16 +357,16 @@ class OptimizationHandler:
             ),
         )
 
-        is_ng = (
-            self._config["search"]["extraction_backend"] == "ng"
-            or self._config["search"]["extraction_backend"] == "ng-classic"
-        )
+        is_ng = self._config["search"]["extraction_backend"] != "classic"
         features_df, fragments_df = extraction_handler.extract_batch(
             (self._dia_data, self._dia_data_ng) if is_ng else self._dia_data,
             self._optlock.batch_library,
         )
 
-        if self._config["search"]["extraction_backend"] != "ng":
+        if (
+            self._config["search"]["extraction_backend"] == "classic"
+            or self._config["search"]["extraction_backend"] == "ng-classic"
+        ):
             self._optlock.update_with_extraction(features_df, fragments_df)
 
             self._reporter.log_string(
