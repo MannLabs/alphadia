@@ -127,6 +127,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self._fdr_manager = FDRManager(
             feature_columns=get_feature_names()
             if self._config["search"]["extraction_backend"] == "ng"
+            or self._config["search"]["extraction_backend"] == "classic-ng"
             else feature_columns,
             classifier_base=_get_classifier_base(
                 enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
