@@ -1,4 +1,6 @@
 import os
+from collections.abc import Callable
+from functools import partial
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
@@ -38,6 +40,7 @@ def _get_classifier_base(
     two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
+    logging_function: Callable | None = None,
 ) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
     """Creates and returns a classifier base instance.
 
@@ -58,6 +61,9 @@ def _get_classifier_base(
         The FDR cutoff threshold used by the second classifier when two-step
         classification is enabled. Default is 0.01.
 
+    logging_function : Callable, optional
+        Function to use for logging. Needs to accept exactly one string. If None, no logging is done.
+
     Returns
     -------
     BinaryClassifierLegacyNewBatching | TwoStepClassifier
@@ -69,6 +75,7 @@ def _get_classifier_base(
         learning_rate=0.001,
         epochs=10,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+        logging_function=logging_function,
     )
 
     if enable_two_step_classifier:
@@ -130,6 +137,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     "enable_nn_hyperparameter_tuning"
                 ],
                 fdr_cutoff=config_fdr["fdr"],
+                logging_function=partial(self.reporter.log_string, verbosity="info"),
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,

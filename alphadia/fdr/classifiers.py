@@ -3,6 +3,7 @@
 import logging
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
@@ -159,6 +160,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval: int = 1000,
         *,
         experimental_hyperparameter_tuning: bool = False,
+        logging_function: Callable | None = None,
         **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
@@ -198,6 +200,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
+        logging_function : Callable, optional
+            Function to use for logging. Needs to accept exactly one string. If None, no logging is done.
+
         **kwargs : dict
             Keyword arguments. Will raise a warning if used.
 
@@ -228,6 +233,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "test_loss": [],
             "test_accuracy": [],
         }
+
+        self.logging_function = logging_function
 
         if kwargs:
             warnings.warn(f"Unknown arguments: {kwargs}")
@@ -411,6 +418,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                             )
                             / len(y_test)
                         )
+
+                        if self.logging_function is not None:
+                            latest_metrics = {k: v[-1] for k, v in self.metrics.items()}
+                            self.logging_function("Current classifier metrics:")
+                            for k, v in latest_metrics.items():
+                                self.logging_function(f"{k:<20}: {v}")
+
                     self.network.train()
 
                 batch_count += 1
