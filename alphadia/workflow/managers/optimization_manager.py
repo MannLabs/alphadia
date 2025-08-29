@@ -86,50 +86,48 @@ class OptimizationManager(BaseManager):
     ):
         """Update the parameters dict with the values in update_dict."""
 
-        update_logs = [
-            "========================================",
-            "Updating optimization manager parameters",
-        ]
+        update_logs = []
+
+        def _update_logs(name: str, old: float, new: float) -> None:
+            """Add a log entry for an updated parameter."""
+            update_logs.append(f"{name:<20}: {old} -> {new}")
+
         if ms1_error is not None:
-            update_logs.append(f"ms1_error: {self.ms1_error} -> {ms1_error}")
+            _update_logs("ms1_error", self.ms1_error, ms1_error)
             self.ms1_error = ms1_error
         if ms2_error is not None:
-            update_logs.append(f"ms2_error: {self.ms2_error} -> {ms2_error}")
+            _update_logs("ms2_error", self.ms2_error, ms2_error)
             self.ms2_error = ms2_error
         if rt_error is not None:
-            update_logs.append(f"rt_error: {self.rt_error} -> {rt_error}")
+            _update_logs("rt_error", self.rt_error, rt_error)
             self.rt_error = rt_error
         if mobility_error is not None:
-            update_logs.append(
-                f"mobility_error: {self.mobility_error} -> {mobility_error}"
-            )
+            _update_logs("mobility_error", self.mobility_error, mobility_error)
             self.mobility_error = mobility_error
         if column_type is not None:
-            update_logs.append(f"column_type: {self.column_type} -> {column_type}")
+            _update_logs("column_type", self.column_type, column_type)
             self.column_type = column_type
         if num_candidates is not None:
-            update_logs.append(
-                f"num_candidates: {self.num_candidates} -> {num_candidates}"
-            )
+            _update_logs("num_candidates", self.num_candidates, num_candidates)
             self.num_candidates = num_candidates
         if classifier_version is not None:
-            update_logs.append(
-                f"classifier_version: {self.classifier_version} -> {classifier_version}"
+            _update_logs(
+                "classifier_version",
+                self.classifier_version,
+                classifier_version,
             )
             self.classifier_version = classifier_version
         if fwhm_rt is not None:
-            update_logs.append(f"fwhm_rt: {self.fwhm_rt} -> {fwhm_rt}")
+            _update_logs("fwhm_rt", self.fwhm_rt, fwhm_rt)
             self.fwhm_rt = fwhm_rt
         if fwhm_mobility is not None:
-            update_logs.append(
-                f"fwhm_mobility: {self.fwhm_mobility} -> {fwhm_mobility}"
-            )
+            _update_logs("fwhm_mobility", self.fwhm_mobility, fwhm_mobility)
             self.fwhm_mobility = fwhm_mobility
         if score_cutoff is not None:
-            update_logs.append(f"score_cutoff: {self.score_cutoff} -> {score_cutoff}")
+            _update_logs("score_cutoff", self.score_cutoff, score_cutoff)
             self.score_cutoff = score_cutoff
 
-        update_logs.append("========================================")
-
         for log in update_logs:
-            self.reporter.log_string(log, verbosity="info")
+            self.reporter.log_string(
+                f"Updating optimization_manager: {log}", verbosity="info"
+            )

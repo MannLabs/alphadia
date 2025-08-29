@@ -262,7 +262,7 @@ class ExtractionHandler(ABC):
     def _log_parameters(self) -> None:
         """Log current extraction parameters."""
         for log_line in [
-            "=== Search parameters used ===",
+            "===== Search parameters used =====",
             f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
             f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
             f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
@@ -270,7 +270,7 @@ class ExtractionHandler(ABC):
             f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
             f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
             f"{'quant_window':<15}: {self._config['search']['quant_window']}",
-            "==============================================",
+            "==================================",
         ]:
             self._reporter.log_string(log_line, verbosity="info")
 
@@ -440,14 +440,6 @@ class NgExtractionHandler(ClassicExtractionHandler):
                 "rt_tolerance": self._optimization_manager.rt_error,
                 "candidate_count": self._optimization_manager.num_candidates,
             }
-        )
-
-        self._reporter.log_string(
-            f"Using parameters: fwhm_rt={scoring_params.fwhm_rt}, "
-            f"kernel_size={scoring_params.kernel_size}, "
-            f"peak_length={scoring_params.peak_length}, "
-            f"mass_tolerance={scoring_params.mass_tolerance}, "
-            f"rt_tolerance={scoring_params.rt_tolerance}"
         )
 
         candidates = PeakGroupSelection(scoring_params).search(dia_data_ng, speclib_ng)

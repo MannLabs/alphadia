@@ -421,9 +421,12 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
                         if self.logging_function is not None:
                             latest_metrics = {k: v[-1] for k, v in self.metrics.items()}
-                            self.logging_function("Current classifier metrics:")
+                            self.logging_function(
+                                "\n=== Current classifier metrics: ==="
+                            )
                             for k, v in latest_metrics.items():
                                 self.logging_function(f"{k:<20}: {v}")
+                            self.logging_function("===================================")
 
                     self.network.train()
 
