@@ -267,7 +267,11 @@ class OptimizationHandler:
                 precursor_df = self._process_batch()
 
                 if not self._optlock.has_target_num_precursors:
+                    log_string("Target number of precursors not reached yet.")
                     if not self._optlock.batches_remaining():
+                        log_string(
+                            "Insufficient number of precursors to continue optimization."
+                        )
                         insufficient_precursors_to_optimize = True
                         break
 
@@ -281,6 +285,7 @@ class OptimizationHandler:
                         self._skip_all_optimizers(optimizers)
 
                 else:
+                    log_string("Target number of precursors reached.")
                     precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                         precursor_df, self._optlock.fragments_df
                     )
@@ -315,6 +320,7 @@ class OptimizationHandler:
         )
 
         if insufficient_precursors_to_optimize:
+            log_string("Handling insufficient precursors to optimize...")
             precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
                 precursor_df, self._optlock.fragments_df
             )
