@@ -293,7 +293,11 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                FlattenLibrary(self.config["search"]["top_k_fragments"]),
+                FlattenLibrary(
+                    top_k_fragments=999,
+                    min_fragment_intensity=0.00001,
+                    # self.config["search"]["top_k_fragments"],
+                ),
                 InitFlatColumns(),
                 LogFlatLibraryStats(),
             ]

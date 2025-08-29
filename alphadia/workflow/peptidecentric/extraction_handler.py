@@ -423,9 +423,9 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params = SelectionParameters()
         scoring_params.update(
             {
-                "fwhm_rt": self._optimization_manager.fwhm_rt,
+                "fwhm_rt": 3,  # self._optimization_manager.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
-                "peak_length": self._config["search"]["quant_window"],
+                "peak_length": 3,
                 "mass_tolerance": self._optimization_manager.ms2_error,
                 "rt_tolerance": self._optimization_manager.rt_error,
                 "candidate_count": self._optimization_manager.num_candidates,
@@ -524,7 +524,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         precursor_fdr_df = fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise
-            competetive=False,  # self._config["fdr"]["competetive_scoring"],
+            competetive=True,  # self._config["fdr"]["competetive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=classifier_version,
         )
