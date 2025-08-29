@@ -115,6 +115,10 @@ class ExtractionHandler(ABC):
             return HybridNgClassicExtractionHandler(
                 config, optimization_manager, reporter, column_name_handler
             )
+        elif backend == "classic-ng":
+            return HybridClassicNgExtractionHandler(
+                config, optimization_manager, reporter, column_name_handler
+            )
         # add implementations for other backends here
         else:
             raise ValueError(
@@ -593,4 +597,23 @@ class HybridNgClassicExtractionHandler(NgExtractionHandler):
     def quantify_ng(*args, **kwargs):
         raise NotImplementedError(
             "Quantification not supported in HybridNgClassicExtractionHandler"
+        )
+
+
+class HybridClassicNgExtractionHandler(NgExtractionHandler):
+    """Temporary handler that uses classic for selection and NG for scoring."""
+
+    def _select_candidates(
+        self,
+        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> pd.DataFrame:
+        if self.cycle_len is None:
+            # TODO: lazy init is a hack
+            self.cycle_len = dia_data[0].cycle.shape[
+                1
+            ]  # ms_data.spectrum_df['cycle_idx'].max() + 1
+
+        return super(NgExtractionHandler, self)._select_candidates(
+            dia_data[0], spectral_library
         )
