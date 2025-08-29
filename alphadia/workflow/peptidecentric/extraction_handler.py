@@ -110,6 +110,10 @@ class ExtractionHandler(ABC):
             return NgExtractionHandler(
                 config, optimization_manager, reporter, column_name_handler
             )
+        elif backend == "ng-classic":
+            return HybridNgClassicExtractionHandler(
+                config, optimization_manager, reporter, column_name_handler
+            )
         # add implementations for other backends here
         else:
             raise ValueError(
@@ -570,3 +574,22 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
 
         return precursor_df, fragments_df
+
+
+class HybridNgClassicExtractionHandler(NgExtractionHandler):
+    """Temporary handler that uses NG for selection and classic for scoring."""
+
+    def _score_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        return super(NgExtractionHandler, self)._score_candidates(
+            candidates_df, dia_data[0], spectral_library
+        )
+
+    def quantify_ng(*args, **kwargs):
+        raise NotImplementedError(
+            "Quantification not supported in HybridNgClassicExtractionHandler"
+        )
