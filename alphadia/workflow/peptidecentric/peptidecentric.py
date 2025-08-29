@@ -225,7 +225,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        if self._config["search"]["extraction_backend"] != "ng":
+        if (
+            self._config["search"]["extraction_backend"] == "classic"
+            or self._config["search"]["extraction_backend"] == "ng-classic"
+        ):
             # TODO move this to ExtractionHandler in general?
             decoy_strategy = (
                 "precursor_channel_wise"

@@ -117,7 +117,10 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )  # TODO: debug?
 
-        if self._config["search"]["extraction_backend"] == "ng":
+        if (
+            self._config["search"]["extraction_backend"] == "ng"
+            or self._config["search"]["extraction_backend"] == "ng-classic"
+        ):
             time_start = time.time()
             self._dia_data_ng = dia_data_to_ng(self._dia_data)
             self.reporter.log_string(
