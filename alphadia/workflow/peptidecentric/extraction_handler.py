@@ -259,6 +259,21 @@ class ExtractionHandler(ABC):
             Features dataframe and fragments dataframe
         """
 
+    def _log_parameters(self) -> None:
+        """Log current extraction parameters."""
+        for log_line in [
+            "=== Search parameters used ===",
+            f"{'rt_error':<15}: {self._optimization_manager.rt_error}",
+            f"{'mobility_error':<15}: {self._optimization_manager.mobility_error}",
+            f"{'num_candidates':<15}: { self._optimization_manager.num_candidates}",
+            f"{'ms1_error':<15}: {self._optimization_manager.ms1_error}",
+            f"{'ms2_error':<15}: {self._optimization_manager.ms2_error}",
+            f"{'fwhm_rt':<15}: {self._optimization_manager.fwhm_rt}",
+            f"{'quant_window':<15}: {self._config['search']['quant_window']}",
+            "==============================================",
+        ]:
+            self._reporter.log_string(log_line, verbosity="info")
+
 
 class ClassicExtractionHandler(ExtractionHandler):
     """Extraction handler using HybridCandidateSelection."""
@@ -302,6 +317,9 @@ class ClassicExtractionHandler(ExtractionHandler):
 
         See superclass documentation for interface details.
         """
+
+        self._log_parameters()
+
         self._selection_config.update(
             {
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -311,16 +329,6 @@ class ClassicExtractionHandler(ExtractionHandler):
                 "fragment_mz_tolerance": self._optimization_manager.ms2_error,
             }
         )
-        for log_line in [
-            "=== Search parameters used ===",
-            f"{'rt_tolerance':<15}: {self._selection_config.rt_tolerance}",
-            f"{'mobility_tolerance':<15}: {self._selection_config.mobility_tolerance}",
-            f"{'candidate_count':<15}: {self._selection_config.candidate_count}",
-            f"{'precursor_mz_tolerance':<15}: {self._selection_config.precursor_mz_tolerance}",
-            f"{'fragment_mz_tolerance':<15}: {self._selection_config.fragment_mz_tolerance}",
-            "==============================================",
-        ]:
-            self._reporter.log_string(log_line, verbosity="info")
 
         extraction = HybridCandidateSelection(
             dia_data,
@@ -405,6 +413,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         dia_data_: DiaData = dia_data[0]
         dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
 
+        self._log_parameters()
+
         if self.cycle_len is None:
             # TODO: lazy init is a hack
             self.cycle_len = dia_data_.cycle.shape[
@@ -469,8 +479,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "top_k_fragments": 99,
-                "mass_tolerance": 7.0,
+                "top_k_fragments": 99,  # TODO: hardcoded value
+                "mass_tolerance": 7.0,  # TODO: hardcoded value
             }
         )
 
@@ -479,13 +489,6 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
 
         features_df = to_features_df(candidate_features, spectral_library)
-
-        # features_df["elution_group_idx"] = 1 # search_parameter_optimization -> _optlock.update_with_extraction
-        # features_df["decoy"] = 0 # search_parameter_optimization -> fdr_manager.fit_predict
-        # features_df["mz_observed"] = 1 # perform_fdr -> fragment_competition
-        # features_df["rt_observed"] = 1 # perform_fdr -> fragment_competition
-        # features_df["channel"] = 0 # perform_fdr -> keep_best
-        # features_df["proteins"] = 1000 # log_precursor_df
 
         return features_df, None
 
@@ -524,7 +527,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         precursor_fdr_df = fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise
-            competetive=False,  # self._config["fdr"]["competetive_scoring"],
+            competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=classifier_version,
         )
@@ -538,6 +541,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
                 precursor_fdr_df["precursor_idx_rank"]
             )
         ].copy()
+        del candidates_filtered["precursor_idx_rank"]
 
         candidates_collection = candidates_to_ng(candidates_filtered, self.cycle_len)
 
