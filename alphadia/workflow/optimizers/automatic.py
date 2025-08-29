@@ -90,7 +90,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         """
         if self.has_converged:
             self._reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization already complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
             return
@@ -110,7 +110,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             self._update_workflow()
 
             self._reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization just completed. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
@@ -139,7 +139,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             self.has_converged = True
             self._update_workflow()
             self._reporter.log_string(
-                f"✅ {self.parameter_name:<15}: optimization complete. Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
+                f"✅ {self.parameter_name:<15}: optimization complete (batch_substantially_bigger). Optimal parameter {self._optimization_manager.__dict__[self.parameter_name]:.4f} found after {len(self.history_df)} searches.",
                 verbosity="progress",
             )
 
