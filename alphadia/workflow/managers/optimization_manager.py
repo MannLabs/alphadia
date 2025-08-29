@@ -85,23 +85,51 @@ class OptimizationManager(BaseManager):
         score_cutoff: float | None = None,
     ):
         """Update the parameters dict with the values in update_dict."""
+
+        update_logs = [
+            "========================================",
+            "Updating optimization manager parameters",
+        ]
         if ms1_error is not None:
+            update_logs.append(f"ms1_error: {self.ms1_error} -> {ms1_error}")
             self.ms1_error = ms1_error
         if ms2_error is not None:
+            update_logs.append(f"ms2_error: {self.ms2_error} -> {ms2_error}")
             self.ms2_error = ms2_error
         if rt_error is not None:
+            update_logs.append(f"rt_error: {self.rt_error} -> {rt_error}")
             self.rt_error = rt_error
         if mobility_error is not None:
+            update_logs.append(
+                f"mobility_error: {self.mobility_error} -> {mobility_error}"
+            )
             self.mobility_error = mobility_error
         if column_type is not None:
+            update_logs.append(f"column_type: {self.column_type} -> {column_type}")
             self.column_type = column_type
         if num_candidates is not None:
+            update_logs.append(
+                f"num_candidates: {self.num_candidates} -> {num_candidates}"
+            )
             self.num_candidates = num_candidates
         if classifier_version is not None:
+            update_logs.append(
+                f"classifier_version: {self.classifier_version} -> {classifier_version}"
+            )
             self.classifier_version = classifier_version
         if fwhm_rt is not None:
+            update_logs.append(f"fwhm_rt: {self.fwhm_rt} -> {fwhm_rt}")
             self.fwhm_rt = fwhm_rt
         if fwhm_mobility is not None:
+            update_logs.append(
+                f"fwhm_mobility: {self.fwhm_mobility} -> {fwhm_mobility}"
+            )
             self.fwhm_mobility = fwhm_mobility
         if score_cutoff is not None:
+            update_logs.append(f"score_cutoff: {self.score_cutoff} -> {score_cutoff}")
             self.score_cutoff = score_cutoff
+
+        update_logs.append("========================================")
+
+        for log in update_logs:
+            self.reporter.log_string(log, verbosity="info")
