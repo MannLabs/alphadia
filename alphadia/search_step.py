@@ -337,6 +337,8 @@ class SearchStep:
 
         workflow_folder_list = []
 
+        random_state = self.config["general"]["random_state"]
+
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             logger.progress(
@@ -348,6 +350,9 @@ class SearchStep:
                     raw_name,
                     self.config,
                     quant_path=self.config["quant_directory"],
+                    random_state=None
+                    if random_state is None
+                    else random_state + i * 100000,
                 )
                 workflow_path = Path(workflow.path)
 
