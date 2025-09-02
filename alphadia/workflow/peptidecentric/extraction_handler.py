@@ -1,5 +1,6 @@
 import time
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 import pandas as pd
 import seaborn as sns
@@ -35,10 +36,12 @@ except ImportError:
     HAS_ALPHADIA_NG = False
 
 from alphadia.raw_data import DiaData
-from alphadia.reporting.reporting import Pipeline
+from alphadia.reporting.reporting import Pipeline, move_existing_file
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
+
+dump = 0
 
 
 class ExtractionHandler(ABC):
@@ -452,7 +455,14 @@ class NgExtractionHandler(ClassicExtractionHandler):
 
         candidates = PeakGroupSelection(scoring_params).search(dia_data_ng, speclib_ng)
 
-        return parse_candidates(candidates, spectral_library, self.cycle_len)
+        cands = parse_candidates(candidates, spectral_library, self.cycle_len)
+
+        if dump:
+            f1 = Path(self._config["output_directory"]) / "df_candidates.csv"
+            move_existing_file(f1, "")
+            cands.to_csv(f1)
+
+        return cands
 
     def _score_candidates(
         self,
@@ -489,6 +499,11 @@ class NgExtractionHandler(ClassicExtractionHandler):
         )
 
         features_df = to_features_df(candidate_features, spectral_library)
+
+        if dump:
+            f1 = Path(self._config["output_directory"]) / "df_features.csv"
+            move_existing_file(f1, "")
+            features_df.to_csv(f1)
 
         return features_df, None
 
@@ -568,6 +583,15 @@ class NgExtractionHandler(ClassicExtractionHandler):
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
         )
+
+        if dump:
+            f1 = Path(self._config["output_directory"]) / "df_precursors.csv"
+            move_existing_file(f1, "")
+            precursor_df.to_csv(f1)
+
+            f2 = Path(self._config["output_directory"]) / "df_fragments.csv"
+            move_existing_file(f2, "")
+            fragments_df.to_csv(f2)
 
         return precursor_df, fragments_df
 

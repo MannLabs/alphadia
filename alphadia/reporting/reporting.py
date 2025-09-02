@@ -166,7 +166,7 @@ def init_logging(log_folder: str = None, log_level: int = logging.INFO):
     __is_initiated__ = True
 
 
-def move_existing_file(file_path: str) -> str | None:
+def move_existing_file(file_path: str, suffix=".bkp") -> str | None:
     """Move existing file to a new name with an incrementing number.
 
     Parameters
@@ -185,13 +185,13 @@ def move_existing_file(file_path: str) -> str | None:
     n = -1
     while new_path.exists():
         n += 1
-        new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
+        new_path = old_path.parent / f"{old_path.stem}.{n}{suffix}{old_path.suffix}"
 
     if n != -1:
         Path(file_path).rename(new_path)
         return str(new_path)
 
-    return None
+    return str(old_path)
 
 
 class Backend:
