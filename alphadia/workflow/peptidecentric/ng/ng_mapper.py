@@ -32,16 +32,13 @@ def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
         np.arange(int(len(dia_data.spectrum_df) / cycle_len + 1)), cycle_len
     )
 
-    dia_data.spectrum_df["delta_scan_idx"] = delta_scan_idx[: len(dia_data.spectrum_df)]
-    dia_data.spectrum_df["cycle_idx"] = cycle_idx[: len(dia_data.spectrum_df)]
-
     return DiaDataNG.from_arrays(
-        spectrum_df["delta_scan_idx"].values,
+        delta_scan_idx[: len(dia_data.spectrum_df)],
         spectrum_df["isolation_lower_mz"].values.astype(np.float32),
         spectrum_df["isolation_upper_mz"].values.astype(np.float32),
         spectrum_df["peak_start_idx"].values,
         spectrum_df["peak_stop_idx"].values,
-        spectrum_df["cycle_idx"].values,
+        cycle_idx[: len(dia_data.spectrum_df)],
         spectrum_df["rt"].values.astype(np.float32) * 60,  # TODO check factor
         peak_df["mz"].values.astype(np.float32),
         peak_df["intensity"].values.astype(np.float32),
@@ -88,13 +85,16 @@ def speclib_to_ng(
 
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
-    return CandidateFeatureCollection.get_feature_names()
+    blacklist = []
+    return [
+        f for f in CandidateFeatureCollection.get_feature_names() if f not in blacklist
+    ]
 
 
 def parse_candidates(
     candidates: CandidateCollection, spectral_library: SpecLibFlat, cycle_len: int
 ) -> pd.DataFrame:
-    """Parse candidates from NG to classic format."""
+    """Parse candidates from NG to classic format (temporary)."""
     result = candidates.to_arrays()
 
     precursor_idx = result[0]
@@ -141,7 +141,7 @@ def parse_candidates(
 def candidates_to_ng(
     candidates_df: pd.DataFrame, cycle_len: int
 ) -> CandidateCollection:
-    """Convert candidates from classic to NG format."""
+    """Convert candidates from classic to NG format (temporary)."""
     candidates = CandidateCollection.from_arrays(
         candidates_df["precursor_idx"].values.astype(np.uint64),
         candidates_df["rank"].values.astype(np.uint64),
