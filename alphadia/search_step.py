@@ -9,7 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
-from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.exceptions import CustomError, NoLibraryAvailableError, ConfigError
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
@@ -228,6 +228,10 @@ class SearchStep:
                 )
                 spectral_library = fasta_digest(self.fasta_path_list)
         elif general_config["input_library_type"] == "flat":
+            if general_config["save_mbr_library"]:
+                # TODO gather such checks in a ConfigValidator class
+                raise ConfigError("Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible.")
+
             logger.progress("Loading library (type: flat) from disk..")
             speclib_flat = SpecLibFlat()
             speclib_flat.load_hdf(self.library_path)
