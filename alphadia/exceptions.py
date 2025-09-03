@@ -137,7 +137,7 @@ class ConfigError(BusinessError):
     _key = ""
     _config_name = ""
 
-    def __init__(self, key: str, value: str, config_name: str):
+    def __init__(self, key: str = "", value: str = "", config_name: str = ""):
         self._key = key
         self._value = value
         self._config_name = config_name
