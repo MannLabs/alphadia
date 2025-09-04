@@ -110,7 +110,7 @@ def parse_candidates(
     candidates_df = pd.DataFrame(
         {
             "precursor_idx": precursor_idx,
-            "rank": rank,
+            "rank": rank - 1,
             "score": score,
             "scan_center": scan_center,
             "scan_start": scan_start,
@@ -144,7 +144,7 @@ def candidates_to_ng(
     """Convert candidates from classic to NG format (temporary)."""
     candidates = CandidateCollection.from_arrays(
         candidates_df["precursor_idx"].values.astype(np.uint64),
-        candidates_df["rank"].values.astype(np.uint64),
+        candidates_df["rank"].values.astype(np.uint64) + 1,
         candidates_df["score"].values.astype(np.float32),
         candidates_df["scan_center"].values.astype(np.uint64),
         candidates_df["scan_start"].values.astype(np.uint64),
@@ -179,6 +179,8 @@ def to_features_df(
         how="left",
     )
 
+    features_df["rank"] -= 1
+
     return features_df
 
 
@@ -192,6 +194,8 @@ def parse_quantification(
 
     precursor_df = pd.DataFrame(precursor_dict).rename(columns={"idx": "precursor_idx"})
 
+    precursor_df["rank"] -= 1
+
     precursor_df = precursor_df.merge(
         precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
         on=["precursor_idx", "rank"],
@@ -204,5 +208,6 @@ def parse_quantification(
             "mass_error_observed": "mass_error",
         }
     )
+    fragments_df["rank"] -= 1
 
     return precursor_df, fragments_df
