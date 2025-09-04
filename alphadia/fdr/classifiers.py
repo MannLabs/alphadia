@@ -335,9 +335,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 dropout=self.dropout,
             )
 
-        # normalize input
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
-
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
@@ -354,6 +351,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         )
 
         loss = nn.BCELoss()
+
+        # Set model to training mode for BatchNorm
+        self.network.train()
 
         x_train = torch.Tensor(x_train)
         y_train = torch.Tensor(y_train)
@@ -442,7 +442,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -471,7 +470,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
