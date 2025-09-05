@@ -544,20 +544,20 @@ class SearchPlanOutput:
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
                 save_fragments=True,
-                aggregation_components = ["pg","sequence", "mods", "charge"]
+                aggregation_components=["pg", "sequence", "mods", "charge"],
             ),
             LFQOutputConfig(
                 should_process=True,
                 quant_level="mod_seq_hash",
                 level_name="peptide",
                 save_fragments=True,
-                aggregation_components = ["pg","sequence", "mods"]
+                aggregation_components=["pg", "sequence", "mods"],
             ),
             LFQOutputConfig(
                 should_process=True,
                 quant_level="pg",
                 level_name="pg",
-                aggregation_components = ["pg"]
+                aggregation_components=["pg"],
             ),
         ]
 
@@ -599,7 +599,7 @@ class SearchPlanOutput:
             )
             # Aggregation levels:
             # - mod_seq_charge: groups by sequence + modifications + charge
-            # - mod_seq_hash: groups by sequence + modifications  
+            # - mod_seq_hash: groups by sequence + modifications
             # - sequence: groups by sequence only
             if quantlevel_config.level_name != "pg":
                 annotate_df = psm_df.groupby(
