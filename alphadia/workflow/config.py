@@ -305,7 +305,7 @@ def _pretty_print(
 
 def _get_color_tokens(
     actual_value: str | int | float | None,
-    default_value: str | int | float| None,
+    default_value: str | int | float | None,
 ) -> tuple[str, str]:
     """Get color on/off tokens if values differ, else empty strings."""
 
