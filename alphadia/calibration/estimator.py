@@ -179,11 +179,11 @@ class CalibrationEstimator:
 
         try:
             self._model.fit(input_values, target_value)
-            self.is_fitted = True
-        except Exception:
-            logging.exception(f"Could not fit estimator {self.name}")
-            raise
+        except Exception as e:  # noqa: BLE001
+            logging.warning(f"Could not fit estimator {self.name}: {e}")
+            return
 
+        self.is_fitted = True
         self.metrics = self._get_metrics(df)
 
         if plot:
