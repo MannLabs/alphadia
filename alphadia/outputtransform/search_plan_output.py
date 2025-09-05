@@ -536,6 +536,7 @@ class SearchPlanOutput:
             quant_level: str
             level_name: str
             save_fragments: bool = False
+            aggregation_components: list[str] = []
 
         quantlevel_configs = [
             LFQOutputConfig(
@@ -543,17 +544,20 @@ class SearchPlanOutput:
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
                 save_fragments=True,
+                aggregation_components = ["pg","sequence", "mods", "charge"]
             ),
             LFQOutputConfig(
                 should_process=True,
                 quant_level="mod_seq_hash",
                 level_name="peptide",
                 save_fragments=True,
+                aggregation_components = ["pg","sequence", "mods"]
             ),
             LFQOutputConfig(
                 should_process=True,
                 quant_level="pg",
                 level_name="pg",
+                aggregation_components = ["pg"]
             ),
         ]
 
@@ -593,11 +597,14 @@ class SearchPlanOutput:
                 normalize=self.config["search_output"]["normalize_lfq"],
                 group_column=quantlevel_config.quant_level,
             )
-
+            # Aggregation levels:
+            # - mod_seq_charge: groups by sequence + modifications + charge
+            # - mod_seq_hash: groups by sequence + modifications  
+            # - sequence: groups by sequence only
             if quantlevel_config.level_name != "pg":
                 annotate_df = psm_df.groupby(
                     quantlevel_config.quant_level, as_index=False
-                ).agg({"pg": "first", "sequence": "first"})
+                ).agg({c: "first" for c in quantlevel_config.aggregation_components})
                 lfq_results[quantlevel_config.level_name] = lfq_df.merge(
                     annotate_df, on=quantlevel_config.quant_level, how="left"
                 )
