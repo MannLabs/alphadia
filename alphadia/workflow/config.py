@@ -290,9 +290,7 @@ def _pretty_print(
 
                 # simple lists
                 else:
-                    color_on, color_off = _get_color_tokens(
-                        value_, default_config_value
-                    )
+                    color_on, color_off = _get_color_tokens(value_, default_value)
                     logger.info(
                         f"{next_prefix}{color_on}- {_expand(value_, default_value, tracking_dict_value)}{color_off}"
                     )
@@ -306,8 +304,8 @@ def _pretty_print(
 
 
 def _get_color_tokens(
-    actual_value: str | int | float,
-    default_value: str | int | float,
+    actual_value: str | int | float | None,
+    default_value: str | int | float| None,
 ) -> tuple[str, str]:
     """Get color on/off tokens if values differ, else empty strings."""
 
