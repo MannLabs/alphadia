@@ -3,6 +3,7 @@
 import logging
 import warnings
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from copy import deepcopy
 from typing import Any
 
@@ -157,8 +158,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
+        random_state: int | None = None,
         *,
         experimental_hyperparameter_tuning: bool = False,
+        logging_function: Callable | None = None,
         **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
@@ -195,8 +198,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
+        random_state : int, optional
+            Random seed for reproducibility of torch, numpy, and train-test-split.
+
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
+
+        logging_function : Callable, optional
+            Function to use for logging. Needs to accept exactly one string. If None, no logging is done.
 
         **kwargs : dict
             Keyword arguments. Will raise a warning if used.
@@ -216,6 +225,13 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.metric_interval = metric_interval
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
 
+        self._random_state = random_state
+        if self._random_state is not None:
+            torch.manual_seed(self._random_state)
+            np.random.seed(self._random_state + 1)  # noqa: NPY002
+
+        self._n_calls_fit = 0
+
         self.network = None
         self.optimizer = None
         self._fitted = False
@@ -228,6 +244,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "test_loss": [],
             "test_accuracy": [],
         }
+
+        self.logging_function = logging_function
 
         if kwargs:
             warnings.warn(f"Unknown arguments: {kwargs}")
@@ -308,6 +326,8 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
+        self._n_calls_fit += 1
+
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
@@ -335,14 +355,16 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                 dropout=self.dropout,
             )
 
-        # normalize input
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
-
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
         x_train, x_test, y_train, y_test = train_test_split_(
-            x, y, test_size=self.test_size
+            x,
+            y,
+            test_size=self.test_size,
+            random_state=None
+            if self._random_state is None
+            else self._random_state + 2 + self._n_calls_fit,
         )
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
@@ -354,6 +376,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         )
 
         loss = nn.BCELoss()
+
+        # Set model to training mode for BatchNorm
+        self.network.train()
 
         x_train = torch.Tensor(x_train)
         y_train = torch.Tensor(y_train)
@@ -411,6 +436,16 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                             )
                             / len(y_test)
                         )
+
+                        if self.logging_function is not None:
+                            latest_metrics = {k: v[-1] for k, v in self.metrics.items()}
+                            self.logging_function(
+                                "\n=== Current classifier metrics: ==="
+                            )
+                            for k, v in latest_metrics.items():
+                                self.logging_function(f"{k:<20}: {v}")
+                            self.logging_function("===================================")
+
                     self.network.train()
 
                 batch_count += 1
@@ -442,7 +477,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -471,7 +505,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
-        x = (x - x.mean(axis=0)) / (x.std(axis=0) + 1e-6)
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
