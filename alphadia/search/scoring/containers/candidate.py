@@ -6,13 +6,6 @@ import numba as nb
 import numpy as np
 
 from alphadia.constants.settings import NUM_FEATURES
-from alphadia.plotting.cycle import plot_cycle
-from alphadia.plotting.debug import (
-    plot_fragment_profile,
-    plot_fragments,
-    plot_precursor,
-    plot_template,
-)
 from alphadia.search.scoring import quadrupole
 from alphadia.search.scoring.features.fragment_features import (
     fragment_features,
@@ -21,6 +14,13 @@ from alphadia.search.scoring.features.fragment_features import (
 from alphadia.search.scoring.features.location_features import location_features
 from alphadia.search.scoring.features.precursor_features import precursor_features
 from alphadia.search.scoring.features.profile_features import profile_features
+from alphadia.search.scoring.plotting.cycle import plot_cycle
+from alphadia.search.scoring.plotting.debug import (
+    plot_fragment_profile,
+    plot_fragments,
+    plot_precursor,
+    plot_template,
+)
 from alphadia.search.scoring.utils import (
     frame_profile_1d,
     frame_profile_2d,
