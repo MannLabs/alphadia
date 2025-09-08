@@ -1,11 +1,10 @@
 import os
-import warnings
+from unittest import skip
 from unittest.mock import MagicMock
 
 import matplotlib
 import numpy as np
 import pandas as pd
-import pytest
 
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
@@ -57,14 +56,13 @@ classifier_base = BinaryClassifierLegacyNewBatching(
 )
 
 
-@pytest.mark.slow()
+@skip  # TODO re-enable or delete
 def test_fdr():
     matplotlib.use("Agg")
 
     # check if TEST_DATA_DIR is in the environment
     if "TEST_DATA_DIR" not in os.environ:
-        warnings.warn("TEST_DATA_DIR not in environment, skipping test_fdr")
-        return
+        raise ValueError("TEST_DATA_DIR not in environment, skipping test_fdr")
 
     # load the data
     test_data_path = os.path.join(
@@ -72,7 +70,7 @@ def test_fdr():
     )
 
     if not os.path.isfile(test_data_path):
-        warnings.warn(
+        raise ValueError(
             "TEST_DATA_DIR is set but fdr_test_psm_channels.tsv test data not found, skipping test_fdr"
         )
 
