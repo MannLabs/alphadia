@@ -231,6 +231,51 @@ const ParameterInput = ({
     // Show description when searching
     const showDescription = searchTerm && searchTerm.trim() !== '';
 
+    // Function to highlight matching terms in text
+    const highlightText = (text, searchTerms) => {
+        if (!searchTerms || searchTerms.length === 0) return text;
+
+        const fragments = [];
+        let lastIndex = 0;
+
+        // Create a regex pattern that matches any of the search terms
+        const pattern = searchTerms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+        const regex = new RegExp(`(${pattern})`, 'gi');
+
+        const matches = [...text.matchAll(regex)];
+
+        matches.forEach((match) => {
+            // Add text before match
+            if (match.index > lastIndex) {
+                fragments.push(
+                    <span key={`text-${lastIndex}`}>
+                        {text.substring(lastIndex, match.index)}
+                    </span>
+                );
+            }
+            // Add highlighted match
+            fragments.push(
+                <span key={`match-${match.index}`} style={{ color: 'red', fontWeight: 'bold' }}>
+                    {match[0]}
+                </span>
+            );
+            lastIndex = match.index + match[0].length;
+        });
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+            fragments.push(
+                <span key={`text-${lastIndex}`}>
+                    {text.substring(lastIndex)}
+                </span>
+            );
+        }
+
+        return fragments.length > 0 ? fragments : text;
+    };
+
+    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+
     return (
             <Box>
                 <Stack
@@ -264,8 +309,8 @@ const ParameterInput = ({
                         mt: 0.5,
                         ml: 0,
                         fontStyle: "italic"
-                    }}>
-                        {parameter.description}
+                    }} component="div">
+                        {highlightText(parameter.description, searchTerms)}
                     </Typography>
                 )}
             </Box>
