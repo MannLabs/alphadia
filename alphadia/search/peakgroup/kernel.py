@@ -11,14 +11,13 @@ logger = logging.getLogger()
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
-    """multivariate normal distribution, probability density function
+    """Multivariate normal distribution, probability density function
 
     Most likely an absolutely inefficient implementation of the multivariate normal distribution.
     Is only used for creating the gaussian kernel and will only be used a few times for small kernels.
 
     Parameters
     ----------
-
     x : np.ndarray
         `(N, D,)`
 
@@ -30,12 +29,10 @@ def multivariate_normal(x: np.ndarray, mu: np.ndarray, sigma: np.ndarray):
 
     Returns
     -------
-
     np.ndarray, float32
         array of shape `(N,)` with the density at each point
 
     """
-
     k = mu.shape[0]
     dx = x - mu
 
@@ -56,15 +53,13 @@ class GaussianKernel:
         kernel_height: int = 30,
         kernel_width: int = 30,
     ):
-        """
-        Create a two-dimensional gaussian filter kernel for the RT and mobility dimensions of a DIA dataset.
+        """Create a two-dimensional gaussian filter kernel for the RT and mobility dimensions of a DIA dataset.
         First, the observed standard deviation is scaled by a linear factor. Second, the standard deviation is scaled by the resolution of the respective dimension.
 
         This results in sigma_scale to be independent of the resolution of the data and FWHM of the peaks.
 
         Parameters
         ----------
-
         dia_data : DiaDataJIT
             dia_data jit object.
 
@@ -99,21 +94,19 @@ class GaussianKernel:
         )  # make sure kernel size is even
 
     def determine_rt_sigma(self, cycle_length_seconds: float):
-        """
-        Determine the standard deviation of the gaussian kernel in RT dimension.
+        """Determine the standard deviation of the gaussian kernel in RT dimension.
         The standard deviation will be sclaed to the resolution of the raw data.
 
         Parameters
         ----------
-
         cycle_length_seconds : float
             Cycle length of the duty cycle in seconds.
 
         Returns
         -------
-
         float
             Standard deviation of the gaussian kernel in RT dimension scaled to the resolution of the raw data.
+
         """
         # a normal distribution has a FWHM of 2.3548 sigma
         sigma = self.fwhm_rt / 2.3548
@@ -121,23 +114,20 @@ class GaussianKernel:
         return sigma_scaled
 
     def determine_mobility_sigma(self, mobility_resolution: float):
-        """
-        Determine the standard deviation of the gaussian kernel in mobility dimension.
+        """Determine the standard deviation of the gaussian kernel in mobility dimension.
         The standard deviation will be sclaed to the resolution of the raw data.
 
         Parameters
         ----------
-
         mobility_resolution : float
             Resolution of the mobility dimension in 1/K_0.
 
         Returns
         -------
-
         float
             Standard deviation of the gaussian kernel in mobility dimension scaled to the resolution of the raw data.
-        """
 
+        """
         if not self.dia_data.has_mobility:
             return 1.0
 
@@ -147,23 +137,19 @@ class GaussianKernel:
         return sigma_scaled
 
     def get_dense_matrix(self, verbose: bool = True) -> np.ndarray:
-        """
-        Calculate the gaussian kernel for the given data set and parameters.
+        """Calculate the gaussian kernel for the given data set and parameters.
 
         Parameters
         ----------
-
         verbose : bool
             If True, log information about the data set and the kernel.
 
         Returns
         -------
-
         np.ndarray
             Two-dimensional gaussian kernel.
 
         """
-
         rt_datapoints = self.dia_data.cycle.shape[1]
         rt_resolution = np.mean(np.diff(self.dia_data.rt_values[::rt_datapoints]))
 
@@ -195,12 +181,10 @@ class GaussianKernel:
 
     @staticmethod
     def gaussian_kernel_2d(size_x: int, size_y: int, sigma_x: float, sigma_y: float):
-        """
-        Create a 2D gaussian kernel with a given size and standard deviation.
+        """Create a 2D gaussian kernel with a given size and standard deviation.
 
         Parameters
         ----------
-
         size : int
             Width and height of the kernel matrix.
 
@@ -212,7 +196,6 @@ class GaussianKernel:
 
         Returns
         -------
-
         weights : np.ndarray, dtype=np.float32
             2D gaussian kernel matrix of shape (size, size).
 

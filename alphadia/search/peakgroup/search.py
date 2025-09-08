@@ -6,17 +6,18 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.constants.keys import CalibCols
-from alphadia.peakgroup import fft
-from alphadia.peakgroup.config_df import (
+from alphadia.constants.keys import MRMCols
+from alphadia.raw_data import DiaData, DiaDataJIT
+from alphadia.search.peakgroup import fft
+from alphadia.search.peakgroup.config_df import (
     CandidateContainer,
     HybridCandidateConfig,
     HybridCandidateConfigJIT,
     PrecursorFlatContainer,
     candidate_container_to_df,
 )
-from alphadia.peakgroup.kernel import GaussianKernel
-from alphadia.peakgroup.utils import (
+from alphadia.search.peakgroup.kernel import GaussianKernel
+from alphadia.search.peakgroup.utils import (
     amean1,
     assemble_isotope_mz,
     astd1,
@@ -27,7 +28,6 @@ from alphadia.peakgroup.utils import (
     wrap0,
     wrap1,
 )
-from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
@@ -40,7 +40,6 @@ def _is_valid(
     dense_fragments: np.ndarray, dense_precursors: np.ndarray, kernel: np.ndarray
 ) -> bool:
     """Perform sanity checks and return False if any of them fails."""
-
     if dense_fragments.shape[0] == 0:
         # "Empty dense fragment matrix"
         return False
@@ -106,8 +105,8 @@ def _select_candidates_pjit(
     Returns
     -------
     None, results are stored in `candidate_container`.
-    """
 
+    """
     # prepare precursor isotope intensity
     # (n_isotopes)
     isotope_intensity = precursor_container.isotopes[i][: config.top_k_precursors]
@@ -233,12 +232,10 @@ def _join_close_peaks(
     scan_tolerance: int,
     cycle_tolerance: int,
 ) -> np.ndarray:
-    """
-    Join peaks that are close in scan and cycle space.
+    """Join peaks that are close in scan and cycle space.
 
     Parameters
     ----------
-
     peak_scan_list : np.ndarray
         List of scan indices for each peak
 
@@ -256,8 +253,8 @@ def _join_close_peaks(
 
     Returns
     -------
-
     peak_mask : np.ndarray, dtype=np.bool_
+
     """
     n_peaks = peak_scan_list.shape[0]
     peak_mask = np.ones(n_peaks, dtype=np.bool_)
@@ -292,13 +289,11 @@ def _join_overlapping_candidates(
     p_scan_overlap: float = 0.01,
     p_cycle_overlap: float = 0.6,
 ) -> np.ndarray:
-    """
-    Identify overlapping candidates and join them into a single candidate.
+    """Identify overlapping candidates and join them into a single candidate.
     The limits of the candidates are updated in-place.
 
     Parameters
     ----------
-
     scan_limits_list : np.ndarray
         List of scan limits for each candidate
 
@@ -313,11 +308,10 @@ def _join_overlapping_candidates(
 
     Returns
     -------
-
     joined_mask : np.ndarray, dtype=np.bool_
         Mask that indicates which candidates were joined
-    """
 
+    """
     joined_mask = np.ones(len(scan_limits_list), dtype=np.bool_)
 
     for i in range(len(scan_limits_list)):
@@ -562,11 +556,10 @@ class HybridCandidateSelection:
         fwhm_rt: float = 5.0,
         fwhm_mobility: float = 0.012,
     ) -> None:
-        """select candidates for MS2 extraction based on MS1 features
+        """Select candidates for MS2 extraction based on MS1 features
 
         Parameters
         ----------
-
         dia_data : DiaData
             dia data object
 
@@ -596,6 +589,7 @@ class HybridCandidateSelection:
 
         fwhm_mobility : float, optional
             full width at half maximum in mobility dimension for the GaussianKernel, by default 0.012
+
         """
         self.dia_data_jit: DiaDataJIT = dia_data.to_jitclass()
 
@@ -624,8 +618,7 @@ class HybridCandidateSelection:
         self.kernel = gaussian_filter.get_dense_matrix()
 
     def __call__(self, thread_count: int = 10, debug: bool = False) -> pd.DataFrame:
-        """
-        Perform candidate extraction workflow.
+        """Perform candidate extraction workflow.
         1. First, elution groups are assembled based on the annotation in the flattened precursor dataframe.
         Each elution group is instantiated as an ElutionGroup Numba JIT object.
         Elution groups are stored in the ElutionGroupContainer Numba JIT object.
@@ -640,8 +633,8 @@ class HybridCandidateSelection:
         -------
         pd.DataFrame
             dataframe containing the extracted candidates
-        """
 
+        """
         logging.info("Starting candidate selection")
 
         precursor_container = self._assemble_precursor_container(self.precursors_flat)
@@ -698,7 +691,7 @@ class HybridCandidateSelection:
         )
 
         return FragmentContainer(
-            self.fragments_flat[CalibCols.MZ_LIBRARY].values,
+            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,

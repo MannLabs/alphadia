@@ -5,11 +5,12 @@ import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
-# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
-from alphadia.peakgroup.config_df import HybridCandidateConfig
-from alphadia.peakgroup.search import HybridCandidateSelection
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
+
+# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
+from alphadia.search.peakgroup.config_df import HybridCandidateConfig
+from alphadia.search.peakgroup.search import HybridCandidateSelection
 
 try:
     from alphadia_ng import PeakGroupSelection, SelectionParameters

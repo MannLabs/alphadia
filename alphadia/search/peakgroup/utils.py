@@ -2,14 +2,13 @@ import numba as nb
 import numpy as np
 from numba.extending import overload
 
-from alphadia.peakgroup.fft import NumbaContextOnly
+from alphadia.search.peakgroup.fft import NumbaContextOnly
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 
 
 def assemble_isotope_mz(mono_mz, charge, isotope_intensity):
-    """
-    Assemble the isotope m/z values from the precursor m/z and the isotope
+    """Assemble the isotope m/z values from the precursor m/z and the isotope
     offsets.
     """
     raise NumbaContextOnly(
@@ -45,8 +44,7 @@ def _(mono_mz, charge, isotope_intensity):
 def find_peaks_1d(
     a: np.ndarray, top_n: int = 3
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """accepts a dense representation and returns the top three peaks"""
-
+    """Accepts a dense representation and returns the top three peaks"""
     scan = []
     dia_cycle = []
     intensity = []
@@ -78,7 +76,7 @@ def find_peaks_1d(
 def find_peaks_2d(
     a: np.ndarray, top_n: int = 3
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """accepts a dense representation and returns the top three peaks"""
+    """Accepts a dense representation and returns the top three peaks"""
     scan = []
     dia_cycle = []
     intensity = []
@@ -189,8 +187,7 @@ def wrap0(
 ):
     if value < 0:
         return 0
-    else:
-        return min(value, limit)
+    return min(value, limit)
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
@@ -212,13 +209,11 @@ def _symetric_limits_1d(
     min_size=1,
     max_size=10,
 ):
-    """
-    Find the limits of a symetric peak in a 1D array.
+    """Find the limits of a symetric peak in a 1D array.
     Allthough the edge is symetrically extended in both directions, the trailing edge will use the last valid value when it reaches the limits of the array.
 
     Parameters
     ----------
-
     array_1d : np.ndarray
         1D array of intensities
 
@@ -239,7 +234,6 @@ def _symetric_limits_1d(
 
     Returns
     -------
-
     np.ndarray, dtype='int32', shape=(2,)
         Array of containing the start and stop index of the peak.
         The start index is inclusive, the stop index is exclusive.
@@ -247,7 +241,6 @@ def _symetric_limits_1d(
         Providing a center outside the array will return np.array([center, center], dtype='int32').
 
     """
-
     if len(array_1d) == 0:
         return np.array([center, center], dtype="int32")
 

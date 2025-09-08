@@ -17,12 +17,10 @@ class NumbaContextOnly(Exception):
 
 
 def _rfft2(x: np.array, s: None | tuple = None) -> np.array:
-    """
-    Numba function to compute the 2D real-to-complex FFT of a real array.
+    """Numba function to compute the 2D real-to-complex FFT of a real array.
 
     Parameters
     ----------
-
     x : np.ndarray
         dtype = np.float32, ndim = 2, containing the input data.
 
@@ -31,14 +29,13 @@ def _rfft2(x: np.array, s: None | tuple = None) -> np.array:
 
     Returns
     -------
-
     np.ndarray
         dtype = np.complex64, ndim = 2, containing the 2D real-to-complex FFT of the input array.
 
     .. note::
         This function should only be used in a numba context as it relies on numba overloads.
-    """
 
+    """
     raise NumbaContextOnly(
         "This function should only be used in a numba context as it relies on numbas overloads."
     )
@@ -68,12 +65,10 @@ def _(x, s=None):
 
 
 def _irfft2(x: np.array, s: None | tuple = None) -> np.array:
-    """
-    Numba function to compute the 2D complex-to-real FFT of a complex array.
+    """Numba function to compute the 2D complex-to-real FFT of a complex array.
 
     Parameters
     ----------
-
     x : np.ndarray
         dtype = np.complex64, ndim = 2, containing the input data.
 
@@ -82,14 +77,13 @@ def _irfft2(x: np.array, s: None | tuple = None) -> np.array:
 
     Returns
     -------
-
     np.ndarray
         dtype = np.float32, ndim = 2, containing the 2D complex-to-real FFT of the input array.
 
     .. note::
         This function should only be used in a numba context as it relies on numba overloads.
-    """
 
+    """
     raise NumbaContextOnly(
         "This function should only be used in a numba context as it relies on numbas overloads."
     )
@@ -121,13 +115,10 @@ def _(x, s=None):
 
 
 def convolve_fourier(dense, kernel):
-    """
-    Numba helper function to apply a gaussian filter to a 2d or 3d dense matrix.
-
+    """Numba helper function to apply a gaussian filter to a 2d or 3d dense matrix.
 
     Parameters
     ----------
-
     dense : np.ndarray
         Array of shape (..., n_scans, n_frames)
 
@@ -136,12 +127,10 @@ def convolve_fourier(dense, kernel):
 
     Returns
     -------
-
     np.ndarray
         Array of shape (..., n_scans, n_frames) containing the filtered dense stack.
 
     """
-
     raise NumbaContextOnly(
         "This function should only be used in a numba context as it relies on numbas overloads."
     )
