@@ -8,9 +8,9 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.search.scoring.config import CandidateConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 
-# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
+# TODO: these imports could be conditional: HybridCandidateConfig, CandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.search.selection.config_df import HybridCandidateConfig
-from alphadia.search.selection.selection import HybridCandidateSelection
+from alphadia.search.selection.selection import CandidateSelection
 
 try:
     from alphadia_ng import PeakGroupSelection, SelectionParameters
@@ -222,7 +222,7 @@ class ExtractionHandler(ABC):
 
 
 class ClassicExtractionHandler(ExtractionHandler):
-    """Extraction handler using HybridCandidateSelection."""
+    """Extraction handler using CandidateSelection."""
 
     def __init__(
         self,
@@ -259,7 +259,7 @@ class ClassicExtractionHandler(ExtractionHandler):
     def _select_candidates(
         self, dia_data: DiaData, spectral_library: SpecLibFlat
     ) -> pd.DataFrame:
-        """Select candidates from DIA data using HybridCandidateSelection.
+        """Select candidates from DIA data using CandidateSelection.
 
         See superclass documentation for interface details.
         """
@@ -283,7 +283,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         ]:
             self._reporter.log_string(log_line, verbosity="debug")
 
-        extraction = HybridCandidateSelection(
+        extraction = CandidateSelection(
             dia_data,
             spectral_library.precursor_df,
             spectral_library.fragment_df,

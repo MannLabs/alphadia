@@ -542,7 +542,7 @@ def _find_peaks(
     return peak_scan_list, peak_cycle_list, peak_score_list
 
 
-class HybridCandidateSelection:
+class CandidateSelection:
     def __init__(
         self,
         dia_data: DiaData,

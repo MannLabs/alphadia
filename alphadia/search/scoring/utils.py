@@ -124,7 +124,7 @@ def multiplex_candidates(
     ----------
 
     candidates_df : pd.DataFrame
-        Candidates dataframe as returned by `hybridselection.HybridCandidateSelection`
+        Candidates dataframe as returned by `hybridselection.CandidateSelection`
 
     precursors_flat_df : pd.DataFrame
         Precursors dataframe
