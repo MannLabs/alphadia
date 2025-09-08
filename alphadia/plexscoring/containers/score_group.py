@@ -5,7 +5,7 @@ import logging
 import numba as nb
 import numpy as np
 
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import CalibCols
 from alphadia.constants.settings import NUM_FEATURES
 from alphadia.plexscoring.containers.candidate import Candidate, candidate_type
 
@@ -345,9 +345,11 @@ class ScoreGroupContainer:
         fragment_count = 0
         for i in range(len(self)):
             for j in range(len(self[i].candidates)):
-                if MRMCols.MZ_LIBRARY in self[i].candidates[j].fragment_feature_dict:
+                if CalibCols.MZ_LIBRARY in self[i].candidates[j].fragment_feature_dict:
                     fragment_count += len(
-                        self[i].candidates[j].fragment_feature_dict[MRMCols.MZ_LIBRARY]
+                        self[i]
+                        .candidates[j]
+                        .fragment_feature_dict[CalibCols.MZ_LIBRARY]
                     )
         return fragment_count
 
@@ -365,8 +367,8 @@ class ScoreGroupContainer:
         """
 
         fragment_columns = [
-            MRMCols.MZ_LIBRARY,
-            MRMCols.MZ_OBSERVED,
+            CalibCols.MZ_LIBRARY,
+            CalibCols.MZ_OBSERVED,
             "mass_error",
             "height",
             "intensity",
@@ -387,9 +389,9 @@ class ScoreGroupContainer:
                 candidate = self[i].candidates[j]
 
                 # if the candidate has fragments, add them to the array
-                if MRMCols.MZ_LIBRARY in candidate.fragment_feature_dict:
+                if CalibCols.MZ_LIBRARY in candidate.fragment_feature_dict:
                     candidate_fragment_count = len(
-                        candidate.fragment_feature_dict[MRMCols.MZ_LIBRARY]
+                        candidate.fragment_feature_dict[CalibCols.MZ_LIBRARY]
                     )
                     for k, col in enumerate(fragment_columns):
                         fragment_array[

@@ -2,14 +2,17 @@ import logging
 
 import pandas as pd
 
-from alphadia.calibration.property import Calibration, calibration_model_provider
-from alphadia.constants.keys import ConstantsClass, MRMCols
+from alphadia.calibration.estimator import (
+    CalibrationEstimator,
+    calibration_model_provider,
+)
+from alphadia.constants.keys import CalibCols, ConstantsClass
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
 
 
-EstimatorGroups = dict[str, dict[str, Calibration]]
+EstimatorGroups = dict[str, dict[str, CalibrationEstimator]]
 CalibrationConfig = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
@@ -36,9 +39,9 @@ class CalibrationEstimators(metaclass=ConstantsClass):
 CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
     CalibrationGroups.FRAGMENT: {
         CalibrationEstimators.MZ: {
-            "input_columns": [MRMCols.MZ_LIBRARY],
-            "target_columns": [MRMCols.MZ_OBSERVED],
-            "output_columns": [MRMCols.MZ_CALIBRATED],
+            "input_columns": [CalibCols.MZ_LIBRARY],
+            "target_columns": [CalibCols.MZ_OBSERVED],
+            "output_columns": [CalibCols.MZ_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 2},
             "transform_deviation": "1e6",
@@ -46,24 +49,24 @@ CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
     },
     CalibrationGroups.PRECURSOR: {
         CalibrationEstimators.MZ: {
-            "input_columns": [MRMCols.MZ_LIBRARY],
-            "target_columns": [MRMCols.MZ_OBSERVED],
-            "output_columns": [MRMCols.MZ_CALIBRATED],
+            "input_columns": [CalibCols.MZ_LIBRARY],
+            "target_columns": [CalibCols.MZ_OBSERVED],
+            "output_columns": [CalibCols.MZ_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 2},
             "transform_deviation": "1e6",
         },
         CalibrationEstimators.RT: {
-            "input_columns": [MRMCols.RT_LIBRARY],
-            "target_columns": [MRMCols.RT_OBSERVED],
-            "output_columns": [MRMCols.RT_CALIBRATED],
+            "input_columns": [CalibCols.RT_LIBRARY],
+            "target_columns": [CalibCols.RT_OBSERVED],
+            "output_columns": [CalibCols.RT_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 6},
         },
         CalibrationEstimators.MOBILITY: {
-            "input_columns": [MRMCols.MOBILITY_LIBRARY],
-            "target_columns": [MRMCols.MOBILITY_OBSERVED],
-            "output_columns": [MRMCols.MOBILITY_CALIBRATED],
+            "input_columns": [CalibCols.MOBILITY_LIBRARY],
+            "target_columns": [CalibCols.MOBILITY_OBSERVED],
+            "output_columns": [CalibCols.MOBILITY_CALIBRATED],
             "model": "LOESSRegression",
             "model_args": {"n_kernels": 2},
         },
@@ -168,7 +171,7 @@ class CalibrationManager(BaseManager):
                 f"Found {len(estimators_params_in_group)} estimator(s) in calibration group '{group_name}'"
             )
 
-            initialized_estimators: dict[str, Calibration] = {}
+            initialized_estimators: dict[str, CalibrationEstimator] = {}
             for estimator_name, estimator_params in estimators_params_in_group.items():
                 if (
                     not self._has_mobility
@@ -195,7 +198,7 @@ class CalibrationManager(BaseManager):
                 self.reporter.log_string(
                     f"Initializing estimator '{estimator_name}' in group '{group_name}' with '{estimator_params}' .."
                 )
-                initialized_estimators[estimator_name] = Calibration(
+                initialized_estimators[estimator_name] = CalibrationEstimator(
                     name=estimator_name,
                     model=model(**model_args),
                     input_columns=estimator_params["input_columns"],
@@ -226,7 +229,7 @@ class CalibrationManager(BaseManager):
 
         Returns
         -------
-        Calibration
+        CalibrationEstimator
             The estimator object
 
         """

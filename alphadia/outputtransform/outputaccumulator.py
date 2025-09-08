@@ -34,7 +34,7 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
 from tqdm import tqdm
 
-from alphadia.constants.keys import MRMCols, SearchStepFiles
+from alphadia.constants.keys import CalibCols, SearchStepFiles
 
 logger = logging.getLogger()
 
@@ -72,12 +72,12 @@ def build_speclibflat_from_quant(
             "flat_frag_start_idx",
             "flat_frag_stop_idx",
             "charge",
-            MRMCols.RT_LIBRARY,
-            MRMCols.RT_OBSERVED,
-            MRMCols.MOBILITY_LIBRARY,
-            MRMCols.MOBILITY_OBSERVED,
-            MRMCols.MZ_LIBRARY,
-            MRMCols.MZ_OBSERVED,
+            CalibCols.RT_LIBRARY,
+            CalibCols.RT_OBSERVED,
+            CalibCols.MOBILITY_LIBRARY,
+            CalibCols.MOBILITY_OBSERVED,
+            CalibCols.MZ_LIBRARY,
+            CalibCols.MZ_OBSERVED,
             "proteins",
             "genes",
             "mods",
@@ -88,8 +88,8 @@ def build_speclibflat_from_quant(
 
     if optional_precursor_columns is None:
         optional_precursor_columns = [
-            MRMCols.RT_CALIBRATED,
-            MRMCols.MZ_CALIBRATED,
+            CalibCols.RT_CALIBRATED,
+            CalibCols.MZ_CALIBRATED,
         ]
 
     psm_df = pd.read_parquet(os.path.join(folder, SearchStepFiles.PSM_FILE_NAME))
@@ -363,9 +363,12 @@ class TransferLearningAccumulator(BaseAccumulator):
         """
 
         norm_delta_max = self._norm_delta_max
-        if MRMCols.RT_CALIBRATED not in self.consensus_speclibase.precursor_df.columns:
+        if (
+            CalibCols.RT_CALIBRATED
+            not in self.consensus_speclibase.precursor_df.columns
+        ):
             logger.warning(
-                f"Column '{MRMCols.RT_CALIBRATED}' not found in the precursor_df, delta-max normalization will not be performed"
+                f"Column '{CalibCols.RT_CALIBRATED}' not found in the precursor_df, delta-max normalization will not be performed"
             )
             norm_delta_max = False
 
@@ -409,8 +412,8 @@ def normalize_rt_max(spec_lib_base: base.SpecLibBase) -> base.SpecLibBase:
     """
 
     spec_lib_base.precursor_df["rt_norm"] = (
-        spec_lib_base.precursor_df[MRMCols.RT_OBSERVED]
-        / spec_lib_base.precursor_df[MRMCols.RT_OBSERVED].max()
+        spec_lib_base.precursor_df[CalibCols.RT_OBSERVED]
+        / spec_lib_base.precursor_df[CalibCols.RT_OBSERVED].max()
     )
 
     return spec_lib_base
@@ -441,16 +444,16 @@ def normalize_rt_delta_max(spec_lib_base: base.SpecLibBase) -> base.SpecLibBase:
     precursor_df = spec_lib_base.precursor_df
 
     # calculate max normalization
-    max_norm = precursor_df[MRMCols.RT_OBSERVED].values / np.max(
-        precursor_df[MRMCols.RT_OBSERVED].values
+    max_norm = precursor_df[CalibCols.RT_OBSERVED].values / np.max(
+        precursor_df[CalibCols.RT_OBSERVED].values
     )
 
     # calculate calibrated normalization
     deviation_from_calib = (
-        precursor_df[MRMCols.RT_OBSERVED].values
-        - precursor_df[MRMCols.RT_CALIBRATED].values
-    ) / precursor_df[MRMCols.RT_CALIBRATED].values
-    calibrated_norm = precursor_df[MRMCols.RT_LIBRARY].values * (
+        precursor_df[CalibCols.RT_OBSERVED].values
+        - precursor_df[CalibCols.RT_CALIBRATED].values
+    ) / precursor_df[CalibCols.RT_CALIBRATED].values
+    calibrated_norm = precursor_df[CalibCols.RT_LIBRARY].values * (
         1 + deviation_from_calib
     )
     calibrated_norm = calibrated_norm / calibrated_norm.max()

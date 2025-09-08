@@ -14,11 +14,11 @@ from alphadia.plotting.utils import density_scatter
 if TYPE_CHECKING:
     import pandas as pd
 
-    from alphadia.calibration.property import Calibration
+    from alphadia.calibration.estimator import CalibrationEstimator
 
 
 def plot_calibration(
-    calibration: Calibration,
+    calibration: CalibrationEstimator,
     df: pd.DataFrame,
     figure_path: str | None = None,
 ) -> None:
@@ -26,7 +26,7 @@ def plot_calibration(
 
     Parameters
     ----------
-    calibration : Calibration
+    calibration : CalibrationEstimator
         Calibration object.
 
     df : pd.DataFrame
