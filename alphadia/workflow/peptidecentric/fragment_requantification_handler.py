@@ -10,7 +10,7 @@ from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
 from alphadia.search.scoring.config import CandidateConfig
-from alphadia.search.scoring.plexscoring import CandidateScoring
+from alphadia.search.scoring.scoring import CandidateScoring
 from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
 )

@@ -6,7 +6,7 @@ import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.search.scoring.config import CandidateConfig
-from alphadia.search.scoring.plexscoring import CandidateScoring
+from alphadia.search.scoring.scoring import CandidateScoring
 
 # TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.search.selection.config_df import HybridCandidateConfig

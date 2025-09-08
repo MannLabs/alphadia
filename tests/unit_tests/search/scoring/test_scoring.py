@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.search.scoring.plexscoring import CandidateScoring
+from alphadia.search.scoring.scoring import CandidateScoring
 
 
 class TestCandidateScoringCollectCandidates:

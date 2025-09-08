@@ -5,7 +5,7 @@ The scoring package performs scoring of peak group candidates by calculating the
 
 .. autosummary::
 
-   alphadia.scoring.plexscoring
+   alphadia.scoring.scoring
    alphadia.scoring.config
    alphadia.scoring.containers
    alphadia.scoring.output
@@ -18,7 +18,7 @@ The scoring package performs scoring of peak group candidates by calculating the
    alphadia.scoring.features.profile_features
    alphadia.scoring.features.reference_features
 
-.. automodule:: alphadia.scoring.plexscoring
+.. automodule:: alphadia.scoring.scoring
    :members:
    :undoc-members:
    :show-inheritance:
