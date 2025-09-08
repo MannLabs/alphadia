@@ -6,7 +6,7 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring.config import CandidateScoringConfig
@@ -34,15 +34,15 @@ logger = logging.getLogger()
 DEFAULT_FEATURE_COLUMNS = [
     "base_width_mobility",
     "base_width_rt",
-    MRMCols.RT_OBSERVED,
-    MRMCols.MOBILITY_OBSERVED,
+    CalibCols.RT_OBSERVED,
+    CalibCols.MOBILITY_OBSERVED,
     "mono_ms1_intensity",
     "top_ms1_intensity",
     "sum_ms1_intensity",
     "weighted_ms1_intensity",
     "weighted_mass_deviation",
     "weighted_mass_error",
-    MRMCols.MZ_OBSERVED,
+    CalibCols.MZ_OBSERVED,
     "mono_ms1_height",
     "top_ms1_height",
     "sum_ms1_height",
@@ -91,9 +91,9 @@ DEFAULT_CANDIDATE_COLUMNS = [
 ]
 
 DEFAULT_PRECURSOR_COLUMNS = [
-    MRMCols.RT_LIBRARY,
-    MRMCols.MOBILITY_LIBRARY,
-    MRMCols.MZ_LIBRARY,
+    CalibCols.RT_LIBRARY,
+    CalibCols.MOBILITY_LIBRARY,
+    CalibCols.MZ_LIBRARY,
     "charge",
     "decoy",
     "channel",
@@ -380,7 +380,7 @@ class CandidateScoring:
         )
 
         return FragmentContainer(
-            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
+            self.fragments_flat[CalibCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,
@@ -456,7 +456,7 @@ class CandidateScoring:
 
         # calculate delta_rt
         candidates_psm_df["delta_rt"] = (
-            candidates_psm_df[MRMCols.RT_OBSERVED] - candidates_psm_df[self.rt_column]
+            candidates_psm_df[CalibCols.RT_OBSERVED] - candidates_psm_df[self.rt_column]
         )
 
         # calculate number of certain amino acids in sequence # TODO unused?
@@ -542,9 +542,9 @@ class CandidateScoring:
         colnames = [
             "precursor_idx",
             "rank",
-            MRMCols.MZ_LIBRARY,
+            CalibCols.MZ_LIBRARY,
             "mz",
-            MRMCols.MZ_OBSERVED,
+            CalibCols.MZ_OBSERVED,
             "height",
             "intensity",
             "mass_error",

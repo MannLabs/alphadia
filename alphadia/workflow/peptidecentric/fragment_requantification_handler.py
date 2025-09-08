@@ -161,9 +161,9 @@ def _build_candidate_speclib_flat(
             "score",
             "qval",
             "channel",
-            MRMCols.RT_LIBRARY,
-            MRMCols.MZ_LIBRARY,
-            MRMCols.MOBILITY_LIBRARY,
+            CalibCols.RT_LIBRARY,
+            CalibCols.MZ_LIBRARY,
+            CalibCols.MOBILITY_LIBRARY,
             "genes",
             "proteins",
             "decoy",
@@ -171,7 +171,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
-            MRMCols.RT_OBSERVED, MRMCols.MOBILITY_OBSERVED, MRMCols.MZ_OBSERVED
+            CalibCols.RT_OBSERVED, CalibCols.MOBILITY_OBSERVED, CalibCols.MZ_OBSERVED
         ]
 
     Returns

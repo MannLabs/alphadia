@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.constants.keys import MRMCols
+from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.selection import fft
@@ -693,7 +693,7 @@ class CandidateSelection:
         )
 
         return FragmentContainer(
-            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
+            self.fragments_flat[CalibCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,
