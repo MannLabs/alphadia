@@ -2,7 +2,7 @@ Modules
 ========
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 3
 
     alphadia/calibration
     alphadia/fdr
@@ -11,7 +11,7 @@ Modules
     alphadia/libtransform
     alphadia/outputtransform
     alphadia/search_step
-    alphadia/search
+    alphadia/scoring
     alphadia/utils
-    alphadia/validate
+    alphadia/validation
     alphadia/workflow

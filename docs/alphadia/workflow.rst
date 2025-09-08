@@ -12,7 +12,7 @@ workflow
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.workflow.optimization
+.. automodule:: alphadia.workflow.optimizers
    :members:
    :undoc-members:
    :show-inheritance:
