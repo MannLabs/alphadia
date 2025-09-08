@@ -1,13 +1,11 @@
 import os
 import tempfile
 
-import pytest
 from alphabase.constants import _const
 
 from alphadia import search_step
 
 
-@pytest.mark.slow()
 def test_fasta_digest():
     # digest & predict new library
     common_contaminants = os.path.join(_const.CONST_FILE_FOLDER, "contaminants.fasta")

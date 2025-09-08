@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: "0 0 * * *"   # daily at midnight
 
-name: Nightly loose pip install + unit tests
+name: Nightly loose pip install + unit/integration tests
 
 jobs:
   run-unit-tests-loose:
@@ -20,4 +20,4 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh tests alphadia-env 3.11 true
-      test-script: ./run_unit_tests.sh alphadia-env all
+      test-script: ./run_unit_integration_tests.sh alphadia-env all
