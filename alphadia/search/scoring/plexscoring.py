@@ -8,11 +8,11 @@ import pandas as pd
 
 from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData
-from alphadia.search.plexscoring.config import CandidateConfig
-from alphadia.search.plexscoring.containers.score_group import ScoreGroupContainer
-from alphadia.search.plexscoring.output import OutputPsmDF
-from alphadia.search.plexscoring.quadrupole import SimpleQuadrupole
-from alphadia.search.plexscoring.utils import (
+from alphadia.search.scoring.config import CandidateConfig
+from alphadia.search.scoring.containers.score_group import ScoreGroupContainer
+from alphadia.search.scoring.output import OutputPsmDF
+from alphadia.search.scoring.quadrupole import SimpleQuadrupole
+from alphadia.search.scoring.utils import (
     calculate_score_groups,
     merge_missing_columns,
 )

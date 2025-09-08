@@ -13,15 +13,15 @@ from alphadia.plotting.debug import (
     plot_precursor,
     plot_template,
 )
-from alphadia.search.plexscoring import quadrupole
-from alphadia.search.plexscoring.features.fragment_features import (
+from alphadia.search.scoring import quadrupole
+from alphadia.search.scoring.features.fragment_features import (
     fragment_features,
     fragment_mobility_correlation,
 )
-from alphadia.search.plexscoring.features.location_features import location_features
-from alphadia.search.plexscoring.features.precursor_features import precursor_features
-from alphadia.search.plexscoring.features.profile_features import profile_features
-from alphadia.search.plexscoring.utils import (
+from alphadia.search.scoring.features.location_features import location_features
+from alphadia.search.scoring.features.precursor_features import precursor_features
+from alphadia.search.scoring.features.profile_features import profile_features
+from alphadia.search.scoring.utils import (
     frame_profile_1d,
     frame_profile_2d,
     or_envelope_1d,

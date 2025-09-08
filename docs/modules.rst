@@ -6,14 +6,12 @@ Modules
 
     alphadia/calibration
     alphadia/fdr
-    alphadia/fdrexperimental
+    alphadia/_fdrx
     alphadia/fragcomp
-    alphadia/grouping
     alphadia/libtransform
     alphadia/outputtransform
     alphadia/search_step
-    alphadia/plexscoring
-    alphadia/quadrupole
+    alphadia/search
     alphadia/utils
     alphadia/validate
     alphadia/workflow

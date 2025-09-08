@@ -1,54 +1,54 @@
-plexscoring
-===========
+scoring
+=======
 
-The plexscoring package performs scoring of peak group candidates by calculating their features.
+The scoring package performs scoring of peak group candidates by calculating their features.
 
 .. autosummary::
 
-   alphadia.plexscoring.plexscoring
-   alphadia.plexscoring.config
-   alphadia.plexscoring.containers
-   alphadia.plexscoring.output
-   alphadia.plexscoring.scoring_utils
-   alphadia.plexscoring.utils
-   alphadia.plexscoring.features.features_utils
-   alphadia.plexscoring.features.fragment_features
-   alphadia.plexscoring.features.location_features
-   alphadia.plexscoring.features.precursor_features
-   alphadia.plexscoring.features.profile_features
-   alphadia.plexscoring.features.reference_features
+   alphadia.scoring.plexscoring
+   alphadia.scoring.config
+   alphadia.scoring.containers
+   alphadia.scoring.output
+   alphadia.scoring.scoring_utils
+   alphadia.scoring.utils
+   alphadia.scoring.features.features_utils
+   alphadia.scoring.features.fragment_features
+   alphadia.scoring.features.location_features
+   alphadia.scoring.features.precursor_features
+   alphadia.scoring.features.profile_features
+   alphadia.scoring.features.reference_features
 
-.. automodule:: alphadia.plexscoring.plexscoring
+.. automodule:: alphadia.scoring.plexscoring
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.config
+.. automodule:: alphadia.scoring.config
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.containers
+.. automodule:: alphadia.scoring.containers
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.output
+.. automodule:: alphadia.scoring.output
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.scoring_utils
+.. automodule:: alphadia.scoring.scoring_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.utils
+.. automodule:: alphadia.scoring.utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.quadrupole
+.. automodule:: alphadia.scoring.quadrupole
    :members:
    :undoc-members:
    :show-inheritance:
@@ -57,32 +57,32 @@ The plexscoring package performs scoring of peak group candidates by calculating
 Features
 --------
 
-.. automodule:: alphadia.plexscoring.features.features_utils
+.. automodule:: alphadia.scoring.features.features_utils
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.features.fragment_features
+.. automodule:: alphadia.scoring.features.fragment_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.features.location_features
+.. automodule:: alphadia.scoring.features.location_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.features.precursor_features
+.. automodule:: alphadia.scoring.features.precursor_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.features.profile_features
+.. automodule:: alphadia.scoring.features.profile_features
    :members:
    :undoc-members:
    :show-inheritance:
 
-.. automodule:: alphadia.plexscoring.features.reference_features
+.. automodule:: alphadia.scoring.features.reference_features
    :members:
    :undoc-members:
    :show-inheritance:

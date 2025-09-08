@@ -5,7 +5,7 @@ import numpy as np
 from numba.experimental import jitclass
 from scipy.optimize import curve_fit
 
-from alphadia.search.plexscoring.utils import tile
+from alphadia.search.scoring.utils import tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 

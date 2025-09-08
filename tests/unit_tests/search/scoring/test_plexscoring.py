@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.search.plexscoring.plexscoring import CandidateScoring
+from alphadia.search.scoring.plexscoring import CandidateScoring
 
 
 class TestCandidateScoringCollectCandidates:
@@ -88,8 +88,8 @@ class TestCandidateScoringCollectCandidates:
         self, mock_dia_data, minimal_precursors_flat_df, minimal_fragments_flat_df
     ):
         """Create CandidateScoring instance for testing."""
-        from alphadia.search.plexscoring.config import CandidateConfig
-        from alphadia.search.plexscoring.quadrupole import SimpleQuadrupole
+        from alphadia.search.scoring.config import CandidateConfig
+        from alphadia.search.scoring.quadrupole import SimpleQuadrupole
 
         # Create a mock quadrupole calibration to avoid cycle initialization issues
         mock_quadrupole = Mock(spec=SimpleQuadrupole)

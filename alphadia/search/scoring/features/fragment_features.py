@@ -1,11 +1,11 @@
 import numba as nb
 import numpy as np
 
-from alphadia.search.plexscoring.features.features_utils import (
+from alphadia.search.scoring.features.features_utils import (
     cosine_similarity_a1,
     weighted_center_mean_2d,
 )
-from alphadia.search.plexscoring.utils import (
+from alphadia.search.scoring.utils import (
     fragment_correlation,
     fragment_correlation_different,
     tile,

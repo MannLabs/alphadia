@@ -1,12 +1,12 @@
 import numba as nb
 import numpy as np
 
-from alphadia.search.plexscoring.scoring_utils import (
+from alphadia.search.scoring.scoring_utils import (
     correlation_coefficient,
     median_axis,
     normalize_profiles,
 )
-from alphadia.search.plexscoring.utils import (
+from alphadia.search.scoring.utils import (
     fragment_correlation,
     fragment_correlation_different,
 )

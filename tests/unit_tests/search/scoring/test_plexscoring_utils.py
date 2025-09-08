@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.search.plexscoring.utils import (
+from alphadia.search.scoring.utils import (
     calculate_score_groups,
     fragment_correlation,
     fragment_correlation_different,

@@ -1,10 +1,10 @@
 import numba as nb
 import numpy as np
 
-from alphadia.search.plexscoring.features.features_utils import (
+from alphadia.search.scoring.features.features_utils import (
     weighted_center_mean_2d,
 )
-from alphadia.search.plexscoring.utils import save_corrcoeff, tile
+from alphadia.search.scoring.utils import save_corrcoeff, tile
 from alphadia.utils import USE_NUMBA_CACHING
 
 

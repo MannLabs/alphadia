@@ -43,7 +43,7 @@ class CandidateConfigJIT:
         """Numba JIT compatible config object for CandidateScoring.
         Will be emitted when `CandidateConfig.jitclass()` is called.
 
-        Please refer to :class:`.alphadia.plexscoring.CandidateConfig` for documentation.
+        Please refer to :class:`.alphadia.scoring.CandidateConfig` for documentation.
         """
 
         self.collect_fragments = collect_fragments
