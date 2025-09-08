@@ -8,10 +8,10 @@ case "$(echo $TEST_TYPE | tr '[:upper:]' '[:lower:]')" in
     conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/tests -m pytest
     ;;
   "integration")
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/tests/unit -m pytest
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/tests/unit_tests -m pytest
     ;;
   "unit"|"false"|*)
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/integration -m pytest
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/integration_tests -m pytest
     ;;
 esac
 
