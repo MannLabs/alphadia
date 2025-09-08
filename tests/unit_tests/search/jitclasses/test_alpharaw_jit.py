@@ -1,6 +1,6 @@
 import numpy as np
 
-from alphadia.raw_data.jitclasses.alpharaw_jit import _search_sorted_left
+from alphadia.search.jitclasses.alpharaw_jit import _search_sorted_left
 
 
 def test_search_sorted_left():
