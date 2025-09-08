@@ -8,7 +8,7 @@ import pandas as pd
 
 from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData
-from alphadia.search.scoring.config import CandidateConfig
+from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.containers.score_group import ScoreGroupContainer
 from alphadia.search.scoring.output import OutputPsmDF
 from alphadia.search.scoring.quadrupole import SimpleQuadrupole
@@ -150,7 +150,7 @@ class CandidateScoring:
         mobility_column: str,
         precursor_mz_column: str,
         fragment_mz_column: str,
-        config: CandidateConfig | None = None,
+        config: CandidateScoringConfig | None = None,
         quadrupole_calibration: SimpleQuadrupole | None = None,
     ):
         """Initialize candidate scoring step.
@@ -186,7 +186,7 @@ class CandidateScoring:
             The name of the column in `fragments_flat` containing the fragment m/z information.
             This property needs to be changed to `mz_calibrated` if the data has been calibrated.
 
-        config : CandidateConfig, default = None
+        config : CandidateScoringConfig, default = None
             A Numba jit compatible object containing the configuration for the candidate scoring.
             If None, the default configuration will be used.
 
@@ -213,7 +213,7 @@ class CandidateScoring:
 
         # check if a valid config is provided
         if config is None:
-            self.config = CandidateConfig()
+            self.config = CandidateScoringConfig()
         else:
             self.config = config
 
@@ -261,12 +261,12 @@ class CandidateScoring:
         self._quadrupole_calibration = quadrupole_calibration
 
     @property
-    def config(self) -> CandidateConfig:
+    def config(self) -> CandidateScoringConfig:
         """Get the configuration object."""
         return self._config
 
     @config.setter
-    def config(self, config: CandidateConfig) -> None:
+    def config(self, config: CandidateScoringConfig) -> None:
         config.validate()
         self._config = config
 
@@ -277,7 +277,7 @@ class CandidateScoring:
 
         If not present, the `rank` column will be added to the candidate dataframe.
         Then score groups are calculated using :func:`.calculate_score_groups` function.
-        If configured in :attr:`.CandidateConfig.score_grouped`, all channels will be grouped into a single score group.
+        If configured in :attr:`.CandidateScoringConfig.score_grouped`, all channels will be grouped into a single score group.
         Otherwise, each channel will be scored separately.
 
         The candidate dataframe is validated using the :func:`.validate.candidates` schema.

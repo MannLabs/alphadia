@@ -5,10 +5,10 @@ import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.search.scoring.config import CandidateConfig
+from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 
-# TODO: these imports could be conditional: CandidateSelectionConfig, CandidateSelection, CandidateConfig, CandidateScoring
+# TODO: these imports could be conditional: CandidateSelectionConfig, CandidateSelection, CandidateScoringConfig, CandidateScoring
 from alphadia.search.selection.config_df import CandidateSelectionConfig
 from alphadia.search.selection.selection import CandidateSelection
 
@@ -244,7 +244,7 @@ class ClassicExtractionHandler(ExtractionHandler):
             }
         )
 
-        self._scoring_config = CandidateConfig()
+        self._scoring_config = CandidateScoringConfig()
         self._scoring_config.update(
             {
                 **config["scoring_config"],

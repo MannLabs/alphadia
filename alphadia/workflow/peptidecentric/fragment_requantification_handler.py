@@ -9,7 +9,7 @@ from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.config import CandidateConfig
+from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
@@ -95,7 +95,7 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        config = CandidateConfig()
+        config = CandidateScoringConfig()
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)

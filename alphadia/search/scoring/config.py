@@ -11,7 +11,7 @@ logger = logging.getLogger()
 
 
 @nb.experimental.jitclass()
-class CandidateConfigJIT:
+class CandidateScoringConfigJIT:
     collect_fragments: nb.boolean
     score_grouped: nb.boolean
     exclude_shared_ions: nb.boolean
@@ -41,9 +41,9 @@ class CandidateConfigJIT:
         experimental_xic: nb.boolean,
     ) -> None:
         """Numba JIT compatible config object for CandidateScoring.
-        Will be emitted when `CandidateConfig.jitclass()` is called.
+        Will be emitted when `CandidateScoringConfig.jitclass()` is called.
 
-        Please refer to :class:`.alphadia.scoring.CandidateConfig` for documentation.
+        Please refer to :class:`.alphadia.scoring.CandidateScoringConfig` for documentation.
         """
 
         self.collect_fragments = collect_fragments
@@ -60,10 +60,12 @@ class CandidateConfigJIT:
         self.experimental_xic = experimental_xic
 
 
-class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparameters
+class CandidateScoringConfig(
+    JITConfig
+):  # TODO rename to CandidateScoringHyperparameters
     """Config object for CandidateScoring."""
 
-    _jit_container_type = CandidateConfigJIT
+    _jit_container_type = CandidateScoringConfigJIT
 
     def __init__(self):
         """Create default config for CandidateScoring"""
@@ -220,4 +222,4 @@ class CandidateConfig(JITConfig):  # TODO rename to CandidateScoringHyperparamet
         ), f"fragment_mz_tolerance must be less than or equal {MAX_FRAGMENT_MZ_TOLERANCE}"
 
 
-candidate_config_type = CandidateConfigJIT.class_type.instance_type
+candidate_config_type = CandidateScoringConfigJIT.class_type.instance_type

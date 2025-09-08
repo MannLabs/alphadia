@@ -5,7 +5,7 @@ from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.config import CandidateConfig
+from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
@@ -115,7 +115,7 @@ class MultiplexingRequantificationHandler:
             verbosity="progress",
         )
 
-        config = CandidateConfig()
+        config = CandidateScoringConfig()
         config.score_grouped = True
         config.exclude_shared_ions = True
         config.reference_channel = self._config["multiplexing"]["reference_channel"]

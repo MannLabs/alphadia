@@ -88,7 +88,7 @@ class TestCandidateScoringCollectCandidates:
         self, mock_dia_data, minimal_precursors_flat_df, minimal_fragments_flat_df
     ):
         """Create CandidateScoring instance for testing."""
-        from alphadia.search.scoring.config import CandidateConfig
+        from alphadia.search.scoring.config import CandidateScoringConfig
         from alphadia.search.scoring.quadrupole import SimpleQuadrupole
 
         # Create a mock quadrupole calibration to avoid cycle initialization issues
@@ -100,7 +100,7 @@ class TestCandidateScoringCollectCandidates:
             precursors_flat=minimal_precursors_flat_df,
             fragments_flat=minimal_fragments_flat_df,
             quadrupole_calibration=mock_quadrupole,
-            config=CandidateConfig(),
+            config=CandidateScoringConfig(),
             rt_column="rt_library",
             mobility_column="mobility_library",
             precursor_mz_column="mz_library",
