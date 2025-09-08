@@ -1,12 +1,10 @@
 import tempfile
 
-import pytest
 from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia import search_step
 
 
-@pytest.mark.slow()
 def test_library_loading():
     temp_directory = tempfile.gettempdir()
 

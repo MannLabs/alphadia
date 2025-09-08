@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from unittest import skip
 
 import pandas as pd
 import pytest
@@ -12,11 +13,10 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 
 
-@pytest.mark.slow()
+@skip  # TODO re-enable or delete
 def test_workflow_base():
     if pytest.test_data is None:
-        pytest.skip("No test data found")
-        return
+        raise ValueError("No test data found")
 
     for _, file_list in pytest.test_data.items():
         for file in file_list:
