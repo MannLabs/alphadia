@@ -8,16 +8,16 @@ import pandas as pd
 from alphadia import utils
 from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData, DiaDataJIT
-from alphadia.search.peakgroup import fft
-from alphadia.search.peakgroup.config_df import (
+from alphadia.search.selection import fft
+from alphadia.search.selection.config_df import (
     CandidateContainer,
     HybridCandidateConfig,
     HybridCandidateConfigJIT,
     PrecursorFlatContainer,
     candidate_container_to_df,
 )
-from alphadia.search.peakgroup.kernel import GaussianKernel
-from alphadia.search.peakgroup.utils import (
+from alphadia.search.selection.kernel import GaussianKernel
+from alphadia.search.selection.utils import (
     amean1,
     assemble_isotope_mz,
     astd1,

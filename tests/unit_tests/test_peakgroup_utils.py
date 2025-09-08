@@ -2,7 +2,7 @@ import numba as nb
 import numpy as np
 import pytest
 
-from alphadia.search.peakgroup.utils import amean1, assemble_isotope_mz
+from alphadia.search.selection.utils import amean1, assemble_isotope_mz
 from alphadia.utils import USE_NUMBA_CACHING
 
 

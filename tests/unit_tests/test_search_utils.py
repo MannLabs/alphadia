@@ -2,9 +2,9 @@ from unittest import skip
 
 import numpy as np
 
-from alphadia.search.peakgroup.fft import convolve_fourier
-from alphadia.search.peakgroup.kernel import multivariate_normal
-from alphadia.search.peakgroup.utils import _symetric_limits_1d, symetric_limits_2d
+from alphadia.search.selection.fft import convolve_fourier
+from alphadia.search.selection.kernel import multivariate_normal
+from alphadia.search.selection.utils import _symetric_limits_1d, symetric_limits_2d
 
 
 def test_symetric_limits_1d():

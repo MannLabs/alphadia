@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from alphadia.search.peakgroup.kernel import GaussianKernel, multivariate_normal
+from alphadia.search.selection.kernel import GaussianKernel, multivariate_normal
 
 
 def test_multivariate_normal():
