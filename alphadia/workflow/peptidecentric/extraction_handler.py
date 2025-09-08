@@ -10,7 +10,7 @@ from alphadia.search.scoring.scoring import CandidateScoring
 
 # TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.search.selection.config_df import HybridCandidateConfig
-from alphadia.search.selection.search import HybridCandidateSelection
+from alphadia.search.selection.selection import HybridCandidateSelection
 
 try:
     from alphadia_ng import PeakGroupSelection, SelectionParameters
