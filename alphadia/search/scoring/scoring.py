@@ -8,6 +8,7 @@ import pandas as pd
 
 from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData
+from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.containers.score_group import ScoreGroupContainer
 from alphadia.search.scoring.output import OutputPsmDF
@@ -16,7 +17,6 @@ from alphadia.search.scoring.utils import (
     calculate_score_groups,
     merge_missing_columns,
 )
-from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import (
     USE_NUMBA_CACHING,
     get_isotope_columns,

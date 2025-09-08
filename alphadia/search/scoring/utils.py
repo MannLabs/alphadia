@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from numba.extending import overload_method
 
-from alphadia.utilities.fragment_container import FragmentContainer
+from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import (
     candidates_schema,

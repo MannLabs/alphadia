@@ -6,6 +6,7 @@ import numba as nb
 import numpy as np
 
 from alphadia.constants.settings import NUM_FEATURES
+from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring import quadrupole
 from alphadia.search.scoring.features.fragment_features import (
     fragment_features,
@@ -29,7 +30,6 @@ from alphadia.search.scoring.utils import (
     scan_profile_1d,
     scan_profile_2d,
 )
-from alphadia.utilities.fragment_container import FragmentContainer
 
 logger = logging.getLogger()
 

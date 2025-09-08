@@ -2,8 +2,8 @@ import numba as nb
 import numpy as np
 from numba.extending import overload
 
+from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.selection.fft import NumbaContextOnly
-from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 
 

@@ -8,6 +8,7 @@ import pandas as pd
 from alphadia import utils
 from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData, DiaDataJIT
+from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.selection import fft
 from alphadia.search.selection.config_df import (
     CandidateContainer,
@@ -28,7 +29,6 @@ from alphadia.search.selection.utils import (
     wrap0,
     wrap1,
 )
-from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import fragments_flat_schema, precursors_flat_schema
 

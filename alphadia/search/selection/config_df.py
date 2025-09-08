@@ -4,12 +4,11 @@ import numba as nb
 import numpy as np
 import pandas as pd
 
-from alphadia.utilities.jit_config import JITConfig
+from alphadia.search.jitclasses.jit_config import JITConfig
 
 logger = logging.getLogger()
 
 
-# TODO rename Config -> "JITConfig" to avoid confusion with the Config class in alphadia.utilities.config ?
 @nb.experimental.jitclass()
 class CandidateSelectionConfigJIT:
     """Numba compatible config object for the HybridCandidate class.

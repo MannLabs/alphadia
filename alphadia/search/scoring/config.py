@@ -5,7 +5,7 @@ import logging
 import numba as nb
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
-from alphadia.utilities.jit_config import JITConfig
+from alphadia.search.jitclasses.jit_config import JITConfig
 
 logger = logging.getLogger()
 
