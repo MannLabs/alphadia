@@ -23,7 +23,6 @@ exclude = [
     "alphadia/_fdrx/plotting.py",
     "alphadia/_fdrx/base.py",
     "alphadia/search/**.py",
-    "alphadia/plotting/*.py",
     "alphadia/transferlearning/*.py",
     "alphadia/utilities/*.py",
     "alphadia/workflow/*.py",

@@ -6,8 +6,25 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from alphadia.plotting import utils
 from alphadia.search.scoring import quadrupole
+
+
+def _plot_image_collection(
+    images: list[np.ndarray], image_width: float = 4, image_height: float = 6
+):
+    n_images = len(images)
+    fig, ax = plt.subplots(1, n_images, figsize=(n_images * image_width, image_height))
+
+    if n_images == 1:
+        ax = [ax]
+
+    for i_image, image in enumerate(images):
+        ax[i_image].imshow(image)
+        ax[i_image].spines[["right", "top", "left", "bottom"]].set_visible(False)
+        ax[i_image].set_xticks([])
+        ax[i_image].set_yticks([])
+    fig.tight_layout()
+    plt.show()
 
 
 def plot_fragment_profile(
@@ -91,7 +108,7 @@ def plot_fragment_profile(
 
         plt.close(fig)
 
-    utils.plot_image_collection(images)
+    _plot_image_collection(images)
 
 
 def plot_precursor(dense_precursors):
