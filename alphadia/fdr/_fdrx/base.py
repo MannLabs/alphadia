@@ -8,12 +8,12 @@ import numpy as np
 import pandas as pd
 import sklearn.base
 
-from alphadia._fdrx.plotting import (
+from alphadia.fdr._fdrx.plotting import (
     _plot_fdr_curve,
     _plot_roc_curve,
     _plot_score_distribution,
 )
-from alphadia._fdrx.stats import add_q_values, get_pep, keep_best
+from alphadia.fdr._fdrx.stats import add_q_values, get_pep, keep_best
 from alphadia.fdr.utils import train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
 
@@ -34,7 +34,6 @@ class TargetDecoyFDR:
 
         Parameters
         ----------
-
         classifier : sklearn.base.BaseEstimator
             The classifier to use for target decoy estimation.
 
@@ -46,8 +45,8 @@ class TargetDecoyFDR:
 
         competition_columns : list, default=[]
             Perform target decoy competition on these columns. Only the best PSM for each group will be kept.
-        """
 
+        """
         self._classifier = classifier
         self._feature_columns = feature_columns
         self._decoy_column = decoy_column
@@ -58,11 +57,10 @@ class TargetDecoyFDR:
 
         Parameters
         ----------
-
         psm_df : pd.DataFrame
             The dataframe containing the PSMs.
-        """
 
+        """
         is_na_row = psm_df[self._feature_columns].isna().any(axis=1)
         logger.info(f"Removing {is_na_row.sum()} rows with missing values")
 
@@ -85,7 +83,6 @@ class TargetDecoyFDR:
 
         Parameters
         ----------
-
         psm_df : pd.DataFrame
             The dataframe containing the PSMs.
 
@@ -93,8 +90,8 @@ class TargetDecoyFDR:
         -------
         np.ndarray
             The decoy probabilities for the PSMs with same shape and order as the input dataframe.
-        """
 
+        """
         is_na_row = psm_df[self._feature_columns].isna().any(axis=1)
         X = psm_df.loc[~is_na_row, self._feature_columns].values
 
@@ -116,7 +113,6 @@ class TargetDecoyFDR:
 
         Parameters
         ----------
-
         psm_df : pd.DataFrame
             The dataframe containing the PSMs.
 
@@ -132,11 +128,10 @@ class TargetDecoyFDR:
 
         Returns
         -------
-
         pd.DataFrame
             The input dataframe with q-values and PEPs added.
-        """
 
+        """
         psm_df = psm_df.copy()
         psm_df["decoy_proba"] = self.predict_classifier(psm_df)
         # normalize to a 1:1 target decoy proportion
@@ -180,7 +175,6 @@ class TargetDecoyFDR:
 
         Parameters
         ----------
-
         psm_df : pd.DataFrame
             The dataframe containing the PSMs.
 
@@ -192,10 +186,9 @@ class TargetDecoyFDR:
 
         Returns
         -------
-
         pd.DataFrame
             The input dataframe with q-values and PEPs added.
-        """
 
+        """
         self.fit_classifier(psm_df)
         return self.predict_qval(psm_df, fragments_df, cycle)
