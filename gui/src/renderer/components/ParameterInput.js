@@ -227,32 +227,48 @@ const ParameterInput = ({
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
     let defaultText = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
-    return (
 
-            <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            spacing={2}
-            sx={{minHeight: "30px"}}
-            >
-            <InfoTooltip title={
-                <Stack spacing={0.5}>
-                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name} (default: {defaultText})</Typography>
-                    <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
-                    <Typography>{parameter.description}</Typography>
+    // Show description when searching
+    const showDescription = searchTerm && searchTerm.trim() !== '';
+
+    return (
+            <Box>
+                <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                spacing={2}
+                sx={{minHeight: "30px"}}
+                >
+                <InfoTooltip title={
+                    <Stack spacing={0.5}>
+                        <Typography sx={{ fontWeight: 'bold' }}>{parameter.name} (default: {defaultText})</Typography>
+                        <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
+                        <Typography>{parameter.description}</Typography>
+                    </Stack>
+                }>
+                    <Typography sx={{
+                        fontWeight: 400,
+                        fontSize: "12px",
+                        color: isMatch ? 'red' : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
+                    }}>
+                        {parameter.name}
+                    </Typography>
+                </InfoTooltip>
+                    {input}
                 </Stack>
-            }>
-                <Typography sx={{
-                    fontWeight: 400,
-                    fontSize: "12px",
-                    color: isMatch ? 'red' : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
-                }}>
-                    {parameter.name}
-                </Typography>
-            </InfoTooltip>
-                {input}
-            </Stack>
+                {showDescription && parameter.description && (
+                    <Typography sx={{
+                        fontSize: "11px",
+                        color: "text.secondary",
+                        mt: 0.5,
+                        ml: 0,
+                        fontStyle: "italic"
+                    }}>
+                        {parameter.description}
+                    </Typography>
+                )}
+            </Box>
 
 
     )
