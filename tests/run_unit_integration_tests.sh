@@ -5,13 +5,13 @@ TEST_TYPE=${2:-all}
 
 case "$(echo $TEST_TYPE | tr '[:upper:]' '[:lower:]')" in
   "all"|"true")
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/tests -m pytest
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest
     ;;
   "integration")
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/tests/unit_tests -m pytest
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest unit_tests
     ;;
   "unit"|"false"|*)
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia/integration_tests -m pytest
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest integration_tests
     ;;
 esac
 
