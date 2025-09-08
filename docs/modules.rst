@@ -11,6 +11,7 @@ Modules
     alphadia/libtransform
     alphadia/outputtransform
     alphadia/search_step
+    alphadia/selection
     alphadia/scoring
     alphadia/utils
     alphadia/validation
