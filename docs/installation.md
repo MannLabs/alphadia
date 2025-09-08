@@ -31,7 +31,7 @@ you can install alphaDIA via `pip`.
 Please make sure you have a valid installation of conda or miniconda.
 We recommend setting up miniconda as described on their [website](https://docs.conda.io/projects/miniconda/en/latest/).
 
-If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono ([see below](#2-installing-mono)).
+If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono (see the section on installing Mono below).
 
 ### 2. Setting up the environment
 
@@ -79,7 +79,7 @@ git fetch --tags && git checkout $(git describe --tags $(git rev-list --tags --m
 ```
 
 ### 2. Installation: backend
-Set up a conda environment and activate it as described [here](#2-setting-up-the-environment).
+Set up a conda environment and activate it as described in the "Setting up the environment" section above.
 
 Use pip to install alphaDIA, using the `development` tag to install additional packages required for development only
 ```bash

@@ -18,7 +18,7 @@ workflow
    :show-inheritance:
 
 workflow.managers
-===========
+=================
 
 .. automodule:: alphadia.workflow.managers.base
    :members:

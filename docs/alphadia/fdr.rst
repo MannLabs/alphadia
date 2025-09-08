@@ -13,6 +13,8 @@ The fdr module contains functionality to enforce false discovery rate (FDR) cont
    :members:
    :undoc-members:
    :show-inheritance:
+   :inherited-members:
+   :exclude-members: fitted
 
 .. automodule:: alphadia.fdr.plotting
    :members:
