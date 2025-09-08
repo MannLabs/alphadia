@@ -8,8 +8,8 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia.search.scoring.config import CandidateConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 
-# TODO: these imports could be conditional: HybridCandidateConfig, CandidateSelection, CandidateConfig, CandidateScoring
-from alphadia.search.selection.config_df import HybridCandidateConfig
+# TODO: these imports could be conditional: CandidateSelectionConfig, CandidateSelection, CandidateConfig, CandidateScoring
+from alphadia.search.selection.config_df import CandidateSelectionConfig
 from alphadia.search.selection.selection import CandidateSelection
 
 try:
@@ -234,7 +234,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         super().__init__(config, optimization_manager, reporter, column_name_handler)
 
         # Initialize selection configuration
-        self._selection_config = HybridCandidateConfig()
+        self._selection_config = CandidateSelectionConfig()
         self._selection_config.update(
             {
                 **config["selection_config"],

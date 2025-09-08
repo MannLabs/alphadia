@@ -11,9 +11,9 @@ logger = logging.getLogger()
 
 # TODO rename Config -> "JITConfig" to avoid confusion with the Config class in alphadia.utilities.config ?
 @nb.experimental.jitclass()
-class HybridCandidateConfigJIT:
+class CandidateSelectionConfigJIT:
     """Numba compatible config object for the HybridCandidate class.
-    Please see the documentation of the HybridCandidateConfig class for more information on the parameters and their default values.
+    Please see the documentation of the CandidateSelectionConfig class for more information on the parameters and their default values.
     """
 
     rt_tolerance: nb.float64
@@ -123,10 +123,10 @@ class HybridCandidateConfigJIT:
         self.feature_weight = feature_weight
 
 
-class HybridCandidateConfig(
+class CandidateSelectionConfig(
     JITConfig
-):  # TODO rename to HybridCandidateScoringHyperparameters
-    _jit_container_type = HybridCandidateConfigJIT
+):  # TODO rename to CandidateSelectionHyperparameters
+    _jit_container_type = CandidateSelectionConfigJIT
 
     def __init__(self):
         super().__init__()

@@ -11,8 +11,8 @@ from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.search.selection import fft
 from alphadia.search.selection.config_df import (
     CandidateContainer,
-    HybridCandidateConfig,
-    HybridCandidateConfigJIT,
+    CandidateSelectionConfig,
+    CandidateSelectionConfigJIT,
     PrecursorFlatContainer,
     candidate_container_to_df,
 )
@@ -79,7 +79,7 @@ def _select_candidates_pjit(
     jit_data: DiaDataJIT,
     precursor_container: PrecursorFlatContainer,
     fragment_container: FragmentContainer,
-    config: HybridCandidateConfigJIT,
+    config: CandidateSelectionConfigJIT,
     kernel: np.ndarray,
     candidate_container: CandidateContainer,
 ) -> None:
@@ -95,7 +95,7 @@ def _select_candidates_pjit(
         Container holding precursor information.
     fragment_container : FragmentContainer
         Container holding fragment information.
-    config : HybridCandidateConfigJIT
+    config : CandidateSelectionConfigJIT
         Configuration object containing parameters for candidate selection.
     kernel : np.ndarray
         Convolution kernel for smoothing the precursor and fragment data.
@@ -371,7 +371,7 @@ def _build_candidates(
     dense_fragments: np.ndarray,
     kernel: np.ndarray,
     jit_data: DiaDataJIT,
-    config: HybridCandidateConfigJIT,
+    config: CandidateSelectionConfigJIT,
     scan_limits: np.ndarray,
     frame_limits: np.ndarray,
     candidate_count: int = 3,
@@ -548,7 +548,7 @@ class CandidateSelection:
         dia_data: DiaData,
         precursors_flat: pd.DataFrame,
         fragments_flat: pd.DataFrame,
-        config: HybridCandidateConfig,
+        config: CandidateSelectionConfig,
         rt_column: str,
         mobility_column: str,
         precursor_mz_column: str,
@@ -569,7 +569,7 @@ class CandidateSelection:
         fragments_flat : pd.DataFrame
             flattened fragment dataframe
 
-        config : HybridCandidateConfig
+        config : CandidateSelectionConfig
             config object
 
         rt_column : str

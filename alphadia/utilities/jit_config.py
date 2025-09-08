@@ -15,7 +15,7 @@ class JITConfig(ABC):
     .. code-block:: python
 
         @nb.experimental.jitclass()
-        class HybridCandidateConfigJIT():
+        class CandidateSelectionConfigJIT():
             rt_tolerance: nb.float64
             def __init__(self, rt_tolerance):
                 self.rt_tolerance = rt_tolerance
@@ -27,19 +27,19 @@ class JITConfig(ABC):
 
     .. code-block:: python
 
-        class HybridCandidateConfig(JITConfig):
-            _jit_container_type = HybridCandidateConfigJIT
+        class CandidateSelectionConfig(JITConfig):
+            _jit_container_type = CandidateSelectionConfigJIT
             def __init__(self, rt_tolerance = 0.5):
                 self.rt_tolerance = rt_tolerance
 
-        config = HybridCandidateConfig()
+        config = CandidateSelectionConfig()
 
 
     The jit config can then be retrieved by calling the `to_jitclass()` method.
 
     .. code-block:: python
 
-        config = HybridCandidateConfig()
+        config = CandidateSelectionConfig()
         jit_config = config.to_jitclass()
         print(jit_config.rt_tolerance)
         >> 0.5
@@ -88,12 +88,12 @@ class JITConfig(ABC):
 
         .. code-block:: python
 
-            class HybridCandidateConfig(JITConfig):
-                _jit_container_type = HybridCandidateConfigJIT
+            class CandidateSelectionConfig(JITConfig):
+                _jit_container_type = CandidateSelectionConfigJIT
                 def __init__(self):
                     self.rt_tolerance = 0.5
 
-            config = HybridCandidateConfig()
+            config = CandidateSelectionConfig()
             config.update({'rt_tolerance': 0.1})
 
         """
@@ -101,7 +101,7 @@ class JITConfig(ABC):
             # check if attribute exists
             if not hasattr(self, key):
                 raise ValueError(
-                    f"Parameter {key} does not exist in HybridCandidateConfig",
+                    f"Parameter {key} does not exist in CandidateSelectionConfig",
                 )
 
             # check if types match
