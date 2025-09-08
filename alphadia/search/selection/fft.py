@@ -1,3 +1,5 @@
+"""Fast Fourier Transform operations for signal processing."""
+
 import numba as nb
 import numpy as np
 from numba.extending import overload

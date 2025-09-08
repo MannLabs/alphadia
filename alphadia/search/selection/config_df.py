@@ -1,3 +1,5 @@
+"""Configuration DataFrames for selection parameters."""
+
 import logging
 
 import numba as nb

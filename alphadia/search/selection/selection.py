@@ -1,3 +1,5 @@
+"""Main candidate selection implementation for DIA data analysis."""
+
 import logging
 
 import alphatims.utils

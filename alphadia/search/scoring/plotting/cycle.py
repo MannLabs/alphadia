@@ -1,3 +1,5 @@
+"""Visualization of DIA cycle patterns and scan windows."""
+
 # native imports
 import os
 

@@ -1,3 +1,5 @@
+"""Kernel-based operations for candidate selection."""
+
 import logging
 
 import numba as nb

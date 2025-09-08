@@ -1,3 +1,9 @@
+"""Container classes for fragment ion data.
+
+This module provides JIT-compiled container classes for efficiently storing and
+accessing fragment ion information including m/z values, intensities, and ion types.
+"""
+
 import numba as nb
 import numpy as np
 

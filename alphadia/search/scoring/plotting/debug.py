@@ -1,3 +1,5 @@
+"""Debug plotting utilities for scoring analysis."""
+
 # native imports
 
 # alphadia imports

@@ -1,3 +1,5 @@
+"""Reference-based features comparing against library spectra."""
+
 import numba as nb
 import numpy as np
 

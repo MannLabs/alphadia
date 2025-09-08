@@ -1,3 +1,10 @@
+"""JIT-compiled data structures for Bruker timsTOF data processing.
+
+This module provides numba-compiled classes and functions specifically optimized
+for processing Bruker timsTOF data, including ion mobility and frame-based
+data structures.
+"""
+
 import math
 
 import numpy as np

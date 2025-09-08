@@ -1,3 +1,10 @@
+"""JIT-compiled utilities for AlphaRaw data processing.
+
+This module provides numba-compiled functions for efficient processing of
+mass spectrometry data from AlphaRaw format, including spectrum extraction
+and mass range calculations.
+"""
+
 import logging
 
 import numba as nb

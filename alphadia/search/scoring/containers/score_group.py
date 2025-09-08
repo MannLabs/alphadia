@@ -1,4 +1,8 @@
-"""Data Containers for Candidate Scoring."""
+"""Score group container for managing scoring results.
+
+This module provides container classes for organizing groups of scores
+and their associated metadata during the scoring process.
+"""
 
 import logging
 

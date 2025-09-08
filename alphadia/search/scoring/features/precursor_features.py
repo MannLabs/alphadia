@@ -1,3 +1,5 @@
+"""Feature extraction for precursor ions."""
+
 import numba as nb
 import numpy as np
 

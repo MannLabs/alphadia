@@ -1,3 +1,5 @@
+"""Location-based features for candidate scoring."""
+
 import numba as nb
 
 from alphadia.utils import USE_NUMBA_CACHING

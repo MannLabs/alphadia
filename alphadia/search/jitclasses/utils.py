@@ -1,3 +1,9 @@
+"""JIT-compiled utility functions for search operations.
+
+This module provides general-purpose numba-compiled utility functions used across
+the search pipeline, including mass calculations, array operations, and frame indexing.
+"""
+
 import math
 
 import numba as nb

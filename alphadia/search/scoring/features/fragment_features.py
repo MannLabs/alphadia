@@ -1,3 +1,5 @@
+"""Feature extraction for fragment ions."""
+
 import numba as nb
 import numpy as np
 

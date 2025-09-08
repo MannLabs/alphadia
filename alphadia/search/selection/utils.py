@@ -1,3 +1,5 @@
+"""Utility functions for candidate selection operations."""
+
 import numba as nb
 import numpy as np
 from numba.extending import overload

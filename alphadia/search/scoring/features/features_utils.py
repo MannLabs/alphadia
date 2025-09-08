@@ -1,3 +1,5 @@
+"""Utility functions for feature calculations."""
+
 import numba as nb
 import numpy as np
 

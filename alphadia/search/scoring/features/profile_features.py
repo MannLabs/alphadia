@@ -1,3 +1,5 @@
+"""Profile-based features for elution and mobility patterns."""
+
 import numba as nb
 import numpy as np
 
