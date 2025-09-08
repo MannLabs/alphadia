@@ -9,7 +9,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
-from alphadia.exceptions import CustomError, NoLibraryAvailableError
+from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
@@ -228,6 +228,12 @@ class SearchStep:
                 )
                 spectral_library = fasta_digest(self.fasta_path_list)
         elif general_config["input_library_type"] == "flat":
+            if general_config["save_mbr_library"]:
+                # TODO gather such checks in a ConfigValidator class
+                raise ConfigError(
+                    "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible."
+                )
+
             logger.progress("Loading library (type: flat) from disk..")
             speclib_flat = SpecLibFlat()
             speclib_flat.load_hdf(self.library_path)
@@ -449,10 +455,11 @@ class SearchStep:
 
     def _clean(self):
         if not self.config["general"]["save_library"]:
+            library_path = Path(self.output_folder) / SPECLIB_FILE_NAME
             try:
-                os.remove(os.path.join(self.output_folder, SPECLIB_FILE_NAME))
+                library_path.unlink(missing_ok=True)
             except Exception as e:
-                logger.exception(f"Error removing library: {e}")
+                logger.exception(f"Error removing library {library_path}: {e}")
 
     def _log_inputs(self):
         """Log all relevant inputs."""
