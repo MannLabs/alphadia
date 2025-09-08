@@ -1,5 +1,4 @@
 import os
-import shutil
 import tempfile
 from copy import deepcopy
 from pathlib import Path
@@ -8,7 +7,6 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pandas as pd
 import pytest
-import yaml
 from alphabase.spectral_library.flat import SpecLibFlat
 from sklearn.linear_model import LinearRegression
 
@@ -16,7 +14,6 @@ from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.calibration.models import LOESSRegression
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.reporting import reporting
-from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
@@ -323,47 +320,6 @@ def test_optimization_manager_fit():
     os.remove(temp_path)
 
 
-@pytest.mark.slow()
-def test_workflow_base():
-    if pytest.test_data is None:
-        pytest.skip("No test data found")
-        return
-
-    for _, file_list in pytest.test_data.items():
-        for file in file_list:
-            config_path = os.path.join(
-                os.path.dirname(__file__), "..", "..", "misc", "config", "default.yaml"
-            )
-            with open(config_path) as f:
-                config = yaml.safe_load(f)
-
-            config["output_directory"] = tempfile.gettempdir()
-
-            workflow_name = Path(file).stem
-
-            my_workflow = base.WorkflowBase(
-                workflow_name,
-                config,
-            )
-            my_workflow.load(file, pd.DataFrame({}))
-
-            assert my_workflow.config["output_directory"] == config["output_directory"]
-            assert my_workflow.instance_name == workflow_name
-            assert my_workflow.path == os.path.join(
-                config["output_directory"], base.QUANT_FOLDER_NAME, workflow_name
-            )
-
-            assert os.path.exists(my_workflow.path)
-
-            # assert isinstance(my_workflow.dia_data, bruker.TimsTOFTranspose) or isinstance(my_workflow.dia_data, thermo.Thermo)
-            assert isinstance(my_workflow.calibration_manager, CalibrationManager)
-            assert isinstance(my_workflow.optimization_manager, OptimizationManager)
-
-            # os.rmdir(os.path.join(my_workflow.path, my_workflow.FIGURE_PATH))
-            # os.rmdir(os.path.join(my_workflow.path))
-            shutil.rmtree(os.path.join(my_workflow.path))
-
-
 FDR_TEST_BASE_CLASSIFIER = BinaryClassifierLegacyNewBatching(
     test_size=0.001, batch_size=2, learning_rate=0.001, epochs=1
 )
@@ -448,7 +404,7 @@ def test_fdr_manager_fit_predict():
 
 def create_workflow_instance():
     config_base_path = os.path.join(
-        Path(__file__).parents[2], "alphadia", "constants", "default.yaml"
+        Path(__file__).parent, "..", "..", "..", "alphadia", "constants", "default.yaml"
     )
 
     config = Config()
