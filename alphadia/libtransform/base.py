@@ -34,21 +34,22 @@ class ProcessingStep:
 class ProcessingPipeline:
     def __init__(self, steps: list[ProcessingStep]) -> None:
         """Processing pipeline for loading and transforming spectral libraries.
-        The pipeline is a list of ProcessingStep objects. Each step is called in order and the output of the previous step is passed to the next step.
 
-        Example:
-        ```
-        pipeline = ProcessingPipeline([
-            DynamicLoader(),
-            PrecursorInitializer(),
-            AnnotateFasta(fasta_path_list),
-            IsotopeGenerator(),
-            DecoyGenerator(),
-            RTNormalization()
-        ])
+        The pipeline is a list of ProcessingStep objects. Each step is called in order
+        and the output of the previous step is passed to the next step.
 
-        library = pipeline(input_path)
-        ```
+        Example::
+
+            pipeline = ProcessingPipeline([
+                DynamicLoader(),
+                PrecursorInitializer(),
+                AnnotateFasta(fasta_path_list),
+                IsotopeGenerator(),
+                DecoyGenerator(),
+                RTNormalization()
+            ])
+
+            library = pipeline(input_path)
 
         """
         self.steps = steps

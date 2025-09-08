@@ -1,5 +1,5 @@
 
-## Protein Inference
+# Protein Inference
 
 Bottom-up proteomics search engines aim to identify and quantify peptides from experimental data. Yet, human researchers are generally interested in the presence or absence, as well as the abundance of gene products, i.e. proteins, which consist of many peptides. Therefore, there is a need to translate peptide identifications into protein identifications before meaningful conclusions on the measured proteome can be drawn.
 
@@ -9,7 +9,7 @@ As an example of why grouping is necessary, consider Proteins A with peptides [1
 
 Viewed through the lens of parsimonious protein grouping, A and B would belong to the same group, which is reported as a single ID "A;B" in the end. If only a single protein is allowed per ID, "A" should be reported and "B" omitted.
 
-## AlphaDIA grouping and parsimony approach
+# AlphaDIA grouping and parsimony approach
 
 <ol>
     <li> Extract the columns 'precursor_idx' and 'ids' (proteins or genes) from the table of identified psms.</li>
@@ -31,6 +31,6 @@ The publication lists six cases of protein grouping which must be resolved. Toge
 
 Adapted from: Nesvizhskii, Alexey I., and Ruedi Aebersold. "Interpretation of shotgun proteomic data." Molecular & cellular proteomics 4.10 (2005): 1419-1440. Figure 5.
 
-## Algorithmic implementation
+# Algorithmic implementation
 
-The above cases are implemented in a jupyter notebook: [protein_grouping_tutorial.ipynb](../../nbs/tutorial_nbs/protein_grouping_tutorial.ipynb).
+The above cases are implemented in a jupyter notebook: protein_grouping_tutorial.ipynb (available in the nbs/tutorial_nbs folder).

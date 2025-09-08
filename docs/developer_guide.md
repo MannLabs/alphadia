@@ -16,9 +16,10 @@ This package uses a shared release process defined in the
 
 ## Notes for developers
 ### Debugging
-A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
+A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb` .
+Also, the end-to-end (e2e) tests can be used for debugging (see below).
 
-##### Debug e2e tests with PyCharm
+#### Debug e2e tests with PyCharm
 1. Create a "Run/Debug configuration" with
  - "module": `alphadia.cli`
  - "script parameters": `--config /abs/path/to/tests/e2e_tests/basic/config.yaml`
@@ -26,7 +27,7 @@ A good start for debugging is this notebook: `nvs/debug/debug_lvl1.ipynb`
  - "Environment variables": `RUN_MAIN=1`
 2. Run the configuration.
 
-##### Debug e2e tests with VS Code
+#### Debug e2e tests with VS Code
 1. Create the following debug configuration (`launch.json`, see [here](https://code.visualstudio.com/docs/editor/debugging#_launch-configurations)):
 ```json
 {
