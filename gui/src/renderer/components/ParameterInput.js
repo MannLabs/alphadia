@@ -47,8 +47,19 @@ const ParameterInput = ({
         parameter,
         parameter_group_id,
         onChange = () => {},
+        searchTerm = '',
         sx
     }) => {
+        const theme = useTheme();
+
+        // Check if parameter matches search term
+        const isMatch = React.useMemo(() => {
+            if (!searchTerm || searchTerm.trim() === '') return false;
+            const search = searchTerm.toLowerCase();
+            const nameMatch = parameter.name.toLowerCase().includes(search);
+            const descriptionMatch = parameter.description && parameter.description.toLowerCase().includes(search);
+            return nameMatch || descriptionMatch;
+        }, [searchTerm, parameter.name, parameter.description]);
 
         let input = null;
 
@@ -227,8 +238,11 @@ const ParameterInput = ({
                     <Typography>{parameter.description}</Typography>
                 </Stack>
             }>
-                <Typography sx={{fontWeight: 400, fontSize: "12px",
-                        color: parameter.value !== parameter.default ? useTheme().palette.primary.main : 'inherit'}}>
+                <Typography sx={{
+                    fontWeight: 400,
+                    fontSize: "12px",
+                    color: isMatch ? 'red' : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
+                }}>
                     {parameter.name}
                 </Typography>
             </InfoTooltip>
