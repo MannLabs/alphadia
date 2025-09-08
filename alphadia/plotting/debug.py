@@ -6,8 +6,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-from alphadia.plexscoring import quadrupole
 from alphadia.plotting import utils
+from alphadia.search.plexscoring import quadrupole
 
 
 def plot_fragment_profile(

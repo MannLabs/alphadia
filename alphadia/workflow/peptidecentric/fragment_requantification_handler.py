@@ -7,13 +7,13 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
-from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.plexscoring import CandidateScoring
-from alphadia.plexscoring.utils import (
-    candidate_features_to_candidates,
-)
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
+from alphadia.search.plexscoring.config import CandidateConfig
+from alphadia.search.plexscoring.plexscoring import CandidateScoring
+from alphadia.search.plexscoring.utils import (
+    candidate_features_to_candidates,
+)
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,

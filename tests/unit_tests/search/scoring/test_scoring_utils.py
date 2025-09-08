@@ -1,6 +1,6 @@
 import numpy as np
 
-from alphadia.plexscoring.scoring_utils import (
+from alphadia.search.plexscoring.scoring_utils import (
     correlation_coefficient,
     median_axis,
     normalize_profiles,

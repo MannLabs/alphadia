@@ -7,7 +7,7 @@ import numpy as np
 
 from alphadia.constants.keys import CalibCols
 from alphadia.constants.settings import NUM_FEATURES
-from alphadia.plexscoring.containers.candidate import Candidate, candidate_type
+from alphadia.search.plexscoring.containers.candidate import Candidate, candidate_type
 
 logger = logging.getLogger()
 

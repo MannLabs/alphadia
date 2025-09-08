@@ -5,8 +5,8 @@ import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.search.plexscoring.config import CandidateConfig
+from alphadia.search.plexscoring.plexscoring import CandidateScoring
 
 # TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
 from alphadia.search.selection.config_df import HybridCandidateConfig

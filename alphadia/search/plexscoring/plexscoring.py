@@ -6,13 +6,16 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import CalibCols
-from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.containers.score_group import ScoreGroupContainer
-from alphadia.plexscoring.output import OutputPsmDF
-from alphadia.plexscoring.quadrupole import SimpleQuadrupole
-from alphadia.plexscoring.utils import calculate_score_groups, merge_missing_columns
+from alphadia.constants.keys import MRMCols
 from alphadia.raw_data import DiaData
+from alphadia.search.plexscoring.config import CandidateConfig
+from alphadia.search.plexscoring.containers.score_group import ScoreGroupContainer
+from alphadia.search.plexscoring.output import OutputPsmDF
+from alphadia.search.plexscoring.quadrupole import SimpleQuadrupole
+from alphadia.search.plexscoring.utils import (
+    calculate_score_groups,
+    merge_missing_columns,
+)
 from alphadia.utilities.fragment_container import FragmentContainer
 from alphadia.utils import (
     USE_NUMBA_CACHING,
@@ -31,15 +34,15 @@ logger = logging.getLogger()
 DEFAULT_FEATURE_COLUMNS = [
     "base_width_mobility",
     "base_width_rt",
-    CalibCols.RT_OBSERVED,
-    CalibCols.MOBILITY_OBSERVED,
+    MRMCols.RT_OBSERVED,
+    MRMCols.MOBILITY_OBSERVED,
     "mono_ms1_intensity",
     "top_ms1_intensity",
     "sum_ms1_intensity",
     "weighted_ms1_intensity",
     "weighted_mass_deviation",
     "weighted_mass_error",
-    CalibCols.MZ_OBSERVED,
+    MRMCols.MZ_OBSERVED,
     "mono_ms1_height",
     "top_ms1_height",
     "sum_ms1_height",
@@ -88,9 +91,9 @@ DEFAULT_CANDIDATE_COLUMNS = [
 ]
 
 DEFAULT_PRECURSOR_COLUMNS = [
-    CalibCols.RT_LIBRARY,
-    CalibCols.MOBILITY_LIBRARY,
-    CalibCols.MZ_LIBRARY,
+    MRMCols.RT_LIBRARY,
+    MRMCols.MOBILITY_LIBRARY,
+    MRMCols.MZ_LIBRARY,
     "charge",
     "decoy",
     "channel",
@@ -377,7 +380,7 @@ class CandidateScoring:
         )
 
         return FragmentContainer(
-            self.fragments_flat[CalibCols.MZ_LIBRARY].values,
+            self.fragments_flat[MRMCols.MZ_LIBRARY].values,
             self.fragments_flat[self.fragment_mz_column].values,
             self.fragments_flat["intensity"].values,
             self.fragments_flat["type"].values,
@@ -453,7 +456,7 @@ class CandidateScoring:
 
         # calculate delta_rt
         candidates_psm_df["delta_rt"] = (
-            candidates_psm_df[CalibCols.RT_OBSERVED] - candidates_psm_df[self.rt_column]
+            candidates_psm_df[MRMCols.RT_OBSERVED] - candidates_psm_df[self.rt_column]
         )
 
         # calculate number of certain amino acids in sequence # TODO unused?
@@ -539,9 +542,9 @@ class CandidateScoring:
         colnames = [
             "precursor_idx",
             "rank",
-            CalibCols.MZ_LIBRARY,
+            MRMCols.MZ_LIBRARY,
             "mz",
-            CalibCols.MZ_OBSERVED,
+            MRMCols.MZ_OBSERVED,
             "height",
             "intensity",
             "mass_error",
