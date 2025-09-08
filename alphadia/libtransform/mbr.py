@@ -1,6 +1,7 @@
 import logging
 
 import pandas as pd
+from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia.constants.keys import CalibCols
 from alphadia.libtransform.base import ProcessingStep
@@ -17,7 +18,7 @@ class MbrLibraryBuilder(ProcessingStep):
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
         return True
 
-    def forward(self, psm_df, base_library):
+    def forward(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> SpecLibBase:
         psm_df = psm_df[psm_df["qval"] <= self.fdr]
         psm_df = psm_df[psm_df["decoy"] == 0]
 

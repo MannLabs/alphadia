@@ -46,8 +46,10 @@ def read_df(path_no_format, file_format="parquet"):
         )
 
 
-def write_df(df, path_no_format, file_format="parquet"):
-    """Read dataframe from disk with choosen file format
+def write_df(
+    df: pd.DataFrame, path_no_format: str, file_format: str = "parquet"
+) -> None:
+    """Write dataframe from disk with chosen file format.
 
     Parameters
     ----------
@@ -77,6 +79,3 @@ def write_df(df, path_no_format, file_format="parquet"):
 
     elif file_format == "tsv":
         df.to_csv(file_path, sep="\t", index=False, float_format="%.6f")
-
-    else:
-        raise ValueError("I don't know how you ended up here")
