@@ -5,7 +5,7 @@ import pandas as pd
 import pytest
 from sklearn.linear_model import LogisticRegression
 
-from alphadia._fdrx.base import TargetDecoyFDR
+from alphadia.fdr._fdrx.base import TargetDecoyFDR
 from alphadia.fdr.classifiers import _get_scaled_training_params
 
 

@@ -15,7 +15,6 @@ def get_pep(
 
     Parameters
     ----------
-
     psm_df : pd.DataFrame
         The dataframe containing the PSMs.
 
@@ -36,12 +35,10 @@ def get_pep(
 
     Returns
     -------
-
     np.ndarray
         The PEP values with same shape and order as the input dataframe.
 
     """
-
     score_bins = np.linspace(0, 1, pep_granularity)
     target_decoy = psm_df[decoy_column].values
     score = psm_df[score_column].values
@@ -77,7 +74,6 @@ def add_q_values(
 
     Parameters
     ----------
-
     _df : pd.DataFrame
         The dataframe containing the PSMs.
 
@@ -94,7 +90,6 @@ def add_q_values(
 
     Returns
     -------
-
     pd.DataFrame
         The dataframe containing the q-values in column qval.
 
@@ -125,6 +120,7 @@ def fdr_to_q_values(fdr_values: np.ndarray):
     -------
     np.ndarray
         The q-values.
+
     """
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
@@ -143,7 +139,6 @@ def keep_best(
 
     Parameters
     ----------
-
     df : pd.DataFrame
         The dataframe containing the PSMs.
 
@@ -155,9 +150,9 @@ def keep_best(
 
     Returns
     -------
-
     pd.DataFrame
         The dataframe containing the best PSM for each group.
+
     """
     if group_columns is None:
         group_columns = ["channel", "mod_seq_charge_hash"]

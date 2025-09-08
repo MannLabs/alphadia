@@ -10,8 +10,8 @@ import torch
 import xxhash
 
 import alphadia
-from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr import fdr
+from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager

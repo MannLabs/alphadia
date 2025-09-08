@@ -3,8 +3,8 @@ import os
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia._fdrx.models.logistic_regression import LogisticRegressionClassifier
-from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
+from alphadia.fdr._fdrx.models.logistic_regression import LogisticRegressionClassifier
+from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base

@@ -13,7 +13,6 @@ def _plot_score_distribution(
 
     Parameters
     ----------
-
     y_train : np.ndarray
         The target/decoy labels for the training set. decoy=1, target=0.
 
@@ -28,7 +27,6 @@ def _plot_score_distribution(
 
     Returns
     -------
-
     fig : matplotlib.figure.Figure
         The figure object.
 
@@ -36,7 +34,6 @@ def _plot_score_distribution(
         The axes object.
 
     """
-
     fig, ax = plt.subplots(figsize=(5, 5))
     scores = np.hstack([y_train_proba, y_test_proba])
     labels = np.hstack([y_train, y_test])
@@ -63,7 +60,6 @@ def _plot_roc_curve(
 
     Parameters
     ----------
-
     y_train : np.ndarray
         The target/decoy labels for the training set. decoy=1, target=0.
 
@@ -78,7 +74,6 @@ def _plot_roc_curve(
 
     Returns
     -------
-
     fig : matplotlib.figure.Figure
         The figure object.
 
@@ -114,7 +109,6 @@ def _plot_fdr_curve(qval: np.ndarray, qval_treshold: float = 0.05):
 
     Parameters
     ----------
-
     qval : np.ndarray
         The q-values for the identifications.
 
@@ -123,7 +117,6 @@ def _plot_fdr_curve(qval: np.ndarray, qval_treshold: float = 0.05):
 
     Returns
     -------
-
     fig : matplotlib.figure.Figure
         The figure object.
 

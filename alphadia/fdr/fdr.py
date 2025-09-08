@@ -13,7 +13,7 @@ from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
 
 if TYPE_CHECKING:
-    from alphadia._fdrx.models.two_step_classifier import TwoStepClassifier
+    from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
