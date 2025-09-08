@@ -4,7 +4,7 @@ version: 1
 # These values are typically filled via CLI parameters
 workflow_name: null
 output_directory: null
-library_path: null
+library_path: null  # the expected type is steered by general.input_library_type
 raw_paths: []
 fasta_paths: []
 quant_directory: null
@@ -31,11 +31,19 @@ general:
   mmap_detector_events: false
   # whether to use GPU acceleration for library prediction and scoring
   use_gpu: true
-  # whether to save the libraries to the output directory
-  save_library: True       # input library
-  save_mbr_library: True   # output library
   # whether to save plots to the output folder
   save_figures: True
+
+  # whether to save the pre-processed input library to the output directory
+  save_library: True
+  save_flat_library: False
+  # type of input library, either 'base' or 'flat'
+  # A 'flat' library can be used 'as is', whereas a 'base' library needs to be processed first.
+  # Using 'flat' here can save some time during startup, which is handy for debugging and single-file runs.
+  input_library_type: base
+
+  # whether to save the output (mbr) library to the output directory
+  save_mbr_library: True
 
 library_loading:
   rt_heuristic: 180

@@ -39,6 +39,7 @@ from alphadia.workflow.config import (
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 SPECLIB_FILE_NAME = "speclib.hdf"
+SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
 logger = logging.getLogger()
 
@@ -200,6 +201,7 @@ class SearchStep:
             return [] if mod_str == "" else mod_str.split(";")
 
         # 1. Check if library exists, else perform fasta digest
+        general_config = self.config["general"]
         prediction_config = self.config["library_prediction"]
 
         if self.library_path is None:
@@ -225,19 +227,28 @@ class SearchStep:
                     precursor_mz=prediction_config["precursor_mz"],
                 )
                 spectral_library = fasta_digest(self.fasta_path_list)
+        elif general_config["input_library_type"] == "flat":
+            logger.progress("Loading library (type: flat) from disk..")
+            speclib_flat = SpecLibFlat()
+            speclib_flat.load_hdf(self.library_path)
+            LogFlatLibraryStats()(speclib_flat)
+            self.spectral_library = speclib_flat
+            return
+
         else:
+            logger.progress("Loading library (type: base) from disk..")
             dynamic_loader = DynamicLoader()
             spectral_library = dynamic_loader(self.library_path)
 
         # 2. Check if properties should be predicted
 
-        thread_count = self.config["general"]["thread_count"]
+        thread_count = general_config["thread_count"]
 
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
             pept_deep_prediction = PeptDeepPrediction(
-                use_gpu=self.config["general"]["use_gpu"],
+                use_gpu=general_config["use_gpu"],
                 fragment_mz=prediction_config["fragment_mz"],
                 nce=prediction_config["nce"],
                 instrument=prediction_config["instrument"],
@@ -269,10 +280,7 @@ class SearchStep:
             )
             spectral_library = multiplexing(spectral_library)
 
-        if (
-            self.config["general"]["save_library"]
-            or self.config["general"]["save_mbr_library"]
-        ):
+        if general_config["save_library"] or general_config["save_mbr_library"]:
             library_path = os.path.join(self.output_folder, SPECLIB_FILE_NAME)
             logger.info(f"Saving library to {library_path}")
             spectral_library.save_hdf(library_path)
@@ -292,6 +300,11 @@ class SearchStep:
         )
 
         self.spectral_library = prepare_pipeline(spectral_library)
+
+        if general_config["save_flat_library"]:
+            library_path = os.path.join(self.output_folder, SPECLIB_FLAT_FILE_NAME)
+            logger.info(f"Saving flat library to {library_path}")
+            self.spectral_library.save_hdf(library_path)
 
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
