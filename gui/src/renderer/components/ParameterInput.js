@@ -52,13 +52,18 @@ const ParameterInput = ({
     }) => {
         const theme = useTheme();
 
-        // Check if parameter matches search term
+        // Check if parameter matches search term (space-separated terms are treated as AND)
         const isMatch = React.useMemo(() => {
             if (!searchTerm || searchTerm.trim() === '') return false;
-            const search = searchTerm.toLowerCase();
-            const nameMatch = parameter.name.toLowerCase().includes(search);
-            const descriptionMatch = parameter.description && parameter.description.toLowerCase().includes(search);
-            return nameMatch || descriptionMatch;
+
+            // Split search term by spaces and filter out empty strings
+            const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+
+            // Combine parameter name and description for searching
+            const searchableText = (parameter.name + ' ' + (parameter.description || '')).toLowerCase();
+
+            // All terms must be found in either name or description
+            return searchTerms.every(term => searchableText.includes(term));
         }, [searchTerm, parameter.name, parameter.description]);
 
         let input = null;
