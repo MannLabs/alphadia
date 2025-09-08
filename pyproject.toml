@@ -21,6 +21,7 @@ keywords = [
     "bioinformatics",
     "AlphaPept",
     "AlphaPept ecosystem",
+    "alphapept.org",
 ]
 license = {file = "LICENSE.txt"}
 classifiers = [
@@ -37,12 +38,14 @@ classifiers = [
 
 [project.urls]
 
-"Paper preprint" = "https://www.biochem.mpg.de/mann"
-Repository = "https://github.com/MannLabs/alphadia"
-#Documentation = "https://readthedocs.org"
-#Changelog = "https://github.com/me/spam/blob/master/CHANGELOG.md"
-Issues = "https://github.com/MannLabs/alphadia/issues"
+repository = "https://github.com/MannLabs/alphadia"
+issues = "https://github.com/MannLabs/alphadia/issues"
+download = "https://github.com/MannLabs/alphadia/releases
+homepage = "https://www.alphapept.org"
 "Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
+"Paper preprint" = "https://doi.org/10.1101/2024.05.28.596182"
+#publication = "https://www.biochem.mpg.de/mann"
+documentation = "https://alphapeptdeep.readthedocs.io/en/latest/"
 
 [tool.setuptools.packages]
 find = {}
