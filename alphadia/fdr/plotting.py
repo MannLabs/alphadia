@@ -146,7 +146,7 @@ def _add_metadata_to_figure(
         f"{current_date} | "
         f"Train: {n_train:,} ({n_train_targets:,} targets, {n_train_decoys:,} decoys) | "
         f"Test: {n_test:,} ({n_test_targets:,} targets, {n_test_decoys:,} decoys) | "
-        f"Precursors at 1% FDR: {n_at_1perc_fdr:,}"
+        f"Entries at 1% FDR: {n_at_1perc_fdr:,}"
     )
 
     fig.text(0.5, -0.05, metadata_text, ha="center", fontsize=8, style="italic")
