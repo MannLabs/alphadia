@@ -64,7 +64,7 @@ def get_pep(
 
 
 def add_q_values(
-    _df: pd.DataFrame,
+    df: pd.DataFrame,
     decoy_proba_column: str = "decoy_proba",
     decoy_column: str = "decoy",
     qval_column: str = "qval",
@@ -74,7 +74,7 @@ def add_q_values(
 
     Parameters
     ----------
-    _df : pd.DataFrame
+    df : pd.DataFrame
         The dataframe containing the PSMs.
 
     decoy_proba_column : str, default='proba'
@@ -95,15 +95,17 @@ def add_q_values(
 
     """
     EPSILON = 1e-6
-    _df = _df.sort_values([decoy_proba_column, decoy_proba_column], ascending=True)
+    df = df.sort_values(
+        [decoy_proba_column, decoy_column, "precursor_idx"], ascending=True
+    )  # last sort to break ties
 
     # translate the decoy probabilities to target probabilities
-    target_values = 1 - _df[decoy_column].values
-    decoy_cumsum = np.cumsum(_df[decoy_column].values)
+    target_values = 1 - df[decoy_column].values
+    decoy_cumsum = np.cumsum(df[decoy_column].values)
     target_cumsum = np.cumsum(target_values)
     fdr_values = decoy_cumsum / (target_cumsum + EPSILON)
-    _df[qval_column] = fdr_to_q_values(fdr_values) * r_target_decoy
-    return _df
+    df[qval_column] = fdr_to_q_values(fdr_values) * r_target_decoy
+    return df
 
 
 def fdr_to_q_values(fdr_values: np.ndarray):
@@ -157,7 +159,9 @@ def keep_best(
     if group_columns is None:
         group_columns = ["channel", "mod_seq_charge_hash"]
     df = df.reset_index(drop=True)
-    df = df.sort_values(score_column, ascending=True)
+    df = df.sort_values(
+        [score_column, *group_columns, "precursor_idx"], ascending=True
+    )  # last sort to break ties
     df = df.groupby(group_columns).head(1)
     df = df.sort_index().reset_index(drop=True)
     return df

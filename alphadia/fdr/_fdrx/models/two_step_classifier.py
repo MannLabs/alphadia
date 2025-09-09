@@ -291,7 +291,9 @@ def compute_q_values(
     df: pd.DataFrame, group_columns: list[str] | None = None
 ) -> pd.DataFrame:
     """Compute q-values for each entry after keeping only best entries per group."""
-    df.sort_values("proba", ascending=True, inplace=True)
+    df.sort_values(
+        ["proba", "precursor_idx"], ascending=True, inplace=True
+    )  # last sort to break ties
     df = keep_best(df, group_columns=group_columns)
     return get_q_values(df, "proba", "decoy")
 

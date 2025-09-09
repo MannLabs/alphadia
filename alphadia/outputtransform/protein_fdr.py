@@ -70,6 +70,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
         score_column="proba",
         decoy_column="decoy",
         qval_column="pg_qval",
+        extra_sort_columns=["pg"],
     )
 
     n_targets = (protein_features["decoy"] == 0).sum()
