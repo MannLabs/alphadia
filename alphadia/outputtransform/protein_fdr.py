@@ -48,7 +48,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     X = protein_features[feature_columns].values
     y = protein_features["decoy"].values
 
-    X_train, X_test, y_train, y_test = train_test_split_(
+    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
         X,
         y,
         test_size=0.2,

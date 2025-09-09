@@ -118,7 +118,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = train_test_split_(
+    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
         X, y, test_size=0.2, random_state=random_state
     )
 
