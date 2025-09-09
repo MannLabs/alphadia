@@ -228,8 +228,8 @@ const ParameterInput = ({
     // The last row should grow to fill the remaining space
     let defaultText = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
 
-    // Show description when searching
-    const showDescription = searchTerm && searchTerm.trim() !== '';
+    // Show description only when searching AND there's a match
+    const showDescription = searchTerm && searchTerm.trim() !== '' && isMatch;
 
     // Function to highlight matching terms in text
     const highlightText = (text, searchTerms) => {
