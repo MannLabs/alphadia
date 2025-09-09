@@ -159,7 +159,9 @@ def multiplex_candidates(
     # original precursors are forbidden as they will be concatenated in the end
     # the candidate used for multiplexing is the best scoring candidate in each elution group
     best_candidate_view = (
-        best_candidate_view.sort_values("proba")
+        best_candidate_view.sort_values(
+            ["proba", "precursor_idx"]
+        )  # last sort to break ties
         .groupby("elution_group_idx")
         .first()
         .reset_index()
@@ -386,10 +388,14 @@ def calculate_score_groups(
     # sort by elution group, decoy and rank
     # if no rank is present, pretend rank 0
     if "rank" in input_df.columns:
-        input_df = input_df.sort_values(by=["elution_group_idx", "decoy", "rank"])
+        input_df = input_df.sort_values(
+            by=["elution_group_idx", "decoy", "rank", "precursor_idx"]
+        )  # last sort to break ties
         rank_values = input_df["rank"].values
     else:
-        input_df = input_df.sort_values(by=["elution_group_idx", "decoy"])
+        input_df = input_df.sort_values(
+            by=["elution_group_idx", "decoy", "precursor_idx"]
+        )  # last sort to break ties
         rank_values = np.zeros(len(input_df), dtype=np.uint32)
 
     if group_channels:
@@ -399,7 +405,9 @@ def calculate_score_groups(
     else:
         input_df["score_group_idx"] = np.arange(len(input_df), dtype=np.uint32)
 
-    return input_df.sort_values(by=["score_group_idx"]).reset_index(drop=True)
+    return input_df.sort_values(
+        by=["score_group_idx", "precursor_idx"]
+    ).reset_index(drop=True)  # last sort to break ties
 
 
 @overload_method(
