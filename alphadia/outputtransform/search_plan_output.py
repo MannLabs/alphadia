@@ -597,10 +597,6 @@ class SearchPlanOutput:
                 normalize=self.config["search_output"]["normalize_lfq"],
                 group_column=quantlevel_config.quant_level,
             )
-            # Aggregation levels:
-            # - mod_seq_charge: groups by sequence + modifications + charge
-            # - mod_seq_hash: groups by sequence + modifications
-            # - sequence: groups by sequence only
             if quantlevel_config.level_name != "pg":
                 annotate_df = psm_df.groupby(
                     quantlevel_config.quant_level, as_index=False
