@@ -11,6 +11,7 @@ from alphadia.peakgroup.config_df import HybridCandidateConfig
 from alphadia.peakgroup.search import HybridCandidateSelection
 from alphadia.plexscoring.config import CandidateConfig
 from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.workflow.managers.fdr_manager import FDRManager
 
 try:
     from alphadia_ng import (
@@ -22,7 +23,6 @@ try:
         SelectionParameters,
     )
 
-    from alphadia.workflow.managers.fdr_manager import FDRManager
     from alphadia.workflow.peptidecentric.ng.ng_mapper import (
         candidates_to_ng,
         parse_candidates,
