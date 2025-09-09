@@ -96,14 +96,7 @@ class SearchStep:
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
-        if (random_state := self._config["general"]["random_state"]) == -1:
-            random_state = np.random.randint(0, 1_000_000)
-
-        if random_state is not None:
-            self._np_rng = np.random.default_rng(random_state)
-            logging.info(f"Setting random state to {random_state}")
-        else:
-            self._np_rng = None
+        self._np_rng = self._get_random_number_generator()
 
         self._log_inputs()
 
@@ -167,6 +160,17 @@ class SearchStep:
         config = Config()
         config.from_yaml(default_config_path)
         return config
+
+    def _get_random_number_generator(self) -> None | Generator:
+        """Getnumpy random number generator if random state is set."""
+        if (random_state := self._config["general"]["random_state"]) == -1:
+            random_state = np.random.randint(0, 1_000_000)
+
+        if random_state is not None:
+            logging.info(f"Setting random state to {random_state}")
+            return np.random.default_rng(random_state)
+
+        return None
 
     @property
     def config(self) -> Config:
