@@ -235,7 +235,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         self._np_rng = np.random.default_rng(seed=random_state)
         if random_state is not None:
-            random_state_torch = self._np_rng.integers(0, 1_000_000)
+            random_state_torch = self._np_rng.integers(1_00_000, 1_00_000**2)
             torch.manual_seed(random_state_torch)
             logger.info(
                 f"Classifier: using random state {random_state} for numpy, {random_state_torch} for pytorch"
@@ -350,7 +350,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
-        random_state = self._np_rng.integers(0, 1_000_000)
+        random_state = self._np_rng.integers(1_00_000, 1_00_000 * 1_00_000)
         logger.info(f"Using random state {random_state} for train-test-split")
         x_train, x_test, y_train, y_test = train_test_split_(
             x, y, test_size=self.test_size, random_state=random_state
