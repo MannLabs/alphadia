@@ -159,7 +159,9 @@ class FDRManager(BaseManager):
 
         classifier = self.get_classifier(available_columns, version)
         random_state = (
-            None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
+            None
+            if self._np_rng is None
+            else self._np_rng.integers(1_00_000, 1_00_000**2)
         )
 
         if decoy_strategy == "precursor":
