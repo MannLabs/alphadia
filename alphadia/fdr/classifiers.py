@@ -339,9 +339,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             y = np.stack([1 - y, y], axis=1)
 
         x_train, x_test, y_train, y_test = train_test_split_(
-            x,
-            y,
-            test_size=self.test_size,
+            x, y, test_size=self.test_size
         )
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
@@ -413,7 +411,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
                             )
                             / len(y_test)
                         )
-
                     self.network.train()
 
                 batch_count += 1
