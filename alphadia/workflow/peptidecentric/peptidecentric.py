@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
@@ -34,6 +35,7 @@ def _get_classifier_base(
     two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
+    random_state: int | None = None,
 ) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
     """Creates and returns a classifier base instance.
 
@@ -54,6 +56,9 @@ def _get_classifier_base(
         The FDR cutoff threshold used by the second classifier when two-step
         classification is enabled. Default is 0.01.
 
+    random_state : int | None, optional
+        Random state for reproducibility. Default is None.
+
     Returns
     -------
     BinaryClassifierLegacyNewBatching | TwoStepClassifier
@@ -65,6 +70,7 @@ def _get_classifier_base(
         learning_rate=0.001,
         epochs=10,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+        random_state=random_state,
     )
 
     if enable_two_step_classifier:
@@ -84,6 +90,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         instance_name: str,
         config: Config,
         quant_path: str = None,
+        random_state: int | None = None,
     ) -> None:
         super().__init__(
             instance_name,
@@ -96,6 +103,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
             load_from_file=self.config["general"]["reuse_calibration"],
         )
+
+        if random_state is not None:
+            rng = np.random.default_rng(seed=random_state)
+            self._random_state_fdr_classifier, self._random_state_fdr_manager = (
+                rng.integers(0, 1_000_000, size=(2,))
+            )
+        else:
+            self._random_state_fdr_classifier, self._random_state_fdr_manager = (
+                None,
+                None,
+            )
 
     @use_timing_manager("load")
     def load(
@@ -111,7 +129,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         self.reporter.log_string(
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
-
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=feature_columns,
@@ -124,10 +141,12 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                     "enable_nn_hyperparameter_tuning"
                 ],
                 fdr_cutoff=config_fdr["fdr"],
+                random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,
             figure_path=self._figure_path,
+            random_state=self._random_state_fdr_manager,
         )
 
         init_spectral_library(

@@ -22,7 +22,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: PLR0913 # Too many arguments
+def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -34,6 +34,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
+    random_state: int | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -71,6 +72,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
 
+    random_state : int, optional
+        The random state for train-test split reproducibility.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -103,6 +107,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
             "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
         )
 
+    if random_state is not None:
+        logger.info(f"Using random state {random_state} for FDR calculation")
+
     X_target = df_target[available_columns].to_numpy()
     X_decoy = df_decoy[available_columns].to_numpy()
     y_target = np.zeros(len(X_target))
@@ -111,7 +118,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
+    X_train, X_test, y_train, y_test = train_test_split_(
+        X, y, test_size=0.2, random_state=random_state
+    )
 
     classifier.fit(X_train, y_train)
 
