@@ -1,12 +1,15 @@
 """Plotting functionality for FDR."""
 
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import pytz
 import sklearn
+from matplotlib.figure import Figure
 
 auc_difference_percent_warning_threshold = 5
 
@@ -114,7 +117,46 @@ def plot_fdr(  # noqa: PLR0913 # Too many arguments
         while file_path.exists():
             i += 1
             file_path = figure_path_ / f"fdr_{i}.pdf"
-        fig.savefig(file_path)
+
+        _add_metadata_to_figure(fig, qval, y_test, y_train, file_path)
+
+        fig.savefig(file_path, bbox_inches="tight")
     else:
         plt.show()
         plt.close()
+
+
+def _add_metadata_to_figure(
+    fig: Figure,
+    qval: np.ndarray,
+    y_test: np.ndarray,
+    y_train: np.ndarray,
+    file_path: Path,
+) -> None:
+    """Add metadata to the figure."""
+    current_date = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    n_train = len(y_train)
+    n_test = len(y_test)
+    n_train_targets = (y_train == 0).sum()
+    n_train_decoys = (y_train == 1).sum()
+    n_test_targets = (y_test == 0).sum()
+    n_test_decoys = (y_test == 1).sum()
+    n_at_1perc_fdr = (qval <= 0.01).sum()  # noqa: PLR2004
+    metadata_text = (
+        f"{current_date} | "
+        f"Train: {n_train:,} ({n_train_targets:,} targets, {n_train_decoys:,} decoys) | "
+        f"Test: {n_test:,} ({n_test_targets:,} targets, {n_test_decoys:,} decoys) | "
+        f"Precursors at 1% FDR: {n_at_1perc_fdr:,}"
+    )
+
+    fig.text(0.5, -0.05, metadata_text, ha="center", fontsize=8, style="italic")
+
+    # Add file path to metadata
+    fig.text(
+        0.5,
+        -0.08,
+        f"{Path(file_path).absolute()}",
+        ha="center",
+        fontsize=8,
+        style="italic",
+    )
