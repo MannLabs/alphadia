@@ -7,7 +7,8 @@ bump-my-version
 pipdeptree
 ipykernel
 
-pre-commit==3.7.0
-#pywin32; sys_platform=='win32'
+# should match the version in branch-checks.yaml
+pre-commit==4.3.0
+
 
 neptune
