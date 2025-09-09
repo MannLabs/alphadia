@@ -52,7 +52,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
         X,
         y,
         test_size=0.2,
-        random_state=42,
+        random_state=42,  # we do this only once so a fixed random state is fine
         exception=TooFewProteinsError,
     )
 

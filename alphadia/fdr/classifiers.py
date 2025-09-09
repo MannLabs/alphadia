@@ -159,6 +159,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval: int = 1000,
         *,
         experimental_hyperparameter_tuning: bool = False,
+        random_state: int | None = None,
         **kwargs,  # TODO: needed?
     ):
         """Binary Classifier using a feed forward neural network.
@@ -198,6 +199,9 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
+        random_state : int, optional
+            Random seed for reproducibility of torch, numpy, and train-test-split.
+
         **kwargs : dict
             Keyword arguments. Will raise a warning if used.
 
@@ -228,6 +232,14 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             "test_loss": [],
             "test_accuracy": [],
         }
+
+        self._np_rng = np.random.default_rng(seed=random_state)
+        if random_state is not None:
+            random_state_torch = self._np_rng.integers(0, 1_000_000)
+            torch.manual_seed(random_state_torch)
+            logger.info(
+                f"Classifier: using random state {random_state} for numpy, {random_state_torch} for pytorch"
+            )
 
         if kwargs:
             warnings.warn(f"Unknown arguments: {kwargs}")
@@ -341,8 +353,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         if y.ndim == 1:
             y = np.stack([1 - y, y], axis=1)
 
+        random_state = self._np_rng.integers(0, 1_000_000)
+        logger.info(f"Using random state {random_state} for train-test-split")
         x_train, x_test, y_train, y_test = train_test_split_(
-            x, y, test_size=self.test_size
+            x, y, test_size=self.test_size, random_state=random_state
         )
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)
@@ -366,7 +380,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         for epoch in tqdm(range(self.epochs)):
             # shuffle batches
-            order = np.random.permutation(num_batches)  # noqa: NPY002
+            order = self._np_rng.permutation(num_batches)
             batch_start_list = batch_start_list[order]
             batch_stop_list = batch_stop_list[order]
 
