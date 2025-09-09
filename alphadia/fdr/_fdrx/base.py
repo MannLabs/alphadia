@@ -67,7 +67,7 @@ class TargetDecoyFDR:
         X = psm_df.loc[~is_na_row, self._feature_columns].values
         y = psm_df.loc[~is_na_row, self._decoy_column].values
 
-        X_train, X_test, y_train, y_test = train_test_split_(
+        X_train, X_test, y_train, y_test, *_ = train_test_split_(
             X, y, test_size=0.2
         )  # TODO add random_state for reproducibility!
 
