@@ -107,7 +107,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if random_state is not None:
             rng = np.random.default_rng(seed=random_state)
             self._random_state_fdr_classifier, self._random_state_fdr_manager = (
-                rng.integers(1_00_000, 1_00_000**2, size=(2,))
+                rng.integers(0, 1_000_000, size=(2,))
             )
         else:
             self._random_state_fdr_classifier, self._random_state_fdr_manager = (
