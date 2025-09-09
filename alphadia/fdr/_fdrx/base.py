@@ -145,7 +145,7 @@ class TargetDecoyFDR:
         if dia_cycle is not None and fragments_df is not None:
             psm_df = add_q_values(
                 psm_df,
-                score_column="decoy_proba",
+                decoy_proba_column="decoy_proba",
                 decoy_column=self._decoy_column,
                 r_target_decoy=r_target_decoy,
             )
