@@ -96,6 +96,7 @@ def test_compute_and_filter_q_values(
             "proba": [0.1, 0.3, 0.8, 0.9, 0.9, 0.2, 0.4, 0.5],
             "decoy": [0, 1, 0, 1, 0, 1, 0, 1],
             "group": ["A", "A", "B", "B", "C", "C", "D", "D"],
+            "precursor_idx": [0, 1, 2, 3, 4, 5, 6, 7],
         }
     )
     result = compute_and_filter_q_values(
