@@ -333,7 +333,7 @@ class TransferLearningAccumulator(BaseAccumulator):
         self.consensus_speclibase._precursor_df = (
             self.consensus_speclibase._precursor_df.sort_values(
                 ["mod_seq_hash", "proba", "precursor_idx"],  # last sort to break ties
-                ascending=[True, True],
+                ascending=[True, True, True],
             )
         )
 

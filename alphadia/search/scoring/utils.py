@@ -405,9 +405,9 @@ def calculate_score_groups(
     else:
         input_df["score_group_idx"] = np.arange(len(input_df), dtype=np.uint32)
 
-    return input_df.sort_values(
-        by=["score_group_idx", "precursor_idx"]
-    ).reset_index(drop=True)  # last sort to break ties
+    return input_df.sort_values(by=["score_group_idx", "precursor_idx"]).reset_index(
+        drop=True
+    )  # last sort to break ties
 
 
 @overload_method(
