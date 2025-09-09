@@ -136,7 +136,9 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     else:
         group_columns = ["precursor_idx"]
 
-    psm_df["proba"] = classifier.predict_proba(X)[:, 1]
+    predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    psm_df["proba"] = predicted_proba
     psm_df.sort_values(
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
@@ -166,11 +168,10 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
 
     if figure_path is not None:
         plot_fdr(
-            X_train,
-            X_test,
             y_train,
             y_test,
-            classifier,
+            predicted_proba[idxs_train],
+            predicted_proba[idxs_test],
             psm_df["qval"],
             figure_path=figure_path,
         )
