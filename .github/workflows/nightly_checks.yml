@@ -8,8 +8,8 @@ on:
 name: Nightly loose pip install + unit/integration tests
 
 jobs:
-  run-unit-tests-loose:
-    name: Test 'loose' on ${{ matrix.os }}
+  run-unit-integration-tests-loose:
+    name: Unit/integration test 'loose' on ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:

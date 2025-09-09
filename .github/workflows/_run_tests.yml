@@ -21,8 +21,8 @@ on:
         required: true
         type: string
 jobs:
-  run-unit-tests:
-    name: Unit tests (${{ inputs.os }}, ${{ inputs.python-version }})
+  run-tests:
+    name: Tests (${{ inputs.os }}, ${{ inputs.python-version }})
     runs-on: ${{ inputs.os }}
     steps:
     - uses: actions/checkout@v4
