@@ -535,8 +535,8 @@ class SearchPlanOutput:
             should_process: bool
             quant_level: str
             level_name: str
-            save_fragments: bool = False
             aggregation_components: list[str]
+            save_fragments: bool = False
 
         quantlevel_configs = [
             LFQOutputConfig(
