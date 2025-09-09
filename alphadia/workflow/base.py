@@ -16,7 +16,7 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 
 try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
-except ImportError:
+except ModuleNotFoundError:
     # in case extraction_backend="ng", this will raise below
     pass
 
