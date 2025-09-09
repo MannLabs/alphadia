@@ -53,8 +53,6 @@ class TargetDecoyFDR:
         self._decoy_column = decoy_column
         self._competition_columns = competition_columns or []
 
-        # TODO allow to pass random_state to train_test_split
-
     def fit_classifier(self, psm_df: pd.DataFrame):
         """Fit the classifier on the PSMs.
 

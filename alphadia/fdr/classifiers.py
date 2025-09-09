@@ -158,7 +158,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         layers: list[int] | None = None,
         dropout: float = 0.001,
         metric_interval: int = 1000,
-        random_state: int | None = None,
         *,
         experimental_hyperparameter_tuning: bool = False,
         logging_function: Callable | None = None,
@@ -198,9 +197,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         metric_interval : int, default=1000
             Interval for logging metrics during training.
 
-        random_state : int, optional
-            Random seed for reproducibility of torch, numpy, and train-test-split.
-
         experimental_hyperparameter_tuning: bool, default=False
             Whether to use experimental hyperparameter tuning.
 
@@ -224,13 +220,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
         self.output_dim = output_dim
         self.metric_interval = metric_interval
         self.experimental_hyperparameter_tuning = experimental_hyperparameter_tuning
-
-        self._random_state = random_state
-        if self._random_state is not None:
-            torch.manual_seed(self._random_state)
-            np.random.seed(self._random_state + 1)  # noqa: NPY002
-
-        self._n_calls_fit = 0
 
         self.network = None
         self.optimizer = None
@@ -326,8 +315,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             Target values of shape (n_samples,) or (n_samples, n_classes).
 
         """
-        self._n_calls_fit += 1
-
         if self.experimental_hyperparameter_tuning:
             self.batch_size, self.learning_rate = _get_scaled_training_params(x)
             logger.info(
@@ -362,9 +349,6 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x,
             y,
             test_size=self.test_size,
-            random_state=None
-            if self._random_state is None
-            else self._random_state + 2 + self._n_calls_fit,
         )
         x_test = torch.Tensor(x_test)
         y_test = torch.Tensor(y_test)

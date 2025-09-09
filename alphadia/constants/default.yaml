@@ -33,8 +33,6 @@ general:
   use_gpu: true
   # whether to save plots to the output folder
   save_figures: True
-  # if set to an integer, it will be used as random state (for reproducibility)
-  random_state: null
 
   # whether to save the pre-processed input library to the output directory
   save_library: True

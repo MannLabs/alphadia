@@ -41,7 +41,6 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
     logging_function: Callable | None = None,
-    random_state: int | None = None,
 ) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
     """Creates and returns a classifier base instance.
 
@@ -77,7 +76,6 @@ def _get_classifier_base(
         epochs=10,
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         logging_function=logging_function,
-        random_state=random_state,
     )
 
     if enable_two_step_classifier:
@@ -97,7 +95,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         instance_name: str,
         config: Config,
         quant_path: str = None,
-        random_state: int | None = None,
     ) -> None:
         super().__init__(
             instance_name,
@@ -105,7 +102,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             quant_path,
         )
         self._fdr_manager: FDRManager | None = None
-        self._random_state = random_state
 
         self._timing_manager: TimingManager = TimingManager(
             path=os.path.join(self.path, self.TIMING_MANAGER_PKL_NAME),
@@ -143,7 +139,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 ],
                 fdr_cutoff=config_fdr["fdr"],
                 logging_function=partial(self.reporter.log_string, verbosity="info"),
-                random_state=self._random_state,
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,

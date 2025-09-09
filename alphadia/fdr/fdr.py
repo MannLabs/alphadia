@@ -34,7 +34,6 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
-    random_state: int | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -71,9 +70,6 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
-
-    random_state : int, optional
-        The random state for train-test split reproducibility.
 
     Returns
     -------
@@ -115,9 +111,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = train_test_split_(
-        X, y, test_size=0.2, random_state=random_state
-    )
+    X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
 
     classifier.fit(X_train, y_train)
 
