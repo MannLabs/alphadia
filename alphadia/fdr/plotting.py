@@ -16,11 +16,10 @@ logger = logging.getLogger()
 
 
 def plot_fdr(  # noqa: PLR0913 # Too many arguments
-    X_train: np.ndarray,
-    X_test: np.ndarray,
     y_train: np.ndarray,
     y_test: np.ndarray,
-    classifier: sklearn.base.BaseEstimator,
+    y_train_proba: np.ndarray,
+    y_test_proba: np.ndarray,
     qval: np.ndarray,
     figure_path: str | None = None,
 ) -> None:
@@ -28,20 +27,17 @@ def plot_fdr(  # noqa: PLR0913 # Too many arguments
 
     Parameters
     ----------
-    X_train : np.ndarray
-        The training data.
-
-    X_test : np.ndarray
-        The test data.
-
     y_train : np.ndarray
         The training labels.
 
     y_test : np.ndarray
         The test labels.
 
-    classifier : sklearn.base.BaseEstimator
-        The classifier used for the prediction.
+    y_train_proba : np.ndarray
+        The predicted probabilities for the training data.
+
+    y_test_proba : np.ndarray
+        The predicted probabilities for the test data.
 
     qval : np.ndarray
         The q-values of the PSMs.
@@ -50,10 +46,6 @@ def plot_fdr(  # noqa: PLR0913 # Too many arguments
         The path to the folder to save the figure to.
 
     """
-    y_test_proba = classifier.predict_proba(X_test)[:, 1]
-
-    y_train_proba = classifier.predict_proba(X_train)[:, 1]
-
     fpr_test, tpr_test, thresholds_test = sklearn.metrics.roc_curve(
         y_test, y_test_proba
     )
