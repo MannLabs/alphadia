@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  run-unit-tests-stable:
+  run-unit-integration-tests-stable:
     if: contains(github.event.pull_request.labels.*.name, 'test:unit') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     name: Unit/integration tests 'stable' on ${{ matrix.os }}
     strategy:
@@ -37,7 +37,7 @@ jobs:
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
 
-  run-unit-tests-loose:
+  run-unit-integration--tests-loose:
     if: contains(github.event.pull_request.labels.*.name, 'test:unit') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     name: Unit/integration tests 'loose' on ${{ matrix.os }}
     strategy:
