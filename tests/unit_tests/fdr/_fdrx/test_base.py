@@ -23,6 +23,7 @@ def test_target_decoy_fdr(mock_show):
         {
             "decoy": decoy,
             "mod_seq_charge_hash": hash,
+            "precursor_idx": hash,
         }
     )
 
