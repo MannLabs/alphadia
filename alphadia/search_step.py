@@ -97,7 +97,7 @@ class SearchStep:
         torch.set_num_threads(self._config["general"]["thread_count"])
 
         if (random_state := self._config["general"]["random_state"]) == -1:
-            random_state = np.random.randint(0, 1_00_000)
+            random_state = np.random.randint(0, 1_000_000)
 
         if random_state is not None:
             self._np_rng = np.random.default_rng(random_state)
@@ -356,9 +356,7 @@ class SearchStep:
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
             random_state = (
-                None
-                if self._np_rng is None
-                else self._np_rng.integers(1_00_000, 1_00_000**2)
+                None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
             )
 
             logger.progress(
