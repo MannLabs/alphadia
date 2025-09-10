@@ -3,7 +3,6 @@ import os
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from workflow.peptidecentric.ng.ng_mapper import get_feature_names
 
 try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
