@@ -454,14 +454,6 @@ class NgExtractionHandler(ClassicExtractionHandler):
             }
         )
 
-        self._reporter.log_string(
-            f"Using parameters: fwhm_rt={scoring_params.fwhm_rt}, "
-            f"kernel_size={scoring_params.kernel_size}, "
-            f"peak_length={scoring_params.peak_length}, "
-            f"mass_tolerance={scoring_params.mass_tolerance}, "
-            f"rt_tolerance={scoring_params.rt_tolerance}"
-        )
-
         candidates = PeakGroupSelection(scoring_params).search(dia_data_ng, speclib_ng)
 
         cands = parse_candidates(candidates, spectral_library, self.cycle_len)
