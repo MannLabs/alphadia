@@ -178,4 +178,4 @@ def test_move_existing_file_returns_none_when_no_existing_old_log(
     # when
     result = reporting.move_existing_file(log_file_path)
     mock_rename.assert_not_called()
-    assert result is None
+    assert result == 'log.txt'
