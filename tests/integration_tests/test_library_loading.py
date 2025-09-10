@@ -32,5 +32,7 @@ def test_library_loading():
         step = search_step.SearchStep(
             temp_directory, {"library_path": test_data_location}
         )
+        step.load_library()
+
         assert len(step.spectral_library.precursor_df) > 0
         assert len(step.spectral_library.fragment_df) > 0

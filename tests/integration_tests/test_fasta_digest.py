@@ -15,6 +15,7 @@ def test_fasta_digest():
         config={"library_prediction": {"enabled": True}},
         cli_config={"fasta_paths": [common_contaminants]},
     )
+    step.load_library()
 
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
@@ -28,6 +29,8 @@ def test_fasta_digest():
         config={"library_prediction": {"enabled": True}},
         cli_config={"library_path": speclib_path},
     )
+    step.load_library()
+
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
 
@@ -37,5 +40,7 @@ def test_fasta_digest():
         config={"library_prediction": {"enabled": False}},
         cli_config={"library_path": speclib_path},
     )
+    step.load_library()
+
     assert len(step.spectral_library.precursor_df) > 0
     assert len(step.spectral_library.fragment_df) > 0
