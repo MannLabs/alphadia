@@ -195,6 +195,7 @@ def move_existing_file(file_path: str, suffix: str = ".bkp") -> str:
 
     return str(old_path)
 
+
 class Backend:
     """Generic backend for logging metrics, plots and strings.
 
