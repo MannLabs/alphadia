@@ -28,8 +28,8 @@ class ColumnNameHandler:
     def get_precursor_mz_column(self) -> str:
         """Get the precursor m/z column name.
 
-        This function will return MRMCols.MZ_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.MZ_LIBRARY.
-        If no MS1 data is present, it will always return MRMCols.MZ_LIBRARY.
+        This function will return CalibCols.MZ_CALIBRATED if precursor calibration has happened, otherwise it will return CalibCols.MZ_LIBRARY.
+        If no MS1 data is present, it will always return CalibCols.MZ_LIBRARY.
 
         Returns
         -------
@@ -52,7 +52,7 @@ class ColumnNameHandler:
     def get_fragment_mz_column(self) -> str:
         """Get the fragment m/z column name.
 
-        This function will return MRMCols.MZ_CALIBRATED if fragment calibration has happened, otherwise it will return MRMCols.MZ_LIBRARY.
+        This function will return CalibCols.MZ_CALIBRATED if fragment calibration has happened, otherwise it will return CalibCols.MZ_LIBRARY.
 
         Returns
         -------
@@ -73,8 +73,8 @@ class ColumnNameHandler:
     def get_rt_column(self) -> str:
         """Get the precursor rt column name.
 
-        This function will return MRMCols.RT_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.RT_LIBRARY.
-        If no MS1 data is present, it will always return MRMCols.RT_LIBRARY.
+        This function will return CalibCols.RT_CALIBRATED if precursor calibration has happened, otherwise it will return CalibCols.RT_LIBRARY.
+        If no MS1 data is present, it will always return CalibCols.RT_LIBRARY.
 
         Returns
         -------
@@ -94,8 +94,8 @@ class ColumnNameHandler:
     def get_mobility_column(self) -> str:
         """Get the precursor mobility column name.
 
-        This function will return MRMCols.MOBILITY_CALIBRATED if precursor calibration has happened, otherwise it will return MRMCols.MOBILITY_LIBRARY.
-        If no mobility data is present, it will always return MRMCols.MOBILITY_LIBRARY.
+        This function will return CalibCols.MOBILITY_CALIBRATED if precursor calibration has happened, otherwise it will return CalibCols.MOBILITY_LIBRARY.
+        If no mobility data is present, it will always return CalibCols.MOBILITY_LIBRARY.
 
         Returns
         -------

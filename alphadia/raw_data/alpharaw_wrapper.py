@@ -10,7 +10,7 @@ from alpharaw.sciex import SciexWiffData
 from alpharaw.thermo import ThermoRawData
 
 from alphadia.raw_data.dia_cycle import determine_dia_cycle
-from alphadia.raw_data.jitclasses.alpharaw_jit import AlphaRawJIT
+from alphadia.search.jitclasses.alpharaw_jit import AlphaRawJIT
 
 logger = logging.getLogger()
 

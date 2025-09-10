@@ -7,13 +7,13 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
-from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.plexscoring import CandidateScoring
-from alphadia.plexscoring.utils import (
-    candidate_features_to_candidates,
-)
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
+from alphadia.search.scoring.config import CandidateScoringConfig
+from alphadia.search.scoring.scoring import CandidateScoring
+from alphadia.search.scoring.utils import (
+    candidate_features_to_candidates,
+)
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
@@ -95,7 +95,7 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        config = CandidateConfig()
+        config = CandidateScoringConfig()
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
@@ -161,9 +161,9 @@ def _build_candidate_speclib_flat(
             "score",
             "qval",
             "channel",
-            MRMCols.RT_LIBRARY,
-            MRMCols.MZ_LIBRARY,
-            MRMCols.MOBILITY_LIBRARY,
+            CalibCols.RT_LIBRARY,
+            CalibCols.MZ_LIBRARY,
+            CalibCols.MOBILITY_LIBRARY,
             "genes",
             "proteins",
             "decoy",
@@ -171,7 +171,7 @@ def _build_candidate_speclib_flat(
             "mod_sites",
             "sequence",
             "charge",
-            MRMCols.RT_OBSERVED, MRMCols.MOBILITY_OBSERVED, MRMCols.MZ_OBSERVED
+            CalibCols.RT_OBSERVED, CalibCols.MOBILITY_OBSERVED, CalibCols.MZ_OBSERVED
         ]
 
     Returns

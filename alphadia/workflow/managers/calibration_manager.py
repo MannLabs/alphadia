@@ -154,9 +154,9 @@ class CalibrationManager(BaseManager):
                         'name': 'mz',
                         'model': 'LOESSRegression',
                         'model_args': { 'n_kernels': 2 },
-                        'input_columns': [MRMCols.MZ_LIBRARY],
-                        'target_columns': [MRMCols.MZ_OBSERVED],
-                        'output_columns': [MRMCols.MZ_CALIBRATED],
+                        'input_columns': [CalibCols.MZ_LIBRARY],
+                        'target_columns': [CalibCols.MZ_OBSERVED],
+                        'output_columns': [CalibCols.MZ_CALIBRATED],
                         'transform_deviation': 1e6
                     }
                 ]

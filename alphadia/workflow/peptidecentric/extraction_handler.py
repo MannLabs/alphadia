@@ -5,11 +5,12 @@ import pandas as pd
 import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
-# TODO: these imports could be conditional: HybridCandidateConfig, HybridCandidateSelection, CandidateConfig, CandidateScoring
-from alphadia.peakgroup.config_df import HybridCandidateConfig
-from alphadia.peakgroup.search import HybridCandidateSelection
-from alphadia.plexscoring.config import CandidateConfig
-from alphadia.plexscoring.plexscoring import CandidateScoring
+from alphadia.search.scoring.config import CandidateScoringConfig
+from alphadia.search.scoring.scoring import CandidateScoring
+
+# TODO: these imports could be conditional: CandidateSelectionConfig, CandidateSelection, CandidateScoringConfig, CandidateScoring
+from alphadia.search.selection.config_df import CandidateSelectionConfig
+from alphadia.search.selection.selection import CandidateSelection
 
 try:
     from alphadia_ng import PeakGroupSelection, SelectionParameters
@@ -221,7 +222,7 @@ class ExtractionHandler(ABC):
 
 
 class ClassicExtractionHandler(ExtractionHandler):
-    """Extraction handler using HybridCandidateSelection."""
+    """Extraction handler using CandidateSelection."""
 
     def __init__(
         self,
@@ -233,7 +234,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         super().__init__(config, optimization_manager, reporter, column_name_handler)
 
         # Initialize selection configuration
-        self._selection_config = HybridCandidateConfig()
+        self._selection_config = CandidateSelectionConfig()
         self._selection_config.update(
             {
                 **config["selection_config"],
@@ -243,7 +244,7 @@ class ClassicExtractionHandler(ExtractionHandler):
             }
         )
 
-        self._scoring_config = CandidateConfig()
+        self._scoring_config = CandidateScoringConfig()
         self._scoring_config.update(
             {
                 **config["scoring_config"],
@@ -258,7 +259,7 @@ class ClassicExtractionHandler(ExtractionHandler):
     def _select_candidates(
         self, dia_data: DiaData, spectral_library: SpecLibFlat
     ) -> pd.DataFrame:
-        """Select candidates from DIA data using HybridCandidateSelection.
+        """Select candidates from DIA data using CandidateSelection.
 
         See superclass documentation for interface details.
         """
@@ -282,7 +283,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         ]:
             self._reporter.log_string(log_line, verbosity="debug")
 
-        extraction = HybridCandidateSelection(
+        extraction = CandidateSelection(
             dia_data,
             spectral_library.precursor_df,
             spectral_library.fragment_df,

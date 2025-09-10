@@ -10,7 +10,7 @@ import numba as nb
 import numpy as np
 
 from alphadia.exceptions import NotValidDiaDataError
-from alphadia.raw_data.jitclasses.bruker_jit import TimsTOFTransposeJIT
+from alphadia.search.jitclasses.bruker_jit import TimsTOFTransposeJIT
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
