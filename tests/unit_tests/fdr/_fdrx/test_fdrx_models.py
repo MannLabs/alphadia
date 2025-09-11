@@ -3,7 +3,7 @@ from collections import Counter
 import pandas as pd
 import pytest
 
-from alphadia._fdrx.models.two_step_classifier import (
+from alphadia.fdr._fdrx.models.two_step_classifier import (
     apply_absolute_transformations,
     compute_and_filter_q_values,
     get_target_decoy_partners,

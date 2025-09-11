@@ -1,89 +1,13 @@
-import os
 import tempfile
 from copy import deepcopy
 from unittest.mock import MagicMock, patch
 
 import pytest
-from alphabase.constants import _const
 from alphabase.constants.modification import MOD_DF
-from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia import search_step
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
-
-
-@pytest.mark.slow()
-def test_fasta_digest():
-    # digest & predict new library
-    common_contaminants = os.path.join(_const.CONST_FILE_FOLDER, "contaminants.fasta")
-    tempdir = tempfile.gettempdir()
-    step = search_step.SearchStep(
-        tempdir,
-        config={"library_prediction": {"enabled": True}},
-        cli_config={"fasta_paths": [common_contaminants]},
-    )
-    step.load_library()
-
-    assert len(step.spectral_library.precursor_df) > 0
-    assert len(step.spectral_library.fragment_df) > 0
-
-    speclib_path = os.path.join(tempdir, "speclib.hdf")
-    assert os.path.exists(speclib_path)
-
-    # predict existing library
-    step = search_step.SearchStep(
-        tempdir,
-        config={"library_prediction": {"enabled": True}},
-        cli_config={"library_path": speclib_path},
-    )
-    step.load_library()
-    assert len(step.spectral_library.precursor_df) > 0
-    assert len(step.spectral_library.fragment_df) > 0
-
-    # load existing library without predict
-    step = search_step.SearchStep(
-        tempdir,
-        config={"library_prediction": {"enabled": False}},
-        cli_config={"library_path": speclib_path},
-    )
-    step.load_library()
-    assert len(step.spectral_library.precursor_df) > 0
-    assert len(step.spectral_library.fragment_df) > 0
-
-
-@pytest.mark.slow()
-def test_library_loading():
-    temp_directory = tempfile.gettempdir()
-
-    test_cases = [
-        {
-            "name": "alphadia_speclib",
-            "url": "https://datashare.biochem.mpg.de/s/NLZ0Y6qNfwMlGs0",
-        },
-        {
-            "name": "diann_speclib",
-            "url": "https://datashare.biochem.mpg.de/s/DF12ObSdZnBnqUV",
-        },
-        {
-            "name": "msfragger_speclib",
-            "url": "https://datashare.biochem.mpg.de/s/Cka1utORt3r5A4a",
-        },
-    ]
-
-    for test_dict in test_cases:
-        print("Testing {}".format(test_dict["name"]))
-
-        # TODO this is not a unit test
-        test_data_location = DataShareDownloader(
-            test_dict["url"], temp_directory
-        ).download()
-        step = search_step.SearchStep(
-            temp_directory, {"library_path": test_data_location}
-        )
-        step.load_library()
-        assert len(step.spectral_library.precursor_df) > 0
-        assert len(step.spectral_library.fragment_df) > 0
 
 
 def test_custom_modifications():

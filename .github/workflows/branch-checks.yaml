@@ -14,7 +14,7 @@ jobs:
 
   # For feature branches, we don't test the full matrix (os x [stable, loose]) in order to save time & resources.
   run-tests-stable:
-    name: Unit tests stable;ubuntu-latest;only fast
+    name: Unit tests stable;ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -25,7 +25,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
-      test-script: ./run_unit_tests.sh alphadia-env fast
+      test-script: ./run_unit_integration_tests.sh alphadia-env unit
 
   run-notebook-tests-stable:
     name: Notebook tests stable;ubuntu-latest
@@ -42,7 +42,7 @@ jobs:
       test-script: ./run_nb_tests.sh alphadia-env
 
   run-slow-tests:
-    name: Unit tests stable;ubuntu-latest;only slow
+    name: Integration tests stable;ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -53,7 +53,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
-      test-script: ./run_unit_tests.sh alphadia-env slow
+      test-script: ./run_unit_integration_tests.sh alphadia-env integration
 
   get-code-review-input:
     runs-on: ubuntu-latest

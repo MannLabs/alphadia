@@ -1,17 +1,17 @@
 #!/bin/bash
 
 ENV_NAME=${1:-alphadia}
-TEST_TYPE=${2:-fast}
+TEST_TYPE=${2:-all}
 
 case "$(echo $TEST_TYPE | tr '[:upper:]' '[:lower:]')" in
-  "all"|"true")
+  "all")
     conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest
     ;;
-  "slow")
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest -k 'slow'
+  "integration")
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest integration_tests
     ;;
-  "fast"|"false"|*)
-    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest -k 'not slow'
+  "unit")
+    conda run -n $ENV_NAME --no-capture-output coverage run --source=../alphadia -m pytest unit_tests
     ;;
 esac
 

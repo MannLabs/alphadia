@@ -262,7 +262,13 @@ def test_config_update_default_config():
     """Test updating the default config with itself as a sanity check on that config."""
 
     config_base_path = os.path.join(
-        os.path.dirname(__file__), "..", "..", "alphadia", "constants", "default.yaml"
+        os.path.dirname(__file__),
+        "..",
+        "..",
+        "..",
+        "alphadia",
+        "constants",
+        "default.yaml",
     )
     config_1 = Config(name="default")
     config_1.from_yaml(config_base_path)
