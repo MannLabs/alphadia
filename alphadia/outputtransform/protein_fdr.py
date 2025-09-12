@@ -48,7 +48,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     X = protein_features[feature_columns].values
     y = protein_features["decoy"].values
 
-    X_train, X_test, y_train, y_test = train_test_split_(
+    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
         X,
         y,
         test_size=0.2,
@@ -57,12 +57,16 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
     )
 
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_scaled = scaler.transform(X)
 
-    clf = MLPClassifier(random_state=0).fit(X_train, y_train)
+    classifier = MLPClassifier(
+        random_state=0  # we do this only once so a fixed random state is fine
+    ).fit(X_train_scaled, y_train)
 
-    protein_features["proba"] = clf.predict_proba(scaler.transform(X))[:, 1]
+    predicted_proba = classifier.predict_proba(X_scaled)[:, 1]
+
+    protein_features["proba"] = predicted_proba
     protein_features = pd.DataFrame(protein_features)
 
     protein_features = fdr.get_q_values(
@@ -84,11 +88,10 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
 
     if figure_path is not None:
         plot_fdr(
-            X_train,
-            X_test,
             y_train,
             y_test,
-            clf,
+            predicted_proba[idxs_train],
+            predicted_proba[idxs_test],
             protein_features["pg_qval"],
             figure_path,
         )

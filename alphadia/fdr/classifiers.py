@@ -352,7 +352,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         random_state = self._np_rng.integers(0, 1_000_000)
         logger.info(f"Using random state {random_state} for train-test-split")
-        x_train, x_test, y_train, y_test = train_test_split_(
+        x_train, x_test, y_train, y_test, *_ = train_test_split_(
             x, y, test_size=self.test_size, random_state=random_state
         )
         x_test = torch.Tensor(x_test)
