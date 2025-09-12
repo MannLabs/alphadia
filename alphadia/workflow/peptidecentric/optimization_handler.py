@@ -489,7 +489,9 @@ class OptimizationHandler:
 
         fragments_df_filtered = fragments_df[
             precursor_idx_mask & mass_error_mask
-        ].sort_values(by="correlation", ascending=False)
+        ].sort_values(
+            by=["correlation", "precursor_idx"], ascending=False
+        )  # last sort to break ties
 
         # Determine the number of fragments to keep
         high_corr_count = (

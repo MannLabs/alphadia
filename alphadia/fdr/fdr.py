@@ -22,7 +22,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: PLR0913 # Too many arguments
+def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -34,6 +34,7 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     df_fragments: pd.DataFrame | None = None,
     dia_cycle: np.ndarray = None,
     fdr_heuristic: float = 0.1,
+    random_state: int | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -71,6 +72,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition
 
+    random_state : int, optional
+        The random state for train-test split reproducibility.
+
     Returns
     -------
     psm_df : pd.DataFrame
@@ -103,6 +107,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
             "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
         )
 
+    if random_state is not None:
+        logger.info(f"Using random state {random_state} for FDR calculation")
+
     X_target = df_target[available_columns].to_numpy()
     X_decoy = df_decoy[available_columns].to_numpy()
     y_target = np.zeros(len(X_target))
@@ -111,7 +118,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test = train_test_split_(X, y, test_size=0.2)
+    X_train, X_test, y_train, y_test = train_test_split_(
+        X, y, test_size=0.2, random_state=random_state
+    )
 
     classifier.fit(X_train, y_train)
 
@@ -128,7 +137,9 @@ def perform_fdr(  # noqa: PLR0913 # Too many arguments
         group_columns = ["precursor_idx"]
 
     psm_df["proba"] = classifier.predict_proba(X)[:, 1]
-    psm_df.sort_values("proba", ascending=True, inplace=True)
+    psm_df.sort_values(
+        ["proba", "precursor_idx"], ascending=True, inplace=True
+    )  # last sort to break ties
 
     psm_df = get_q_values(psm_df, "proba", "_decoy")
 
@@ -196,10 +207,12 @@ def keep_best(
     """
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
-    temp_df = df.reset_index(drop=True)
-    temp_df = temp_df.sort_values(score_column, ascending=True)
-    temp_df = temp_df.groupby(group_columns).head(1)
-    return temp_df.sort_index().reset_index(drop=True)
+    df = df.reset_index(drop=True)
+    df = df.sort_values(
+        [score_column, *group_columns], ascending=True
+    )  # last sort to break ties
+    df = df.groupby(group_columns).head(1)
+    return df.sort_index().reset_index(drop=True)
 
 
 def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
@@ -229,6 +242,7 @@ def get_q_values(
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
+    extra_sort_columns: list[str] | None = None,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -248,13 +262,21 @@ def get_q_values(
     qval_column : str, default='qval'
         The name of the column to store the q-values in.
 
+    extra_sort_columns : list[str], default=['precursor_idx']
+        Additional columns to sort by after score_column and decoy_column to break ties.
+
     Returns
     -------
     pd.DataFrame
         The dataframe containing the q-values in column qval.
 
     """
-    df = df.sort_values([score_column, score_column], ascending=True)
+    if extra_sort_columns is None:
+        extra_sort_columns = ["precursor_idx"]
+
+    df = df.sort_values(
+        [score_column, decoy_column, *extra_sort_columns], ascending=True
+    )  # last sort to break ties
     target_values = 1 - df[decoy_column].to_numpy()
     decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
     target_cumsum = np.cumsum(target_values)

@@ -265,7 +265,9 @@ class FragmentCompetition:
         psm_df = self._add_window_idx(psm_df, cycle)
 
         # important to sort by window_idx and proba
-        psm_df.sort_values(by=["window_idx", "proba"], inplace=True)
+        psm_df.sort_values(
+            by=["window_idx", "proba", "precursor_idx"], inplace=True
+        )  # last sort to break ties
 
         valid = np.ones(len(psm_df)).astype(bool)
         # psm_df["valid"] = True

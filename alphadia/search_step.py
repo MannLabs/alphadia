@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from pathlib import Path
 
+import numpy as np
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
@@ -95,6 +96,8 @@ class SearchStep:
 
         torch.set_num_threads(self._config["general"]["thread_count"])
 
+        self._np_rng = self._get_random_number_generator()
+
         self._log_inputs()
 
     def _save_config(self, output_folder: str) -> None:
@@ -157,6 +160,17 @@ class SearchStep:
         config = Config()
         config.from_yaml(default_config_path)
         return config
+
+    def _get_random_number_generator(self) -> None | Generator:
+        """Getnumpy random number generator if random state is set."""
+        if (random_state := self._config["general"]["random_state"]) == -1:
+            random_state = np.random.randint(0, 1_000_000)
+
+        if random_state is not None:
+            logging.info(f"Setting random state to {random_state}")
+            return np.random.default_rng(random_state)
+
+        return None
 
     @property
     def config(self) -> Config:
@@ -345,8 +359,15 @@ class SearchStep:
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
+            random_state = (
+                None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
+            )
+
             logger.progress(
                 f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
+                + f" (random_state: {random_state})"
+                if random_state is not None
+                else ""
             )
 
             try:
@@ -354,6 +375,7 @@ class SearchStep:
                     raw_name,
                     self.config,
                     quant_path=self.config["quant_directory"],
+                    random_state=random_state,
                 )
                 workflow_path = Path(workflow.path)
 

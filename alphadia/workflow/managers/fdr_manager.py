@@ -61,6 +61,7 @@ class FDRManager(BaseManager):
         dia_cycle: None | np.ndarray = None,
         path: None | str = None,
         load_from_file: bool = True,
+        random_state: int | None = None,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -79,6 +80,8 @@ class FDRManager(BaseManager):
             Path to the manager pickle on disk.
         load_from_file : bool, optional
             If True, the manager will be loaded from file if it exists.
+        random_state: int, optional
+            Random state for reproducibility.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -96,6 +99,10 @@ class FDRManager(BaseManager):
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
 
         self._dia_cycle = dia_cycle
+
+        self._np_rng = (
+            None if random_state is None else np.random.default_rng(random_state)
+        )
 
     def fit_predict(
         self,
@@ -151,6 +158,10 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Competetive: {competetive}")
 
         classifier = self.get_classifier(available_columns, version)
+        random_state = (
+            None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
+        )
+
         if decoy_strategy == "precursor":
             if not self.is_two_step_classifier:
                 psm_df = fdr.perform_fdr(
@@ -164,6 +175,7 @@ class FDRManager(BaseManager):
                     df_fragments=df_fragments if self._compete_for_fragments else None,
                     dia_cycle=self._dia_cycle,
                     figure_path=self.figure_path,
+                    random_state=random_state,
                 )
             else:
                 group_columns = get_group_columns(competetive, group_channels=True)
@@ -194,6 +206,7 @@ class FDRManager(BaseManager):
                         else None,
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
+                        random_state=random_state,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -213,6 +226,7 @@ class FDRManager(BaseManager):
                         competetive=competetive,
                         group_channels=False,
                         figure_path=self.figure_path,
+                        random_state=random_state,
                     )
                 )
 
