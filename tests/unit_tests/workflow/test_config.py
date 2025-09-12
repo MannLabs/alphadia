@@ -12,6 +12,7 @@ generic_default_config = """
     simple_value_int: 1
     simple_value_float: 2.0
     simple_value_str: three
+    simple_value_bool: true
     nested_values:
         nested_value_1: 1
         nested_value_2: 2
@@ -40,6 +41,7 @@ expected_generic_default_config_dict = {
     "simple_value_int": 1,
     "simple_value_float": 2.0,
     "simple_value_str": "three",
+    "simple_value_bool": True,
     "nested_values": {"nested_value_1": 1, "nested_value_2": 2},
     "simple_list": [1, 2, 3],
     "nested_list": [
@@ -228,6 +230,20 @@ def test_config_update_type_mismatch_raises():
         TypeMismatchConfigError,
     ):
         config_1.update([config_2], do_print=True)
+
+
+def test_config_update_no_type_mismatch_on_boolean_string():
+    """Test updating a config with a boolean that is a string works"""
+    config_1 = Config(yaml.safe_load(StringIO(generic_default_config)), "default")
+
+    config_2 = Config({"simple_value_bool": "false"}, "first")
+
+    # when
+    config_1.update([config_2], do_print=True)
+
+    assert config_1 == expected_generic_default_config_dict | {
+        "simple_value_bool": False,
+    }
 
 
 def test_config_update_new_key_in_nested_list():
