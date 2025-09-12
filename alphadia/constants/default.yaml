@@ -394,7 +394,7 @@ optimization:
       automatic_update_factor: 1.5
       try_narrower_values: True
       maximal_decrease: 0.1
-      favour_narrower_optimum: True
+      favour_narrower_optimum: False
       maximum_decrease_from_maximum: 0.5
 
 # configuration for the optimization manager
