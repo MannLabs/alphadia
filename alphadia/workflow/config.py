@@ -188,6 +188,13 @@ def _update(
         target_value = target_config[key]
         tracking_value = tracking_dict[key]
 
+        # Convert string "true"/"false" to boolean to avoid type mismatch errors (especially from --config-dict CLI parameter)
+        if isinstance(update_value, str):
+            if update_value.lower() == "true":
+                update_value = True
+            elif update_value.lower() == "false":
+                update_value = False
+
         if (
             target_value is not None
             and type(target_value) != type(update_value)
