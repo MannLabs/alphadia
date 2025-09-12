@@ -85,23 +85,47 @@ class OptimizationManager(BaseManager):
         score_cutoff: float | None = None,
     ):
         """Update the parameters dict with the values in update_dict."""
+
+        update_logs = []
+
+        def _add_update_log(name: str, old: float | str, new: float | str) -> None:
+            """Add a log entry for an updated parameter."""
+            update_logs.append(f"{name:<20}: {old} -> {new}")
+
         if ms1_error is not None:
+            _add_update_log("ms1_error", self.ms1_error, ms1_error)
             self.ms1_error = ms1_error
         if ms2_error is not None:
+            _add_update_log("ms2_error", self.ms2_error, ms2_error)
             self.ms2_error = ms2_error
         if rt_error is not None:
+            _add_update_log("rt_error", self.rt_error, rt_error)
             self.rt_error = rt_error
         if mobility_error is not None:
+            _add_update_log("mobility_error", self.mobility_error, mobility_error)
             self.mobility_error = mobility_error
         if column_type is not None:
+            _add_update_log("column_type", self.column_type, column_type)
             self.column_type = column_type
         if num_candidates is not None:
+            _add_update_log("num_candidates", self.num_candidates, num_candidates)
             self.num_candidates = num_candidates
         if classifier_version is not None:
+            _add_update_log(
+                "classifier_version", self.classifier_version, classifier_version
+            )
             self.classifier_version = classifier_version
         if fwhm_rt is not None:
+            _add_update_log("fwhm_rt", self.fwhm_rt, fwhm_rt)
             self.fwhm_rt = fwhm_rt
         if fwhm_mobility is not None:
+            _add_update_log("fwhm_mobility", self.fwhm_mobility, fwhm_mobility)
             self.fwhm_mobility = fwhm_mobility
         if score_cutoff is not None:
+            _add_update_log("score_cutoff", self.score_cutoff, score_cutoff)
             self.score_cutoff = score_cutoff
+
+        for log in update_logs:
+            self.reporter.log_string(
+                f"Updating optimization_manager: {log}", verbosity="info"
+            )

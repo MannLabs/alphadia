@@ -160,24 +160,26 @@ def init_logging(log_folder: str = None, log_level: int = logging.INFO):
         fh.setFormatter(DefaultFormatter(use_ansi=False))
         logger.addHandler(fh)
 
-        if moved_log_file_path:
+        if moved_log_file_path != log_file_path:
             logger.info(f"Moved old log file {log_file_path} to {moved_log_file_path}")
 
     __is_initiated__ = True
 
 
-def move_existing_file(file_path: str) -> str | None:
+def move_existing_file(file_path: str, suffix: str = ".bkp") -> str:
     """Move existing file to a new name with an incrementing number.
 
     Parameters
     ----------
     file_path : str
         Path to the file that needs to be backed up
+    suffix : str, default '.bkp'
+        Suffix to add to the backup file name before the incrementing number
 
     Returns
     -------
-    str | None
-        Path to the backup file if a backup was created, None otherwise
+    str
+        Path of the moved file if it was moved, path to the original file otherwise
     """
     old_path = Path(file_path)
     new_path = old_path
@@ -185,13 +187,13 @@ def move_existing_file(file_path: str) -> str | None:
     n = -1
     while new_path.exists():
         n += 1
-        new_path = old_path.parent / f"{old_path.stem}.{n}.bkp{old_path.suffix}"
+        new_path = old_path.parent / f"{old_path.stem}.{n}{suffix}{old_path.suffix}"
 
     if n != -1:
         Path(file_path).rename(new_path)
         return str(new_path)
 
-    return None
+    return str(old_path)
 
 
 class Backend:
