@@ -304,7 +304,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         self._selection_config.update(
             {
                 **config["selection_config"],
-                "top_k_fragments": config["search"]["top_k_fragments"],
+                "top_k_fragments": config["search"]["top_k_fragments_selection"],
                 "exclude_shared_ions": config["search"]["exclude_shared_ions"],
                 "min_size_rt": config["search"]["quant_window"],
             }
@@ -314,7 +314,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         self._scoring_config.update(
             {
                 **config["scoring_config"],
-                "top_k_fragments": config["search"]["top_k_fragments"],
+                "top_k_fragments": config["search"]["top_k_fragments_scoring"],
                 "exclude_shared_ions": config["search"]["exclude_shared_ions"],
                 "quant_window": config["search"]["quant_window"],
                 "quant_all": config["search"]["quant_all"],
