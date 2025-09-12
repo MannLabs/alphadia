@@ -16,7 +16,7 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 
 try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
-except ModuleNotFoundError:
+except ImportError:
     # in case extraction_backend="ng", this will raise below
     pass
 
@@ -117,12 +117,14 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )  # TODO: debug?
 
-        if self._config["search"]["extraction_backend"] == "ng":
+        if self._config["search"]["extraction_backend"] != "classic":
             time_start = time.time()
             self._dia_data_ng = dia_data_to_ng(self._dia_data)
             self.reporter.log_string(
                 f"Creating DIA data NG object took: {time.time() - time_start}"
             )  # TODO: debug?
+
+            self.dia_data.has_ms1 = False  # TODO: re-enable MS1 for NG once supported
         else:
             self._dia_data_ng = None
 

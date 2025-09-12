@@ -6,7 +6,13 @@ TODO: This module is a temporary solution, the mapping should be moved to the NG
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_ng import DIADataNextGen as DiaDataNG
+from alphadia_ng import (
+    CandidateCollection,
+    CandidateFeatureCollection,
+)
+from alphadia_ng import (
+    DIAData as DiaDataNG,
+)
 from alphadia_ng import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
@@ -26,16 +32,13 @@ def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
         np.arange(int(len(dia_data.spectrum_df) / cycle_len + 1)), cycle_len
     )
 
-    dia_data.spectrum_df["delta_scan_idx"] = delta_scan_idx[: len(dia_data.spectrum_df)]
-    dia_data.spectrum_df["cycle_idx"] = cycle_idx[: len(dia_data.spectrum_df)]
-
     return DiaDataNG.from_arrays(
-        spectrum_df["delta_scan_idx"].values,
+        delta_scan_idx[: len(dia_data.spectrum_df)],
         spectrum_df["isolation_lower_mz"].values.astype(np.float32),
         spectrum_df["isolation_upper_mz"].values.astype(np.float32),
         spectrum_df["peak_start_idx"].values,
         spectrum_df["peak_stop_idx"].values,
-        spectrum_df["cycle_idx"].values,
+        cycle_idx[: len(dia_data.spectrum_df)],
         spectrum_df["rt"].values.astype(np.float32) * 60,  # TODO check factor
         peak_df["mz"].values.astype(np.float32),
         peak_df["intensity"].values.astype(np.float32),
@@ -54,13 +57,18 @@ def speclib_to_ng(
 
     precursor_df = speclib.precursor_df
     fragment_df = speclib.fragment_df
+
+    # precursor_df_filtered["cycle_fwhm"] is mz_calibrated -> where does it come from? # TODO
     speclib_ng = SpecLibFlatNG.from_arrays(
         precursor_df["precursor_idx"].values.astype(np.uint64),
-        precursor_df[precursor_mz_column].values.astype(np.float32),  # 'precursor_mz'
-        precursor_df[rt_column].values.astype(np.float32),  # rt_pred
+        precursor_df["mz_library"].values.astype(np.float32),  # precursor_mz_library
+        precursor_df[precursor_mz_column].values.astype(np.float32),  # precursor_mz'
+        precursor_df["rt_library"].values.astype(np.float32),  # precursor_rt_library
+        precursor_df[rt_column].values.astype(np.float32),  # precursor_rt
         precursor_df["nAA"].values.astype(np.uint8),  # added in e5f3e32d
         precursor_df["flat_frag_start_idx"].values.astype(np.uint64),
         precursor_df["flat_frag_stop_idx"].values.astype(np.uint64),
+        fragment_df["mz_library"].values.astype(np.float32),  # fragment_mz_library
         fragment_df[fragment_mz_column].values.astype(np.float32),  # mz
         fragment_df["intensity"].values.astype(np.float32),
         # added in 802c323
@@ -75,10 +83,18 @@ def speclib_to_ng(
     return speclib_ng
 
 
+def get_feature_names() -> list[str]:
+    """Get feature names from NG CandidateFeatureCollection."""
+    blacklist = []
+    return [
+        f for f in CandidateFeatureCollection.get_feature_names() if f not in blacklist
+    ]
+
+
 def parse_candidates(
-    dia_data: DiaData, candidates, precursor_df: pd.DataFrame
+    candidates: CandidateCollection, spectral_library: SpecLibFlat, cycle_len: int
 ) -> pd.DataFrame:
-    """Parse candidates from NG to classic format."""
+    """Parse candidates from NG to classic format (temporary)."""
     result = candidates.to_arrays()
 
     precursor_idx = result[0]
@@ -94,7 +110,7 @@ def parse_candidates(
     candidates_df = pd.DataFrame(
         {
             "precursor_idx": precursor_idx,
-            "rank": rank,
+            "rank": rank - 1,
             "score": score,
             "scan_center": scan_center,
             "scan_start": scan_start,
@@ -106,12 +122,11 @@ def parse_candidates(
     )
 
     candidates_df = candidates_df.merge(
-        precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
+        spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
         on="precursor_idx",
         how="left",
     )
 
-    cycle_len = dia_data.cycle.shape[1]
     candidates_df["frame_start"] = candidates_df["frame_start"] * cycle_len
     candidates_df["frame_stop"] = candidates_df["frame_stop"] * cycle_len
     candidates_df["frame_center"] = candidates_df["frame_center"] * cycle_len
@@ -121,3 +136,78 @@ def parse_candidates(
     candidates_df["scan_center"] = 0
 
     return candidates_df
+
+
+def candidates_to_ng(
+    candidates_df: pd.DataFrame, cycle_len: int
+) -> CandidateCollection:
+    """Convert candidates from classic to NG format (temporary)."""
+    candidates = CandidateCollection.from_arrays(
+        candidates_df["precursor_idx"].values.astype(np.uint64),
+        candidates_df["rank"].values.astype(np.uint64) + 1,
+        candidates_df["score"].values.astype(np.float32),
+        candidates_df["scan_center"].values.astype(np.uint64),
+        candidates_df["scan_start"].values.astype(np.uint64),
+        candidates_df["scan_stop"].values.astype(np.uint64),
+        candidates_df["frame_center"].values.astype(np.uint64) // cycle_len,
+        candidates_df["frame_start"].values.astype(np.uint64) // cycle_len,
+        candidates_df["frame_stop"].values.astype(np.uint64) // cycle_len,
+    )
+    return candidates
+
+
+def to_features_df(
+    candidate_features: CandidateFeatureCollection, spectral_library: SpecLibFlat
+) -> pd.DataFrame:
+    """Convert NG candidate features to classic format."""
+
+    features_dict = candidate_features.to_dict_arrays()
+
+    features_df = pd.DataFrame(features_dict)
+
+    features_df = features_df.merge(
+        spectral_library.precursor_df[
+            [
+                "precursor_idx",
+                "decoy",
+                "elution_group_idx",
+                "channel",
+                "proteins",
+            ]
+        ],
+        on="precursor_idx",
+        how="left",
+    )
+
+    features_df["rank"] -= 1
+
+    return features_df
+
+
+def parse_quantification(
+    quantified_speclib: "SpecLibFlatQuantified",  # noqa: F821
+    precursor_fdr_df: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convert NG quantified spectral library to classic precursor and fragments DataFrame."""
+
+    precursor_dict, fragment_dict = quantified_speclib.to_dict_arrays()
+
+    precursor_df = pd.DataFrame(precursor_dict).rename(columns={"idx": "precursor_idx"})
+
+    precursor_df["rank"] -= 1
+
+    precursor_df = precursor_df.merge(
+        precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+        on=["precursor_idx", "rank"],
+        how="left",
+    )
+
+    fragments_df = pd.DataFrame(fragment_dict).rename(
+        columns={
+            "correlation_observed": "correlation",
+            "mass_error_observed": "mass_error",
+        }
+    )
+    fragments_df["rank"] -= 1
+
+    return precursor_df, fragments_df
