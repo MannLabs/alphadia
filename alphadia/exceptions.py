@@ -133,14 +133,22 @@ class ConfigError(BusinessError):
 
     _error_code = "CONFIG_ERROR"
 
-    _msg = "Malformed configuration file(s)."
+    _msg = "Malformed or invalid configuration."
     _key = ""
     _config_name = ""
+    _detail_msg = ""
 
-    def __init__(self, key: str = "", value: str = "", config_name: str = ""):
+    def __init__(
+        self,
+        key: str = "",
+        value: str = "",
+        config_name: str = "",
+        detail_msg: str = "",
+    ):
         self._key = key
         self._value = value
         self._config_name = config_name
+        self._detail_msg = detail_msg
 
 
 class KeyAddedConfigError(ConfigError):

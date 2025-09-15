@@ -165,7 +165,16 @@ search:
   compete_for_fragments: True
   # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   quant_all: True
-  top_k_fragments: 12
+
+  # the number of most intense fragments to use in the selection
+  top_k_fragments_selection: 12
+
+  # the number of most intense fragments to use in the scoring
+  top_k_fragments_scoring: 12
+
+  # the minimum intensity of a fragment to be used in the search
+  min_fragment_intensity: 0.01
+
   experimental_xic: True
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
@@ -209,6 +218,8 @@ search_initial:
   # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
   initial_rt_tolerance: 0.5
 
+# IMPORTANT NOTE: The parameters in this section are passed as kewords arguments to the CandidateSelectionConfig class
+# Do not rename here without adapting that class!
 selection_config:
   peak_len_rt: 10.
   sigma_scale_rt: 0.5
@@ -233,6 +244,8 @@ selection_config:
   join_close_candidates_scan_threshold: 0.6
   join_close_candidates_cycle_threshold: 0.6
 
+# IMPORTANT NOTE: The parameters in this section are passed as kewords arguments to the CandidateScoringConfig class
+# Do not rename here without adapting that class!
 scoring_config:
   score_grouped: false
   top_k_isotopes: 3
