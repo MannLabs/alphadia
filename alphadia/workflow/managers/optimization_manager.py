@@ -11,7 +11,6 @@ class OptimizationManager(BaseManager):
     ms2_error: float
     rt_error: float
     mobility_error: float
-    column_type: str
     num_candidates: int
     classifier_version: int
     fwhm_rt: float
@@ -61,7 +60,6 @@ class OptimizationManager(BaseManager):
                 "fwhm_rt",
                 "fwhm_mobility",
                 "score_cutoff",
-                "column_type",
                 "classifier_version",
             ]:
                 self.reporter.log_string(
