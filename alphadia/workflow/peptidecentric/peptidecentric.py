@@ -4,6 +4,10 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+try:  # noqa: SIM105
+    from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
+except ImportError:
+    pass
 from alphadia.fdr._fdrx.models.logistic_regression import LogisticRegressionClassifier
 from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
@@ -131,7 +135,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
-            feature_columns=feature_columns,
+            feature_columns=get_feature_names()
+            if self._config["search"]["extraction_backend"] == "ng"
+            or self._config["search"]["extraction_backend"] == "classic-ng"
+            else feature_columns,
             classifier_base=_get_classifier_base(
                 enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
                 two_step_classifier_max_iterations=config_fdr[
@@ -230,35 +237,53 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
         )
 
-        decoy_strategy = (
-            "precursor_channel_wise"
-            if self._config["fdr"]["channel_wise_fdr"]
-            else "precursor"
-        )
+        if (
+            self._config["search"]["extraction_backend"] == "classic"
+            or self._config["search"]["extraction_backend"] == "ng-classic"
+        ):
+            # TODO move this to ExtractionHandler in general?
+            decoy_strategy = (
+                "precursor_channel_wise"
+                if self._config["fdr"]["channel_wise_fdr"]
+                else "precursor"
+            )
 
-        precursor_df = self._fdr_manager.fit_predict(
-            features_df,
-            decoy_strategy=decoy_strategy,
-            competetive=self._config["fdr"]["competetive_scoring"],
-            df_fragments=fragments_df,
-            version=self.optimization_manager.classifier_version,
-        )
+            precursor_df = self._fdr_manager.fit_predict(
+                features_df,
+                decoy_strategy=decoy_strategy,
+                competetive=self._config["fdr"]["competetive_scoring"],
+                df_fragments=fragments_df,
+                version=self.optimization_manager.classifier_version,
+            )
 
-        precursor_df = precursor_df[precursor_df["qval"] <= self.config["fdr"]["fdr"]]
+            precursor_df = precursor_df[
+                precursor_df["qval"] <= self.config["fdr"]["fdr"]
+            ]
 
-        self.reporter.log_string("Removing fragments below FDR threshold")
+            self.reporter.log_string("Removing fragments below FDR threshold")
 
-        # to be optimized later
-        fragments_df["candidate_idx"] = candidate_hash(
-            fragments_df["precursor_idx"].values, fragments_df["rank"].values
-        )
-        precursor_df["candidate_idx"] = candidate_hash(
-            precursor_df["precursor_idx"].values, precursor_df["rank"].values
-        )
+            # to be optimized later
+            fragments_df["candidate_idx"] = candidate_hash(
+                fragments_df["precursor_idx"].values, fragments_df["rank"].values
+            )
+            precursor_df["candidate_idx"] = candidate_hash(
+                precursor_df["precursor_idx"].values, precursor_df["rank"].values
+            )
 
-        fragments_df = fragments_df[
-            fragments_df["candidate_idx"].isin(precursor_df["candidate_idx"])
-        ]
+            fragments_df = fragments_df[
+                fragments_df["candidate_idx"].isin(precursor_df["candidate_idx"])
+            ]
+
+        else:
+            candidates_df = fragments_df
+            precursor_df, fragments_df = extraction_handler.quantify_ng(
+                candidates_df,
+                features_df,
+                self._dia_data_ng,
+                self.spectral_library,
+                self._fdr_manager,
+                self.optimization_manager.classifier_version,
+            )
 
         log_precursor_df(self.reporter, precursor_df)
 

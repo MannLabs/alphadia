@@ -363,32 +363,51 @@ class OptimizationHandler:
             ),
         )
 
-        feature_df, fragment_df = extraction_handler.extract_batch(
-            (self._dia_data, self._dia_data_ng)
-            if self._dia_data_ng is not None
-            else self._dia_data,
+        is_ng = self._config["search"]["extraction_backend"] != "classic"
+        features_df, fragments_df = extraction_handler.extract_batch(
+            (self._dia_data, self._dia_data_ng) if is_ng else self._dia_data,
             self._optlock.batch_library,
         )
-        self._optlock.update_with_extraction(feature_df, fragment_df)
 
-        self._reporter.log_string(
-            f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
-            verbosity="progress",
-        )
+        if (
+            self._config["search"]["extraction_backend"] == "classic"
+            or self._config["search"]["extraction_backend"] == "ng-classic"
+        ):
+            self._optlock.update_with_extraction(features_df, fragments_df)
 
-        decoy_strategy = (
-            "precursor_channel_wise"
-            if self._config["fdr"]["channel_wise_fdr"]
-            else "precursor"
-        )
+            self._reporter.log_string(
+                f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
+                verbosity="progress",
+            )
 
-        precursor_df = self._fdr_manager.fit_predict(
-            self._optlock.features_df,
-            decoy_strategy=decoy_strategy,
-            competetive=self._config["fdr"]["competetive_scoring"],
-            df_fragments=self._optlock.fragments_df,
-            version=self._optimization_manager.classifier_version,
-        )
+            decoy_strategy = (
+                "precursor_channel_wise"
+                if self._config["fdr"]["channel_wise_fdr"]
+                else "precursor"
+            )
+
+            precursor_df = self._fdr_manager.fit_predict(
+                self._optlock.features_df,
+                decoy_strategy=decoy_strategy,
+                competetive=self._config["fdr"]["competetive_scoring"],
+                df_fragments=self._optlock.fragments_df,
+                version=self._optimization_manager.classifier_version,
+            )
+        else:
+            candidates_df = fragments_df
+            precursor_df, fragments_df = extraction_handler.quantify_ng(
+                candidates_df,
+                features_df,
+                self._dia_data_ng,
+                self._optlock.batch_library,
+                self._fdr_manager,
+                self._optimization_manager.classifier_version,
+            )
+            # TODO: get these from the ng backend
+            precursor_df["cycle_fwhm"] = 3
+            precursor_df["mobility_fwhm"] = -1
+
+            self._optlock.update_with_extraction(features_df, fragments_df)
 
         self._optlock.update_with_fdr(precursor_df)
 
