@@ -357,7 +357,7 @@ class OptimizationHandler:
             self._optimization_manager,
             self._reporter,
             ColumnNameHandler(
-                self._optimization_manager,
+                self._calibration_manager,
                 dia_data_has_ms1=self._dia_data.has_ms1,
                 dia_data_has_mobility=self._dia_data.has_mobility,
             ),
