@@ -212,7 +212,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.optimization_manager,
             self.reporter,
             ColumnNameHandler(
-                self.optimization_manager,
+                self.calibration_manager,
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
@@ -277,7 +277,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self._fdr_manager,
             self.reporter,
             ColumnNameHandler(
-                self.optimization_manager,
+                self.calibration_manager,
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
@@ -306,7 +306,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.calibration_manager,
             self.reporter,
             ColumnNameHandler(
-                self.optimization_manager,
+                self.calibration_manager,
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
