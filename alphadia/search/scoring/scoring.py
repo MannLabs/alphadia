@@ -621,7 +621,7 @@ class CandidateScoring:
 
         score_group_container = self.assemble_score_group_container(candidates_df)
         n_candidates = score_group_container.get_candidate_count()
-        psm_proto_df = OutputPsmDF(n_candidates, self.config.top_k_fragments_scoring)
+        psm_proto_df = OutputPsmDF(n_candidates, self.config.top_k_fragments)
 
         iterator_len = len(score_group_container)
 
