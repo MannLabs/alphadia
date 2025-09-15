@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import Generator
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -135,6 +136,17 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
+        # in case the extraction backend is 'ng', add the ng default config as first update
+        if config_updates:
+            tmp_config = deepcopy(config)
+            # apply all updates to be able to tell the extraction_backend
+            tmp_config.update(config_updates)
+            if tmp_config["search"]["extraction_backend"] == "ng":
+                ng_default_config = SearchStep._load_default_config(
+                    file_name="default_ng.yaml"
+                )
+                config_updates.insert(0, ng_default_config)
+
         # this needs to be last
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
@@ -151,10 +163,10 @@ class SearchStep:
         return config
 
     @staticmethod
-    def _load_default_config():
+    def _load_default_config(file_name="default.yaml") -> Config:
         """Load default config from file."""
         default_config_path = os.path.join(
-            os.path.dirname(__file__), "constants", "default.yaml"
+            os.path.dirname(__file__), "constants", file_name
         )
         logger.info(f"loading default config from {default_config_path}")
         config = Config()
