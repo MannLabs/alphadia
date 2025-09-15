@@ -1,6 +1,6 @@
 import tempfile
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from alphabase.constants.modification import MOD_DF
@@ -31,7 +31,12 @@ def test_custom_modifications():
 def test_initializes_with_default_config(mock_load_default_config):
     """Test that the config is initialized with default values."""
     config = Config(
-        {"key1": "value1", "key2": "value2"}, "default"
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "search": {"extraction_backend": "classic"},
+        },
+        "default",
     )  # not using a mock here as working with the real object is much simpler
     mock_load_default_config.return_value = deepcopy(
         config
@@ -47,7 +52,13 @@ def test_initializes_with_default_config(mock_load_default_config):
 @patch("alphadia.search_step.SearchStep._load_default_config")
 def test_updates_with_user_config_object(mock_load_default_config):
     """Test that the config is updated with user config object."""
-    config = Config({"key1": "value1", "key2": "value2"})
+    config = Config(
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
     mock_load_default_config.return_value = deepcopy(config)
 
     user_config = Config({"key2": "value2b"})
@@ -58,6 +69,7 @@ def test_updates_with_user_config_object(mock_load_default_config):
         "key1": "value1",
         "key2": "value2b",
         "output_directory": "/output",
+        "search": {"extraction_backend": "classic"},
     }
 
 
@@ -73,6 +85,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
             "key3": "value3",
             "key4": "value4",
             "output_directory": None,
+            "search": {"extraction_backend": "classic"},
         }
     )
     mock_load_default_config.return_value = deepcopy(config)
@@ -91,6 +104,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
         "key3": "value3b",
         "key4": "value4b",
         "output_directory": "/output",
+        "search": {"extraction_backend": "classic"},
     }
 
 
@@ -99,7 +113,13 @@ def test_updates_with_cli_config_no_overwrite_output_path(
     mock_load_default_config,
 ):
     """Test that the output directory is not overwritten if provided by config."""
-    config = Config({"key1": "value1", "output_directory": None})
+    config = Config(
+        {
+            "key1": "value1",
+            "output_directory": None,
+            "search": {"extraction_backend": "classic"},
+        }
+    )
     mock_load_default_config.return_value = deepcopy(config)
 
     user_config = {"key1": "value1b", "output_directory": "/output"}
@@ -108,7 +128,11 @@ def test_updates_with_cli_config_no_overwrite_output_path(
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "value1b", "output_directory": "/output"}
+    assert result == {
+        "key1": "value1b",
+        "output_directory": "/output",
+        "search": {"extraction_backend": "classic"},
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
@@ -126,6 +150,35 @@ def test_updates_with_extra_config_overwrite_output_path(
     mock_load_default_config.assert_called_once()
 
     assert result == {"key1": "value1b", "output_directory": "/extra_output"}
+
+
+@patch("alphadia.search_step.SearchStep._load_default_config")
+def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
+    """Test that the config is updated with user config object."""
+    config = Config(
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
+    config_ng = Config({"key1": "NEW_NG_DEFAULT"})
+    mock_load_default_config.side_effect = [deepcopy(config), deepcopy(config_ng)]
+
+    user_config = Config({"search": {"extraction_backend": "ng"}})
+
+    # when
+    result = SearchStep._init_config(user_config, None, None, "/output")
+
+    assert result == {
+        "key1": "NEW_NG_DEFAULT",
+        "key2": "value2",
+        "output_directory": "/output",
+        "search": {"extraction_backend": "ng"},
+    }
+    mock_load_default_config.assert_has_calls(
+        [call(), call(file_name="default_ng.yaml")]
+    )
 
 
 @pytest.mark.parametrize(
