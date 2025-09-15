@@ -158,28 +158,37 @@ def test_updates_with_extra_config_overwrite_output_path(
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
 def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
-    """Test that the config is updated with user config object."""
+    """Test that the correct defaults are loaded if extraction backend is "ng"."""
     default_config = Config(
         {
             "key1": "value1",
             "key2": "value2",
+            "key3": "value3",
             "search": {"extraction_backend": "classic"},
         }
     )
-    default_config_ng = Config({"key1": "NEW_NG_DEFAULT"})
+    default_config_ng = Config(
+        {
+            "key1": "NEW_NG_DEFAULT1",
+            "key2": "NEW_NG_DEFAULT2",
+        }
+    )
     mock_load_default_config.side_effect = [
         deepcopy(default_config),
         deepcopy(default_config_ng),
     ]
 
-    user_config = Config({"search": {"extraction_backend": "ng"}})
+    user_config = Config(
+        {"search": {"extraction_backend": "ng"}, "key2": "some_user_value"}
+    )
 
     # when
     result = SearchStep._init_config(user_config, None, None, "/output")
 
     assert result == {
-        "key1": "NEW_NG_DEFAULT",
-        "key2": "value2",
+        "key1": "NEW_NG_DEFAULT1",  # taken from ng default
+        "key2": "some_user_value",  # overwritten by user although ng default exists
+        "key3": "value3",
         "output_directory": "/output",
         "search": {"extraction_backend": "ng"},
     }
