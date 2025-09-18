@@ -491,7 +491,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params.update(
             {
                 "top_k_fragments": 99,  # TODO: hardcoded value
-                "mass_tolerance": 7.0,  # TODO: hardcoded value
+                "mass_tolerance": self._optimization_manager.ms2_error,
             }
         )
 
