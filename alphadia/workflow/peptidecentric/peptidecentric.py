@@ -304,12 +304,13 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         fragment_requantification_handler = TransferLibraryRequantificationHandler(
             self.config,
             self.calibration_manager,
-            self.reporter,
+            self.optimization_manager,
             ColumnNameHandler(
                 self.optimization_manager,
                 dia_data_has_ms1=self.dia_data.has_ms1,
                 dia_data_has_mobility=self.dia_data.has_mobility,
             ),
+            self.reporter,
         )
 
         return fragment_requantification_handler.requantify(self.dia_data, psm_df)
