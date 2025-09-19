@@ -19,6 +19,7 @@ from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,
 )
+from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 
 
@@ -31,13 +32,15 @@ class TransferLibraryRequantificationHandler:
         self,
         config: Config,
         calibration_manager: CalibrationManager,
-        reporter: Pipeline,
+        optimization_manager: OptimizationManager,
         column_name_handler: ColumnNameHandler,
+        reporter: Pipeline,
     ):
         self._config = config
         self._calibration_manager = calibration_manager
-        self._reporter = reporter
+        self._optimization_manager = optimization_manager
         self._column_name_handler = column_name_handler
+        self._reporter = reporter
 
     def requantify(
         self, dia_data: DiaData, psm_df: pd.DataFrame
@@ -99,10 +102,8 @@ class TransferLibraryRequantificationHandler:
         config.update(
             {
                 "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
-                "precursor_mz_tolerance": self._config["search"][
-                    "target_ms1_tolerance"
-                ],
-                "fragment_mz_tolerance": self._config["search"]["target_ms2_tolerance"],
+                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
+                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
                 "experimental_xic": self._config["search"]["experimental_xic"],
             }
         )
