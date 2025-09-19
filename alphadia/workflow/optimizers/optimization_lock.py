@@ -33,7 +33,10 @@ class OptimizationLock:
         self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
-        self._set_batch_plan()
+        # TODO fixed_start_idx needs to be reverted once NG handles FDR in a compatible way
+        self._set_batch_plan(
+            fixed_start_idx=config["search"]["extraction_backend"] == "ng"
+        )
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
 
@@ -71,8 +74,16 @@ class OptimizationLock:
         """
         return int(2**step)
 
-    def _set_batch_plan(self):
-        """Gets an exponential batch plan based on the batch_size value in the config."""
+    def _set_batch_plan(self, *, fixed_start_idx: bool = False) -> None:
+        """Gets an exponential batch plan based on the batch_size value in the config.
+        The batch plan is a list of tuples, where each tuple contains the start and stop index of the elution groups to use for each step in the optimization lock.
+
+        Parameters
+        ----------
+        fixed_start_idx: bool
+            If True, the start index of each batch is fixed to 0, otherwise the start index is the stop index of the previous batch.
+
+        """
         n_eg = len(self._elution_group_order)
 
         plan = []
@@ -85,7 +96,8 @@ class OptimizationLock:
             stop_idx = min(start_idx + n_batches * self._batch_size, n_eg)
             plan.append((start_idx, stop_idx))
             step += 1
-            start_idx = stop_idx
+            if not fixed_start_idx:
+                start_idx = stop_idx
 
         self.batch_plan = plan
 
