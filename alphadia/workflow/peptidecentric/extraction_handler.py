@@ -447,6 +447,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
             {
                 "fwhm_rt": self._optimization_manager.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
+                "top_k_fragments": self._config["search"]["top_k_fragments_selection"],
                 "peak_length": self._config["search"]["quant_window"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -490,7 +491,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         scoring_params = ScoringParameters()
         scoring_params.update(
             {
-                "top_k_fragments": 99,  # TODO: hardcoded value
+                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
             }
         )
