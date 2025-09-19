@@ -146,7 +146,9 @@ class SearchStep:
             config.update(config_updates, do_print=True)
 
         # Note: if not provided by CLI, output_folder is set to the value in config in cli.py
-        if (current_config_output_folder := config.get(ConfigKeys.OUTPUT_DIRECTORY)) is not None and current_config_output_folder != output_folder:
+        if (
+            current_config_output_folder := config.get(ConfigKeys.OUTPUT_DIRECTORY)
+        ) is not None and current_config_output_folder != output_folder:
             logger.warning(
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )

@@ -95,20 +95,22 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
-def test_updates_with_cli_config_no_overwrite_output_path(
+def test_updates_with_cli_config_overwrite_output_path(
     mock_load_default_config,
 ):
-    """Test that the output directory is not overwritten if provided by config."""
-    config = Config({"key1": "value1", "output_directory": None})
+    """Test that the output directory is overwritten if provided by cli."""
+    config = Config({"key1": "value1", "output_directory": "/some_output_directory"})
     mock_load_default_config.return_value = deepcopy(config)
 
-    user_config = {"key1": "value1b", "output_directory": "/output"}
+    user_config = {"key1": "value1b", "output_directory": "/another_output_directory"}
     # when
-    result = SearchStep._init_config(user_config, None, None, "/another_output")
+    result = SearchStep._init_config(
+        user_config, None, None, "/actual_output_directory"
+    )
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "value1b", "output_directory": "/output"}
+    assert result == {"key1": "value1b", "output_directory": "/actual_output_directory"}
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
