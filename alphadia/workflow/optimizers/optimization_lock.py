@@ -36,6 +36,8 @@ class OptimizationLock:
         self.batch_plan = self._get_batch_plan(
             len(self._elution_group_order),
             self._batch_size,
+            # TODO fixed_start_idx needs to be reverted once NG handles FDR in a compatible way
+            fixed_start_idx=config.get("search", {}).get("extraction_backend") == "ng",
         )
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
