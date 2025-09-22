@@ -33,7 +33,10 @@ class OptimizationLock:
         self._batch_size = config["calibration"]["batch_size"]
 
         self.batch_idx = 0
-        self._set_batch_plan()
+        self.batch_plan = self._get_batch_plan(
+            len(self._elution_group_order),
+            self._batch_size,
+        )
 
         eg_idxes = self._elution_group_order[self.start_idx : self.stop_idx]
 
@@ -64,30 +67,44 @@ class OptimizationLock:
     def stop_idx(self) -> int:
         return self.batch_plan[self.batch_idx][1]
 
-    def _get_exponential_batches(self, step):
-        """Get the number of batches for a given step
-        This plan has the shape:
-        1, 2, 4, 8, 16, 32, 64, ...
-        """
-        return int(2**step)
+    @staticmethod
+    def _get_batch_plan(
+        num_items: int, batch_size: int, *, fixed_start_idx: bool = False
+    ) -> list[tuple[int, int]]:
+        """Gets an exponential batch plan based on num_items and batch_size.
 
-    def _set_batch_plan(self):
-        """Gets an exponential batch plan based on the batch_size value in the config."""
-        n_eg = len(self._elution_group_order)
+        The batch plan is a list of tuples, where each tuple contains the start and stop index of the elution groups to use for each step in the optimization lock.
+
+        Parameters
+        ----------
+        num_items: int
+            The total number of items to create a batch plan for.
+        batch_size: int
+            The batch size to use for each step in the optimization lock.
+        fixed_start_idx: bool
+            If True, the start index of each batch is fixed to 0, otherwise the start index is the stop index of the previous batch.
+
+        returns
+        -------
+        list[tuple[int,int]]
+            The batch plan as a list of tuples, where each tuple contains the start and stop index
+        """
 
         plan = []
 
         step = 0
         start_idx = 0
+        stop_idx = 0
 
-        while start_idx < n_eg:
-            n_batches = self._get_exponential_batches(step)
-            stop_idx = min(start_idx + n_batches * self._batch_size, n_eg)
+        while stop_idx < num_items:
+            n_batches = int(2**step)
+            stop_idx = min(stop_idx + n_batches * batch_size, num_items)
             plan.append((start_idx, stop_idx))
             step += 1
-            start_idx = stop_idx
+            if not fixed_start_idx:
+                start_idx = stop_idx
 
-        self.batch_plan = plan
+        return plan
 
     def batches_remaining(self):
         return self.batch_idx + 1 < len(self.batch_plan)
