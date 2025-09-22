@@ -17,7 +17,7 @@ def test_get_exponential_batch_plan_correctly():
 
 
 def test_get_exponential_batch_plan_fixed_start_idx_correctly():
-    """Tests that the exponential batch plan is set constructed with fixed start idx."""
+    """Tests that the exponential batch plan is constructed with fixed start idx."""
 
     batch_plan = OptimizationLock._get_batch_plan(1000, 100, fixed_start_idx=True)
 
