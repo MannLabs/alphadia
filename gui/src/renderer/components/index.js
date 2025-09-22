@@ -1,7 +1,6 @@
 export {default as MenuDrawer} from './MenuDrawer'
 export {default as AlphapeptIcon} from './AlphapeptIcon'
 export {default as Card} from './Card'
-export {default as DiscussionCard} from './DiscussionCard'
 export {default as FileViewer} from './FileViewer'
 export {default as InputFileSelect} from './InputFileSelect'
 export {default as ParameterGroup} from './ParameterGroup'

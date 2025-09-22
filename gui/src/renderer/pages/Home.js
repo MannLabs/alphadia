@@ -138,17 +138,14 @@ const Home = () => (
                     <AlphapeptIcon sx={{fontSize: "5rem"}}/><br />
                     <Typography component="span" sx={{fontWeight: 700, fontSize: "1rem",color: "white"}}>
                         AlphaPept<br/>
-                        Universe
+                        ecosystem
                     </Typography>
                     <br/>
-                    <StyledLink onClick={() => window.electronAPI.openLink("https://github.com/MannLabs")} sx={{color: "white !important"}}>
+                    <StyledLink onClick={() => window.electronAPI.openLink("https://www.alphapept.org")} sx={{color: "white !important"}}>
                         Link
                     </StyledLink>
                 </Box>
             </Card>
-        </Grid>
-        <Grid item xs={12}>
-            <DiscussionCard/>
         </Grid>
     </Grid>
 

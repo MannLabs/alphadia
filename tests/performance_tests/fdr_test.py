@@ -95,8 +95,8 @@ parser.add_argument(
 parser.add_argument(
     "--classifier",
     choices=classifiers.keys(),
-    default="binary",
-    help="classifier to use, default: binary",
+    default="legacy_new_batching",
+    help="classifier to use, default: legacy_new_batching",
 )
 
 
