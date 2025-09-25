@@ -538,9 +538,6 @@ class SearchPlanOutput:
         lfq_results = {}
 
         for quantlevel_config in quantlevel_configs:
-            if not quantlevel_config.should_process:
-                continue
-
             logger.progress(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
