@@ -113,7 +113,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
-def test_updates_with_cli_config_no_overwrite_output_path(
+def test_updates_with_cli_config_overwrite_output_path(
     mock_load_default_config,
 ):
     """Test that the output directory is not overwritten if provided by config."""
@@ -127,14 +127,17 @@ def test_updates_with_cli_config_no_overwrite_output_path(
     mock_load_default_config.return_value = deepcopy(default_config)
 
     user_config = {"key1": "NEW_value1", "output_directory": "/output"}
+
     # when
-    result = SearchStep._init_config(user_config, None, None, "/another_output")
+    result = SearchStep._init_config(
+        user_config, None, None, "/actual_output_directory"
+    )
 
     mock_load_default_config.assert_called_once()
 
     assert result == {
         "key1": "NEW_value1",
-        "output_directory": "/output",
+        "output_directory": "/actual_output_directory",
         "search": {"extraction_backend": "classic"},
     }
 
@@ -144,7 +147,13 @@ def test_updates_with_extra_config_overwrite_output_path(
     mock_load_default_config,
 ):
     """Test that the output directory is overwritten by extra_config."""
-    default_config = Config({"key1": "value1", "output_directory": "/default_output"})
+    default_config = Config(
+        {
+            "key1": "value1",
+            "output_directory": "/default_output",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
     mock_load_default_config.return_value = deepcopy(default_config)
 
     extra_config = {"key1": "NEW_value1"}
@@ -153,7 +162,11 @@ def test_updates_with_extra_config_overwrite_output_path(
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "NEW_value1", "output_directory": "/extra_output"}
+    assert result == {
+        "key1": "NEW_value1",
+        "output_directory": "/extra_output",
+        "search": {"extraction_backend": "classic"},
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")

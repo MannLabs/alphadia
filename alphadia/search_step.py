@@ -136,18 +136,13 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        # in case the extraction backend is 'ng', add the ng default config as first update
-        if config_updates:
-            tmp_config = deepcopy(config)
-            # apply all updates to be able to tell the extraction_backend
-            tmp_config.update(config_updates)
-            if tmp_config["search"]["extraction_backend"] == "ng":
-                ng_default_config = SearchStep._load_default_config(
-                    file_name="default_ng.yaml"
-                )
-                config_updates.insert(0, ng_default_config)
+        if SearchStep._is_ng_activated(config, config_updates):
+            ng_default_config = SearchStep._load_default_config(
+                file_name="default_ng.yaml"
+            )
+            config_updates.insert(0, ng_default_config)
 
-        # this needs to be last
+        # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
@@ -158,7 +153,9 @@ class SearchStep:
             config.update(config_updates, do_print=True)
 
         # Note: if not provided by CLI, output_folder is set to the value in config in cli.py
-        if (current_config_output_folder := config.get(ConfigKeys.OUTPUT_DIRECTORY)) is not None and current_config_output_folder != output_folder:
+        if (
+            current_config_output_folder := config.get(ConfigKeys.OUTPUT_DIRECTORY)
+        ) is not None and current_config_output_folder != output_folder:
             logger.warning(
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )
@@ -176,6 +173,21 @@ class SearchStep:
         config = Config()
         config.from_yaml(default_config_path)
         return config
+
+    @staticmethod
+    def _is_ng_activated(config: Config, config_updates: list[Config]) -> bool:
+        """Decide if the extraction backend is 'ng'.
+
+        If no updates are provided, the decision is based on the default config.
+        If updates are provided, they are applied in order to be able to decide based on the final config.
+        """
+        if config_updates:
+            tmp_updated_config = deepcopy(config)
+            tmp_updated_config.update(config_updates)
+
+            return tmp_updated_config["search"]["extraction_backend"] == "ng"
+
+        return config["search"]["extraction_backend"] == "ng"
 
     def _get_random_number_generator(self) -> None | Generator:
         """Getnumpy random number generator if random state is set."""
