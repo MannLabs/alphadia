@@ -1,6 +1,6 @@
 import tempfile
 from copy import deepcopy
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 from alphabase.constants.modification import MOD_DF
@@ -30,34 +30,46 @@ def test_custom_modifications():
 @patch("alphadia.search_step.SearchStep._load_default_config")
 def test_initializes_with_default_config(mock_load_default_config):
     """Test that the config is initialized with default values."""
-    config = Config(
-        {"key1": "value1", "key2": "value2"}, "default"
+    default_config = Config(
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "search": {"extraction_backend": "classic"},
+        },
+        "default",
     )  # not using a mock here as working with the real object is much simpler
     mock_load_default_config.return_value = deepcopy(
-        config
+        default_config
     )  # copy required here as we want to compare changes to a mutable object below
 
     # when
     result = SearchStep._init_config(None, None, None, "/output")
 
     mock_load_default_config.assert_called_once()
-    assert result == config | {"output_directory": "/output"}
+    assert result == default_config | {"output_directory": "/output"}
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
 def test_updates_with_user_config_object(mock_load_default_config):
     """Test that the config is updated with user config object."""
-    config = Config({"key1": "value1", "key2": "value2"})
-    mock_load_default_config.return_value = deepcopy(config)
+    default_config = Config(
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
+    mock_load_default_config.return_value = deepcopy(default_config)
 
-    user_config = Config({"key2": "value2b"})
+    user_config = Config({"key2": "NEW_value2"})
     # when
     result = SearchStep._init_config(user_config, None, None, "/output")
 
     assert result == {
         "key1": "value1",
-        "key2": "value2b",
+        "key2": "NEW_value2",
         "output_directory": "/output",
+        "search": {"extraction_backend": "classic"},
     }
 
 
@@ -66,20 +78,25 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
     mock_load_default_config,
 ):
     """Test that the config is updated with user, cli and extra config dicts."""
-    config = Config(
+    default_config = Config(
         {
             "key1": "value1",
             "key2": "value2",
             "key3": "value3",
             "key4": "value4",
             "output_directory": None,
+            "search": {"extraction_backend": "classic"},
         }
     )
-    mock_load_default_config.return_value = deepcopy(config)
+    mock_load_default_config.return_value = deepcopy(default_config)
 
-    user_config = {"key2": "value2b"}
-    cli_config = {"key3": "value3b"}
-    extra_config = {"key4": "value4b"}
+    user_config = {
+        "key2": "NEW_value2",
+        "key3": "GET_OVERWRITTEN_value3",
+        "key4": "GETS_OVERWRITTEN_value4",
+    }
+    cli_config = {"key3": "NEW_value3", "key4": "GETS_OVERWRITTEN_value4"}
+    extra_config = {"key4": "NEW_value4"}
     # when
     result = SearchStep._init_config(user_config, cli_config, extra_config, "/output")
 
@@ -87,10 +104,11 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
 
     assert result == {
         "key1": "value1",
-        "key2": "value2b",
-        "key3": "value3b",
-        "key4": "value4b",
+        "key2": "NEW_value2",
+        "key3": "NEW_value3",
+        "key4": "NEW_value4",
         "output_directory": "/output",
+        "search": {"extraction_backend": "classic"},
     }
 
 
@@ -98,11 +116,18 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
 def test_updates_with_cli_config_overwrite_output_path(
     mock_load_default_config,
 ):
-    """Test that the output directory is overwritten if provided by cli."""
-    config = Config({"key1": "value1", "output_directory": "/some_output_directory"})
-    mock_load_default_config.return_value = deepcopy(config)
+    """Test that the output directory is not overwritten if provided by config."""
+    default_config = Config(
+        {
+            "key1": "value1",
+            "output_directory": None,
+            "search": {"extraction_backend": "classic"},
+        }
+    )
+    mock_load_default_config.return_value = deepcopy(default_config)
 
-    user_config = {"key1": "value1b", "output_directory": "/another_output_directory"}
+    user_config = {"key1": "NEW_value1", "output_directory": "/output"}
+
     # when
     result = SearchStep._init_config(
         user_config, None, None, "/actual_output_directory"
@@ -110,7 +135,11 @@ def test_updates_with_cli_config_overwrite_output_path(
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "value1b", "output_directory": "/actual_output_directory"}
+    assert result == {
+        "key1": "NEW_value1",
+        "output_directory": "/actual_output_directory",
+        "search": {"extraction_backend": "classic"},
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
@@ -118,16 +147,67 @@ def test_updates_with_extra_config_overwrite_output_path(
     mock_load_default_config,
 ):
     """Test that the output directory is overwritten by extra_config."""
-    config = Config({"key1": "value1", "output_directory": "/default_output"})
-    mock_load_default_config.return_value = deepcopy(config)
+    default_config = Config(
+        {
+            "key1": "value1",
+            "output_directory": "/default_output",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
+    mock_load_default_config.return_value = deepcopy(default_config)
 
-    extra_config = {"key1": "value1b"}
+    extra_config = {"key1": "NEW_value1"}
     # when
     result = SearchStep._init_config(None, None, extra_config, "/extra_output")
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "value1b", "output_directory": "/extra_output"}
+    assert result == {
+        "key1": "NEW_value1",
+        "output_directory": "/extra_output",
+        "search": {"extraction_backend": "classic"},
+    }
+
+
+@patch("alphadia.search_step.SearchStep._load_default_config")
+def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
+    """Test that the correct defaults are loaded if extraction backend is "ng"."""
+    default_config = Config(
+        {
+            "key1": "value1",
+            "key2": "value2",
+            "key3": "value3",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
+    default_config_ng = Config(
+        {
+            "key1": "NEW_NG_DEFAULT1",
+            "key2": "NEW_NG_DEFAULT2",
+        }
+    )
+    mock_load_default_config.side_effect = [
+        deepcopy(default_config),
+        deepcopy(default_config_ng),
+    ]
+
+    user_config = Config(
+        {"search": {"extraction_backend": "ng"}, "key2": "some_user_value"}
+    )
+
+    # when
+    result = SearchStep._init_config(user_config, None, None, "/output")
+
+    assert result == {
+        "key1": "NEW_NG_DEFAULT1",  # taken from ng default
+        "key2": "some_user_value",  # overwritten by user although ng default exists
+        "key3": "value3",
+        "output_directory": "/output",
+        "search": {"extraction_backend": "ng"},
+    }
+    mock_load_default_config.assert_has_calls(
+        [call(), call(file_name="default_ng.yaml")]
+    )
 
 
 @pytest.mark.parametrize(

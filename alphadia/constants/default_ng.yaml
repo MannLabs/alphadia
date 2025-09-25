@@ -1,0 +1,12 @@
+# Default values in case extraction_backend="ng"
+calibration:
+  batch_size: 1000
+  optimization_lock_target: 1000
+  min_steps: 5
+optimization:
+  rt_error:
+      automatic_update_percentile_range: 0.999
+      automatic_update_factor: 1.5
+      maximal_decrease: 0.1
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.5

@@ -1,6 +1,7 @@
 import logging
 import os
 from collections.abc import Generator
+from copy import deepcopy
 from pathlib import Path
 
 import numpy as np
@@ -135,7 +136,13 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        # this needs to be last
+        if SearchStep._is_ng_activated(config, config_updates):
+            ng_default_config = SearchStep._load_default_config(
+                file_name="default_ng.yaml"
+            )
+            config_updates.insert(0, ng_default_config)
+
+        # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
@@ -157,15 +164,30 @@ class SearchStep:
         return config
 
     @staticmethod
-    def _load_default_config():
+    def _load_default_config(file_name="default.yaml") -> Config:
         """Load default config from file."""
         default_config_path = os.path.join(
-            os.path.dirname(__file__), "constants", "default.yaml"
+            os.path.dirname(__file__), "constants", file_name
         )
         logger.info(f"loading default config from {default_config_path}")
         config = Config()
         config.from_yaml(default_config_path)
         return config
+
+    @staticmethod
+    def _is_ng_activated(config: Config, config_updates: list[Config]) -> bool:
+        """Decide if the extraction backend is 'ng'.
+
+        If no updates are provided, the decision is based on the default config.
+        If updates are provided, they are applied in order to be able to decide based on the final config.
+        """
+        if config_updates:
+            tmp_updated_config = deepcopy(config)
+            tmp_updated_config.update(config_updates)
+
+            return tmp_updated_config["search"]["extraction_backend"] == "ng"
+
+        return config["search"]["extraction_backend"] == "ng"
 
     def _get_random_number_generator(self) -> None | Generator:
         """Getnumpy random number generator if random state is set."""
