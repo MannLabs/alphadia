@@ -245,7 +245,10 @@ class SearchStep:
             if general_config["save_mbr_library"]:
                 # TODO gather such checks in a ConfigValidator class
                 raise ConfigError(
-                    "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible."
+                    "general.save_mbr_library",
+                    "True",
+                    "",
+                    "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible.",
                 )
 
             logger.progress("Loading library (type: flat) from disk..")
@@ -313,7 +316,13 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                FlattenLibrary(self.config["search"]["top_k_fragments"]),
+                FlattenLibrary(
+                    max(
+                        self.config["search"]["top_k_fragments_selection"],
+                        self.config["search"]["top_k_fragments_scoring"],
+                    ),
+                    self.config["search"]["min_fragment_intensity"],
+                ),
                 InitFlatColumns(),
                 LogFlatLibraryStats(),
             ]
