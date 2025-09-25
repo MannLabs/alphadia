@@ -144,7 +144,13 @@ def test_updates_with_extra_config_overwrite_output_path(
     mock_load_default_config,
 ):
     """Test that the output directory is overwritten by extra_config."""
-    default_config = Config({"key1": "value1", "output_directory": "/default_output"})
+    default_config = Config(
+        {
+            "key1": "value1",
+            "output_directory": "/default_output",
+            "search": {"extraction_backend": "classic"},
+        }
+    )
     mock_load_default_config.return_value = deepcopy(default_config)
 
     extra_config = {"key1": "NEW_value1"}
@@ -153,7 +159,11 @@ def test_updates_with_extra_config_overwrite_output_path(
 
     mock_load_default_config.assert_called_once()
 
-    assert result == {"key1": "NEW_value1", "output_directory": "/extra_output"}
+    assert result == {
+        "key1": "NEW_value1",
+        "output_directory": "/extra_output",
+        "search": {"extraction_backend": "classic"},
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
