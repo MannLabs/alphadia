@@ -180,6 +180,8 @@ def to_features_df(
 
     features_df["rank"] -= rank_offset
 
+    features_df.rename(columns={"fwhm_rt": "cycle_fwhm"}, inplace=True)
+
     return features_df
 
 
