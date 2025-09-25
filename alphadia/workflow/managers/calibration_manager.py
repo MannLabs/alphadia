@@ -31,11 +31,8 @@ class CalibrationEstimators(metaclass=ConstantsClass):
     MOBILITY = "mobility"
 
 
-# configuration for the calibration manager
-# the config has to start with the calibration keyword and consists of a list of calibration groups.
-# each group consists of datapoints which have multiple properties.
-# This can be for example precursors (mz, rt ...), fragments (mz, ...), quadrupole (transfer_efficiency)
-
+# Configuration for the calibration manager.
+# Note: The mapping to which columns to actually use it currently done in ColumnNameHandler. # TODO: rethink this coupling
 CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
     CalibrationGroups.FRAGMENT: {
         CalibrationEstimators.MZ: {

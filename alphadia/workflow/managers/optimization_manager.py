@@ -1,6 +1,5 @@
 import logging
 
-from alphadia.constants.keys import COLUMN_TYPE_LIBRARY
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -12,7 +11,6 @@ class OptimizationManager(BaseManager):
     ms2_error: float
     rt_error: float
     mobility_error: float
-    column_type: str
     num_candidates: int
     classifier_version: int
     fwhm_rt: float
@@ -51,7 +49,6 @@ class OptimizationManager(BaseManager):
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]
             self.score_cutoff = config["optimization_manager"]["score_cutoff"]
 
-            self.column_type = COLUMN_TYPE_LIBRARY
             self.classifier_version = -1
 
             for key in [
@@ -63,7 +60,6 @@ class OptimizationManager(BaseManager):
                 "fwhm_rt",
                 "fwhm_mobility",
                 "score_cutoff",
-                "column_type",
                 "classifier_version",
             ]:
                 self.reporter.log_string(
@@ -77,7 +73,6 @@ class OptimizationManager(BaseManager):
         ms2_error: float | None = None,
         rt_error: float | None = None,
         mobility_error: float | None = None,
-        column_type: str | None = None,
         num_candidates: int | None = None,
         classifier_version: int | None = None,
         fwhm_rt: float | None = None,
@@ -104,9 +99,6 @@ class OptimizationManager(BaseManager):
         if mobility_error is not None:
             _add_update_log("mobility_error", self.mobility_error, mobility_error)
             self.mobility_error = mobility_error
-        if column_type is not None:
-            _add_update_log("column_type", self.column_type, column_type)
-            self.column_type = column_type
         if num_candidates is not None:
             _add_update_log("num_candidates", self.num_candidates, num_candidates)
             self.num_candidates = num_candidates

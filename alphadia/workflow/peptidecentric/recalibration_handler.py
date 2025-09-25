@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import COLUMN_TYPE_CALIBRATED
 from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import (
@@ -67,7 +66,6 @@ class RecalibrationHandler:
         )
 
         self._optimization_manager.update(
-            column_type=COLUMN_TYPE_CALIBRATED,
             num_candidates=self._config["search"]["target_num_candidates"],
         )
 

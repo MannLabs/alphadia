@@ -152,8 +152,14 @@ class SearchStep:
         if config_updates:
             config.update(config_updates, do_print=True)
 
-        if config.get(ConfigKeys.OUTPUT_DIRECTORY, None) is None:
-            config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+        # Note: if not provided by CLI, output_folder is set to the value in config in cli.py
+        if (
+            current_config_output_folder := config.get(ConfigKeys.OUTPUT_DIRECTORY)
+        ) is not None and current_config_output_folder != output_folder:
+            logger.warning(
+                f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
+            )
+        config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
 
         return config
 
@@ -267,7 +273,10 @@ class SearchStep:
             if general_config["save_mbr_library"]:
                 # TODO gather such checks in a ConfigValidator class
                 raise ConfigError(
-                    "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible."
+                    "general.save_mbr_library",
+                    "True",
+                    "",
+                    "Settings general.save_mbr_library = 'True' and general.input_library_type = 'flat' are incompatible.",
                 )
 
             logger.progress("Loading library (type: flat) from disk..")
@@ -335,7 +344,13 @@ class SearchStep:
                     decoy_type="diann",
                     mp_process_num=thread_count,
                 ),
-                FlattenLibrary(self.config["search"]["top_k_fragments"]),
+                FlattenLibrary(
+                    max(
+                        self.config["search"]["top_k_fragments_selection"],
+                        self.config["search"]["top_k_fragments_scoring"],
+                    ),
+                    self.config["search"]["min_fragment_intensity"],
+                ),
                 InitFlatColumns(),
                 LogFlatLibraryStats(),
             ]
