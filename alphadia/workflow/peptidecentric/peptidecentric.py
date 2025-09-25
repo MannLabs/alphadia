@@ -198,7 +198,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.spectral_library,
             self.dia_data,
             self._figure_path,
-            self._dia_data_ng,
         )
 
         optimization_handler.search_parameter_optimization()
@@ -217,6 +216,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         extraction_handler = ExtractionHandler.create_handler(
             self.config,
             self.optimization_manager,
+            self._fdr_manager,
             self.reporter,
             ColumnNameHandler(
                 self.calibration_manager,
@@ -225,23 +225,23 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
-        features_df, fragments_df = extraction_handler.extract_batch(
-            (self.dia_data, self._dia_data_ng)
-            if self._dia_data_ng is not None
-            else self.dia_data,
+        candidates_df = extraction_handler.select_candidates(
+            self.dia_data,
             self.spectral_library,
             apply_cutoff=True,
         )
 
-        self.reporter.log_string(
-            f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
-        )
+        if self._config["search"]["extraction_backend"] == "classic":
+            features_df, fragments_df = (
+                extraction_handler.score_and_quantify_candidates(
+                    candidates_df, self.dia_data, self.spectral_library
+                )
+            )
 
-        if (
-            self._config["search"]["extraction_backend"] == "classic"
-            or self._config["search"]["extraction_backend"] == "ng-classic"
-        ):
-            # TODO move this to ExtractionHandler in general?
+            self.reporter.log_string(
+                f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
+            )
+
             decoy_strategy = (
                 "precursor_channel_wise"
                 if self._config["fdr"]["channel_wise_fdr"]
@@ -275,14 +275,21 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ]
 
         else:
-            candidates_df = fragments_df
-            precursor_df, fragments_df = extraction_handler.quantify_ng(
-                candidates_df,
-                features_df,
-                self._dia_data_ng,
+            features_df = extraction_handler.score_candidates(
+                candidates_df, self.dia_data, self.spectral_library
+            )
+
+            candidates_fdr_df, precursor_fdr_df = (
+                extraction_handler.perform_fdr_and_filter_candidates(
+                    features_df, candidates_df
+                )
+            )
+
+            precursor_df, fragments_df = extraction_handler.quantify_candidates(
+                candidates_fdr_df,
+                precursor_fdr_df,
+                self.dia_data,
                 self.spectral_library,
-                self._fdr_manager,
-                self.optimization_manager.classifier_version,
             )
 
         log_precursor_df(self.reporter, precursor_df)

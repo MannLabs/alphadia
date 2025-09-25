@@ -1,11 +1,11 @@
-import time
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 import pandas as pd
-import seaborn as sns
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import CalibCols
+from alphadia.fragcomp.utils import candidate_hash
+from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 
@@ -37,12 +37,10 @@ except ImportError:
     HAS_ALPHADIA_NG = False
 
 from alphadia.raw_data import DiaData
-from alphadia.reporting.reporting import Pipeline, move_existing_file
+from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
-
-dump = 0
 
 
 class ExtractionHandler(ABC):
@@ -52,6 +50,7 @@ class ExtractionHandler(ABC):
         self,
         config: Config,
         optimization_manager: OptimizationManager,
+        fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
     ):
@@ -62,6 +61,8 @@ class ExtractionHandler(ABC):
             Workflow configuration
         optimization_manager : OptimizationManager
             Optimization manager with current parameters
+        fdr_manager: FDRManager
+            FDR manager
         reporter : Pipeline
             Reporter for logging
         column_name_handler : ColumnNameHandler
@@ -69,6 +70,7 @@ class ExtractionHandler(ABC):
         """
         self._config: Config = config
         self._optimization_manager: OptimizationManager = optimization_manager
+        self._fdr_manager: FDRManager = fdr_manager
         self._reporter: Pipeline = reporter
 
         self._column_name_handler: ColumnNameHandler = column_name_handler
@@ -77,6 +79,7 @@ class ExtractionHandler(ABC):
     def create_handler(
         config: Config,
         optimization_manager: OptimizationManager,
+        fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
     ) -> "ExtractionHandler":
@@ -88,6 +91,8 @@ class ExtractionHandler(ABC):
             AlphaDIA configuration
         optimization_manager : OptimizationManager
             Optimization manager with current parameters
+        fdr_manager: FDRManager
+            FDR manager
         reporter : Pipeline
             Reporter for logging
         column_name_handler : ColumnNameHandler
@@ -108,19 +113,11 @@ class ExtractionHandler(ABC):
         reporter.log_string(f"Using {backend} extraction backend", verbosity="info")
         if backend == "classic":
             return ClassicExtractionHandler(
-                config, optimization_manager, reporter, column_name_handler
+                config, optimization_manager, fdr_manager, reporter, column_name_handler
             )
         elif backend == "ng":
             return NgExtractionHandler(
-                config, optimization_manager, reporter, column_name_handler
-            )
-        elif backend == "ng-classic":
-            return HybridNgClassicExtractionHandler(
-                config, optimization_manager, reporter, column_name_handler
-            )
-        elif backend == "classic-ng":
-            return HybridClassicNgExtractionHandler(
-                config, optimization_manager, reporter, column_name_handler
+                config, optimization_manager, fdr_manager, reporter, column_name_handler
             )
         # add implementations for other backends here
         else:
@@ -129,18 +126,18 @@ class ExtractionHandler(ABC):
                 "Supported backends are: 'classic', 'ng'"
             )
 
-    def extract_batch(
+    def select_candidates(
         self,
-        dia_data: DiaData,
+        dia_data: "DiaData | DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
         apply_cutoff: bool = False,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Extract precursors and fragments from DIA data.
+    ) -> pd.DataFrame:
+        """Select candidates from DIA data based on spectral library and apply cutoff if requested.
 
         Parameters
         ----------
-        dia_data : DiaData
-            DIA data to extract from
+        dia_data : DiaData | DiaDataNG
+            DIA data to extract from. Can be classic or NG format depending on backend.
         spectral_library : SpecLibFlat
             Spectral library containing precursors and fragments
         apply_cutoff : bool
@@ -148,34 +145,42 @@ class ExtractionHandler(ABC):
 
         Returns
         -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Features dataframe and fragments dataframe
+        pd.DataFrame
+            Candidates dataframe
         """
         self._reporter.log_string(
             f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
             verbosity="progress",
         )
-        time_start = time.time()  # TODO: could use TimingManager here
         candidates_df = self._select_candidates(dia_data, spectral_library)
-        self._reporter.log_string(
-            f"Selection took: {time.time() - time_start}"
-        )  # TODO: debug?
 
-        sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+        # sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
 
         if apply_cutoff:
             candidates_df = self._apply_score_cutoff(candidates_df)
 
-        time_start = time.time()
-        features_df, fragments_df = self._score_candidates(
-            candidates_df, dia_data, spectral_library
-        )
-        self._reporter.log_string(
-            f"Scoring took: {time.time() - time_start}"
-        )  # TODO: debug?
+        return candidates_df
 
-        is_ng = fragments_df is None  # TODO: hack!
-        return features_df, candidates_df if is_ng else fragments_df
+    @abstractmethod
+    def _select_candidates(
+        self,
+        dia_data: "DiaData | DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> pd.DataFrame:
+        """Select candidates from DIA data based on spectral library.
+
+        Parameters
+        ----------
+        dia_data : DiaData | DiaDataNG
+            DIA data to extract from. Can be classic or NG format depending on backend.
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with selected candidates
+        """
 
     def _apply_score_cutoff(self, candidates_df: pd.DataFrame) -> pd.DataFrame:
         """Apply score cutoff (taken from optimization_manager) to candidates dataframe.
@@ -202,75 +207,6 @@ class ExtractionHandler(ABC):
         )
         return candidates_df
 
-    @abstractmethod
-    def _select_candidates(
-        self, dia_data: DiaData, spectral_library: SpecLibFlat
-    ) -> pd.DataFrame:
-        """Select candidates from DIA data based on spectral library.
-
-        Parameters
-        ----------
-        dia_data : DiaData
-            DIA data to extract from
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame with selected candidates
-        """
-
-    @abstractmethod
-    def _score_candidates(
-        self,
-        candidates_df: pd.DataFrame,
-        dia_data: DiaData,
-        spectral_library: SpecLibFlat,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Score candidates.
-
-        Parameters
-        ----------
-        candidates_df : pd.DataFrame
-            DataFrame with selected candidates
-        dia_data : DiaData
-            DIA data to extract from
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Features dataframe and fragments dataframe
-        """
-
-    def quantify_ng(  # noqa: B027
-        self,
-        candidates_df: pd.DataFrame,
-        features_df: pd.DataFrame,
-        dia_data: DiaData,
-        spectral_library: SpecLibFlat,
-        fdr_manager: FDRManager,
-        classifier_version: int,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Quantify candidates.
-
-        Parameters
-        ----------
-        candidates_df : pd.DataFrame
-            DataFrame with selected candidates
-        features_df : pd.DataFrame
-            DataFrame with features
-        dia_data : DiaData
-            DIA data to extract from
-        spectral_library : SpecLibFlat
-            Spectral library containing precursors and fragments
-        Returns
-        -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            Features dataframe and fragments dataframe
-        """
-
     def _log_parameters(self) -> None:
         """Log current extraction parameters."""
         for log_line in [
@@ -286,20 +222,149 @@ class ExtractionHandler(ABC):
         ]:
             self._reporter.log_string(log_line, verbosity="info")
 
+    def score_and_quantify_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+        scoring_params: CandidateScoringConfig | None = None,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Score and quantify candidates.
+
+        Only implemented by classic extraction handler.
+
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        dia_data : DiaData
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        scoring_params : CandidateScoringConfig, optional
+            Scoring parameters to use (if None, algorithm decides with parameters are used)
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            features dataframe and fragments dataframe
+        """
+        raise NotImplementedError()
+
+    def score_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+        scoring_params: ScoringParameters | None = None,
+    ) -> pd.DataFrame:
+        """Score candidates.
+
+        Only implemented by NG extraction handler.
+
+        Parameters
+        ----------
+        candidates_df : pd.DataFrame
+            DataFrame with selected candidates
+        dia_data : DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library
+        scoring_params : ScoringParameters, optional
+            Scoring parameters to use (if None, algorithm decides with parameters are used)
+        Returns
+        -------
+        pd.DataFrame
+            features dataframe
+        """
+        raise NotImplementedError()
+
+    def perform_fdr_and_filter_candidates(
+        self, features_df: pd.DataFrame, candidates_df: pd.DataFrame
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Perform FDR on features and filter candidates accordingly.
+
+        Only implemented by NG extraction handler.
+
+        Parameters
+        ----------
+        features_df : pd.DataFrame
+            DataFrame with features (scored candidates)
+
+        candidates_df : pd.DataFrame
+            DataFrame with candidates
+
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Filtered candidates dataframe and precursor FDR dataframe
+        """
+        raise NotImplementedError()
+
+    def quantify_candidates(
+        self,
+        candidates_filtered: pd.DataFrame,
+        precursor_fdr_df: pd.DataFrame | None,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Quantify candidates.
+
+        Only implemented by NG extraction handler.
+
+        Parameters
+        ----------
+        candidates_filtered : pd.DataFrame
+            DataFrame with filtered candidates
+        precursor_fdr_df : pd.DataFrame | None
+            DataFrame with post-FDR precursor results. If given, FDR-related columns will be merged into the precursor results.
+        dia_data : DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            precursor dataframe and fragments dataframe
+        """
+        raise NotImplementedError()
+
+    def add_columns_from_library(
+        self, features_or_precursor_df: pd.DataFrame, spectral_library: SpecLibFlat
+    ) -> pd.DataFrame:
+        """Add relevant columns from spectral library to features or precursor dataframe.
+
+        Only implemented by NG extraction handler.
+
+        Parameters
+        ----------
+        features_or_precursor_df : pd.DataFrame
+            DataFrame with features or precursors to add columns to
+        spectral_library : SpecLibFlat
+            Spectral library
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame with added columns
+        """
+        raise NotImplementedError()
+
 
 class ClassicExtractionHandler(ExtractionHandler):
-    """Extraction handler using CandidateSelection."""
+    """Extraction handler using classic backend."""
 
     def __init__(
         self,
         config: Config,
         optimization_manager: OptimizationManager,
+        fdr_manager: FDRManager,
         reporter: Pipeline,
         column_name_handler: ColumnNameHandler,
     ):
-        super().__init__(config, optimization_manager, reporter, column_name_handler)
+        super().__init__(
+            config, optimization_manager, fdr_manager, reporter, column_name_handler
+        )
 
-        # Initialize selection configuration
         self._selection_config = CandidateSelectionConfig()
         self._selection_config.update(
             {
@@ -323,7 +388,9 @@ class ClassicExtractionHandler(ExtractionHandler):
         )
 
     def _select_candidates(
-        self, dia_data: DiaData, spectral_library: SpecLibFlat
+        self,
+        dia_data: DiaData,  # noqa: F821
+        spectral_library: SpecLibFlat,
     ) -> pd.DataFrame:
         """Select candidates from DIA data using CandidateSelection.
 
@@ -358,27 +425,31 @@ class ClassicExtractionHandler(ExtractionHandler):
 
         return candidates_df
 
-    def _score_candidates(
+    def score_and_quantify_candidates(
         self,
         candidates_df: pd.DataFrame,
-        dia_data: DiaData,
+        dia_data: DiaData,  # noqa: F821
         spectral_library: SpecLibFlat,
+        scoring_params: CandidateScoringConfig | ScoringParameters | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Score candidates using CandidateScoring.
+        """Score and quantify candidates using CandidateScoring.
 
         See superclass documentation for interface details.
         """
-        self._scoring_config.update(
-            {
-                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
-                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
-            }
-        )
+        if not scoring_params:
+            self._scoring_config.update(
+                {
+                    "precursor_mz_tolerance": self._optimization_manager.ms1_error,
+                    "fragment_mz_tolerance": self._optimization_manager.ms2_error,
+                }
+            )
+            scoring_params = self._scoring_config
+
         candidate_scoring = CandidateScoring(
             dia_data=dia_data,
             precursors_flat=spectral_library.precursor_df,
             fragments_flat=spectral_library.fragment_df,
-            config=self._scoring_config,
+            config=scoring_params,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
@@ -393,7 +464,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         return features_df, fragments_df
 
 
-class NgExtractionHandler(ClassicExtractionHandler):
+class NgExtractionHandler(ExtractionHandler):
     """Extraction handler using AlphaNG backend for candidate selection and scoring."""
 
     def __init__(
@@ -401,6 +472,7 @@ class NgExtractionHandler(ClassicExtractionHandler):
         *args,
         **kwargs,
     ):
+        """Initialize NG extraction handler."""
         super().__init__(*args, **kwargs)
         if not HAS_ALPHADIA_NG:
             raise ImportError(
@@ -408,42 +480,34 @@ class NgExtractionHandler(ClassicExtractionHandler):
                 "Please install 'alphadia-ng' to use this extraction handler."
             )
 
-        self.cycle_len = (
-            None  # TODO: only temporarily needed for forth-and-back conversion
-        )
+        self._speclib_ng: SpecLibFlatNG = None  # noqa: F821
+
+    def _lazy_init_speclib_ng(self, spectral_library: SpecLibFlat) -> None:
+        """Initialize the NG speclib if not already done."""
+        if self._speclib_ng is None:
+            self._speclib_ng = speclib_to_ng(
+                spectral_library,
+                rt_column=self._column_name_handler.get_rt_column(),
+                precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
+                fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
+            )
 
     def _select_candidates(
         self,
-        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
+        dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
     ) -> pd.DataFrame:
         """Select candidates using NG backend.
 
         See superclass documentation for interface details.
         """
-        # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
-        dia_data_: DiaData = dia_data[0]
-        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
+
+        self._lazy_init_speclib_ng(spectral_library)
 
         self._log_parameters()
 
-        if self.cycle_len is None:
-            # TODO: lazy init is a hack
-            self.cycle_len = dia_data_.cycle.shape[
-                1
-            ]  # ms_data.spectrum_df['cycle_idx'].max() + 1
-
-        # TODO needs to be stored
-        speclib_ng = speclib_to_ng(
-            spectral_library,
-            rt_column=self._column_name_handler.get_rt_column(),
-            mobility_column=self._column_name_handler.get_mobility_column(),
-            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
-        )
-
-        scoring_params = SelectionParameters()
-        scoring_params.update(
+        selection_params = SelectionParameters()
+        selection_params.update(
             {
                 "fwhm_rt": self._optimization_manager.fwhm_rt,
                 # 'kernel_size': 20,  # 15?
@@ -455,98 +519,141 @@ class NgExtractionHandler(ClassicExtractionHandler):
             }
         )
 
-        candidates = PeakGroupSelection(scoring_params).search(dia_data_ng, speclib_ng)
+        candidates = PeakGroupSelection(selection_params).search(
+            dia_data, self._speclib_ng
+        )
 
-        cands = parse_candidates(candidates, spectral_library, self.cycle_len)
-
-        if dump:
-            f1 = Path(self._config["output_directory"]) / "df_candidates.csv"
-            move_existing_file(f1, "")
-            cands.to_csv(f1)
+        cands = parse_candidates(candidates, spectral_library, dia_data)
 
         return cands
 
-    def _score_candidates(
+    def score_candidates(
         self,
         candidates_df: pd.DataFrame,
-        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
+        dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        # return super()._score_candidates(candidates_df, dia_data[0], spectral_library)
+        scoring_params: CandidateScoringConfig | ScoringParameters | None = None,
+    ) -> pd.DataFrame:
+        """Score candidates using NG backend.
 
-        # TODO this is a hack that needs to go once we don't need the "classic" dia_data object anymore
-        dia_data_ng: DiaDataNG = dia_data[1]  # noqa: F821
+        See superclass documentation for interface details.
+        """
+        self._lazy_init_speclib_ng(spectral_library)
 
-        # TODO needs to be stored
-        speclib_ng = speclib_to_ng(
-            spectral_library,
-            rt_column=self._column_name_handler.get_rt_column(),
-            mobility_column=self._column_name_handler.get_mobility_column(),
-            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
-        )
+        candidates = candidates_to_ng(candidates_df, dia_data)
 
-        candidates = candidates_to_ng(candidates_df, self.cycle_len)
-
-        scoring_params = ScoringParameters()
-        scoring_params.update(
-            {
-                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
-                "mass_tolerance": self._optimization_manager.ms2_error,
-            }
-        )
+        if not scoring_params:
+            scoring_params = ScoringParameters()
+            scoring_params.update(
+                {
+                    "top_k_fragments": self._config["search"][
+                        "top_k_fragments_scoring"
+                    ],
+                    "mass_tolerance": self._optimization_manager.ms2_error,
+                }
+            )
 
         candidate_features = PeakGroupScoring(scoring_params).score(
-            dia_data_ng, speclib_ng, candidates
+            dia_data, self._speclib_ng, candidates
         )
 
         features_df = to_features_df(candidate_features, spectral_library)
 
-        if dump:
-            f1 = Path(self._config["output_directory"]) / "df_features.csv"
-            move_existing_file(f1, "")
-            features_df.to_csv(f1)
+        return features_df
 
-        return features_df, None
-
-    def quantify_ng(
+    def quantify_candidates(
         self,
         candidates_df: pd.DataFrame,
-        features_df: pd.DataFrame,
+        precursor_fdr_df: pd.DataFrame | None,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-        fdr_manager: FDRManager,
-        classifier_version: int,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        # TODO needs to be stored
-        speclib_ng = speclib_to_ng(
-            spectral_library,
+        """Quantify candidates using NG backend.
+
+        See superclass documentation for interface details.
+        """
+        self._lazy_init_speclib_ng(spectral_library)
+
+        candidates_collection = candidates_to_ng(candidates_df, dia_data)
+
+        # run quantification
+        quant_params = QuantificationParameters()
+
+        peak_group_quantification = PeakGroupQuantification(quant_params)
+        quantified_lib = peak_group_quantification.quantify(
+            dia_data, self._speclib_ng, candidates_collection
+        )
+        precursor_df, fragments_df = parse_quantification(quantified_lib)
+
+        # merge in missing columns
+        precursor_df = CandidateScoring.merge_candidate_data(
+            precursor_df, candidates_df
+        )
+
+        precursor_df = self.add_columns_from_library(precursor_df, spectral_library)
+
+        if precursor_fdr_df is not None:
+            precursor_df = precursor_df.merge(
+                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+                on=["precursor_idx", "rank"],
+                how="left",
+            )
+
+        return precursor_df, fragments_df
+
+    def add_columns_from_library(
+        self, features_or_precursor_df: pd.DataFrame, spectral_library: SpecLibFlat
+    ) -> pd.DataFrame:
+        """Add relevant columns from spectral library to features or precursor dataframe.
+
+        See superclass documentation for interface details.
+        """
+        features_or_precursor_df = CandidateScoring.merge_precursor_data(
+            features_or_precursor_df,
+            spectral_library.precursor_df,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
         )
 
-        # TODO: why not use candidate_hash here?
-        features_df["precursor_idx_rank"] = (
-            features_df["precursor_idx"].astype(str)
-            + "_"
-            + features_df["rank"].astype(str)
+        # TODO: get this from the ng backend
+        features_or_precursor_df["cycle_fwhm"] = 3
+        features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
+            CalibCols.MZ_LIBRARY
+        ]  # required for transfer library building
+
+        # dummy values required to satisfy some downstream calculations
+        features_or_precursor_df["mobility_fwhm"] = -1
+        features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
+            DEFAULT_VALUE_NO_MOBILITY
         )
-        candidates_df["precursor_idx_rank"] = (
-            candidates_df["precursor_idx"].astype(str)
-            + "_"
-            + candidates_df["rank"].astype(str)
+
+        return features_or_precursor_df
+
+    def perform_fdr_and_filter_candidates(
+        self,
+        features_df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        """Perform FDR on features and filter candidates accordingly.
+
+        See superclass documentation for interface details.
+        """
+
+        features_df["_candidate_idx"] = candidate_hash(
+            features_df["precursor_idx"].values, features_df["rank"].values
         )
-        # TODO: think about how to making filtering nice XXX
+        candidates_df["_candidate_idx"] = candidate_hash(
+            candidates_df["precursor_idx"].values, candidates_df["rank"].values
+        )
 
         # apply FDR to PSMs
-        precursor_fdr_df = fdr_manager.fit_predict(
+        precursor_fdr_df = self._fdr_manager.fit_predict(
             features_df,
-            decoy_strategy="precursor",  # TODO support channel_wise
+            decoy_strategy="precursor",  # TODO support channel_wise, raise error for now
             competetive=self._config["fdr"]["competetive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
-            version=classifier_version,
+            version=self._optimization_manager.classifier_version,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
@@ -554,83 +661,8 @@ class NgExtractionHandler(ClassicExtractionHandler):
 
         # filter2: candidates by precursors
         candidates_filtered = candidates_df[
-            candidates_df["precursor_idx_rank"].isin(
-                precursor_fdr_df["precursor_idx_rank"]
-            )
+            candidates_df["_candidate_idx"].isin(precursor_fdr_df["_candidate_idx"])
         ].copy()
-        del candidates_filtered["precursor_idx_rank"]
+        del candidates_filtered["_candidate_idx"]
 
-        candidates_collection = candidates_to_ng(candidates_filtered, self.cycle_len)
-
-        # run quantification
-        quant_params = QuantificationParameters()
-
-        peak_group_quantification = PeakGroupQuantification(quant_params)
-        quantified_lib = peak_group_quantification.quantify(
-            dia_data, speclib_ng, candidates_collection
-        )
-        precursor_df, fragments_df = parse_quantification(
-            quantified_lib, precursor_fdr_df
-        )
-
-        # merge in missing columns
-        precursor_df = CandidateScoring.merge_candidate_data(
-            precursor_df, candidates_df
-        )
-
-        precursor_df = CandidateScoring.merge_precursor_data(
-            precursor_df,
-            spectral_library.precursor_df,
-            rt_column=self._column_name_handler.get_rt_column(),
-            mobility_column=self._column_name_handler.get_mobility_column(),
-            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-        )
-
-        if dump:
-            f1 = Path(self._config["output_directory"]) / "df_precursors.csv"
-            move_existing_file(f1, "")
-            precursor_df.to_csv(f1)
-
-            f2 = Path(self._config["output_directory"]) / "df_fragments.csv"
-            move_existing_file(f2, "")
-            fragments_df.to_csv(f2)
-
-        return precursor_df, fragments_df
-
-
-class HybridNgClassicExtractionHandler(NgExtractionHandler):
-    """Temporary handler that uses NG for selection and classic for scoring."""
-
-    def _score_candidates(
-        self,
-        candidates_df: pd.DataFrame,
-        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
-        spectral_library: SpecLibFlat,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        return super(NgExtractionHandler, self)._score_candidates(
-            candidates_df, dia_data[0], spectral_library
-        )
-
-    def quantify_ng(*args, **kwargs):
-        raise NotImplementedError(
-            "Quantification not supported in HybridNgClassicExtractionHandler"
-        )
-
-
-class HybridClassicNgExtractionHandler(NgExtractionHandler):
-    """Temporary handler that uses classic for selection and NG for scoring."""
-
-    def _select_candidates(
-        self,
-        dia_data: tuple[DiaData, "DiaDataNG"],  # noqa: F821
-        spectral_library: SpecLibFlat,
-    ) -> pd.DataFrame:
-        if self.cycle_len is None:
-            # TODO: lazy init is a hack
-            self.cycle_len = dia_data[0].cycle.shape[
-                1
-            ]  # ms_data.spectrum_df['cycle_idx'].max() + 1
-
-        return super(NgExtractionHandler, self)._select_candidates(
-            dia_data[0], spectral_library
-        )
+        return candidates_filtered, precursor_fdr_df

@@ -115,18 +115,20 @@ class WorkflowBase:
         self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
         self.reporter.log_string(
             f"Creating DIA data object took: {time.time() - time_start}"
-        )  # TODO: debug?
+        )
 
         if self._config["search"]["extraction_backend"] != "classic":
             time_start = time.time()
-            self._dia_data_ng = dia_data_to_ng(self._dia_data)
+
+            dia_data_ng = dia_data_to_ng(self._dia_data)
+            # TODO: remove these asserts
+            assert self.dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
+            assert all(self.dia_data.rt_values == dia_data_ng.rt_values)
+
+            self._dia_data = dia_data_ng
             self.reporter.log_string(
                 f"Creating DIA data NG object took: {time.time() - time_start}"
-            )  # TODO: debug?
-
-            self.dia_data.has_ms1 = False  # TODO: re-enable MS1 for NG once supported
-        else:
-            self._dia_data_ng = None
+            )
 
         raw_file_manager.save()
 

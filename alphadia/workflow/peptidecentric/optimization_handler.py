@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from alphabase.spectral_library.base import SpecLibBase
+from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.raw_data import DiaData
@@ -43,10 +43,9 @@ class OptimizationHandler:
         calibration_manager: CalibrationManager,
         fdr_manager: FDRManager,
         reporter: Pipeline,
-        spectral_library: SpecLibBase,
-        dia_data: DiaData,
+        spectral_library: SpecLibFlat,
+        dia_data: "DiaData | DiaDataNG",  # noqa: F821
         figure_path: str | None = None,
-        dia_data_ng: "DiaDataNG" = None,  # noqa: F821
     ):
         self._config = config
         self._optimization_manager = optimization_manager
@@ -55,12 +54,17 @@ class OptimizationHandler:
 
         self._reporter = reporter
         self._spectral_library = spectral_library
-        self._dia_data: DiaData = dia_data
-        self._dia_data_ng: DiaDataNG = dia_data_ng  # noqa: F821
+        self._dia_data: DiaData | DiaDataNG = dia_data  # noqa: F821
         self._figure_path = figure_path
 
         self._optlock: OptimizationLock = OptimizationLock(
             self._spectral_library, self._config
+        )
+
+        self._column_name_handler = ColumnNameHandler(
+            self._calibration_manager,
+            dia_data_has_ms1=self._dia_data.has_ms1,
+            dia_data_has_mobility=self._dia_data.has_mobility,
         )
 
     def _init_optimizer(
@@ -355,6 +359,7 @@ class OptimizationHandler:
         extraction_handler = ExtractionHandler.create_handler(
             self._config,
             self._optimization_manager,
+            self._fdr_manager,
             self._reporter,
             ColumnNameHandler(
                 self._calibration_manager,
@@ -363,9 +368,8 @@ class OptimizationHandler:
             ),
         )
 
-        is_ng = self._config["search"]["extraction_backend"] != "classic"
-        features_df, fragments_df = extraction_handler.extract_batch(
-            (self._dia_data, self._dia_data_ng) if is_ng else self._dia_data,
+        candidates_df = extraction_handler.select_candidates(
+            self._dia_data,
             self._optlock.batch_library,
         )
 
@@ -373,12 +377,15 @@ class OptimizationHandler:
             self._config["search"]["extraction_backend"] == "classic"
             or self._config["search"]["extraction_backend"] == "ng-classic"
         ):
-            self._optlock.update_with_extraction(features_df, fragments_df)
-
-            self._reporter.log_string(
-                f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
-                verbosity="progress",
+            features_df, fragments_df = (
+                extraction_handler.score_and_quantify_candidates(
+                    candidates_df,
+                    self._dia_data,
+                    self._optlock.batch_library,
+                )
             )
+
+            self._optlock.update_with_extraction(features_df, fragments_df)
 
             decoy_strategy = (
                 "precursor_channel_wise"
@@ -394,20 +401,31 @@ class OptimizationHandler:
                 version=self._optimization_manager.classifier_version,
             )
         else:
-            candidates_df = fragments_df
-            precursor_df, fragments_df = extraction_handler.quantify_ng(
-                candidates_df,
-                features_df,
-                self._dia_data_ng,
-                self._optlock.batch_library,
-                self._fdr_manager,
-                self._optimization_manager.classifier_version,
+            features_df = extraction_handler.score_candidates(
+                candidates_df, self._dia_data, self._optlock.batch_library
             )
-            # TODO: get these from the ng backend
-            precursor_df["cycle_fwhm"] = 3
-            precursor_df["mobility_fwhm"] = -1
+
+            _, fragments_df = extraction_handler.quantify_candidates(
+                candidates_df,
+                None,
+                self._dia_data,
+                self._optlock.batch_library,
+            )
+
+            features_df = extraction_handler.add_columns_from_library(
+                features_df, self._optlock.batch_library
+            )
 
             self._optlock.update_with_extraction(features_df, fragments_df)
+
+            _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
+                self._optlock.features_df, candidates_df
+            )
+
+        self._reporter.log_string(
+            f"=== Extracted {len(self._optlock.features_df)} precursors and {len(self._optlock.fragments_df)} fragments ===",
+            verbosity="progress",
+        )
 
         self._optlock.update_with_fdr(precursor_df)
 
