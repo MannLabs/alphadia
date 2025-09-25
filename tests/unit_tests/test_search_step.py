@@ -127,6 +127,7 @@ def test_updates_with_cli_config_overwrite_output_path(
     mock_load_default_config.return_value = deepcopy(default_config)
 
     user_config = {"key1": "NEW_value1", "output_directory": "/output"}
+
     # when
     result = SearchStep._init_config(
         user_config, None, None, "/actual_output_directory"
@@ -136,7 +137,7 @@ def test_updates_with_cli_config_overwrite_output_path(
 
     assert result == {
         "key1": "NEW_value1",
-        "output_directory": "/output",
+        "output_directory": "/actual_output_directory",
         "search": {"extraction_backend": "classic"},
     }
 
