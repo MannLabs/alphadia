@@ -617,6 +617,7 @@ class NgExtractionHandler(ExtractionHandler):
         )
 
         # TODO: get this from the ng backend
+        features_or_precursor_df["cycle_fwhm"] = 3  # TODO: remove
         features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
             CalibCols.MZ_LIBRARY
         ]  # required for transfer library building
