@@ -12,6 +12,8 @@ from alpharaw.thermo import ThermoRawData
 from alphadia.raw_data.dia_cycle import determine_dia_cycle
 from alphadia.search.jitclasses.alpharaw_jit import AlphaRawJIT
 
+DEFAULT_VALUE_NO_MOBILITY = 1e-6
+
 logger = logging.getLogger()
 
 
@@ -33,7 +35,7 @@ class AlphaRaw(MSData_Base, ABC):
         self._zeroth_frame: int = 0
         self._scan_max_index: int = 1
         self.mobility_values: np.ndarray[tuple[int], np.dtype[np.float32]] = np.array(
-            [1e-6, 0], dtype=np.float32
+            [DEFAULT_VALUE_NO_MOBILITY, 0], dtype=np.float32
         )
 
         self._mz_values: np.ndarray[tuple[int], np.dtype[np.float32]] | None = None
