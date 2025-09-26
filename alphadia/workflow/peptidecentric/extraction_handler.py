@@ -255,7 +255,7 @@ class ExtractionHandler(ABC):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: ScoringParameters | None = None,
+        scoring_params: "ScoringParameters | None" = None,
     ) -> pd.DataFrame:
         """Score candidates.
 
@@ -430,7 +430,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: DiaData,  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: CandidateScoringConfig | ScoringParameters | None = None,
+        scoring_params: "CandidateScoringConfig | ScoringParameters | None" = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score and quantify candidates using CandidateScoring.
 
@@ -532,7 +532,7 @@ class NgExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: CandidateScoringConfig | ScoringParameters | None = None,
+        scoring_params: "CandidateScoringConfig | ScoringParameters | None" = None,
     ) -> pd.DataFrame:
         """Score candidates using NG backend.
 
