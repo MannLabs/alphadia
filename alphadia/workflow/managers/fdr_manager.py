@@ -1,5 +1,6 @@
 import logging
 import os
+import pickle
 from collections import defaultdict
 from copy import deepcopy
 from typing import Literal
@@ -149,6 +150,12 @@ class FDRManager(BaseManager):
         )
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"Competetive: {competetive}")
+
+        path = "/Users/georgwallmann/Documents/data/alphadia_performance_tests/output/fdr_bench"
+        features_df.to_parquet(os.path.join(path, "features_df.parquet"))
+        # store available_columns as pickle
+        with open(os.path.join(path, "available_columns.pkl"), "wb") as f:
+            pickle.dump(available_columns, f)
 
         classifier = self.get_classifier(available_columns, version)
         if decoy_strategy == "precursor":
