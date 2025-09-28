@@ -61,9 +61,9 @@ test_cases:
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
     raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
     metrics:
       - BasicStats
 
@@ -125,9 +125,9 @@ test_cases:
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
     metrics:
       - BasicStats
 
@@ -159,11 +159,11 @@ test_cases:
         peptide_level_lfq: true
         precursor_level_lfq: true
     fasta_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG22024_01_12_human.fasta
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG220231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
     metrics:
       - BasicStats
 
