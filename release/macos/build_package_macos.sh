@@ -7,10 +7,10 @@ set -e -u
 # Set up package name and version
 PACKAGE_NAME="alphadia"
 APP_NAME="alphadia"
-PACKAGE_VERSION="1.10.5-dev0"
+PACKAGE_VERSION="1.11.0-dev0"
 PKG_FOLDER="dist/$APP_NAME.app"
 
-# BUILD_NAME is taken from environment variables, e.g. alphadia-1.10.5-dev0-macos-darwin-arm64 or alphadia-1.10.5-dev0-macos-darwin-x64
+# BUILD_NAME is taken from environment variables, e.g. alphadia-1.11.0-dev0-macos-darwin-arm64 or alphadia-1.11.0-dev0-macos-darwin-x64
 rm -rf ${BUILD_NAME}.pkg
 
 # Cleanup the package folder
