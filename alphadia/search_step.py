@@ -83,6 +83,7 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
+        self._validate_config()
         self._save_config(output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
@@ -533,6 +534,28 @@ class SearchStep:
 
         logger.info(f"Using library: {self.library_path}")
         logger.info(f"Saving output to: {self.output_folder}")
+
+    def _validate_config(self):
+        """Validate the config for required parameters and combinations.
+
+        TODO move this to a dedicated class.
+        """
+
+        if self._config["search"]["extraction_backend"] == "ng":
+            if self._config["transfer_library"]["enabled"]:
+                raise ConfigError(
+                    "transfer_library.enabled",
+                    self._config["transfer_library"]["enabled"],
+                    "final",
+                    "Library transfer is not yet supported with the 'ng' extraction backend.",
+                )
+            if self._config["multiplexing"]["enabled"]:
+                raise ConfigError(
+                    "multiplexing.enabled",
+                    self._config["multiplexing"]["enabled"],
+                    "final",
+                    "Multiplexing is not yet supported with the 'ng' extraction backend.",
+                )
 
 
 def _log_exception_event(
