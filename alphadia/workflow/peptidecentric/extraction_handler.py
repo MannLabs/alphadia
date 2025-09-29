@@ -589,14 +589,14 @@ class NgExtractionHandler(ExtractionHandler):
 
         See superclass documentation for interface details.
         """
-        del top_k_fragments  # unused
-
         self._lazy_init_speclib_ng(spectral_library)
 
         candidates_collection = candidates_to_ng(candidates_df, dia_data)
 
         # run quantification
         quant_params = QuantificationParameters()
+        if top_k_fragments is not None:
+            quant_params.update({"top_k_fragments": top_k_fragments})
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
