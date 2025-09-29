@@ -90,9 +90,9 @@ test_cases:
     library_path:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/MSFragger_library_60SPD_2.tsv
     raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-E7_1_41539.d
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F1_1_41545.d
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F7_1_41551.d
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-E7_1_41539.d/?accept=zip"
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F1_1_41545.d/?accept=zip"
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F7_1_41551.d/?accept=zip"
     metrics:
       - BasicStats
 
