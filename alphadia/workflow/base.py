@@ -3,6 +3,8 @@ import os
 import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphatims.bruker import TimsTOF
+from exceptions import GenericUserError
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
@@ -117,10 +119,16 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )
 
-        if self._config["search"]["extraction_backend"] != "classic":
+        if self._config["search"]["extraction_backend"] == "ng":
             time_start = time.time()
+            if isinstance(self._dia_data, TimsTOF):
+                raise GenericUserError(
+                    "NOT_SUPPORTED_BY_NG",
+                    "NG backend does not support TimsTOF data yet. Please use extraction_backend='classic'.",
+                )
 
             dia_data_ng = dia_data_to_ng(self._dia_data)
+
             # TODO: remove these asserts
             assert self.dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
             assert all(self.dia_data.rt_values == dia_data_ng.rt_values)
