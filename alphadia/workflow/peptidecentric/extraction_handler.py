@@ -306,10 +306,9 @@ class ExtractionHandler(ABC):
         precursor_fdr_df: pd.DataFrame | None,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
+        top_k_fragments: int | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
         """Quantify candidates.
-
-        Only implemented by NG extraction handler.
 
         Parameters
         ----------
@@ -321,10 +320,13 @@ class ExtractionHandler(ABC):
             DIA data to extract from.
         spectral_library : SpecLibFlat
             Spectral library
+        top_k_fragments : int, optional
+            top k fragments to use for quantification (only for classic backend, None means default from config)
         Returns
         -------
-        tuple[pd.DataFrame, pd.DataFrame]
-            precursor dataframe and fragments dataframe
+        tuple[pd.DataFrame | None, pd.DataFrame]
+            precursor dataframe (only NG, None otherwise) and fragments dataframe
+
         """
         raise NotImplementedError()
 
@@ -430,7 +432,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: DiaData,  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: "CandidateScoringConfig | ScoringParameters | None" = None,
+        scoring_params: CandidateScoringConfig | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score and quantify candidates using CandidateScoring.
 
@@ -462,6 +464,39 @@ class ClassicExtractionHandler(ExtractionHandler):
         )
 
         return features_df, fragments_df
+
+    def quantify_candidates(
+        self,
+        candidates_df: pd.DataFrame,
+        precursor_fdr_df: pd.DataFrame | None,
+        dia_data: DiaData,  # noqa: F821
+        spectral_library: SpecLibFlat,
+        top_k_fragments: int | None = None,
+    ) -> tuple[pd.DataFrame | None, pd.DataFrame]:
+        """Quantify candidates using classic backend.
+
+        Note: because quantification and scoring are intertwined in the classic backend,
+        this method performs both scoring and quantification, but only returns the fragments dataframe.
+
+        """
+        del precursor_fdr_df
+
+        scoring_params = CandidateScoringConfig()
+        scoring_params.update(
+            {
+                "top_k_fragments": top_k_fragments
+                if top_k_fragments is not None
+                else self._config["search"]["top_k_fragments_scoring"],
+                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
+                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
+                "experimental_xic": self._config["search"]["experimental_xic"],
+            }
+        )
+
+        features_df_, fragments_df = self.score_and_quantify_candidates(
+            candidates_df, dia_data, spectral_library, scoring_params
+        )
+        return None, fragments_df
 
 
 class NgExtractionHandler(ExtractionHandler):
@@ -567,11 +602,14 @@ class NgExtractionHandler(ExtractionHandler):
         precursor_fdr_df: pd.DataFrame | None,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
+        top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Quantify candidates using NG backend.
 
         See superclass documentation for interface details.
         """
+        del top_k_fragments  # unused
+
         self._lazy_init_speclib_ng(spectral_library)
 
         candidates_collection = candidates_to_ng(candidates_df, dia_data)

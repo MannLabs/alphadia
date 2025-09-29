@@ -337,6 +337,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             self.config,
             self.calibration_manager,
             self.optimization_manager,
+            self._fdr_manager,
             ColumnNameHandler(
                 self.calibration_manager,
                 dia_data_has_ms1=self.dia_data.has_ms1,
