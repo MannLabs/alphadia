@@ -227,7 +227,7 @@ class ExtractionHandler(ABC):
         candidates_df: pd.DataFrame,
         dia_data: DiaData,
         spectral_library: SpecLibFlat,
-        scoring_params: CandidateScoringConfig | None = None,
+        top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score and quantify candidates.
 
@@ -241,8 +241,8 @@ class ExtractionHandler(ABC):
             DIA data to extract from.
         spectral_library : SpecLibFlat
             Spectral library containing precursors and fragments
-        scoring_params : CandidateScoringConfig, optional
-            Scoring parameters to use (if None, algorithm decides with parameters are used)
+        top_k_fragments : int, optional
+            top k fragments to use for scoring (None means default from config)
         Returns
         -------
         tuple[pd.DataFrame, pd.DataFrame]
@@ -255,7 +255,6 @@ class ExtractionHandler(ABC):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: "ScoringParameters | None" = None,
     ) -> pd.DataFrame:
         """Score candidates.
 
@@ -269,8 +268,6 @@ class ExtractionHandler(ABC):
             DIA data to extract from.
         spectral_library : SpecLibFlat
             Spectral library
-        scoring_params : ScoringParameters, optional
-            Scoring parameters to use (if None, algorithm decides with parameters are used)
         Returns
         -------
         pd.DataFrame
@@ -381,7 +378,6 @@ class ClassicExtractionHandler(ExtractionHandler):
         self._scoring_config.update(
             {
                 **config["scoring_config"],
-                "top_k_fragments": config["search"]["top_k_fragments_scoring"],
                 "exclude_shared_ions": config["search"]["exclude_shared_ions"],
                 "quant_window": config["search"]["quant_window"],
                 "quant_all": config["search"]["quant_all"],
@@ -432,26 +428,27 @@ class ClassicExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: DiaData,  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: CandidateScoringConfig | None = None,
+        top_k_fragments: int | None = None,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Score and quantify candidates using CandidateScoring.
 
         See superclass documentation for interface details.
         """
-        if not scoring_params:
-            self._scoring_config.update(
-                {
-                    "precursor_mz_tolerance": self._optimization_manager.ms1_error,
-                    "fragment_mz_tolerance": self._optimization_manager.ms2_error,
-                }
-            )
-            scoring_params = self._scoring_config
+        self._scoring_config.update(
+            {
+                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
+                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
+                "top_k_fragments": top_k_fragments
+                if top_k_fragments is not None
+                else self._config["search"]["top_k_fragments_scoring"],
+            }
+        )
 
         candidate_scoring = CandidateScoring(
             dia_data=dia_data,
             precursors_flat=spectral_library.precursor_df,
             fragments_flat=spectral_library.fragment_df,
-            config=scoring_params,
+            config=self._scoring_config,
             rt_column=self._column_name_handler.get_rt_column(),
             mobility_column=self._column_name_handler.get_mobility_column(),
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
@@ -481,20 +478,8 @@ class ClassicExtractionHandler(ExtractionHandler):
         """
         del precursor_fdr_df
 
-        scoring_params = CandidateScoringConfig()
-        scoring_params.update(
-            {
-                "top_k_fragments": top_k_fragments
-                if top_k_fragments is not None
-                else self._config["search"]["top_k_fragments_scoring"],
-                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
-                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
-                "experimental_xic": self._config["search"]["experimental_xic"],
-            }
-        )
-
         features_df_, fragments_df = self.score_and_quantify_candidates(
-            candidates_df, dia_data, spectral_library, scoring_params
+            candidates_df, dia_data, spectral_library, top_k_fragments
         )
         return None, fragments_df
 
@@ -567,7 +552,6 @@ class NgExtractionHandler(ExtractionHandler):
         candidates_df: pd.DataFrame,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-        scoring_params: "CandidateScoringConfig | ScoringParameters | None" = None,
     ) -> pd.DataFrame:
         """Score candidates using NG backend.
 
@@ -577,16 +561,13 @@ class NgExtractionHandler(ExtractionHandler):
 
         candidates = candidates_to_ng(candidates_df, dia_data)
 
-        if not scoring_params:
-            scoring_params = ScoringParameters()
-            scoring_params.update(
-                {
-                    "top_k_fragments": self._config["search"][
-                        "top_k_fragments_scoring"
-                    ],
-                    "mass_tolerance": self._optimization_manager.ms2_error,
-                }
-            )
+        scoring_params = ScoringParameters()
+        scoring_params.update(
+            {
+                "top_k_fragments": self._config["search"]["top_k_fragments_scoring"],
+                "mass_tolerance": self._optimization_manager.ms2_error,
+            }
+        )
 
         candidate_features = PeakGroupScoring(scoring_params).score(
             dia_data, self._speclib_ng, candidates
