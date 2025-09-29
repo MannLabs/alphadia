@@ -14,9 +14,6 @@ from alphadia_ng import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
-# TODO: remove
-rank_offset = 0  # before alphadia-ng 4d66c41 : 1
-
 
 def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
     """Convert DIA data from classic to ng format."""
@@ -109,7 +106,7 @@ def parse_candidates(
     candidates_df = pd.DataFrame(
         {
             "precursor_idx": precursor_idx,
-            "rank": rank - rank_offset,
+            "rank": rank,
             "score": score,
             "scan_center": scan_center,
             "scan_start": scan_start,
@@ -146,7 +143,7 @@ def candidates_to_ng(
 
     candidates = CandidateCollection.from_arrays(
         candidates_df["precursor_idx"].values.astype(np.uint64),
-        candidates_df["rank"].values.astype(np.uint64) + rank_offset,
+        candidates_df["rank"].values.astype(np.uint64),
         candidates_df["score"].values.astype(np.float32),
         candidates_df["scan_center"].values.astype(np.uint64),
         candidates_df["scan_start"].values.astype(np.uint64),
@@ -181,8 +178,6 @@ def to_features_df(
         how="left",
     )
 
-    features_df["rank"] -= rank_offset
-
     features_df.rename(columns={"fwhm_rt": "cycle_fwhm"}, inplace=True)
 
     return features_df
@@ -197,15 +192,11 @@ def parse_quantification(
 
     precursor_df = pd.DataFrame(precursor_dict).rename(columns={"idx": "precursor_idx"})
 
-    precursor_df["rank"] -= rank_offset
-
     fragments_df = pd.DataFrame(fragment_dict).rename(
         columns={
             "correlation_observed": "correlation",
             "mass_error_observed": "mass_error",
         }
     )
-
-    fragments_df["rank"] -= rank_offset
 
     return precursor_df, fragments_df
