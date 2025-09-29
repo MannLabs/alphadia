@@ -549,7 +549,7 @@ class SearchStep:
             if self._config["multiplexing"]["enabled"]:
                 raise ConfigError(
                     "multiplexing.enabled",
-                    self._config["multiplexing"]["enabled"],
+                    "True",
                     "final",
                     "Multiplexing is not yet supported with the 'ng' extraction backend.",
                 )

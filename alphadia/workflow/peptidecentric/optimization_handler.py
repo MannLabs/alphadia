@@ -373,10 +373,7 @@ class OptimizationHandler:
             self._optlock.batch_library,
         )
 
-        if (
-            self._config["search"]["extraction_backend"] == "classic"
-            or self._config["search"]["extraction_backend"] == "ng-classic"
-        ):
+        if self._config["search"]["extraction_backend"] == "classic":
             features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
                     candidates_df,
