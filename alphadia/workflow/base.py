@@ -4,10 +4,10 @@ import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphatims.bruker import TimsTOF
-from exceptions import GenericUserError
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
+from alphadia.exceptions import GenericUserError
 from alphadia.raw_data import DiaData
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
