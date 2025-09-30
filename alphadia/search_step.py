@@ -150,6 +150,7 @@ class SearchStep:
             config_updates.append(extra_config_update)
 
         if config_updates:
+            logger.info(f"updating config with user defined values: {config_updates}")
             config.update(config_updates, do_print=True)
 
         # Note: if not provided by CLI, output_folder is set to the value in config in cli.py
