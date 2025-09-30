@@ -119,7 +119,7 @@ if [[ "$predict_library" -eq 1 ]]; then
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
 	--output="${home_directory}/logs/%j-%x-speclib-slurm.out" \
-	--export=ALL --wrap="alphadia --config=speclib_config.yaml"
+	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml"
 
 	# navigate back to home directory
 	cd "${home_directory}"
@@ -156,7 +156,7 @@ if [[ "$first_search" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${first_search_directory},quant_dir=${mbr_progress_directory} ./inner.sh
+	--export=ALL,N_CPUS=$cpus,target_directory=${first_search_directory},quant_dir=${mbr_progress_directory} ./inner.sh
 else
 	echo "Skipping first search"
 fi
@@ -187,7 +187,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${mbr_library_directory} ./inner.sh
+	--export=ALL,N_CPUS=$cpus,target_directory=${mbr_library_directory} ./inner.sh
 else
 	echo "Skipping MBR library building"
 fi
@@ -217,7 +217,7 @@ if [[ "$second_search" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${second_search_directory},quant_dir=${lfq_progress_directory} ./inner.sh
+	--export=ALL,N_CPUS=$cpus,target_directory=${second_search_directory},quant_dir=${lfq_progress_directory} ./inner.sh
 else
 	echo "Skipping second search"
 fi
@@ -248,7 +248,7 @@ if [[ "$lfq" -eq 1 ]]; then
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--export=ALL,target_directory=${lfq_directory} ./inner.sh
+	--export=ALL,N_CPUS=$cpus,target_directory=${lfq_directory} ./inner.sh
 else
 	echo "Skipping LFQ"
 fi
