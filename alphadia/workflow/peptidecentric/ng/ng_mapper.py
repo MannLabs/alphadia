@@ -192,7 +192,9 @@ def parse_quantification(
 
     precursor_dict, fragment_dict = quantified_speclib.to_dict_arrays()
 
-    precursor_df = pd.DataFrame(precursor_dict).rename(columns={"idx": "precursor_idx"})
+    precursor_df = pd.DataFrame(precursor_dict).rename(
+        columns={"idx": "precursor_idx"}
+    )  # TODO: remove when #96 is merged
 
     fragments_df = pd.DataFrame(fragment_dict).rename(
         columns={
