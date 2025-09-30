@@ -141,6 +141,7 @@ class SearchStep:
             ng_default_config = SearchStep._load_default_config(
                 file_name="default_ng.yaml"
             )
+            ng_default_config.name = "ng_default"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
@@ -543,8 +544,11 @@ class SearchStep:
 
         if self._config["search"]["extraction_backend"] == "ng":
             if self._config["transfer_library"]["enabled"]:
-                logging.warning(
-                    "Library transfer is not yet well supported with the 'ng' extraction backend.",
+                raise ConfigError(
+                    "transfer_library.enabled",
+                    self._config["transfer_library"]["enabled"],
+                    "final",
+                    "Library transfer is not yet supported with the 'ng' extraction backend.",
                 )
             if self._config["multiplexing"]["enabled"]:
                 raise ConfigError(
