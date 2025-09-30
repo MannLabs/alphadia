@@ -184,3 +184,115 @@ def test_output_transform():
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
 
     shutil.rmtree(temp_folder)
+
+
+def test_merge_quant_levels_to_psm_merges_precursor_level():
+    """Test that precursor level quantification is merged correctly."""
+    from alphadia.outputtransform.search_plan_output import (
+        LFQOutputConfig,
+        SearchPlanOutput,
+    )
+
+    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
+    lfq_results = {
+        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]})
+    }
+    configs = [LFQOutputConfig("mod_seq_charge_hash", "precursor")]
+
+    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    assert "precursor_intensity" in result.columns
+    assert result["precursor_intensity"].iloc[0] == 100.0
+
+
+def test_merge_quant_levels_to_psm_merges_peptide_level():
+    """Test that peptide level quantification is merged correctly."""
+    from alphadia.outputtransform.search_plan_output import (
+        LFQOutputConfig,
+        SearchPlanOutput,
+    )
+
+    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    psm_df = pd.DataFrame({"mod_seq_hash": ["A"], "run": ["run1"]})
+    lfq_results = {"peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]})}
+    configs = [LFQOutputConfig("mod_seq_hash", "peptide")]
+
+    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    assert "peptide_intensity" in result.columns
+    assert result["peptide_intensity"].iloc[0] == 400.0
+
+
+def test_merge_quant_levels_to_psm_merges_protein_group_level():
+    """Test that protein group level quantification is merged correctly."""
+    from alphadia.outputtransform.search_plan_output import (
+        LFQOutputConfig,
+        SearchPlanOutput,
+    )
+
+    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    psm_df = pd.DataFrame({"pg": ["PG1"], "run": ["run1"]})
+    lfq_results = {"pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]})}
+    configs = [LFQOutputConfig("pg", "pg")]
+
+    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    assert "intensity" in result.columns
+    assert result["intensity"].iloc[0] == 700.0
+
+
+def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
+    """Test that empty LFQ results are handled gracefully."""
+    from alphadia.outputtransform.search_plan_output import (
+        LFQOutputConfig,
+        SearchPlanOutput,
+    )
+
+    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
+    lfq_results = {"precursor": pd.DataFrame()}
+    configs = [LFQOutputConfig("mod_seq_charge_hash", "precursor")]
+
+    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    assert len(result) == 1
+    assert "precursor_intensity" not in result.columns
+
+
+def test_merge_quant_levels_to_psm_merges_all_levels():
+    """Test that all quantification levels are merged in one call."""
+    from alphadia.outputtransform.search_plan_output import (
+        LFQOutputConfig,
+        SearchPlanOutput,
+    )
+
+    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    psm_df = pd.DataFrame(
+        {
+            "mod_seq_charge_hash": ["A1"],
+            "mod_seq_hash": ["A"],
+            "pg": ["PG1"],
+            "run": ["run1"],
+        }
+    )
+    lfq_results = {
+        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]}),
+        "peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]}),
+        "pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]}),
+    }
+    configs = [
+        LFQOutputConfig("mod_seq_charge_hash", "precursor"),
+        LFQOutputConfig("mod_seq_hash", "peptide"),
+        LFQOutputConfig("pg", "pg"),
+    ]
+
+    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    assert all(
+        col in result.columns
+        for col in ["precursor_intensity", "peptide_intensity", "intensity"]
+    )
+    assert result["precursor_intensity"].iloc[0] == 100.0
+    assert result["peptide_intensity"].iloc[0] == 400.0
+    assert result["intensity"].iloc[0] == 700.0
