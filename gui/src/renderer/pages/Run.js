@@ -12,12 +12,25 @@ import InfiniteLoader from 'react-window-infinite-loader';
 import { Box, TextField } from '@mui/material'
 import { useProfile } from '../logic/profile';
 
+function replaceConfigFormatUnicodeEscapes(text) {
+    // Replace Unicode escape sequences used in formatting the config with their actual characters
+    return text
+      .replace(/\\u2514/g, '└')  // Box drawing light up and right
+      .replace(/\\u251c/g, '├')  // Box drawing light vertical and right
+      .replace(/\\u2502/g, '│')  // Box drawing light vertical
+      .replace(/\\u2500/g, '─')  // Box drawing light horizontal
+  }
+
 function parseConsoleOutput(input, theme) {
-    const escapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
-    const matches = input.matchAll(escapeRegex);
+    // First, replace Unicode escape sequences with actual characters
+    const processedInput = replaceConfigFormatUnicodeEscapes(input);
+
+    // match ANSI escape sequences for terminal color, e.g. [32;20mSUCCESS[0m
+    const terminalColorsEscapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
+    const matches = processedInput.matchAll(terminalColorsEscapeRegex);
 
     if (!matches || matches.length === 0) {
-      return input; // No escape character pairs found, return original string
+      return processedInput; // No escape character pairs found, return processed string
     }
     let result = [];
     let currentIndex = 0;
@@ -27,7 +40,7 @@ function parseConsoleOutput(input, theme) {
       const spanStyle = {color: getColorCode(match[1], theme), fontFamily: "Roboto Mono"}
       // Push the text before the escape character pair
       if (startIndex > currentIndex) {
-        const plainText = input.substring(currentIndex, startIndex);
+        const plainText = processedInput.substring(currentIndex, startIndex);
         result.push(plainText);
       }
       // Push the colored span with the text
@@ -40,8 +53,8 @@ function parseConsoleOutput(input, theme) {
     }
 
     // Push any remaining plain text after the last escape character pair
-    if (currentIndex < input.length) {
-      const remainingText = input.substring(currentIndex);
+    if (currentIndex < processedInput.length) {
+      const remainingText = processedInput.substring(currentIndex);
       result.push(remainingText);
     }
 
