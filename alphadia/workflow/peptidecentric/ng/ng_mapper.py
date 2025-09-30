@@ -3,14 +3,14 @@
 import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphadia_ng import (
+from alphadia_search_rs import (
     CandidateCollection,
     CandidateFeatureCollection,
 )
-from alphadia_ng import (
+from alphadia_search_rs import (
     DIAData as DiaDataNG,
 )
-from alphadia_ng import SpecLibFlat as SpecLibFlatNG
+from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 

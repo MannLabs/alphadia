@@ -15,7 +15,7 @@ from alphadia.search.selection.selection import CandidateSelection
 from alphadia.workflow.managers.fdr_manager import FDRManager
 
 try:
-    from alphadia_ng import (
+    from alphadia_search_rs import (
         PeakGroupQuantification,
         PeakGroupScoring,
         PeakGroupSelection,
