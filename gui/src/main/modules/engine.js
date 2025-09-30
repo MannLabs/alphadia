@@ -180,7 +180,7 @@ function hasAlphaDIA(envName, condaPath){
 class CMDExecutionEngine extends BaseExecutionEngine {
 
     name = "CMDExecutionEngine"
-    description = "The command line interface (CMD) is being used to run alphaDIA. Recommended execution engine for Linux and MacOS users."
+    description = "The alphaDIA executable provided by the environment named 'alphadia' is used. Recommended execution engine for Linux and MacOS users."
     valid_plattforms = [
         "win32",
         "linux",
