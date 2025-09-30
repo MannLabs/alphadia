@@ -271,7 +271,7 @@ class ExtractionHandler(ABC):
         Returns
         -------
         pd.DataFrame
-            features dataframe
+            precursors dataframe with results from scoring (= features)
         """
         raise NotImplementedError()
 
@@ -293,7 +293,7 @@ class ExtractionHandler(ABC):
         Returns
         -------
         tuple[pd.DataFrame, pd.DataFrame]
-            Filtered candidates dataframe and precursor FDR dataframe
+            Filtered candidates dataframe and post-FDR precursor dataframe
         """
         raise NotImplementedError()
 
@@ -322,7 +322,7 @@ class ExtractionHandler(ABC):
         Returns
         -------
         tuple[pd.DataFrame | None, pd.DataFrame]
-            precursor dataframe (only NG, None otherwise) and fragments dataframe
+            precursor dataframe incl. quantification (only NG, None otherwise) and fragments dataframe
 
         """
         raise NotImplementedError()

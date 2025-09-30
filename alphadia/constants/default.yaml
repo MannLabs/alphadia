@@ -48,7 +48,7 @@ general:
   # if set to a positive integer, it will be used as random state (for reproducibility)
   # if set to -1, a random state will be generated and printed to the log
   # if null, no specific setting of random states is performed
-  random_state: null
+  random_state: 1
 
 library_loading:
   rt_heuristic: 180
@@ -146,7 +146,7 @@ custom_modifications:
 
 search:
   # which backend to be used for the extraction. Current only option: classic
-  extraction_backend: classic
+  extraction_backend: ng
   # target ms1 tolerance in ppm
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
@@ -412,7 +412,7 @@ optimization_manager:
 # currently only the library is created with transfer learning
 transfer_library:
   # if true, the library is created for transfer learning
-  enabled: False
+  enabled: False # True
 
   # === advanced settings ===
 

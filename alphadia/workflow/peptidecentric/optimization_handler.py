@@ -374,7 +374,7 @@ class OptimizationHandler:
         )
 
         if self._config["search"]["extraction_backend"] == "classic":
-            features_df, fragments_df = (
+            precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
                     candidates_df,
                     self._dia_data,
@@ -382,7 +382,9 @@ class OptimizationHandler:
                 )
             )
 
-            self._optlock.update_with_extraction(features_df, fragments_df)
+            self._optlock.update_with_extraction(
+                precursor_quantified_w_features_df, fragments_df
+            )
 
             decoy_strategy = (
                 "precursor_channel_wise"
@@ -398,22 +400,39 @@ class OptimizationHandler:
                 version=self._optimization_manager.classifier_version,
             )
         else:
-            features_df = extraction_handler.score_candidates(
+            precursor_w_features_df = extraction_handler.score_candidates(
                 candidates_df, self._dia_data, self._optlock.batch_library
             )
 
-            _, fragments_df = extraction_handler.quantify_candidates(
-                candidates_df,
-                None,
-                self._dia_data,
-                self._optlock.batch_library,
+            precursor_quantified_df, fragments_df = (
+                extraction_handler.quantify_candidates(
+                    candidates_df,
+                    None,
+                    self._dia_data,
+                    self._optlock.batch_library,
+                )
             )
 
-            features_df = extraction_handler.add_columns_from_library(
-                features_df, self._optlock.batch_library
+            # in order to keep the relation between precursor_quantified_df and fragments_df, we keep the former, but merge the features from scoring
+            precursor_quantified_w_features_df = precursor_quantified_df.merge(
+                precursor_w_features_df,
+                how="left",
+                on=["precursor_idx", "rank"],
+                suffixes=("", "__y"),
+                validate="one_to_one",
+            )
+            precursor_quantified_w_features_df.drop(
+                columns=[
+                    col
+                    for col in precursor_quantified_w_features_df.columns
+                    if col.endswith("__y")
+                ],
+                inplace=True,
             )
 
-            self._optlock.update_with_extraction(features_df, fragments_df)
+            self._optlock.update_with_extraction(
+                precursor_quantified_w_features_df, fragments_df
+            )
 
             _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
                 self._optlock.features_df, candidates_df
