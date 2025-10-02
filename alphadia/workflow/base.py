@@ -3,9 +3,11 @@ import os
 import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphatims.bruker import TimsTOF
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
+from alphadia.exceptions import GenericUserError
 from alphadia.raw_data import DiaData
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -16,7 +18,7 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 
 try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
-except ModuleNotFoundError:
+except ImportError:
     # in case extraction_backend="ng", this will raise below
     pass
 
@@ -115,16 +117,26 @@ class WorkflowBase:
         self._dia_data = raw_file_manager.get_dia_data_object(dia_data_path)
         self.reporter.log_string(
             f"Creating DIA data object took: {time.time() - time_start}"
-        )  # TODO: debug?
+        )
 
         if self._config["search"]["extraction_backend"] == "ng":
             time_start = time.time()
-            self._dia_data_ng = dia_data_to_ng(self._dia_data)
+            if isinstance(self._dia_data, TimsTOF):
+                raise GenericUserError(
+                    "NOT_SUPPORTED_BY_NG",
+                    "NG backend does not support TimsTOF data yet. Please use extraction_backend='classic'.",
+                )
+
+            dia_data_ng = dia_data_to_ng(self._dia_data)
+
+            # TODO: remove these asserts
+            assert self.dia_data.cycle.shape[1] == dia_data_ng.cycle.shape[1]
+            assert all(self.dia_data.rt_values == dia_data_ng.rt_values)
+
+            self._dia_data = dia_data_ng
             self.reporter.log_string(
                 f"Creating DIA data NG object took: {time.time() - time_start}"
-            )  # TODO: debug?
-        else:
-            self._dia_data_ng = None
+            )
 
         raw_file_manager.save()
 

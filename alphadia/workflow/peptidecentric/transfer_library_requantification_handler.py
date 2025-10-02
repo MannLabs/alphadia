@@ -9,8 +9,6 @@ from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
-from alphadia.search.scoring.config import CandidateScoringConfig
-from alphadia.search.scoring.scoring import CandidateScoring
 from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
 )
@@ -19,8 +17,10 @@ from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,
 )
+from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
+from alphadia.workflow.peptidecentric.extraction_handler import ExtractionHandler
 
 
 class TransferLibraryRequantificationHandler:
@@ -33,11 +33,13 @@ class TransferLibraryRequantificationHandler:
         config: Config,
         calibration_manager: CalibrationManager,
         optimization_manager: OptimizationManager,
+        fdr_manager: FDRManager,
         column_name_handler: ColumnNameHandler,
         reporter: Pipeline,
     ):
         self._config = config
         self._calibration_manager = calibration_manager
+        self._fdr_manager = fdr_manager
         self._optimization_manager = optimization_manager
         self._column_name_handler = column_name_handler
         self._reporter = reporter
@@ -65,7 +67,6 @@ class TransferLibraryRequantificationHandler:
         frag_df: pd.DataFrame
             Dataframe with fragments in long format
         """
-
         self._reporter.log_string(
             "=== Transfer learning quantification ===",
             verbosity="progress",
@@ -98,31 +99,31 @@ class TransferLibraryRequantificationHandler:
             f"quantifying {len(scored_candidates):,} precursors with {len(candidate_speclib_flat.fragment_df):,} fragments",
         )
 
-        config = CandidateScoringConfig()
-        config.update(
-            {
-                "top_k_fragments": 9999,  # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
-                "precursor_mz_tolerance": self._optimization_manager.ms1_error,
-                "fragment_mz_tolerance": self._optimization_manager.ms2_error,
-                "experimental_xic": self._config["search"]["experimental_xic"],
-            }
-        )
-
-        scoring = CandidateScoring(
-            dia_data=dia_data,
-            precursors_flat=candidate_speclib_flat.precursor_df,
-            fragments_flat=candidate_speclib_flat.fragment_df,
-            config=config,
-            rt_column=self._column_name_handler.get_rt_column(),
-            mobility_column=self._column_name_handler.get_mobility_column(),
-            precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
-            fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
+        extraction_handler = ExtractionHandler.create_handler(
+            self._config,
+            self._optimization_manager,
+            self._fdr_manager,
+            self._reporter,
+            ColumnNameHandler(
+                self._calibration_manager,
+                dia_data_has_ms1=dia_data.has_ms1,
+                dia_data_has_mobility=dia_data.has_mobility,
+            ),
         )
 
         # we disregard the precursors, as we want to keep the original scoring from the top12 search
         # this works fine as there is no index pointing from the precursors to the fragments
-        # only the fragments arre indexed by precursor_idx and rank
-        _, frag_df = scoring(scored_candidates)
+        # only the fragments are indexed by precursor_idx and rank
+        _, frag_df = extraction_handler.quantify_candidates(
+            scored_candidates,
+            None,
+            dia_data,
+            candidate_speclib_flat,
+            # Use all fragments ever expected, needs to be larger than charged_frag_types(8)*max_sequence_len(100?)
+            top_k_fragments=9999,
+        )
+
+        # TODO rename: frag_df -> fragments_df, scored_candidates => selected_candidates
 
         # establish mapping
         scored_candidates["_candidate_idx"] = candidate_hash(
