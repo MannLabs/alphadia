@@ -522,17 +522,21 @@ class SearchPlanOutput:
 
         quantlevel_configs = [
             LFQOutputConfig(
-                should_process=True,
+                should_process=self.config["search_output"]["precursor_level_lfq"],
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                save_fragments=True,
+                save_fragments=self.config["search_output"][
+                    "save_fragment_quant_matrix"
+                ],
                 aggregation_components=["pg", "sequence", "mods", "charge"],
             ),
             LFQOutputConfig(
-                should_process=True,
+                should_process=self.config["search_output"]["peptide_level_lfq"],
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                save_fragments=True,
+                save_fragments=self.config["search_output"][
+                    "save_fragment_quant_matrix"
+                ],
                 aggregation_components=["pg", "sequence", "mods"],
             ),
             LFQOutputConfig(
