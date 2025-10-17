@@ -110,16 +110,21 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
+    rank_target = df_target["rank"].to_numpy()
+    rank_decoy = df_decoy["rank"].to_numpy()
+
     X_target = df_target[available_columns].to_numpy()
     X_decoy = df_decoy[available_columns].to_numpy()
+
     y_target = np.zeros(len(X_target))
     y_decoy = np.ones(len(X_decoy))
 
+    rank = np.concatenate([rank_target, rank_decoy])
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
     X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-        X, y, test_size=0.2, random_state=random_state
+        X[rank == 0], y[rank == 0], test_size=0.2, random_state=random_state
     )
 
     classifier.fit(X_train, y_train)

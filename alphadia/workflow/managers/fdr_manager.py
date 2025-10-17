@@ -164,6 +164,10 @@ class FDRManager(BaseManager):
 
         if decoy_strategy == "precursor":
             if not self.is_two_step_classifier:
+                features_df.to_parquet(
+                    "/Users/georgwallmann/Documents/data/alphadia_performance_tests/output/alphadia-ng-scoring/astral_lf/staurosporine_candidate_features_raw.parquet"
+                )
+
                 psm_df = fdr.perform_fdr(
                     classifier,
                     available_columns,
