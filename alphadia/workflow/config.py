@@ -143,6 +143,7 @@ def _convert_numpy_types(data: Any) -> Any:
     """Recursively convert numpy types to native Python types for YAML serialization.
 
     These could come from dynamically set values, e.g. calculated mass tolerances in multi-step searches.
+    Note: no need to handle tuples or sets since YAML doesn't have native tuple/set types.
 
     Parameters
     ----------
@@ -162,6 +163,10 @@ def _convert_numpy_types(data: Any) -> Any:
         return data.item()
     elif isinstance(data, np.ndarray):
         return data.tolist()
+    elif isinstance(data, list | set):
+        raise NotImplementedError(
+            "Tuples and sets are not supported in config serialization."
+        )
     else:
         return data
 

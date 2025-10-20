@@ -321,8 +321,8 @@ def test_config_to_yaml_converts_numpy_types():
 
         config_with_numpy.to_yaml(temp_path)
 
-        with open(temp_path) as f:
-            yaml_content = f.read()
+        with open(temp_path) as f2:
+            yaml_content = f2.read()
 
         loaded_config = yaml.safe_load(yaml_content)
 
