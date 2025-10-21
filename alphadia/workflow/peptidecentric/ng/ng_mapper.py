@@ -32,12 +32,12 @@ def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
     ]
 
     return DiaDataNG.from_arrays(
-        delta_scan_idx,
+        delta_scan_idx.astype(np.int64),
         spectrum_df["isolation_lower_mz"].values.astype(np.float32),
         spectrum_df["isolation_upper_mz"].values.astype(np.float32),
-        spectrum_df["peak_start_idx"].values,
-        spectrum_df["peak_stop_idx"].values,
-        cycle_idx,
+        spectrum_df["peak_start_idx"].values.astype(np.int64),
+        spectrum_df["peak_stop_idx"].values.astype(np.int64),
+        cycle_idx.astype(np.int64),
         spectrum_df["rt"].values.astype(np.float32) * 60,
         peak_df["mz"].values.astype(np.float32),
         peak_df["intensity"].values.astype(np.float32),
