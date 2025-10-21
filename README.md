@@ -25,6 +25,8 @@
     <a href="https://github.com/MannLabs/alphadia/discussions">Discussion</a>
     ·
     <a href="https://alphadia.readthedocs.io/en/latest/">Documentation</a>
+    ·
+    <a href="https://alphapept.org">alphapept.org</a>
   </p>
 </div>
 
@@ -45,19 +47,16 @@ We support the following vendor and processing modes:
 | Bruker .d |  ✅   | ⚠️ |
 > ⚠️ **Predicted libraries with Bruker .d data**<br>Alltough search is possible, alphaDIA's feature-free search takes a long time with fully predicted libraries. We are still evaluating how to better support fully predicted libraries.
 
-## Manuscript
-**Please cite:**
-> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
-> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann<br>
-> [biorxiv.org](https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1)
 
-alphaDIA is part of the alphaX ecosystem:
-- [alphaPept](https://github.com/MannLabs/alphapept)
-- [alphaTims](https://github.com/MannLabs/alphatims)
-- [alphaPeptDeep](https://github.com/MannLabs/alphapeptdeep)
-- [alphaRaw](https://github.com/MannLabs/alpharaw)
+
+alphaDIA is part of the [alphapept ecosystem](https://alphapept.org):
 - [alphaBase](https://github.com/MannLabs/alphabase)
+- [alphaRaw](https://github.com/MannLabs/alpharaw)
+- [alphaTims](https://github.com/MannLabs/alphatims)
+- [alphaPept](https://github.com/MannLabs/alphapept)
+- [alphaPeptDeep](https://github.com/MannLabs/alphapeptdeep)
 - [directLFQ](https://github.com/MannLabs/directlfq)
+- [alphaQuant](https://github.com/MannLabs/alphaquant)
 
 ## Installation
 
@@ -180,10 +179,10 @@ In case of issues, check out the following:
 ---
 ## Citations
 
-A manuscript has been submitted to bioRxiv:
-> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**
-> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann
-> bioRxiv 2024.05.28.596182; doi: https://doi.org/10.1101/2024.05.28.596182
+**Please cite:**
+> **AlphaDIA enables DIA transfer learning for feature-free proteomics**<br>
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Oscar Despard, Tim Heymann, Xie-Xuan Zhou, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Magnus Schwörer, Wen-Feng Zeng & Matthias Mann
+> [Nature Biotechnology (2025)](https://doi.org/10.1038/s41587-025-02791-w)
 
 ---
 ## How to contribute
@@ -200,7 +199,7 @@ See the [GitHub releases](https://github.com/MannLabs/alphadia/releases) for a f
 ---
 ## About
 
-An open-source Python package of the AlphaPept ecosystem from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann).
+An open-source Python package of the [AlphaPept ecosystem](https://alphapept.org) from the [Mann Labs at the Max Planck Institute of Biochemistry](https://www.biochem.mpg.de/mann).
 
 ---
 ## License
