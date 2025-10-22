@@ -334,8 +334,54 @@ search_output:
   num_samples_quadratic: 50
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
-  # Enable normalization of label-free quantification values
-  normalize_lfq: True
+  # Normalization method for label-free quantification values
+  # Options: "directlfq", "quantselect", "none" (or false for backwards compatibility)
+  normalization_method: "quantselect"
+
+  # === advanced quantselect settings ===
+  # Configuration for quantselect normalization (advanced users only)
+  quantselect:
+    # Random seed for reproducibility
+    seed: 42
+    # Model configuration
+    model:
+      hidden_sizes: 4
+      dropout_rate: null
+      activation: "ReLU"
+      init: "uniform"
+      batch_norm: true
+      normalize: false
+      output_activation: "sigmoid"
+    # Training configuration
+    training:
+      epochs: 40
+      batch_size: 64
+      shuffle: false
+      train_size: 200
+      verbose: true
+      validation_split: 0.2
+      early_stopping_patience: null
+      learning_rate_scheduler: null
+      save_best_model: false
+      model_save_path: null
+    # Optimizer configuration
+    optimizer:
+      lr: 0.01
+      weight_decay: 0.0
+      betas: [0.9, 0.999]
+      eps: 1e-08
+      optimizer_type: "Adam"
+    # Criterion configuration
+    criterion:
+      alpha: 0.8
+      epsilon: 1e-08
+      kind: "WVL"
+      lambda1: 0.0
+    # Prediction parameters
+    prediction:
+      cutoff: 0.9
+      min_num_fragments: 12
+      no_const: 3000
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
