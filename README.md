@@ -33,7 +33,7 @@
 ## Features
 - Empirical library and fully predicted library search
 - End-to-end transfer learning for custom RT, mobility, and MS2 models
-- Label free quantification
+- Label free quantification with multiple normalization methods (directLFQ, quantselect)
 - DIA multiplexing
 
 We support the following vendor and processing modes:
