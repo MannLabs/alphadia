@@ -94,7 +94,7 @@ class QuantBuilder:
 
     def accumulate_frag_df_from_folders(
         self, folder_list: list[str]
-    ) -> dict[str, pd.DataFrame] | None:
+    ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Accumulate the fragment data from a list of folders
 
         Parameters
@@ -127,7 +127,7 @@ class QuantBuilder:
         -------
         dict
             Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
-        None if df_iterable is empty
+        (None, None) if df_iterable is empty
         """
 
         logger.info("Accumulating fragment data")
@@ -135,7 +135,7 @@ class QuantBuilder:
         raw_name, df = next(df_iterable, (None, None))
         if df is None:
             logger.warning(f"No frag file found for {raw_name}")
-            return None
+            return None, None
 
         df = prepare_df(df, self.psm_df, columns=self.columns)
 
@@ -319,14 +319,13 @@ class QuantBuilder:
             precursor_df = Loader()._pivot_table_by_feature(
                 FeatureConfig.DEFAULT_FEATURES, psm_df
             )
-            # Build ms2 dict with proper key names without modifying originals
-            ms2_features = {
-                (f"ms2_{k}" if "ms2" not in k else k): v
-                for k, v in feature_dfs_dict.items()
-            }
+            keys = list(feature_dfs_dict.keys())
+            for k in keys:
+                if "ms2" not in k:
+                    feature_dfs_dict[f"ms2_{k}"] = feature_dfs_dict.pop(k)
             features = {
                 "ms1": precursor_df,
-                "ms2": ms2_features,
+                "ms2": feature_dfs_dict,
             }
 
             # Initialize preprocessing pipeline
