@@ -104,7 +104,16 @@ def test_cli_unknown_args(
 @patch("alphadia.cli.parser.parse_known_args")
 def test_cli_minimal_args(mock_parse_known_args):
     """Test the run function of the CLI with minimal arguments maps correctly to SearchPlan."""
-    mock_args = MagicMock(config=None, version=None, check=None, output="/output")
+    mock_args = MagicMock(
+        config=None,
+        version=None,
+        check=None,
+        output="/output",
+        config_dict="{}",
+        file=[],
+        directory=[],
+        regex=".*",
+    )
     mock_parse_known_args.return_value = (mock_args, [])
 
     mock_search_plan = MagicMock()
@@ -147,6 +156,10 @@ def test_cli_minimal_args_all_none(mock_parse_known_args):
         fasta=None,
         library=None,
         quant_dir=None,
+        config_dict="{}",
+        file=[],
+        directory=[],
+        regex=".*",
     )
     mock_parse_known_args.return_value = (mock_args, [])
 
