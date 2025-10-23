@@ -434,12 +434,13 @@ class SearchStep:
                         for file_name in required_files
                     ):
                         logger.info(
-                            f"reuse_quant: found existing quantification for {raw_name}, skipping processing .."
+                            f"general.reuse_quant: found existing quantification for {raw_name}, skipping processing .."
                         )
                         is_already_processed = True
-                    logger.info(
-                        f"reuse_quant: found no existing quantification for {raw_name}, proceeding with processing .."
-                    )
+                    else:
+                        logger.warning(
+                            f"general.reuse_quant: found no existing quantification for {raw_name}, proceeding with processing .."
+                        )
 
                 if not is_already_processed:
                     self._process_raw_file(workflow, dia_path, speclib)
