@@ -512,6 +512,10 @@ class SearchPlanOutput:
 
         feature_dfs_dict = qb.accumulate_frag_df_from_folders(folder_list)
 
+        if feature_dfs_dict is None:
+            logger.warning("No fragment data found, skipping label-free quantification")
+            return {}
+
         @dataclass
         class LFQOutputConfig:
             should_process: bool
