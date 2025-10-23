@@ -107,7 +107,7 @@ class SearchStep:
         file_path = os.path.join(output_folder, "frozen_config.yaml")
         moved_path = move_existing_file(file_path)
         self._config.to_yaml(file_path)
-        if moved_path:
+        if moved_path != file_path:
             logging.info(f"Moved existing config file {file_path} to {moved_path}")
 
     @staticmethod
