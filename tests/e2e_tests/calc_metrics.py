@@ -12,7 +12,10 @@ from typing import Any
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+try:
+    from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+except ModuleNotFoundError:
+    from prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 try:
     import neptune
