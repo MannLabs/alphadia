@@ -149,4 +149,4 @@ output (`peptide_level_lfq`)
 alphadia -o ./output_dir --quant-dir ./previous_run/quant --config ./previous_run/frozen_config.yaml --config-dict '{"general": {"reuse_quant": "True"}, "search_output": {"peptide_level_lfq": "True"}}'
 ```
 
-Cf. also the documentation on [distributed search]((./dist_search_setup.md)).
+Cf. also the documentation on [distributed search](./dist_search_setup.md).
