@@ -121,3 +121,32 @@ alphadia \
     --config config_astral_first_pass.yaml \
     --config-dict "{\"library_prediction\":{\"nce\":26}}"
 ```
+
+## Advanced
+
+### Restarting
+During the main search, alphaDIA processes each raw file independently.
+After each file, quantification results are saved to `<output_folder>/quant/<raw_file_name>`,
+which can be used as a checkpoint in case the processing is interrupted.
+
+The config switch `general.reuse_quant` enables skipping raw file processing
+when quantification results already exist, which is useful for
+distributed searches or re-running FDR analysis with different parameters.
+
+When enabled: Before processing each raw file, checks if quantification results already exist.
+If so, skips processing entirely and reuses existing quantification.
+If not, the file is being quanted.
+After all quantifications are available, the workflow continues normally, combining results from all files.
+
+The `--quant-dir` CLI parameter (Config: `quant_directory`, default: null)
+can be used to specify the directory containing quantification results.
+
+On startup, the current configuration is dumped as `frozen_config.yaml`, which contains all information to reproduce this run.
+
+Combining these three concepts, here's an example how to reuse an existing quantification (from the `previous_run` directory), but create additional
+output (`peptide_level_lfq`)
+```
+alphadia -o ./output_dir --quant-dir ./previous_run/quant --config ./previous_run/frozen_config.yaml --config-dict '{"general": {"reuse_quant": "True"}, "search_output": {"peptide_level_lfq": "True"}}'
+```
+
+Cf. also the documentation on [distributed search]((./dist_search_setup.md)).
