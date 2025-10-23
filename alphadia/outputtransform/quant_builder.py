@@ -295,20 +295,28 @@ class QuantBuilder:
 
         # Apply normalization based on the selected method
         if normalize == "quantselect":
+            if psm_df is None:
+                raise ValueError(
+                    "psm_df is required for quantselect normalization"
+                )
+            
             logger.info("Applying quantselect normalization")
             
             # Use provided config or default
             if quantselect_config is None:
-                # Use default configuration
-                quantselect_config = QuantSelectConfig()
-            elif isinstance(quantselect_config, dict):
-                # Convert legacy dict format to QuantSelectConfig
-                quantselect_config = QuantSelectConfig.from_dict(quantselect_config)
-
-            # Set random seed
-            set_global_determinism(seed=42)
+                quantselect_config = QuantSelectConfig().CONFIG
+            else:
+                # Merge with defaults for missing keys
+                default_config = QuantSelectConfig().CONFIG
+                for key in default_config:
+                    if key not in quantselect_config:
+                        quantselect_config[key] = default_config[key]
             
-            # Prepare MS1 and M2 features
+            # Set random seed
+            seed = quantselect_config.get("seed", 42)
+            set_global_determinism(seed=seed)
+            
+            # Prepare MS1 features from PSM data
             precursor_df = Loader()._pivot_table_by_feature(FeatureConfig.DEFAULT_FEATURES, psm_df)
             keys = list(feature_dfs_dict.keys())
             for k in keys:
