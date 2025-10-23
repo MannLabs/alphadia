@@ -88,9 +88,6 @@ def test_config_update_simple_two_files():
     # when
     config_1.update([config_2, config_3], do_print=True)
 
-    config_1.__repr__()
-    print("X")
-
     assert config_1 == expected_generic_default_config_dict | {
         "simple_value_int": 2,
         "simple_value_float": 5.0,
