@@ -557,30 +557,31 @@ class SearchPlanOutput:
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
 
-            group_intensity_df, _ = qb.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=quantlevel_config.quant_level,
-            )
-
-            if len(group_intensity_df) == 0:
-                logger.warning(
-                    f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
+            if self.config["search_output"]["normalization_method"] == "directlfq":
+                feature_dfs_dict["intensity"], _ = qb.filter_frag_df(
+                    feature_dfs_dict["intensity"],
+                    feature_dfs_dict["correlation"],
+                    top_n=self.config["search_output"]["min_k_fragments"],
+                    min_correlation=self.config["search_output"]["min_correlation"],
+                    group_column=quantlevel_config.quant_level,
                 )
-                lfq_results[quantlevel_config.level_name] = pd.DataFrame()
-                continue
+
+                if len(feature_dfs_dict["intensity"]) == 0:
+                    logger.warning(
+                        f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
+                    )
+                    lfq_results[quantlevel_config.level_name] = pd.DataFrame()
+                    continue
 
             lfq_df = qb.lfq(
-                group_intensity_df,
-                feature_dfs_dict["correlation"],
+                feature_dfs_dict,
+                psm_df=psm_df,
                 num_cores=self.config["general"]["thread_count"],
                 min_nonan=self.config["search_output"]["min_nonnan"],
                 num_samples_quadratic=self.config["search_output"][
                     "num_samples_quadratic"
                 ],
-                normalize=self.config["search_output"]["normalize_lfq"],
+                normalize=self.config["search_output"]["normalization_method"],
                 group_column=quantlevel_config.quant_level,
             )
             if quantlevel_config.level_name != "pg":
@@ -607,7 +608,7 @@ class SearchPlanOutput:
                         f"Writing fragment quantity matrix to disk, filtered on {quantlevel_config.level_name}"
                     )
                     write_df(
-                        group_intensity_df,
+                        feature_dfs_dict["intensity"],
                         os.path.join(
                             self.output_folder,
                             f"fragment_{quantlevel_config.level_name}filtered.matrix",
