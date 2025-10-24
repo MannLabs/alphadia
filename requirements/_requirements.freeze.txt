@@ -84,5 +84,6 @@ triton==3.2.0  ; sys_platform == 'linux'
 typing-extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
+xgboost==3.0.5
 xxhash==3.5.0
 torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'
