@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from alphadia.fdr._fdrx2.classifier import BinaryClassifierXGBoost
 from alphadia.fdr._fdrx2.fdrx2 import get_optimal_training_data
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
@@ -105,6 +106,8 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         df_decoy, df_target = get_optimal_training_data(
             df_decoy, df_target, available_columns
         )
+
+        classifier = BinaryClassifierXGBoost()
 
     else:
         target_len, decoy_len = len(df_target), len(df_decoy)
