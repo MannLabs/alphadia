@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from alphadia.fdr._fdrx2.fdrx2 import get_optimal_training_data
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
@@ -22,12 +23,14 @@ logger = logging.getLogger()
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
-    classifier: Classifier,
+    classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     *,
     competitive: bool = False,
+    use_lda_prefilter: bool = True,
+    lda_fdr_threshold: float = 0.5,
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
@@ -56,6 +59,16 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     competitive : bool
         Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
 
+    use_lda_prefilter : bool, default=False
+        Whether to use two-stage LDA prefiltering before training the ML classifier.
+        When enabled, trains LDA on rank 0 candidates, filters to lda_fdr_threshold,
+        and uses filtered data for ML classifier training. Requires 'rank' and
+        'elution_group_idx' columns in the input dataframes.
+
+    lda_fdr_threshold : float, default=0.5
+        FDR threshold for LDA filtering when use_lda_prefilter is True.
+        PSMs passing this threshold are used for ML classifier training.
+
     group_channels : bool
         Whether to group PSMs by channel before performing competitive FDR calculation
 
@@ -81,34 +94,50 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         The columns `qval` and `proba` are added to the input dataframes.
 
     """
-    target_len, decoy_len = len(df_target), len(df_decoy)
-    df_target.dropna(subset=available_columns, inplace=True)
-    df_decoy.dropna(subset=available_columns, inplace=True)
-    target_dropped, decoy_dropped = (
-        target_len - len(df_target),
-        decoy_len - len(df_decoy),
-    )
-
-    if target_dropped > 0:
-        logger.warning(f"dropped {target_dropped} target PSMs due to missing features")
-
-    if decoy_dropped > 0:
-        logger.warning(f"dropped {decoy_dropped} decoy PSMs due to missing features")
-
-    if (
-        np.abs(len(df_target) - len(df_decoy)) / ((len(df_target) + len(df_decoy)) / 2)
-        > 0.1  # noqa: PLR2004
-    ):
-        logger.warning(
-            f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
-        )
-        logger.warning(
-            "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
-        )
-
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
+    if use_lda_prefilter:
+        logger.info(
+            f"Using two-stage LDA prefiltering @ {lda_fdr_threshold*100:.0f}% FDR"
+        )
+
+        df_decoy, df_target = get_optimal_training_data(
+            df_decoy, df_target, available_columns
+        )
+
+    else:
+        target_len, decoy_len = len(df_target), len(df_decoy)
+        df_target.dropna(subset=available_columns, inplace=True)
+        df_decoy.dropna(subset=available_columns, inplace=True)
+        target_dropped, decoy_dropped = (
+            target_len - len(df_target),
+            decoy_len - len(df_decoy),
+        )
+
+        if target_dropped > 0:
+            logger.warning(
+                f"dropped {target_dropped} target PSMs due to missing features"
+            )
+
+        if decoy_dropped > 0:
+            logger.warning(
+                f"dropped {decoy_dropped} decoy PSMs due to missing features"
+            )
+
+        if (
+            np.abs(len(df_target) - len(df_decoy))
+            / ((len(df_target) + len(df_decoy)) / 2)
+            > 0.1  # noqa: PLR2004
+        ):
+            logger.warning(
+                f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
+            )
+            logger.warning(
+                "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
+            )
+
+    # Prepare data for classifier training
     X_target = df_target[available_columns].to_numpy()
     X_decoy = df_decoy[available_columns].to_numpy()
     y_target = np.zeros(len(X_target))
