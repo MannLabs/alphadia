@@ -191,7 +191,7 @@ def test_output_transform():
 
 def test_merge_quant_levels_to_psm_merges_precursor_level():
     """Test that precursor level quantification is merged correctly."""
-    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    search_plan_output = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {
         "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]})
@@ -205,7 +205,7 @@ def test_merge_quant_levels_to_psm_merges_precursor_level():
         )
     ]
 
-    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     assert "precursor.intensity" in result.columns
     assert result["precursor.intensity"].iloc[0] == 100.0
@@ -213,7 +213,7 @@ def test_merge_quant_levels_to_psm_merges_precursor_level():
 
 def test_merge_quant_levels_to_psm_merges_peptide_level():
     """Test that peptide level quantification is merged correctly."""
-    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    search_plan_output = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_hash": ["A"], "run": ["run1"]})
     lfq_results = {"peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]})}
     configs = [
@@ -222,7 +222,7 @@ def test_merge_quant_levels_to_psm_merges_peptide_level():
         )
     ]
 
-    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     assert "peptide.intensity" in result.columns
     assert result["peptide.intensity"].iloc[0] == 400.0
@@ -230,12 +230,12 @@ def test_merge_quant_levels_to_psm_merges_peptide_level():
 
 def test_merge_quant_levels_to_psm_merges_protein_group_level():
     """Test that protein group level quantification is merged correctly."""
-    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    search_plan_output = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"pg": ["PG1"], "run": ["run1"]})
     lfq_results = {"pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]})}
     configs = [LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"])]
 
-    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     assert "pg.intensity" in result.columns
     assert result["pg.intensity"].iloc[0] == 700.0
@@ -243,7 +243,7 @@ def test_merge_quant_levels_to_psm_merges_protein_group_level():
 
 def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
     """Test that empty LFQ results are handled gracefully."""
-    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    search_plan_output = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {"precursor": pd.DataFrame()}
     configs = [
@@ -255,7 +255,7 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
         )
     ]
 
-    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     assert len(result) == 1
     assert "precursor.intensity" not in result.columns
@@ -263,7 +263,7 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
 
 def test_merge_quant_levels_to_psm_merges_all_levels():
     """Test that all quantification levels are merged in one call."""
-    spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
+    search_plan_output = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame(
         {
             "mod_seq_charge_hash": ["A1"],
@@ -290,7 +290,7 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
         LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
     ]
 
-    result = spo._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     assert all(
         col in result.columns
