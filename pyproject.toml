@@ -43,9 +43,8 @@ issues = "https://github.com/MannLabs/alphadia/issues"
 download = "https://github.com/MannLabs/alphadia/releases"
 homepage = "https://www.alphapept.org"
 "Mann Labs Homepage" = "https://www.biochem.mpg.de/mann"
-"Paper preprint" = "https://doi.org/10.1101/2024.05.28.596182"
-#publication = "https://www.biochem.mpg.de/mann"
-documentation = "https://alphapeptdeep.readthedocs.io/en/latest/"
+publication = "https://doi.org/10.1038/s41587-025-02791-w"
+documentation = "https://alphadia.readthedocs.io/en/latest/"
 
 [tool.setuptools.packages]
 find = {}

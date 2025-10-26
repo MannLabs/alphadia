@@ -46,7 +46,10 @@ _new_library = args.library_path if args.library_path else None
 safe_add_key(config, None, "library_path", _new_library)
 
 # set library prediction to True
-safe_add_key(config, "library_prediction", "predict", True)
+safe_add_key(config, "library_prediction", "enabled", True)
+
+# Disable default MBR step
+safe_add_key(config, "general", "mbr_step_enabled", False)
 
 # remove rawfiles for prediction step in case some are set
 config.pop("raw_paths", None)

@@ -83,7 +83,7 @@ const RunButton = ({
 
         // check if valid engine has been selected
         if (profileNew.activeIdx < 0) {
-            alert("Please select a valid execution engine.");
+            alert("Please wait until an execution engine is loaded.");
             return;
         }
         if (! profileNew.executionEngines[profileNew.activeIdx].available) {

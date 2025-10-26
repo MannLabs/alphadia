@@ -25,6 +25,9 @@ def print_logo() -> None:
     logger.progress("           |_|                           ")
     logger.progress("")
     logger.progress(f"version: {alphadia.__version__}")
+    logger.progress(
+        "Please cite: Wallmann, et al., Nature Biotechnology (2025), https://doi.org/10.1038/s41587-025-02791-w"
+    )
 
 
 def print_environment() -> None:

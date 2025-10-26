@@ -18,7 +18,10 @@ from alphadia import __version__  # noqa: E402
 from alphadia.constants.keys import ConfigKeys
 
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
+
+# both these matplotlib imports are required to avoid downstream errors in plotting
 import matplotlib  # noqa: E402
+import matplotlib.backends.backend_pdf  # noqa: E402
 
 logger = logging.getLogger()
 

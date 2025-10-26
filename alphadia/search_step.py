@@ -83,6 +83,7 @@ class SearchStep:
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
+        self._validate_config()
         self._save_config(output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
@@ -140,6 +141,7 @@ class SearchStep:
             ng_default_config = SearchStep._load_default_config(
                 file_name="default_ng.yaml"
             )
+            ng_default_config.name = "ng_default"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
@@ -150,6 +152,7 @@ class SearchStep:
             config_updates.append(extra_config_update)
 
         if config_updates:
+            logger.info(f"updating config with user defined values: {config_updates}")
             config.update(config_updates, do_print=True)
 
         # Note: if not provided by CLI, output_folder is set to the value in config in cli.py
@@ -533,6 +536,28 @@ class SearchStep:
 
         logger.info(f"Using library: {self.library_path}")
         logger.info(f"Saving output to: {self.output_folder}")
+
+    def _validate_config(self):
+        """Validate the config for required parameters and combinations.
+
+        TODO move this to a dedicated class.
+        """
+
+        if self._config["search"]["extraction_backend"] == "ng":
+            if self._config["transfer_library"]["enabled"]:
+                raise ConfigError(
+                    "transfer_library.enabled",
+                    self._config["transfer_library"]["enabled"],
+                    "final",
+                    "Library transfer is not yet supported with the 'ng' extraction backend.",
+                )
+            if self._config["multiplexing"]["enabled"]:
+                raise ConfigError(
+                    "multiplexing.enabled",
+                    "True",
+                    "final",
+                    "Multiplexing is not yet supported with the 'ng' extraction backend.",
+                )
 
 
 def _log_exception_event(

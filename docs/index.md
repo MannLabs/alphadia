@@ -29,13 +29,13 @@ We support the following vendor and processing modes:
 
 :::{admonition} Predicted libraries with Bruker .d data
 :class: warning
-Alltough search is possible, alphaDIA's feature-free search takes a long time with fully predicted libraries. We are still evaluating how to better support fully predicted libraries.
+Although search is possible, alphaDIA's feature-free search takes a long time with fully predicted libraries. We are still evaluating how to better support fully predicted libraries.
 :::
 
 **Manuscript**
-> **AlphaDIA enables End-to-End Transfer Learning for Feature-Free Proteomics**<br>
-> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Tim Heymann, Xie-Xuan Zhou, Magnus Schwörer, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Wen-Feng Zeng, Matthias Mann<br>
-> [biorxiv.org](https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1)
+> **AlphaDIA enables DIA transfer learning for feature-free proteomics**<br>
+> Georg Wallmann, Patricia Skowronek, Vincenth Brennsteiner, Mikhail Lebedev, Marvin Thielert, Sophia Steigerwald, Mohamed Kotb, Oscar Despard, Tim Heymann, Xie-Xuan Zhou, Maximilian T. Strauss, Constantin Ammar, Sander Willems, Magnus Schwörer, Wen-Feng Zeng & Matthias Mann
+> [Nature Biotechnology (2025)](https://doi.org/10.1038/s41587-025-02791-w)
 
 
 :::{card} Installation

@@ -128,7 +128,7 @@ class NoLibraryAvailableError(UserError):
     or provide a FASTA file and set the "Predict Library" (GUI) / 'library_prediction.predict' (config) flag."""
 
 
-class ConfigError(BusinessError):
+class ConfigError(UserError):
     """Raise when something is wrong with the provided configuration."""
 
     _error_code = "CONFIG_ERROR"

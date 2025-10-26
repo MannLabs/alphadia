@@ -322,6 +322,8 @@ search_output:
   peptide_level_lfq: false
   # Enable label-free quantification at precursor level and generate precursor matrix
   precursor_level_lfq: false
+  # Save fragment quant matrix for advanced users
+  save_fragment_quant_matrix: False
 
   # === advanced settings ===
   # Minimum number of fragments required for quantification
@@ -334,9 +336,6 @@ search_output:
   min_nonnan: 3
   # Enable normalization of label-free quantification values
   normalize_lfq: True
-
-  # Save fragment quant matrix for advanced users
-  save_fragment_quant_matrix: False
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.
 optimization:
