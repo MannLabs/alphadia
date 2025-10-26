@@ -1,6 +1,5 @@
 import logging
 import os
-from dataclasses import dataclass
 
 import pandas as pd
 from alphabase.peptide import fragment
@@ -8,12 +7,7 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
-from alphadia.constants.keys import (
-    ConfigKeys,
-    SemanticPeptideKeys,
-    SemanticPrecursorKeys,
-    SemanticProteinGroupKeys,
-)
+from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
@@ -28,13 +22,12 @@ from alphadia.outputtransform.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
-from alphadia.outputtransform.quant_builder import QuantBuilder
+from alphadia.outputtransform.quant_output_builder import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_protein_inference,
     get_channels_from_config,
     load_psm_files_from_folders,
     log_protein_fdr_summary,
-    merge_quant_levels_to_psm,
     prepare_psm_dataframe,
     read_df,
     write_df,
@@ -43,16 +36,6 @@ from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
-
-
-@dataclass
-class LFQOutputConfig:
-    quant_level: str
-    level_name: str
-    intensity_column: str
-    aggregation_components: list[str]
-    should_process: bool = True
-    save_fragments: bool = False
 
 
 class SearchPlanOutput:
@@ -455,116 +438,19 @@ class SearchPlanOutput:
         save: bool
             Save the precursor table to disk
         """
-        logger.progress("Performing label free quantification")
+        quant_output_builder = QuantOutputBuilder(psm_df, self.config)
+        lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
-        # as we want to retain decoys in the output we are only removing them for lfq
-        psm_no_decoys_df = psm_df[psm_df["decoy"] == 0]
-        qb = QuantBuilder(psm_no_decoys_df)
-
-        feature_dfs_dict = qb.accumulate_frag_df_from_folders(folder_list)
-
-        quantlevel_configs = [
-            LFQOutputConfig(
-                quant_level="mod_seq_charge_hash",
-                level_name="precursor",
-                intensity_column=SemanticPrecursorKeys.INTENSITY,
-                aggregation_components=["pg", "sequence", "mods", "charge"],
-                should_process=self.config["search_output"]["precursor_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
-            ),
-            LFQOutputConfig(
-                quant_level="mod_seq_hash",
-                level_name="peptide",
-                intensity_column=SemanticPeptideKeys.INTENSITY,
-                aggregation_components=["pg", "sequence", "mods"],
-                should_process=self.config["search_output"]["peptide_level_lfq"],
-                save_fragments=self.config["search_output"][
-                    "save_fragment_quant_matrix"
-                ],
-            ),
-            LFQOutputConfig(
-                quant_level="pg",
-                level_name="pg",
-                intensity_column=SemanticProteinGroupKeys.INTENSITY,
-                aggregation_components=["pg"],
-                should_process=True,
-            ),
-        ]
-
-        lfq_results = {}
-
-        for quantlevel_config in quantlevel_configs:
-            logger.progress(
-                f"Performing label free quantification on the {quantlevel_config.level_name} level"
+        if save and lfq_results:
+            quant_output_builder.save_results(
+                lfq_results,
+                self.output_folder,
+                file_format=self.config["search_output"]["file_format"],
             )
 
-            group_intensity_df, _ = qb.filter_frag_df(
-                feature_dfs_dict["intensity"],
-                feature_dfs_dict["correlation"],
-                top_n=self.config["search_output"]["min_k_fragments"],
-                min_correlation=self.config["search_output"]["min_correlation"],
-                group_column=quantlevel_config.quant_level,
-            )
-
-            if len(group_intensity_df) == 0:
-                logger.warning(
-                    f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
-                )
-                lfq_results[quantlevel_config.level_name] = pd.DataFrame()
-                continue
-
-            lfq_df = qb.lfq(
-                group_intensity_df,
-                feature_dfs_dict["correlation"],
-                num_cores=self.config["general"]["thread_count"],
-                min_nonan=self.config["search_output"]["min_nonnan"],
-                num_samples_quadratic=self.config["search_output"][
-                    "num_samples_quadratic"
-                ],
-                normalize=self.config["search_output"]["normalize_lfq"],
-                group_column=quantlevel_config.quant_level,
-            )
-            if quantlevel_config.level_name != "pg":
-                annotate_df = psm_df.groupby(
-                    quantlevel_config.quant_level, as_index=False
-                ).agg({c: "first" for c in quantlevel_config.aggregation_components})
-                lfq_results[quantlevel_config.level_name] = lfq_df.merge(
-                    annotate_df, on=quantlevel_config.quant_level, how="left"
-                )
-            else:
-                lfq_results[quantlevel_config.level_name] = lfq_df
-
-            if save:
-                logger.info(f"Writing {quantlevel_config.level_name} output to disk")
-                write_df(
-                    lfq_df,
-                    os.path.join(
-                        self.output_folder, f"{quantlevel_config.level_name}.matrix"
-                    ),
-                    file_format=self.config["search_output"]["file_format"],
-                )
-                if quantlevel_config.save_fragments:
-                    logger.info(
-                        f"Writing fragment quantity matrix to disk, filtered on {quantlevel_config.level_name}"
-                    )
-                    write_df(
-                        group_intensity_df,
-                        os.path.join(
-                            self.output_folder,
-                            f"fragment_{quantlevel_config.level_name}filtered.matrix",
-                        ),
-                        file_format=self.config["search_output"]["file_format"],
-                    )
-
-        # Merge all quantification levels back to precursor table
-        psm_df = merge_quant_levels_to_psm(psm_df, lfq_results, quantlevel_configs)
-
-        if save:
             logger.info("Writing psm output to disk")
             write_df(
-                psm_df,
+                psm_df_with_quant,
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )

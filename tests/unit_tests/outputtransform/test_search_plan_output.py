@@ -7,10 +7,8 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import InferenceStrategy
-from alphadia.outputtransform.search_plan_output import (
-    LFQOutputConfig,
-    SearchPlanOutput,
-)
+from alphadia.outputtransform.quant_output_builder import LFQOutputConfig
+from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager

@@ -1,6 +1,4 @@
 import logging
-import os
-from collections.abc import Iterator
 
 import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
@@ -15,48 +13,28 @@ from alphadia.utils import USE_NUMBA_CACHING
 logger = logging.getLogger()
 
 
-def get_frag_df_generator(folder_list: list[str]):
-    """Return a generator that yields a tuple of (raw_name, frag_df)
+@nb.njit(cache=USE_NUMBA_CACHING)
+def _ion_hash(precursor_idx, number, type, charge, loss_type):
+    """Create a 64-bit hash from fragment ion characteristics.
 
     Parameters
     ----------
-
-    folder_list: List[str]
-        List of folders containing the frag.tsv file
+    precursor_idx : array-like
+        Precursor indices (lower 32 bits)
+    number : array-like
+        Fragment number (next 8 bits)
+    type : array-like
+        Fragment type (next 8 bits)
+    charge : array-like
+        Fragment charge (next 8 bits)
+    loss_type : array-like
+        Loss type (last 8 bits)
 
     Returns
     -------
-
-    Iterator[Tuple[str, pd.DataFrame]]
-        Tuple of (raw_name, frag_df)
-
+    int64
+        64-bit hash value
     """
-
-    for folder in folder_list:
-        raw_name = os.path.basename(folder)
-        frag_path = os.path.join(folder, "frag.parquet")
-
-        if not os.path.exists(frag_path):
-            logger.warning(f"no frag file found for {raw_name}")
-        else:
-            try:
-                logger.info(f"reading frag file for {raw_name}")
-                run_df = pd.read_parquet(frag_path)
-            except Exception as e:
-                logger.warning(f"Error reading frag file for {raw_name}")
-                logger.warning(e)
-            else:
-                yield raw_name, run_df
-
-
-@nb.njit(cache=USE_NUMBA_CACHING)
-def _ion_hash(precursor_idx, number, type, charge, loss_type):
-    # create a 64 bit hash from the precursor_idx, number and type
-    # the precursor_idx is the lower 32 bits
-    # the number is the next 8 bits
-    # the type is the next 8 bits
-    # the charge is the next 8 bits
-    # the loss_type is the last 8 bits
     return (
         precursor_idx
         + (number << 32)
@@ -69,6 +47,22 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
 def prepare_df(
     df: pd.DataFrame, psm_df: pd.DataFrame, columns: list[str]
 ) -> pd.DataFrame:
+    """Prepare fragment dataframe by filtering and adding ion hash.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Fragment dataframe
+    psm_df : pd.DataFrame
+        PSM dataframe with precursor_idx column
+    columns : list[str]
+        Columns to keep from fragment data
+
+    Returns
+    -------
+    pd.DataFrame
+        Filtered fragment dataframe with ion hash
+    """
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
     df["ion"] = _ion_hash(
         df["precursor_idx"].values,
@@ -81,105 +75,23 @@ def prepare_df(
 
 
 class QuantBuilder:
+    """Build quantification results through filtering and label-free quantification.
+
+    This class focuses on fragment quality filtering and directLFQ-based
+    protein quantification. Fragment data accumulation is handled by
+    FragmentQuantLoader.
+
+    Parameters
+    ----------
+    psm_df : pd.DataFrame
+        PSM dataframe with precursor information
+    columns : list[str] | None, default=None
+        Columns to use for quantification. Defaults to ["intensity", "correlation"]
+    """
+
     def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
-
-    def accumulate_frag_df_from_folders(
-        self, folder_list: list[str]
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Accumulate the fragment data from a list of folders
-
-        Parameters
-        ----------
-
-        folder_list: List[str]
-            List of folders containing the frag.tsv file
-
-        Returns
-        -------
-        dict
-            Dictionary with column name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
-        """
-
-        df_iterable = get_frag_df_generator(folder_list)
-        return self.accumulate_frag_df(df_iterable)
-
-    def accumulate_frag_df(
-        self, df_iterable: Iterator[tuple[str, pd.DataFrame]]
-    ) -> dict[str, pd.DataFrame]:
-        """Consume a generator of (raw_name, frag_df) tuples and accumulate the data in a single dataframe
-
-        Parameters
-        ----------
-
-        df_iterable: Iterator[Tuple[str, pd.DataFrame]]
-            Iterator of (raw_name, frag_df) tuples
-
-        Returns
-        -------
-        dict
-            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
-        (None, None) if df_iterable is empty
-        """
-
-        logger.info("Accumulating fragment data")
-
-        raw_name, df = next(df_iterable, (None, None))
-        if df is None:
-            logger.warning(f"No frag file found for {raw_name}")
-            return None, None
-
-        df = prepare_df(df, self.psm_df, columns=self.columns)
-
-        df_list = []
-        for col in self.columns:
-            feat_df = df[["precursor_idx", "ion", col]].copy()
-            feat_df.rename(columns={col: raw_name}, inplace=True)
-            df_list.append(feat_df)
-
-        for raw_name, df in df_iterable:
-            df = prepare_df(df, self.psm_df, columns=self.columns)
-
-            for idx, col in enumerate(self.columns):
-                df_list[idx] = df_list[idx].merge(
-                    df[["ion", col, "precursor_idx"]],
-                    on=["ion", "precursor_idx"],
-                    how="outer",
-                )
-                df_list[idx].rename(columns={col: raw_name}, inplace=True)
-
-        # annotate protein group
-        annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
-            {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
-        )
-
-        return {
-            col: self.add_annotation(df, annotate_df)
-            for col, df in zip(self.columns, df_list)
-        }
-
-    @staticmethod
-    def add_annotation(df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
-        """
-        Add annotation to the fragment data, including protein group, mod_seq_hash, mod_seq_charge_hash
-
-        Parameters
-        ----------
-        df: pd.DataFrame
-            Fragment data
-
-        Returns
-        -------
-        pd.DataFrame
-            Fragment data with annotation
-        """
-        df.fillna(0, inplace=True)
-        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
-
-        df = df.merge(annotate_df, on="precursor_idx", how="left")
-
-        return df
 
     def filter_frag_df(
         self,
@@ -189,33 +101,30 @@ class QuantBuilder:
         top_n: int = 3,
         group_column: str = "pg",
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Filter the fragment data by quality
+        """Filter fragment data by quality metrics.
+
+        Keeps fragments that meet either of these criteria:
+        - Among top N fragments per group (by mean quality across runs)
+        - Quality score above min_correlation threshold
 
         Parameters
         ----------
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        min_correlation: float
-            Minimum correlation to keep a fragment, if not below top_n
-
-        top_n: int
-            Keep the top n fragments per precursor
+        intensity_df : pd.DataFrame
+            Fragment intensity data with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        quality_df : pd.DataFrame
+            Fragment quality/correlation data with same structure as intensity_df
+        min_correlation : float, default=0.5
+            Minimum quality score to keep fragment (if not in top N)
+        top_n : int, default=3
+            Number of top fragments to keep per group
+        group_column : str, default='pg'
+            Column to group fragments by (pg, mod_seq_hash, mod_seq_charge_hash)
 
         Returns
         -------
-
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
+        tuple[pd.DataFrame, pd.DataFrame]
+            Filtered intensity and quality dataframes
         """
-
         logger.info("Filtering fragments by quality")
 
         run_columns = [
@@ -244,28 +153,32 @@ class QuantBuilder:
         normalize: bool = True,
         group_column: str = "pg",
     ) -> pd.DataFrame:
-        """Perform label-free quantification
+        """Perform label-free quantification using directLFQ.
 
         Parameters
         ----------
-
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
-
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        intensity_df : pd.DataFrame
+            Fragment intensity data with columns: group_column, ion, run1, run2, ...
+        quality_df : pd.DataFrame
+            Fragment quality data (currently unused but kept for API compatibility)
+        num_samples_quadratic : int, default=50
+            Number of samples for quadratic fitting in directLFQ
+        min_nonan : int, default=1
+            Minimum number of non-NaN values required per protein
+        num_cores : int, default=8
+            Number of CPU cores for parallel processing
+        normalize : bool, default=True
+            Whether to normalize intensities across samples
+        group_column : str, default='pg'
+            Column to group by for quantification (pg, mod_seq_hash, mod_seq_charge_hash)
 
         Returns
         -------
-
-        lfq_df: pd.DataFrame
-            Dataframe with the label-free quantification data containing the columns precursor_idx, ion, intensity, protein
-
+        pd.DataFrame
+            Protein/peptide quantification results with columns: group_column, run1, run2, ...
         """
-
         logger.info("Performing label-free quantification using directLFQ")
 
-        # drop all other columns as they will be interpreted as samples
         columns_to_drop = list(
             {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
             - {group_column}
@@ -273,13 +186,9 @@ class QuantBuilder:
         _intensity_df = intensity_df.drop(columns=columns_to_drop)
 
         lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
-        lfqconfig.set_compile_normalized_ion_table(
-            compile_normalized_ion_table=False
-        )  # save compute time by avoiding the creation of a normalized ion table
-        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()  # avoid read-only pandas bug on linux if applicable
-        lfqconfig.set_log_processed_proteins(
-            log_processed_proteins=True
-        )  # here you can chose wether to log the processed proteins or not
+        lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
+        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
+        lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
 
         _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
 
