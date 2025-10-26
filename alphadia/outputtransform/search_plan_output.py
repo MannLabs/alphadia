@@ -3,16 +3,20 @@ import os
 from dataclasses import dataclass
 
 import pandas as pd
-from alphabase.peptide import fragment, precursor
+from alphabase.peptide import fragment
 from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
-from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.keys import (
+    ConfigKeys,
+    SemanticPeptideKeys,
+    SemanticPrecursorKeys,
+    SemanticProteinGroupKeys,
+)
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
-from alphadia.outputtransform import grouping
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -25,7 +29,16 @@ from alphadia.outputtransform.outputaccumulator import (
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 from alphadia.outputtransform.quant_builder import QuantBuilder
-from alphadia.outputtransform.utils import read_df, write_df
+from alphadia.outputtransform.utils import (
+    apply_protein_inference,
+    get_channels_from_config,
+    load_psm_files_from_folders,
+    log_protein_fdr_summary,
+    merge_quant_levels_to_psm,
+    prepare_psm_dataframe,
+    read_df,
+    write_df,
+)
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
 
@@ -291,90 +304,27 @@ class SearchPlanOutput:
         """
         logger.progress("Performing protein grouping and FDR")
 
-        psm_df_list = []
-
-        for folder in folder_list:
-            raw_name = os.path.basename(folder)
-            psm_path = os.path.join(folder, f"{self.PSM_INPUT}.parquet")
-
-            logger.info(f"Building output for {raw_name}")
-
-            if not os.path.exists(psm_path):
-                logger.warning(f"no psm file found for {raw_name}, skipping")
-            else:
-                try:
-                    run_df = pd.read_parquet(psm_path)
-                    psm_df_list.append(run_df)
-                except Exception as e:
-                    logger.warning(f"Error reading psm file for {raw_name}")
-                    logger.warning(e)
-
-        logger.info("Building combined output")
-        psm_df = pd.concat(psm_df_list)
+        psm_df = load_psm_files_from_folders(folder_list, self.PSM_INPUT)
 
         if len(psm_df) == 0:
             raise NoPsmFoundError()
 
         logger.info("Performing protein inference")
 
-        psm_df["mods"] = psm_df["mods"].fillna("")
-        # make mods column a string not object
-        psm_df["mods"] = psm_df["mods"].astype(str)
-        psm_df["mod_sites"] = psm_df["mod_sites"].fillna("")
-        # make mod_sites column a string not object
-        psm_df["mod_sites"] = psm_df["mod_sites"].astype(str)
-        psm_df = precursor.hash_precursor_df(psm_df)
+        psm_df = prepare_psm_dataframe(psm_df)
 
-        if self.config["fdr"]["inference_strategy"] == "library":
-            logger.info(
-                "Inference strategy: library. Using library grouping for protein inference"
-            )
-
-            psm_df["pg"] = psm_df[self.config["fdr"]["group_level"]]
-            psm_df["pg_master"] = psm_df[self.config["fdr"]["group_level"]]
-
-        elif self.config["fdr"]["inference_strategy"] == "maximum_parsimony":
-            logger.info(
-                "Inference strategy: maximum_parsimony. Using maximum parsimony for protein inference"
-            )
-
-            psm_df = grouping.perform_grouping(
-                psm_df, genes_or_proteins=self.config["fdr"]["group_level"], group=False
-            )
-
-        elif self.config["fdr"]["inference_strategy"] == "heuristic":
-            logger.info(
-                "Inference strategy: heuristic. Using maximum parsimony with grouping for protein inference"
-            )
-
-            psm_df = grouping.perform_grouping(
-                psm_df, genes_or_proteins=self.config["fdr"]["group_level"], group=True
-            )
-
-        else:
-            raise ValueError(
-                f"Unknown inference strategy: {self.config['fdr']['inference_strategy']}. Valid options are 'library', 'maximum_parsimony' and 'heuristic'"
-            )
+        psm_df = apply_protein_inference(
+            psm_df,
+            self.config["fdr"]["inference_strategy"],
+            self.config["fdr"]["group_level"],
+        )
 
         logger.info("Performing protein FDR")
 
         psm_df = perform_protein_fdr(psm_df, self._figure_path)
         psm_df = psm_df[psm_df["pg_qval"] <= self.config["fdr"]["fdr"]]
 
-        pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
-        precursor_count = psm_df[psm_df["decoy"] == 0]["precursor_idx"].nunique()
-
-        logger.progress(
-            "================ Protein FDR =================",
-        )
-        logger.progress("Unique protein groups in output")
-        logger.progress(f"  1% protein FDR: {pg_count:,}")
-        logger.progress("")
-        logger.progress("Unique precursor in output")
-        logger.progress(f"  1% protein FDR: {precursor_count:,}")
-        logger.progress(
-            "================================================",
-        )
+        log_protein_fdr_summary(psm_df)
 
         if not self.config["fdr"]["keep_decoys"]:
             psm_df = psm_df[psm_df["decoy"] == 0]
@@ -416,16 +366,7 @@ class SearchPlanOutput:
         """
         logger.progress("Building search statistics")
 
-        if self.config["search"]["channel_filter"] == "":
-            all_channels = {0}
-        else:
-            all_channels = set(self.config["search"]["channel_filter"].split(","))
-
-        if self.config["multiplexing"]["enabled"]:
-            all_channels &= set(
-                self.config["multiplexing"]["target_channels"].split(",")
-            )
-        all_channels = sorted([int(c) for c in all_channels])
+        all_channels = get_channels_from_config(self.config)
 
         psm_df = psm_df[psm_df["decoy"] == 0]
 
@@ -526,7 +467,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                intensity_column="precursor.intensity",
+                intensity_column=SemanticPrecursorKeys.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods", "charge"],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -536,7 +477,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                intensity_column="peptide.intensity",
+                intensity_column=SemanticPeptideKeys.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods"],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -546,7 +487,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="pg",
                 level_name="pg",
-                intensity_column="pg.intensity",
+                intensity_column=SemanticProteinGroupKeys.INTENSITY,
                 aggregation_components=["pg"],
                 should_process=True,
             ),
@@ -618,9 +559,7 @@ class SearchPlanOutput:
                     )
 
         # Merge all quantification levels back to precursor table
-        psm_df = self._merge_quant_levels_to_psm(
-            psm_df, lfq_results, quantlevel_configs
-        )
+        psm_df = merge_quant_levels_to_psm(psm_df, lfq_results, quantlevel_configs)
 
         if save:
             logger.info("Writing psm output to disk")
@@ -631,43 +570,6 @@ class SearchPlanOutput:
             )
 
         return lfq_results
-
-    def _merge_quant_levels_to_psm(
-        self,
-        psm_df: pd.DataFrame,
-        lfq_results: dict[str, pd.DataFrame],
-        quantlevel_configs: list,
-    ) -> pd.DataFrame:
-        """Merge quantification results from all levels back to the precursor table.
-
-        Parameters
-        ----------
-        psm_df : pd.DataFrame
-            Precursor table to merge quantification data into
-        lfq_results : dict[str, pd.DataFrame]
-            Dictionary containing quantification results for each level
-        quantlevel_configs : list
-            List of LFQOutputConfig objects defining quantification levels
-
-        Returns
-        -------
-        pd.DataFrame
-            Updated precursor table with merged quantification data
-        """
-        for config in quantlevel_configs:
-            lfq_df = lfq_results.get(config.level_name)
-
-            if lfq_df is None or lfq_df.empty:
-                continue
-
-            intensity_column = config.intensity_column
-
-            melted_df = lfq_df.melt(
-                id_vars=config.quant_level, var_name="run", value_name=intensity_column
-            )
-            psm_df = psm_df.merge(melted_df, on=[config.quant_level, "run"], how="left")
-
-        return psm_df
 
     def _build_mbr_library(
         self,

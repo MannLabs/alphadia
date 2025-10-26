@@ -57,3 +57,29 @@ class SearchStepFiles(metaclass=ConstantsClass):
     PSM_FILE_NAME = "psm.parquet"
     FRAG_FILE_NAME = "frag.parquet"
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
+
+
+class InferenceStrategy(metaclass=ConstantsClass):
+    """String constants for protein inference strategies."""
+
+    LIBRARY = "library"
+    MAXIMUM_PARSIMONY = "maximum_parsimony"
+    HEURISTIC = "heuristic"
+
+
+class SemanticPrecursorKeys(metaclass=ConstantsClass):
+    """String constants for accessing the precursor output columns."""
+
+    INTENSITY = "precursor.intensity"
+
+
+class SemanticPeptideKeys(metaclass=ConstantsClass):
+    """String constants for accessing the peptide output columns."""
+
+    INTENSITY = "peptide.intensity"
+
+
+class SemanticProteinGroupKeys(metaclass=ConstantsClass):
+    """String constants for accessing the protein group output columns."""
+
+    INTENSITY = "pg.intensity"
