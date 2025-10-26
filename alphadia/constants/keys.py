@@ -68,18 +68,113 @@ class InferenceStrategy(metaclass=ConstantsClass):
 
 
 class SemanticPrecursorKeys(metaclass=ConstantsClass):
-    """String constants for accessing the precursor output columns."""
+    """String constants for precursor output columns.
 
+    These keys define the user-facing API for precursor data in output files.
+    All precursor-specific properties use the 'precursor.' prefix for clarity.
+    """
+
+    # Core identification
+    PRECURSOR_IDX = "precursor.idx"
+    SEQUENCE = "precursor.sequence"
+    CHARGE = "precursor.charge"
+    MODS = "precursor.mods"
+    MOD_SITES = "precursor.mod_sites"
+    MOD_SEQ_HASH = "precursor.mod_seq_hash"
+    MOD_SEQ_CHARGE_HASH = "precursor.mod_seq_charge_hash"
+
+    # Mass measurements
+    MZ_LIBRARY = "precursor.mz.library"
+    MZ_OBSERVED = "precursor.mz.observed"
+    MZ_CALIBRATED = "precursor.mz.calibrated"
+
+    # Retention time measurements
+    RT_LIBRARY = "precursor.rt.library"
+    RT_OBSERVED = "precursor.rt.observed"
+    RT_CALIBRATED = "precursor.rt.calibrated"
+    RT_FWHM = "precursor.rt.fwhm"
+
+    # Mobility measurements
+    MOBILITY_LIBRARY = "precursor.mobility.library"
+    MOBILITY_OBSERVED = "precursor.mobility.observed"
+    MOBILITY_CALIBRATED = "precursor.mobility.calibrated"
+    MOBILITY_FWHM = "precursor.mobility.fwhm"
+
+    # Quantification
     INTENSITY = "precursor.intensity"
+
+    # Quality scores
+    QVAL = "precursor.qval"
+    PROBA = "precursor.proba"
+    SCORE = "precursor.score"
+
+    # Experimental metadata
+    CHANNEL = "precursor.channel"
+    DECOY = "precursor.decoy"
 
 
 class SemanticPeptideKeys(metaclass=ConstantsClass):
-    """String constants for accessing the peptide output columns."""
+    """String constants for peptide output columns.
+
+    These keys define the user-facing API for peptide-level aggregation.
+    """
 
     INTENSITY = "peptide.intensity"
 
 
 class SemanticProteinGroupKeys(metaclass=ConstantsClass):
-    """String constants for accessing the protein group output columns."""
+    """String constants for protein group output columns.
 
+    These keys define the user-facing API for protein group data.
+    The 'pg' identifier itself has no prefix for convenience as a grouping key.
+    """
+
+    PG = "pg"
+    PROTEINS = "pg.proteins"
+    GENES = "pg.genes"
+    MASTER_PROTEIN = "pg.master_protein"
+    QVAL = "pg.qval"
     INTENSITY = "pg.intensity"
+
+
+class SemanticRawKeys(metaclass=ConstantsClass):
+    """String constants for experimental metadata columns.
+
+    These keys represent experimental/run-level metadata that are not
+    specific to precursors, peptides, or protein groups.
+    """
+
+    RAW_NAME = "raw.name"
+
+
+INTERNAL_TO_SEMANTIC_MAPPING = {
+    "precursor_idx": SemanticPrecursorKeys.PRECURSOR_IDX,
+    "sequence": SemanticPrecursorKeys.SEQUENCE,
+    "charge": SemanticPrecursorKeys.CHARGE,
+    "mods": SemanticPrecursorKeys.MODS,
+    "mod_sites": SemanticPrecursorKeys.MOD_SITES,
+    "mod_seq_hash": SemanticPrecursorKeys.MOD_SEQ_HASH,
+    "mod_seq_charge_hash": SemanticPrecursorKeys.MOD_SEQ_CHARGE_HASH,
+    "mz_library": SemanticPrecursorKeys.MZ_LIBRARY,
+    "mz_observed": SemanticPrecursorKeys.MZ_OBSERVED,
+    "mz_calibrated": SemanticPrecursorKeys.MZ_CALIBRATED,
+    "rt_library": SemanticPrecursorKeys.RT_LIBRARY,
+    "rt_observed": SemanticPrecursorKeys.RT_OBSERVED,
+    "rt_calibrated": SemanticPrecursorKeys.RT_CALIBRATED,
+    "mobility_library": SemanticPrecursorKeys.MOBILITY_LIBRARY,
+    "mobility_observed": SemanticPrecursorKeys.MOBILITY_OBSERVED,
+    "mobility_calibrated": SemanticPrecursorKeys.MOBILITY_CALIBRATED,
+    "qval": SemanticPrecursorKeys.QVAL,
+    "proba": SemanticPrecursorKeys.PROBA,
+    "score": SemanticPrecursorKeys.SCORE,
+    "cycle_fwhm": SemanticPrecursorKeys.RT_FWHM,
+    "mobility_fwhm": SemanticPrecursorKeys.MOBILITY_FWHM,
+    "channel": SemanticPrecursorKeys.CHANNEL,
+    "decoy": SemanticPrecursorKeys.DECOY,
+    "pg": SemanticProteinGroupKeys.PG,
+    "proteins": SemanticProteinGroupKeys.PROTEINS,
+    "genes": SemanticProteinGroupKeys.GENES,
+    "pg_master": SemanticProteinGroupKeys.MASTER_PROTEIN,
+    "pg_qval": SemanticProteinGroupKeys.QVAL,
+    "run": SemanticRawKeys.RAW_NAME,
+}

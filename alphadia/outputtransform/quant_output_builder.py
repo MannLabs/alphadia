@@ -3,6 +3,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from alphadia.constants.keys import (
+    INTERNAL_TO_SEMANTIC_MAPPING,
+    SemanticPeptideKeys,
+    SemanticPrecursorKeys,
+    SemanticProteinGroupKeys,
+)
 from alphadia.outputtransform.fragment_accumulator import FragmentQuantLoader
 from alphadia.outputtransform.quant_builder import QuantBuilder
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
@@ -127,6 +133,9 @@ class QuantOutputBuilder:
     def _create_quant_level_configs(self) -> list[LFQOutputConfig]:
         """Create quantification level configurations based on settings.
 
+        Uses semantic keys for intensity columns to ensure consistent
+        output column naming in user-facing files.
+
         Returns
         -------
         list[LFQOutputConfig]
@@ -136,7 +145,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                intensity_column="precursor.intensity",
+                intensity_column=SemanticPrecursorKeys.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods", "charge"],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -146,7 +155,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                intensity_column="peptide.intensity",
+                intensity_column=SemanticPeptideKeys.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods"],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -156,7 +165,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="pg",
                 level_name="pg",
-                intensity_column="pg.intensity",
+                intensity_column=SemanticProteinGroupKeys.INTENSITY,
                 aggregation_components=["pg"],
                 should_process=True,
             ),
@@ -216,13 +225,31 @@ class QuantOutputBuilder:
 
         return lfq_df
 
+    def _apply_semantic_names(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert internal column names to semantic names for output.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe with internal column names
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe with semantic column names applied
+        """
+        rename_dict = {
+            k: v for k, v in INTERNAL_TO_SEMANTIC_MAPPING.items() if k in df.columns
+        }
+        return df.rename(columns=rename_dict)
+
     def save_results(
         self,
         lfq_results: dict[str, pd.DataFrame],
         output_folder: str,
         file_format: str = "parquet",
     ) -> None:
-        """Save quantification results to disk.
+        """Save quantification results to disk with semantic column names.
 
         Parameters
         ----------
@@ -248,8 +275,10 @@ class QuantOutputBuilder:
             logger.info(f"Writing {config.level_name} output to disk")
             import os
 
+            lfq_df_semantic = self._apply_semantic_names(lfq_df)
+
             write_df(
-                lfq_df,
+                lfq_df_semantic,
                 os.path.join(output_folder, f"{config.level_name}.matrix"),
                 file_format=file_format,
             )
@@ -260,7 +289,7 @@ class QuantOutputBuilder:
         output_folder: str,
         file_format: str = "parquet",
     ) -> None:
-        """Save fragment-level quantification matrices to disk.
+        """Save fragment-level quantification matrices to disk with semantic column names.
 
         Parameters
         ----------
@@ -295,8 +324,10 @@ class QuantOutputBuilder:
             )
             import os
 
+            group_intensity_df_semantic = self._apply_semantic_names(group_intensity_df)
+
             write_df(
-                group_intensity_df,
+                group_intensity_df_semantic,
                 os.path.join(
                     output_folder, f"fragment_{config.level_name}filtered.matrix"
                 ),

@@ -4,7 +4,10 @@ import os
 import pandas as pd
 from alphabase.peptide import precursor
 
-from alphadia.constants.keys import InferenceStrategy
+from alphadia.constants.keys import (
+    INTERNAL_TO_SEMANTIC_MAPPING,
+    InferenceStrategy,
+)
 from alphadia.outputtransform import grouping
 
 logger = logging.getLogger()
@@ -48,6 +51,25 @@ def read_df(path_no_format, file_format="parquet"):
         raise ValueError(
             f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
         )
+
+
+def apply_semantic_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert internal column names to semantic names for output files.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe with internal column names
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with semantic column names applied
+    """
+    rename_dict = {
+        k: v for k, v in INTERNAL_TO_SEMANTIC_MAPPING.items() if k in df.columns
+    }
+    return df.rename(columns=rename_dict)
 
 
 def write_df(
