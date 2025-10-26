@@ -657,7 +657,7 @@ class SearchPlanOutput:
         for config in quantlevel_configs:
             lfq_df = lfq_results.get(config.level_name)
 
-            if lfq_df is None:
+            if lfq_df is None or lfq_df.empty:
                 continue
 
             intensity_column = config.intensity_column
