@@ -36,6 +36,7 @@ logger = logging.getLogger()
 class LFQOutputConfig:
     quant_level: str
     level_name: str
+    intensity_column: str
     save_fragments: bool = False
 
 
@@ -523,15 +524,18 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 "mod_seq_charge_hash",
                 "precursor",
+                "precursor.intensity",
                 self.config["search_output"]["save_fragment_quant_matrix"],
             ),
             LFQOutputConfig(
                 "mod_seq_hash",
                 "peptide",
+                "peptide.intensity",
             ),
             LFQOutputConfig(
                 "pg",
                 "pg",
+                "pg.intensity",
             ),
         ]
 
@@ -630,21 +634,13 @@ class SearchPlanOutput:
         pd.DataFrame
             Updated precursor table with merged quantification data
         """
-        intensity_column_mapping = {
-            "precursor": "precursor_intensity",
-            "peptide": "peptide_intensity",
-            "pg": "intensity",
-        }
-
         for config in quantlevel_configs:
-            lfq_df = lfq_results.get(config.level_name, pd.DataFrame())
+            lfq_df = lfq_results.get(config.level_name)
 
-            if len(lfq_df) == 0:
+            if lfq_df is None:
                 continue
 
-            intensity_column = intensity_column_mapping.get(
-                config.level_name, f"{config.level_name}_intensity"
-            )
+            intensity_column = config.intensity_column
 
             melted_df = lfq_df.melt(
                 id_vars=config.quant_level, var_name="run", value_name=intensity_column

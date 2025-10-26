@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.outputtransform.search_plan_output import SearchPlanOutput
+from alphadia.outputtransform.search_plan_output import (
+    LFQOutputConfig,
+    SearchPlanOutput,
+)
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -188,11 +191,6 @@ def test_output_transform():
 
 def test_merge_quant_levels_to_psm_merges_precursor_level():
     """Test that precursor level quantification is merged correctly."""
-    from alphadia.outputtransform.search_plan_output import (
-        LFQOutputConfig,
-        SearchPlanOutput,
-    )
-
     spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {
@@ -208,11 +206,6 @@ def test_merge_quant_levels_to_psm_merges_precursor_level():
 
 def test_merge_quant_levels_to_psm_merges_peptide_level():
     """Test that peptide level quantification is merged correctly."""
-    from alphadia.outputtransform.search_plan_output import (
-        LFQOutputConfig,
-        SearchPlanOutput,
-    )
-
     spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_hash": ["A"], "run": ["run1"]})
     lfq_results = {"peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]})}
@@ -226,11 +219,6 @@ def test_merge_quant_levels_to_psm_merges_peptide_level():
 
 def test_merge_quant_levels_to_psm_merges_protein_group_level():
     """Test that protein group level quantification is merged correctly."""
-    from alphadia.outputtransform.search_plan_output import (
-        LFQOutputConfig,
-        SearchPlanOutput,
-    )
-
     spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"pg": ["PG1"], "run": ["run1"]})
     lfq_results = {"pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]})}
@@ -244,11 +232,6 @@ def test_merge_quant_levels_to_psm_merges_protein_group_level():
 
 def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
     """Test that empty LFQ results are handled gracefully."""
-    from alphadia.outputtransform.search_plan_output import (
-        LFQOutputConfig,
-        SearchPlanOutput,
-    )
-
     spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {"precursor": pd.DataFrame()}
@@ -262,11 +245,6 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
 
 def test_merge_quant_levels_to_psm_merges_all_levels():
     """Test that all quantification levels are merged in one call."""
-    from alphadia.outputtransform.search_plan_output import (
-        LFQOutputConfig,
-        SearchPlanOutput,
-    )
-
     spo = SearchPlanOutput({"general": {"save_figures": False}}, "/tmp")
     psm_df = pd.DataFrame(
         {
