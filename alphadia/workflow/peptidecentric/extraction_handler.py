@@ -2,45 +2,37 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
+from alphadia_search_rs import (
+    PeakGroupQuantification,
+    PeakGroupScoring,
+    PeakGroupSelection,
+    QuantificationParameters,
+    ScoringParameters,
+    SelectionParameters,
+)
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
+from alphadia.reporting.reporting import Pipeline
 from alphadia.search.scoring.config import CandidateScoringConfig
 from alphadia.search.scoring.scoring import CandidateScoring
 
 # TODO: these imports could be conditional: CandidateSelectionConfig, CandidateSelection, CandidateScoringConfig, CandidateScoring
 from alphadia.search.selection.config_df import CandidateSelectionConfig
 from alphadia.search.selection.selection import CandidateSelection
-from alphadia.workflow.managers.fdr_manager import FDRManager
-
-try:
-    from alphadia_search_rs import (
-        PeakGroupQuantification,
-        PeakGroupScoring,
-        PeakGroupSelection,
-        QuantificationParameters,
-        ScoringParameters,
-        SelectionParameters,
-    )
-
-    from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-        candidates_to_ng,
-        parse_candidates,
-        parse_quantification,
-        speclib_to_ng,
-        to_features_df,
-    )
-
-    HAS_ALPHADIA_NG = True
-except ImportError:
-    HAS_ALPHADIA_NG = False
-
-from alphadia.raw_data import DiaData
-from alphadia.reporting.reporting import Pipeline
 from alphadia.workflow.config import Config
+from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    candidates_to_ng,
+    parse_candidates,
+    parse_quantification,
+    speclib_to_ng,
+    to_features_df,
+)
 
 
 class ExtractionHandler(ABC):
@@ -494,11 +486,6 @@ class NgExtractionHandler(ExtractionHandler):
     ):
         """Initialize NG extraction handler."""
         super().__init__(*args, **kwargs)
-        if not HAS_ALPHADIA_NG:
-            raise ImportError(
-                "AlphaDIA NG backend is not installed. "
-                "Please install 'alphadia-ng' to use this extraction handler."
-            )
 
         self._speclib_ng: SpecLibFlatNG = None  # noqa: F821
 
