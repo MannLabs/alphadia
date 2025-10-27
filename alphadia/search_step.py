@@ -139,9 +139,9 @@ class SearchStep:
 
         if SearchStep._is_ng_activated(config, config_updates):
             ng_default_config = SearchStep._load_default_config(
-                file_name="default_ng.yaml"
+                file_name="default_rust.yaml"
             )
-            ng_default_config.name = "ng_default"
+            ng_default_config.name = "default_rust"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
@@ -188,9 +188,11 @@ class SearchStep:
             tmp_updated_config = deepcopy(config)
             tmp_updated_config.update(config_updates)
 
-            return tmp_updated_config["search"]["extraction_backend"] == "ng"
+            extraction_backend = tmp_updated_config["search"]["extraction_backend"]
+        else:
+            extraction_backend = config["search"]["extraction_backend"]
 
-        return config["search"]["extraction_backend"] == "ng"
+        return extraction_backend == "rust"
 
     def _get_random_number_generator(self) -> None | Generator:
         """Getnumpy random number generator if random state is set."""
@@ -544,7 +546,7 @@ class SearchStep:
         TODO move this to a dedicated class.
         """
 
-        if self._config["search"]["extraction_backend"] == "ng":
+        if self._config["search"]["extraction_backend"] == "rust":
             if self._config["transfer_library"]["enabled"]:
                 raise ConfigError(
                     "transfer_library.enabled",

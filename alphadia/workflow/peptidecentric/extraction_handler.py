@@ -103,11 +103,11 @@ class ExtractionHandler(ABC):
         backend = config["search"]["extraction_backend"].lower()
 
         reporter.log_string(f"Using {backend} extraction backend", verbosity="info")
-        if backend == "classic":
+        if backend == "python":
             return ClassicExtractionHandler(
                 config, optimization_manager, fdr_manager, reporter, column_name_handler
             )
-        elif backend == "ng":
+        elif backend == "rust":
             return NgExtractionHandler(
                 config, optimization_manager, fdr_manager, reporter, column_name_handler
             )
@@ -115,7 +115,7 @@ class ExtractionHandler(ABC):
         else:
             raise ValueError(
                 f"Invalid extraction backend '{backend}'. "
-                "Supported backends are: 'classic', 'ng'"
+                "Supported backends are: 'python', 'rust'"
             )
 
     def select_candidates(

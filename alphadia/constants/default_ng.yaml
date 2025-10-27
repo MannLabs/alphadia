@@ -1,4 +1,4 @@
-# Default values in case extraction_backend="ng"
+# Default values in case extraction_backend="rust"
 calibration:
   batch_size: 1000
   optimization_lock_target: 1000

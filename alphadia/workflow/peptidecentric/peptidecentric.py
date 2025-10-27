@@ -136,7 +136,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         config_fdr = self.config["fdr"]
         self._fdr_manager = FDRManager(
             feature_columns=get_feature_names()
-            if self._config["search"]["extraction_backend"] == "ng"
+            if self._config["search"]["extraction_backend"] == "rust"
             else feature_columns,
             classifier_base=_get_classifier_base(
                 enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
@@ -230,7 +230,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             apply_cutoff=True,
         )
 
-        if self._config["search"]["extraction_backend"] == "classic":
+        if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
                     candidates_df, self.dia_data, self.spectral_library
