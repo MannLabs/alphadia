@@ -131,12 +131,14 @@ which can be used as a checkpoint in case the processing is interrupted.
 
 The config switch `general.reuse_quant` enables skipping raw file processing
 when quantification results already exist, which is useful for
-distributed searches or re-running FDR analysis with different parameters.
+distributed searches or for re-running the consensus step with protein inference, FDR and LFQ quantification with different parameters.
 
 When enabled: Before processing each raw file, checks if quantification results already exist.
 If so, skips processing entirely and reuses existing quantification.
-If not, the file is being quanted.
+If not, the file is being searched.
 After all quantifications are available, the workflow continues normally, combining results from all files.
+This way, an alphaDIA run that failed at file 9/10 (e.g. due to a cluster timeout) can simply be restarted,
+as only the missing files (9 and 10) will be processed.
 
 The `--quant-dir` CLI parameter (Config: `quant_directory`, default: null)
 can be used to specify the directory containing quantification results.
