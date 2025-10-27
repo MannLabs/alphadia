@@ -176,6 +176,18 @@ In case of issues, check out the following:
 * [Issues](https://github.com/MannLabs/alphadia/issues): Try a few different search terms to find out if a similar problem has been encountered before
 * [Discussions](https://github.com/MannLabs/alphadia/discussions): Check if your problem or feature requests has been discussed before.
 
+### Problem: Error when downloading the peptdeep pretrained models
+If on startup you receive an error like
+`FileNotFoundError: [Errno 2] No such file or directory: '<some_directory>/peptdeep/pretrained_models'`,
+it could be due to missing write permissions on `<some_directory>`.
+
+#### Solution
+For now, you need to create this directory yourself and manually download the file
+```
+mkdir -p <some_directory>/peptdeep/pretrained_models && cd <some_directory>/peptdeep/pretrained_models
+wget https://github.com/MannLabs/alphapeptdeep/releases/download/pre-trained-models/pretrained_models.zip
+```
+
 ---
 ## Citations
 
