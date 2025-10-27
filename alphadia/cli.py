@@ -159,7 +159,7 @@ def _get_config_from_args(
         try:
             _recursive_update(config, json.loads(args.config_dict))
         except Exception as e:
-            print(f"Could not parse config update: {e}")
+            raise ValueError(f"Could not parse config dict: {e}") from e
 
     return config, args.config, args.config_dict
 
