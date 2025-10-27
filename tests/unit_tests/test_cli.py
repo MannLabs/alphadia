@@ -33,16 +33,35 @@ def test_get_config_from_args():
 
 def test_get_config_from_config_dict():
     """Test the _get_config_from_args function correctly parses config dict."""
-    mock_args = MagicMock(config=None, config_dict='{"key3": "value3"}')
+    mock_args = MagicMock(config=None, config_dict=['{"key3": "value3"}'])
 
     result = _get_config_from_args(mock_args)
 
-    assert result == ({"key3": "value3"}, None, '{"key3": "value3"}')
+    assert result == ({"key3": "value3"}, None, {"key3": "value3"})
+
+
+def test_get_config_from_config_dict_multiple():
+    """Test the _get_config_from_args function correctly parses multiple config dicts."""
+    mock_args = MagicMock(
+        config=None,
+        config_dict=[
+            '{"key3": "value3", "key4": "value4"}',
+            '{"key4": "value4b", "key5": "value5"}',
+        ],
+    )
+
+    result = _get_config_from_args(mock_args)
+
+    assert result == (
+        {"key3": "value3", "key4": "value4b", "key5": "value5"},
+        None,
+        {"key3": "value3", "key4": "value4b", "key5": "value5"},
+    )
 
 
 def test_get_config_from_args_and_config_dict():
     """Test the _get_config_from_args function correctly merges config file and dict."""
-    mock_args = MagicMock(config="config.yaml", config_dict='{"key3": "value3"}')
+    mock_args = MagicMock(config="config.yaml", config_dict=['{"key3": "value3"}'])
 
     yaml_content = {"key1": "value1", "key2": "value2"}
     mock_yaml = yaml.dump(yaml_content)
@@ -53,7 +72,7 @@ def test_get_config_from_args_and_config_dict():
     assert result == (
         {"key1": "value1", "key2": "value2", "key3": "value3"},
         "config.yaml",
-        '{"key3": "value3"}',
+        {"key3": "value3"},
     )
 
 
