@@ -106,6 +106,7 @@ Sometimes, for example when optimizing a single parameter or building multi step
 ```
     --config-dict "{\"library_prediction\":{\"nce\":26}}"
 ```
+Note: this can be passed multiple times, with the later ones taking precedence in case of overlapping keys.
 
 ### 5. Summary
 The full script looks like:
@@ -146,7 +147,7 @@ can be used to specify the directory containing quantification results.
 On startup, the current configuration is dumped as `frozen_config.yaml`, which contains all information to reproduce this run.
 
 Combining these three concepts, here's an example how to reuse an existing quantification (from the `previous_run` directory), but create additional
-output (`peptide_level_lfq`)
+output (`peptide_level_lfq`) through a custom `--config-dict`:
 ```
 alphadia -o ./output_dir --quant-dir ./previous_run/quant --config ./previous_run/frozen_config.yaml --config-dict '{"general": {"reuse_quant": "True"}, "search_output": {"peptide_level_lfq": "True"}}'
 ```

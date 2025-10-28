@@ -67,7 +67,7 @@ parser.add_argument(
     "--directory",
     "-d",
     type=str,
-    help="Directory containing raw data input files.",
+    help="Directory containing raw data input files. Can be passed multiple times.",
     action="append",
     default=[],
 )
@@ -107,9 +107,10 @@ parser.add_argument(
     "--config-dict",
     type=str,
     help="Python dictionary which will be used to update the default config. Keys and string values need to be surrounded by "
-    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}".',
+    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}". Can be passed multiple times (later items take precedence in case of key clashes).',
     nargs="?",
-    default="{}",
+    action="append",
+    default=[],
 )
 parser.add_argument(
     "--quant-dir",  # TODO deprecate
@@ -121,33 +122,30 @@ parser.add_argument(
 )
 
 
-def _recursive_update(
-    full_dict: dict, update_dict: dict
-):  # TODO merge with Config._update
-    """recursively update a dict with a second dict. The dict is updated inplace.
+def _recursive_update(target_dict: dict, source_dict: dict):
+    """Recursively update a dict with a second dict inplace.
 
     Parameters
     ----------
-    full_dict : dict
+    target_dict : dict
         dict to be updated, is updated inplace.
 
-    update_dict : dict
+    source_dict : dict
         dict with new values
-
     """
-    for key, value in update_dict.items():
-        if key in full_dict:
-            if isinstance(value, dict):
-                _recursive_update(full_dict[key], update_dict[key])
-            else:
-                full_dict[key] = value
+
+    for key, value in source_dict.items():
+        if key not in target_dict:
+            target_dict[key] = {}
+        if isinstance(value, dict):
+            _recursive_update(target_dict[key], value)
         else:
-            full_dict[key] = value
+            target_dict[key] = value
 
 
 def _get_config_from_args(
     args: argparse.Namespace,
-) -> tuple[dict, str | None, str | None]:
+) -> tuple[dict, str | None, dict]:
     """Parse config file from `args.config` if given and update with optional JSON string `args.config_dict`."""
 
     config = {}
@@ -155,13 +153,18 @@ def _get_config_from_args(
         with open(args.config) as f:
             config = yaml.safe_load(f)
 
+    merged_config_dict = {}
     if args.config_dict:
         try:
-            _recursive_update(config, json.loads(args.config_dict))
+            for config_dict_str in args.config_dict:
+                config_dict = json.loads(config_dict_str)
+                _recursive_update(merged_config_dict, config_dict)
+
+            _recursive_update(config, merged_config_dict)
         except Exception as e:
             raise ValueError(f"Could not parse config dict: {e}") from e
 
-    return config, args.config, args.config_dict
+    return config, args.config, merged_config_dict
 
 
 def _get_from_args_or_config(
