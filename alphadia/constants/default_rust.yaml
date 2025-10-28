@@ -1,4 +1,6 @@
 # Default values in case extraction_backend="rust"
+# Note: make sure to adapt the frontend defaults conditionally once any of these become configurable from the frontend or
+# if you add something that is already configurable from the frontend.
 calibration:
   batch_size: 1000
   optimization_lock_target: 1000
