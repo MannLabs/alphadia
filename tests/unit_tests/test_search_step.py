@@ -206,7 +206,7 @@ def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
         "search": {"extraction_backend": "rust"},
     }
     mock_load_default_config.assert_has_calls(
-        [call(), call(file_name="default_ng.yaml")]
+        [call(), call(file_name="default_rust.yaml")]
     )
 
 
