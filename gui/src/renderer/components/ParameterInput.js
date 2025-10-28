@@ -255,7 +255,7 @@ const ParameterInput = ({
             }
             // Add highlighted match
             fragments.push(
-                <span key={`match-${match.index}`} style={{ color: 'red', fontWeight: 'bold' }}>
+                <span key={`match-${match.index}`} style={{ color: theme.palette.primary.selected, fontWeight: 'bold' }}>
                     {match[0]}
                 </span>
             );
@@ -295,7 +295,7 @@ const ParameterInput = ({
                     <Typography sx={{
                         fontWeight: 400,
                         fontSize: "12px",
-                        color: isMatch ? 'red' : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
+                        color: isMatch ? theme.palette.primary.selected : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
                     }}>
                         {parameter.name}
                     </Typography>
