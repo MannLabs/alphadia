@@ -50,10 +50,6 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
-library_loading:
-  rt_heuristic: 180
-  # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
-
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
