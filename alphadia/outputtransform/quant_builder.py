@@ -9,6 +9,13 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
+from quantselect.config import QuantSelectConfig
+from quantselect.dataloader import DataLoader
+from quantselect.loader import Loader
+from quantselect.ms1_features import FeatureConfig
+from quantselect.preprocessing import PreprocessingPipeline
+from quantselect.utils import set_global_determinism
+from quantselect.var_model import Model
 
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -236,24 +243,43 @@ class QuantBuilder:
 
     def lfq(
         self,
-        intensity_df: pd.DataFrame,
-        quality_df: pd.DataFrame,
+        feature_dfs_dict: dict[str, pd.DataFrame],
+        psm_df: pd.DataFrame = None,
         num_samples_quadratic: int = 50,
         min_nonan: int = 1,
         num_cores: int = 8,
-        normalize: bool = True,
+        normalize: str = "quantselect",
         group_column: str = "pg",
+        quantselect_config: dict = None,
     ) -> pd.DataFrame:
         """Perform label-free quantification
 
         Parameters
         ----------
 
-        intensity_df: pd.DataFrame
-            Dataframe with the intensity data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        feature_dfs_dict: dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
 
-        quality_df: pd.DataFrame
-            Dataframe with the quality data containing the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        num_samples_quadratic: int
+            Number of samples used for quadratic fit
+
+        min_nonan: int
+            Minimum number of non-missing values required for quantification
+
+        num_cores: int
+            Number of cores to use for parallel processing
+
+        normalize: bool or str
+            Normalization method to use. Can be:
+            - "directlfq"
+            - "quantselect"
+            - "none": No normalization
+
+        group_column: str
+            Column to group by (e.g., "pg" for protein groups)
+
+        quantselect_config: dict, optional
+            Configuration dictionary for quantselect parameters. If None, uses default values.
 
         Returns
         -------
@@ -263,41 +289,132 @@ class QuantBuilder:
 
         """
 
-        logger.info("Performing label-free quantification using directLFQ")
-
-        # drop all other columns as they will be interpreted as samples
-        columns_to_drop = list(
-            {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
-            - {group_column}
+        # Handle backwards compatibility and normalize the parameter
+        logger.info(
+            f"Performing label-free quantification with {normalize} normalization"
         )
-        _intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
-        lfqconfig.set_compile_normalized_ion_table(
-            compile_normalized_ion_table=False
-        )  # save compute time by avoiding the creation of a normalized ion table
-        lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()  # avoid read-only pandas bug on linux if applicable
-        lfqconfig.set_log_processed_proteins(
-            log_processed_proteins=True
-        )  # here you can chose wether to log the processed proteins or not
+        # Apply normalization based on the selected method
+        if normalize == "quantselect":
+            if psm_df is None:
+                raise ValueError("psm_df is required for quantselect normalization")
 
-        _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
+            logger.info("Applying quantselect normalization")
 
-        lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
-        lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
+            # Use provided config or default
+            if quantselect_config is None:
+                quantselect_config = QuantSelectConfig().CONFIG
+            else:
+                # Merge with defaults for missing keys
+                default_config = QuantSelectConfig().CONFIG
+                for key in default_config:
+                    if key not in quantselect_config:
+                        quantselect_config[key] = default_config[key]
 
-        if normalize:
-            lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+            # Set random seed
+            seed = quantselect_config.get("seed", 42)
+            set_global_determinism(seed=seed)
+
+            # Prepare MS1 features from PSM data
+            precursor_df = Loader()._pivot_table_by_feature(
+                FeatureConfig.DEFAULT_FEATURES, psm_df
+            )
+            keys = list(feature_dfs_dict.keys())
+            for k in keys:
+                if "ms2" not in k:
+                    feature_dfs_dict[f"ms2_{k}"] = feature_dfs_dict.pop(k)
+            features = {
+                "ms1": precursor_df,
+                "ms2": feature_dfs_dict,
+            }
+
+            # Initialize preprocessing pipeline
+            pipeline = PreprocessingPipeline(standardize=True)
+
+            # Process data at specified level
+            feature_layer, intensity_layer = pipeline.process(
+                data=features, level=group_column
+            )
+
+            # Create dataloader object
+            dataloader = DataLoader(
+                feature_layer=feature_layer, intensity_layer=intensity_layer
+            )
+
+            # Initialize model with configuration
+            model, optimizer, criterion = Model.initialize_for_training(
+                dataloader=dataloader,
+                criterion_params=quantselect_config["criterion_params"],
+                model_params=quantselect_config["model_params"],
+                optimizer_params=quantselect_config["optmizer_params"],
+            )
+
+            # Train model with fit parameters from config
+            fit_params = quantselect_config["fit_params"]
+            model.fit(
+                criterion=criterion,
+                optimizer=optimizer,
+                dataloader=dataloader,
+                fit_params=fit_params,
+            )
+
+            # Generate predictions with configurable parameters
+            normalized_data = model.predict(
+                dataloader=dataloader,
+                cutoff=0.9,
+                min_num_fragments=12,
+                no_const=3000,
+            )
+
+            # Convert from log2 space back to linear
+            return (2**normalized_data).reset_index(names=group_column)
+
+        else:
+            # drop all other columns as they will be interpreted as samples
+            columns_to_drop = list(
+                {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
+                - {group_column}
+            )
+            intensity_df = feature_dfs_dict["intensity"].drop(columns=columns_to_drop)
+
+            lfqconfig.set_global_protein_and_ion_id(
+                protein_id=group_column, quant_id="ion"
+            )
+            lfqconfig.set_compile_normalized_ion_table(
+                compile_normalized_ion_table=False
+            )  # save compute time by avoiding the creation of a normalized ion table
+            lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()  # avoid read-only pandas bug on linux if applicable
+            lfqconfig.set_log_processed_proteins(
+                log_processed_proteins=True
+            )  # here you can chose wether to log the processed proteins or not
+
+            intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
+
+            lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
+            lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
+
+            if normalize == "directLFQ":
+                logger.info("Applying directLFQ normalization")
+                lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
+                    lfq_df,
+                    num_samples_quadratic=num_samples_quadratic,
+                    selected_proteins_file=None,
+                ).complete_dataframe
+                protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
+                    lfq_df,
+                    min_nonan=min_nonan,
+                    num_samples_quadratic=num_samples_quadratic,
+                    num_cores=num_cores,
+                )
+
+            else:
+                logger.info("Applying no normalization")
+
+            protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
                 lfq_df,
+                min_nonan=min_nonan,
                 num_samples_quadratic=num_samples_quadratic,
-                selected_proteins_file=None,
-            ).complete_dataframe
-
-        protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
-            lfq_df,
-            min_nonan=min_nonan,
-            num_samples_quadratic=num_samples_quadratic,
-            num_cores=num_cores,
-        )
+                num_cores=num_cores,
+            )
 
         return protein_df

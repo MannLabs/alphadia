@@ -32,7 +32,7 @@ def test_output_transform():
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "normalize_lfq": True,
+            "normalization_method": "quantselect",
             "peptide_level_lfq": False,
             "precursor_level_lfq": False,
             "save_fragment_quant_matrix": False,
