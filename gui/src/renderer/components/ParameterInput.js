@@ -2,6 +2,7 @@ import * as React from 'react'
 import styled from '@emotion/styled'
 import useTheme from '@mui/material/styles/useTheme';
 import InfoTooltip from './InfoTooltip'
+import { useMethod } from '../logic/context';
 
 import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
 
@@ -49,6 +50,23 @@ const ParameterInput = ({
         onChange = () => {},
         sx
     }) => {
+
+        const method = useMethod();
+
+        // Check if any raw file is a Bruker .d file
+        const hasBrukerFiles = React.useMemo(() => {
+            if (!method.raw_path_list || !method.raw_path_list.path) return false;
+            return method.raw_path_list.path.some(filePath =>
+                filePath.toLowerCase().endsWith('.d')
+            );
+        }, [method.raw_path_list]);
+
+        // Force extraction_backend to 'python' when Bruker files are present
+        React.useEffect(() => {
+            if (parameter.id === 'extraction_backend' && hasBrukerFiles && parameter.value !== 'python') {
+                onChange('python');
+            }
+        }, [hasBrukerFiles, parameter.id, parameter.value]);
 
         let input = null;
 
@@ -103,15 +121,22 @@ const ParameterInput = ({
                 )
                 break;
             case "dropdown":
+                // Filter options for extraction_backend when Bruker files are present
+                let availableOptions = parameter.options;
+
+                if (parameter.id === 'extraction_backend' && hasBrukerFiles) {
+                    availableOptions = parameter.options.filter(option => option === 'python');
+                }
+
                 input = (
                     <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
                         <Select
                             value={parameter.value}
                             onChange={(event) => {onChange(event.target.value)}}
                             >
-                            {parameter.options.map((option) => {
+                            {availableOptions.map((option) => {
                                 return (
-                                    <MenuItem value={option}>{option}</MenuItem>
+                                    <MenuItem key={option} value={option}>{option}</MenuItem>
                                 )
                             })}
                         </Select>
