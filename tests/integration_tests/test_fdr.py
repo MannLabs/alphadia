@@ -88,7 +88,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy="precursor",
-        competetive=False,
+        competitive=False,
     )
 
     regular_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -96,7 +96,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy="precursor",
-        competetive=True,
+        competitive=True,
     )
 
     competitive_channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -108,7 +108,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy="precursor_channel_wise",
-        competetive=True,
+        competitive=True,
     )
 
     channel_ids = psm_df[psm_df["qval"] < 0.01]["channel"].value_counts()
@@ -117,7 +117,7 @@ def test_fdr():
     psm_df = fdr_manager.fit_predict(
         test_df,
         decoy_strategy="channel",
-        competetive=True,
+        competitive=True,
         decoy_channel=8,
     )
 
