@@ -243,11 +243,11 @@ def test_calibration_manager_save_load():
 
 TEST_OPTIMIZATION_CONFIG = {
     "search_initial": {
-        "initial_ms1_tolerance": 4,
-        "initial_ms2_tolerance": 7,
-        "initial_rt_tolerance": 200,
-        "initial_mobility_tolerance": 0.04,
-        "initial_num_candidates": 1,
+        "ms1_tolerance": 4,
+        "ms2_tolerance": 7,
+        "rt_tolerance": 200,
+        "mobility_tolerance": 0.04,
+        "num_candidates": 1,
     },
     "optimization_manager": {
         "fwhm_rt": 5,
@@ -268,7 +268,7 @@ def test_optimization_manager():
 
 def test_optimization_manager_rt_proportion():
     TEST_OPTIMIZATION_CONFIG_PROPORTION = deepcopy(TEST_OPTIMIZATION_CONFIG)
-    TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["initial_rt_tolerance"] = 0.5
+    TEST_OPTIMIZATION_CONFIG_PROPORTION["search_initial"]["rt_tolerance"] = 0.5
     optimization_manager = OptimizationManager(
         TEST_OPTIMIZATION_CONFIG_PROPORTION, 1200
     )
