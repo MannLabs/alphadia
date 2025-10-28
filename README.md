@@ -18,7 +18,7 @@
   <h3 align="center">alphaDIA</h3>
 
   <p align="center">
-    <a href="https://www.biorxiv.org/content/10.1101/2024.05.28.596182v1">Preprint</a>
+    <a href="https://doi.org/10.1038/s41587-025-02791-w">Publication</a>
     ·
     <a href="https://github.com/Mannlabs/alphadia/releases/latest">Download</a>
     ·
