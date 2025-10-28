@@ -6,7 +6,7 @@ workflow_name: null
 output_directory: null
 library_path: null  # the expected type is steered by general.input_library_type
 raw_paths: []
-fasta_paths: []
+fasta_paths: ["/Users/mschwoerer/docmcp_tmp/repositories/alphapeptdeep/docs/tutorials/data/example.fasta"]
 quant_directory: null
 
 general:
@@ -57,7 +57,7 @@ library_loading:
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
-  enabled: false
+  enabled: true
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest
@@ -313,11 +313,11 @@ fdr:
   two_step_classifier_max_iterations: 5
   # (Experimental)
   # Optimizes the batch size and learning rate of the neural network
-  enable_nn_hyperparameter_tuning: false
+  enable_nn_hyperparameter_tuning: true
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
-  file_format: "tsv"
+  file_format: "parquet"
   # Enable label-free quantification at peptide level and generate peptide matrix
   peptide_level_lfq: false
   # Enable label-free quantification at precursor level and generate precursor matrix
