@@ -107,7 +107,7 @@ parser.add_argument(
     "--config-dict",
     type=str,
     help="Python dictionary which will be used to update the default config. Keys and string values need to be surrounded by "
-    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}". Can be passed multiple times (last item wins in case of key clashes).',
+    'escaped double quotes, e.g. "{\\"key1\\": \\"value1\\"}". Can be passed multiple times (later items take precedence in case of key clashes).',
     nargs="?",
     action="append",
     default=[],
@@ -158,8 +158,9 @@ def _get_config_from_args(
         try:
             for config_dict_str in args.config_dict:
                 config_dict = json.loads(config_dict_str)
-                _recursive_update(config, config_dict)
                 _recursive_update(merged_config_dict, config_dict)
+
+            _recursive_update(config, merged_config_dict)
         except Exception as e:
             raise ValueError(f"Could not parse config dict: {e}") from e
 
