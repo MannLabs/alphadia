@@ -6,7 +6,7 @@ workflow_name: null
 output_directory: null
 library_path: null  # the expected type is steered by general.input_library_type
 raw_paths: []
-fasta_paths: ["/Users/mschwoerer/docmcp_tmp/repositories/alphapeptdeep/docs/tutorials/data/example.fasta"]
+fasta_paths: []
 quant_directory: null
 
 general:
@@ -53,7 +53,7 @@ general:
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
-  enabled: true
+  enabled: false
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest
