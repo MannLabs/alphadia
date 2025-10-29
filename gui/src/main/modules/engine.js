@@ -264,8 +264,11 @@ class CMDExecutionEngine extends BaseExecutionEngine {
                                         "alphadia",
                                         "--config",
                                         `"${path.join(workflow.output_directory.path, "config.yaml")}"`
-                                    ] , { env:{...process.env, PATH}, shell: true});
+                                    ] , { encoding: 'utf8', env:{...process.env, PYTHONIOENCODING: 'utf-8', PATH}, shell: true});
             run.pid = run.process.pid
+
+            run.process.stdout.setEncoding('utf8');
+            run.process.stderr.setEncoding('utf8');
 
             const stdoutTransform = lineBreakTransform();
             run.process.stdout.pipe(stdoutTransform).on('data', (data) => {
