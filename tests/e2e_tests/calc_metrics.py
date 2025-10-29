@@ -12,7 +12,10 @@ from typing import Any
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+try:
+    from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+except ModuleNotFoundError:
+    from prepare_test_data import OUTPUT_DIR_NAME, get_test_case
 
 try:
     import neptune
@@ -27,6 +30,11 @@ def _load_tsv(file_path: str) -> pd.DataFrame:
     return pd.read_csv(file_path, sep="\t")
 
 
+def _load_parquet(file_path: str) -> pd.DataFrame:
+    """Load a parquet file."""
+    return pd.read_parquet(file_path)
+
+
 def _load_speclib_hdf(file_path: str) -> dict[str, pd.DataFrame]:
     """Load a hdf file into a dictionary of keys."""
     raise NotImplementedError("Loading speclib hdf is not implemented yet.")
@@ -35,9 +43,9 @@ def _load_speclib_hdf(file_path: str) -> dict[str, pd.DataFrame]:
 class OutputFiles:
     """String constants for the output file names."""
 
-    PG_MATRIX = "pg.matrix.tsv"
-    PRECURSORS = "precursors.tsv"
-    STAT = "stat.tsv"
+    PG_MATRIX = "pg.matrix.parquet"
+    PRECURSORS = "precursors.parquet"
+    STAT = "stat.parquet"
     LOG = "log.txt"
     # SPECLIB = "speclib.hdf"
     # SPECLIB_MBR = "speclib.mbr.hdf"
@@ -53,9 +61,9 @@ class OutputFiles:
 
 
 file_name_to_read_method_mapping = {
-    OutputFiles.PG_MATRIX: _load_tsv,
-    OutputFiles.PRECURSORS: _load_tsv,
-    OutputFiles.STAT: _load_tsv,
+    OutputFiles.PG_MATRIX: _load_parquet,
+    OutputFiles.PRECURSORS: _load_parquet,
+    OutputFiles.STAT: _load_parquet,
     # OutputFiles.SPECLIB: _load_speclib_hdf,
     # OutputFiles.SPECLIB_MBR: _load_speclib_hdf,
 }

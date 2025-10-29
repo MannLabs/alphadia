@@ -30,20 +30,18 @@ class OptimizationManager(BaseManager):
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
         if not self.is_loaded_from_file:
-            self.ms1_error = config["search_initial"][
-                "initial_ms1_tolerance"
-            ]  # TODO: rename to ms1_tolerance?
-            self.ms2_error = config["search_initial"]["initial_ms2_tolerance"]
+            self.ms1_error = config["search_initial"]["ms1_tolerance"]
+            self.ms2_error = config["search_initial"]["ms2_tolerance"]
 
-            initial_rt_tolerance = config["search_initial"]["initial_rt_tolerance"]
+            initial_rt_tolerance = config["search_initial"]["rt_tolerance"]
             self.rt_error = (
                 initial_rt_tolerance
                 if initial_rt_tolerance > 1
                 else initial_rt_tolerance * gradient_length
             )
-            self.mobility_error = config["search_initial"]["initial_mobility_tolerance"]
+            self.mobility_error = config["search_initial"]["mobility_tolerance"]
 
-            self.num_candidates = config["search_initial"]["initial_num_candidates"]
+            self.num_candidates = config["search_initial"]["num_candidates"]
 
             self.fwhm_rt = config["optimization_manager"]["fwhm_rt"]
             self.fwhm_mobility = config["optimization_manager"]["fwhm_mobility"]

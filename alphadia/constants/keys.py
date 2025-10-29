@@ -13,7 +13,7 @@ class ConstantsClass(type):
         ]
 
 
-class StatOutputKeys(metaclass=ConstantsClass):
+class StatOutputCols(metaclass=ConstantsClass):
     """String constants for reading and writing output columns for the `stat` file."""
 
     # optimization
@@ -67,19 +67,19 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
-class SemanticPrecursorKeys(metaclass=ConstantsClass):
+class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 
     INTENSITY = "precursor.intensity"
 
 
-class SemanticPeptideKeys(metaclass=ConstantsClass):
+class PeptideOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the peptide output columns."""
 
     INTENSITY = "peptide.intensity"
 
 
-class SemanticProteinGroupKeys(metaclass=ConstantsClass):
+class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
     INTENSITY = "pg.intensity"

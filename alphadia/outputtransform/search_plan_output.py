@@ -7,7 +7,9 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
-from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.keys import (
+    ConfigKeys,
+)
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder

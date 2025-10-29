@@ -9,7 +9,7 @@ Also ensure the right execution engine has been selected and your version is up 
 <img src="../_static/images/libfree-gui-v1.10.1/initial_engine.png" width="100%" height="auto">
 
 ## 2. Project Structure
-In this workflow, we will perform a DIA search that handles both library generation and cross-sample quantification (Match Between Runs) automatically. We will not use transfer learning in this workflow as we are looking for unmodified peptides from isntruments well supported by the default PeptDeep model.
+In this workflow, we will perform a DIA search that handles both library generation and cross-sample quantification (Match Between Runs) automatically. We will not use transfer learning in this workflow as we are looking for unmodified peptides from instruments well supported by the default PeptDeep model.
 
 Start by preparing a single output folder for your analysis results.
 
