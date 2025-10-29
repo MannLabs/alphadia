@@ -164,7 +164,7 @@ def main():
             available_columns,
             target_df,
             decoy_df,
-            competetive=True,
+            competitive=True,
             # neptune_run=run,
         )
 

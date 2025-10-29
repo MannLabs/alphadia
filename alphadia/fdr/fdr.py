@@ -28,7 +28,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     *,
-    competetive: bool = False,  # TODO: rename all occurrences to `competitive` (also in config -> breaking change)
+    competitive: bool = False,
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
@@ -54,11 +54,11 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     df_decoy : pd.DataFrame
         A dataframe of decoy PSMs
 
-    competetive : bool
-        Whether to perform competetive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
+    competitive : bool
+        Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
 
     group_channels : bool
-        Whether to group PSMs by channel before performing competetive FDR calculation
+        Whether to group PSMs by channel before performing competitive FDR calculation
 
     figure_path : str, default=None
         The path to save the FDR plot to
@@ -127,7 +127,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     psm_df = pd.concat([df_target, df_decoy])
     psm_df["_decoy"] = y
 
-    if competetive:
+    if competitive:
         group_columns = (
             ["elution_group_idx", "channel"]
             if group_channels

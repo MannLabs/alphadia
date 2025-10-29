@@ -364,7 +364,7 @@ def test_fdr_manager_fit_predict():
     fdr_manager.fit_predict(
         test_features_df,
         decoy_strategy="precursor",
-        competetive=False,
+        competitive=False,
         df_fragments=None,
     )
 
@@ -375,7 +375,7 @@ def test_fdr_manager_fit_predict():
     fdr_manager.fit_predict(
         test_features_df,
         decoy_strategy="precursor",
-        competetive=False,
+        competitive=False,
         df_fragments=None,
         version=0,
     )

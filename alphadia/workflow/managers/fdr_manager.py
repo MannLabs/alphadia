@@ -19,24 +19,24 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
-def get_group_columns(competetive: bool, group_channels: bool) -> list[str]:
+def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
     """
-    Determine the group columns based on competetiveness and channel grouping.
+    Determine the group columns based on competitiveness and channel grouping.
 
-    competetive : bool
+    competitive : bool
         If True, group candidates eluting at the same time by grouping them under the same 'elution_group_idx'.
     group_channels : bool
-        If True and 'competetive' is also True, further groups candidates by 'channel'.
+        If True and 'competitive' is also True, further groups candidates by 'channel'.
 
     Returns
     -------
     list
-        A list of column names to be used for grouping in the analysis. If competetive, this could be either
+        A list of column names to be used for grouping in the analysis. If competitive, this could be either
         ['elution_group_idx', 'channel'] or ['elution_group_idx'] depending on the `group_channels` flag.
-        If not competetive, the list will always be ['precursor_idx'].
+        If not competitive, the list will always be ['precursor_idx'].
 
     """
-    if competetive:
+    if competitive:
         group_columns = (
             ["elution_group_idx", "channel"]
             if group_channels
@@ -108,7 +108,7 @@ class FDRManager(BaseManager):
         self,
         features_df: pd.DataFrame,
         decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"],
-        competetive: bool,
+        competitive: bool,
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
@@ -121,8 +121,8 @@ class FDRManager(BaseManager):
             DataFrame containing the features to use for the classifier. Must contain the columns specified in self.feature_columns.
         decoy_strategy: Literal["precursor", "precursor_channel_wise", "channel"]
             The decoy strategy.
-        competetive: bool
-            Whether competetive scoring should be used.
+        competitive: bool
+            Whether competitive scoring should be used.
         df_fragments: None | pd.DataFrame
             Dataframe containing the fragments to use for the classifier. If None, no fragments are used.
         decoy_channel: int
@@ -155,7 +155,7 @@ class FDRManager(BaseManager):
             f"performing {decoy_strategy} FDR with {len(available_columns)} features"
         )
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
-        self.reporter.log_string(f"Competetive: {competetive}")
+        self.reporter.log_string(f"competitive: {competitive}")
 
         classifier = self.get_classifier(available_columns, version)
         random_state = (
@@ -169,7 +169,7 @@ class FDRManager(BaseManager):
                     available_columns,
                     features_df[features_df["decoy"] == 0].copy(),
                     features_df[features_df["decoy"] == 1].copy(),
-                    competetive=competetive,
+                    competitive=competitive,
                     group_channels=True,
                     # TODO move this logic to perform_fdr():
                     df_fragments=df_fragments if self._compete_for_fragments else None,
@@ -178,7 +178,7 @@ class FDRManager(BaseManager):
                     random_state=random_state,
                 )
             else:
-                group_columns = get_group_columns(competetive, group_channels=True)
+                group_columns = get_group_columns(competitive, group_channels=True)
 
                 psm_df = classifier.fit_predict(
                     features_df,
@@ -199,7 +199,7 @@ class FDRManager(BaseManager):
                         available_columns,
                         channel_df[channel_df["decoy"] == 0].copy(),
                         channel_df[channel_df["decoy"] == 1].copy(),
-                        competetive=competetive,
+                        competitive=competitive,
                         group_channels=True,
                         df_fragments=df_fragments
                         if self._compete_for_fragments
@@ -223,7 +223,7 @@ class FDRManager(BaseManager):
                         available_columns,
                         channel_df[channel_df["channel"] != decoy_channel].copy(),
                         channel_df[channel_df["channel"] == decoy_channel].copy(),
-                        competetive=competetive,
+                        competitive=competitive,
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,

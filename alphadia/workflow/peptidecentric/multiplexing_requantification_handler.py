@@ -139,7 +139,7 @@ class MultiplexingRequantificationHandler:
         psm_df = self._fdr_manager.fit_predict(
             multiplexed_features,
             decoy_strategy="channel",
-            competetive=self._config["multiplexing"]["competetive_scoring"],
+            competitive=self._config["multiplexing"]["competitive_scoring"],
             decoy_channel=decoy_channel,
         )
 
