@@ -319,6 +319,10 @@ search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
   file_format: "parquet"
 
+  # Whether to perform label-free quantification at the precursor level
+  precursor_level_lfq: True
+  # Whether to perform label-free quantification at the peptide level
+  peptide_level_lfq: True
   # Save fragment quant matrix for advanced users
   save_fragment_quant_matrix: False
 

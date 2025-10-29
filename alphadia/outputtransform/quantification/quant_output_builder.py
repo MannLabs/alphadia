@@ -4,6 +4,13 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from alphadia.constants.keys import (
+    PeptideOutputCols,
+    PrecursorOutputCols,
+    ProteinGroupOutputCols,
+    QuantificationLevelKey,
+    QuantificationLevelName,
+)
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
 )
@@ -26,7 +33,8 @@ class LFQOutputConfig:
     intensity_column : str
         Name of the intensity column in the output
     aggregation_components : list[str]
-        Columns to aggregate when annotating the results
+        Columns which are shared within a group by quant level.
+        e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
     should_process : bool, default=True
         Whether to process this quantification level
     save_fragments : bool, default=False
@@ -115,13 +123,13 @@ class QuantOutputBuilder:
                 quantlevel_config, feature_dfs_dict, self.psm_df
             )
 
-            if lfq_df is None:
+            if lfq_df is not None and not lfq_df.empty:
+                lfq_df = self._annotate_quant_df(lfq_df, self.psm_df, quantlevel_config)
+                lfq_results[quantlevel_config.level_name] = lfq_df
+            else:
                 logger.warning(
                     f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
                 )
-                continue
-
-            lfq_results[quantlevel_config.level_name] = lfq_df
 
         psm_df_with_quant = merge_quant_levels_to_psm(
             self.psm_df, lfq_results, quantlevel_configs
@@ -139,33 +147,76 @@ class QuantOutputBuilder:
         """
         return [
             LFQOutputConfig(
-                quant_level="mod_seq_charge_hash",
-                level_name="precursor",
-                intensity_column="precursor.intensity",
-                aggregation_components=["pg", "sequence", "mods", "charge"],
+                quant_level=QuantificationLevelKey.PRECURSOR,
+                level_name=QuantificationLevelName.PRECURSOR,
+                intensity_column=PrecursorOutputCols.INTENSITY,
+                aggregation_components=[
+                    QuantificationLevelName.PROTEIN,
+                    "sequence",
+                    "mods",
+                    "mod_sites",
+                    "charge",
+                ],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
             ),
             LFQOutputConfig(
-                quant_level="mod_seq_hash",
-                level_name="peptide",
-                intensity_column="peptide.intensity",
-                aggregation_components=["pg", "sequence", "mods"],
+                quant_level=QuantificationLevelKey.PEPTIDE,
+                level_name=QuantificationLevelName.PEPTIDE,
+                intensity_column=PeptideOutputCols.INTENSITY,
+                aggregation_components=[
+                    QuantificationLevelName.PROTEIN,
+                    "sequence",
+                    "mods",
+                    "mod_sites",
+                ],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
             ),
             LFQOutputConfig(
-                quant_level="pg",
-                level_name="pg",
-                intensity_column="pg.intensity",
-                aggregation_components=["pg"],
+                quant_level=QuantificationLevelKey.PROTEIN,
+                level_name=QuantificationLevelName.PROTEIN,
+                intensity_column=ProteinGroupOutputCols.INTENSITY,
+                aggregation_components=[
+                    QuantificationLevelName.PROTEIN,
+                ],
                 should_process=True,
             ),
         ]
+
+    def _annotate_quant_df(
+        self,
+        lfq_df: pd.DataFrame,
+        psm_df: pd.DataFrame,
+        config: LFQOutputConfig,
+    ) -> pd.DataFrame:
+        """Annotate quantification results with metadata from PSM dataframe.
+
+        Parameters
+        ----------
+        lfq_df : pd.DataFrame
+            Quantification results dataframe
+        psm_df : pd.DataFrame
+            PSM dataframe containing metadata
+        config : LFQOutputConfig
+            Configuration specifying grouping and aggregation columns
+
+        Returns
+        -------
+        pd.DataFrame
+            Annotated quantification dataframe
+        """
+        if config.level_name == QuantificationLevelName.PROTEIN:
+            return lfq_df
+
+        annotate_df = psm_df.groupby(config.quant_level, as_index=False).agg(
+            {c: "first" for c in config.aggregation_components}
+        )
+        return lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
     def _process_quant_level(
         self,
@@ -212,12 +263,6 @@ class QuantOutputBuilder:
             normalize=self.config["search_output"]["normalize_lfq"],
             group_column=config.quant_level,
         )
-
-        if config.level_name != "pg":
-            annotate_df = psm_df.groupby(config.quant_level, as_index=False).agg(
-                {c: "first" for c in config.aggregation_components}
-            )
-            lfq_df = lfq_df.merge(annotate_df, on=config.quant_level, how="left")
 
         return lfq_df
 
