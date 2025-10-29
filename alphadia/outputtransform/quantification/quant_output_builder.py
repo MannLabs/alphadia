@@ -1,10 +1,13 @@
 import logging
+import os
 from dataclasses import dataclass
 
 import pandas as pd
 
-from alphadia.outputtransform.fragment_accumulator import FragmentQuantLoader
-from alphadia.outputtransform.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.fragment_accumulator import (
+    FragmentQuantLoader,
+)
+from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
@@ -113,7 +116,9 @@ class QuantOutputBuilder:
             )
 
             if lfq_df is None:
-                lfq_results[quantlevel_config.level_name] = pd.DataFrame()
+                logger.warning(
+                    f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
+                )
                 continue
 
             lfq_results[quantlevel_config.level_name] = lfq_df
@@ -246,7 +251,6 @@ class QuantOutputBuilder:
                 continue
 
             logger.info(f"Writing {config.level_name} output to disk")
-            import os
 
             write_df(
                 lfq_df,
@@ -293,7 +297,6 @@ class QuantOutputBuilder:
             logger.info(
                 f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
             )
-            import os
 
             write_df(
                 group_intensity_df,

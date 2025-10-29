@@ -5,7 +5,7 @@ from collections.abc import Iterator
 import numpy as np
 import pandas as pd
 
-from alphadia.outputtransform.quant_builder import prepare_df
+from alphadia.outputtransform.quantification.quant_builder import prepare_df
 
 logger = logging.getLogger()
 
@@ -91,12 +91,12 @@ class FragmentQuantLoader:
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
-        annotate_df = self.psm_df.groupby("precursor_idx", as_index=False).agg(
-            {"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"}
-        )
+        precursor_metadata_df = self.psm_df.groupby(
+            "precursor_idx", as_index=False
+        ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
 
         return {
-            col: self._add_annotation(df, annotate_df)
+            col: self._add_precursor_idx(df, precursor_metadata_df)
             for col, df in zip(self.columns, df_list)
         }
 
@@ -132,22 +132,24 @@ class FragmentQuantLoader:
                     yield raw_name, run_df
 
     @staticmethod
-    def _add_annotation(df: pd.DataFrame, annotate_df: pd.DataFrame) -> pd.DataFrame:
-        """Add annotation to fragment data.
+    def _add_precursor_idx(
+        df: pd.DataFrame, precursor_metadata_df: pd.DataFrame
+    ) -> pd.DataFrame:
+        """Add precursor index metadata to fragment data.
 
         Parameters
         ----------
         df : pd.DataFrame
             Fragment data with precursor_idx
-        annotate_df : pd.DataFrame
-            Annotation data with precursor_idx, pg, mod_seq_hash, mod_seq_charge_hash
+        precursor_metadata_df : pd.DataFrame
+            Precursor metadata with precursor_idx, pg, mod_seq_hash, mod_seq_charge_hash
 
         Returns
         -------
         pd.DataFrame
-            Fragment data with annotation columns added
+            Fragment data with precursor metadata columns added
         """
         df.fillna(0, inplace=True)
         df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
-        df = df.merge(annotate_df, on="precursor_idx", how="left")
+        df = df.merge(precursor_metadata_df, on="precursor_idx", how="left")
         return df

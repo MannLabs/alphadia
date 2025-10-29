@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from alphadia.outputtransform.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification import QuantBuilder
 
 
 @pytest.fixture
@@ -183,11 +183,17 @@ class TestLfq:
     def mock_directlfq(self):
         """Mock directLFQ functions."""
         with (
-            patch("alphadia.outputtransform.quant_builder.lfqconfig") as mock_config,
-            patch("alphadia.outputtransform.quant_builder.lfqutils") as mock_utils,
-            patch("alphadia.outputtransform.quant_builder.lfqnorm") as mock_norm,
             patch(
-                "alphadia.outputtransform.quant_builder.lfqprot_estimation"
+                "alphadia.outputtransform.quantification.quant_builder.lfqconfig"
+            ) as mock_config,
+            patch(
+                "alphadia.outputtransform.quantification.quant_builder.lfqutils"
+            ) as mock_utils,
+            patch(
+                "alphadia.outputtransform.quantification.quant_builder.lfqnorm"
+            ) as mock_norm,
+            patch(
+                "alphadia.outputtransform.quantification.quant_builder.lfqprot_estimation"
             ) as mock_prot,
         ):
             mock_utils.index_and_log_transform_input_df.return_value = pd.DataFrame(
@@ -221,7 +227,7 @@ class TestLfq:
         builder = QuantBuilder(psm_df)
 
         # When
-        result_df = builder.lfq(intensity_df, quality_df)
+        result_df = builder.lfq(intensity_df, quality_df, num_cores=4)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
@@ -235,7 +241,7 @@ class TestLfq:
         builder = QuantBuilder(psm_df)
 
         # When
-        builder.lfq(intensity_df, quality_df, group_column="pg")
+        builder.lfq(intensity_df, quality_df, num_cores=4, group_column="pg")
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -253,7 +259,7 @@ class TestLfq:
         builder = QuantBuilder(psm_df)
 
         # When
-        builder.lfq(intensity_df, quality_df, normalize=normalize)
+        builder.lfq(intensity_df, quality_df, num_cores=4, normalize=normalize)
 
         # Then
         mock_norm = mock_directlfq["norm"]
@@ -269,7 +275,7 @@ class TestLfq:
         builder = QuantBuilder(psm_df)
 
         # When
-        builder.lfq(intensity_df, quality_df, group_column="mod_seq_hash")
+        builder.lfq(intensity_df, quality_df, num_cores=4, group_column="mod_seq_hash")
 
         # Then
         mock_config = mock_directlfq["config"]

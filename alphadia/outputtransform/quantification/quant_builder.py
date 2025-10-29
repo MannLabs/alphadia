@@ -147,9 +147,9 @@ class QuantBuilder:
         self,
         intensity_df: pd.DataFrame,
         quality_df: pd.DataFrame,
+        num_cores: int,
         num_samples_quadratic: int = 50,
         min_nonan: int = 1,
-        num_cores: int = 8,
         normalize: bool = True,
         group_column: str = "pg",
     ) -> pd.DataFrame:
@@ -161,12 +161,12 @@ class QuantBuilder:
             Fragment intensity data with columns: group_column, ion, run1, run2, ...
         quality_df : pd.DataFrame
             Fragment quality data (currently unused but kept for API compatibility)
+        num_cores : int
+            Number of CPU cores for parallel processing
         num_samples_quadratic : int, default=50
             Number of samples for quadratic fitting in directLFQ
         min_nonan : int, default=1
             Minimum number of non-NaN values required per protein
-        num_cores : int, default=8
-            Number of CPU cores for parallel processing
         normalize : bool, default=True
             Whether to normalize intensities across samples
         group_column : str, default='pg'

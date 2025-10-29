@@ -22,7 +22,7 @@ from alphadia.outputtransform.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
-from alphadia.outputtransform.quant_output_builder import QuantOutputBuilder
+from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_protein_inference,
     get_channels_from_config,
