@@ -51,8 +51,6 @@ def prepare_input_data():
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "normalize_lfq": True,
-            "peptide_level_lfq": False,
-            "precursor_level_lfq": False,
             "save_fragment_quant_matrix": False,
         },
         "transfer_library": {

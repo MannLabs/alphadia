@@ -6,7 +6,10 @@ import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.outputtransform.search_plan_output import SearchPlanOutput
+from alphadia.outputtransform.search_plan_output import (
+    LFQOutputConfig,
+    SearchPlanOutput,
+)
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -33,8 +36,6 @@ def test_output_transform():
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "normalize_lfq": True,
-            "peptide_level_lfq": False,
-            "precursor_level_lfq": False,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
         },
@@ -184,3 +185,74 @@ def test_output_transform():
             assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
 
     shutil.rmtree(temp_folder)
+
+
+def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
+    """Test that empty LFQ results are handled gracefully."""
+    search_plan_output = SearchPlanOutput(
+        {"general": {"save_figures": False}}, "some_unused_output_path"
+    )
+    psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
+    lfq_results = {"precursor": pd.DataFrame()}
+    configs = [
+        LFQOutputConfig(
+            "mod_seq_charge_hash",
+            "precursor",
+            "precursor.intensity",
+            ["pg", "sequence", "mods", "charge"],
+        )
+    ]
+
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    expected = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
+
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_merge_quant_levels_to_psm_merges_all_levels():
+    """Test that all quantification levels are merged in one call."""
+    search_plan_output = SearchPlanOutput(
+        {"general": {"save_figures": False}}, "some_unused_output_path"
+    )
+    psm_df = pd.DataFrame(
+        {
+            "mod_seq_charge_hash": ["A1"],
+            "mod_seq_hash": ["A"],
+            "pg": ["PG1"],
+            "run": ["run1"],
+        }
+    )
+    lfq_results = {
+        "precursor": pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run1": [100.0]}),
+        "peptide": pd.DataFrame({"mod_seq_hash": ["A"], "run1": [400.0]}),
+        "pg": pd.DataFrame({"pg": ["PG1"], "run1": [700.0]}),
+    }
+    configs = [
+        LFQOutputConfig(
+            "mod_seq_charge_hash",
+            "precursor",
+            "precursor.intensity",
+            ["pg", "sequence", "mods", "charge"],
+        ),
+        LFQOutputConfig(
+            "mod_seq_hash", "peptide", "peptide.intensity", ["pg", "sequence", "mods"]
+        ),
+        LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
+    ]
+
+    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+
+    expected = pd.DataFrame(
+        {
+            "mod_seq_charge_hash": ["A1"],
+            "mod_seq_hash": ["A"],
+            "pg": ["PG1"],
+            "run": ["run1"],
+            "precursor.intensity": [100.0],
+            "peptide.intensity": [400.0],
+            "pg.intensity": [700.0],
+        }
+    )
+
+    pd.testing.assert_frame_equal(result, expected)

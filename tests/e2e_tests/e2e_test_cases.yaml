@@ -84,8 +84,6 @@ test_cases:
         initial_mobility_tolerance: 0.08
         initial_rt_tolerance: 240
       search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
         save_fragment_quant_matrix: true
     library_path:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/MSFragger_library_60SPD_2.tsv
@@ -119,9 +117,6 @@ test_cases:
         initial_ms1_tolerance: 10
         initial_ms2_tolerance: 15
         initial_rt_tolerance: 300
-      search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
@@ -155,9 +150,6 @@ test_cases:
         initial_ms1_tolerance: 100
         initial_ms2_tolerance: 100
         initial_rt_tolerance: 600
-      search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
@@ -191,8 +183,6 @@ test_cases:
 #        initial_ms2_tolerance: 15
 #        initial_rt_tolerance: 300
 #      search_output:
-#        peptide_level_lfq: true
-#        precursor_level_lfq: true
 #        save_fragment_quant_matrix: false
 #    library_path:
 #      - source_url: https://datashare.biochem.mpg.de/s/Q9D8N2mq8vlzQ1f  #speclib.mbr.hdf
