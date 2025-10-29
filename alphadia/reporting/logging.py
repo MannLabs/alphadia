@@ -1,5 +1,6 @@
 import logging
 import os
+import platform
 import socket
 from datetime import datetime
 from importlib import metadata
@@ -34,6 +35,12 @@ def print_environment() -> None:
     """Log information about the python environment."""
 
     logger.info(f"hostname: {socket.gethostname()}")
+    logger.progress(
+        f"os: {platform.system()} {platform.release()} ({platform.machine()})"
+    )
+    logger.progress(
+        f"python: {platform.python_version()} ({platform.python_implementation()})"
+    )
     if slurm_job_id := os.environ.get("SLURM_JOB_ID"):
         logger.info(f"slurm_job_id: {slurm_job_id}")
 
@@ -41,9 +48,9 @@ def print_environment() -> None:
     logger.info(f"date: {now}")
 
     logger.info("================ AlphaX Environment ===============")
-    logger.info(f"{'alphatims':<15} : {alphatims.__version__:}")
-    logger.info(f"{'alpharaw':<15} : {alpharaw.__version__}")
     logger.info(f"{'alphabase':<15} : {alphabase.__version__}")
+    logger.info(f"{'alpharaw':<15} : {alpharaw.__version__}")
+    logger.info(f"{'alphatims':<15} : {alphatims.__version__:}")
     logger.info(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
     logger.info(f"{'directlfq':<15} : {directlfq.__version__}")
     logger.info("===================================================")
