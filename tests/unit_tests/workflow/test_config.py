@@ -313,9 +313,10 @@ def test_config_to_yaml_converts_numpy_types():
     )
 
     # when
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=True) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         temp_path = f.name
 
+    try:
         config_with_numpy.to_yaml(temp_path)
 
         with open(temp_path) as f2:
@@ -343,3 +344,5 @@ def test_config_to_yaml_converts_numpy_types():
         assert loaded_config["nested"]["list_with_numpy"][1] == 200.5
 
         assert "!!python/object" not in yaml_content
+    finally:
+        os.unlink(temp_path)
