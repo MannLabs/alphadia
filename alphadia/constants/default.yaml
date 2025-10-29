@@ -318,7 +318,7 @@ fdr:
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
   file_format: "parquet"
-  
+
   # Save fragment quant matrix for advanced users
   save_fragment_quant_matrix: False
 
