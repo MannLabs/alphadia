@@ -12,6 +12,12 @@ const { ExecutionManager } = require('./modules/engine')
 const { buildMenu } = require('./modules/menu')
 const { Profile } = require('./modules/profile')
 
+// Set encoding for Windows to handle UTF-8 properly
+if (process.platform === 'win32') {
+  process.stdout.setEncoding('utf8');
+  process.env.PYTHONIOENCODING = 'utf-8';
+}
+
 contextMenu({
 	showSaveImageAs: false,
     showCopyLink: false,
