@@ -1,7 +1,8 @@
 import * as React from 'react';
 import styled from '@emotion/styled';
 import { useMethod, useMethodDispatch } from '../logic/context';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, TextField, InputAdornment } from '@mui/material';
+import SearchIcon from '@mui/icons-material/Search';
 import { Masonry } from '@mui/lab';
 import { SingleSelect, MultiSelect, InputFileSelect, FileViewer, ParameterGroup } from '../components';
 import WorkflowOverview from '../components/WorkflowOverview';
@@ -73,13 +74,34 @@ const Files = () => {
 
 const Config = () => {
     const method = useMethod();
+    const [searchTerm, setSearchTerm] = React.useState('');
+
     return (
         <Box>
+            <Box sx={{ mb: 2 }}>
+                <TextField
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    placeholder="Search parameters by name or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                        startAdornment: (
+                            <InputAdornment position="start">
+                                <SearchIcon />
+                            </InputAdornment>
+                        ),
+                    }}
+                />
+            </Box>
             <Masonry columns={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3 }} spacing={1}>
                 {method.config.map((parameterGroup, index) => (
                 <ParameterGroup
+                    key={parameterGroup.id}
                     parameterGroup={parameterGroup}
                     index={index}
+                    searchTerm={searchTerm}
                 />
                 ))}
             </Masonry>

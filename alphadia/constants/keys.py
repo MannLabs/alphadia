@@ -13,7 +13,7 @@ class ConstantsClass(type):
         ]
 
 
-class StatOutputKeys(metaclass=ConstantsClass):
+class StatOutputCols(metaclass=ConstantsClass):
     """String constants for reading and writing output columns for the `stat` file."""
 
     # optimization
@@ -67,12 +67,8 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
-class SemanticPrecursorKeys(metaclass=ConstantsClass):
-    """String constants for precursor output columns.
-
-    These keys define the user-facing API for precursor data in output files.
-    All precursor-specific properties use the 'precursor.' prefix for clarity.
-    """
+class PrecursorOutputCols(metaclass=ConstantsClass):
+    """String constants for accessing the precursor output columns."""
 
     # Core identification
     PRECURSOR_IDX = "precursor.idx"
@@ -113,21 +109,14 @@ class SemanticPrecursorKeys(metaclass=ConstantsClass):
     DECOY = "precursor.decoy"
 
 
-class SemanticPeptideKeys(metaclass=ConstantsClass):
-    """String constants for peptide output columns.
-
-    These keys define the user-facing API for peptide-level aggregation.
-    """
+class PeptideOutputCols(metaclass=ConstantsClass):
+    """String constants for accessing the peptide output columns."""
 
     INTENSITY = "peptide.intensity"
 
 
-class SemanticProteinGroupKeys(metaclass=ConstantsClass):
-    """String constants for protein group output columns.
-
-    These keys define the user-facing API for protein group data.
-    The 'pg' identifier itself has no prefix for convenience as a grouping key.
-    """
+class ProteinGroupOutputCols(metaclass=ConstantsClass):
+    """String constants for accessing the protein group output columns."""
 
     PG = "pg"
     PROTEINS = "pg.proteins"
@@ -148,33 +137,33 @@ class SemanticRawKeys(metaclass=ConstantsClass):
 
 
 INTERNAL_TO_SEMANTIC_MAPPING = {
-    "precursor_idx": SemanticPrecursorKeys.PRECURSOR_IDX,
-    "sequence": SemanticPrecursorKeys.SEQUENCE,
-    "charge": SemanticPrecursorKeys.CHARGE,
-    "mods": SemanticPrecursorKeys.MODS,
-    "mod_sites": SemanticPrecursorKeys.MOD_SITES,
-    "mod_seq_hash": SemanticPrecursorKeys.MOD_SEQ_HASH,
-    "mod_seq_charge_hash": SemanticPrecursorKeys.MOD_SEQ_CHARGE_HASH,
-    "mz_library": SemanticPrecursorKeys.MZ_LIBRARY,
-    "mz_observed": SemanticPrecursorKeys.MZ_OBSERVED,
-    "mz_calibrated": SemanticPrecursorKeys.MZ_CALIBRATED,
-    "rt_library": SemanticPrecursorKeys.RT_LIBRARY,
-    "rt_observed": SemanticPrecursorKeys.RT_OBSERVED,
-    "rt_calibrated": SemanticPrecursorKeys.RT_CALIBRATED,
-    "mobility_library": SemanticPrecursorKeys.MOBILITY_LIBRARY,
-    "mobility_observed": SemanticPrecursorKeys.MOBILITY_OBSERVED,
-    "mobility_calibrated": SemanticPrecursorKeys.MOBILITY_CALIBRATED,
-    "qval": SemanticPrecursorKeys.QVAL,
-    "proba": SemanticPrecursorKeys.PROBA,
-    "score": SemanticPrecursorKeys.SCORE,
-    "cycle_fwhm": SemanticPrecursorKeys.RT_FWHM,
-    "mobility_fwhm": SemanticPrecursorKeys.MOBILITY_FWHM,
-    "channel": SemanticPrecursorKeys.CHANNEL,
-    "decoy": SemanticPrecursorKeys.DECOY,
-    "pg": SemanticProteinGroupKeys.PG,
-    "proteins": SemanticProteinGroupKeys.PROTEINS,
-    "genes": SemanticProteinGroupKeys.GENES,
-    "pg_master": SemanticProteinGroupKeys.MASTER_PROTEIN,
-    "pg_qval": SemanticProteinGroupKeys.QVAL,
+    "precursor_idx": PrecursorOutputCols.PRECURSOR_IDX,
+    "sequence": PrecursorOutputCols.SEQUENCE,
+    "charge": PrecursorOutputCols.CHARGE,
+    "mods": PrecursorOutputCols.MODS,
+    "mod_sites": PrecursorOutputCols.MOD_SITES,
+    "mod_seq_hash": PrecursorOutputCols.MOD_SEQ_HASH,
+    "mod_seq_charge_hash": PrecursorOutputCols.MOD_SEQ_CHARGE_HASH,
+    "mz_library": PrecursorOutputCols.MZ_LIBRARY,
+    "mz_observed": PrecursorOutputCols.MZ_OBSERVED,
+    "mz_calibrated": PrecursorOutputCols.MZ_CALIBRATED,
+    "rt_library": PrecursorOutputCols.RT_LIBRARY,
+    "rt_observed": PrecursorOutputCols.RT_OBSERVED,
+    "rt_calibrated": PrecursorOutputCols.RT_CALIBRATED,
+    "mobility_library": PrecursorOutputCols.MOBILITY_LIBRARY,
+    "mobility_observed": PrecursorOutputCols.MOBILITY_OBSERVED,
+    "mobility_calibrated": PrecursorOutputCols.MOBILITY_CALIBRATED,
+    "qval": PrecursorOutputCols.QVAL,
+    "proba": PrecursorOutputCols.PROBA,
+    "score": PrecursorOutputCols.SCORE,
+    "cycle_fwhm": PrecursorOutputCols.RT_FWHM,
+    "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
+    "channel": PrecursorOutputCols.CHANNEL,
+    "decoy": PrecursorOutputCols.DECOY,
+    "pg": ProteinGroupOutputCols.PG,
+    "proteins": ProteinGroupOutputCols.PROTEINS,
+    "genes": ProteinGroupOutputCols.GENES,
+    "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
+    "pg_qval": ProteinGroupOutputCols.QVAL,
     "run": SemanticRawKeys.RAW_NAME,
 }

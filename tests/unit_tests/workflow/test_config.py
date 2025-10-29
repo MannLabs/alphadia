@@ -1,7 +1,9 @@
 import os
+import tempfile
 from io import StringIO
 from unittest.mock import patch
 
+import numpy as np
 import pytest
 import yaml
 
@@ -87,9 +89,6 @@ def test_config_update_simple_two_files():
 
     # when
     config_1.update([config_2, config_3], do_print=True)
-
-    config_1.__repr__()
-    print("X")
 
     assert config_1 == expected_generic_default_config_dict | {
         "simple_value_int": 2,
@@ -295,3 +294,55 @@ def test_config_update_default_config():
     config_1.update([config_2], do_print=True)
 
     assert config_1 == config_2
+
+
+def test_config_to_yaml_converts_numpy_types():
+    """Test that numpy types are converted to native Python types when saving to YAML."""
+    # given
+    config_with_numpy = Config(
+        {
+            "numpy_float64": np.float64(5.0),
+            "numpy_int32": np.int32(42),
+            "numpy_array": np.array([1.0, 2.0, 3.0]),
+            "nested": {
+                "numpy_float32": np.float32(3.14),
+                "list_with_numpy": [np.int64(100), np.float64(200.5)],
+            },
+        },
+        "test",
+    )
+
+    # when
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        temp_path = f.name
+
+    try:
+        config_with_numpy.to_yaml(temp_path)
+
+        with open(temp_path) as f2:
+            yaml_content = f2.read()
+
+        loaded_config = yaml.safe_load(yaml_content)
+
+        # then
+        assert isinstance(loaded_config["numpy_float64"], float)
+        assert loaded_config["numpy_float64"] == 5.0
+
+        assert isinstance(loaded_config["numpy_int32"], int)
+        assert loaded_config["numpy_int32"] == 42
+
+        assert isinstance(loaded_config["numpy_array"], list)
+        assert loaded_config["numpy_array"] == [1.0, 2.0, 3.0]
+
+        assert isinstance(loaded_config["nested"]["numpy_float32"], float)
+        assert abs(loaded_config["nested"]["numpy_float32"] - 3.14) < 0.001
+
+        assert isinstance(loaded_config["nested"]["list_with_numpy"][0], int)
+        assert loaded_config["nested"]["list_with_numpy"][0] == 100
+
+        assert isinstance(loaded_config["nested"]["list_with_numpy"][1], float)
+        assert loaded_config["nested"]["list_with_numpy"][1] == 200.5
+
+        assert "!!python/object" not in yaml_content
+    finally:
+        os.unlink(temp_path)

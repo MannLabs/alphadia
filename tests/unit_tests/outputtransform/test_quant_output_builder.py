@@ -3,9 +3,9 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from alphadia.outputtransform.quant_output_builder import (
+from alphadia.outputtransform.quantification import QuantOutputBuilder
+from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
-    QuantOutputBuilder,
 )
 
 
@@ -131,7 +131,7 @@ class TestQuantOutputBuilder:
         assert all(builder.fragment_loader.psm_df["decoy"] == 0)
 
     @patch(
-        "alphadia.outputtransform.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_returns_empty_when_no_fragments(
         self, mock_accumulate, psm_df, config
@@ -148,10 +148,14 @@ class TestQuantOutputBuilder:
         assert lfq_results == {}
         pd.testing.assert_frame_equal(result_psm_df, psm_df)
 
-    @patch("alphadia.outputtransform.quant_output_builder.QuantBuilder.lfq")
-    @patch("alphadia.outputtransform.quant_output_builder.QuantBuilder.filter_frag_df")
     @patch(
-        "alphadia.outputtransform.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_respects_config_flags(
         self, mock_accumulate, mock_filter, mock_lfq, psm_df, config, feature_dfs
@@ -186,10 +190,14 @@ class TestQuantOutputBuilder:
         assert "pg" in lfq_results
         assert "peptide" not in lfq_results
 
-    @patch("alphadia.outputtransform.quant_output_builder.QuantBuilder.lfq")
-    @patch("alphadia.outputtransform.quant_output_builder.QuantBuilder.filter_frag_df")
     @patch(
-        "alphadia.outputtransform.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.lfq"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
+    )
+    @patch(
+        "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_annotates_non_protein_levels(
         self, mock_accumulate, mock_filter, mock_lfq, psm_df, config, feature_dfs

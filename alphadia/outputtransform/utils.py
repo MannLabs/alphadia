@@ -1,5 +1,6 @@
 import logging
 import os
+from typing import Literal
 
 import pandas as pd
 from alphabase.peptide import precursor
@@ -155,15 +156,15 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
     pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
     precursor_count = psm_df[psm_df["decoy"] == 0]["precursor_idx"].nunique()
 
-    logger.progress(
+    logger.info(
         "================ Protein FDR =================",
     )
-    logger.progress("Unique protein groups in output")
-    logger.progress(f"  1% protein FDR: {pg_count:,}")
-    logger.progress("")
-    logger.progress("Unique precursor in output")
-    logger.progress(f"  1% protein FDR: {precursor_count:,}")
-    logger.progress(
+    logger.info("Unique protein groups in output")
+    logger.info(f"  1% protein FDR: {pg_count:,}")
+    logger.info("")
+    logger.info("Unique precursor in output")
+    logger.info(f"  1% protein FDR: {precursor_count:,}")
+    logger.info(
         "================================================",
     )
 
@@ -233,7 +234,9 @@ def prepare_psm_dataframe(psm_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def apply_protein_inference(
-    psm_df: pd.DataFrame, inference_strategy: str, group_level: str
+    psm_df: pd.DataFrame,
+    inference_strategy: Literal["library", "maximum_parsimony", "heuristic"],
+    group_level: str,
 ) -> pd.DataFrame:
     """Apply protein inference strategy to PSM dataframe.
 
@@ -241,7 +244,7 @@ def apply_protein_inference(
     ----------
     psm_df : pd.DataFrame
         PSM dataframe
-    inference_strategy : str
+    inference_strategy : Literal["library", "maximum_parsimony", "heuristic"]
         Inference strategy: 'library', 'maximum_parsimony', or 'heuristic'
     group_level : str
         Grouping level: 'proteins' or 'genes'
@@ -279,7 +282,7 @@ def apply_protein_inference(
 
     else:
         raise ValueError(
-            f"Unknown inference strategy: {inference_strategy}. Valid options are '{InferenceStrategy.LIBRARY}', '{InferenceStrategy.MAXIMUM_PARSIMONY}' and '{InferenceStrategy.HEURISTIC}'"
+            f"Unknown inference strategy: {inference_strategy}. Valid options are {InferenceStrategy.get_values()}"
         )
 
     return psm_df

@@ -7,7 +7,9 @@ import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
 from alphadia.constants.keys import InferenceStrategy
-from alphadia.outputtransform.quant_output_builder import LFQOutputConfig
+from alphadia.outputtransform.quantification.quant_output_builder import (
+    LFQOutputConfig,
+)
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
@@ -36,8 +38,6 @@ def test_output_transform():
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "normalize_lfq": True,
-            "peptide_level_lfq": False,
-            "precursor_level_lfq": False,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
         },
@@ -45,11 +45,11 @@ def test_output_transform():
             "enabled": False,
         },
         "search_initial": {
-            "initial_ms1_tolerance": 4,
-            "initial_ms2_tolerance": 7,
-            "initial_rt_tolerance": 200,
-            "initial_mobility_tolerance": 0.04,
-            "initial_num_candidates": 1,
+            "ms1_tolerance": 4,
+            "ms2_tolerance": 7,
+            "rt_tolerance": 200,
+            "mobility_tolerance": 0.04,
+            "num_candidates": 1,
         },
         "optimization_manager": {
             "fwhm_rt": 2.75,
@@ -204,8 +204,9 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
 
     result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
-    assert len(result) == 1
-    assert "precursor.intensity" not in result.columns
+    expected = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
+
+    pd.testing.assert_frame_equal(result, expected)
 
 
 def test_merge_quant_levels_to_psm_merges_all_levels():
@@ -238,6 +239,16 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
 
     result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
-    assert list(result["precursor.intensity"].values) == [100.0]
-    assert list(result["peptide.intensity"].values) == [400.0]
-    assert list(result["pg.intensity"].values) == [700.0]
+    expected = pd.DataFrame(
+        {
+            "mod_seq_charge_hash": ["A1"],
+            "mod_seq_hash": ["A"],
+            "pg": ["PG1"],
+            "run": ["run1"],
+            "precursor.intensity": [100.0],
+            "peptide.intensity": [400.0],
+            "pg.intensity": [700.0],
+        }
+    )
+
+    pd.testing.assert_frame_equal(result, expected)

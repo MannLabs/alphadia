@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from alphadia.outputtransform.fragment_accumulator import FragmentQuantLoader
+from alphadia.outputtransform.quantification import FragmentQuantLoader
 
 
 @pytest.fixture
@@ -39,23 +39,6 @@ def basic_fragment_df():
     )
 
 
-class TestFragmentQuantLoaderInitialization:
-    """Test cases for FragmentQuantLoader initialization."""
-
-    def test_initialization_with_default_columns(self, basic_psm_df):
-        """Test that FragmentQuantLoader initializes with default columns."""
-        loader = FragmentQuantLoader(basic_psm_df)
-
-        assert loader.psm_df is basic_psm_df
-        assert loader.columns == ["intensity", "correlation"]
-
-    def test_initialization_with_custom_columns(self, basic_psm_df):
-        """Test that FragmentQuantLoader initializes with custom columns."""
-        loader = FragmentQuantLoader(basic_psm_df, columns=["height", "intensity"])
-
-        assert loader.columns == ["height", "intensity"]
-
-
 class TestFragmentQuantLoaderAccumulate:
     """Test cases for FragmentQuantLoader.accumulate() method."""
 
@@ -66,11 +49,31 @@ class TestFragmentQuantLoaderAccumulate:
 
         result = loader.accumulate(df_iterable)
 
-        assert "intensity" in result
-        assert "correlation" in result
-        assert "run1" in result["intensity"].columns
-        assert "pg" in result["intensity"].columns
-        assert len(result["intensity"]) == 3
+        # Create expected dataframes
+        expected_intensity = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 1, 2], dtype=np.uint32),
+                "ion": [72446825449127936, 72753589193277441, 72446825449127938],
+                "run1": [110.0, 220.0, 330.0],
+                "pg": ["PG001", "PG002", "PG003"],
+                "mod_seq_hash": [1, 2, 3],
+                "mod_seq_charge_hash": [10, 20, 30],
+            }
+        )
+
+        expected_correlation = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 1, 2], dtype=np.uint32),
+                "ion": [72446825449127936, 72753589193277441, 72446825449127938],
+                "run1": [0.8, 0.9, 0.7],
+                "pg": ["PG001", "PG002", "PG003"],
+                "mod_seq_hash": [1, 2, 3],
+                "mod_seq_charge_hash": [10, 20, 30],
+            }
+        )
+
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)
 
     def test_accumulate_multiple_runs(self, basic_psm_df, basic_fragment_df):
         """Test that accumulate merges multiple runs correctly."""
@@ -84,9 +87,32 @@ class TestFragmentQuantLoaderAccumulate:
 
         result = loader.accumulate(df_iterable)
 
-        assert "run1" in result["intensity"].columns
-        assert "run2" in result["intensity"].columns
-        assert len(result["intensity"]) == 3
+        expected_intensity = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [110.0, 330.0, 220.0],
+                "run2": [120.0, 360.0, 240.0],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        expected_correlation = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [0.8, 0.7, 0.9],
+                "run2": [0.75, 0.65, 0.85],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)
 
     def test_accumulate_with_empty_iterator(self, basic_psm_df):
         """Test that accumulate returns None for empty iterator."""
@@ -134,7 +160,32 @@ class TestFragmentQuantLoaderAccumulate:
         df_iterable = iter([("run1", frag_df1), ("run2", frag_df2)])
         result = loader.accumulate(df_iterable)
 
-        assert (result["intensity"]["run1"] == 0).any()
+        expected_intensity = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [110.0, 0.0, 220.0],  # run1 missing precursor_idx=2
+                "run2": [160.0, 380.0, 270.0],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        expected_correlation = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [0.8, 0.0, 0.9],
+                "run2": [0.7, 0.5, 0.6],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)
 
     def test_accumulate_filters_by_psm_precursor_idx(self, basic_psm_df):
         """Test that accumulate only includes fragments for precursors in PSM data."""
@@ -158,23 +209,31 @@ class TestFragmentQuantLoaderAccumulate:
         df_iterable = iter([("run1", frag_df)])
         result = loader.accumulate(df_iterable)
 
-        unique_precursor_idx = result["intensity"]["precursor_idx"].unique()
-        assert all(
-            idx in basic_psm_df["precursor_idx"].values for idx in unique_precursor_idx
+        # Only precursor_idx 0, 1, 2 should be included (from basic_psm_df)
+        expected_intensity = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 1, 2], dtype=np.uint32),
+                "ion": [72446825449127936, 72753589193277441, 72446825449127938],
+                "run1": [110.0, 220.0, 330.0],
+                "pg": ["PG001", "PG002", "PG003"],
+                "mod_seq_hash": [1, 2, 3],
+                "mod_seq_charge_hash": [10, 20, 30],
+            }
         )
-        assert 3 not in unique_precursor_idx
-        assert 4 not in unique_precursor_idx
 
-    def test_accumulate_adds_annotation_columns(self, basic_psm_df, basic_fragment_df):
-        """Test that accumulate adds pg, mod_seq_hash, and mod_seq_charge_hash columns."""
-        loader = FragmentQuantLoader(basic_psm_df)
-        df_iterable = iter([("run1", basic_fragment_df)])
+        expected_correlation = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 1, 2], dtype=np.uint32),
+                "ion": [72446825449127936, 72753589193277441, 72446825449127938],
+                "run1": [0.8, 0.9, 0.7],
+                "pg": ["PG001", "PG002", "PG003"],
+                "mod_seq_hash": [1, 2, 3],
+                "mod_seq_charge_hash": [10, 20, 30],
+            }
+        )
 
-        result = loader.accumulate(df_iterable)
-
-        assert "pg" in result["intensity"].columns
-        assert "mod_seq_hash" in result["intensity"].columns
-        assert "mod_seq_charge_hash" in result["intensity"].columns
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)
 
 
 class TestFragmentQuantLoaderAccumulateFromFolders:
@@ -193,7 +252,33 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         result = loader.accumulate_from_folders(["folder1", "folder2"])
 
         assert mock_read_parquet.call_count == 2
-        assert result is not None
+
+        expected_intensity = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "folder1": [110.0, 330.0, 220.0],
+                "folder2": [110.0, 330.0, 220.0],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        expected_correlation = pd.DataFrame(
+            {
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "folder1": [0.8, 0.7, 0.9],
+                "folder2": [0.8, 0.7, 0.9],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
+            }
+        )
+
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)
 
     @patch("os.path.exists")
     def test_accumulate_from_folders_skips_missing_files(
@@ -233,111 +318,29 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         loader = FragmentQuantLoader(basic_psm_df)
         result = loader.accumulate_from_folders(["/path/to/run1", "/path/to/run2"])
 
-        assert "run1" in result["intensity"].columns
-        assert "run2" in result["intensity"].columns
-
-
-class TestFragmentQuantLoaderGetFragDfGenerator:
-    """Test cases for FragmentQuantLoader._get_frag_df_generator() method."""
-
-    @patch("os.path.exists")
-    @patch("pandas.read_parquet")
-    def test_get_frag_df_generator_yields_tuples(
-        self, mock_read_parquet, mock_exists, basic_psm_df, basic_fragment_df
-    ):
-        """Test that _get_frag_df_generator yields (run_name, dataframe) tuples."""
-        mock_exists.return_value = True
-        mock_read_parquet.return_value = basic_fragment_df
-
-        loader = FragmentQuantLoader(basic_psm_df)
-        generator = loader._get_frag_df_generator(["folder1", "folder2"])
-
-        results = list(generator)
-        assert len(results) == 2
-        assert results[0][0] == "folder1"
-        assert results[1][0] == "folder2"
-        pd.testing.assert_frame_equal(results[0][1], basic_fragment_df)
-
-    @patch("os.path.exists")
-    def test_get_frag_df_generator_skips_missing_files(self, mock_exists, basic_psm_df):
-        """Test that _get_frag_df_generator skips missing files."""
-        mock_exists.return_value = False
-
-        loader = FragmentQuantLoader(basic_psm_df)
-        generator = loader._get_frag_df_generator(["missing1", "missing2"])
-
-        results = list(generator)
-        assert len(results) == 0
-
-
-class TestFragmentQuantLoaderAddAnnotation:
-    """Test cases for FragmentQuantLoader._add_annotation() static method."""
-
-    def test_add_annotation_merges_annotation_data(self):
-        """Test that _add_annotation merges annotation data correctly."""
-        df = pd.DataFrame(
+        expected_intensity = pd.DataFrame(
             {
-                "precursor_idx": [0, 1, 2],
-                "intensity": [100.0, 200.0, 300.0],
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [110.0, 330.0, 220.0],
+                "run2": [110.0, 330.0, 220.0],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
             }
         )
 
-        annotate_df = pd.DataFrame(
+        expected_correlation = pd.DataFrame(
             {
-                "precursor_idx": [0, 1, 2],
-                "pg": ["PG001", "PG002", "PG003"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
+                "precursor_idx": np.array([0, 2, 1], dtype=np.uint32),
+                "ion": [72446825449127936, 72446825449127938, 72753589193277441],
+                "run1": [0.8, 0.7, 0.9],
+                "run2": [0.8, 0.7, 0.9],
+                "pg": ["PG001", "PG003", "PG002"],
+                "mod_seq_hash": [1, 3, 2],
+                "mod_seq_charge_hash": [10, 30, 20],
             }
         )
 
-        result = FragmentQuantLoader._add_annotation(df, annotate_df)
-
-        assert "pg" in result.columns
-        assert "mod_seq_hash" in result.columns
-        assert "mod_seq_charge_hash" in result.columns
-        assert result["pg"].tolist() == ["PG001", "PG002", "PG003"]
-
-    def test_add_annotation_fills_nan_with_zero(self):
-        """Test that _add_annotation fills NaN values with zero."""
-        df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "intensity": [100.0, np.nan, 300.0],
-            }
-        )
-
-        annotate_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "pg": ["PG001", "PG002", "PG003"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
-            }
-        )
-
-        result = FragmentQuantLoader._add_annotation(df, annotate_df)
-
-        assert result["intensity"].iloc[1] == 0.0
-
-    def test_add_annotation_converts_precursor_idx_to_uint32(self):
-        """Test that _add_annotation converts precursor_idx to uint32."""
-        df = pd.DataFrame(
-            {
-                "precursor_idx": [0.0, 1.0, 2.0],
-                "intensity": [100.0, 200.0, 300.0],
-            }
-        )
-
-        annotate_df = pd.DataFrame(
-            {
-                "precursor_idx": [0, 1, 2],
-                "pg": ["PG001", "PG002", "PG003"],
-                "mod_seq_hash": [1, 2, 3],
-                "mod_seq_charge_hash": [10, 20, 30],
-            }
-        )
-
-        result = FragmentQuantLoader._add_annotation(df, annotate_df)
-
-        assert result["precursor_idx"].dtype == np.uint32
+        pd.testing.assert_frame_equal(result["intensity"], expected_intensity)
+        pd.testing.assert_frame_equal(result["correlation"], expected_correlation)

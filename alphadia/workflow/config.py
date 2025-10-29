@@ -11,7 +11,9 @@ import json
 import logging
 from collections import UserDict, defaultdict
 from copy import deepcopy
+from typing import Any
 
+import numpy as np
 import yaml
 
 from alphadia.constants.keys import ConfigKeys
@@ -45,7 +47,7 @@ class Config(UserDict):
 
     def to_yaml(self, path: str) -> None:
         with open(path, "w") as f:
-            yaml.dump(self.data, f, sort_keys=False)
+            yaml.dump(_convert_numpy_types(self.data), f, sort_keys=False)
 
     def to_json(self, path: str) -> None:
         with open(path, "w") as f:
@@ -135,6 +137,38 @@ class Config(UserDict):
 TOLERATED_KEYS = [
     "calibration.norm_rt_mode"  # supported until 1.10.4
 ]
+
+
+def _convert_numpy_types(data: Any) -> Any:
+    """Recursively convert numpy types to native Python types for YAML serialization.
+
+    These could come from dynamically set values, e.g. calculated mass tolerances in multi-step searches.
+    Note: no need to handle tuples or sets since YAML doesn't have native tuple/set types.
+
+    Parameters
+    ----------
+    data : any
+        Data structure potentially containing numpy types
+
+    Returns
+    -------
+    any
+        Same structure with numpy types converted to native Python types
+    """
+    if isinstance(data, dict):
+        return {key: _convert_numpy_types(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [_convert_numpy_types(item) for item in data]
+    elif isinstance(data, np.generic):
+        return data.item()
+    elif isinstance(data, np.ndarray):
+        return data.tolist()
+    elif isinstance(data, list | set):
+        raise NotImplementedError(
+            "Tuples and sets are not supported in config serialization."
+        )
+    else:
+        return data
 
 
 def _update(

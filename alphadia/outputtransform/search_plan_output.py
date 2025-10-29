@@ -7,7 +7,9 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.base import SpecLibBase
 
 from alphadia import utils
-from alphadia.constants.keys import ConfigKeys
+from alphadia.constants.keys import (
+    ConfigKeys,
+)
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
@@ -22,7 +24,7 @@ from alphadia.outputtransform.outputaccumulator import (
     TransferLearningAccumulator,
 )
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
-from alphadia.outputtransform.quant_output_builder import QuantOutputBuilder
+from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_protein_inference,
     apply_semantic_column_names,

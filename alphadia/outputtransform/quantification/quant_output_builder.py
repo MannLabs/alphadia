@@ -1,16 +1,19 @@
 import logging
+import os
 from dataclasses import dataclass
 
 import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_SEMANTIC_MAPPING,
-    SemanticPeptideKeys,
-    SemanticPrecursorKeys,
-    SemanticProteinGroupKeys,
+    PeptideOutputCols,
+    PrecursorOutputCols,
+    ProteinGroupOutputCols,
 )
-from alphadia.outputtransform.fragment_accumulator import FragmentQuantLoader
-from alphadia.outputtransform.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.fragment_accumulator import (
+    FragmentQuantLoader,
+)
+from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
@@ -119,7 +122,9 @@ class QuantOutputBuilder:
             )
 
             if lfq_df is None:
-                lfq_results[quantlevel_config.level_name] = pd.DataFrame()
+                logger.warning(
+                    f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
+                )
                 continue
 
             lfq_results[quantlevel_config.level_name] = lfq_df
@@ -145,7 +150,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                intensity_column=SemanticPrecursorKeys.INTENSITY,
+                intensity_column=PrecursorOutputCols.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods", "charge"],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -155,7 +160,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                intensity_column=SemanticPeptideKeys.INTENSITY,
+                intensity_column=PeptideOutputCols.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods"],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -165,7 +170,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level="pg",
                 level_name="pg",
-                intensity_column=SemanticProteinGroupKeys.INTENSITY,
+                intensity_column=ProteinGroupOutputCols.INTENSITY,
                 aggregation_components=["pg"],
                 should_process=True,
             ),
@@ -273,7 +278,6 @@ class QuantOutputBuilder:
                 continue
 
             logger.info(f"Writing {config.level_name} output to disk")
-            import os
 
             lfq_df_semantic = self._apply_semantic_names(lfq_df)
 
@@ -322,7 +326,6 @@ class QuantOutputBuilder:
             logger.info(
                 f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
             )
-            import os
 
             group_intensity_df_semantic = self._apply_semantic_names(group_intensity_df)
 
