@@ -50,10 +50,6 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
-library_loading:
-  rt_heuristic: 180
-  # if retention times are reported in absolute units, the rt_heuristic defines rt is interpreted as minutes or seconds
-
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
@@ -317,11 +313,12 @@ fdr:
   two_step_classifier_max_iterations: 5
   # (Experimental)
   # Optimizes the batch size and learning rate of the neural network
-  enable_nn_hyperparameter_tuning: false
+  enable_nn_hyperparameter_tuning: true
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
-  file_format: "tsv"
+  file_format: "parquet"
+  
   # Save fragment quant matrix for advanced users
   save_fragment_quant_matrix: False
 
