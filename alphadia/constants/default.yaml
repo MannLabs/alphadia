@@ -294,7 +294,11 @@ multiplexing:
 
 fdr:
   fdr: 0.01
+
+  # what annotation is used for protein inference: "genes" or "proteins"
   group_level: 'proteins'
+
+  # how are proteins inferred from peptides: "library", "heuristic" or "maximum_parsimony"
   inference_strategy: "heuristic"
 
 
@@ -314,10 +318,7 @@ fdr:
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"
   file_format: "parquet"
-  # Enable label-free quantification at peptide level and generate peptide matrix
-  peptide_level_lfq: false
-  # Enable label-free quantification at precursor level and generate precursor matrix
-  precursor_level_lfq: false
+  
   # Save fragment quant matrix for advanced users
   save_fragment_quant_matrix: False
 
