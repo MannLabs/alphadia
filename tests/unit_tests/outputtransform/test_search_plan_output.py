@@ -6,10 +6,12 @@ import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
+from alphadia.constants.keys import InferenceStrategy
 from alphadia.outputtransform.search_plan_output import (
     LFQOutputConfig,
     SearchPlanOutput,
 )
+from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
@@ -26,7 +28,7 @@ def test_output_transform():
         "search": {"channel_filter": "0"},
         "fdr": {
             "fdr": 0.01,
-            "inference_strategy": "heuristic",
+            "inference_strategy": InferenceStrategy.HEURISTIC,
             "group_level": "proteins",
             "keep_decoys": False,
         },
@@ -189,9 +191,6 @@ def test_output_transform():
 
 def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
     """Test that empty LFQ results are handled gracefully."""
-    search_plan_output = SearchPlanOutput(
-        {"general": {"save_figures": False}}, "some_unused_output_path"
-    )
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {"precursor": pd.DataFrame()}
     configs = [
@@ -203,7 +202,7 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
         )
     ]
 
-    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     expected = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
 
@@ -212,9 +211,6 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
 
 def test_merge_quant_levels_to_psm_merges_all_levels():
     """Test that all quantification levels are merged in one call."""
-    search_plan_output = SearchPlanOutput(
-        {"general": {"save_figures": False}}, "some_unused_output_path"
-    )
     psm_df = pd.DataFrame(
         {
             "mod_seq_charge_hash": ["A1"],
@@ -241,7 +237,7 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
         LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
     ]
 
-    result = search_plan_output._merge_quant_levels_to_psm(psm_df, lfq_results, configs)
+    result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
     expected = pd.DataFrame(
         {

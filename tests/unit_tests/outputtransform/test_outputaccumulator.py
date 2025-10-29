@@ -7,7 +7,7 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import SearchStepFiles
+from alphadia.constants.keys import InferenceStrategy, SearchStepFiles
 from alphadia.outputtransform.outputaccumulator import ms2_quality_control
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow.base import QUANT_FOLDER_NAME
@@ -41,7 +41,7 @@ def prepare_input_data():
         },
         "fdr": {
             "fdr": 0.01,
-            "inference_strategy": "heuristic",
+            "inference_strategy": InferenceStrategy.HEURISTIC,
             "group_level": "proteins",
             "keep_decoys": False,
         },
