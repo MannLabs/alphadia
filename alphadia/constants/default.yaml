@@ -200,19 +200,19 @@ calibration:
 
 search_initial:
   # Number of peak groups identified in the convolution score to classify with target decoy competition
-  initial_num_candidates: 1
+  num_candidates: 1
 
   # initial ms1 tolerance in ppm
-  initial_ms1_tolerance: 30
+  ms1_tolerance: 30
 
   # initial ms2 tolerance in ppm
-  initial_ms2_tolerance: 30
+  ms2_tolerance: 30
 
   # initial ion mobility tolerance in 1/K_0
-  initial_mobility_tolerance: 0.1
+  mobility_tolerance: 0.1
 
   # initial retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
-  initial_rt_tolerance: 0.5
+  rt_tolerance: 0.5
 
 # IMPORTANT NOTE: The parameters in this section are passed as kewords arguments to the CandidateSelectionConfig class
 # Do not rename here without adapting that class!

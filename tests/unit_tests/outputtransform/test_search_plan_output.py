@@ -43,11 +43,11 @@ def test_output_transform():
             "enabled": False,
         },
         "search_initial": {
-            "initial_ms1_tolerance": 4,
-            "initial_ms2_tolerance": 7,
-            "initial_rt_tolerance": 200,
-            "initial_mobility_tolerance": 0.04,
-            "initial_num_candidates": 1,
+            "ms1_tolerance": 4,
+            "ms2_tolerance": 7,
+            "rt_tolerance": 200,
+            "mobility_tolerance": 0.04,
+            "num_candidates": 1,
         },
         "optimization_manager": {
             "fwhm_rt": 2.75,
