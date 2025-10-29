@@ -38,7 +38,6 @@ class LFQOutputConfig:
     level_name: str
     intensity_column: str
     aggregation_components: list[str]
-    should_process: bool = True
     save_fragments: bool = False
 
 
@@ -528,7 +527,6 @@ class SearchPlanOutput:
                 level_name="precursor",
                 intensity_column="precursor.intensity",
                 aggregation_components=["pg", "sequence", "mods", "charge"],
-                should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
@@ -538,7 +536,6 @@ class SearchPlanOutput:
                 level_name="peptide",
                 intensity_column="peptide.intensity",
                 aggregation_components=["pg", "sequence", "mods"],
-                should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
@@ -548,7 +545,6 @@ class SearchPlanOutput:
                 level_name="pg",
                 intensity_column="pg.intensity",
                 aggregation_components=["pg"],
-                should_process=True,
             ),
         ]
 
