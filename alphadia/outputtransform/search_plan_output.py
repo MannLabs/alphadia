@@ -10,9 +10,9 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphadia import utils
 from alphadia.constants.keys import (
     ConfigKeys,
-    SemanticPeptideKeys,
-    SemanticPrecursorKeys,
-    SemanticProteinGroupKeys,
+    PeptideOutputCols,
+    PrecursorOutputCols,
+    ProteinGroupOutputCols,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPsmFoundError
@@ -467,7 +467,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
-                intensity_column=SemanticPrecursorKeys.INTENSITY,
+                intensity_column=PrecursorOutputCols.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods", "charge"],
                 should_process=self.config["search_output"]["precursor_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -477,7 +477,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="mod_seq_hash",
                 level_name="peptide",
-                intensity_column=SemanticPeptideKeys.INTENSITY,
+                intensity_column=PeptideOutputCols.INTENSITY,
                 aggregation_components=["pg", "sequence", "mods"],
                 should_process=self.config["search_output"]["peptide_level_lfq"],
                 save_fragments=self.config["search_output"][
@@ -487,7 +487,7 @@ class SearchPlanOutput:
             LFQOutputConfig(
                 quant_level="pg",
                 level_name="pg",
-                intensity_column=SemanticProteinGroupKeys.INTENSITY,
+                intensity_column=ProteinGroupOutputCols.INTENSITY,
                 aggregation_components=["pg"],
                 should_process=True,
             ),

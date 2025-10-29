@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import yaml
 
-from alphadia.constants.keys import ConfigKeys, StatOutputKeys
+from alphadia.constants.keys import ConfigKeys, StatOutputCols
 from alphadia.outputtransform.search_plan_output import (
     SearchPlanOutput,
 )
@@ -200,10 +200,10 @@ class SearchPlan:
             output_folder / f"{SearchPlanOutput.STAT_OUTPUT}.tsv", sep="\t"
         )
         target_ms1_tolerance = np.nanmedian(
-            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS1_ERROR}"]
+            df[f"{StatOutputCols.OPTIMIZATION_PREFIX}{StatOutputCols.MS1_ERROR}"]
         )
         target_ms2_tolerance = np.nanmedian(
-            df[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{StatOutputKeys.MS2_ERROR}"]
+            df[f"{StatOutputCols.OPTIMIZATION_PREFIX}{StatOutputCols.MS2_ERROR}"]
         )
 
         if np.isnan(target_ms1_tolerance) and np.isnan(target_ms2_tolerance):
