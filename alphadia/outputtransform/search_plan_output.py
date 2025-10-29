@@ -32,6 +32,15 @@ from alphadia.workflow.config import Config
 logger = logging.getLogger()
 
 
+@dataclass
+class LFQOutputConfig:
+    quant_level: str
+    level_name: str
+    intensity_column: str
+    aggregation_components: list[str]
+    save_fragments: bool = False
+
+
 class SearchPlanOutput:
     PSM_INPUT = "psm"
     PRECURSOR_OUTPUT = "precursors"
@@ -512,37 +521,29 @@ class SearchPlanOutput:
 
         feature_dfs_dict = qb.accumulate_frag_df_from_folders(folder_list)
 
-        @dataclass
-        class LFQOutputConfig:
-            should_process: bool
-            quant_level: str
-            level_name: str
-            aggregation_components: list[str]
-            save_fragments: bool = False
-
         quantlevel_configs = [
             LFQOutputConfig(
-                should_process=self.config["search_output"]["precursor_level_lfq"],
                 quant_level="mod_seq_charge_hash",
                 level_name="precursor",
+                intensity_column="precursor.intensity",
+                aggregation_components=["pg", "sequence", "mods", "charge"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                aggregation_components=["pg", "sequence", "mods", "charge"],
             ),
             LFQOutputConfig(
-                should_process=self.config["search_output"]["peptide_level_lfq"],
                 quant_level="mod_seq_hash",
                 level_name="peptide",
+                intensity_column="peptide.intensity",
+                aggregation_components=["pg", "sequence", "mods"],
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                aggregation_components=["pg", "sequence", "mods"],
             ),
             LFQOutputConfig(
-                should_process=True,
                 quant_level="pg",
                 level_name="pg",
+                intensity_column="pg.intensity",
                 aggregation_components=["pg"],
             ),
         ]
@@ -550,9 +551,6 @@ class SearchPlanOutput:
         lfq_results = {}
 
         for quantlevel_config in quantlevel_configs:
-            if not quantlevel_config.should_process:
-                continue
-
             logger.progress(
                 f"Performing label free quantification on the {quantlevel_config.level_name} level"
             )
@@ -615,14 +613,10 @@ class SearchPlanOutput:
                         file_format=self.config["search_output"]["file_format"],
                     )
 
-        # Use protein group (pg) results for merging with psm_df
-        pg_lfq_df = lfq_results.get("pg", pd.DataFrame())
-
-        if len(pg_lfq_df) > 0:
-            protein_df_melted = pg_lfq_df.melt(
-                id_vars="pg", var_name="run", value_name="intensity"
-            )
-            psm_df = psm_df.merge(protein_df_melted, on=["pg", "run"], how="left")
+        # Merge all quantification levels back to precursor table
+        psm_df = self._merge_quant_levels_to_psm(
+            psm_df, lfq_results, quantlevel_configs
+        )
 
         if save:
             logger.info("Writing psm output to disk")
@@ -633,6 +627,43 @@ class SearchPlanOutput:
             )
 
         return lfq_results
+
+    def _merge_quant_levels_to_psm(
+        self,
+        psm_df: pd.DataFrame,
+        lfq_results: dict[str, pd.DataFrame],
+        quantlevel_configs: list,
+    ) -> pd.DataFrame:
+        """Merge quantification results from all levels back to the precursor table.
+
+        Parameters
+        ----------
+        psm_df : pd.DataFrame
+            Precursor table to merge quantification data into
+        lfq_results : dict[str, pd.DataFrame]
+            Dictionary containing quantification results for each level
+        quantlevel_configs : list
+            List of LFQOutputConfig objects defining quantification levels
+
+        Returns
+        -------
+        pd.DataFrame
+            Updated precursor table with merged quantification data
+        """
+        for config in quantlevel_configs:
+            lfq_df = lfq_results.get(config.level_name)
+
+            if lfq_df is None or lfq_df.empty:
+                continue
+
+            intensity_column = config.intensity_column
+
+            melted_df = lfq_df.melt(
+                id_vars=config.quant_level, var_name="run", value_name=intensity_column
+            )
+            psm_df = psm_df.merge(melted_df, on=[config.quant_level, "run"], how="left")
+
+        return psm_df
 
     def _build_mbr_library(
         self,
