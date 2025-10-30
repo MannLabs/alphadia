@@ -51,7 +51,6 @@ const ParameterInput = ({
         sx
     }) => {
 
-
         let input = null;
 
         switch (parameter.type) {
@@ -105,7 +104,6 @@ const ParameterInput = ({
                 )
                 break;
             case "dropdown":
-
                 input = (
                     <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
                         <Select
