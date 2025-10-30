@@ -87,7 +87,7 @@ class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 
     # Core identification
-    PRECURSOR_IDX = "precursor.idx"
+    IDX = "precursor.idx"
     SEQUENCE = "precursor.sequence"
     CHARGE = "precursor.charge"
     MODS = "precursor.mods"
@@ -153,7 +153,7 @@ class OutputRawKeys(metaclass=ConstantsClass):
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {
-    "precursor_idx": PrecursorOutputCols.PRECURSOR_IDX,
+    "precursor_idx": PrecursorOutputCols.IDX,
     "sequence": PrecursorOutputCols.SEQUENCE,
     "charge": PrecursorOutputCols.CHARGE,
     "mods": PrecursorOutputCols.MODS,

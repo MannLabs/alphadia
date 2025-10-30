@@ -67,10 +67,7 @@ def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
     pd.DataFrame
         Dataframe with output column names applied
     """
-    rename_dict = {
-        k: v for k, v in INTERNAL_TO_OUTPUT_MAPPING.items() if k in df.columns
-    }
-    return df.rename(columns=rename_dict)
+    return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
 
 
 def write_df(
