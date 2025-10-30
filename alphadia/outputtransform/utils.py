@@ -5,7 +5,10 @@ from typing import Literal
 import pandas as pd
 from alphabase.peptide import precursor
 
-from alphadia.constants.keys import InferenceStrategy
+from alphadia.constants.keys import (
+    INTERNAL_TO_OUTPUT_MAPPING,
+    InferenceStrategy,
+)
 from alphadia.outputtransform import grouping
 
 logger = logging.getLogger()
@@ -49,6 +52,34 @@ def read_df(path_no_format, file_format="parquet"):
         raise ValueError(
             f"Provided unknown file format: {file_format}, supported_formats: {supported_formats}"
         )
+
+
+def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert internal column names to output names and filter to only mapped columns.
+
+    Only columns that are present in INTERNAL_TO_OUTPUT_MAPPING are kept in the output.
+    This ensures that output files only contain the defined output columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Dataframe with internal column names
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with output column names applied, containing only mapped columns
+    """
+    # Get output column names (values from the mapping)
+    output_columns = set(INTERNAL_TO_OUTPUT_MAPPING.values())
+
+    # Rename columns according to mapping
+    df_renamed = df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+
+    # Filter to only keep columns that are in the output mapping
+    columns_to_keep = [col for col in df_renamed.columns if col in output_columns]
+
+    return df_renamed[columns_to_keep]
 
 
 def write_df(

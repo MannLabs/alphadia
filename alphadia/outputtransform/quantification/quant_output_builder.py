@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from alphadia.constants.keys import (
+    INTERNAL_TO_OUTPUT_MAPPING,
     PeptideOutputCols,
     PrecursorOutputCols,
     ProteinGroupOutputCols,
@@ -140,6 +141,9 @@ class QuantOutputBuilder:
     def _create_quant_level_configs(self) -> list[LFQOutputConfig]:
         """Create quantification level configurations based on settings.
 
+        Uses output keys for intensity columns to ensure consistent
+        output column naming in user-facing files.
+
         Returns
         -------
         list[LFQOutputConfig]
@@ -266,13 +270,28 @@ class QuantOutputBuilder:
 
         return lfq_df
 
+    def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Convert internal column names to output names for output.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Dataframe with internal column names
+
+        Returns
+        -------
+        pd.DataFrame
+            Dataframe with output column names applied
+        """
+        return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+
     def save_results(
         self,
         lfq_results: dict[str, pd.DataFrame],
         output_folder: str,
         file_format: str = "parquet",
     ) -> None:
-        """Save quantification results to disk.
+        """Save quantification results to disk with output column names.
 
         Parameters
         ----------
@@ -297,8 +316,10 @@ class QuantOutputBuilder:
 
             logger.info(f"Writing {config.level_name} output to disk")
 
+            lfq_df_output = self._apply_output_names(lfq_df)
+
             write_df(
-                lfq_df,
+                lfq_df_output,
                 os.path.join(output_folder, f"{config.level_name}.matrix"),
                 file_format=file_format,
             )
@@ -309,7 +330,7 @@ class QuantOutputBuilder:
         output_folder: str,
         file_format: str = "parquet",
     ) -> None:
-        """Save fragment-level quantification matrices to disk.
+        """Save fragment-level quantification matrices to disk with output column names.
 
         Parameters
         ----------
@@ -343,8 +364,10 @@ class QuantOutputBuilder:
                 f"Writing fragment quantity matrix to disk, filtered on {config.level_name}"
             )
 
+            group_intensity_df_output = self._apply_output_names(group_intensity_df)
+
             write_df(
-                group_intensity_df,
+                group_intensity_df_output,
                 os.path.join(
                     output_folder, f"fragment_{config.level_name}filtered.matrix"
                 ),

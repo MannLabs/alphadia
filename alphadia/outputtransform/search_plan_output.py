@@ -26,6 +26,7 @@ from alphadia.outputtransform.outputaccumulator import (
 from alphadia.outputtransform.protein_fdr import perform_protein_fdr
 from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
+    apply_output_column_names,
     apply_protein_inference,
     get_channels_from_config,
     load_psm_files_from_folders,
@@ -451,8 +452,9 @@ class SearchPlanOutput:
             )
 
             logger.info("Writing psm output to disk")
+            psm_df_output = apply_output_column_names(psm_df_with_quant)
             write_df(
-                psm_df_with_quant,
+                psm_df_output,
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )

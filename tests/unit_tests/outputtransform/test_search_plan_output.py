@@ -119,20 +119,20 @@ def test_search_plan_output_integration():
     psm_df = pd.read_parquet(
         os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet")
     )
-    assert psm_df["run"].nunique() == 3
+    assert psm_df["raw.name"].nunique() == 3
     assert all(
         col in psm_df.columns
         for col in [
             "pg",
-            "precursor_idx",
-            "decoy",
-            "mz_library",
-            "charge",
-            "proteins",
-            "genes",
-            "proba",
-            "qval",
-            "run",
+            "precursor.idx",
+            "precursor.decoy",
+            "precursor.mz.library",
+            "precursor.charge",
+            "pg.proteins",
+            "pg.genes",
+            "precursor.proba",
+            "precursor.qval",
+            "raw.name",
         ]
     )
 

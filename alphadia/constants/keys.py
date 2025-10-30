@@ -86,7 +86,47 @@ class QuantificationLevelKey(metaclass=ConstantsClass):
 class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 
+    # Core identification
+    IDX = "precursor.idx"
+    ELUTION_GROUP_IDX = "precursor.elution_group_idx"
+    SEQUENCE = "precursor.sequence"
+    CHARGE = "precursor.charge"
+    MODS = "precursor.mods"
+    MOD_SITES = "precursor.mod_sites"
+    MOD_SEQ_HASH = "precursor.mod_seq_hash"
+    MOD_SEQ_CHARGE_HASH = "precursor.mod_seq_charge_hash"
+
+    RANK = "precursor.rank"
+    NAA = "precursor.naa"
+
+    # Mass measurements
+    MZ_LIBRARY = "precursor.mz.library"
+    MZ_OBSERVED = "precursor.mz.observed"
+    MZ_CALIBRATED = "precursor.mz.calibrated"
+
+    # Retention time measurements
+    RT_LIBRARY = "precursor.rt.library"
+    RT_OBSERVED = "precursor.rt.observed"
+    RT_CALIBRATED = "precursor.rt.calibrated"
+    RT_FWHM = "precursor.rt.fwhm"
+
+    # Mobility measurements
+    MOBILITY_LIBRARY = "precursor.mobility.library"
+    MOBILITY_OBSERVED = "precursor.mobility.observed"
+    MOBILITY_CALIBRATED = "precursor.mobility.calibrated"
+    MOBILITY_FWHM = "precursor.mobility.fwhm"
+
+    # Quantification
     INTENSITY = "precursor.intensity"
+
+    # Quality scores
+    QVAL = "precursor.qval"
+    PROBA = "precursor.proba"
+    SCORE = "precursor.score"
+
+    # Experimental metadata
+    CHANNEL = "precursor.channel"
+    DECOY = "precursor.decoy"
 
 
 class PeptideOutputCols(metaclass=ConstantsClass):
@@ -98,4 +138,55 @@ class PeptideOutputCols(metaclass=ConstantsClass):
 class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
+    PG = "pg"
+    PROTEINS = "pg.proteins"
+    GENES = "pg.genes"
+    MASTER_PROTEIN = "pg.master_protein"
+    QVAL = "pg.qval"
     INTENSITY = "pg.intensity"
+
+
+class OutputRawKeys(metaclass=ConstantsClass):
+    """String constants for experimental metadata columns.
+
+    These keys represent experimental/run-level metadata that are not
+    specific to precursors, peptides, or protein groups.
+    """
+
+    RAW_NAME = "raw.name"
+
+
+INTERNAL_TO_OUTPUT_MAPPING = {
+    "precursor_idx": PrecursorOutputCols.IDX,
+    "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
+    "rank": PrecursorOutputCols.RANK,
+    "naa": PrecursorOutputCols.NAA,
+    "sequence": PrecursorOutputCols.SEQUENCE,
+    "charge": PrecursorOutputCols.CHARGE,
+    "mods": PrecursorOutputCols.MODS,
+    "mod_sites": PrecursorOutputCols.MOD_SITES,
+    "mod_seq_hash": PrecursorOutputCols.MOD_SEQ_HASH,
+    "mod_seq_charge_hash": PrecursorOutputCols.MOD_SEQ_CHARGE_HASH,
+    "mz_library": PrecursorOutputCols.MZ_LIBRARY,
+    "mz_observed": PrecursorOutputCols.MZ_OBSERVED,
+    "mz_calibrated": PrecursorOutputCols.MZ_CALIBRATED,
+    "rt_library": PrecursorOutputCols.RT_LIBRARY,
+    "rt_observed": PrecursorOutputCols.RT_OBSERVED,
+    "rt_calibrated": PrecursorOutputCols.RT_CALIBRATED,
+    "mobility_library": PrecursorOutputCols.MOBILITY_LIBRARY,
+    "mobility_observed": PrecursorOutputCols.MOBILITY_OBSERVED,
+    "mobility_calibrated": PrecursorOutputCols.MOBILITY_CALIBRATED,
+    "qval": PrecursorOutputCols.QVAL,
+    "proba": PrecursorOutputCols.PROBA,
+    "score": PrecursorOutputCols.SCORE,
+    "cycle_fwhm": PrecursorOutputCols.RT_FWHM,
+    "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
+    "channel": PrecursorOutputCols.CHANNEL,
+    "decoy": PrecursorOutputCols.DECOY,
+    "pg": ProteinGroupOutputCols.PG,
+    "proteins": ProteinGroupOutputCols.PROTEINS,
+    "genes": ProteinGroupOutputCols.GENES,
+    "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
+    "pg_qval": ProteinGroupOutputCols.QVAL,
+    "run": OutputRawKeys.RAW_NAME,
+}
