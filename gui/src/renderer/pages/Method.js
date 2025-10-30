@@ -1,7 +1,7 @@
 import * as React from 'react';
 import styled from '@emotion/styled';
 import { useMethod, useMethodDispatch } from '../logic/context';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Alert, AlertTitle } from '@mui/material';
 import { Masonry } from '@mui/lab';
 import { SingleSelect, MultiSelect, InputFileSelect, FileViewer, ParameterGroup } from '../components';
 import WorkflowOverview from '../components/WorkflowOverview';
@@ -73,8 +73,27 @@ const Files = () => {
 
 const Config = () => {
     const method = useMethod();
+
+    const extractionBackend = method.config
+        .find(group => group.id === 'search')
+        ?.parameters.find(param => param.id === 'extraction_backend')
+        ?.value;
+
     return (
         <Box>
+            {extractionBackend === 'rust' && (
+                <Box sx={{ marginBottom: 2 }}>
+                    <Alert severity="info">
+                        <AlertTitle>Limited Feature Set</AlertTitle>
+                        The selected 'rust' extraction backend is superior in speed and performance, and recommended for Thermo and Sciex data.<br />
+                        However, some features are not yet available:<br />
+                        - transfer learning<br />
+                        - multiplexing<br />
+                        - processing Bruker files<br />
+                        If you need these, you need to switch the backend to 'python' in the "Search" parameter group.
+                    </Alert>
+                </Box>
+            )}
             <Masonry columns={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3 }} spacing={1}>
                 {method.config.map((parameterGroup, index) => (
                 <ParameterGroup
