@@ -88,12 +88,16 @@ class PrecursorOutputCols(metaclass=ConstantsClass):
 
     # Core identification
     IDX = "precursor.idx"
+    ELUTION_GROUP_IDX = "precursor.elution_group_idx"
     SEQUENCE = "precursor.sequence"
     CHARGE = "precursor.charge"
     MODS = "precursor.mods"
     MOD_SITES = "precursor.mod_sites"
     MOD_SEQ_HASH = "precursor.mod_seq_hash"
     MOD_SEQ_CHARGE_HASH = "precursor.mod_seq_charge_hash"
+
+    RANK = "precursor.rank"
+    NAA = "precursor.naa"
 
     # Mass measurements
     MZ_LIBRARY = "precursor.mz.library"
@@ -154,6 +158,9 @@ class OutputRawKeys(metaclass=ConstantsClass):
 
 INTERNAL_TO_OUTPUT_MAPPING = {
     "precursor_idx": PrecursorOutputCols.IDX,
+    "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
+    "rank": PrecursorOutputCols.RANK,
+    "naa": PrecursorOutputCols.NAA,
     "sequence": PrecursorOutputCols.SEQUENCE,
     "charge": PrecursorOutputCols.CHARGE,
     "mods": PrecursorOutputCols.MODS,

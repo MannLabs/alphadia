@@ -55,7 +55,10 @@ def read_df(path_no_format, file_format="parquet"):
 
 
 def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert internal column names to output names for output files.
+    """Convert internal column names to output names and filter to only mapped columns.
+
+    Only columns that are present in INTERNAL_TO_OUTPUT_MAPPING are kept in the output.
+    This ensures that output files only contain the defined output columns.
 
     Parameters
     ----------
@@ -65,9 +68,18 @@ def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Dataframe with output column names applied
+        Dataframe with output column names applied, containing only mapped columns
     """
-    return df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+    # Get output column names (values from the mapping)
+    output_columns = set(INTERNAL_TO_OUTPUT_MAPPING.values())
+
+    # Rename columns according to mapping
+    df_renamed = df.rename(columns=INTERNAL_TO_OUTPUT_MAPPING)
+
+    # Filter to only keep columns that are in the output mapping
+    columns_to_keep = [col for col in df_renamed.columns if col in output_columns]
+
+    return df_renamed[columns_to_keep]
 
 
 def write_df(
