@@ -127,6 +127,8 @@ class QuantBuilder:
         """
         logger.info("Filtering fragments by quality")
 
+        # Extract sample/run columns (e.g., run_0, run_1, run_2)
+        # These are all columns except metadata columns
         run_columns = [
             c
             for c in intensity_df.columns
