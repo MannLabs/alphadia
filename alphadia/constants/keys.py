@@ -67,6 +67,22 @@ class InferenceStrategy(metaclass=ConstantsClass):
     HEURISTIC = "heuristic"
 
 
+class QuantificationLevelName(metaclass=ConstantsClass):
+    """String constants for accessing the quantification level."""
+
+    PRECURSOR = "precursor"
+    PEPTIDE = "peptide"
+    PROTEIN = "pg"
+
+
+class QuantificationLevelKey(metaclass=ConstantsClass):
+    """String constants for accessing the quantification level key."""
+
+    PRECURSOR = "mod_seq_charge_hash"
+    PEPTIDE = "mod_seq_hash"
+    PROTEIN = "pg"
+
+
 class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 

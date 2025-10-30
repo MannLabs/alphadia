@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
-from alphadia.outputtransform.quantification import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 
 
 @pytest.fixture

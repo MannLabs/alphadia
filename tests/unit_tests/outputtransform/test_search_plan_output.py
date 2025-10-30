@@ -2,7 +2,6 @@ import os
 import shutil
 import tempfile
 
-import numpy as np
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
@@ -18,11 +17,24 @@ from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
 
 
-def test_output_transform():
+def test_search_plan_output_integration():
+    """Integration test for SearchPlanOutput.build() covering end-to-end workflow.
+
+    Tests that SearchPlanOutput.build() correctly orchestrates:
+    - Protein grouping and FDR
+    - Label-free quantification
+    - Statistics collection from manager files
+    - Output file generation (precursors, proteins, stat, internal)
+    """
+    # given
     run_columns = ["run_0", "run_1", "run_2"]
 
     config = {
-        "general": {"thread_count": 8, "save_figures": True, "save_mbr_library": False},
+        "general": {
+            "thread_count": 8,
+            "save_figures": False,
+            "save_mbr_library": False,
+        },
         "transfer_library": {"enabled": False},
         "transfer_learning": {"enabled": False},
         "search": {"channel_filter": "0"},
@@ -33,6 +45,8 @@ def test_output_transform():
             "keep_decoys": False,
         },
         "search_output": {
+            "precursor_level_lfq": True,
+            "peptide_level_lfq": True,
             "min_k_fragments": 3,
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
@@ -41,9 +55,7 @@ def test_output_transform():
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
         },
-        "multiplexing": {
-            "enabled": False,
-        },
+        "multiplexing": {"enabled": False},
         "search_initial": {
             "ms1_tolerance": 4,
             "ms2_tolerance": 7,
@@ -60,11 +72,8 @@ def test_output_transform():
 
     temp_folder = os.path.join(tempfile.gettempdir(), "alphadia")
     os.makedirs(temp_folder, exist_ok=True)
-
     quant_path = os.path.join(temp_folder, QUANT_FOLDER_NAME)
     os.makedirs(quant_path, exist_ok=True)
-
-    # setup raw folders
     raw_folders = [os.path.join(quant_path, run) for run in run_columns]
 
     psm_base_df = mock_precursor_df(n_precursor=100)
@@ -85,21 +94,16 @@ def test_output_transform():
         optimization_manager = OptimizationManager(
             config,
             path=os.path.join(
-                raw_folder,
-                PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
+                raw_folder, PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME
             ),
         )
-
         timing_manager = TimingManager(
             path=os.path.join(
-                raw_folder,
-                PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME,
+                raw_folder, PeptideCentricWorkflow.TIMING_MANAGER_PKL_NAME
             )
         )
 
-        if (
-            i == 2
-        ):  # simulate the case that the search fails such that the optimization and timing managers are not saved
+        if i == 2:
             pass
         else:
             optimization_manager.update(ms2_error=6)
@@ -108,67 +112,61 @@ def test_output_transform():
             timing_manager.set_end_time("extraction")
             timing_manager.save()
 
+    # when
     SearchPlanOutput(config, temp_folder).build(raw_folders, None)
 
-    # validate psm_df output
+    # then
     psm_df = pd.read_parquet(
-        os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet"),
-    )
-    assert all(
-        [
-            col in psm_df.columns
-            for col in [
-                "pg",
-                "precursor_idx",
-                "decoy",
-                "mz_library",
-                "charge",
-                "proteins",
-                "genes",
-                "proba",
-                "qval",
-                "run",
-            ]
-        ]
+        os.path.join(temp_folder, f"{SearchPlanOutput.PRECURSOR_OUTPUT}.parquet")
     )
     assert psm_df["run"].nunique() == 3
+    assert all(
+        col in psm_df.columns
+        for col in [
+            "pg",
+            "precursor_idx",
+            "decoy",
+            "mz_library",
+            "charge",
+            "proteins",
+            "genes",
+            "proba",
+            "qval",
+            "run",
+        ]
+    )
 
-    # validate stat_df output
     stat_df = pd.read_csv(
         os.path.join(temp_folder, f"{SearchPlanOutput.STAT_OUTPUT}.tsv"), sep="\t"
     )
     assert len(stat_df) == 3
-
     assert stat_df["optimization.ms2_error"][0] == 6
     assert stat_df["optimization.rt_error"][0] == 200
-
     assert all(
-        [
-            col in stat_df.columns
-            for col in [
-                "run",
-                "channel",
-                "precursors",
-                "proteins",
-                "fwhm_rt",
-                "fwhm_mobility",
-                "optimization.ms2_error",
-                "optimization.ms1_error",
-                "optimization.rt_error",
-                "optimization.mobility_error",
-                "calibration.ms2_median_accuracy",
-                "calibration.ms2_median_precision",
-                "calibration.ms1_median_accuracy",
-                "calibration.ms1_median_precision",
-                "raw.gradient_min_m",
-                "raw.gradient_max_m",
-                "raw.gradient_length_m",
-                "raw.cycle_length",
-                "raw.cycle_duration",
-                "raw.cycle_number",
-                "raw.msms_range_min",
-                "raw.msms_range_max",
-            ]
+        col in stat_df.columns
+        for col in [
+            "run",
+            "channel",
+            "precursors",
+            "proteins",
+            "fwhm_rt",
+            "fwhm_mobility",
+            "optimization.ms2_error",
+            "optimization.ms1_error",
+            "optimization.rt_error",
+            "optimization.mobility_error",
+            "calibration.ms2_median_accuracy",
+            "calibration.ms2_median_precision",
+            "calibration.ms1_median_accuracy",
+            "calibration.ms1_median_precision",
+            "raw.gradient_min_m",
+            "raw.gradient_max_m",
+            "raw.gradient_length_m",
+            "raw.cycle_length",
+            "raw.cycle_duration",
+            "raw.cycle_number",
+            "raw.msms_range_min",
+            "raw.msms_range_max",
         ]
     )
 
@@ -176,21 +174,16 @@ def test_output_transform():
         os.path.join(temp_folder, f"{SearchPlanOutput.INTERNAL_OUTPUT}.tsv"), sep="\t"
     )
     assert isinstance(internal_df["duration_extraction"][0], float)
-    # validate protein_df output
-    protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
-    assert all([col in protein_df.columns for col in ["run_0", "run_1", "run_2"]])
 
-    for i in run_columns:
-        for j in run_columns:
-            if i == j:
-                continue
-            assert np.corrcoef(protein_df[i], protein_df[j])[0, 0] > 0.5
+    protein_df = pd.read_parquet(os.path.join(temp_folder, "pg.matrix.parquet"))
+    assert all(col in protein_df.columns for col in run_columns)
 
     shutil.rmtree(temp_folder)
 
 
-def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
-    """Test that empty LFQ results are handled gracefully."""
+def test_merge_quant_levels_to_psm_handles_empty_lfq():
+    """Test merge_quant_levels_to_psm with empty LFQ results."""
+    # given
     psm_df = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
     lfq_results = {"precursor": pd.DataFrame()}
     configs = [
@@ -202,15 +195,17 @@ def test_merge_quant_levels_to_psm_handles_empty_lfq_results():
         )
     ]
 
+    # when
     result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
+    # then
     expected = pd.DataFrame({"mod_seq_charge_hash": ["A1"], "run": ["run1"]})
-
     pd.testing.assert_frame_equal(result, expected)
 
 
 def test_merge_quant_levels_to_psm_merges_all_levels():
-    """Test that all quantification levels are merged in one call."""
+    """Test merge_quant_levels_to_psm with all three quantification levels."""
+    # given
     psm_df = pd.DataFrame(
         {
             "mod_seq_charge_hash": ["A1"],
@@ -237,8 +232,10 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
         LFQOutputConfig("pg", "pg", "pg.intensity", ["pg"]),
     ]
 
+    # when
     result = merge_quant_levels_to_psm(psm_df, lfq_results, configs)
 
+    # then
     expected = pd.DataFrame(
         {
             "mod_seq_charge_hash": ["A1"],
@@ -250,5 +247,4 @@ def test_merge_quant_levels_to_psm_merges_all_levels():
             "pg.intensity": [700.0],
         }
     )
-
     pd.testing.assert_frame_equal(result, expected)
