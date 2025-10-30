@@ -261,8 +261,10 @@ class OptimizationHandler:
 
                     self._optlock.reset_after_convergence(self._calibration_manager)
 
-                    for optimizer in optimizers:
-                        optimizer.plot()
+                    # TODO: re-enable, but save to disk
+                    # currently yields `UserWarning: FigureCanvasAgg is non-interactive, and thus cannot be shown`
+                    # for optimizer in optimizers:
+                    #     optimizer.plot()
 
                     break
 
