@@ -15,12 +15,7 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
-
-try:  # noqa: SIM105
-    from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
-except ImportError:
-    # in case extraction_backend="ng", this will raise below
-    pass
+from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
 
 logger = logging.getLogger()
 
@@ -119,12 +114,12 @@ class WorkflowBase:
             f"Creating DIA data object took: {time.time() - time_start}"
         )
 
-        if self._config["search"]["extraction_backend"] == "ng":
+        if self._config["search"]["extraction_backend"] == "rust":
             time_start = time.time()
             if isinstance(self._dia_data, TimsTOF):
                 raise GenericUserError(
                     "NOT_SUPPORTED_BY_NG",
-                    "NG backend does not support TimsTOF data yet. Please use extraction_backend='classic'.",
+                    "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
                 )
 
             dia_data_ng = dia_data_to_ng(self._dia_data)

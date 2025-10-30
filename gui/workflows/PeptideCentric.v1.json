@@ -95,6 +95,17 @@
             "hidden": false,
             "parameters": [
                 {
+                  "id": "extraction_backend",
+                  "name": "Extraction Backend",
+                  "default": "rust",
+                  "description": "Method to use for search. 'python' uses the original python implementation, 'rust' uses an improved extraction method with better performance and speed (currently available for non-Bruker data only).",
+                  "type": "dropdown",
+                  "options": [
+                    "rust",
+                    "python"
+                  ]
+                },
+                {
                     "id": "target_ms1_tolerance",
                     "name": "MS1 Tolerance",
                     "default": 5,

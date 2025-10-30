@@ -141,8 +141,8 @@ custom_modifications:
     composition: C(12)
 
 search:
-  # which backend to be used for the extraction. Current only option: classic
-  extraction_backend: classic
+  # which backend to be used for the extraction. Current options: python, rust
+  extraction_backend: rust
   # target ms1 tolerance in ppm
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm

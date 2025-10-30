@@ -2,6 +2,7 @@ import * as React from 'react'
 import styled from '@emotion/styled'
 import useTheme from '@mui/material/styles/useTheme';
 import InfoTooltip from './InfoTooltip'
+import { useMethod } from '../logic/context';
 
 import { Box, Chip, Button, Checkbox, FormControl, MenuItem, Select, Stack, Typography, TextField } from '@mui/material'
 

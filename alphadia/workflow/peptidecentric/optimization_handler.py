@@ -373,7 +373,7 @@ class OptimizationHandler:
             self._optlock.batch_library,
         )
 
-        if self._config["search"]["extraction_backend"] == "classic":
+        if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
                     candidates_df,
