@@ -271,7 +271,10 @@ def _pretty_print(
     tracking_dict: dict | str,
     prefix: str = "",
 ):
-    """Recursively pretty print a configuration dictionary in a tree-like structure."""
+    """Recursively pretty print a configuration dictionary in a tree-like structure.
+
+    Note: all special unicode characters used here must be explicitly escaped in the GUI (cf. replaceConfigFormatUnicodeEscapes())
+    """
     for i, (key, value) in enumerate(config.items()):
         is_last_item = i == len(config.items()) - 1
 

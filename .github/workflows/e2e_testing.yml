@@ -32,7 +32,7 @@ jobs:
             echo "test_cases=[\"${{ github.event.inputs.test_case }}\"]" >> $GITHUB_OUTPUT
           else
             # NEW TEST CASES ARE ADDED HERE:
-            echo 'test_cases=["basic", "astral", "astral_automatic_calibration", "multistep", "synchropasef", ]' >> $GITHUB_OUTPUT
+            echo 'test_cases=["basic", "basic_python", "astral", "astral_automatic_calibration", "multistep", "synchropasef", ]' >> $GITHUB_OUTPUT
           fi
 
       - id: parse-commitish-to-test

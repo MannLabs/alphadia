@@ -1,7 +1,7 @@
 import * as React from 'react';
 import styled from '@emotion/styled';
 import { useMethod, useMethodDispatch } from '../logic/context';
-import { Box, Typography, TextField, InputAdornment } from '@mui/material';
+import { Box, Typography, Alert, AlertTitle, TextField, InputAdornment } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import { Masonry } from '@mui/lab';
 import { SingleSelect, MultiSelect, InputFileSelect, FileViewer, ParameterGroup } from '../components';
@@ -75,9 +75,26 @@ const Files = () => {
 const Config = () => {
     const method = useMethod();
     const [searchTerm, setSearchTerm] = React.useState('');
+    const extractionBackend = method.config
+        .find(group => group.id === 'search')
+        ?.parameters.find(param => param.id === 'extraction_backend')
+        ?.value;
 
     return (
         <Box>
+            {extractionBackend === 'rust' && (
+                <Box sx={{ marginBottom: 2 }}>
+                    <Alert severity="info">
+                        <AlertTitle>Limited Feature Set</AlertTitle>
+                        The selected 'rust' extraction backend is superior in speed and performance, and recommended for Thermo and Sciex data.<br />
+                        However, some features are not yet available:<br />
+                        - transfer learning<br />
+                        - multiplexing<br />
+                        - processing Bruker files<br />
+                        If you need these, you need to switch the backend to 'python' in the "Search" parameter group.
+                    </Alert>
+                </Box>
+            )}
             <Box sx={{ mb: 2 }}>
                 <TextField
                     fullWidth

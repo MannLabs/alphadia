@@ -30,7 +30,7 @@ datas, binaries, hidden_imports = PyInstaller.utils.hooks.collect_all(
 	include_py_files=True
 )
 
-alpha_x = ['alphabase', 'alpharaw','alphatims','peptdeep']
+alpha_x = ['alphabase', 'alpharaw','alphatims','peptdeep','alphadia-search-rs']
 for alpha_package in alpha_x:
 	_datas, _binaries, _hidden_imports = PyInstaller.utils.hooks.collect_all(
 		alpha_package,
