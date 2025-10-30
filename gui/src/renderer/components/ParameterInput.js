@@ -51,22 +51,6 @@ const ParameterInput = ({
         sx
     }) => {
 
-        const method = useMethod();
-
-        // Check if any raw file is a Bruker .d file
-        const hasBrukerFiles = React.useMemo(() => {
-            if (!method.raw_path_list || !method.raw_path_list.path) return false;
-            return method.raw_path_list.path.some(filePath =>
-                filePath.toLowerCase().endsWith('.d')
-            );
-        }, [method.raw_path_list]);
-
-        // Force extraction_backend to 'python' when Bruker files are present
-        React.useEffect(() => {
-            if (parameter.id === 'extraction_backend' && hasBrukerFiles && parameter.value !== 'python') {
-                onChange('python');
-            }
-        }, [hasBrukerFiles, parameter.id, parameter.value]);
 
         let input = null;
 
@@ -121,12 +105,6 @@ const ParameterInput = ({
                 )
                 break;
             case "dropdown":
-                // Filter options for extraction_backend when Bruker files are present
-                let availableOptions = parameter.options;
-
-                if (parameter.id === 'extraction_backend' && hasBrukerFiles) {
-                    availableOptions = parameter.options.filter(option => option === 'python');
-                }
 
                 input = (
                     <FormControl variant="standard" size="small" sx={{width: "150px", minHeight: "0px"}}>
@@ -134,9 +112,9 @@ const ParameterInput = ({
                             value={parameter.value}
                             onChange={(event) => {onChange(event.target.value)}}
                             >
-                            {availableOptions.map((option) => {
+                            {parameter.options.map((option) => {
                                 return (
-                                    <MenuItem key={option} value={option}>{option}</MenuItem>
+                                    <MenuItem value={option}>{option}</MenuItem>
                                 )
                             })}
                         </Select>
