@@ -12,6 +12,7 @@ test_cases:
 #    metrics:
 #      # possible selections are all subclasses of the calc_metrics.py:Metrics class
 
+# NOTE: if you want these tests run in the GitHub Actions CI, make sure to add them to e2e_testing.yml (look for 'NEW TEST CASES ARE ADDED HERE')
   - name: basic
     config:
       search_initial:
@@ -64,6 +65,7 @@ test_cases:
         transfer_step_enabled: True
         mbr_step_enabled: True
       search:
+        extraction_backend: python # TODO: switch when transfer learning is supported
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
@@ -93,7 +95,7 @@ test_cases:
   - name: synchropasef
     config:
       search:
-        extraction_backend: python
+        extraction_backend: python # TODO: switch when Bruker data is supported
         target_num_candidates: 5
         target_ms1_tolerance: 15
         target_ms2_tolerance: 15
