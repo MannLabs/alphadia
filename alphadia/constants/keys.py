@@ -142,7 +142,7 @@ class ProteinGroupOutputCols(metaclass=ConstantsClass):
     INTENSITY = "pg.intensity"
 
 
-class SemanticRawKeys(metaclass=ConstantsClass):
+class OutputRawKeys(metaclass=ConstantsClass):
     """String constants for experimental metadata columns.
 
     These keys represent experimental/run-level metadata that are not
@@ -152,7 +152,7 @@ class SemanticRawKeys(metaclass=ConstantsClass):
     RAW_NAME = "raw.name"
 
 
-INTERNAL_TO_SEMANTIC_MAPPING = {
+INTERNAL_TO_OUTPUT_MAPPING = {
     "precursor_idx": PrecursorOutputCols.PRECURSOR_IDX,
     "sequence": PrecursorOutputCols.SEQUENCE,
     "charge": PrecursorOutputCols.CHARGE,
@@ -181,5 +181,5 @@ INTERNAL_TO_SEMANTIC_MAPPING = {
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
     "pg_qval": ProteinGroupOutputCols.QVAL,
-    "run": SemanticRawKeys.RAW_NAME,
+    "run": OutputRawKeys.RAW_NAME,
 }

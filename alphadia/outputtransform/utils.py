@@ -6,7 +6,7 @@ import pandas as pd
 from alphabase.peptide import precursor
 
 from alphadia.constants.keys import (
-    INTERNAL_TO_SEMANTIC_MAPPING,
+    INTERNAL_TO_OUTPUT_MAPPING,
     InferenceStrategy,
 )
 from alphadia.outputtransform import grouping
@@ -54,8 +54,8 @@ def read_df(path_no_format, file_format="parquet"):
         )
 
 
-def apply_semantic_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Convert internal column names to semantic names for output files.
+def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert internal column names to output names for output files.
 
     Parameters
     ----------
@@ -65,10 +65,10 @@ def apply_semantic_column_names(df: pd.DataFrame) -> pd.DataFrame:
     Returns
     -------
     pd.DataFrame
-        Dataframe with semantic column names applied
+        Dataframe with output column names applied
     """
     rename_dict = {
-        k: v for k, v in INTERNAL_TO_SEMANTIC_MAPPING.items() if k in df.columns
+        k: v for k, v in INTERNAL_TO_OUTPUT_MAPPING.items() if k in df.columns
     }
     return df.rename(columns=rename_dict)
 
