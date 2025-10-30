@@ -28,6 +28,7 @@ from alphadia.outputtransform.quantification import QuantOutputBuilder
 from alphadia.outputtransform.utils import (
     apply_output_column_names,
     apply_protein_inference,
+    apply_stat_output_column_names,
     get_channels_from_config,
     load_psm_files_from_folders,
     log_protein_fdr_summary,
@@ -372,8 +373,9 @@ class SearchPlanOutput:
 
         if save:
             logger.info("Writing stat output to disk")
+            stat_df_output = apply_stat_output_column_names(stat_df)
             write_df(
-                stat_df,
+                stat_df_output,
                 os.path.join(self.output_folder, self.STAT_OUTPUT),
                 file_format="tsv",
             )

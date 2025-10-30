@@ -154,6 +154,21 @@ class OutputRawKeys(metaclass=ConstantsClass):
     """
 
     RAW_NAME = "raw.name"
+    CHANNEL = "raw.channel"
+    PRECURSORS = "raw.precursors"
+    PROTEINS = "raw.proteins"
+    MEDIAN_FWHM_RT = "raw.median_fwhm_rt"
+    MEDIAN_FWHM_MOBILITY = "raw.median_fwhm_mobility"
+
+
+STAT_OUTPUT_MAPPING = {
+    "run": OutputRawKeys.RAW_NAME,
+    "channel": OutputRawKeys.CHANNEL,
+    "precursors": OutputRawKeys.PRECURSORS,
+    "proteins": OutputRawKeys.PROTEINS,
+    "fwhm_rt": OutputRawKeys.MEDIAN_FWHM_RT,
+    "fwhm_mobility": OutputRawKeys.MEDIAN_FWHM_MOBILITY,
+}
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {

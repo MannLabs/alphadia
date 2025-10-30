@@ -7,6 +7,7 @@ from alphabase.peptide import precursor
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
+    STAT_OUTPUT_MAPPING,
     InferenceStrategy,
 )
 from alphadia.outputtransform import grouping
@@ -78,6 +79,43 @@ def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
 
     # Filter to only keep columns that are in the output mapping
     columns_to_keep = [col for col in df_renamed.columns if col in output_columns]
+
+    return df_renamed[columns_to_keep]
+
+
+def apply_stat_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
+    """Convert stat dataframe column names to output names and filter.
+
+    Renames columns according to STAT_OUTPUT_MAPPING. Columns not in the mapping
+    are kept as-is (e.g., optimization.*, calibration.*, raw.* columns already
+    have their final names).
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Stat dataframe with internal column names
+
+    Returns
+    -------
+    pd.DataFrame
+        Dataframe with output column names applied
+    """
+    # Get output column names (values from the mapping)
+    output_columns = set(STAT_OUTPUT_MAPPING.values())
+
+    # Rename columns according to mapping
+    df_renamed = df.rename(columns=STAT_OUTPUT_MAPPING)
+
+    # Keep all columns that are either:
+    # 1. In the output mapping (renamed columns)
+    # 2. Already have proper output names (optimization.*, calibration.*, raw.*)
+    columns_to_keep = []
+    for col in df_renamed.columns:
+        # Keep if it's an output column from the mapping
+        if col in output_columns or col.startswith(
+            ("optimization.", "calibration.", "raw.")
+        ):
+            columns_to_keep.append(col)
 
     return df_renamed[columns_to_keep]
 

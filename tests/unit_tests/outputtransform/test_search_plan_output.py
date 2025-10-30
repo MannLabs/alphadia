@@ -145,12 +145,12 @@ def test_search_plan_output_integration():
     assert all(
         col in stat_df.columns
         for col in [
-            "run",
-            "channel",
-            "precursors",
-            "proteins",
-            "fwhm_rt",
-            "fwhm_mobility",
+            "raw.name",
+            "raw.channel",
+            "raw.precursors",
+            "raw.proteins",
+            "raw.median_fwhm_rt",
+            "raw.median_fwhm_mobility",
             "optimization.ms2_error",
             "optimization.ms1_error",
             "optimization.rt_error",
