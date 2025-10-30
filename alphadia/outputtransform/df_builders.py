@@ -119,36 +119,35 @@ def build_run_stat_df(
                     CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[
+                calibration_stats["calibration.ms2_median_bias"] = fragment_mz_metrics[
                     "median_accuracy"
                 ]
-                calibration_stats["ms2_median_precision"] = fragment_mz_metrics[
-                    "median_precision"
-                ]
+                calibration_stats["calibration.ms2_median_variance"] = (
+                    fragment_mz_metrics["median_precision"]
+                )
 
             if (
                 precursor_mz_estimator := calibration_manager.get_estimator(
                     CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                calibration_stats["ms1_median_accuracy"] = precursor_mz_metrics[
+                calibration_stats["calibration.ms1_median_bias"] = precursor_mz_metrics[
                     "median_accuracy"
                 ]
-                calibration_stats["ms1_median_precision"] = precursor_mz_metrics[
-                    "median_precision"
-                ]
+                calibration_stats["calibration.ms1_median_variance"] = (
+                    precursor_mz_metrics["median_precision"]
+                )
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
 
-        prefix = "calibration."
         for key in [
-            "ms2_median_accuracy",
-            "ms2_median_precision",
-            "ms1_median_accuracy",
-            "ms1_median_precision",
+            "calibration.ms2_median_bias",
+            "calibration.ms2_median_variance",
+            "calibration.ms1_median_bias",
+            "calibration.ms1_median_variance",
         ]:
-            stats[f"{prefix}{key}"] = calibration_stats.get(key, "NaN")
+            stats[key] = calibration_stats.get(key, "NaN")
 
         # collect raw stats
         raw_stats = defaultdict(lambda: np.nan)

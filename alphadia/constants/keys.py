@@ -168,10 +168,6 @@ STAT_OUTPUT_MAPPING = {
     "proteins": OutputRawKeys.PROTEINS,
     "fwhm_rt": OutputRawKeys.MEDIAN_FWHM_RT,
     "fwhm_mobility": OutputRawKeys.MEDIAN_FWHM_MOBILITY,
-    "calibration.ms2_median_accuracy": "calibration.ms2_median_bias",
-    "calibration.ms2_median_precision": "calibration.ms2_median_variance",
-    "calibration.ms1_median_accuracy": "calibration.ms1_median_bias",
-    "calibration.ms1_median_precision": "calibration.ms1_median_variance",
 }
 
 
