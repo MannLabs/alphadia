@@ -250,7 +250,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             precursor_df = self._fdr_manager.fit_predict(
                 precursor_quantified_w_features_df,
                 decoy_strategy=decoy_strategy,
-                competetive=self._config["fdr"]["competetive_scoring"],
+                competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
             )

@@ -8,9 +8,16 @@ import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ParameterInput from './ParameterInput';
 
 
-const ParameterGroup = ({parameterGroup, sx}) => {
+const ParameterGroup = ({parameterGroup, sx, searchTerm = ''}) => {
     const [advancedOpen, setAdvancedOpen] = React.useState(false);
     const dispatch = useMethodDispatch();
+
+    // Auto-expand advanced parameters when searching
+    React.useEffect(() => {
+        if (searchTerm && searchTerm.trim() !== '') {
+            setAdvancedOpen(true);
+        }
+    }, [searchTerm]);
 
     return (
         <Box sx={[
@@ -39,6 +46,7 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                             <ParameterInput
                                 parameter = {parameter}
                                 parameter_group_id = {parameterGroup.id}
+                                searchTerm = {searchTerm}
                                 onChange = {(value) => {dispatch(
                                     {type: 'updateParameter',
                                     parameterGroupId: parameterGroup.id,
@@ -70,6 +78,7 @@ const ParameterGroup = ({parameterGroup, sx}) => {
                                     <ParameterInput
                                         parameter={parameter}
                                         parameter_group_id={parameterGroup.id}
+                                        searchTerm={searchTerm}
                                         onChange={(value) => {dispatch({
                                             type: 'updateParameterAdvanced',
                                             parameterGroupId: parameterGroup.id,

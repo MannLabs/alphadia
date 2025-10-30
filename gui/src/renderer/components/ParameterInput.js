@@ -48,8 +48,24 @@ const ParameterInput = ({
         parameter,
         parameter_group_id,
         onChange = () => {},
+        searchTerm = '',
         sx
     }) => {
+        const theme = useTheme();
+
+        // Check if parameter matches search term (space-separated terms are treated as AND)
+        const isMatch = React.useMemo(() => {
+            if (!searchTerm || searchTerm.trim() === '') return false;
+
+            // Split search term by spaces and filter out empty strings
+            const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+
+            // Combine parameter name and description for searching
+            const searchableText = (parameter.name + ' ' + (parameter.description || '')).toLowerCase();
+
+            // All terms must be found in either name or description
+            return searchTerms.every(term => searchableText.includes(term));
+        }, [searchTerm, parameter.name, parameter.description]);
 
         let input = null;
 
@@ -212,29 +228,93 @@ const ParameterInput = ({
     // make Grid which takes 100% of the height
     // The last row should grow to fill the remaining space
     let defaultText = parameter.type === "boolean" ? (parameter.default ? "true" : "false") : parameter.default
-    return (
 
-            <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            spacing={2}
-            sx={{minHeight: "30px"}}
-            >
-            <InfoTooltip title={
-                <Stack spacing={0.5}>
-                    <Typography sx={{ fontWeight: 'bold' }}>{parameter.name} (default: {defaultText})</Typography>
-                    <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
-                    <Typography>{parameter.description}</Typography>
+    // Show description only when searching AND there's a match
+    const showDescription = searchTerm && searchTerm.trim() !== '' && isMatch;
+
+    // Function to highlight matching terms in text
+    const highlightText = (text, searchTerms) => {
+        if (!searchTerms || searchTerms.length === 0) return text;
+
+        const fragments = [];
+        let lastIndex = 0;
+
+        // Create a regex pattern that matches any of the search terms
+        const pattern = searchTerms.map(term => RegExp.escape(term)).join('|');
+        const regex = new RegExp(`(${pattern})`, 'gi');
+
+        const matches = [...text.matchAll(regex)];
+
+        matches.forEach((match) => {
+            // Add text before match
+            if (match.index > lastIndex) {
+                fragments.push(
+                    <span key={`text-${lastIndex}`}>
+                        {text.substring(lastIndex, match.index)}
+                    </span>
+                );
+            }
+            // Add highlighted match
+            fragments.push(
+                <span key={`match-${match.index}`} style={{ color: theme.palette.primary.selected, fontWeight: 'bold' }}>
+                    {match[0]}
+                </span>
+            );
+            lastIndex = match.index + match[0].length;
+        });
+
+        // Add remaining text
+        if (lastIndex < text.length) {
+            fragments.push(
+                <span key={`text-${lastIndex}`}>
+                    {text.substring(lastIndex)}
+                </span>
+            );
+        }
+
+        return fragments.length > 0 ? fragments : text;
+    };
+
+    const searchTerms = searchTerm.toLowerCase().split(' ').filter(term => term.length > 0);
+
+    return (
+            <Box>
+                <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                spacing={2}
+                sx={{minHeight: "30px"}}
+                >
+                <InfoTooltip title={
+                    <Stack spacing={0.5}>
+                        <Typography sx={{ fontWeight: 'bold' }}>{parameter.name} (default: {defaultText})</Typography>
+                        <Typography sx={{ fontFamily: 'monospace' }}>{`[${parameter_group_id}.${parameter.id}]`}</Typography>
+                        <Typography>{parameter.description}</Typography>
+                    </Stack>
+                }>
+                    <Typography sx={{
+                        fontWeight: 400,
+                        fontSize: "12px",
+                        color: isMatch ? theme.palette.primary.selected : (parameter.value !== parameter.default ? theme.palette.primary.main : 'inherit')
+                    }}>
+                        {parameter.name}
+                    </Typography>
+                </InfoTooltip>
+                    {input}
                 </Stack>
-            }>
-                <Typography sx={{fontWeight: 400, fontSize: "12px",
-                        color: parameter.value !== parameter.default ? useTheme().palette.primary.main : 'inherit'}}>
-                    {parameter.name}
-                </Typography>
-            </InfoTooltip>
-                {input}
-            </Stack>
+                {showDescription && parameter.description && (
+                    <Typography sx={{
+                        fontSize: "11px",
+                        color: "text.secondary",
+                        mt: 0.5,
+                        ml: 0,
+                        fontStyle: "italic"
+                    }} component="div">
+                        {highlightText(parameter.description, searchTerms)}
+                    </Typography>
+                )}
+            </Box>
 
 
     )

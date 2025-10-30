@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import StatOutputKeys
+from alphadia.constants.keys import StatOutputCols
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationEstimators,
     CalibrationGroups,
@@ -81,26 +81,26 @@ def build_run_stat_df(
             )
         ):
             optimization_manager = OptimizationManager(path=optimization_manager_path)
-            optimization_stats[StatOutputKeys.MS2_ERROR] = (
+            optimization_stats[StatOutputCols.MS2_ERROR] = (
                 optimization_manager.ms2_error
             )
-            optimization_stats[StatOutputKeys.MS1_ERROR] = (
+            optimization_stats[StatOutputCols.MS1_ERROR] = (
                 optimization_manager.ms1_error
             )
-            optimization_stats[StatOutputKeys.RT_ERROR] = optimization_manager.rt_error
-            optimization_stats[StatOutputKeys.MOBILITY_ERROR] = (
+            optimization_stats[StatOutputCols.RT_ERROR] = optimization_manager.rt_error
+            optimization_stats[StatOutputCols.MOBILITY_ERROR] = (
                 optimization_manager.mobility_error
             )
         else:
             logger.warning(f"Error reading optimization manager for {raw_name}")
 
         for key in [
-            StatOutputKeys.MS2_ERROR,
-            StatOutputKeys.MS1_ERROR,
-            StatOutputKeys.RT_ERROR,
-            StatOutputKeys.MOBILITY_ERROR,
+            StatOutputCols.MS2_ERROR,
+            StatOutputCols.MS1_ERROR,
+            StatOutputCols.RT_ERROR,
+            StatOutputCols.MOBILITY_ERROR,
         ]:
-            stats[f"{StatOutputKeys.OPTIMIZATION_PREFIX}{key}"] = optimization_stats[
+            stats[f"{StatOutputCols.OPTIMIZATION_PREFIX}{key}"] = optimization_stats[
                 key
             ]
 

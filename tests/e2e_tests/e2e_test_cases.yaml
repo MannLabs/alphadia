@@ -15,8 +15,8 @@ test_cases:
   - name: basic
     config:
       search_initial:
-        initial_num_candidates: 1
-        initial_rt_tolerance: 300
+        num_candidates: 1
+        rt_tolerance: 300
       search:
         target_num_candidates: 1
         target_ms1_tolerance: 4
@@ -102,14 +102,12 @@ test_cases:
         quant_window: 6
         quant_all: true
       search_initial:
-        initial_num_candidates: 1
-        initial_ms1_tolerance: 30
-        initial_ms2_tolerance: 30
-        initial_mobility_tolerance: 0.08
-        initial_rt_tolerance: 240
+        num_candidates: 1
+        ms1_tolerance: 30
+        ms2_tolerance: 30
+        mobility_tolerance: 0.08
+        rt_tolerance: 240
       search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
         save_fragment_quant_matrix: true
     library_path:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/MSFragger_library_60SPD_2.tsv
@@ -139,13 +137,10 @@ test_cases:
         target_ms2_tolerance: 7
         target_rt_tolerance: 200
       search_initial:
-        initial_num_candidates: 1
-        initial_ms1_tolerance: 10
-        initial_ms2_tolerance: 15
-        initial_rt_tolerance: 300
-      search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
+        num_candidates: 1
+        ms1_tolerance: 10
+        ms2_tolerance: 15
+        rt_tolerance: 300
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
@@ -175,13 +170,10 @@ test_cases:
         target_ms2_tolerance: -1
         target_rt_tolerance: -1
       search_initial:
-        initial_num_candidates: 1
-        initial_ms1_tolerance: 100
-        initial_ms2_tolerance: 100
-        initial_rt_tolerance: 600
-      search_output:
-        peptide_level_lfq: true
-        precursor_level_lfq: true
+        num_candidates: 1
+        ms1_tolerance: 100
+        ms2_tolerance: 100
+        rt_tolerance: 600
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
     raw_paths:
@@ -210,13 +202,11 @@ test_cases:
 #        target_ms2_tolerance: 7
 #        target_rt_tolerance: 200
 #      search_initial:
-#        initial_num_candidates: 1
-#        initial_ms1_tolerance: 10
-#        initial_ms2_tolerance: 15
-#        initial_rt_tolerance: 300
+#        num_candidates: 1
+#        ms1_tolerance: 10
+#        ms2_tolerance: 15
+#        rt_tolerance: 300
 #      search_output:
-#        peptide_level_lfq: true
-#        precursor_level_lfq: true
 #        save_fragment_quant_matrix: false
 #    library_path:
 #      - source_url: https://datashare.biochem.mpg.de/s/Q9D8N2mq8vlzQ1f  #speclib.mbr.hdf

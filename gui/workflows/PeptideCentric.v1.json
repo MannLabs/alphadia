@@ -554,20 +554,6 @@
                         "tsv",
                         "parquet"
                     ]
-                },
-                {
-                    "id": "peptide_level_lfq",
-                    "name": "Peptide level LFQ",
-                    "default": false,
-                    "description": "Perform label free quantification on peptide level and report as peptide matrix.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "precursor_level_lfq",
-                    "name": "Precursor level LFQ",
-                    "default": false,
-                    "description": "Perform label free quantification on precursor level and report as precursor matrix.",
-                    "type": "boolean"
                 }
             ],
             "parameters_advanced": [
