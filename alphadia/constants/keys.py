@@ -147,7 +147,7 @@ class ProteinGroupOutputCols(metaclass=ConstantsClass):
 
 
 class OutputRawCols(metaclass=ConstantsClass):
-    """String constants for experimental metadata columns.
+    """String constants for experiment metadata columns.
 
     These keys represent experimental/run-level metadata that are not
     specific to precursors, peptides, or protein groups.
@@ -211,5 +211,5 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
     "pg_qval": ProteinGroupOutputCols.QVAL,
-    "run": OutputRawCols.NAME,
+    "run": StatRawCols.NAME,
 }
