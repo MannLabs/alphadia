@@ -173,10 +173,10 @@ class StatSearchCols(metaclass=ConstantsClass):
 class StatCalibrationCols(metaclass=ConstantsClass):
     """String constants for calibration statistics columns."""
 
-    MS2_MEDIAN_BIAS = "calibration.ms2_bias"
-    MS2_MEDIAN_VARIANCE = "calibration.ms2_variance"
-    MS1_MEDIAN_BIAS = "calibration.ms1_bias"
-    MS1_MEDIAN_VARIANCE = "calibration.ms1_variance"
+    MS2_BIAS = "calibration.ms2_bias"
+    MS2_ERROR = "calibration.ms2_variance"
+    MS1_BIAS = "calibration.ms1_bias"
+    MS1_ERROR = "calibration.ms1_variance"
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {

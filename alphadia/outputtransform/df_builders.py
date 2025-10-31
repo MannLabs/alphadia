@@ -126,33 +126,33 @@ def build_run_stat_df(
                     CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                calibration_stats[StatCalibrationCols.MS2_MEDIAN_BIAS] = (
-                    fragment_mz_metrics["median_accuracy"]
-                )
-                calibration_stats[StatCalibrationCols.MS2_MEDIAN_VARIANCE] = (
-                    fragment_mz_metrics["median_precision"]
-                )
+                calibration_stats[StatCalibrationCols.MS2_BIAS] = fragment_mz_metrics[
+                    "median_accuracy"
+                ]
+                calibration_stats[StatCalibrationCols.MS2_ERROR] = fragment_mz_metrics[
+                    "median_precision"
+                ]
 
             if (
                 precursor_mz_estimator := calibration_manager.get_estimator(
                     CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                calibration_stats[StatCalibrationCols.MS1_MEDIAN_BIAS] = (
-                    precursor_mz_metrics["median_accuracy"]
-                )
-                calibration_stats[StatCalibrationCols.MS1_MEDIAN_VARIANCE] = (
-                    precursor_mz_metrics["median_precision"]
-                )
+                calibration_stats[StatCalibrationCols.MS1_BIAS] = precursor_mz_metrics[
+                    "median_accuracy"
+                ]
+                calibration_stats[StatCalibrationCols.MS1_ERROR] = precursor_mz_metrics[
+                    "median_precision"
+                ]
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
 
         for key in [
-            StatCalibrationCols.MS2_MEDIAN_BIAS,
-            StatCalibrationCols.MS2_MEDIAN_VARIANCE,
-            StatCalibrationCols.MS1_MEDIAN_BIAS,
-            StatCalibrationCols.MS1_MEDIAN_VARIANCE,
+            StatCalibrationCols.MS2_BIAS,
+            StatCalibrationCols.MS2_ERROR,
+            StatCalibrationCols.MS1_BIAS,
+            StatCalibrationCols.MS1_ERROR,
         ]:
             stats[key] = calibration_stats.get(key, "NaN")
 
