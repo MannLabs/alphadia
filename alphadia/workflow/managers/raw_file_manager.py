@@ -111,8 +111,8 @@ class RawFileManager(BaseManager):
         flat_cycle = cycle.flatten()
         flat_cycle = flat_cycle[flat_cycle > 0]
 
-        stats["msms_range_min"] = flat_cycle.min()
-        stats["msms_range_max"] = flat_cycle.max()
+        stats["ms2_range_min"] = flat_cycle.min()
+        stats["ms2_range_max"] = flat_cycle.max()
 
         self.stats = stats
 
@@ -131,5 +131,5 @@ class RawFileManager(BaseManager):
         logger.info(f"{'Number of cycles':<20}: {self.stats['cycle_number']:.0f}")
 
         logger.info(
-            f"{'MS2 range (m/z)':<20}: {self.stats['msms_range_min']:.1f} - {self.stats['msms_range_max']:.1f}"
+            f"{'MS2 range (m/z)':<20}: {self.stats['ms2_range_min']:.1f} - {self.stats['ms2_range_max']:.1f}"
         )
