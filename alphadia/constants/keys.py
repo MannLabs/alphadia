@@ -146,14 +146,18 @@ class ProteinGroupOutputCols(metaclass=ConstantsClass):
     INTENSITY = "pg.intensity"
 
 
-class OutputRawKeys(metaclass=ConstantsClass):
+class OutputRawCols(metaclass=ConstantsClass):
     """String constants for experimental metadata columns.
 
     These keys represent experimental/run-level metadata that are not
     specific to precursors, peptides, or protein groups.
     """
 
-    RAW_NAME = "raw.name"
+    NAME = "raw.name"
+
+
+class StatRawCols(metaclass=ConstantsClass):
+    NAME = "raw.name"
     CHANNEL = "raw.channel"
     PRECURSORS = "raw.precursors"
     PROTEINS = "raw.proteins"
@@ -162,12 +166,12 @@ class OutputRawKeys(metaclass=ConstantsClass):
 
 
 STAT_OUTPUT_MAPPING = {
-    "run": OutputRawKeys.RAW_NAME,
-    "channel": OutputRawKeys.CHANNEL,
-    "precursors": OutputRawKeys.PRECURSORS,
-    "proteins": OutputRawKeys.PROTEINS,
-    "fwhm_rt": OutputRawKeys.MEDIAN_FWHM_RT,
-    "fwhm_mobility": OutputRawKeys.MEDIAN_FWHM_MOBILITY,
+    "run": StatRawCols.NAME,
+    "channel": StatRawCols.CHANNEL,
+    "precursors": StatRawCols.PRECURSORS,
+    "proteins": StatRawCols.PROTEINS,
+    "fwhm_rt": StatRawCols.MEDIAN_FWHM_RT,
+    "fwhm_mobility": StatRawCols.MEDIAN_FWHM_MOBILITY,
 }
 
 
@@ -203,5 +207,5 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
     "pg_qval": ProteinGroupOutputCols.QVAL,
-    "run": OutputRawKeys.RAW_NAME,
+    "run": OutputRawCols.NAME,
 }
