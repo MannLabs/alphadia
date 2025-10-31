@@ -1,7 +1,7 @@
 {
   "name": "alphadia",
   "productName": "alphadia-gui",
-  "version": "1.12.3-dev0",
+  "version": "2.0.0-dev0",
   "description": "Graphical user interface for DIA data analysis",
   "main": "dist/electron.js",
   "homepage": "./",
@@ -21,7 +21,7 @@
   "license": "MIT",
   "dependencies": {
     "@emotion/react": "^11.11.1",
-    "@emotion/styled": "^11.12.3-dev0",
+    "@emotion/styled": "^12.0.0-dev0",
     "@mui/icons-material": "^5.14.0",
     "@mui/lab": "^5.0.0-alpha.136",
     "@mui/material": "^5.14.0",
