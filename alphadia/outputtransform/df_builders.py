@@ -174,17 +174,15 @@ def build_run_stat_df(
         # deliberately mapping explicitly to avoid coupling raw_stats to the output too tightly
         prefix = "raw."
 
-        stats[f"{prefix}gradient_min_m"] = raw_stats["rt_limit_min"] / 60
-        stats[f"{prefix}gradient_max_m"] = raw_stats["rt_limit_max"] / 60
-        stats[f"{prefix}gradient_length_m"] = (
+        stats[f"{prefix}gradient_length"] = (
             raw_stats["rt_limit_max"] - raw_stats["rt_limit_min"]
-        ) / 60
+        )
         for key in [
             "cycle_length",
             "cycle_duration",
             "cycle_number",
-            "msms_range_min",
-            "msms_range_max",
+            "ms2_range_min",
+            "ms2_range_max",
         ]:
             stats[f"{prefix}{key}"] = raw_stats[key]
 
