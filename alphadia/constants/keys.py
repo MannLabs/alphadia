@@ -138,7 +138,7 @@ class PeptideOutputCols(metaclass=ConstantsClass):
 class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
-    PG = "pg"
+    NAME = "pg.name"
     PROTEINS = "pg.proteins"
     GENES = "pg.genes"
     MASTER_PROTEIN = "pg.master_protein"
@@ -146,14 +146,33 @@ class ProteinGroupOutputCols(metaclass=ConstantsClass):
     INTENSITY = "pg.intensity"
 
 
-class OutputRawKeys(metaclass=ConstantsClass):
-    """String constants for experimental metadata columns.
+class OutputRawCols(metaclass=ConstantsClass):
+    """String constants for experiment metadata columns.
 
     These keys represent experimental/run-level metadata that are not
     specific to precursors, peptides, or protein groups.
     """
 
-    RAW_NAME = "raw.name"
+    NAME = "raw.name"
+
+
+class StatSearchCols(metaclass=ConstantsClass):
+    """String constants for search statistics columns."""
+
+    CHANNEL = "search.channel"
+    PRECURSORS = "search.precursors"
+    PROTEINS = "search.proteins"
+    FWHM_RT = "search.fwhm_rt"
+    FWHM_MOBILITY = "search.fwhm_mobility"
+
+
+class StatCalibrationCols(metaclass=ConstantsClass):
+    """String constants for calibration statistics columns."""
+
+    MS2_BIAS = "calibration.ms2_bias"
+    MS2_ERROR = "calibration.ms2_variance"
+    MS1_BIAS = "calibration.ms1_bias"
+    MS1_ERROR = "calibration.ms1_variance"
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {
@@ -183,10 +202,10 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,
-    "pg": ProteinGroupOutputCols.PG,
+    "pg": ProteinGroupOutputCols.NAME,
     "proteins": ProteinGroupOutputCols.PROTEINS,
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
     "pg_qval": ProteinGroupOutputCols.QVAL,
-    "run": OutputRawKeys.RAW_NAME,
+    "run": OutputRawCols.NAME,
 }

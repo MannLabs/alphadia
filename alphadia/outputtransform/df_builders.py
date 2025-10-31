@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import StatOutputCols
+from alphadia.constants.keys import (
+    OutputRawCols,
+    StatCalibrationCols,
+    StatOutputCols,
+    StatSearchCols,
+)
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationEstimators,
     CalibrationGroups,
@@ -58,19 +63,19 @@ def build_run_stat_df(
         channel_df = run_df[run_df["channel"] == channel]
 
         stats = {
-            "run": raw_name,
-            "channel": channel,
-            "precursors": len(channel_df),
-            "proteins": channel_df["pg"].nunique(),
+            OutputRawCols.NAME: raw_name,
+            StatSearchCols.CHANNEL: channel,
+            StatSearchCols.PRECURSORS: len(channel_df),
+            StatSearchCols.PROTEINS: channel_df["pg"].nunique(),
         }
 
-        stats["fwhm_rt"] = np.nan
+        stats[StatSearchCols.FWHM_RT] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            stats["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+            stats[StatSearchCols.FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
 
-        stats["fwhm_mobility"] = np.nan
+        stats[StatSearchCols.FWHM_MOBILITY] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            stats["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+            stats[StatSearchCols.FWHM_MOBILITY] = np.mean(channel_df["mobility_fwhm"])
 
         # collect optimization stats
         optimization_stats = defaultdict(lambda: np.nan)
@@ -119,10 +124,12 @@ def build_run_stat_df(
                     CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                calibration_stats["ms2_median_accuracy"] = fragment_mz_metrics[
+                # TODO: rename internal metric key "median_accuracy" to "median_bias"
+                calibration_stats[StatCalibrationCols.MS2_BIAS] = fragment_mz_metrics[
                     "median_accuracy"
                 ]
-                calibration_stats["ms2_median_precision"] = fragment_mz_metrics[
+                # TODO: rename internal metric key "median_precision" to "median_variance"
+                calibration_stats[StatCalibrationCols.MS2_ERROR] = fragment_mz_metrics[
                     "median_precision"
                 ]
 
@@ -131,24 +138,25 @@ def build_run_stat_df(
                     CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                calibration_stats["ms1_median_accuracy"] = precursor_mz_metrics[
+                # TODO: rename internal metric key "median_accuracy" to "median_bias"
+                calibration_stats[StatCalibrationCols.MS1_BIAS] = precursor_mz_metrics[
                     "median_accuracy"
                 ]
-                calibration_stats["ms1_median_precision"] = precursor_mz_metrics[
+                # TODO: rename internal metric key "median_precision" to "median_variance"
+                calibration_stats[StatCalibrationCols.MS1_ERROR] = precursor_mz_metrics[
                     "median_precision"
                 ]
 
         else:
             logger.warning(f"Error reading calibration manager for {raw_name}")
 
-        prefix = "calibration."
         for key in [
-            "ms2_median_accuracy",
-            "ms2_median_precision",
-            "ms1_median_accuracy",
-            "ms1_median_precision",
+            StatCalibrationCols.MS2_BIAS,
+            StatCalibrationCols.MS2_ERROR,
+            StatCalibrationCols.MS1_BIAS,
+            StatCalibrationCols.MS1_ERROR,
         ]:
-            stats[f"{prefix}{key}"] = calibration_stats.get(key, "NaN")
+            stats[key] = calibration_stats.get(key, "NaN")
 
         # collect raw stats
         raw_stats = defaultdict(lambda: np.nan)
@@ -166,17 +174,15 @@ def build_run_stat_df(
         # deliberately mapping explicitly to avoid coupling raw_stats to the output too tightly
         prefix = "raw."
 
-        stats[f"{prefix}gradient_min_m"] = raw_stats["rt_limit_min"] / 60
-        stats[f"{prefix}gradient_max_m"] = raw_stats["rt_limit_max"] / 60
-        stats[f"{prefix}gradient_length_m"] = (
+        stats[f"{prefix}gradient_length"] = (
             raw_stats["rt_limit_max"] - raw_stats["rt_limit_min"]
-        ) / 60
+        )
         for key in [
             "cycle_length",
             "cycle_duration",
             "cycle_number",
-            "msms_range_min",
-            "msms_range_max",
+            "ms2_range_min",
+            "ms2_range_max",
         ]:
             stats[f"{prefix}{key}"] = raw_stats[key]
 
