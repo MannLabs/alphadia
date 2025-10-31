@@ -4,9 +4,6 @@ import pandas as pd
 import pytest
 
 from alphadia.outputtransform.quantification import (
-    PeptideOutputCols,
-    PrecursorOutputCols,
-    ProteinGroupOutputCols,
     QuantificationLevelName,
     QuantOutputBuilder,
 )
@@ -218,7 +215,7 @@ class TestQuantOutputBuilder:
         precursor_config = LFQOutputConfig(
             quant_level="mod_seq_charge_hash",
             level_name=QuantificationLevelName.PRECURSOR,
-            intensity_column=PrecursorOutputCols.INTENSITY,
+            intensity_column="precursor_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites", "charge"],
         )
         builder = QuantOutputBuilder(psm_df, config)
@@ -249,7 +246,7 @@ class TestQuantOutputBuilder:
         peptide_config = LFQOutputConfig(
             quant_level="mod_seq_hash",
             level_name=QuantificationLevelName.PEPTIDE,
-            intensity_column=PeptideOutputCols.INTENSITY,
+            intensity_column="peptide_lfq_intensity",
             aggregation_components=["pg", "sequence", "mods", "mod_sites"],
         )
         builder = QuantOutputBuilder(psm_df, config)
@@ -283,7 +280,7 @@ class TestQuantOutputBuilder:
         pg_config = LFQOutputConfig(
             quant_level=QuantificationLevelName.PROTEIN,
             level_name=QuantificationLevelName.PROTEIN,
-            intensity_column=ProteinGroupOutputCols.INTENSITY,
+            intensity_column="pg_lfq_intensity",
             aggregation_components=[QuantificationLevelName.PROTEIN],
         )
         builder = QuantOutputBuilder(psm_df, config)

@@ -6,9 +6,6 @@ import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
-    PeptideOutputCols,
-    PrecursorOutputCols,
-    ProteinGroupOutputCols,
     QuantificationLevelKey,
     QuantificationLevelName,
 )
@@ -153,7 +150,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PRECURSOR,
                 level_name=QuantificationLevelName.PRECURSOR,
-                intensity_column=PrecursorOutputCols.INTENSITY,
+                intensity_column="precursor_lfq_intensity",
                 aggregation_components=[
                     QuantificationLevelName.PROTEIN,
                     "sequence",
@@ -169,7 +166,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
                 level_name=QuantificationLevelName.PEPTIDE,
-                intensity_column=PeptideOutputCols.INTENSITY,
+                intensity_column="peptide_lfq_intensity",
                 aggregation_components=[
                     QuantificationLevelName.PROTEIN,
                     "sequence",
@@ -184,7 +181,7 @@ class QuantOutputBuilder:
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
                 level_name=QuantificationLevelName.PROTEIN,
-                intensity_column=ProteinGroupOutputCols.INTENSITY,
+                intensity_column="pg_lfq_intensity",
                 aggregation_components=[
                     QuantificationLevelName.PROTEIN,
                 ],
