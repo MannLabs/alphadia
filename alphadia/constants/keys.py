@@ -138,7 +138,7 @@ class PeptideOutputCols(metaclass=ConstantsClass):
 class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
-    PG = "pg.name"
+    NAME = "pg.name"
     PROTEINS = "pg.proteins"
     GENES = "pg.genes"
     MASTER_PROTEIN = "pg.master_protein"
@@ -206,7 +206,7 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,
-    "pg": ProteinGroupOutputCols.PG,
+    "pg": ProteinGroupOutputCols.NAME,
     "proteins": ProteinGroupOutputCols.PROTEINS,
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
