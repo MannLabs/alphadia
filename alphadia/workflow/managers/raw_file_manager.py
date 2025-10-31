@@ -111,8 +111,8 @@ class RawFileManager(BaseManager):
         flat_cycle = cycle.flatten()
         flat_cycle = flat_cycle[flat_cycle > 0]
 
-        stats["msms_range_min"] = flat_cycle.min()
-        stats["msms_range_max"] = flat_cycle.max()
+        stats["ms2_range_min"] = flat_cycle.min()
+        stats["ms2_range_max"] = flat_cycle.max()
 
         self.stats = stats
 
