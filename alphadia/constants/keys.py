@@ -175,7 +175,10 @@ class StatCalibrationCols(metaclass=ConstantsClass):
     MS1_ERROR = "calibration.ms1_variance"
 
 
+# this mapping is also used to filter the output columns, so only its values are kept
 INTERNAL_TO_OUTPUT_MAPPING = {
+    "peptide_lfq_intensity": PeptideOutputCols.INTENSITY,
+    "precursor_lfq_intensity": PrecursorOutputCols.INTENSITY,
     "precursor_idx": PrecursorOutputCols.IDX,
     "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
     "rank": PrecursorOutputCols.RANK,
@@ -203,6 +206,7 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,
     "pg": ProteinGroupOutputCols.NAME,
+    "pg_lfq_intensity": ProteinGroupOutputCols.INTENSITY,
     "proteins": ProteinGroupOutputCols.PROTEINS,
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
