@@ -38,7 +38,7 @@ jobs:
       - id: parse-commitish-to-test
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "commitish_to_test=[\"${{ github.event.inputs.commitish_to_test }}\"]" >> $GITHUB_OUTPUT
+            echo "commitish_to_test=${{ github.event.inputs.commitish_to_test }}" >> $GITHUB_OUTPUT
           else
             echo "commitish_to_test=" >> $GITHUB_OUTPUT  # this will trigger 'actions/checkout' to use the reference or SHA for the current event
           fi
