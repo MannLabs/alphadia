@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import StatCalibrationCols, StatOutputCols, StatRawCols
+from alphadia.constants.keys import (
+    OutputRawCols,
+    StatCalibrationCols,
+    StatOutputCols,
+    StatSearchCols,
+)
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationEstimators,
     CalibrationGroups,
@@ -58,19 +63,19 @@ def build_run_stat_df(
         channel_df = run_df[run_df["channel"] == channel]
 
         stats = {
-            StatRawCols.NAME: raw_name,
-            StatRawCols.CHANNEL: channel,
-            StatRawCols.PRECURSORS: len(channel_df),
-            StatRawCols.PROTEINS: channel_df["pg"].nunique(),
+            OutputRawCols.NAME: raw_name,
+            StatSearchCols.CHANNEL: channel,
+            StatSearchCols.PRECURSORS: len(channel_df),
+            StatSearchCols.PROTEINS: channel_df["pg"].nunique(),
         }
 
-        stats[StatRawCols.MEDIAN_FWHM_RT] = np.nan
+        stats[StatSearchCols.MEDIAN_FWHM_RT] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            stats[StatRawCols.MEDIAN_FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
+            stats[StatSearchCols.MEDIAN_FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
 
-        stats[StatRawCols.MEDIAN_FWHM_MOBILITY] = np.nan
+        stats[StatSearchCols.MEDIAN_FWHM_MOBILITY] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            stats[StatRawCols.MEDIAN_FWHM_MOBILITY] = np.mean(
+            stats[StatSearchCols.MEDIAN_FWHM_MOBILITY] = np.mean(
                 channel_df["mobility_fwhm"]
             )
 

@@ -158,20 +158,25 @@ class OutputRawCols(metaclass=ConstantsClass):
 
 class StatRawCols(metaclass=ConstantsClass):
     NAME = "raw.name"
-    CHANNEL = "raw.channel"
-    PRECURSORS = "raw.precursors"
-    PROTEINS = "raw.proteins"
-    MEDIAN_FWHM_RT = "raw.median_fwhm_rt"
-    MEDIAN_FWHM_MOBILITY = "raw.median_fwhm_mobility"
+
+
+class StatSearchCols(metaclass=ConstantsClass):
+    """String constants for search statistics columns."""
+
+    CHANNEL = "search.channel"
+    PRECURSORS = "search.precursors"
+    PROTEINS = "search.proteins"
+    MEDIAN_FWHM_RT = "search.fwhm_rt_median"
+    MEDIAN_FWHM_MOBILITY = "search.fwhm_mobility_median"
 
 
 class StatCalibrationCols(metaclass=ConstantsClass):
     """String constants for calibration statistics columns."""
 
-    MS2_MEDIAN_BIAS = "calibration.ms2_median_bias"
-    MS2_MEDIAN_VARIANCE = "calibration.ms2_median_variance"
-    MS1_MEDIAN_BIAS = "calibration.ms1_median_bias"
-    MS1_MEDIAN_VARIANCE = "calibration.ms1_median_variance"
+    MS2_MEDIAN_BIAS = "calibration.ms2_bias"
+    MS2_MEDIAN_VARIANCE = "calibration.ms2_variance"
+    MS1_MEDIAN_BIAS = "calibration.ms1_bias"
+    MS1_MEDIAN_VARIANCE = "calibration.ms1_variance"
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {

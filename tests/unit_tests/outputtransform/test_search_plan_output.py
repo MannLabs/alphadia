@@ -123,7 +123,7 @@ def test_search_plan_output_integration():
     assert all(
         col in psm_df.columns
         for col in [
-            "pg.pg",
+            "pg.name",
             "precursor.idx",
             "precursor.decoy",
             "precursor.mz.library",
@@ -146,19 +146,19 @@ def test_search_plan_output_integration():
         col in stat_df.columns
         for col in [
             "raw.name",
-            "raw.channel",
-            "raw.precursors",
-            "raw.proteins",
-            "raw.median_fwhm_rt",
-            "raw.median_fwhm_mobility",
+            "search.channel",
+            "search.precursors",
+            "search.proteins",
+            "search.fwhm_rt_median",
+            "search.fwhm_mobility_median",
             "optimization.ms2_error",
             "optimization.ms1_error",
             "optimization.rt_error",
             "optimization.mobility_error",
-            "calibration.ms2_median_bias",
-            "calibration.ms2_median_variance",
-            "calibration.ms1_median_bias",
-            "calibration.ms1_median_variance",
+            "calibration.ms2_bias",
+            "calibration.ms2_variance",
+            "calibration.ms1_bias",
+            "calibration.ms1_variance",
             "raw.gradient_min_m",
             "raw.gradient_max_m",
             "raw.gradient_length_m",
