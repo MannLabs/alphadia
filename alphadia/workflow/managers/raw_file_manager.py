@@ -131,5 +131,5 @@ class RawFileManager(BaseManager):
         logger.info(f"{'Number of cycles':<20}: {self.stats['cycle_number']:.0f}")
 
         logger.info(
-            f"{'MS2 range (m/z)':<20}: {self.stats['msms_range_min']:.1f} - {self.stats['msms_range_max']:.1f}"
+            f"{'MS2 range (m/z)':<20}: {self.stats['ms2_range_min']:.1f} - {self.stats['ms2_range_max']:.1f}"
         )
