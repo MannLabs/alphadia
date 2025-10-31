@@ -38,8 +38,8 @@ test_cases:
   - name: basic_python
     config:
       search_initial:
-        initial_num_candidates: 1
-        initial_rt_tolerance: 300
+        num_candidates: 1
+        rt_tolerance: 300
       search:
         extraction_backend: python
         target_num_candidates: 1
