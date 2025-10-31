@@ -163,8 +163,8 @@ def test_search_plan_output_integration():
             "raw.cycle_length",
             "raw.cycle_duration",
             "raw.cycle_number",
-            "raw.msms_range_min",
-            "raw.msms_range_max",
+            "raw.ms2_range_min",
+            "raw.ms2_range_max",
         ]
     )
 
