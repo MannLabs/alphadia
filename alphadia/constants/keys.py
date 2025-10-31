@@ -138,7 +138,7 @@ class PeptideOutputCols(metaclass=ConstantsClass):
 class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
-    PG = "pg.pg"
+    PG = "pg.name"
     PROTEINS = "pg.proteins"
     GENES = "pg.genes"
     MASTER_PROTEIN = "pg.master_protein"
