@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import StatOutputCols
+from alphadia.constants.keys import StatCalibrationCols, StatOutputCols, StatRawCols
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationEstimators,
     CalibrationGroups,
@@ -58,19 +58,21 @@ def build_run_stat_df(
         channel_df = run_df[run_df["channel"] == channel]
 
         stats = {
-            "run": raw_name,
-            "channel": channel,
-            "precursors": len(channel_df),
-            "proteins": channel_df["pg"].nunique(),
+            StatRawCols.NAME: raw_name,
+            StatRawCols.CHANNEL: channel,
+            StatRawCols.PRECURSORS: len(channel_df),
+            StatRawCols.PROTEINS: channel_df["pg"].nunique(),
         }
 
-        stats["fwhm_rt"] = np.nan
+        stats[StatRawCols.MEDIAN_FWHM_RT] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            stats["fwhm_rt"] = np.mean(channel_df["cycle_fwhm"])
+            stats[StatRawCols.MEDIAN_FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
 
-        stats["fwhm_mobility"] = np.nan
+        stats[StatRawCols.MEDIAN_FWHM_MOBILITY] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            stats["fwhm_mobility"] = np.mean(channel_df["mobility_fwhm"])
+            stats[StatRawCols.MEDIAN_FWHM_MOBILITY] = np.mean(
+                channel_df["mobility_fwhm"]
+            )
 
         # collect optimization stats
         optimization_stats = defaultdict(lambda: np.nan)
@@ -119,10 +121,10 @@ def build_run_stat_df(
                     CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                calibration_stats["calibration.ms2_median_bias"] = fragment_mz_metrics[
-                    "median_accuracy"
-                ]
-                calibration_stats["calibration.ms2_median_variance"] = (
+                calibration_stats[StatCalibrationCols.MS2_MEDIAN_BIAS] = (
+                    fragment_mz_metrics["median_accuracy"]
+                )
+                calibration_stats[StatCalibrationCols.MS2_MEDIAN_VARIANCE] = (
                     fragment_mz_metrics["median_precision"]
                 )
 
@@ -131,10 +133,10 @@ def build_run_stat_df(
                     CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                calibration_stats["calibration.ms1_median_bias"] = precursor_mz_metrics[
-                    "median_accuracy"
-                ]
-                calibration_stats["calibration.ms1_median_variance"] = (
+                calibration_stats[StatCalibrationCols.MS1_MEDIAN_BIAS] = (
+                    precursor_mz_metrics["median_accuracy"]
+                )
+                calibration_stats[StatCalibrationCols.MS1_MEDIAN_VARIANCE] = (
                     precursor_mz_metrics["median_precision"]
                 )
 
@@ -142,10 +144,10 @@ def build_run_stat_df(
             logger.warning(f"Error reading calibration manager for {raw_name}")
 
         for key in [
-            "calibration.ms2_median_bias",
-            "calibration.ms2_median_variance",
-            "calibration.ms1_median_bias",
-            "calibration.ms1_median_variance",
+            StatCalibrationCols.MS2_MEDIAN_BIAS,
+            StatCalibrationCols.MS2_MEDIAN_VARIANCE,
+            StatCalibrationCols.MS1_MEDIAN_BIAS,
+            StatCalibrationCols.MS1_MEDIAN_VARIANCE,
         ]:
             stats[key] = calibration_stats.get(key, "NaN")
 

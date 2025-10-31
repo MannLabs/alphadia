@@ -138,7 +138,7 @@ class PeptideOutputCols(metaclass=ConstantsClass):
 class ProteinGroupOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the protein group output columns."""
 
-    PG = "pg"
+    PG = "pg.pg"
     PROTEINS = "pg.proteins"
     GENES = "pg.genes"
     MASTER_PROTEIN = "pg.master_protein"
@@ -165,14 +165,16 @@ class StatRawCols(metaclass=ConstantsClass):
     MEDIAN_FWHM_MOBILITY = "raw.median_fwhm_mobility"
 
 
-STAT_OUTPUT_MAPPING = {
-    "run": StatRawCols.NAME,
-    "channel": StatRawCols.CHANNEL,
-    "precursors": StatRawCols.PRECURSORS,
-    "proteins": StatRawCols.PROTEINS,
-    "fwhm_rt": StatRawCols.MEDIAN_FWHM_RT,
-    "fwhm_mobility": StatRawCols.MEDIAN_FWHM_MOBILITY,
-}
+class StatCalibrationCols(metaclass=ConstantsClass):
+    """String constants for calibration statistics columns."""
+
+    MS2_MEDIAN_BIAS = "calibration.ms2_median_bias"
+    MS2_MEDIAN_VARIANCE = "calibration.ms2_median_variance"
+    MS1_MEDIAN_BIAS = "calibration.ms1_median_bias"
+    MS1_MEDIAN_VARIANCE = "calibration.ms1_median_variance"
+
+
+STAT_OUTPUT_MAPPING = {}
 
 
 INTERNAL_TO_OUTPUT_MAPPING = {

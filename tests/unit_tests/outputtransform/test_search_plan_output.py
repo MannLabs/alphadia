@@ -123,7 +123,7 @@ def test_search_plan_output_integration():
     assert all(
         col in psm_df.columns
         for col in [
-            "pg",
+            "pg.pg",
             "precursor.idx",
             "precursor.decoy",
             "precursor.mz.library",
