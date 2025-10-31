@@ -126,9 +126,11 @@ def build_run_stat_df(
                     CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
                 )
             ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
+                # TODO: rename internal metric key "median_accuracy" to "median_bias"
                 calibration_stats[StatCalibrationCols.MS2_BIAS] = fragment_mz_metrics[
                     "median_accuracy"
                 ]
+                # TODO: rename internal metric key "median_precision" to "median_variance"
                 calibration_stats[StatCalibrationCols.MS2_ERROR] = fragment_mz_metrics[
                     "median_precision"
                 ]
@@ -138,9 +140,11 @@ def build_run_stat_df(
                     CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
                 )
             ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
+                # TODO: rename internal metric key "median_accuracy" to "median_bias"
                 calibration_stats[StatCalibrationCols.MS1_BIAS] = precursor_mz_metrics[
                     "median_accuracy"
                 ]
+                # TODO: rename internal metric key "median_precision" to "median_variance"
                 calibration_stats[StatCalibrationCols.MS1_ERROR] = precursor_mz_metrics[
                     "median_precision"
                 ]
