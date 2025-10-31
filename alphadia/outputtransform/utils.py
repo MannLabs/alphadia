@@ -82,32 +82,6 @@ def apply_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
     return df_renamed[columns_to_keep]
 
 
-def apply_stat_output_column_names(df: pd.DataFrame) -> pd.DataFrame:
-    """Filter stat dataframe to only include output columns.
-
-    All columns in the stat dataframe already use their final output names.
-    This function only filters to keep columns with known prefixes.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Stat dataframe with output column names
-
-    Returns
-    -------
-    pd.DataFrame
-        Dataframe with only output columns
-    """
-    # Keep all columns that have proper output names (optimization.*, calibration.*, raw.*)
-    columns_to_keep = [
-        col
-        for col in df.columns
-        if col.startswith(("optimization.", "calibration.", "raw."))
-    ]
-
-    return df[columns_to_keep]
-
-
 def write_df(
     df: pd.DataFrame, path_no_format: str, file_format: str = "parquet"
 ) -> None:

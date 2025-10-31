@@ -174,9 +174,6 @@ class StatCalibrationCols(metaclass=ConstantsClass):
     MS1_MEDIAN_VARIANCE = "calibration.ms1_median_variance"
 
 
-STAT_OUTPUT_MAPPING = {}
-
-
 INTERNAL_TO_OUTPUT_MAPPING = {
     "precursor_idx": PrecursorOutputCols.IDX,
     "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
