@@ -69,15 +69,13 @@ def build_run_stat_df(
             StatSearchCols.PROTEINS: channel_df["pg"].nunique(),
         }
 
-        stats[StatSearchCols.MEDIAN_FWHM_RT] = np.nan
+        stats[StatSearchCols.FWHM_RT] = np.nan
         if "cycle_fwhm" in channel_df.columns:
-            stats[StatSearchCols.MEDIAN_FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
+            stats[StatSearchCols.FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
 
-        stats[StatSearchCols.MEDIAN_FWHM_MOBILITY] = np.nan
+        stats[StatSearchCols.FWHM_MOBILITY] = np.nan
         if "mobility_fwhm" in channel_df.columns:
-            stats[StatSearchCols.MEDIAN_FWHM_MOBILITY] = np.mean(
-                channel_df["mobility_fwhm"]
-            )
+            stats[StatSearchCols.FWHM_MOBILITY] = np.mean(channel_df["mobility_fwhm"])
 
         # collect optimization stats
         optimization_stats = defaultdict(lambda: np.nan)

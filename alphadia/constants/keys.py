@@ -156,18 +156,14 @@ class OutputRawCols(metaclass=ConstantsClass):
     NAME = "raw.name"
 
 
-class StatRawCols(metaclass=ConstantsClass):
-    NAME = "raw.name"
-
-
 class StatSearchCols(metaclass=ConstantsClass):
     """String constants for search statistics columns."""
 
     CHANNEL = "search.channel"
     PRECURSORS = "search.precursors"
     PROTEINS = "search.proteins"
-    MEDIAN_FWHM_RT = "search.fwhm_rt_median"
-    MEDIAN_FWHM_MOBILITY = "search.fwhm_mobility_median"
+    FWHM_RT = "search.fwhm_rt"
+    FWHM_MOBILITY = "search.fwhm_mobility"
 
 
 class StatCalibrationCols(metaclass=ConstantsClass):
@@ -211,5 +207,5 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "genes": ProteinGroupOutputCols.GENES,
     "pg_master": ProteinGroupOutputCols.MASTER_PROTEIN,
     "pg_qval": ProteinGroupOutputCols.QVAL,
-    "run": StatRawCols.NAME,
+    "run": OutputRawCols.NAME,
 }
