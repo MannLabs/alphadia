@@ -34,7 +34,7 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} true
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
 
   run-unit-integration--tests-loose:
@@ -50,5 +50,5 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
-      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} true
+      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} CPU
       test-script: ./run_unit_integration_tests.sh alphadia-env all

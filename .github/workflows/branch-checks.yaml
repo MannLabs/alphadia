@@ -29,7 +29,7 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true true
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env unit
 
   run-notebook-tests-stable:
@@ -43,7 +43,7 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true true
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_nb_tests.sh alphadia-env
 
   run-slow-tests:
@@ -57,7 +57,7 @@ jobs:
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true true
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env integration
 
   get-code-review-input:
