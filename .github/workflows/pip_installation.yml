@@ -50,5 +50,6 @@ jobs:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
-      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} CPU
+      # Use CPU pytorch on ubuntu for loose installation to void "disk full" error
+      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} ${{ contains(matrix.os, 'ubuntu') && 'CPU' || 'GPU' }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
