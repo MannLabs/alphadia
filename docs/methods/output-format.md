@@ -1,5 +1,48 @@
 # Output format
-AlphaDIA writes tab-separated values (TSV) files.
+## Single-Step Search
+For a standard single-step search, all output files are written directly to the output directory specified with the `-o` flag:
+
+```
+output_directory/
+├── stats.tsv
+├── precursors.tsv
+├── pg.matrix.tsv
+├── internal.tsv
+├── speclib.hdf
+├── speclib.mbr.hdf
+├── frozen_config.yaml
+├── quant/
+│   ├── <raw_file_1>/
+│   │   ├── psm.parquet
+│   │   └── frag.parquet
+│   ├── <raw_file_2>/
+│   │   ├── psm.parquet
+│   │   └── frag.parquet
+│   └── ...
+└── figures/
+```
+
+## Multi-Step Search
+AlphaDIA supports multi-step searches to improve identification rates through transfer learning and match-between-runs (MBR). When these features are enabled, the output is organized into subdirectories, with each step producing its own intermediate results.
+
+### Transfer Learning Step (`transfer_step_enabled: true`)
+When transfer learning is enabled, an initial search is performed to train sample-specific PeptDeep models. The intermediate results are stored in `output_directory/transfer/`, which includes:
+- Training data for the neural network models (`speclib.transfer.hdf`)
+- Trained PeptDeep models (`peptdeep.transfer/`)
+- Statistics from the transfer learning process (`stats.transfer.tsv`)
+
+The final results will still be saved in the `output_directory` folder.
+
+### Match Between Runs (`mbr_step_enabled: true`)
+When MBR is enabled, a two-pass search strategy is used. The first pass performs an initial search to build a sample-specific MBR library. Intermediate results are stored in `output_directory/library/`, including:
+- The MBR library built from first-pass identifications (`speclib.mbr.hdf`)
+- Statistics from the library building step
+
+The final results will still be saved in the `output_directory` folder.
+
+## Output Files
+
+### Overview
 
 ## `stats.tsv`
 The `stats.tsv` file contains summary statistics and quality metrics for each run and channel in the analysis.
