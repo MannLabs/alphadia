@@ -44,6 +44,9 @@ filename = "./gui/src/main/modules/profile.js"
 
 [[tool.bumpversion.files]]
 filename = "./gui/package.json"
+# be specific here to not accidentally bump third party versions
+search = '"version": "{current_version}"'
+replace = '"version": "{new_version}"'
 
 [[tool.bumpversion.files]]
 filename = "./release/macos/info.plist"
