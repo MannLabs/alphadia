@@ -62,7 +62,6 @@ class SearchStep:
 
         Parameters
         ----------
-
         output_folder : str
             output folder to save the results
 
@@ -76,7 +75,6 @@ class SearchStep:
             additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
         """
-
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
         init_logging(self.output_folder)
@@ -119,7 +117,6 @@ class SearchStep:
         output_folder: str,
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
-
         config = SearchStep._load_default_config()
 
         config_updates = []
@@ -229,7 +226,6 @@ class SearchStep:
 
     def _init_alphabase(self):
         """Init alphabase by registering custom modifications."""
-
         new_modifications = {}
         for mod in self.config["custom_modifications"]:
             new_modifications[mod["name"]] = {"composition": mod["composition"]}
@@ -240,8 +236,7 @@ class SearchStep:
             modification.add_new_modifications(new_modifications)
 
     def load_library(self):
-        """
-        Load or build spectral library as configured.
+        """Load or build spectral library as configured.
 
         Steps 1 to 3 are performed depending on the quality and information in the spectral library.
         Step 4 is always performed to prepare the library for search.
@@ -258,26 +253,25 @@ class SearchStep:
         if self.library_path is None:
             if not prediction_config["enabled"]:
                 raise NoLibraryAvailableError()
-            else:
-                logger.progress(
-                    "No library provided. Building library from fasta files."
-                )
+            logger.progress(
+                "No library provided. Building library from fasta files."
+            )
 
-                fasta_digest = FastaDigest(
-                    enzyme=prediction_config["enzyme"],
-                    fixed_modifications=_parse_modifications(
-                        prediction_config["fixed_modifications"]
-                    ),
-                    variable_modifications=_parse_modifications(
-                        prediction_config["variable_modifications"]
-                    ),
-                    max_var_mod_num=prediction_config["max_var_mod_num"],
-                    missed_cleavages=prediction_config["missed_cleavages"],
-                    precursor_len=prediction_config["precursor_len"],
-                    precursor_charge=prediction_config["precursor_charge"],
-                    precursor_mz=prediction_config["precursor_mz"],
-                )
-                spectral_library = fasta_digest(self.fasta_path_list)
+            fasta_digest = FastaDigest(
+                enzyme=prediction_config["enzyme"],
+                fixed_modifications=_parse_modifications(
+                    prediction_config["fixed_modifications"]
+                ),
+                variable_modifications=_parse_modifications(
+                    prediction_config["variable_modifications"]
+                ),
+                max_var_mod_num=prediction_config["max_var_mod_num"],
+                missed_cleavages=prediction_config["missed_cleavages"],
+                precursor_len=prediction_config["precursor_len"],
+                precursor_charge=prediction_config["precursor_charge"],
+                precursor_mz=prediction_config["precursor_mz"],
+            )
+            spectral_library = fasta_digest(self.fasta_path_list)
         elif general_config["input_library_type"] == "flat":
             if general_config["save_mbr_library"]:
                 # TODO gather such checks in a ConfigValidator class
@@ -374,7 +368,6 @@ class SearchStep:
 
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
-
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_path_list:
             raw_name = Path(raw_location).stem
@@ -390,7 +383,6 @@ class SearchStep:
         2. Iterate over all raw files and perform the search workflow
         3. Collect and summarize the results
         """
-
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
             self.load_library()
@@ -410,8 +402,8 @@ class SearchStep:
             )
 
             logger.progress(
-                f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
-                + f" (random_state: {random_state})"
+                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name}"
+                 f" (random_state: {random_state})"
                 if random_state is not None
                 else ""
             )
@@ -532,7 +524,6 @@ class SearchStep:
 
     def _log_inputs(self):
         """Log all relevant inputs."""
-
         logger.info(f"Searching {len(self.raw_path_list)} files:")
         for f in self.raw_path_list:
             logger.info(f"  {os.path.basename(f)}")
@@ -549,7 +540,6 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
-
         if self._config["search"]["extraction_backend"] == "rust":
             if self._config["transfer_library"]["enabled"]:
                 raise ConfigError(
@@ -571,7 +561,6 @@ def _log_exception_event(
     e: Exception, raw_name: str | None = None, workflow: WorkflowBase | None = None
 ) -> None:
     """Log exception and emit event to reporter if available."""
-
     prefix = (
         "Error:" if raw_name is None else f"Search for {raw_name} failed with error:"
     )

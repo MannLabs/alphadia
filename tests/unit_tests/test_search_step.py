@@ -47,7 +47,10 @@ def test_initializes_with_default_config(mock_load_default_config):
     result = SearchStep._init_config(None, None, None, "/output")
 
     mock_load_default_config.assert_called_once()
-    assert result == default_config | {"output_directory": "/output", "version": alphadia.__version__}
+    assert result == default_config | {
+        "output_directory": "/output",
+        "version": alphadia.__version__,
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
