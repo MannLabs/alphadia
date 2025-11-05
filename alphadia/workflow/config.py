@@ -54,7 +54,7 @@ class Config(UserDict):
             json.dump(self.data, f)
 
     def __setitem__(self, key, item):
-        if key != ConfigKeys.OUTPUT_DIRECTORY:
+        if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
             raise NotImplementedError("Use update() to update the config.")
         return super().__setitem__(key, item)
 

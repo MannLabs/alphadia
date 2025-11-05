@@ -10,6 +10,7 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
+import alphadia
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
@@ -163,6 +164,9 @@ class SearchStep:
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )
         config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+
+        # Set the version to the current alphadia version
+        config[ConfigKeys.VERSION] = alphadia.__version__
 
         return config
 
