@@ -231,7 +231,7 @@ def _update(
 
         if (
             target_value is not None
-            and type(target_value) != type(update_value)
+            and type(target_value) is not type(update_value)
             and not (
                 isinstance(target_value, int | float)
                 and isinstance(update_value, int | float)

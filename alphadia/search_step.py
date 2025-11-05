@@ -253,9 +253,7 @@ class SearchStep:
         if self.library_path is None:
             if not prediction_config["enabled"]:
                 raise NoLibraryAvailableError()
-            logger.progress(
-                "No library provided. Building library from fasta files."
-            )
+            logger.progress("No library provided. Building library from fasta files.")
 
             fasta_digest = FastaDigest(
                 enzyme=prediction_config["enzyme"],
@@ -403,7 +401,7 @@ class SearchStep:
 
             logger.progress(
                 f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name}"
-                 f" (random_state: {random_state})"
+                f" (random_state: {random_state})"
                 if random_state is not None
                 else ""
             )
