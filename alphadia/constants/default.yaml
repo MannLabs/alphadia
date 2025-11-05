@@ -305,6 +305,7 @@ fdr:
   # === advanced settings ===
   competitive_scoring: true
   keep_decoys: false
+  keep_decoy_in_mbr_library: true
   channel_wise_fdr: false
 
   # (Experimental)
