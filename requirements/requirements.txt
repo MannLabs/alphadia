@@ -16,6 +16,8 @@ rocket_fft
 xxhash
 torchmetrics
 transformers
+# IO backend
+pyarrow>=20.0.0
 # not direct dependencies but we have to restrict the versions
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
 scipy==1.12.0
