@@ -81,10 +81,15 @@ def feature_dfs():
 
 
 def lfq_side_effect(*args, **kwargs):
-    group_column = kwargs.get("group_column", "pg")
-    if group_column == "mod_seq_charge_hash":
+    # Extract the lfq_config instance from kwargs (it's passed as a keyword argument)
+    lfq_config = kwargs.get("lfq_config")
+
+    # Get the quant_level attribute from the LFQOutputConfig instance
+    quant_level = getattr(lfq_config, "quant_level", "pg") if lfq_config else "pg"
+
+    if quant_level == "mod_seq_charge_hash":
         return pd.DataFrame({"mod_seq_charge_hash": [10, 20], "run1": [1000.0, 2000.0]})
-    elif group_column == "mod_seq_hash":
+    elif quant_level == "mod_seq_hash":
         return pd.DataFrame({"mod_seq_hash": [1, 2], "run1": [1500.0, 2500.0]})
     return pd.DataFrame({"pg": ["PG001", "PG002"], "run1": [5000.0, 2000.0]})
 
