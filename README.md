@@ -86,6 +86,10 @@ A detailed guide to installing AlphaRaw with mono can be found [here](https://gi
 
 Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
 
+Important note: the installer is built on Ubuntu 22.04, which limits its compatibility with other Linux distributions.
+If you have troubles installing it, please fall back to the
+[pip installation](docs/installation.md#pip-installation) with [manual](docs/installation.md#3-installation-gui-optional) GUI installation.
+
 #### MacOS
 If you want to search `.raw` files from Thermo instruments or `.wiff` files from Sciex instruments, [AlphaRaw](https://github.com/MannLabs/alpharaw) is required, which depends on Mono.
 A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
