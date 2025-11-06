@@ -88,7 +88,7 @@ def search_config():
         "search_output": {
             "num_cores": 4,
             "num_samples_quadratic": 50,
-            "min_nonan": 1,
+            "min_nonnan": 1,
             "min_k_fragments": 1,
             "min_correlation": 0,
             "normalize_lfq": True,
