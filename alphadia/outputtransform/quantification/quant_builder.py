@@ -290,7 +290,7 @@ class QuantBuilder:
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=search_config["search_output"]["min_nonan"],
+            min_nonan=search_config["search_output"]["min_nonnan"],
             num_samples_quadratic=search_config["search_output"][
                 "num_samples_quadratic"
             ],
