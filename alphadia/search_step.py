@@ -161,8 +161,6 @@ class SearchStep:
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )
         config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
-
-        # Set the version to the current alphadia version
         config[ConfigKeys.VERSION] = alphadia_version
 
         return config
