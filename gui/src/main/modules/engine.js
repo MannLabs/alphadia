@@ -13,14 +13,8 @@ var kill = require('tree-kill');
 const { getCondaPath } = require('./condaUtils');
 
 function getAppRoot() {
-    console.log("getAppPath=" + app.getAppPath() + " platform=" + process.platform)
-    if ( process.platform === 'win32' ) {
-      return path.join( app.getAppPath(), '/../../' );
-    } else if ( process.platform === 'linux' ) {
-      return path.join( app.getAppPath(), '/../../../' );
-    } else {
-      return path.join( app.getAppPath(), '/../../../../' );
-    }
+    console.log("getPath=" + app.getPath("exe"), "getAppPath=" + app.getAppPath(), " platform=" + process.platform)
+    return path.join( app.getPath("exe"), '/../' );
   }
 
 function lineBreakTransform () {
