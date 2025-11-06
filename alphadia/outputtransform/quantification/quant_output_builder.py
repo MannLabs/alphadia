@@ -47,7 +47,7 @@ class LFQOutputConfig:
     aggregation_components: list[str]
     should_process: bool = True
     save_fragments: bool = False
-    normalization_method: str | None = "directLFQ"
+    normalization_method: str = "directLFQ"
 
 
 class QuantOutputBuilder:
@@ -165,9 +165,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"].get(
-                    "normalization_method", "directLFQ"
-                ),
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -183,9 +183,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"].get(
-                    "normalization_method", "directLFQ"
-                ),
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -195,9 +195,9 @@ class QuantOutputBuilder:
                     QuantificationLevelName.PROTEIN,
                 ],
                 should_process=True,
-                normalization_method=self.config["search_output"].get(
-                    "normalization_method", "directLFQ"
-                ),
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
         ]
 
