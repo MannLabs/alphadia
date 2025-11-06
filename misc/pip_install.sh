@@ -28,6 +28,7 @@ conda run -n $ENV_NAME --no-capture-output pip freeze
 
 # ability to install CPU-only PyTorch to save disk space (no CUDA packages)
 # this is quite a hack as we assume a certain structure of the _requirements.freeze.txt file and modify it on the fly
+# cf. also build_installer_linux.sh
 # Note: will not work for "sys_platform == 'darwin' and platform_machine == 'x86_64'" (=MacOS w/Intel chip)
 if [ "$(echo $TORCH_VARIANT | tr '[:upper:]' '[:lower:]')" = "cpu" ]; then
   echo "Installing CPU-only PyTorch f..."
