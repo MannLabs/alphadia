@@ -10,7 +10,7 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-import alphadia
+from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
@@ -163,7 +163,7 @@ class SearchStep:
         config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
 
         # Set the version to the current alphadia version
-        config[ConfigKeys.VERSION] = alphadia.__version__
+        config[ConfigKeys.VERSION] = alphadia_version
 
         return config
 

@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from alphabase.constants.modification import MOD_DF
 
-import alphadia
+from alphadia import __version__ as alphadia_version
 from alphadia import search_step
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
@@ -49,7 +49,7 @@ def test_initializes_with_default_config(mock_load_default_config):
     mock_load_default_config.assert_called_once()
     assert result == default_config | {
         "output_directory": "/output",
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
 
 
@@ -74,7 +74,7 @@ def test_updates_with_user_config_object(mock_load_default_config):
         "key2": "NEW_value2",
         "output_directory": "/output",
         "search": {"extraction_backend": "python"},
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
 
 
@@ -114,7 +114,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
         "key4": "NEW_value4",
         "output_directory": "/output",
         "search": {"extraction_backend": "python"},
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
 
 
@@ -145,7 +145,7 @@ def test_updates_with_cli_config_overwrite_output_path(
         "key1": "NEW_value1",
         "output_directory": "/actual_output_directory",
         "search": {"extraction_backend": "python"},
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
 
 
@@ -173,7 +173,7 @@ def test_updates_with_extra_config_overwrite_output_path(
         "key1": "NEW_value1",
         "output_directory": "/extra_output",
         "search": {"extraction_backend": "python"},
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
 
 
@@ -212,7 +212,7 @@ def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
         "key3": "value3",
         "output_directory": "/output",
         "search": {"extraction_backend": "rust"},
-        "version": alphadia.__version__,
+        "version": alphadia_version,
     }
     mock_load_default_config.assert_has_calls(
         [call(), call(file_name="default_rust.yaml")]
