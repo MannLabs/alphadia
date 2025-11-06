@@ -21,7 +21,6 @@ function getCondaPath(username, platform){
     } else {
         return [
             "/opt/conda/bin/",
-            "/usr/local/bin/alphadia",
             "/usr/local/bin/",
             "/usr/local/anaconda/bin/",
         ]
