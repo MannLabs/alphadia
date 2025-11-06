@@ -1,5 +1,6 @@
 # configuration for the extraction plan
-version: 1
+# version is set dynamically to alphadia.__version__ during config initialization to have it available in the frozen_config.yaml
+version: null
 
 # These values are typically filled via CLI parameters
 workflow_name: null

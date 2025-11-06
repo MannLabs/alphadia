@@ -27,6 +27,7 @@ class StatOutputCols(metaclass=ConstantsClass):
 class ConfigKeys(metaclass=ConstantsClass):
     """String constants for accessing the config."""
 
+    VERSION = "version"
     OUTPUT_DIRECTORY = "output_directory"
     LIBRARY_PATH = "library_path"
     RAW_PATHS = "raw_paths"
