@@ -20,9 +20,13 @@ function getBinaryPath() {
     console.log("exePath=" + exePath, "getAppPath=" + app.getAppPath(), " platform=" + process.platform)
 
     if (process.platform === 'win32') {
+        // app.getPath: C:\Users\USER_NAME\AppData\Local\Programs\AlphaDIA2.0.0\alphadia-gui.exe
+        // backend:     C:\Users\USER_NAME\AppData\Local\Programs\AlphaDIA2.0.0\alphadia.exe
         return path.join(exePath, '/../alphadia.exe');
     } else if (process.platform === 'linux') {
-        return path.join(exePath, '/../../alphadia');
+        // app.getPath: /usr/local/alphadia/alphadia-gui
+        // backend:     /usr/local/alphadia/alphadia
+        return path.join(exePath, '/../alphadia');
     } else {
         // app.getPath: /Applications/alphadia.app/Contents/Frameworks/alphadia-gui.app/Contents/MacOS/alphadia-gui
         // backend:     /Applications/alphadia.app/Contents/Frameworks/alphadia
