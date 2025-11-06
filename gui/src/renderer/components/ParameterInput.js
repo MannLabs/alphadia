@@ -240,7 +240,7 @@ const ParameterInput = ({
         let lastIndex = 0;
 
         // Create a regex pattern that matches any of the search terms
-        const pattern = searchTerms.map(term => RegExp.escape(term)).join('|');
+        const pattern = searchTerms.map(term => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
         const regex = new RegExp(`(${pattern})`, 'gi');
 
         const matches = [...text.matchAll(regex)];

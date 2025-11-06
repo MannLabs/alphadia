@@ -100,7 +100,7 @@ const Config = () => {
                     fullWidth
                     variant="outlined"
                     size="small"
-                    placeholder="Search parameters by name or description..."
+                    placeholder="Search for parameters by name or description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     InputProps={{

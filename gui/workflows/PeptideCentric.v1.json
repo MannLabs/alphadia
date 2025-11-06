@@ -453,7 +453,7 @@
                 {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
-                    "default": false,
+                    "default": true,
                     "description": "If enabled, the hyperparameters of the neural network like the batch size and learning rate will be tuned.",
                     "type": "boolean"
                 }
@@ -467,28 +467,28 @@
             "parameters_advanced": [
 
                 {
-                    "id": "initial_ms1_tolerance",
+                    "id": "ms1_tolerance",
                     "name": "MS1 Tolerance",
                     "default": 30,
                     "description": "Initial MS1 tolerance in ppm. ",
                     "type": "float"
                 },
                 {
-                    "id": "initial_ms2_tolerance",
+                    "id": "ms2_tolerance",
                     "name": "MS2 Tolerance",
                     "default": 30,
                     "description": "Initial MS2 tolerance in ppm.",
                     "type": "float"
                 },
                 {
-                    "id": "initial_mobility_tolerance",
+                    "id": "mobility_tolerance",
                     "name": "Mobility Tolerance",
                     "default": 0.1,
                     "description": "Initial mobility tolerance in 1/K_0.",
                     "type": "float"
                 },
                 {
-                    "id": "initial_rt_tolerance",
+                    "id": "rt_tolerance",
                     "name": "RT Tolerance",
                     "default": 0.5,
                     "description": "Initial retention time tolerance in seconds if greater than 1 or as a proportion of the gradient length if less than 1.",
@@ -531,7 +531,7 @@
                     "type": "integer"
                 },
                 {
-                    "id": "competetive_scoring",
+                    "id": "competitive_scoring",
                     "name": "Competetive Scoring",
                     "default": true,
                     "description": "If enabled, only the best scoring candidate per target decoy pair is retained.",
@@ -547,12 +547,12 @@
                 {
                     "id": "file_format",
                     "name": "File Format",
-                    "default": "tsv",
-                    "description": "Output file format. Can be either 'tsv' or 'parquet'.",
+                    "default": "parquet",
+                    "description": "Output file format. Can be either 'parquet' or 'tsv'.",
                     "type": "dropdown",
                     "options": [
-                        "tsv",
-                        "parquet"
+                        "parquet",
+                        "tsv"
                     ]
                 }
             ],
