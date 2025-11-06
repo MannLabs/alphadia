@@ -12,10 +12,23 @@ const path = require('path');
 var kill = require('tree-kill');
 const { getCondaPath } = require('./condaUtils');
 
-function getAppRoot() {
-    console.log("getPath=" + app.getPath("exe"), "getAppPath=" + app.getAppPath(), " platform=" + process.platform)
-    return path.join( app.getPath("exe"), '/../' );
-  }
+function getBinaryPath() {
+    // get the path to the AlphaDIA backend binary bundled with the GUI
+
+    let exePath = app.getPath("exe")
+
+    console.log("exePath=" + exePath, "getAppPath=" + app.getAppPath(), " platform=" + process.platform)
+
+    if (process.platform === 'win32') {
+        return path.join(exePath, '/../alphadia.exe');
+    } else if (process.platform === 'linux') {
+        return path.join(exePath, '/../../alphadia');
+    } else {
+        // app.getPath: /Applications/alphadia.app/Contents/Frameworks/alphadia-gui.app/Contents/MacOS/alphadia-gui
+        // backend:     /Applications/alphadia.app/Contents/Frameworks/alphadia
+        return path.join(exePath, '/../../../../alphadia');
+    }
+}
 
 function lineBreakTransform () {
 
@@ -318,8 +331,7 @@ class BundledExecutionEngine extends BaseExecutionEngine {
 
             // check if binary path exists
             if (this.config.binaryPath == ""){
-                // alert user that binary path is not set
-                this.config.binaryPath = path.join(getAppRoot(), "alphadia"+(process.platform == "win32" ? ".exe" : ""))
+                this.config.binaryPath = getBinaryPath()
             }
 
             return hasBinary(this.config.binaryPath).then(() => {
