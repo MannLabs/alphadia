@@ -32,7 +32,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
-    dia_cycle: np.ndarray = None,
+    dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
 ) -> pd.DataFrame:

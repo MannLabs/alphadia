@@ -102,7 +102,7 @@ class Classifier(ABC):
 
 
 def _get_scaled_training_params(
-    df: pd.DataFrame,
+    df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
     max_batch: float = 4096,
     min_batch: float = 128,
@@ -111,8 +111,8 @@ def _get_scaled_training_params(
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Input dataframe
+    df : pd.DataFrame | np.ndarray
+        Input dataframe or array
     base_lr : float, optional
         Base learning rate for 1024 batch size, defaults to 0.01
     max_batch : int, optional
@@ -130,7 +130,7 @@ def _get_scaled_training_params(
 
     # For >= 1M samples, use max batch size
     if n_samples >= 1_000_000:  # noqa: PLR2004
-        return max_batch, base_lr
+        return int(max_batch), base_lr
 
     # Calculate scaled batch size (linear scaling between min and max)
     batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
@@ -502,11 +502,11 @@ class FeedForwardNN(nn.Module):
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+        self.input_dim = input_dim  # type: ignore[assignment]
+        self.output_dim = output_dim  # type: ignore[assignment]
 
-        self.layers = [input_dim, *layers]
-        self.dropout = dropout
+        self.layers = [input_dim, *layers]  # type: ignore[assignment]
+        self.dropout = dropout  # type: ignore[assignment]
 
         self._build_model()
 
