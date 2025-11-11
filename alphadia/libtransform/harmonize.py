@@ -187,7 +187,7 @@ class RTNormalization(ProcessingStep):
             )
             return input
 
-        percentiles = np.percentile(input.precursor_df["rt"], [0.1, 99.9])
+        percentiles: np.ndarray = np.percentile(input.precursor_df["rt"], [0.1, 99.9])  # type: ignore[assignment]
         input._precursor_df["rt"] = np.clip(
             input._precursor_df["rt"], percentiles[0], percentiles[1]
         )
