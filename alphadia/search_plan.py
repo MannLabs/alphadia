@@ -113,14 +113,20 @@ class SearchPlan:
         print_logo()
         print_environment()
 
+        # When multistep is enabled, _multistep_config is guaranteed to be set (line 88)
         extra_config_for_library_step = (
-            self._multistep_config[LIBRARY_STEP_NAME]
+            self._multistep_config[LIBRARY_STEP_NAME]  # type: ignore[index]
             if self._transfer_step_enabled or self._mbr_step_enabled
             else {}
         )
 
         optimized_values_config = {}
         if self._transfer_step_enabled:
+            # When transfer_step_enabled is True, both _multistep_config and _transfer_step_output_dir
+            # are guaranteed to be set (lines 87-88, 101)
+            assert self._multistep_config is not None
+            assert self._transfer_step_output_dir is not None
+
             logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
@@ -157,6 +163,9 @@ class SearchPlan:
         )
 
         if self._mbr_step_enabled:
+            # When mbr_step_enabled is True, _multistep_config is guaranteed to be set (lines 87-88)
+            assert self._multistep_config is not None
+
             # (outer.sh-steps 4,5)
             logger.info(f"Running step '{MBR_STEP_NAME}'")
             if optimized_values_config == {}:

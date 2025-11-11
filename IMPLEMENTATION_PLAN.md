@@ -301,13 +301,17 @@ After each file/stage:
   - SpecLibBase dynamically added attributes
   - numpy.percentile type annotations
   - Parameter type corrections (str → SpecLibBase)
-- [ ] Stage 6: Output Transformation (~18 errors) **IN PROGRESS**
+- [ ] Stage 6: Output Transformation (~18 errors) **SKIPPED** (per user request)
 - [ ] Stage 7: Workflow Modules (~100+ errors - largest stage)
-- [ ] Stage 8: Entry Points (search_plan.py, search_step.py) (~14 errors)
+- [x] Stage 8: Entry Points (search_plan.py, search_step.py) (13 errors → 0) ✅ **COMPLETE**
+  - Logger.progress type checking with TYPE_CHECKING pattern
+  - None subscripting with assertions for control flow
+  - Path | None argument types with assertions
+  - Return type annotations for Generator
 - [ ] Stage 9: Transfer Learning (~22 errors - optional/deferred)
 
 **Progress**:
-- **Fixed**: ~54 errors across 5 completed stages
-- **Remaining**: ~176 errors (excluding search/, fdr/_fdrx/, tests/)
+- **Fixed**: ~78 errors across 6 completed stages
+- **Remaining**: ~152 errors (excluding search/, fdr/_fdrx/, tests/)
 - **Total Original**: ~230 errors
-- **Completion**: ~24% of non-search/test errors fixed
+- **Completion**: ~34% of non-search/test errors fixed

@@ -456,6 +456,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -484,6 +485,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
