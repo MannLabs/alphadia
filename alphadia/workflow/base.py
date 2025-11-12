@@ -15,7 +15,10 @@ from alphadia.workflow.managers.calibration_manager import CalibrationManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
 from alphadia.workflow.managers.timing_manager import TimingManager
-from alphadia.workflow.peptidecentric.ng.ng_mapper import dia_data_to_ng
+from alphadia.workflow.peptidecentric.ng.ng_mapper import (
+    dia_data_to_ng,
+    set_ng_thread_count,
+)
 
 logger = logging.getLogger()
 
@@ -121,6 +124,8 @@ class WorkflowBase:
                     "NOT_SUPPORTED_BY_NG",
                     "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
                 )
+            # needs to be the first call to alphadia-search-rs
+            set_ng_thread_count(self.config["general"]["thread_count"])
 
             dia_data_ng = dia_data_to_ng(self._dia_data)
 
