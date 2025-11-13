@@ -304,13 +304,7 @@ class FigureBackend(Backend):
         if isinstance(figure, matplotlib.figure.Figure):
             figure.savefig(filename, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         elif isinstance(figure, np.ndarray):
-            # imsave only supports format and dpi kwargs, extract them from default_savefig_kwargs
-            imsave_kwargs = {
-                k: v
-                for k, v in self.default_savefig_kwargs.items()
-                if k in ["format", "dpi"]
-            }
-            matplotlib.image.imsave(filename, figure, **imsave_kwargs)  # type: ignore[arg-type]
+            matplotlib.image.imsave(filename, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
 
@@ -552,13 +546,7 @@ class JSONLBackend(Backend):
         if isinstance(figure, matplotlib.figure.Figure):
             figure.savefig(buffer, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         elif isinstance(figure, np.ndarray):
-            # imsave only supports format and dpi kwargs, extract them from default_savefig_kwargs
-            imsave_kwargs = {
-                k: v
-                for k, v in self.default_savefig_kwargs.items()
-                if k in ["format", "dpi"]
-            }
-            matplotlib.image.imsave(buffer, figure, **imsave_kwargs)  # type: ignore[arg-type]
+            matplotlib.image.imsave(buffer, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
             return
