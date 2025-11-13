@@ -254,10 +254,8 @@ class CalibrationEstimator:
         input_transform = self.transform_deviation
 
         calibrated_values = self.predict(df, inplace=False)
-        if calibrated_values is None:
-            raise ValueError(
-                f"{self.name}: Model must be fitted before calculating deviation"
-            )
+        assert calibrated_values is not None  # type checker
+
         if calibrated_values.ndim == 1:
             calibrated_values = calibrated_values[:, np.newaxis]
 

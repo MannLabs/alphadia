@@ -66,7 +66,7 @@ class SearchPlan:
         self._library_step_output_dir: Path = self._output_dir
 
         # multistep search:
-        self._multistep_config: dict | None = None
+        self._multistep_config: dict = {}
         self._transfer_step_output_dir: Path | None = None
 
         # We read the default values for the transfer_step_enabled and mbr_step_enabled directly from the default.yaml,
@@ -122,10 +122,7 @@ class SearchPlan:
 
         optimized_values_config = {}
         if self._transfer_step_enabled:
-            # When transfer_step_enabled is True, both _multistep_config and _transfer_step_output_dir
-            # are guaranteed to be set (lines 87-88, 101)
-            assert self._multistep_config is not None
-            assert self._transfer_step_output_dir is not None
+            assert self._transfer_step_output_dir is not None  # type checker
 
             logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
@@ -163,9 +160,6 @@ class SearchPlan:
         )
 
         if self._mbr_step_enabled:
-            # When mbr_step_enabled is True, _multistep_config is guaranteed to be set (lines 87-88)
-            assert self._multistep_config is not None
-
             # (outer.sh-steps 4,5)
             logger.info(f"Running step '{MBR_STEP_NAME}'")
             if optimized_values_config == {}:
