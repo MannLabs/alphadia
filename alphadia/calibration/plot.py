@@ -106,7 +106,7 @@ def plot_calibration(
     deviation = calibration.calc_deviation(df)
 
     n_input_properties = deviation.shape[1] - 3
-    input_property = None
+    input_property = -1
     if n_input_properties <= 0:
         logging.warning("No input properties found for plotting calibration")
         return
@@ -122,9 +122,7 @@ def plot_calibration(
     # axs_array is a 2D ndarray of Axes objects
     axs: np.ndarray = axs_array  # type: ignore[assignment]
 
-    last_input_property_idx = 0
     for input_property in range(n_input_properties):
-        last_input_property_idx = input_property
         ax_left: plt.Axes = axs[input_property, 0]  # type: ignore[assignment]
         ax_right: plt.Axes = axs[input_property, 1]  # type: ignore[assignment]
         # plot the relative observed deviation
@@ -169,13 +167,13 @@ def plot_calibration(
         i = 0
         figure_file_path = (
             figure_path_
-            / f"calibration_{calibration.input_columns[last_input_property_idx]}_{i}.pdf"
+            / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
         )
 
         while figure_file_path.exists():
             figure_file_path = (
                 figure_path_
-                / f"calibration_{calibration.input_columns[last_input_property_idx]}_{i}.pdf"
+                / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
             )
 
             i += 1
