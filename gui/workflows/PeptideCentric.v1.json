@@ -586,11 +586,15 @@
                     "type": "integer"
                 },
                 {
-                    "id": "normalize_lfq",
-                    "name": "Normalize LFQ",
-                    "default": true,
-                    "description": "If enabled, the LFQ defaults will be normalized.",
-                    "type": "boolean"
+                    "id": "normalization_method",
+                    "name": "LFQ normalization method",
+                    "default": "directLFQ",
+                    "description": "Select the label-free quantification normalization method.",
+                    "type": "dropdown",
+                    "options": [
+                        "directLFQ",
+                        "QuantSelect"
+                    ]
                 }
             ]
         },
