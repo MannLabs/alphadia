@@ -113,14 +113,12 @@ def plot_calibration(
 
     transform_unit = _get_transform_unit(calibration.transform_deviation)
 
-    fig, axs_array = plt.subplots(
+    fig, axs = plt.subplots(
         n_input_properties,
         2,
         figsize=(6.5, 3.5 * n_input_properties),
         squeeze=False,
     )
-    # axs_array is a 2D ndarray of Axes objects
-    axs: np.ndarray = axs_array  # type: ignore[assignment]
 
     for input_property in range(n_input_properties):
         ax_left: plt.Axes = axs[input_property, 0]  # type: ignore[assignment]
