@@ -43,10 +43,6 @@ def progress(self: logging.Logger, message: str, *args: Any, **kws: Any) -> None
 
 logging.Logger.progress = progress  # type: ignore[attr-defined]
 
-# Type stubs for extended logging functionality
-# Inform type checker about extended logging attributes
-_PROGRESS: int = PROGRESS_LEVELV_NUM  # For type checking purposes
-
 
 class DefaultFormatter(logging.Formatter):
     template = "%(levelname)s: %(message)s"
