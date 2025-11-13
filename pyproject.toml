@@ -87,3 +87,15 @@ ignore = [
     "B028",  #  No explicit `stacklevel` keyword argument found (for warnings)
     "B905"  # This causes problems in numba code: `zip()` without an explicit `strict=` parameter
 ]
+
+[tool.ty.src]
+exclude = [
+    "tests",
+    "nbs",
+    # TODO: enable these
+    "alphadia/workflow",
+    "alphadia/outputtransform",
+    "alphadia/transferlearning",
+    "alphadia/search",
+    "alphadia/fdr/_fdrx",
+]
