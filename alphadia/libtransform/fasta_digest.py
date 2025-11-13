@@ -76,7 +76,7 @@ class FastaDigest(ProcessingStep):
             precursor_charge_max=self.precursor_charge[1],
             precursor_mz_min=self.precursor_mz[0],
             precursor_mz_max=self.precursor_mz[1],
-            decoy=None,
+            decoy=None,  # type: ignore[arg-type]
         )
         logger.info("Digesting fasta file")
         fasta_lib.get_peptides_from_fasta_list(input)

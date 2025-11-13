@@ -4,6 +4,7 @@ import platform
 import socket
 from datetime import datetime
 from importlib import metadata
+from typing import TYPE_CHECKING, Any
 
 import alphabase
 import alpharaw
@@ -14,7 +15,16 @@ import peptdeep
 import alphadia
 from alphadia.utils import USE_NUMBA_CACHING
 
-logger = logging.getLogger()
+# Type stub for extended Logger with progress method
+# The progress method is added in reporting.py at module load time
+if TYPE_CHECKING:
+
+    class _ExtendedLogger(logging.Logger):
+        def progress(self, message: str, *args: Any, **kws: Any) -> None: ...
+
+    logger: _ExtendedLogger = logging.getLogger()  # type: ignore[assignment]
+else:
+    logger = logging.getLogger()
 
 
 def print_logo() -> None:

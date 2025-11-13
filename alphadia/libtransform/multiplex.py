@@ -23,8 +23,8 @@ class MultiplexLibrary(ProcessingStep):
             mapping[list_item["channel_name"]] = list_item["modifications"]
         return mapping
 
-    def validate(self, input: str) -> bool:
-        """Validate the input object. It is expected that the input is a path to a file which exists."""
+    def validate(self, input: SpecLibBase) -> bool:
+        """Validate the input object. It is expected that the input is a SpecLibBase object."""
         valid = True
         valid &= isinstance(input, SpecLibBase)
 

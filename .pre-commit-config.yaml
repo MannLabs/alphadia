@@ -25,6 +25,15 @@ repos:
     - id: ruff-format
     - id: ruff
       args: [ '--fix' ]
+- repo: local
+  hooks:
+    - id: ty
+      name: ty
+      entry: uvx ty==0.0.1-alpha.26 check
+      language: system
+#        # run only if python files changed
+#        files: |
+#          (?x)^(?!.*/test_.*py)(.*py)$
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.9.1 # newer version -> stricter
   hooks:
