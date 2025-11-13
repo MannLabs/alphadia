@@ -5,7 +5,7 @@ import tempfile
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import InferenceStrategy
+from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
 )
@@ -54,7 +54,7 @@ def test_search_plan_output_integration():
             "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": "directLFQ",
+            "normalization_method": NormalizationMethods.DIRECT_LFQ,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {

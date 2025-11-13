@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
@@ -27,7 +28,7 @@ def config():
             "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": "directLFQ",
+            "normalization_method": NormalizationMethods.DIRECT_LFQ,
         },
     }
 

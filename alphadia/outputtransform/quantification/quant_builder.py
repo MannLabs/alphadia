@@ -15,6 +15,7 @@ from quantselect.preprocessing import PreprocessingPipeline
 from quantselect.utils import set_global_determinism
 from quantselect.var_model import Model
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -178,7 +179,7 @@ class QuantBuilder:
         )
 
         # Apply normalization based on the selected method
-        if lfq_config.normalization_method == "QuantSelect":
+        if lfq_config.normalization_method == NormalizationMethods.QUANT_SELECT:
             logger.info("Applying QuantSelect normalization")
 
             # Use provided config or default
@@ -278,7 +279,7 @@ class QuantBuilder:
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if lfq_config.normalization_method == "directLFQ":
+        if lfq_config.normalization_method == NormalizationMethods.DIRECT_LFQ:
             logger.info("Applying directLFQ normalization")
             lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
                 lfq_df,

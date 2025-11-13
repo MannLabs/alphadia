@@ -6,6 +6,7 @@ import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
+    NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
 )
@@ -47,7 +48,7 @@ class LFQOutputConfig:
     aggregation_components: list[str]
     should_process: bool = True
     save_fragments: bool = False
-    normalization_method: str = "directLFQ"
+    normalization_method: str = NormalizationMethods.DIRECT_LFQ
 
 
 class QuantOutputBuilder:

@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 
 
@@ -104,9 +105,12 @@ def lfq_config():
     @dataclass
     class LFQOutputConfig:
         quant_level: str
-        normalization_method: str | None = "directLFQ"
+        normalization_method: str | None = NormalizationMethods.DIRECT_LFQ
 
-    def _create_config(quant_level: str, normalization_method: str = "directLFQ"):
+    def _create_config(
+        quant_level: str,
+        normalization_method: str = NormalizationMethods.DIRECT_LFQ,
+    ):
         return LFQOutputConfig(
             quant_level=quant_level,
             normalization_method=normalization_method,
@@ -551,7 +555,7 @@ class TestLfq:
         # Given
         feature_dfs_dict = lfq_data
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", "directLFQ")
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECT_LFQ)
         config = search_config
 
         # When
@@ -569,7 +573,7 @@ class TestLfq:
         # Given
         feature_dfs_dict = lfq_data
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", "directLFQ")
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECT_LFQ)
         config = search_config
 
         # When
@@ -581,7 +585,7 @@ class TestLfq:
             protein_id="pg", quant_id="ion"
         )
 
-    @pytest.mark.parametrize("norm_method", ["directLFQ", None])
+    @pytest.mark.parametrize("norm_method", [NormalizationMethods.DIRECT_LFQ, None])
     def test_respects_normalization_flag(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq, norm_method
     ):
@@ -597,7 +601,7 @@ class TestLfq:
 
         # Then
         mock_norm = mock_directlfq["norm"]
-        if norm_method == "directLFQ":
+        if norm_method == NormalizationMethods.DIRECT_LFQ:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
@@ -609,7 +613,7 @@ class TestLfq:
         # Given
         feature_dfs_dict = lfq_data
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("mod_seq_hash", "directLFQ")
+        lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECT_LFQ)
         config = search_config
 
         # When
@@ -633,7 +637,7 @@ class TestLfq:
         # given
         feature_dfs_dict = ms2_features
         builder = QuantBuilder(psm_file.assign(decoy=0))
-        lfq_config = lfq_config("pg", "QuantSelect")
+        lfq_config = lfq_config("pg", NormalizationMethods.QUANT_SELECT)
         config = search_config
 
         # when
