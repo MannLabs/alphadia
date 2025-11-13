@@ -104,8 +104,8 @@ class Classifier(ABC):
 def _get_scaled_training_params(
     df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
-    max_batch: float = 4096,
-    min_batch: float = 128,
+    max_batch: int = 4096,
+    min_batch: int = 128,
 ) -> tuple[int, float]:
     """Scale batch size and learning rate based on dataframe size using square root relationship.
 
@@ -130,7 +130,7 @@ def _get_scaled_training_params(
 
     # For >= 1M samples, use max batch size
     if n_samples >= 1_000_000:  # noqa: PLR2004
-        return int(max_batch), base_lr
+        return max_batch, base_lr
 
     # Calculate scaled batch size (linear scaling between min and max)
     batch_size = int(np.clip((n_samples / 1_000_000) * max_batch, min_batch, max_batch))
