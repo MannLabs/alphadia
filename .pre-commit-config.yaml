@@ -31,6 +31,7 @@ repos:
       name: ty
       # conditional type check only if alphadia is installed
       entry: |
+        bash -c 'python -c "import alphadia"'
         bash -c 'if python -c "import alphadia" 2>/dev/null; then cd alphadia && uvx ty==0.0.1-alpha.26 check && cd ..; else echo "⚠️  Skipping ty check - alphadia not installed."; exit 0; fi'
       language: system
       # to make exclusions in pyproject.toml work, cf. https://github.com/astral-sh/ty/issues/269#issuecomment-3000759634

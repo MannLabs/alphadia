@@ -17,7 +17,7 @@ jobs:
       # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
     - uses: pre-commit/action@v3.0.1
     - shell: bash -le {0}
-      run: ./misc/pip_install.sh stable alphadia-env ${{ matrix.python-version }} false
+      run: pip install -e ".[stable]"
       # alphadia installed -> type checking possible (re-does other checks, but should be fast)
     - uses: pre-commit/action@v3.0.1
 
