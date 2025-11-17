@@ -13,8 +13,12 @@ jobs:
       with:
         python-version: "3.11"
     - shell: bash -le {0}
-      # in order to fix the version, install pre-commit manually
-      run: pip install pre-commit==4.3.0 uv
+      run: pip install pre-commit==4.3.0
+      # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
+    - uses: pre-commit/action@v3.0.1
+    - shell: bash -le {0}
+      run: ./misc/pip_install.sh stable alphadia-env ${{ matrix.python-version }} false
+      # alphadia installed -> type checking possible (re-does other checks, but should be fast)
     - uses: pre-commit/action@v3.0.1
 
   # For feature branches, we don't test the full matrix (os x [stable, loose]) in order to save time & resources.
