@@ -31,9 +31,9 @@ repos:
       name: ty
       entry: uvx ty==0.0.1-alpha.26 check
       language: system
-#        # run only if python files changed
-#        files: |
-#          (?x)^(?!.*/test_.*py)(.*py)$
+      # to make exclusions in pyproject.toml work, cf. https://github.com/astral-sh/ty/issues/269#issuecomment-3000759634
+      pass_filenames: false
+      always_run: true
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.9.1 # newer version -> stricter
   hooks:
