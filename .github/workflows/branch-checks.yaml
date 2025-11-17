@@ -13,7 +13,7 @@ jobs:
       with:
         python-version: "3.11"
     - shell: bash -le {0}
-      run: pip install pre-commit==4.3.0
+      run: pip install pre-commit==4.3.0 uv
       # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
     - uses: pre-commit/action@v3.0.1
     - shell: bash -le {0}
