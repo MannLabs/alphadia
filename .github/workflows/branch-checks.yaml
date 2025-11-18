@@ -12,6 +12,11 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+    - name: Setup pip cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
     - shell: bash -le {0}
       run: pip install pre-commit==4.3.0 uv
       # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
