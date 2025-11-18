@@ -169,7 +169,7 @@ def _get_config_from_args(
 
 def _get_from_args_or_config(
     args: argparse.Namespace, config: dict, *, args_key: str, config_key: str
-) -> str:
+) -> str | None:
     """Get a value from command line arguments (key: `args_key`) or config file (key: `config_key`), the former taking precedence."""
     value_from_args = args.__dict__.get(args_key)
     return value_from_args if value_from_args is not None else config.get(config_key)

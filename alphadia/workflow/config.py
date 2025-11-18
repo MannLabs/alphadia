@@ -163,7 +163,7 @@ def _convert_numpy_types(data: Any) -> Any:
         return data.item()
     elif isinstance(data, np.ndarray):
         return data.tolist()
-    elif isinstance(data, list | set):
+    elif isinstance(data, tuple | set):
         raise NotImplementedError(
             "Tuples and sets are not supported in config serialization."
         )

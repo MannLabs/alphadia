@@ -6,6 +6,7 @@ from pathlib import Path
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.ticker
 import numpy as np
 import pytz
 import sklearn
