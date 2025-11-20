@@ -72,8 +72,8 @@ library_prediction:
   max_var_mod_num: 2
   # number of missed cleavages allowed for in-silico digest
   missed_cleavages: 1
-  # using tuples here as it makes interaction with the GUI easier
   # minimum and maximum number of amino acids for generated precursors
+  # (using list format for easier interaction with the GUI)
   precursor_len:
     - 7
     - 35
@@ -109,7 +109,8 @@ library_prediction:
   # set path for custom peptdeep model. If set to null, the default model will be used
   peptdeep_model_path: null
 
-  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'.
+  # set peptdeep model type. Possible values are 'generic', 'phospho', 'digly'
+  # If set to null, the default peptdeep model will be used
   peptdeep_model_type: 'generic'
 
 # define custom alphabase modifications not part of unimod or alphabase
