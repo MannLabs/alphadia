@@ -276,6 +276,7 @@ multiplexing:
   competitive_scoring: True
 
 fdr:
+  # FDR cutoff threshold for filtering precursors and protein groups (1% = 0.01)
   fdr: 0.01
 
   # what annotation is used for protein inference: "genes" or "proteins"
@@ -286,16 +287,20 @@ fdr:
 
 
   # === advanced settings ===
+  # whether to enable competitive scoring during FDR control
   competitive_scoring: true
+  # whether to keep decoy PSMs in the final output
   keep_decoys: false
+  # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
 
   # (Experimental)
-  # uses a two-step classifier consisting of a logistic regression and a neural network, with a default maximum of 5 iterations per fitting call
+  # uses a two-step classifier consisting of a logistic regression and a neural network
   enable_two_step_classifier: false
+  # maximum number of iterations within .fit_predict() of the two-step classifier
   two_step_classifier_max_iterations: 5
   # (Experimental)
-  # Optimizes the batch size and learning rate of the neural network
+  # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
 
 search_output:
