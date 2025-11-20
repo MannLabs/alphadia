@@ -264,10 +264,15 @@ library_multiplexing:
 
 
 multiplexing:
+  # enable multiplexing workflow for isobaric labels
   enabled: False
+  # comma-separated list of target channel numbers for quantification
   target_channels: '4,8'
+  # channel number designated for decoy precursors
   decoy_channel: 12
+  # channel number designated as reference for relative quantification
   reference_channel: 0
+  # whether to enable competitive scoring during FDR control for multiplexed channels
   competitive_scoring: True
 
 fdr:
