@@ -154,19 +154,31 @@ Format: one row per run/channel combination.
 - Some columns may be NaN if the corresponding measurements or calibrations were not performed
 - For label-free data, there will typically be one row per run with channel=0
 - For multiplexed data, there will be multiple rows per run (one for each channel)
+- **Important**: The `search.precursors` and `search.proteins` counts represent **identification** statistics (precursors/proteins that passed protein FDR), while the quantification matrices (see below) contain **quantification** statistics (a subset that passed additional quality filters for LFQ). Typically ~3-4% of identified precursors may lack quantification values due to insufficient fragment quality, poor correlation, or failing directLFQ thresholds. This is expected behavior and indicates the difference between identification (broader) and quantification (stricter quality requirements).
 
 
 ## `pg.matrix.parquet`
 The protein group quantification matrix provides protein-level quantification across all samples.
 It contains one row per protein group and one column per sample.
 
+**Important**: This matrix contains only protein groups with valid quantification values. The number of non-zero entries per sample may be slightly lower (~0.3-0.8%) than the `search.proteins` count in `stats.tsv`, which reports all identified proteins. The difference represents proteins that were identified but could not be quantified due to insufficient fragment data or quality.
+
 ## `peptide.matrix.parquet`
 The peptide quantification matrix provides peptide-level quantification across all samples (when peptide-level LFQ is enabled).
 It contains one row per peptide and one column per sample.
 
+**Important**: This matrix contains only peptides with valid quantification values. Peptides that were identified but failed quality filters for LFQ will have missing (NaN) values or may be absent from the matrix entirely.
+
 ## `precursor.matrix.parquet`
 The precursor quantification matrix provides precursor-level quantification across all samples (when precursor-level LFQ is enabled).
 It contains one row per precursor and one column per sample.
+
+**Important**: This matrix contains only precursors with valid quantification values. The number of non-zero entries per sample will be lower (~3-4%) than the `search.precursors` count in `stats.tsv`. The difference represents precursors that were identified but failed quantification quality filters such as:
+- Poor fragment quality or correlation (below `min_correlation` threshold)
+- Insufficient fragments (fewer than `min_k_fragments`)
+- Insufficient non-missing values (below `min_nonnan` threshold for directLFQ)
+
+This is expected behavior and reflects the distinction between identification (passing FDR) and quantification (passing additional quality requirements).
 
 ## `internal.tsv`
 Internal statistics and timing information from the search process.
