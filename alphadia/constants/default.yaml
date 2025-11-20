@@ -420,12 +420,12 @@ transfer_library:
   # only the top_k_samples with the highest scores are included in the library
   top_k_samples: 3
 
-  # (experimental) Perform advanced rt calibration:
-  # If set to false retention times will be normalised by the maximum retention time observed in the experiment
+  # (Experimental) Perform advanced rt calibration:
+  # If set to false, retention times will be normalised by the maximum retention time observed in the experiment
   # If set to true, a combination of maximum normalisation and deviation from the calibration curve will be used
   norm_delta_max: true
 
-  # Use only precursors for ms2 training with a median XIC correlation above this threshold
+  # use only precursors for ms2 training with a median XIC correlation above this threshold
   precursor_correlation_cutoff: 0.5
 
   # include only fragments with a XIC correlation at least 0.75 of the median for all fragments
