@@ -344,6 +344,37 @@ class ExtractionHandler(ABC):
 class ClassicExtractionHandler(ExtractionHandler):
     """Extraction handler using classic backend."""
 
+    # These parameters are passed as keywords arguments to the CandidateSelectionConfig/CandidateScoringConfig class.
+    # Do not rename here without adapting those classes!
+    _base_selection_config = {
+        "peak_len_rt": 10.0,
+        "sigma_scale_rt": 0.5,
+        "peak_len_mobility": 0.01,
+        "sigma_scale_mobility": 1.0,
+        "top_k_precursors": 3,
+        "kernel_size": 30,
+        "f_mobility": 1.0,
+        "f_rt": 0.99,
+        "center_fraction": 0.5,
+        "min_size_mobility": 8,
+        "min_size_rt": 3,
+        "max_size_mobility": 20,
+        "max_size_rt": 15,
+        "group_channels": False,
+        "use_weighted_score": True,
+        "join_close_candidates": False,
+        "join_close_candidates_scan_threshold": 0.6,
+        "join_close_candidates_cycle_threshold": 0.6,
+    }
+
+    _base_scoring_config = {
+        "score_grouped": False,
+        "top_k_isotopes": 3,
+        "reference_channel": -1,
+        "precursor_mz_tolerance": 10,
+        "fragment_mz_tolerance": 15,
+    }
+
     def __init__(
         self,
         config: Config,
@@ -359,7 +390,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         self._selection_config = CandidateSelectionConfig()
         self._selection_config.update(
             {
-                **config["selection_config"],
+                **self._base_selection_config,
                 "top_k_fragments": config["search"]["top_k_fragments_selection"],
                 "exclude_shared_ions": config["search"]["exclude_shared_ions"],
                 "min_size_rt": config["search"]["quant_window"],
@@ -369,7 +400,7 @@ class ClassicExtractionHandler(ExtractionHandler):
         self._scoring_config = CandidateScoringConfig()
         self._scoring_config.update(
             {
-                **config["scoring_config"],
+                **self._base_scoring_config,
                 "exclude_shared_ions": config["search"]["exclude_shared_ions"],
                 "quant_window": config["search"]["quant_window"],
                 "quant_all": config["search"]["quant_all"],
