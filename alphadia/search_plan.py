@@ -127,6 +127,7 @@ class SearchPlan:
             self.run_step(
                 self._transfer_step_output_dir,
                 self._multistep_config[TRANSFER_STEP_NAME],
+                TRANSFER_STEP_NAME,
             )
 
             extra_config_from_transfer_step = {
@@ -154,6 +155,7 @@ class SearchPlan:
         self.run_step(
             self._library_step_output_dir,
             extra_config_for_library_step,
+            LIBRARY_STEP_NAME,
         )
 
         if self._mbr_step_enabled:
@@ -173,15 +175,13 @@ class SearchPlan:
                 | optimized_values_config
                 | {ConfigKeys.LIBRARY_PATH: mbr_step_library_path}
             )
-            self.run_step(
-                self._output_dir,
-                mbr_step_extra_config,
-            )
+            self.run_step(self._output_dir, mbr_step_extra_config, MBR_STEP_NAME)
 
     def run_step(
         self,
         output_directory: Path,
         extra_config: dict,
+        step_name: str,
     ) -> None:
         """Run a single step of the search plan."""
         step = SearchStep(
@@ -189,6 +189,7 @@ class SearchPlan:
             config=self._user_config,
             cli_config=self._cli_params_config,
             extra_config=extra_config,
+            step_name=step_name,
         )
         step.run()
 
