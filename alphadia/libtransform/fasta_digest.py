@@ -7,6 +7,7 @@ from alphabase.spectral_library.base import SpecLibBase
 from peptdeep.pretrained_models import ModelManager
 from peptdeep.protein.fasta import PredictSpecLibFasta
 
+from alphadia.exceptions import GenericUserError
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
@@ -37,6 +38,17 @@ class FastaDigest(ProcessingStep):
             variable_modifications = ["Oxidation@M", "Acetyl@Prot N-term"]
         if fixed_modifications is None:
             fixed_modifications = ["Carbamidomethyl@C"]
+
+        if enzyme.lower() == "non-specific" and missed_cleavages < (
+            required_missed_cleavages := (precursor_len[1] - 1)
+        ):
+            raise GenericUserError(
+                f"Non-specific enzyme requires missed_cleavages >= {required_missed_cleavages} to generate peptides up to length {precursor_len[1]}.",
+                f"Current value: missed_cleavages={missed_cleavages}\nRequired value: missed_cleavages={required_missed_cleavages}\n\n"
+                f"Please update your configuration to set:\n"
+                f"  library_prediction.missed_cleavages: {required_missed_cleavages}",
+            )
+
         super().__init__()
         self.enzyme = enzyme
         self.fixed_modifications = fixed_modifications
