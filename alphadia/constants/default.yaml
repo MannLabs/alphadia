@@ -189,7 +189,7 @@ search:
 
 calibration:
 
-  # Number of precursors searched and scored per batch
+  # number of precursors searched and scored per batch
   batch_size: 8000
 
   # minimum number of precursors to be found before search parameter optimization begins
