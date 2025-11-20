@@ -394,8 +394,11 @@ optimization:
 # configuration for the optimization manager
 # initial parameters, will be optimized
 optimization_manager:
+  # full width at half maximum for retention time in seconds (used for peak shape modeling)
   fwhm_rt: 5
+  # full width at half maximum for ion mobility in 1/K_0 (used for peak shape modeling)
   fwhm_mobility: 0.01
+  # minimum score threshold for candidate precursors
   score_cutoff: 0
 
 # This section controls transfer learning
