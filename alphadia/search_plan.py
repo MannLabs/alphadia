@@ -9,6 +9,7 @@ import pandas as pd
 import yaml
 
 from alphadia.constants.keys import ConfigKeys, StatOutputCols
+from alphadia.exceptions import CustomError
 from alphadia.outputtransform.search_plan_output import (
     SearchPlanOutput,
 )
@@ -86,6 +87,8 @@ class SearchPlan:
             self._update_paths()
             with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
                 self._multistep_config = yaml.safe_load(f)
+
+        self._raw_files_with_errors: list[tuple[str, str]] = []
 
     def _update_paths(self) -> None:
         """Set directories for the different steps.
@@ -177,6 +180,17 @@ class SearchPlan:
             )
             self.run_step(self._output_dir, mbr_step_extra_config, MBR_STEP_NAME)
 
+        if self._raw_files_with_errors:
+            logger.warning(
+                "Some raw files could not be processed. Please consult the log for individual errors:"
+            )
+            for step, raw_file in self._raw_files_with_errors:
+                logger.warning(f"  {raw_file}  failed at step '{step}'")
+
+            raise CustomError("Some raw files had errors.")
+
+        logger.info("=================== Search Finished ===================")
+
     def run_step(
         self,
         output_directory: Path,
@@ -191,7 +205,8 @@ class SearchPlan:
             extra_config=extra_config,
             step_name=step_name,
         )
-        step.run()
+        raw_files_with_errors = step.run()
+        self._raw_files_with_errors.extend(raw_files_with_errors)
 
     @staticmethod
     def _get_optimized_values_config(output_folder: Path) -> dict:
