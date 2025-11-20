@@ -444,13 +444,7 @@ class SearchPlanOutput:
         quant_output_builder = QuantOutputBuilder(psm_df, self.config)
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
-        if save and lfq_results:
-            quant_output_builder.save_results(
-                lfq_results,
-                self.output_folder,
-                file_format=self.config["search_output"]["file_format"],
-            )
-
+        if save:
             logger.info("Writing psm output to disk")
             psm_df_output = apply_output_column_names(psm_df_with_quant)
             write_df(
@@ -458,6 +452,13 @@ class SearchPlanOutput:
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )
+
+            if lfq_results:
+                quant_output_builder.save_results(
+                    lfq_results,
+                    self.output_folder,
+                    file_format=self.config["search_output"]["file_format"],
+                )
 
         return lfq_results
 
