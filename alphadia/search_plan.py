@@ -124,7 +124,9 @@ class SearchPlan:
 
         optimized_values_config = {}
         if self._transfer_step_enabled:
-            logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
+            logger.info(
+                f"=================== Running step '{TRANSFER_STEP_NAME}' ==================="
+            )
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
             self.run_step(
@@ -154,7 +156,9 @@ class SearchPlan:
 
         # same as transfer_step
         # output: MBR library
-        logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
+        logger.info(
+            f"=================== Running step '{LIBRARY_STEP_NAME}' ==================="
+        )
         self.run_step(
             self._library_step_output_dir,
             extra_config_for_library_step,
@@ -163,7 +167,9 @@ class SearchPlan:
 
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
-            logger.info(f"Running step '{MBR_STEP_NAME}'")
+            logger.info(
+                f"=================== Running step '{MBR_STEP_NAME}' ==================="
+            )
             if optimized_values_config == {}:
                 optimized_values_config = self._get_optimized_values_config(
                     self._library_step_output_dir

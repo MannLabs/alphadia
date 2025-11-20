@@ -407,11 +407,9 @@ class SearchStep:
                 None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
             )
 
+            msg = f" (random_state: {random_state})" if random_state is not None else ""
             logger.progress(
-                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name}"
-                f" (random_state: {random_state})"
-                if random_state is not None
-                else ""
+                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name} {msg}"
             )
 
             try:
