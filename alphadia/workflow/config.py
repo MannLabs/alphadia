@@ -136,11 +136,13 @@ class Config(UserDict):
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
     "calibration.norm_rt_mode",  # supported until 1.10.4
+    "scoring_config",
     "scoring_config.score_grouped",
     "scoring_config.top_k_isotopes",
     "scoring_config.reference_channel",
     "scoring_config.precursor_mz_tolerance",
     "scoring_config.fragment_mz_tolerance",
+    "selection_config",
     "selection_config.peak_len_rt",
     "selection_config.sigma_scale_rt",
     "selection_config.peak_len_mobility",
