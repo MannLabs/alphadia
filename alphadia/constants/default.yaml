@@ -151,19 +151,21 @@ search:
   target_ms1_tolerance: 5
   # target ms2 tolerance in ppm
   target_ms2_tolerance: 10
-  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1. 0.0 means to optimize automatically
-  target_rt_tolerance: 0.0 # default is to optimize automatically
-    # target ion mobility tolerance in 1/K_0
-  target_mobility_tolerance: 0.0 # default is to optimize automatically
+  # target retention time tolerance in seconds if value > 1, or a proportion of the total gradient length if 0 < value < 1. A value of <= 0 enables automatic optimization.
+  target_rt_tolerance: 0.0
+  # target ion mobility tolerance in 1/K_0. A value of <= 0 enables automatic optimization.
+  target_mobility_tolerance: 0.0
 
   # === advanced settings ===
+  # quantification window size in cycles (area calculated from scan_center ± quant_window)
   quant_window: 3
+  # number of peak group candidates to identify during recalibration
   target_num_candidates: 3
-  # filter to apply to the channels. If set to "", all channels will be used.
+  # filter to apply to the channels. If set to "", all channels will be used. Comma-separated channel numbers (e.g. "0,4,8")
   channel_filter: ""
 
+  # whether to enable fragment competition during FDR control
   compete_for_fragments: True
-  # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
 
   # the number of most intense fragments to use in the selection
   top_k_fragments_selection: 12
@@ -177,9 +179,12 @@ search:
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
 
-  # === python backend  only ===
+  # === python backend only ===
+  # exclude fragments shared between multiple channels
   exclude_shared_ions: True
+  # quantify all fragments in the quantification window
   quant_all: True
+  # use experimental XIC correlation features
   experimental_xic: True
 
 calibration:
