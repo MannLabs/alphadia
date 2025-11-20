@@ -441,17 +441,17 @@ transfer_learning:
   # number of precursors per batch
   batch_size: 2000
 
-  # maximum learning rate per batch.
-  # The maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler
+  # maximum learning rate per batch
+  # the maximum learning rate will be reached after a warmup phase and decreased using a plateau scheduler
   max_lr: 0.0001
 
- # Fraction of dataset used for training
+  # fraction of dataset used for training
   train_fraction: 0.7
 
-  # Fraction of dataset used for validation
+  # fraction of dataset used for validation
   validation_fraction: 0.2
 
-  # Fraction of dataset used for testing
+  # fraction of dataset used for testing
   test_fraction: 0.1
 
   # test every n intervals
