@@ -158,10 +158,9 @@ search:
   target_num_candidates: 3
   # filter to apply to the channels. If set to "", all channels will be used.
   channel_filter: ""
-  exclude_shared_ions: True
+
   compete_for_fragments: True
   # target retention time tolerance in seconds if > 1, or a proportion of the total gradient length if < 1
-  quant_all: True
 
   # the number of most intense fragments to use in the selection
   top_k_fragments_selection: 12
@@ -172,9 +171,13 @@ search:
   # the minimum intensity of a fragment to be used in the search
   min_fragment_intensity: 0.01
 
-  experimental_xic: True
   # use a more aggressive peak group score: benefits on max memory and runtime, but a small precursor penalty
   optimized_peak_group_score: False
+
+  # === python backend  only ===
+  exclude_shared_ions: True
+  quant_all: True
+  experimental_xic: True
 
 calibration:
 
