@@ -16,6 +16,7 @@ from quantselect.utils import set_global_determinism
 from quantselect.var_model import Model
 
 from alphadia.constants.keys import NormalizationMethods
+from alphadia.outputtransform.quantification.quant_output_builder import LFQOutputConfig
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -156,7 +157,7 @@ class QuantBuilder:
     def lfq(
         self,
         feature_dfs_dict: dict[str, pd.DataFrame],
-        lfq_config,
+        lfq_config: LFQOutputConfig,
         search_config: dict,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
