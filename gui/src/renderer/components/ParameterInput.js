@@ -220,8 +220,8 @@ const ParameterInput = ({
                             value={parameter.value}
                             onChange={(event) => {onChange(event.target.value)}}
                             renderValue={(selected) => (
-                                <Typography>
-                                    {selected.length} selected
+                                <Typography sx={{fontSize: "14px", whiteSpace: "normal", wordWrap: "break-word"}}>
+                                    {selected.join(', ')}
                                 </Typography>
                             )}
                         >
