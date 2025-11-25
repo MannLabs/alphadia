@@ -603,7 +603,7 @@
                     "id": "enabled",
                     "name": "Enabled for all steps",
                     "default": false,
-                    "description": "If true, transfer learning training dataset is created. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will autoamticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
+                    "description": "If true, transfer learning training dataset is created. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automaticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
                     "type": "boolean"
                 }
             ],
@@ -665,7 +665,7 @@
                     "id": "enabled",
                     "name": "Enabled for all steps",
                     "default": false,
-                    "description": "If true, a custom peptdeep model will be created using the transfer learned library. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will autoamticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
+                    "description": "If true, a custom peptdeep model will be created using the transfer learned library. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automaticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
                     "type": "boolean"
                 }
             ],
