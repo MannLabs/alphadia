@@ -22,15 +22,14 @@ function replaceConfigFormatUnicodeEscapes(text) {
   }
 
 function parseConsoleOutput(input, theme) {
-    // First, replace Unicode escape sequences with actual characters
     const processedInput = replaceConfigFormatUnicodeEscapes(input);
 
-    // match ANSI escape sequences for terminal color, e.g. [32;20mSUCCESS[0m
-    const terminalColorsEscapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
-    const matches = processedInput.matchAll(terminalColorsEscapeRegex);
+    // Match ANSI escape sequences - either with closing code or until end of line
+    const terminalColorsEscapeRegex = /\[(\d+;?\d*)m(.*?)(?:\[(\d+)m|$)/g;
+    const matches = [...processedInput.matchAll(terminalColorsEscapeRegex)];
 
-    if (!matches || matches.length === 0) {
-      return processedInput; // No escape character pairs found, return processed string
+    if (matches.length === 0) {
+      return processedInput;
     }
     let result = [];
     let currentIndex = 0;
