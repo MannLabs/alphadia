@@ -248,14 +248,14 @@
                     "name": "Fixed modifications",
                     "default": "Carbamidomethyl@C",
                     "description": "Fixed modifications for in-silico digest. Semicolon separated list \n Format: Modification@AminoAcid \n Example: Carbamidomethyl@C;Dimethyl@N-term",
-                    "type": "string"
+                    "type": "textarea"
                 },
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
                     "default": "Oxidation@M;Acetyl@Protein_N-term",
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
-                    "type": "string"
+                    "type": "textarea"
                 },
                 {
                     "id": "max_var_mod_num",

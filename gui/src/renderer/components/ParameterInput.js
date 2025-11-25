@@ -108,6 +108,24 @@ const ParameterInput = ({
                     onChange={(event) => {onChange(event.target.value)}}
                 />)
                 break;
+            case "textarea":
+                input = (
+                    <TextField
+                    id="outlined-textarea"
+                    type="text"
+                    variant="standard"
+                    size="small"
+                    multiline
+                    minRows={1}
+                    maxRows={16}
+                    sx = {{width: "150px"}}
+                    value={parameter.value}
+                    onChange={(event) => {
+                        const valueWithoutLineBreaks = event.target.value.replace(/[\r\n]+/g, '');
+                        onChange(valueWithoutLineBreaks);
+                    }}
+                />)
+                break;
             case "boolean":
                 input = (
                     <Box sx={{width: "150px"}}>
