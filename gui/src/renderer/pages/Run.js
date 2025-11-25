@@ -34,6 +34,7 @@ function parseConsoleOutput(input, theme) {
     }
     let result = [];
     let currentIndex = 0;
+    let elementCounter = 0;
     for (const match of matches) {
       const startIndex = match.index;
       const text = match[2];
@@ -41,11 +42,13 @@ function parseConsoleOutput(input, theme) {
       // Push the text before the escape character pair
       if (startIndex > currentIndex) {
         const plainText = processedInput.substring(currentIndex, startIndex);
-        result.push(plainText);
+        result.push(
+          <span key={`text-${elementCounter++}`} style={{fontFamily: "Roboto Mono"}}>{plainText}</span>
+        );
       }
       // Push the colored span with the text
       result.push(
-        <span key={startIndex} style={spanStyle}>
+        <span key={`span-${elementCounter++}`} style={spanStyle}>
           {text}
         </span>
       );
@@ -55,7 +58,9 @@ function parseConsoleOutput(input, theme) {
     // Push any remaining plain text after the last escape character pair
     if (currentIndex < processedInput.length) {
       const remainingText = processedInput.substring(currentIndex);
-      result.push(remainingText);
+      result.push(
+        <span key={`text-${elementCounter++}`} style={{fontFamily: "Roboto Mono"}}>{remainingText}</span>
+      );
     }
 
     return result;

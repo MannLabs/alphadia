@@ -146,7 +146,7 @@ const ParameterInput = ({
                             >
                             {parameter.options.map((option) => {
                                 return (
-                                    <MenuItem value={option}>{option}</MenuItem>
+                                    <MenuItem key={option} value={option}>{option}</MenuItem>
                                 )
                             })}
                         </Select>

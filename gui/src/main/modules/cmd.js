@@ -199,7 +199,7 @@ const CondaEnvironment = class {
 
     kill(){
         if (this.pid != null){
-            console.log(`Killing process ${this.pid}`)
+            console.log(`Killing AlphaDIA process ${this.pid}`)
             kill(this.pid);
         }
 
