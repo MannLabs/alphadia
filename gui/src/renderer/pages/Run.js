@@ -83,17 +83,16 @@ function parseConsoleOutput(input, theme) {
     return colorMap[colorCode] || 'inherit'; // Default color is black
   }
 
-  function applyCarriageReturns(items) {
-    return items.reverse().reduce((acc, item) => {
-
-        const lastItem = acc[acc.length - 1];
-        if (lastItem && lastItem.endsWith('\r')) {
-            acc[acc.length - 1] = lastItem.slice(0, -1)
+function applyCarriageReturns(items) {
+    const result = [];
+    for (const item of items) {
+        if (result.length > 0 && result[result.length - 1].endsWith('\r')) {
+            result[result.length - 1] = item;
         } else {
-            acc.push(item);
+            result.push(item);
         }
-        return acc;
-    }, []).reverse()
+    }
+    return result;
 }
 
 const Output = () => {
@@ -104,39 +103,34 @@ const Output = () => {
     const theme = useTheme();
 
     const [items, setItems] = React.useState([])
-    const currentLengthRef = useRef(0);
+    const backendLengthRef = useRef(0);
     const [listRef, setListRef] = React.useState(null)
     const [scrollAttached, setScrollAttached] = React.useState(true)
 
     const profile = useProfile();
 
-    useEffect(() => {
-        currentLengthRef.current = items.length;
-    })
-
-    const updateItems = (currentLengthRef) => {
-        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset: currentLengthRef}).then((newItems) => {
-
-            setItems( items => [...items, ...newItems]);
-            //setItems((items)=>{applyCarriageReturns([...items, ...newItems])});
+    const updateItems = (offset) => {
+        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset}).then((newItems) => {
+            backendLengthRef.current += newItems.length;
+            setItems(items => applyCarriageReturns([...items, ...newItems]));
         });
     }
 
     React.useEffect(() => {
         setItems([]);
-        currentLengthRef.current = 0;
+        backendLengthRef.current = 0;
 
         let isMounted = true;
 
         const interval = setInterval(() => {
             window.electronAPI.getOutputLengthNew(-1).then((length) => {
                 if (isMounted){
-                    if (length > currentLengthRef.current) {
-                        updateItems(currentLengthRef.current);
+                    if (length > backendLengthRef.current) {
+                        updateItems(backendLengthRef.current);
                     }
-                    if (length < currentLengthRef.current) {
+                    if (length < backendLengthRef.current) {
                         setItems([]);
-                        currentLengthRef.current = 0;
+                        backendLengthRef.current = 0;
                     }
                 }
             });
