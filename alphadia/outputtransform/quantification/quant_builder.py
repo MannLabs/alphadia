@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
@@ -7,16 +8,9 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
-from quantselect.config import QuantSelectConfig
-from quantselect.dataloader import DataLoader
-from quantselect.loader import Loader
-from quantselect.ms1_features import FeatureConfig
-from quantselect.preprocessing import PreprocessingPipeline
-from quantselect.utils import set_global_determinism
-from quantselect.var_model import Model
+from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.outputtransform.quantification.quant_output_builder import LFQOutputConfig
 from alphadia.utils import USE_NUMBA_CACHING
 
 logger = logging.getLogger()
@@ -157,7 +151,7 @@ class QuantBuilder:
     def lfq(
         self,
         feature_dfs_dict: dict[str, pd.DataFrame],
-        lfq_config: LFQOutputConfig,
+        lfq_config: Any,
         search_config: dict,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
@@ -183,67 +177,12 @@ class QuantBuilder:
         if lfq_config.normalization_method == NormalizationMethods.QUANT_SELECT:
             logger.info("Applying QuantSelect normalization")
 
-            # Use provided config or default
-            quantselect_config = QuantSelectConfig().CONFIG
-
-            # Set random seed
-            seed = quantselect_config.get("seed", 42)
-            set_global_determinism(seed=seed)
-
-            # Prepare MS1 features from PSM data
-            precursor_df = Loader()._pivot_table_by_feature(
-                FeatureConfig.DEFAULT_FEATURES, self.psm_df[self.psm_df["decoy"] == 0]
+            return run_quantselect(
+                seed=42,
+                psm_df=self.psm_df,
+                feature_dfs_dict=feature_dfs_dict,
+                lfq_config=lfq_config,
             )
-            keys = list(feature_dfs_dict.keys())
-            for k in keys:
-                if "ms2" not in k:
-                    feature_dfs_dict[f"ms2_{k}"] = feature_dfs_dict.pop(k)
-            features = {
-                "ms1": precursor_df,
-                "ms2": feature_dfs_dict,
-            }
-
-            # Initialize preprocessing pipeline
-            pipeline = PreprocessingPipeline(standardize=True)
-
-            # Process data at specified level
-            feature_layer, intensity_layer = pipeline.process(
-                data=features, level=lfq_config.quant_level
-            )
-
-            # Create dataloader object
-            dataloader = DataLoader(
-                feature_layer=feature_layer, intensity_layer=intensity_layer
-            )
-
-            # Initialize model with configuration
-            model, optimizer, criterion = Model.initialize_for_training(
-                dataloader=dataloader,
-                criterion_params=quantselect_config["criterion_params"],
-                model_params=quantselect_config["model_params"],
-                optimizer_params=quantselect_config["optmizer_params"],
-            )
-
-            # Train model with fit parameters from config
-            fit_params = quantselect_config["fit_params"]
-            model.fit(
-                criterion=criterion,
-                optimizer=optimizer,
-                dataloader=dataloader,
-                fit_params=fit_params,
-            )
-
-            # Generate predictions with configurable parameters
-            normalized_data = model.predict(
-                dataloader=dataloader,
-                cutoff=0.9,
-                min_num_fragments=12,
-                no_const=3000,
-            )
-
-            # Convert from log2 space back to linear
-
-            return (2**normalized_data).reset_index(names=lfq_config.quant_level)
 
         group_intensity_df, _ = self.filter_frag_df(
             feature_dfs_dict["intensity"],

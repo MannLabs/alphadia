@@ -311,10 +311,10 @@ def psm_file():
     """PSM file for helper function tests."""
     return pd.DataFrame(
         {
-            "precursor_idx": [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            "precursor.idx": [1, 2, 3, 4, 5, 6, 7, 8, 9]
             * 6,  # 3 runs × 2 protein groups
             "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 6,
-            "pg": ["TNAA_ECOLI"] * 27 + ["TNAB_ECOLI"] * 27,
+            "pg.proteins": ["TNAA_ECOLI"] * 27 + ["TNAB_ECOLI"] * 27,
             "mod_seq_hash": [
                 6831315783892314113,
                 6831315783892314113,
@@ -327,7 +327,7 @@ def psm_file():
                 1784898696230645364,
             ]
             * 6,
-            "mod_seq_charge_hash": [
+            "precursor.mod_seq_charge_hash": [
                 3157800000000000000,
                 3157800000000000000,
                 3157800000000000000,
@@ -339,13 +339,13 @@ def psm_file():
                 3178489869623064536,
             ]
             * 6,
-            "run": ["run1"] * 9
+            "raw.name": ["run1"] * 9
             + ["run2"] * 9
             + ["run3"] * 9
             + ["run1"] * 9
             + ["run2"] * 9
             + ["run3"] * 9,
-            "intensity": [
+            "precursor.intensity": [
                 15453501,
                 3,
                 15453503,
@@ -405,6 +405,8 @@ def psm_file():
                 15453503,
             ]
             * 2,
+            "precursor.rt.library": [100.0] * 54,
+            "precursor.rt.observed": [101.0] * 54,
         }
     )
 
@@ -636,7 +638,7 @@ class TestLfq:
         """Test that lfq performs basic label-free quantification with quantselect."""
         # given
         feature_dfs_dict = ms2_features
-        builder = QuantBuilder(psm_file.assign(decoy=0))
+        builder = QuantBuilder(psm_file.assign(**{"precursor.decoy": 0}))
         lfq_config = lfq_config("pg", NormalizationMethods.QUANT_SELECT)
         config = search_config
 
