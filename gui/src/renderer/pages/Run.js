@@ -108,7 +108,6 @@ const Output = () => {
     const backendLengthRef = useRef(0);
     const [listRef, setListRef] = React.useState(null)
     const [scrollAttached, setScrollAttached] = React.useState(true)
-    const [lastUpdateTime, setLastUpdateTime] = React.useState(null)
 
     const profile = useProfile();
 
@@ -116,9 +115,6 @@ const Output = () => {
         window.electronAPI.getOutputRowsNew(-1,{limit:100, offset}).then((newItems) => {
             backendLengthRef.current += newItems.length;
             setItems(items => applyCarriageReturns([...items, ...newItems]));
-            if (newItems.length > 0) {
-                setLastUpdateTime(new Date());
-            }
         });
     }
 
@@ -201,11 +197,6 @@ const Output = () => {
         return items.filter(line => line.includes(`[${ERROR_ANSI_CODE}m`)).length;
     }, [items]);
 
-    const formatDateTime = (date) => {
-        if (!date) return '--';
-        return date.toLocaleString();
-    };
-
     const Row = ({ index, style }) => {
         const content = parseConsoleOutput((index >= items.length) ? "" : items[index], theme);
         return (
@@ -260,25 +251,21 @@ const Output = () => {
 
         <Box sx={{
             display: "flex",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             alignItems: "center",
             px: 1,
             py: 0.5,
             borderTop: 1,
             borderColor: "divider",
             backgroundColor: "background.paper",
+            gap: 2,
         }}>
-            <Typography variant="caption" sx={{ fontFamily: "Roboto Mono" }}>
-                Last update: {formatDateTime(lastUpdateTime)}
+            <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(253 167 0)' : 'rgb(254, 219, 119)' }}>
+                Warnings: {warningCount}
             </Typography>
-            <Box sx={{ display: "flex", gap: 2 }}>
-                <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(253 167 0)' : 'rgb(254, 219, 119)' }}>
-                    Warnings: {warningCount}
-                </Typography>
-                <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(200, 1, 0)' : 'rgb(250, 150, 136)' }}>
-                    Errors: {errorCount}
-                </Typography>
-            </Box>
+            <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(200, 1, 0)' : 'rgb(250, 150, 136)' }}>
+                Errors: {errorCount}
+            </Typography>
         </Box>
     </Box>
     )}
