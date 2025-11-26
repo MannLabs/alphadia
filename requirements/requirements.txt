@@ -8,7 +8,7 @@ alphabase>=1.5.0
 peptdeep>=1.3.0
 directlfq>=0.2.19
 # quantification model selection
-quantselect>=0.1.1
+quantselect>=0.1.3
 # others
 argparse
 seaborn
