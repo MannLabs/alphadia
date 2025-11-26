@@ -190,16 +190,16 @@ search:
 calibration:
 
   # number of precursors searched and scored per batch
-  batch_size: 8000
+  batch_size: 1000
 
   # minimum number of precursors to be found before search parameter optimization begins
-  optimization_lock_target: 200
+  optimization_lock_target: 1000
 
   # the maximum number of steps that a given optimizer is permitted to take
   max_steps: 20
 
   # the minimum number of steps that a given optimizer must take before it can be said to have converged
-  min_steps: 2
+  min_steps: 5
 
   # the maximum number of times an automatic optimizer can be skipped before it is considered to have converged
   max_skips: 1
@@ -384,12 +384,12 @@ optimization:
   rt_error:
       targeted_update_percentile_range: 0.95
       targeted_update_factor: 1.0
-      automatic_update_percentile_range: 0.99
-      automatic_update_factor: 1.1
+      automatic_update_percentile_range: 0.999
+      automatic_update_factor: 1.5
       try_narrower_values: True
-      maximal_decrease: 0.2
-      favour_narrower_optimum: True
-      maximum_decrease_from_maximum: 0.1
+      maximal_decrease: 0.1
+      favour_narrower_optimum: False
+      maximum_decrease_from_maximum: 0.5
 
 # configuration for the optimization manager
 # initial parameters, will be optimized

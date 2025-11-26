@@ -145,11 +145,11 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        if SearchStep._is_ng_activated(config, config_updates):
+        if not SearchStep._is_ng_activated(config, config_updates):
             ng_default_config = SearchStep._load_default_config(
-                file_name="default_rust.yaml"
+                file_name="default_python.yaml"
             )
-            ng_default_config.name = "default_rust"
+            ng_default_config.name = "default_python"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
