@@ -65,6 +65,19 @@ class QuantOutputBuilder:
         Configuration dictionary with quantification settings
     """
 
+    QUANTSELECT_COLUMNS = [
+        "intensity",
+        "mass_error",
+        "correlation",
+        "charge",
+        "mz_observed",
+        "type",
+        "number",
+        "cardinality",
+        "position",
+    ]
+    DEFAULT_COLUMNS = ["intensity", "correlation"]
+
     def __init__(self, psm_df: pd.DataFrame, config: dict):
         """Initialize the QuantOutputBuilder.
 
@@ -78,12 +91,15 @@ class QuantOutputBuilder:
         self.psm_df = psm_df
         self.config = config
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
-        self.fragment_loader = FragmentQuantLoader(
-            psm_no_decoys, columns=["intensity", "correlation"]
-        )
-        self.quant_builder = QuantBuilder(
-            psm_no_decoys, columns=["intensity", "correlation"]
-        )
+
+        normalization_method = config["search_output"]["normalization_method"]
+        if normalization_method == NormalizationMethods.QUANT_SELECT:
+            columns = self.QUANTSELECT_COLUMNS
+        else:
+            columns = self.DEFAULT_COLUMNS
+
+        self.fragment_loader = FragmentQuantLoader(psm_no_decoys, columns=columns)
+        self.quant_builder = QuantBuilder(psm_no_decoys, columns=columns)
 
     def build(
         self, folder_list: list[str]
