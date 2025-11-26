@@ -64,14 +64,22 @@ echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
-# if target directory is not empty, exit
-if [ "$(ls -A ${target_directory})" ]; then
-	echo "Target directory is not empty, exiting"
+# Derive output directory name from CSV filename (without .csv extension)
+csv_basename=$(basename "${input_filename}" .csv)
+output_directory="${target_directory}/ad_search_${csv_basename}"
+
+# Create output directory (ok if exists) but fail if not empty
+mkdir -p "${output_directory}"
+if [ "$(ls -A ${output_directory})" ]; then
+	echo "Output directory ${output_directory} is not empty, exiting"
 	exit 1
 fi
 
 # create logs directory if it does not exist
 mkdir -p ./logs
+
+# use output_directory instead of target_directory for all subsequent paths
+target_directory="${output_directory}"
 
 predicted_library_directory="${target_directory}/1_predicted_speclib"
 mkdir -p ${predicted_library_directory}
