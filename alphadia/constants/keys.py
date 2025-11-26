@@ -88,6 +88,7 @@ class NormalizationMethods(metaclass=ConstantsClass):
 
     DIRECT_LFQ: str = "directLFQ"
     QUANT_SELECT: str = "QuantSelect"
+    NONE: str = "None"
 
 
 class PrecursorOutputCols(metaclass=ConstantsClass):
