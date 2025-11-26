@@ -1,6 +1,5 @@
 import logging
 import os
-from dataclasses import dataclass
 
 import pandas as pd
 
@@ -13,42 +12,13 @@ from alphadia.constants.keys import (
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
 )
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    LFQOutputConfig,
+    QuantBuilder,
+)
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
-
-
-@dataclass
-class LFQOutputConfig:
-    """Configuration for label-free quantification output at a specific level.
-
-    Parameters
-    ----------
-    quant_level : str
-        Column name to use for grouping quantification (e.g., 'mod_seq_charge_hash', 'mod_seq_hash', 'pg')
-    level_name : str
-        Descriptive name for this quantification level (e.g., 'precursor', 'peptide', 'pg')
-    intensity_column : str
-        Name of the intensity column in the output
-    aggregation_components : list[str]
-        Columns which are shared within a group by quant level.
-        e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
-    should_process : bool, default=True
-        Whether to process this quantification level
-    save_fragments : bool, default=False
-        Whether to save fragment-level quantification matrices
-    normalization_method: str | None, default="directLFQ"
-        Normalization method to use (e.g., 'directLFQ', 'QuantSelect')
-    """
-
-    quant_level: str
-    level_name: str
-    intensity_column: str
-    aggregation_components: list[str]
-    should_process: bool = True
-    save_fragments: bool = False
-    normalization_method: str = NormalizationMethods.DIRECT_LFQ
 
 
 class QuantOutputBuilder:
