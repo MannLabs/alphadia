@@ -593,7 +593,8 @@
                     "type": "dropdown",
                     "options": [
                         "directLFQ",
-                        "QuantSelect"
+                        "QuantSelect",
+                        "None"
                     ]
                 }
             ]
