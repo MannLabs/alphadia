@@ -29,10 +29,12 @@ lfq=1
 
 # Default search configuration file
 search_config="search.config"
+input_filename=""
 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
+		--files) input_filename="$2"; shift ;;
 		--search_config) search_config="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
@@ -59,7 +61,14 @@ else
 	exit 1
 fi
 
+# Validate required input_filename parameter
+if [[ -z "${input_filename}" ]]; then
+	echo "No input file provided. Use --files <filename.csv> to specify the raw file list."
+	exit 1
+fi
+
 # report set parameters
+echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
