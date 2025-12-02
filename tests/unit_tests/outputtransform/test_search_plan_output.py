@@ -54,7 +54,7 @@ def test_search_plan_output_integration():
             "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.DIRECT_LFQ,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {
