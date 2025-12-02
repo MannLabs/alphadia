@@ -45,7 +45,7 @@ class LFQOutputConfig:
     aggregation_components: list[str]
     should_process: bool = True
     save_fragments: bool = False
-    normalization_method: str = NormalizationMethods.DIRECT_LFQ
+    normalization_method: str = NormalizationMethods.NORMALIZE_DIRECTLFQ
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
@@ -180,13 +180,12 @@ class QuantBuilder:
         )
         return intensity_df[mask], quality_df[mask]
 
-    def lfq(
+    def quantselect_lfq(
         self,
         feature_dfs_dict: dict[str, pd.DataFrame],
         lfq_config: LFQOutputConfig,
-        search_config: dict,
     ) -> pd.DataFrame:
-        """Perform label-free quantification using directLFQ.
+        """Perform label-free quantification using QuantSelect.
 
         Parameters
         ----------
@@ -194,8 +193,38 @@ class QuantBuilder:
             Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
         lfq_config: LFQOutputConfig
             Configuration for this quantification level
+
+        Returns
+        -------
+        pd.DataFrame
+            Protein/peptide quantification results with columns: group_column, run1, run2, ...
+        """
+        logger.info("Performing label-free quantification with QuantSelect")
+
+        return run_quantselect(
+            seed=42,
+            psm_df=self.psm_df,
+            feature_dfs_dict=feature_dfs_dict,
+            lfq_config=lfq_config,
+        )
+
+    def direct_lfq(
+        self,
+        filtered_intensity_df: pd.DataFrame,
+        lfq_config: LFQOutputConfig,
+        search_config: dict,
+    ) -> pd.DataFrame:
+        """Perform label-free quantification using directLFQ.
+
+        Parameters
+        ----------
+        filtered_intensity_df: pd.DataFrame
+            Filtered fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        lfq_config: LFQOutputConfig
+            Configuration for this quantification level
         search_config: dict
             Global configuration dictionary
+
         Returns
         -------
         pd.DataFrame
@@ -205,37 +234,12 @@ class QuantBuilder:
             f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
         )
 
-        # Apply normalization based on the selected method
-        if lfq_config.normalization_method == NormalizationMethods.QUANT_SELECT:
-            logger.info("Applying QuantSelect normalization")
-
-            return run_quantselect(
-                seed=42,
-                psm_df=self.psm_df,
-                feature_dfs_dict=feature_dfs_dict,
-                lfq_config=lfq_config,
-            )
-
-        group_intensity_df, _ = self.filter_frag_df(
-            feature_dfs_dict["intensity"],
-            feature_dfs_dict["correlation"],
-            top_n=search_config["search_output"]["min_k_fragments"],
-            min_correlation=search_config["search_output"]["min_correlation"],
-            group_column=lfq_config.quant_level,
-        )
-
-        if len(group_intensity_df) == 0:
-            logger.warning(
-                f"No fragments found for {lfq_config.level_name}, skipping label-free quantification"
-            )
-            return None
-
         # drop all other columns as they will be interpreted as samples
         columns_to_drop = list(
             {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
             - {lfq_config.quant_level}
         )
-        intensity_df = group_intensity_df.drop(columns=columns_to_drop)
+        intensity_df = filtered_intensity_df.drop(columns=columns_to_drop)
 
         lfqconfig.set_global_protein_and_ion_id(
             protein_id=lfq_config.quant_level, quant_id="ion"
@@ -251,7 +255,7 @@ class QuantBuilder:
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if lfq_config.normalization_method == NormalizationMethods.DIRECT_LFQ:
+        if lfq_config.normalization_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
             logger.info("Applying directLFQ normalization")
             lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
                 lfq_df,
