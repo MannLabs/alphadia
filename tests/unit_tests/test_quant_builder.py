@@ -105,11 +105,11 @@ def lfq_config():
     @dataclass
     class LFQOutputConfig:
         quant_level: str
-        normalization_method: str | None = NormalizationMethods.DIRECT_LFQ
+        normalization_method: str | None = NormalizationMethods.NORMALIZE_DIRECTLFQ
 
     def _create_config(
         quant_level: str,
-        normalization_method: str = NormalizationMethods.DIRECT_LFQ,
+        normalization_method: str = NormalizationMethods.NORMALIZE_DIRECTLFQ,
     ):
         return LFQOutputConfig(
             quant_level=quant_level,
@@ -553,15 +553,15 @@ class TestLfq:
     def test_performs_quantification(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
     ):
-        """Given fragment data, when LFQ is run, then returns protein quantification."""
+        """Given filtered intensity data, when direct_lfq is run, then returns protein quantification."""
         # Given
-        feature_dfs_dict = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.DIRECT_LFQ)
+        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_DIRECTLFQ)
         config = search_config
 
         # When
-        result_df = builder.lfq(feature_dfs_dict, lfq_config, config)
+        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
@@ -573,13 +573,13 @@ class TestLfq:
     ):
         """Given LFQ parameters, when run, then configures directLFQ correctly."""
         # Given
-        feature_dfs_dict = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.DIRECT_LFQ)
+        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_DIRECTLFQ)
         config = search_config
 
         # When
-        builder.lfq(feature_dfs_dict, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -587,23 +587,25 @@ class TestLfq:
             protein_id="pg", quant_id="ion"
         )
 
-    @pytest.mark.parametrize("norm_method", [NormalizationMethods.DIRECT_LFQ, None])
+    @pytest.mark.parametrize(
+        "norm_method", [NormalizationMethods.NORMALIZE_DIRECTLFQ, None]
+    )
     def test_respects_normalization_flag(
         self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq, norm_method
     ):
         """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
         # Given
-        feature_dfs_dict = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
         lfq_config = lfq_config("pg", norm_method)
         config = search_config
 
         # When
-        builder.lfq(feature_dfs_dict, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_norm = mock_directlfq["norm"]
-        if norm_method == NormalizationMethods.DIRECT_LFQ:
+        if norm_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
@@ -613,13 +615,15 @@ class TestLfq:
     ):
         """Given custom group column, when LFQ is run, then groups by specified column."""
         # Given
-        feature_dfs_dict = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECT_LFQ)
+        lfq_config = lfq_config(
+            "mod_seq_hash", NormalizationMethods.NORMALIZE_DIRECTLFQ
+        )
         config = search_config
 
         # When
-        builder.lfq(feature_dfs_dict, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -633,17 +637,16 @@ class TestLfq:
         assert "pg" not in called_df.columns
 
     def test_quantselect_should_perform_basic_quantification(
-        self, ms2_features, psm_file, lfq_config, search_config
+        self, ms2_features, psm_file, lfq_config
     ):
-        """Test that lfq performs basic label-free quantification with quantselect."""
+        """Test that quantselect_lfq performs basic label-free quantification with quantselect."""
         # given
         feature_dfs_dict = ms2_features
         builder = QuantBuilder(psm_file.assign(**{"precursor.decoy": 0}))
-        lfq_config = lfq_config("pg", NormalizationMethods.QUANT_SELECT)
-        config = search_config
+        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_QUANTSELECT)
 
         # when
-        result_df = builder.lfq(feature_dfs_dict, lfq_config, config)
+        result_df = builder.quantselect_lfq(feature_dfs_dict, lfq_config)
         # then
         assert isinstance(result_df, pd.DataFrame)
         assert len(result_df) == 2  # Three protein groups
