@@ -72,7 +72,7 @@ if [[ -z "${input_directory}" ]]; then
 	input_directory="$(pwd)"
 fi
 
-# report set parameters
+# Parameter report
 echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
@@ -82,14 +82,14 @@ echo "Search flags: predict_library=${predict_library}, first_search=${first_sea
 csv_basename=$(basename "${input_filename}" .csv)
 output_directory="${target_directory}/ad_search_${csv_basename}"
 
-# Create output directory (ok if exists) but fail if not empty
+# Output directory
 mkdir -p "${output_directory}"
 if [ "$(ls -A ${output_directory})" ]; then
 	echo "Output directory ${output_directory} is not empty, exiting"
 	exit 1
 fi
 
-# create logs directory if it does not exist
+# Logs directory
 mkdir -p ./logs
 
 # use output_directory instead of target_directory for all subsequent paths
@@ -273,3 +273,6 @@ if [[ "$lfq" -eq 1 ]]; then
 else
 	echo "Skipping LFQ"
 fi
+
+### END OF PIPELINE ###
+echo "All jobs submitted."
