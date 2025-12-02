@@ -28,7 +28,7 @@ def config():
             "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.DIRECT_LFQ,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
         },
     }
 
@@ -128,7 +128,7 @@ class TestQuantOutputBuilder:
         pd.testing.assert_frame_equal(result_psm_df, psm_df)
 
     @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.lfq"
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
     )
     @patch(
         "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
@@ -137,7 +137,7 @@ class TestQuantOutputBuilder:
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_processes_all_levels_with_correct_annotations(
-        self, mock_accumulate, mock_filter, mock_lfq, psm_df, config, feature_dfs
+        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
     ):
         """Given all three quantification levels enabled, when build is called, then all levels return output with correct annotations."""
         # Given
@@ -146,7 +146,7 @@ class TestQuantOutputBuilder:
             feature_dfs["intensity"],
             feature_dfs["correlation"],
         )
-        mock_lfq.side_effect = lfq_side_effect
+        mock_direct_lfq.side_effect = lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
         # When
