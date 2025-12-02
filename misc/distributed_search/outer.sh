@@ -67,6 +67,11 @@ if [[ -z "${input_filename}" ]]; then
 	exit 1
 fi
 
+# If input_directory is empty, default to current working directory
+if [[ -z "${input_directory}" ]]; then
+	input_directory="$(pwd)"
+fi
+
 # report set parameters
 echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
@@ -117,7 +122,6 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py \
-	--input_directory "${input_directory}" \
 	--target_directory "${predicted_library_directory}" \
 	--fasta_path "${fasta_path}" \
 	--library_path "${library_path}" \

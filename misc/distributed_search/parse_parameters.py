@@ -42,13 +42,13 @@ parser.add_argument("--nnodes")
 parser.add_argument("--reuse_quant")
 args = parser.parse_args()
 
-# read the input filename
+# read the input filename (CSV file list from input_directory)
 infile = pd.read_csv(
     os.path.join(args.input_directory, args.input_filename), skiprows=0
 )
 
-# read the config .yaml file
-with open(os.path.join(args.input_directory, args.config_filename)) as file:
+# read the config .yaml file (from current working directory)
+with open(args.config_filename) as file:
     config = yaml.safe_load(file) or {}
 
 # set requantition, False for searches, True for MBR, LFQ
