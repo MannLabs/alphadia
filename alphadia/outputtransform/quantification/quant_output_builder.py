@@ -63,7 +63,7 @@ class QuantOutputBuilder:
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
 
         normalization_method = config["search_output"]["normalization_method"]
-        if normalization_method == NormalizationMethods.QUANT_SELECT:
+        if normalization_method == NormalizationMethods.NORMALIZE_QUANTSELECT:
             columns = self.QUANTSELECT_COLUMNS
         else:
             columns = self.DEFAULT_COLUMNS
@@ -237,12 +237,31 @@ class QuantOutputBuilder:
         pd.DataFrame | None
             Quantification results, or None if no data available
         """
+        if (
+            lfq_config.normalization_method
+            == NormalizationMethods.NORMALIZE_QUANTSELECT
+        ):
+            lfq_df = self.quant_builder.quantselect_lfq(
+                feature_dfs_dict=feature_dfs_dict,
+                lfq_config=lfq_config,
+            )
+        else:
+            filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=lfq_config.quant_level,
+            )
 
-        lfq_df = self.quant_builder.lfq(
-            feature_dfs_dict=feature_dfs_dict,
-            lfq_config=lfq_config,
-            search_config=self.config,
-        )
+            if len(filtered_intensity_df) == 0:
+                return None
+
+            lfq_df = self.quant_builder.direct_lfq(
+                filtered_intensity_df=filtered_intensity_df,
+                lfq_config=lfq_config,
+                search_config=self.config,
+            )
         return lfq_df
 
     def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:
