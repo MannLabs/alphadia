@@ -62,7 +62,7 @@ class QuantOutputBuilder:
         self.config = config
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
 
-        normalization_method = config["search_output"]["normalization_method"]
+        normalization_method = config["search_output"]["normalization"]
         if normalization_method == NormalizationMethods.NORMALIZE_QUANTSELECT:
             columns = self.QUANTSELECT_COLUMNS
         else:
@@ -152,9 +152,7 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
+                normalization_method=self.config["search_output"]["normalization"],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -170,9 +168,7 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
+                normalization_method=self.config["search_output"]["normalization"],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -182,9 +178,7 @@ class QuantOutputBuilder:
                     QuantificationLevelName.PROTEIN,
                 ],
                 should_process=True,
-                normalization_method=self.config["search_output"][
-                    "normalization_method"
-                ],
+                normalization_method=self.config["search_output"]["normalization"],
             ),
         ]
 
