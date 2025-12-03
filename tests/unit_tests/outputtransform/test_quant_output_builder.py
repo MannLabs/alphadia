@@ -28,7 +28,7 @@ def config():
             "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization": NormalizationMethods.NORMALIZE_DIRECTLFQ,
         },
     }
 
