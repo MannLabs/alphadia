@@ -586,8 +586,8 @@
                     "type": "integer"
                 },
                 {
-                    "id": "normalization_method",
-                    "name": "LFQ normalization method",
+                    "id": "normalization",
+                    "name": "LFQ normalization",
                     "default": "directLFQ",
                     "description": "Select the label-free quantification normalization method.",
                     "type": "dropdown",
