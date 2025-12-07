@@ -25,8 +25,7 @@ def compute_lookup_indices(
     2. Specific: Targets whose primary key (mod_seq_charge_hash) exists in the specific
        lookup table get marked for override
 
-    The fallback lookup uses binary search (searchsorted) on sorted keys for O(n log m)
-    complexity. The specific lookup uses pandas hash-based indexing for O(n) average case.
+    Both lookups use pandas hash-based indexing for O(n) average case complexity.
 
     Parameters
     ----------
@@ -49,11 +48,12 @@ def compute_lookup_indices(
     """
     n_targets = len(target_keys)
 
-    fallback_sort_idx = np.argsort(fallback_lookup_keys)
-    sorted_fallback_keys = fallback_lookup_keys[fallback_sort_idx]
-    insert_idx = np.searchsorted(sorted_fallback_keys, target_fallback_keys)
-    insert_idx = np.clip(insert_idx, 0, len(sorted_fallback_keys) - 1)
-    fallback_indices = fallback_sort_idx[insert_idx]
+    fallback_key_to_idx = pd.Series(
+        np.arange(len(fallback_lookup_keys)), index=fallback_lookup_keys
+    )
+    fallback_indices = fallback_key_to_idx.reindex(target_fallback_keys).values.astype(
+        np.int64
+    )
 
     if len(specific_lookup_keys) > 0:
         specific_key_to_idx = pd.Series(
