@@ -490,7 +490,7 @@ class SearchPlanOutput:
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
-            keep_decoy_in_mbr_library=self.config["fdr"]["keep_decoy_in_mbr_library"],
+            keep_decoys_in_mbr_library=self.config["fdr"]["keep_decoys_in_mbr_library"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
