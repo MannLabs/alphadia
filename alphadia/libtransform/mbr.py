@@ -17,7 +17,16 @@ def compute_lookup_indices(
     fallback_lookup_keys: np.ndarray,
     specific_lookup_keys: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Compute indices for value lookup. Sort once, reuse for multiple value columns.
+    """Compute indices for value lookup with fallback and specific matching.
+
+    This function computes indices that map each target to a value in a lookup table.
+    It uses a two-level lookup strategy:
+    1. Fallback: Every target gets an index based on its fallback key (elution_group_idx)
+    2. Specific: Targets whose primary key (mod_seq_charge_hash) exists in the specific
+       lookup table get marked for override
+
+    The fallback lookup uses binary search (searchsorted) on sorted keys for O(n log m)
+    complexity. The specific lookup uses pandas hash-based indexing for O(n) average case.
 
     Parameters
     ----------
@@ -33,7 +42,9 @@ def compute_lookup_indices(
     Returns
     -------
     tuple[np.ndarray, np.ndarray, np.ndarray]
-        (fallback_indices, specific_indices, has_specific_mask)
+        - fallback_indices: Index into fallback lookup for each target
+        - specific_indices: Index into specific lookup for each target (valid only where has_specific=True)
+        - has_specific_mask: Boolean mask indicating which targets have a specific match
 
     """
     n_targets = len(target_keys)
