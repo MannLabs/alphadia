@@ -180,34 +180,6 @@ class QuantBuilder:
         )
         return intensity_df[mask], quality_df[mask]
 
-    def quantselect_lfq(
-        self,
-        feature_dfs_dict: dict[str, pd.DataFrame],
-        lfq_config: LFQOutputConfig,
-    ) -> pd.DataFrame:
-        """Perform label-free quantification using QuantSelect.
-
-        Parameters
-        ----------
-        feature_dfs_dict: dict[str, pd.DataFrame]
-            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
-        lfq_config: LFQOutputConfig
-            Configuration for this quantification level
-
-        Returns
-        -------
-        pd.DataFrame
-            Protein/peptide quantification results with columns: group_column, run1, run2, ...
-        """
-        logger.info("Performing label-free quantification with QuantSelect")
-
-        return run_quantselect(
-            seed=42,
-            psm_df=self.psm_df,
-            feature_dfs_dict=feature_dfs_dict,
-            lfq_config=lfq_config,
-        )
-
     def direct_lfq(
         self,
         filtered_intensity_df: pd.DataFrame,
@@ -255,7 +227,7 @@ class QuantBuilder:
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if lfq_config.normalization_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
+        if search_config["search_output"]["normalize_directlfq"]:
             logger.info("Applying directLFQ normalization")
             lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
                 lfq_df,
@@ -274,3 +246,31 @@ class QuantBuilder:
             num_cores=search_config["general"]["thread_count"],
         )
         return protein_df
+
+    def quantselect_lfq(
+        self,
+        feature_dfs_dict: dict[str, pd.DataFrame],
+        lfq_config: LFQOutputConfig,
+    ) -> pd.DataFrame:
+        """Perform label-free quantification using QuantSelect.
+
+        Parameters
+        ----------
+        feature_dfs_dict: dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        lfq_config: LFQOutputConfig
+            Configuration for this quantification level
+
+        Returns
+        -------
+        pd.DataFrame
+            Protein/peptide quantification results with columns: group_column, run1, run2, ...
+        """
+        logger.info("Performing label-free quantification with QuantSelect")
+
+        return run_quantselect(
+            seed=42,
+            psm_df=self.psm_df,
+            feature_dfs_dict=feature_dfs_dict,
+            lfq_config=lfq_config,
+        )
