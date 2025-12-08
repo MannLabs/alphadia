@@ -62,7 +62,7 @@ class QuantOutputBuilder:
         self.config = config
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
 
-        normalization_method = config["search_output"]["normalization"]
+        normalization_method = config["search_output"]["normalization_method"]
         if normalization_method == NormalizationMethods.NORMALIZE_QUANTSELECT:
             columns = self.QUANTSELECT_COLUMNS
         else:
@@ -152,7 +152,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"]["normalization"],
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -168,7 +170,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
-                normalization_method=self.config["search_output"]["normalization"],
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -178,7 +182,9 @@ class QuantOutputBuilder:
                     QuantificationLevelName.PROTEIN,
                 ],
                 should_process=True,
-                normalization_method=self.config["search_output"]["normalization"],
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
         ]
 
@@ -231,15 +237,7 @@ class QuantOutputBuilder:
         pd.DataFrame | None
             Quantification results, or None if no data available
         """
-        if (
-            lfq_config.normalization_method
-            == NormalizationMethods.NORMALIZE_QUANTSELECT
-        ):
-            lfq_df = self.quant_builder.quantselect_lfq(
-                feature_dfs_dict=feature_dfs_dict,
-                lfq_config=lfq_config,
-            )
-        else:
+        if lfq_config.normalization_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
             filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
@@ -255,6 +253,12 @@ class QuantOutputBuilder:
                 filtered_intensity_df=filtered_intensity_df,
                 lfq_config=lfq_config,
                 search_config=self.config,
+            )
+
+        else:
+            lfq_df = self.quant_builder.quantselect_lfq(
+                feature_dfs_dict=feature_dfs_dict,
+                lfq_config=lfq_config,
             )
         return lfq_df
 
