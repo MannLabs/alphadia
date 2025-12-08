@@ -7,7 +7,11 @@ import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import InferenceStrategy, SearchStepFiles
+from alphadia.constants.keys import (
+    InferenceStrategy,
+    NormalizationMethods,
+    SearchStepFiles,
+)
 from alphadia.outputtransform.outputaccumulator import ms2_quality_control
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.workflow.base import QUANT_FOLDER_NAME
@@ -50,8 +54,9 @@ def prepare_input_data():
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalize_directlfq": True,
         },
         "transfer_library": {
             "enabled": True,

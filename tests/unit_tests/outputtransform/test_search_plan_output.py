@@ -51,10 +51,10 @@ def test_search_plan_output_integration():
             "min_correlation": 0.25,
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
-            "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalize_directlfq": True,
         },
         "multiplexing": {"enabled": False},
         "search_initial": {

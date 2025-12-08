@@ -25,10 +25,10 @@ def config():
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,
-            "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalize_directlfq": True,
         },
     }
 

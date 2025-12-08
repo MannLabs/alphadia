@@ -92,7 +92,8 @@ def search_config():
             "min_nonnan": 1,
             "min_k_fragments": 1,
             "min_correlation": 0,
-            "normalize_lfq": True,
+            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalize_directlfq": True,
         },
         "general": {
             "thread_count": 1,
@@ -587,25 +588,29 @@ class TestLfq:
             protein_id="pg", quant_id="ion"
         )
 
-    @pytest.mark.parametrize(
-        "norm_method", [NormalizationMethods.NORMALIZE_DIRECTLFQ, None]
-    )
+    @pytest.mark.parametrize("normalize_directlfq", [True, False])
     def test_respects_normalization_flag(
-        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq, norm_method
+        self,
+        lfq_data,
+        psm_df,
+        lfq_config,
+        search_config,
+        mock_directlfq,
+        normalize_directlfq,
     ):
         """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", norm_method)
         config = search_config
+        config["search_output"]["normalize_directlfq"] = normalize_directlfq
 
         # When
-        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
+        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
 
         # Then
         mock_norm = mock_directlfq["norm"]
-        if norm_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
+        if normalize_directlfq:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
