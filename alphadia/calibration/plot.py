@@ -106,7 +106,7 @@ def plot_calibration(
     deviation = calibration.calc_deviation(df)
 
     n_input_properties = deviation.shape[1] - 3
-    input_property = -1
+
     if n_input_properties <= 0:
         logging.warning("No input properties found for plotting calibration")
         return

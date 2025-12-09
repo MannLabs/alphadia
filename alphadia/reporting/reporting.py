@@ -221,7 +221,9 @@ class Backend:
     ) -> None:
         pass
 
-    def log_string(self, value: str, *args: Any, **kwargs: Any) -> None:
+    def log_string(
+        self, value: str, verbosity: str = "info", *args: Any, **kwargs: Any
+    ) -> None:
         pass
 
     def log_data(self, name: str, value: typing.Any, *args: Any, **kwargs: Any) -> None:
@@ -499,7 +501,7 @@ class JSONLBackend(Backend):
         value : str
             Value of the string.
 
-        verbosity : int, default 0
+        verbosity : str, default "info"
             Verbosity of the string. Can later be used to filter strings.
 
         """
