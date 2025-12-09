@@ -1,7 +1,7 @@
 # Dependencies required for running AlphaDIA.
 # If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
-alphadia-search-rs~=1.0.0
+alphadia-search-rs>=1,<2
 alpharaw>=0.3.1
 alphatims>=1.0.8
 alphabase>=1.5.0

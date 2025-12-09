@@ -6,6 +6,7 @@ from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
     CandidateCollection,
     CandidateFeatureCollection,
+    set_num_threads,
 )
 from alphadia_search_rs import (
     DIAData as DiaDataNG,
@@ -13,6 +14,11 @@ from alphadia_search_rs import (
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
+
+
+def set_ng_thread_count(thread_count: int) -> None:
+    """Set the number of threads for NG computations."""
+    set_num_threads(thread_count)
 
 
 def dia_data_to_ng(dia_data: DiaData) -> "DiaDataNG":  # noqa: F821
