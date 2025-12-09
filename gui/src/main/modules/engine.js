@@ -521,7 +521,7 @@ class ExecutionManager {
         }
         console.log("runIdx: " + runIdx)
         if (this.runList[runIdx].pid != null){
-            console.log(`Killing process ${this.runList[runIdx].pid}`)
+            console.log(`Killing alphadia process ${this.runList[runIdx].pid}`)
             kill(this.runList[runIdx].pid);
         }
     }
