@@ -407,7 +407,16 @@ def create_workflow_instance():
 
     config = Config()
     config.from_yaml(config_base_path)
-    config.update([Config({"output_directory": tempfile.mkdtemp()})])
+    config.update(
+        [
+            Config(
+                {
+                    "output_directory": tempfile.mkdtemp(),
+                    "calibration": {"min_steps": 2},
+                }
+            )
+        ]
+    )
     workflow = PeptideCentricWorkflow(
         "test",
         config,
