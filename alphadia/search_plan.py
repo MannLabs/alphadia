@@ -9,6 +9,7 @@ import pandas as pd
 import yaml
 
 from alphadia.constants.keys import ConfigKeys, StatOutputCols
+from alphadia.exceptions import CustomError
 from alphadia.outputtransform.search_plan_output import (
     SearchPlanOutput,
 )
@@ -87,6 +88,8 @@ class SearchPlan:
             with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
                 self._multistep_config = yaml.safe_load(f)
 
+        self._raw_files_with_errors: list[tuple[str, str]] = []
+
     def _update_paths(self) -> None:
         """Set directories for the different steps.
 
@@ -124,12 +127,16 @@ class SearchPlan:
         if self._transfer_step_enabled:
             assert self._transfer_step_output_dir is not None  # type checker
 
-            logger.info(f"Running step '{TRANSFER_STEP_NAME}'")
+            logger.info(
+                f"=================== Running step '{TRANSFER_STEP_NAME}' ==================="
+            )
+
             # predict library (once for all files, file-independent), search all files (emb. parallel), quantify all files together (combine all files) (outer.sh-steps 1, 2, 3)
             # output: DL model
             self.run_step(
                 self._transfer_step_output_dir,
                 self._multistep_config[TRANSFER_STEP_NAME],
+                TRANSFER_STEP_NAME,
             )
 
             extra_config_from_transfer_step = {
@@ -153,15 +160,20 @@ class SearchPlan:
 
         # same as transfer_step
         # output: MBR library
-        logger.info(f"Running step '{LIBRARY_STEP_NAME}'")
+        logger.info(
+            f"=================== Running step '{LIBRARY_STEP_NAME}' ==================="
+        )
         self.run_step(
             self._library_step_output_dir,
             extra_config_for_library_step,
+            LIBRARY_STEP_NAME,
         )
 
         if self._mbr_step_enabled:
             # (outer.sh-steps 4,5)
-            logger.info(f"Running step '{MBR_STEP_NAME}'")
+            logger.info(
+                f"=================== Running step '{MBR_STEP_NAME}' ==================="
+            )
             if optimized_values_config == {}:
                 optimized_values_config = self._get_optimized_values_config(
                     self._library_step_output_dir
@@ -176,15 +188,24 @@ class SearchPlan:
                 | optimized_values_config
                 | {ConfigKeys.LIBRARY_PATH: mbr_step_library_path}
             )
-            self.run_step(
-                self._output_dir,
-                mbr_step_extra_config,
+            self.run_step(self._output_dir, mbr_step_extra_config, MBR_STEP_NAME)
+
+        if self._raw_files_with_errors:
+            logger.warning(
+                "Some raw files could not be processed. Please consult the log for individual errors:"
             )
+            for step, raw_file in self._raw_files_with_errors:
+                logger.warning(f"  {raw_file}  failed at step '{step}'")
+
+            raise CustomError("Some raw files had errors.")
+
+        logger.info("=================== Search Finished ===================")
 
     def run_step(
         self,
         output_directory: Path,
         extra_config: dict,
+        step_name: str,
     ) -> None:
         """Run a single step of the search plan."""
         step = SearchStep(
@@ -192,8 +213,10 @@ class SearchPlan:
             config=self._user_config,
             cli_config=self._cli_params_config,
             extra_config=extra_config,
+            step_name=step_name,
         )
-        step.run()
+        raw_files_with_errors = step.run()
+        self._raw_files_with_errors.extend(raw_files_with_errors)
 
     @staticmethod
     def _get_optimized_values_config(output_folder: Path) -> dict:

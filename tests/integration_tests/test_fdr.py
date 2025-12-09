@@ -1,10 +1,10 @@
 import os
-from unittest import skip
 from unittest.mock import MagicMock
 
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytest
 
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.managers.fdr_manager import FDRManager
@@ -56,7 +56,7 @@ classifier_base = BinaryClassifierLegacyNewBatching(
 )
 
 
-@skip  # TODO re-enable or delete
+@pytest.mark.skip(reason="no input data given")  # TODO re-enable or delete
 def test_fdr():
     matplotlib.use("Agg")
 

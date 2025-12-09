@@ -64,6 +64,7 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
+        step_name: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -89,6 +90,7 @@ class SearchStep:
         os.makedirs(output_folder, exist_ok=True)
         init_logging(self.output_folder)
 
+        self._step_name = step_name
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
@@ -381,13 +383,18 @@ class SearchStep:
 
     def run(
         self,
-    ):
+    ) -> list[tuple[str, str]]:
         """Run the search step.
 
         This has three main parts:
         1. Load or build the spectral library
         2. Iterate over all raw files and perform the search workflow
         3. Collect and summarize the results
+
+        Returns
+        -------
+        list of tuples
+            List of tuples containing (step_name, raw_file_name) for files that encountered errors during processing.
         """
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
@@ -395,11 +402,14 @@ class SearchStep:
 
         if not self.raw_path_list:
             logger.warning("No raw files provided, nothing to search.")
-            return
+            return []
 
-        logger.progress("Starting Search Workflows")
+        logger.progress(
+            f"=================== Starting Search Workflows for step {self._step_name} ==================="
+        )
 
         workflow_folder_list = []
+        raw_files_with_errors = []
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
@@ -407,11 +417,9 @@ class SearchStep:
                 None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
             )
 
+            msg = f" (random_state: {random_state})" if random_state is not None else ""
             logger.progress(
-                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name}"
-                f" (random_state: {random_state})"
-                if random_state is not None
-                else ""
+                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name} {msg}"
             )
 
             try:
@@ -453,9 +461,8 @@ class SearchStep:
 
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
-                if isinstance(e, CustomError):
-                    continue
-                raise e
+                raw_files_with_errors.append((self._step_name, raw_name))
+                continue
 
             finally:
                 if workflow and workflow.reporter:
@@ -476,13 +483,18 @@ class SearchStep:
 
             output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
+
         except Exception as e:
             _log_exception_event(e)
             raise e
         finally:
             self._clean()
 
-        logger.progress("=================== Search Finished ===================")
+        logger.progress(
+            f"=================== Search step '{self._step_name}' finished ==================="
+        )
+
+        return raw_files_with_errors
 
     def _process_raw_file(
         self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat

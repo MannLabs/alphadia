@@ -86,6 +86,10 @@ A detailed guide to installing AlphaRaw with mono can be found [here](https://gi
 
 Download the latest `alphadia-X.Y.Z-linux-x64.deb` build and install it via `dpkg -i alphadia-X.Y.Z-linux-x64.deb`.
 
+Important note: the installer is built on Ubuntu 22.04, which limits its compatibility with other Linux distributions.
+If you have troubles installing it, please fall back to the
+[pip installation](docs/installation.md#pip-installation) with [manual](docs/installation.md#3-installation-gui-optional) GUI installation.
+
 #### MacOS
 If you want to search `.raw` files from Thermo instruments or `.wiff` files from Sciex instruments, [AlphaRaw](https://github.com/MannLabs/alpharaw) is required, which depends on Mono.
 A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
@@ -117,7 +121,7 @@ We recommend setting up miniconda as described on their [website](https://docs.c
 If you want to use `.raw` files on Thermo instruments alphaRaw is required, which depends on Mono. A detailed guide to installing AlphaRaw with mono can be found [here](https://github.com/MannLabs/alpharaw#installation).
 
 #### 2. Setting up the environment
-For any Python package, it is highly recommended to use a separate, as otherwise dependency conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/).
+For any Python package, it is highly recommended to use a separate, as otherwise dependency conflicts can occur with already existing packages. We generally recommend [miniconda](https://docs.anaconda.com/free/miniconda/), see [here](https://github.com/MannLabs/alphadia/blob/main/docs/installation.md#pip-installation) for more information on setting up the environment.
 
 Finally, alphaDIA and all its dependencies can be installed by
 ```bash
