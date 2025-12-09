@@ -1,14 +1,4 @@
 # Dependencies required for developing alphaDIA
 # Also, `requirements_tests.txt` and `requirements_docs.txt` are required for developing
-jupyter
-jupyter_contrib_nbextensions
-
-bump-my-version
-pipdeptree
-ipykernel
-
 # should match the version in branch-checks.yaml
 pre-commit==4.3.0
-
-
-neptune

@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -44,7 +45,16 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
-logger = logging.getLogger()
+# Type stub for extended Logger with progress method
+# The progress method is added in reporting.py at module load time
+if TYPE_CHECKING:
+
+    class _ExtendedLogger(logging.Logger):
+        def progress(self, message: str, *args: Any, **kws: Any) -> None: ...
+
+    logger: _ExtendedLogger = logging.getLogger()  # type: ignore[assignment]
+else:
+    logger = logging.getLogger()
 
 
 class SearchStep:
@@ -195,8 +205,8 @@ class SearchStep:
 
         return extraction_backend == "rust"
 
-    def _get_random_number_generator(self) -> None | Generator:
-        """Getnumpy random number generator if random state is set."""
+    def _get_random_number_generator(self) -> np.random.Generator | None:
+        """Get numpy random number generator if random state is set."""
         if (random_state := self._config["general"]["random_state"]) == -1:
             random_state = np.random.randint(0, 1_000_000)
 

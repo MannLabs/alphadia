@@ -102,17 +102,17 @@ class Classifier(ABC):
 
 
 def _get_scaled_training_params(
-    df: pd.DataFrame,
+    df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
-    max_batch: float = 4096,
-    min_batch: float = 128,
+    max_batch: int = 4096,
+    min_batch: int = 128,
 ) -> tuple[int, float]:
     """Scale batch size and learning rate based on dataframe size using square root relationship.
 
     Parameters
     ----------
-    df : pd.DataFrame
-        Input dataframe
+    df : pd.DataFrame | np.ndarray
+        Input dataframe or array
     base_lr : float, optional
         Base learning rate for 1024 batch size, defaults to 0.01
     max_batch : int, optional
@@ -456,6 +456,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
         return np.argmax(self.network(torch.Tensor(x)).detach().numpy(), axis=1)
 
@@ -484,6 +485,7 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             x.shape[1] == self.input_dim
         ), "Input data must have the same number of features as the fitted classifier."
 
+        assert self.network is not None, "Network must be initialized after fitting"
         self.network.eval()
         return self.network(torch.Tensor(x)).detach().numpy()
 
@@ -502,11 +504,11 @@ class FeedForwardNN(nn.Module):
         if layers is None:
             layers = [20, 10, 5]
         super().__init__()
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+        self.input_dim = input_dim  # type: ignore[assignment]
+        self.output_dim = output_dim  # type: ignore[assignment]
 
-        self.layers = [input_dim, *layers]
-        self.dropout = dropout
+        self.layers = [input_dim, *layers]  # type: ignore[assignment]
+        self.dropout = dropout  # type: ignore[assignment]
 
         self._build_model()
 
