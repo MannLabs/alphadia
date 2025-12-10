@@ -247,6 +247,9 @@ class QuantOutputBuilder:
             )
 
             if len(filtered_intensity_df) == 0:
+                logger.warning(
+                    f"No fragments found for {lfq_config["level_name"]}, skipping label-free quantification"
+                )
                 return None
 
             lfq_df = self.quant_builder.direct_lfq(
