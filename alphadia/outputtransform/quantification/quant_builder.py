@@ -45,7 +45,7 @@ class LFQOutputConfig:
     aggregation_components: list[str]
     should_process: bool = True
     save_fragments: bool = False
-    normalization_method: str = NormalizationMethods.NORMALIZE_DIRECTLFQ
+    normalization_method: str = NormalizationMethods.DIRECTLFQ
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)

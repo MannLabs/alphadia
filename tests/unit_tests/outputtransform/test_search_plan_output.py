@@ -53,7 +53,7 @@ def test_search_plan_output_integration():
             "min_nonnan": 1,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
         "multiplexing": {"enabled": False},

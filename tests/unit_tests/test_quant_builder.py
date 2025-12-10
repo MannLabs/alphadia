@@ -92,7 +92,7 @@ def search_config():
             "min_nonnan": 1,
             "min_k_fragments": 1,
             "min_correlation": 0,
-            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
         "general": {
@@ -106,11 +106,11 @@ def lfq_config():
     @dataclass
     class LFQOutputConfig:
         quant_level: str
-        normalization_method: str | None = NormalizationMethods.NORMALIZE_DIRECTLFQ
+        normalization_method: str | None = NormalizationMethods.DIRECTLFQ
 
     def _create_config(
         quant_level: str,
-        normalization_method: str = NormalizationMethods.NORMALIZE_DIRECTLFQ,
+        normalization_method: str = NormalizationMethods.DIRECTLFQ,
     ):
         return LFQOutputConfig(
             quant_level=quant_level,
@@ -558,7 +558,7 @@ class TestLfq:
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_DIRECTLFQ)
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
@@ -576,7 +576,7 @@ class TestLfq:
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_DIRECTLFQ)
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
@@ -622,9 +622,7 @@ class TestLfq:
         # Given
         filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
-        lfq_config = lfq_config(
-            "mod_seq_hash", NormalizationMethods.NORMALIZE_DIRECTLFQ
-        )
+        lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECTLFQ)
         config = search_config
 
         # When
@@ -648,7 +646,7 @@ class TestLfq:
         # given
         feature_dfs_dict = ms2_features
         builder = QuantBuilder(psm_file.assign(**{"precursor.decoy": 0}))
-        lfq_config = lfq_config("pg", NormalizationMethods.NORMALIZE_QUANTSELECT)
+        lfq_config = lfq_config("pg", NormalizationMethods.QUANTSELECT)
 
         # when
         result_df = builder.quantselect_lfq(feature_dfs_dict, lfq_config)

@@ -27,7 +27,7 @@ def config():
             "num_samples_quadratic": 50,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
-            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
     }

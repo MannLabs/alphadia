@@ -55,7 +55,7 @@ def prepare_input_data():
             "num_samples_quadratic": 50,
             "min_nonnan": 1,
             "save_fragment_quant_matrix": False,
-            "normalization_method": NormalizationMethods.NORMALIZE_DIRECTLFQ,
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
             "normalize_directlfq": True,
         },
         "transfer_library": {

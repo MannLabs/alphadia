@@ -64,7 +64,7 @@ class QuantOutputBuilder:
 
         if (
             config["search_output"]["normalization_method"]
-            == NormalizationMethods.NORMALIZE_QUANTSELECT
+            == NormalizationMethods.QUANTSELECT
         ):
             columns = self.QUANTSELECT_COLUMNS
         else:
@@ -239,7 +239,7 @@ class QuantOutputBuilder:
         pd.DataFrame | None
             Quantification results, or None if no data available
         """
-        if lfq_config.normalization_method == NormalizationMethods.NORMALIZE_DIRECTLFQ:
+        if lfq_config.normalization_method == NormalizationMethods.DIRECTLFQ:
             filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
                 feature_dfs_dict["intensity"],
                 feature_dfs_dict["correlation"],
@@ -250,7 +250,7 @@ class QuantOutputBuilder:
 
             if len(filtered_intensity_df) == 0:
                 logger.warning(
-                    f"No fragments found for {lfq_config["level_name"]}, skipping label-free quantification"
+                    f"No fragments found for {lfq_config.level_name}, skipping label-free quantification"
                 )
                 return None
 
