@@ -1,12 +1,10 @@
-from unittest import skip
-
 import numpy as np
 import pytest
 
 from alphadia.raw_data import DiaDataJIT, alpharaw_wrapper, bruker
 
 
-@skip  # TODO re-enable or delete
+@pytest.mark.skip(reason="no input data given")  # TODO re-enable or delete
 def test_raw_data():  # TODO this is never executed as TEST_DATA_DIR (cf. conftest.py) is never set
     if pytest.test_data is None:
         raise ValueError("No test data found")

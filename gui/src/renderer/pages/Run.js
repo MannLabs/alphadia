@@ -22,18 +22,18 @@ function replaceConfigFormatUnicodeEscapes(text) {
   }
 
 function parseConsoleOutput(input, theme) {
-    // First, replace Unicode escape sequences with actual characters
     const processedInput = replaceConfigFormatUnicodeEscapes(input);
 
-    // match ANSI escape sequences for terminal color, e.g. [32;20mSUCCESS[0m
-    const terminalColorsEscapeRegex = /\[(\d+;?\d*)m(.*?)\[(\d+)m/g;
-    const matches = processedInput.matchAll(terminalColorsEscapeRegex);
+    // Match ANSI escape sequences - either with closing code or until end of line
+    const terminalColorsEscapeRegex = /\[(\d+;?\d*)m(.*?)(?:\[(\d+)m|$)/g;
+    const matches = [...processedInput.matchAll(terminalColorsEscapeRegex)];
 
-    if (!matches || matches.length === 0) {
-      return processedInput; // No escape character pairs found, return processed string
+    if (matches.length === 0) {
+      return processedInput;
     }
     let result = [];
     let currentIndex = 0;
+    let elementCounter = 0;
     for (const match of matches) {
       const startIndex = match.index;
       const text = match[2];
@@ -41,11 +41,13 @@ function parseConsoleOutput(input, theme) {
       // Push the text before the escape character pair
       if (startIndex > currentIndex) {
         const plainText = processedInput.substring(currentIndex, startIndex);
-        result.push(plainText);
+        result.push(
+          <span key={`text-${elementCounter++}`} style={{fontFamily: "Roboto Mono"}}>{plainText}</span>
+        );
       }
       // Push the colored span with the text
       result.push(
-        <span key={startIndex} style={spanStyle}>
+        <span key={`span-${elementCounter++}`} style={spanStyle}>
           {text}
         </span>
       );
@@ -55,7 +57,9 @@ function parseConsoleOutput(input, theme) {
     // Push any remaining plain text after the last escape character pair
     if (currentIndex < processedInput.length) {
       const remainingText = processedInput.substring(currentIndex);
-      result.push(remainingText);
+      result.push(
+        <span key={`text-${elementCounter++}`} style={{fontFamily: "Roboto Mono"}}>{remainingText}</span>
+      );
     }
 
     return result;
@@ -78,17 +82,16 @@ function parseConsoleOutput(input, theme) {
     return colorMap[colorCode] || 'inherit'; // Default color is black
   }
 
-  function applyCarriageReturns(items) {
-    return items.reverse().reduce((acc, item) => {
-
-        const lastItem = acc[acc.length - 1];
-        if (lastItem && lastItem.endsWith('\r')) {
-            acc[acc.length - 1] = lastItem.slice(0, -1)
+function applyCarriageReturns(items) {
+    const result = [];
+    for (const item of items) {
+        if (result.length > 0 && result[result.length - 1].endsWith('\r')) {
+            result[result.length - 1] = item;
         } else {
-            acc.push(item);
+            result.push(item);
         }
-        return acc;
-    }, []).reverse()
+    }
+    return result;
 }
 
 const Output = () => {
@@ -99,39 +102,34 @@ const Output = () => {
     const theme = useTheme();
 
     const [items, setItems] = React.useState([])
-    const currentLengthRef = useRef(0);
+    const backendLengthRef = useRef(0);
     const [listRef, setListRef] = React.useState(null)
     const [scrollAttached, setScrollAttached] = React.useState(true)
 
     const profile = useProfile();
 
-    useEffect(() => {
-        currentLengthRef.current = items.length;
-    })
-
-    const updateItems = (currentLengthRef) => {
-        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset: currentLengthRef}).then((newItems) => {
-
-            setItems( items => [...items, ...newItems]);
-            //setItems((items)=>{applyCarriageReturns([...items, ...newItems])});
+    const updateItems = (offset) => {
+        window.electronAPI.getOutputRowsNew(-1,{limit:100, offset}).then((newItems) => {
+            backendLengthRef.current += newItems.length;
+            setItems(items => applyCarriageReturns([...items, ...newItems]));
         });
     }
 
     React.useEffect(() => {
         setItems([]);
-        currentLengthRef.current = 0;
+        backendLengthRef.current = 0;
 
         let isMounted = true;
 
         const interval = setInterval(() => {
             window.electronAPI.getOutputLengthNew(-1).then((length) => {
                 if (isMounted){
-                    if (length > currentLengthRef.current) {
-                        updateItems(currentLengthRef.current);
+                    if (length > backendLengthRef.current) {
+                        updateItems(backendLengthRef.current);
                     }
-                    if (length < currentLengthRef.current) {
+                    if (length < backendLengthRef.current) {
                         setItems([]);
-                        currentLengthRef.current = 0;
+                        backendLengthRef.current = 0;
                     }
                 }
             });

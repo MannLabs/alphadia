@@ -51,6 +51,12 @@ mv dist_pyinstaller/${PACKAGE_NAME} ${BIN_PATH}
 mkdir dist_pyinstaller/${BUILD_NAME}/DEBIAN
 cp release/linux/control dist_pyinstaller/${BUILD_NAME}/DEBIAN
 
+# Fix permissions to allow non-root users to access installed files
+chmod -R 755 dist_pyinstaller/${BUILD_NAME}/usr
+find dist_pyinstaller/${BUILD_NAME}/usr -type f -exec chmod 644 {} \;
+find dist_pyinstaller/${BUILD_NAME}/usr/local/bin -type l -exec chmod 755 {} \; 2>/dev/null || true
+find dist_pyinstaller/${BUILD_NAME}/usr/local/${PACKAGE_NAME} -type f -name "alphadia*" -exec chmod 755 {} \;
+
 dpkg-deb --build --root-owner-group dist_pyinstaller/${BUILD_NAME}
 
 # release workflow expects artifact at root of repository

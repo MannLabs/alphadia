@@ -6,35 +6,7 @@ const { dialog } = require('electron')
 const os = require('os');
 const { proc } = require('node-os-utils');
 var kill = require('tree-kill');
-
-function condaPATH(username, platform){
-    if (platform == "darwin"){
-        return [
-            "/Users/" + username + "/miniconda3/bin/",
-            "/Users/" + username + "/anaconda3/bin/",
-            "/Users/" + username + "/miniconda/bin/",
-            "/Users/" + username + "/anaconda/bin/",
-            "/anaconda/bin/",
-        ]
-    } else if (platform == "win32"){
-        return [
-            "C:\\Users\\" + username + "\\miniconda3\\Scripts\\",
-            "C:\\Users\\" + username + "\\anaconda3\\Scripts\\",
-            "C:\\Users\\" + username + "\\miniconda\\Scripts\\",
-            "C:\\Users\\" + username + "\\anaconda\\Scripts\\",
-            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda3\\Scripts\\",
-            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda3\\Scripts\\",
-            "C:\\Users\\" + username + "\\AppData\\Local\\miniconda\\Scripts\\",
-            "C:\\Users\\" + username + "\\AppData\\Local\\anaconda\\Scripts\\"
-        ]
-    } else {
-        return [
-            "/opt/conda/bin/",
-            "/usr/local/bin/",
-            "/usr/local/anaconda/bin/",
-        ]
-    }
-}
+const { getCondaPath } = require('./condaUtils');
 
 function testCommand(command, pathUpdate){
     const PATH = process.env.PATH + ":" + pathUpdate
@@ -108,7 +80,7 @@ const CondaEnvironment = class {
             // 1st choice: conda is already in PATH
             // 2nd choice: conda path from profile setting is used
             // 3rd choice: default conda paths are tested
-            const paths = ["", this.profile.config.conda.path, ...condaPATH(os.userInfo().username, os.platform())]
+            const paths = ["", this.profile.config.conda.path, ...getCondaPath(os.userInfo().username, os.platform())]
             Promise.all(paths.map((path) => {
                 return testCommand("conda", path)
                 })).then((codes) => {
@@ -227,7 +199,7 @@ const CondaEnvironment = class {
 
     kill(){
         if (this.pid != null){
-            console.log(`Killing process ${this.pid}`)
+            console.log(`Killing AlphaDIA process ${this.pid}`)
             kill(this.pid);
         }
 

@@ -54,7 +54,7 @@ class Config(UserDict):
             json.dump(self.data, f)
 
     def __setitem__(self, key, item):
-        if key != ConfigKeys.OUTPUT_DIRECTORY:
+        if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
             raise NotImplementedError("Use update() to update the config.")
         return super().__setitem__(key, item)
 
@@ -135,7 +135,32 @@ class Config(UserDict):
 # keys that have been removed from the config but are still tolerated
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
-    "calibration.norm_rt_mode"  # supported until 1.10.4
+    "calibration.norm_rt_mode",  # supported until 1.10.4
+    "scoring_config",
+    "scoring_config.score_grouped",
+    "scoring_config.top_k_isotopes",
+    "scoring_config.reference_channel",
+    "scoring_config.precursor_mz_tolerance",
+    "scoring_config.fragment_mz_tolerance",
+    "selection_config",
+    "selection_config.peak_len_rt",
+    "selection_config.sigma_scale_rt",
+    "selection_config.peak_len_mobility",
+    "selection_config.sigma_scale_mobility",
+    "selection_config.top_k_precursors",
+    "selection_config.kernel_size",
+    "selection_config.f_mobility",
+    "selection_config.f_rt",
+    "selection_config.center_fraction",
+    "selection_config.min_size_mobility",
+    "selection_config.min_size_rt",
+    "selection_config.max_size_mobility",
+    "selection_config.max_size_rt",
+    "selection_config.group_channels",
+    "selection_config.use_weighted_score",
+    "selection_config.join_close_candidates",
+    "selection_config.join_close_candidates_scan_threshold",
+    "selection_config.join_close_candidates_cycle_threshold",
 ]
 
 
@@ -163,7 +188,7 @@ def _convert_numpy_types(data: Any) -> Any:
         return data.item()
     elif isinstance(data, np.ndarray):
         return data.tolist()
-    elif isinstance(data, list | set):
+    elif isinstance(data, tuple | set):
         raise NotImplementedError(
             "Tuples and sets are not supported in config serialization."
         )
@@ -231,7 +256,7 @@ def _update(
 
         if (
             target_value is not None
-            and type(target_value) != type(update_value)
+            and type(target_value) is not type(update_value)
             and not (
                 isinstance(target_value, int | float)
                 and isinstance(update_value, int | float)

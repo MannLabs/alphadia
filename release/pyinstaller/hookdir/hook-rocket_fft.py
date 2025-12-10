@@ -1,4 +1,4 @@
-from PyInstaller.compat import is_win
+from PyInstaller.compat import is_win  # type: ignore[unresolved-import]
 
 print("==================================")
 print("hook-rocket_fft.py")

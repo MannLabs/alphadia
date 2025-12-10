@@ -1,7 +1,7 @@
 # Dependencies required for running AlphaDIA.
 # If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
-alphadia-search-rs~=1.0.0
+alphadia-search-rs>=1,<2
 alpharaw>=0.3.1
 alphatims>=1.0.8
 alphabase>=1.5.0
@@ -17,3 +17,4 @@ transformers
 # not direct dependencies but we have to restrict the versions
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
 scipy==1.12.0
+llvmlite<0.46.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'

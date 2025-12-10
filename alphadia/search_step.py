@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -10,6 +11,7 @@ from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
@@ -43,7 +45,16 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
-logger = logging.getLogger()
+# Type stub for extended Logger with progress method
+# The progress method is added in reporting.py at module load time
+if TYPE_CHECKING:
+
+    class _ExtendedLogger(logging.Logger):
+        def progress(self, message: str, *args: Any, **kws: Any) -> None: ...
+
+    logger: _ExtendedLogger = logging.getLogger()  # type: ignore[assignment]
+else:
+    logger = logging.getLogger()
 
 
 class SearchStep:
@@ -53,6 +64,7 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
+        step_name: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -61,7 +73,6 @@ class SearchStep:
 
         Parameters
         ----------
-
         output_folder : str
             output folder to save the results
 
@@ -75,11 +86,11 @@ class SearchStep:
             additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
         """
-
         self.output_folder = output_folder
         os.makedirs(output_folder, exist_ok=True)
         init_logging(self.output_folder)
 
+        self._step_name = step_name
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
@@ -118,7 +129,6 @@ class SearchStep:
         output_folder: str,
     ) -> Config:
         """Initialize the config with default values and update with user defined values."""
-
         config = SearchStep._load_default_config()
 
         config_updates = []
@@ -137,11 +147,11 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        if SearchStep._is_ng_activated(config, config_updates):
+        if not SearchStep._is_ng_activated(config, config_updates):
             ng_default_config = SearchStep._load_default_config(
-                file_name="default_rust.yaml"
+                file_name="default_python.yaml"
             )
-            ng_default_config.name = "default_rust"
+            ng_default_config.name = "default_python"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
@@ -163,6 +173,7 @@ class SearchStep:
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )
         config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+        config[ConfigKeys.VERSION] = alphadia_version
 
         return config
 
@@ -194,8 +205,8 @@ class SearchStep:
 
         return extraction_backend == "rust"
 
-    def _get_random_number_generator(self) -> None | Generator:
-        """Getnumpy random number generator if random state is set."""
+    def _get_random_number_generator(self) -> np.random.Generator | None:
+        """Get numpy random number generator if random state is set."""
         if (random_state := self._config["general"]["random_state"]) == -1:
             random_state = np.random.randint(0, 1_000_000)
 
@@ -225,7 +236,6 @@ class SearchStep:
 
     def _init_alphabase(self):
         """Init alphabase by registering custom modifications."""
-
         new_modifications = {}
         for mod in self.config["custom_modifications"]:
             new_modifications[mod["name"]] = {"composition": mod["composition"]}
@@ -236,8 +246,7 @@ class SearchStep:
             modification.add_new_modifications(new_modifications)
 
     def load_library(self):
-        """
-        Load or build spectral library as configured.
+        """Load or build spectral library as configured.
 
         Steps 1 to 3 are performed depending on the quality and information in the spectral library.
         Step 4 is always performed to prepare the library for search.
@@ -254,26 +263,23 @@ class SearchStep:
         if self.library_path is None:
             if not prediction_config["enabled"]:
                 raise NoLibraryAvailableError()
-            else:
-                logger.progress(
-                    "No library provided. Building library from fasta files."
-                )
+            logger.progress("No library provided. Building library from fasta files.")
 
-                fasta_digest = FastaDigest(
-                    enzyme=prediction_config["enzyme"],
-                    fixed_modifications=_parse_modifications(
-                        prediction_config["fixed_modifications"]
-                    ),
-                    variable_modifications=_parse_modifications(
-                        prediction_config["variable_modifications"]
-                    ),
-                    max_var_mod_num=prediction_config["max_var_mod_num"],
-                    missed_cleavages=prediction_config["missed_cleavages"],
-                    precursor_len=prediction_config["precursor_len"],
-                    precursor_charge=prediction_config["precursor_charge"],
-                    precursor_mz=prediction_config["precursor_mz"],
-                )
-                spectral_library = fasta_digest(self.fasta_path_list)
+            fasta_digest = FastaDigest(
+                enzyme=prediction_config["enzyme"],
+                fixed_modifications=_parse_modifications(
+                    prediction_config["fixed_modifications"]
+                ),
+                variable_modifications=_parse_modifications(
+                    prediction_config["variable_modifications"]
+                ),
+                max_var_mod_num=prediction_config["max_var_mod_num"],
+                missed_cleavages=prediction_config["missed_cleavages"],
+                precursor_len=prediction_config["precursor_len"],
+                precursor_charge=prediction_config["precursor_charge"],
+                precursor_mz=prediction_config["precursor_mz"],
+            )
+            spectral_library = fasta_digest(self.fasta_path_list)
         elif general_config["input_library_type"] == "flat":
             if general_config["save_mbr_library"]:
                 # TODO gather such checks in a ConfigValidator class
@@ -370,7 +376,6 @@ class SearchStep:
 
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
-
         # iterate over raw files and yield raw data and spectral library
         for raw_location in self.raw_path_list:
             raw_name = Path(raw_location).stem
@@ -378,26 +383,33 @@ class SearchStep:
 
     def run(
         self,
-    ):
+    ) -> list[tuple[str, str]]:
         """Run the search step.
 
         This has three main parts:
         1. Load or build the spectral library
         2. Iterate over all raw files and perform the search workflow
         3. Collect and summarize the results
-        """
 
+        Returns
+        -------
+        list of tuples
+            List of tuples containing (step_name, raw_file_name) for files that encountered errors during processing.
+        """
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
             self.load_library()
 
         if not self.raw_path_list:
             logger.warning("No raw files provided, nothing to search.")
-            return
+            return []
 
-        logger.progress("Starting Search Workflows")
+        logger.progress(
+            f"=================== Starting Search Workflows for step {self._step_name} ==================="
+        )
 
         workflow_folder_list = []
+        raw_files_with_errors = []
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
@@ -405,11 +417,9 @@ class SearchStep:
                 None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
             )
 
+            msg = f" (random_state: {random_state})" if random_state is not None else ""
             logger.progress(
-                f"Loading raw file {i+1}/{len(self.raw_path_list)}: {raw_name}"
-                + f" (random_state: {random_state})"
-                if random_state is not None
-                else ""
+                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name} {msg}"
             )
 
             try:
@@ -451,9 +461,8 @@ class SearchStep:
 
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
-                if isinstance(e, CustomError):
-                    continue
-                raise e
+                raw_files_with_errors.append((self._step_name, raw_name))
+                continue
 
             finally:
                 if workflow and workflow.reporter:
@@ -474,13 +483,18 @@ class SearchStep:
 
             output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
+
         except Exception as e:
             _log_exception_event(e)
             raise e
         finally:
             self._clean()
 
-        logger.progress("=================== Search Finished ===================")
+        logger.progress(
+            f"=================== Search step '{self._step_name}' finished ==================="
+        )
+
+        return raw_files_with_errors
 
     def _process_raw_file(
         self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat
@@ -528,7 +542,6 @@ class SearchStep:
 
     def _log_inputs(self):
         """Log all relevant inputs."""
-
         logger.info(f"Searching {len(self.raw_path_list)} files:")
         for f in self.raw_path_list:
             logger.info(f"  {os.path.basename(f)}")
@@ -545,7 +558,6 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
-
         if self._config["search"]["extraction_backend"] == "rust":
             if self._config["transfer_library"]["enabled"]:
                 raise ConfigError(
@@ -567,7 +579,6 @@ def _log_exception_event(
     e: Exception, raw_name: str | None = None, workflow: WorkflowBase | None = None
 ) -> None:
     """Log exception and emit event to reporter if available."""
-
     prefix = (
         "Error:" if raw_name is None else f"Search for {raw_name} failed with error:"
     )

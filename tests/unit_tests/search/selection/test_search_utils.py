@@ -1,6 +1,5 @@
-from unittest import skip
-
 import numpy as np
+import pytest
 
 from alphadia.search.selection.fft import convolve_fourier
 from alphadia.search.selection.kernel import multivariate_normal
@@ -34,7 +33,7 @@ def test_symetric_limits_1d():
             assert limits[1] >= center
 
 
-@skip("raises NumbaContextOnly")
+@pytest.mark.skip(reason="raises NumbaContextOnly")
 def test_symetric_limits_2d():
     for f in [symetric_limits_2d, symetric_limits_2d.py_func]:
         for _ in range(1000):

@@ -201,7 +201,7 @@ class LOESSRegression(BaseEstimator, RegressorMixin):
             y = y[..., np.newaxis]
 
         # remove outliers by using only the 0.5 to 99.5 percentile
-        percentiles = np.percentile(x, [0.1, 99.9])
+        percentiles: np.ndarray = np.percentile(x, [0.1, 99.9])  # type: ignore[assignment]
         mask = (percentiles[0] < x[:, 0]) & (x[:, 0] < percentiles[1])
         x = x[mask, ...]
         y = y[mask, ...]

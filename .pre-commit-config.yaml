@@ -12,12 +12,31 @@ repos:
     - id: check-yaml
     - id: end-of-file-fixer
     - id: trailing-whitespace
+    - id: check-ast # simply checks whether the files parse as valid python.
+    - id: check-json # checks json files for parseable syntax.
+    - id: check-merge-conflict # checks for files that contain merge conflict strings.
+    - id: check-toml # checks toml files for parseable syntax.
+    - id: detect-private-key # detects the presence of private keys.
+    - id: no-commit-to-branch
+      args: [ "--branch", "main" ]
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.4.9
   hooks:
     - id: ruff-format
     - id: ruff
       args: [ '--fix' ]
+- repo: local
+  hooks:
+    - id: ty
+      name: ty
+      # conditional type check only if alphadia is installed
+      entry: |
+        bash -c 'python -c "import alphadia"'
+        bash -c 'if python -c "import alphadia" 2>/dev/null; then cd alphadia && uvx ty==0.0.1-alpha.26 check && cd ..; else echo "⚠️  Skipping ty check - alphadia not installed."; exit 0; fi'
+      language: system
+      # to make exclusions in pyproject.toml work, cf. https://github.com/astral-sh/ty/issues/269#issuecomment-3000759634
+      pass_filenames: false
+      always_run: true
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.9.1 # newer version -> stricter
   hooks:

@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 from alphabase.constants.modification import MOD_DF
 
+from alphadia import __version__ as alphadia_version
 from alphadia import search_step
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
@@ -34,7 +35,7 @@ def test_initializes_with_default_config(mock_load_default_config):
         {
             "key1": "value1",
             "key2": "value2",
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         },
         "default",
     )  # not using a mock here as working with the real object is much simpler
@@ -46,7 +47,10 @@ def test_initializes_with_default_config(mock_load_default_config):
     result = SearchStep._init_config(None, None, None, "/output")
 
     mock_load_default_config.assert_called_once()
-    assert result == default_config | {"output_directory": "/output"}
+    assert result == default_config | {
+        "output_directory": "/output",
+        "version": alphadia_version,
+    }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
@@ -56,7 +60,7 @@ def test_updates_with_user_config_object(mock_load_default_config):
         {
             "key1": "value1",
             "key2": "value2",
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -69,7 +73,8 @@ def test_updates_with_user_config_object(mock_load_default_config):
         "key1": "value1",
         "key2": "NEW_value2",
         "output_directory": "/output",
-        "search": {"extraction_backend": "python"},
+        "search": {"extraction_backend": "rust"},
+        "version": alphadia_version,
     }
 
 
@@ -85,7 +90,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
             "key3": "value3",
             "key4": "value4",
             "output_directory": None,
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -108,7 +113,8 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
         "key3": "NEW_value3",
         "key4": "NEW_value4",
         "output_directory": "/output",
-        "search": {"extraction_backend": "python"},
+        "search": {"extraction_backend": "rust"},
+        "version": alphadia_version,
     }
 
 
@@ -121,7 +127,7 @@ def test_updates_with_cli_config_overwrite_output_path(
         {
             "key1": "value1",
             "output_directory": None,
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -138,7 +144,8 @@ def test_updates_with_cli_config_overwrite_output_path(
     assert result == {
         "key1": "NEW_value1",
         "output_directory": "/actual_output_directory",
-        "search": {"extraction_backend": "python"},
+        "search": {"extraction_backend": "rust"},
+        "version": alphadia_version,
     }
 
 
@@ -151,7 +158,7 @@ def test_updates_with_extra_config_overwrite_output_path(
         {
             "key1": "value1",
             "output_directory": "/default_output",
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -165,19 +172,20 @@ def test_updates_with_extra_config_overwrite_output_path(
     assert result == {
         "key1": "NEW_value1",
         "output_directory": "/extra_output",
-        "search": {"extraction_backend": "python"},
+        "search": {"extraction_backend": "rust"},
+        "version": alphadia_version,
     }
 
 
 @patch("alphadia.search_step.SearchStep._load_default_config")
-def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
-    """Test that the correct defaults are loaded if extraction backend is "rust"."""
+def test_updates_with_user_config_object_python_backend(mock_load_default_config):
+    """Test that the correct defaults are loaded if extraction backend is "python"."""
     default_config = Config(
         {
             "key1": "value1",
             "key2": "value2",
             "key3": "value3",
-            "search": {"extraction_backend": "python"},
+            "search": {"extraction_backend": "rust"},
         }
     )
     default_config_ng = Config(
@@ -192,7 +200,7 @@ def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
     ]
 
     user_config = Config(
-        {"search": {"extraction_backend": "rust"}, "key2": "some_user_value"}
+        {"search": {"extraction_backend": "python"}, "key2": "some_user_value"}
     )
 
     # when
@@ -203,10 +211,11 @@ def test_updates_with_user_config_object_ng_backend(mock_load_default_config):
         "key2": "some_user_value",  # overwritten by user although ng default exists
         "key3": "value3",
         "output_directory": "/output",
-        "search": {"extraction_backend": "rust"},
+        "search": {"extraction_backend": "python"},
+        "version": alphadia_version,
     }
     mock_load_default_config.assert_has_calls(
-        [call(), call(file_name="default_rust.yaml")]
+        [call(), call(file_name="default_python.yaml")]
     )
 
 
