@@ -35,7 +35,8 @@
 ## Features
 - Empirical library and fully predicted library search
 - End-to-end transfer learning for custom RT, mobility, and MS2 models
-- Label free quantification with multiple normalization methods ([directLFQ](https://github.com/MannLabs/directlfq), [QuantSelect](https://github.com/MannLabs/QuantSelect))- DIA multiplexing
+- Label free quantification with multiple normalization methods ([directLFQ](https://github.com/MannLabs/directlfq), [QuantSelect](https://github.com/MannLabs/QuantSelect))
+- DIA multiplexing
 
 We support the following vendor and processing modes:
 
