@@ -12,6 +12,7 @@ from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import NormalizationMethods
 from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
 
@@ -182,20 +183,20 @@ class QuantBuilder:
 
     def direct_lfq(
         self,
-        filtered_intensity_df: pd.DataFrame,
+        intensity_df: pd.DataFrame,
         lfq_config: LFQOutputConfig,
-        search_config: dict,
+        config: Config,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
         Parameters
         ----------
-        filtered_intensity_df: pd.DataFrame
-            Filtered fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        intensity_df: pd.DataFrame
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
         lfq_config: LFQOutputConfig
             Configuration for this quantification level
-        search_config: dict
-            Global configuration dictionary
+        config: Config
+            Global configuration object
 
         Returns
         -------
@@ -211,7 +212,7 @@ class QuantBuilder:
             {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
             - {lfq_config.quant_level}
         )
-        intensity_df = filtered_intensity_df.drop(columns=columns_to_drop)
+        intensity_df = intensity_df.drop(columns=columns_to_drop)
 
         lfqconfig.set_global_protein_and_ion_id(
             protein_id=lfq_config.quant_level, quant_id="ion"
@@ -227,23 +228,19 @@ class QuantBuilder:
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if search_config["search_output"]["normalize_directlfq"]:
+        if config["search_output"]["normalize_directlfq"]:
             logger.info("Applying directLFQ normalization")
             lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
                 lfq_df,
-                num_samples_quadratic=search_config["search_output"][
-                    "num_samples_quadratic"
-                ],
+                num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
                 selected_proteins_file=None,
             ).complete_dataframe
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=search_config["search_output"]["min_nonnan"],
-            num_samples_quadratic=search_config["search_output"][
-                "num_samples_quadratic"
-            ],
-            num_cores=search_config["general"]["thread_count"],
+            min_nonan=config["search_output"]["min_nonnan"],
+            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+            num_cores=config["general"]["thread_count"],
         )
         return protein_df
 

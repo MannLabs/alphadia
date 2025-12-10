@@ -255,9 +255,9 @@ class QuantOutputBuilder:
                 return None
 
             lfq_df = self.quant_builder.direct_lfq(
-                filtered_intensity_df=filtered_intensity_df,
+                intensity_df=filtered_intensity_df,
                 lfq_config=lfq_config,
-                search_config=self.config,
+                config=self.config,
             )
 
         else:
