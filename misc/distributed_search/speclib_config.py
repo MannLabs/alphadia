@@ -25,15 +25,14 @@ parser = argparse.ArgumentParser(
     prog="DistributedAlphaDIALibrary",
     description="Append fasta file to config for library prediction.",
 )
-parser.add_argument("--input_directory")
 parser.add_argument("--target_directory")
 parser.add_argument("--fasta_path")
 parser.add_argument("--library_path")
 parser.add_argument("--config_filename")
 args = parser.parse_args()
 
-# read the config.yaml file from the input directory
-with open(os.path.join(args.input_directory, args.config_filename)) as file:
+# read the config.yaml file from current working directory
+with open(args.config_filename) as file:
     config = yaml.safe_load(file) or {}
 
 # if library and fasta are set, predicting will result in repredicted & annotated library

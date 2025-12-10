@@ -29,10 +29,12 @@ lfq=1
 
 # Default search configuration file
 search_config="search.config"
+input_filename=""
 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
+		--files) input_filename="$2"; shift ;;
 		--search_config) search_config="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
@@ -59,19 +61,39 @@ else
 	exit 1
 fi
 
-# report set parameters
+# Validate required input_filename parameter
+if [[ -z "${input_filename}" ]]; then
+	echo "No input file provided. Use --files <filename.csv> to specify the raw file list."
+	exit 1
+fi
+
+# If input_directory is empty, default to current working directory
+if [[ -z "${input_directory}" ]]; then
+	input_directory="$(pwd)"
+fi
+
+# Parameter report
+echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
-# if target directory is not empty, exit
-if [ "$(ls -A ${target_directory})" ]; then
-	echo "Target directory is not empty, exiting"
+# Derive output directory name from CSV filename (without .csv extension)
+csv_basename=$(basename "${input_filename}" .csv)
+output_directory="${target_directory}/ad_search_${csv_basename}"
+
+# Output directory
+mkdir -p "${output_directory}"
+if [ "$(ls -A ${output_directory})" ]; then
+	echo "Output directory ${output_directory} is not empty, exiting"
 	exit 1
 fi
 
-# create logs directory if it does not exist
+# Logs directory
 mkdir -p ./logs
+
+# use output_directory instead of target_directory for all subsequent paths
+target_directory="${output_directory}"
 
 predicted_library_directory="${target_directory}/1_predicted_speclib"
 mkdir -p ${predicted_library_directory}
@@ -100,7 +122,6 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py \
-	--input_directory "${input_directory}" \
 	--target_directory "${predicted_library_directory}" \
 	--fasta_path "${fasta_path}" \
 	--library_path "${library_path}" \
@@ -252,3 +273,6 @@ if [[ "$lfq" -eq 1 ]]; then
 else
 	echo "Skipping LFQ"
 fi
+
+### END OF PIPELINE ###
+echo "All jobs submitted."
