@@ -135,7 +135,9 @@ class Config(UserDict):
 # keys that have been removed from the config but are still tolerated
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
-    "calibration.norm_rt_mode",  # supported until 1.10.4
+    # supported until 2.0.2:
+    "general.astral_ms1",
+    # supported until 2.0.1:
     "scoring_config",
     "scoring_config.score_grouped",
     "scoring_config.top_k_isotopes",
@@ -161,6 +163,8 @@ TOLERATED_KEYS = [
     "selection_config.join_close_candidates",
     "selection_config.join_close_candidates_scan_threshold",
     "selection_config.join_close_candidates_cycle_threshold",
+    # supported until 1.10.4:
+    "calibration.norm_rt_mode",
 ]
 
 

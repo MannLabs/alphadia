@@ -68,7 +68,6 @@ class RawFileManager(BaseManager):
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
-                astral_ms1=self._config["general"]["astral_ms1"],
             )
 
         elif file_extension.lower() == ".mzml":

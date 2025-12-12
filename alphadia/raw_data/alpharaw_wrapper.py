@@ -69,9 +69,9 @@ class AlphaRaw(MSData_Base, ABC):
         )
         self.frame_max_index: int | None = None
 
-    def _preprocess_raw_data(self, astral_ms1: bool = False):
+    def _preprocess_raw_data(self):
         """Process the raw data to extract relevant information."""
-        self._filter_spectra(astral_ms1)
+        self._filter_spectra()
 
         if not self._is_ms1_dia():
             logger.warning(
@@ -122,7 +122,7 @@ class AlphaRaw(MSData_Base, ABC):
         ms1_df = self.spectrum_df[self.spectrum_df["ms_level"] == 1]
         return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
 
-    def _filter_spectra(self, astral_ms1: bool = False) -> None:
+    def _filter_spectra(self) -> None:
         """Filter the spectra."""
 
     def to_jitclass(self) -> AlphaRawJIT:
@@ -176,30 +176,16 @@ class Sciex(AlphaRaw, SciexWiffData):
 class Thermo(AlphaRaw, ThermoRawData):
     """Class holding pre-processed Thermo raw data."""
 
-    def __init__(
-        self, raw_file_path: str, process_count: int = 10, astral_ms1: bool = False
-    ):
+    def __init__(self, raw_file_path: str, process_count: int = 10):
         AlphaRaw.__init__(self)
         ThermoRawData.__init__(self, process_count=process_count)
         self.load_raw(raw_file_path)
-        self._preprocess_raw_data(astral_ms1)
+        self._preprocess_raw_data()
 
-    def _filter_spectra(self, astral_ms1: bool = False):
-        """Filter the spectra for MS1 or MS2 spectra."""
-        # filter for Astral or Orbitrap MS1 spectra
-        if astral_ms1:
-            self.spectrum_df = self.spectrum_df[self.spectrum_df["nce"] > 0.1]
-            self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "ms_level"] = 1
-            self.spectrum_df.loc[self.spectrum_df["nce"] < 1.1, "precursor_mz"] = -1.0
-            self.spectrum_df.loc[
-                self.spectrum_df["nce"] < 1.1, "isolation_lower_mz"
-            ] = -1.0
-            self.spectrum_df.loc[
-                self.spectrum_df["nce"] < 1.1, "isolation_upper_mz"
-            ] = -1.0
-        else:
-            self.spectrum_df = self.spectrum_df[
-                (self.spectrum_df["nce"] < 0.1) | (self.spectrum_df["nce"] > 1.1)
-            ]
+    def _filter_spectra(self):
+        """Filter the spectra for collision energies < 0.1 and > 1.1 and create `spec_idx`."""
+        self.spectrum_df = self.spectrum_df[
+            (self.spectrum_df["nce"] < 0.1) | (self.spectrum_df["nce"] > 1.1)
+        ]
 
         self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))
