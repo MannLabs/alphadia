@@ -55,7 +55,6 @@ class RawFileManager(BaseManager):
             raw_data_type = "bruker"
             dia_data = TimsTOFTranspose(
                 dia_data_path,
-                mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".hdf":

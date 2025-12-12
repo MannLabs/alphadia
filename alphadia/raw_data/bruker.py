@@ -4,7 +4,6 @@ import logging
 import os
 
 import alphatims.bruker
-import alphatims.tempmmap as tm
 import alphatims.utils
 import numba as nb
 import numpy as np
@@ -28,13 +27,11 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         slice_as_dataframe: bool = True,
         use_calibrated_mz_values_as_default: int = 0,
         use_hdf_if_available: bool = True,
-        mmap_detector_events: bool = True,
         drop_polarity: bool = True,
         convert_polarity_to_int: bool = True,
     ):
         self.has_mobility = True
         self.has_ms1 = True
-        self.mmap_detector_events = mmap_detector_events
 
         bruker_d_folder_name = bruker_d_folder_name.removesuffix("/")
         logger.info(f"Importing data from {bruker_d_folder_name}")
@@ -44,7 +41,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
             if use_hdf_if_available and hdf_file_exists:
                 self._import_data_from_hdf_file(
                     bruker_hdf_file_name,
-                    mmap_detector_events,
                 )
                 self.bruker_hdf_file_name = bruker_hdf_file_name
             else:
@@ -55,7 +51,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
                     mobility_estimation_from_frame,
                     drop_polarity,
                     convert_polarity_to_int,
-                    mmap_detector_events,
+                    mmap_detector_events=False,
                 )
 
                 try:
@@ -75,7 +71,6 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         elif bruker_d_folder_name.endswith(".hdf"):
             self._import_data_from_hdf_file(
                 bruker_d_folder_name,
-                mmap_detector_events,
             )
             self.bruker_hdf_file_name = bruker_d_folder_name
         else:
@@ -114,14 +109,9 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         self._tof_indices = np.zeros(1, np.uint32)
         self._push_indptr = np.zeros(1, np.int64)
 
-        if self.mmap_detector_events:
-            self._push_indices = tm.clone(push_indices)
-            self._tof_indptr = tm.clone(tof_indptr)
-            self._intensity_values = tm.clone(intensity_values)
-        else:
-            self._push_indices = push_indices
-            self._tof_indptr = tof_indptr
-            self._intensity_values = intensity_values
+        self._push_indices = push_indices
+        self._tof_indptr = tof_indptr
+        self._intensity_values = intensity_values
 
     def _import_data_from_hdf_file(self, *args, **kwargs):
         raise NotImplementedError("Not implemented yet for TimsTOFTranspose")

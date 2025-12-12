@@ -137,6 +137,7 @@ class Config(UserDict):
 TOLERATED_KEYS = [
     # supported until 2.0.2:
     "general.astral_ms1",
+    "general.mmap_detector_events",
     # supported until 2.0.1:
     "scoring_config",
     "scoring_config.score_grouped",

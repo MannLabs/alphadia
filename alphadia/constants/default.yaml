@@ -27,8 +27,6 @@ general:
   reuse_quant: false
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
-  # whether to memory map detector events for improved performance when reading Bruker files
-  mmap_detector_events: false
   # whether to use GPU acceleration for library prediction and scoring
   use_gpu: true
   # whether to save plots to the output folder
