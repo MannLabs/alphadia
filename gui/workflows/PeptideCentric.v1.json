@@ -437,20 +437,6 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "enable_two_step_classifier",
-                    "name": "Two Step Classifier (Experimental)",
-                    "default": false,
-                    "description": "If enabled, a two step classifier consisting of a linear filter and a neural network will be used.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "two_step_classifier_max_iterations",
-                    "name": "Two Step Classifier Max Iterations (Experimental)",
-                    "default": 5,
-                    "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
-                    "type": "integer"
-                },
-                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,

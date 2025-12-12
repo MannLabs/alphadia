@@ -446,16 +446,9 @@ def create_workflow_instance():
     workflow._fdr_manager = FDRManager(
         feature_columns=feature_columns,
         classifier_base=_get_classifier_base(
-            enable_two_step_classifier=workflow.config["fdr"][
-                "enable_two_step_classifier"
-            ],
-            two_step_classifier_max_iterations=workflow.config["fdr"][
-                "two_step_classifier_max_iterations"
-            ],
             enable_nn_hyperparameter_tuning=workflow.config["fdr"][
                 "enable_nn_hyperparameter_tuning"
             ],
-            fdr_cutoff=workflow.config["fdr"]["fdr"],
         ),
         config=MagicMock(),
         figure_path=workflow._figure_path,

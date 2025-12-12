@@ -138,6 +138,8 @@ TOLERATED_KEYS = [
     # supported until 2.0.2:
     "general.astral_ms1",
     "general.mmap_detector_events",
+    "fdr.enable_two_step_classifier",
+    "fdr.two_step_classifier_max_iterations",
     # supported until 2.0.1:
     "scoring_config",
     "scoring_config.score_grouped",
