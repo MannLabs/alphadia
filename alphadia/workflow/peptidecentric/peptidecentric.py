@@ -8,8 +8,6 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
-from alphadia.fdr._fdrx.models.logistic_regression import LogisticRegressionClassifier
-from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -40,7 +38,7 @@ def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     fdr_cutoff: float = 0.01,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
+) -> BinaryClassifierLegacyNewBatching:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -65,10 +63,10 @@ def _get_classifier_base(
 
     Returns
     -------
-    BinaryClassifierLegacyNewBatching | TwoStepClassifier
+    BinaryClassifierLegacyNewBatching
         Neural network or two-step classifier based on enable_two_step_classifier.
     """
-    nn_classifier = BinaryClassifierLegacyNewBatching(
+    return BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
         learning_rate=0.001,
@@ -76,16 +74,6 @@ def _get_classifier_base(
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         random_state=random_state,
     )
-
-    if enable_two_step_classifier:
-        return TwoStepClassifier(
-            first_classifier=LogisticRegressionClassifier(),
-            second_classifier=nn_classifier,
-            second_fdr_cutoff=fdr_cutoff,
-            max_iterations=two_step_classifier_max_iterations,
-        )
-    else:
-        return nn_classifier
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
