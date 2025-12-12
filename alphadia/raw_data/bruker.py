@@ -26,7 +26,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         mobility_estimation_from_frame: int = 1,
         slice_as_dataframe: bool = True,
         use_calibrated_mz_values_as_default: int = 0,
-        use_hdf_if_available: bool = True,
+        use_hdf_if_available: bool = False,
         drop_polarity: bool = True,
         convert_polarity_to_int: bool = True,
     ):
