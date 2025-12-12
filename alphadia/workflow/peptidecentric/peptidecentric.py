@@ -33,30 +33,16 @@ from alphadia.workflow.peptidecentric.utils import (
 
 
 def _get_classifier_base(
-    enable_two_step_classifier: bool = False,
-    two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
-    fdr_cutoff: float = 0.01,
     random_state: int | None = None,
 ) -> BinaryClassifierLegacyNewBatching:
     """Creates and returns a classifier base instance.
 
     Parameters
     ----------
-    enable_two_step_classifier : bool, optional
-        If True, uses logistic regression + neural network.
-        If False (default), uses only neural network.
-
-    two_step_classifier_max_iterations : int
-        Maximum number of iterations withtin .fit_predict() of the two-step classifier.
-
     enable_nn_hyperparameter_tuning: bool, optional
         If True, uses hyperparameter tuning for the neural network.
         If False (default), uses default hyperparameters for the neural network.
-
-    fdr_cutoff : float, optional
-        The FDR cutoff threshold used by the second classifier when two-step
-        classification is enabled. Default is 0.01.
 
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
@@ -64,7 +50,7 @@ def _get_classifier_base(
     Returns
     -------
     BinaryClassifierLegacyNewBatching
-        Neural network or two-step classifier based on enable_two_step_classifier.
+        Neural network
     """
     return BinaryClassifierLegacyNewBatching(
         test_size=0.001,
@@ -127,14 +113,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self._config["search"]["extraction_backend"] == "rust"
             else feature_columns,
             classifier_base=_get_classifier_base(
-                enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
-                two_step_classifier_max_iterations=config_fdr[
-                    "two_step_classifier_max_iterations"
-                ],
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
                 ],
-                fdr_cutoff=config_fdr["fdr"],
                 random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,
