@@ -36,8 +36,8 @@ class LFQOutputConfig:
         Whether to process this quantification level
     save_fragments : bool, default=False
         Whether to save fragment-level quantification matrices
-    normalization_method: str | None, default="directLFQ"
-        Normalization method to use (e.g., 'directLFQ', 'QuantSelect')
+    normalization_method: str | None, default="directlfq"
+        Normalization method to use (e.g., 'directlfq', 'quantselect')
     """
 
     quant_level: str

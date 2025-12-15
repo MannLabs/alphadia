@@ -588,19 +588,19 @@
                 {
                     "id": "normalization_method",
                     "name": "LFQ method",
-                    "default": "directLFQ",
-                    "description": "Select the label-free quantification method. 'directLFQ' uses the directLFQ algorithm, 'QuantSelect' uses the QuantSelect algorithm.",
+                    "default": "directlfq",
+                    "description": "Select the label-free quantification method. 'directlfq' uses the directLFQ algorithm, 'quantselect' uses the QuantSelect algorithm.",
                     "type": "dropdown",
                     "options": [
-                        "directLFQ",
-                        "QuantSelect"
+                        "directlfq",
+                        "quantselect"
                     ]
                 },
                 {
                     "id": "normalize_directlfq",
                     "name": "Normalize directLFQ",
                     "default": true,
-                    "description": "Apply directLFQ normalization when using the directLFQ method. Only applies when 'directLFQ' is selected as the LFQ method.",
+                    "description": "Apply directLFQ normalization when using the directLFQ method. Only applies when 'directlfq' is selected as the LFQ method.",
                     "type": "boolean"
                 }
             ]

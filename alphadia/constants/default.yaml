@@ -336,9 +336,9 @@ search_output:
   # Minimum number of non-missing values required for quantification
   min_nonnan: 3
 
-  # LFQ method for quantification ("directLFQ" or "QuantSelect")
-  normalization_method: directLFQ
-  # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directLFQ")
+  # LFQ method for quantification ("directlfq" or "quantselect")
+  normalization_method: directlfq
+  # Apply directLFQ normalization when using the directLFQ method (only applies when normalization_method is "directlfq")
   normalize_directlfq: True
 
 # Configuration for the optimization of search parameters. These parameters should not normally be adjusted and are for the use of experienced users only.

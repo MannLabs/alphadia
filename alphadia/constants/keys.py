@@ -86,8 +86,8 @@ class QuantificationLevelKey(metaclass=ConstantsClass):
 class NormalizationMethods(metaclass=ConstantsClass):
     """String constants for LFQ methods."""
 
-    DIRECTLFQ: str = "directLFQ"
-    QUANTSELECT: str = "QuantSelect"
+    DIRECTLFQ: str = "directlfq"
+    QUANTSELECT: str = "quantselect"
 
 
 class PrecursorOutputCols(metaclass=ConstantsClass):
