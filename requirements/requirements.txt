@@ -7,6 +7,8 @@ alphatims>=1.0.8
 alphabase>=1.5.0
 peptdeep>=1.3.0
 directlfq>=0.2.19
+# quantification model selection
+quantselect>=0.1.3
 # others
 argparse
 seaborn
@@ -14,6 +16,8 @@ rocket_fft
 xxhash
 torchmetrics
 transformers
+# IO backend
+pyarrow>=20.0.0
 # not direct dependencies but we have to restrict the versions
 numpy<2 # test: tolerate_version avoid the breaking change in numpy >= 2
 scipy==1.12.0

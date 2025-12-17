@@ -1,8 +1,10 @@
+from dataclasses import dataclass
 from unittest.mock import patch
 
 import pandas as pd
 import pytest
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
 
 
@@ -78,7 +80,336 @@ def lfq_data():
         }
     )
 
-    return intensity_df, quality_df
+    return {"intensity": intensity_df, "correlation": quality_df}
+
+
+@pytest.fixture
+def search_config():
+    return {
+        "search_output": {
+            "num_cores": 4,
+            "num_samples_quadratic": 50,
+            "min_nonnan": 1,
+            "min_k_fragments": 1,
+            "min_correlation": 0,
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
+            "normalize_directlfq": True,
+        },
+        "general": {
+            "thread_count": 1,
+        },
+    }
+
+
+@pytest.fixture
+def lfq_config():
+    @dataclass
+    class LFQOutputConfig:
+        quant_level: str
+        normalization_method: str | None = NormalizationMethods.DIRECTLFQ
+
+    def _create_config(
+        quant_level: str,
+        normalization_method: str = NormalizationMethods.DIRECTLFQ,
+    ):
+        return LFQOutputConfig(
+            quant_level=quant_level,
+            normalization_method=normalization_method,
+        )
+
+    return _create_config
+
+
+@pytest.fixture
+def ms2_features():
+    """MS2 features consisting of DataFrames for helper function tests."""
+    df = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "run1": [
+                15453501,
+                3,
+                15453503,
+                15453502,
+                15453502,
+                1,
+                15453502,
+                15453501,
+                15453501,
+            ]
+            * 2,
+            "run2": [
+                15453501,
+                2,
+                15453502,
+                15453501,
+                15453501,
+                5,
+                15453501,
+                15453501,
+                15453502,
+            ]
+            * 2,
+            "run3": [
+                15453502,
+                2,
+                15453505,
+                15453501,
+                15453501,
+                3,
+                15453503,
+                15453502,
+                15453503,
+            ]
+            * 2,
+            "pg": ["TNAA_ECOLI"] * 9 + ["TNAB_ECOLI"] * 9,
+            "mod_seq_hash": [
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+            ]
+            * 2,
+            "mod_seq_charge_hash": [
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+            ]
+            * 2,
+        }
+    )
+
+    # Correlation data
+    df_corr = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "run1": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "run2": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "run3": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "pg": ["TNAA_ECOLI"] * 9 + ["TNAB_ECOLI"] * 9,
+            "mod_seq_hash": [
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+            ]
+            * 2,
+            "mod_seq_charge_hash": [
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+            ]
+            * 2,
+        }
+    )
+
+    # Mass error data
+    mass_error_data = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "run1": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "run2": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "run3": [1, 0.1, 1, 1, 1, 0.1, 1, 1, 1] * 2,
+            "pg": ["TNAA_ECOLI"] * 9 + ["TNAB_ECOLI"] * 9,
+            "mod_seq_hash": [
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+            ]
+            * 2,
+            "mod_seq_charge_hash": [
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+            ]
+            * 2,
+        }
+    )
+
+    # Height data
+    height_data = pd.DataFrame(
+        {
+            "precursor_idx": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 2,
+            "run1": [114, 144, 114, 113, 114, 514, 134, 144, 131] * 2,
+            "run2": [184, 114, 144, 114, 144, 114, 134, 115, 321] * 2,
+            "run3": [114, 124, 114, 114, 164, 144, 114, 114, 411] * 2,
+            "pg": ["TNAA_ECOLI"] * 9 + ["TNAB_ECOLI"] * 9,
+            "mod_seq_hash": [
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+            ]
+            * 2,
+            "mod_seq_charge_hash": [
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+            ]
+            * 2,
+        }
+    )
+
+    return {
+        "intensity": df,
+        "correlation": df_corr,
+        "mass_error": mass_error_data,
+        "height": height_data,
+    }
+
+
+@pytest.fixture
+def psm_file():
+    """PSM file for helper function tests."""
+    return pd.DataFrame(
+        {
+            "precursor.idx": [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            * 6,  # 3 runs × 2 protein groups
+            "ion": [1, 2, 3, 4, 5, 6, 7, 8, 9] * 6,
+            "pg.proteins": ["TNAA_ECOLI"] * 27 + ["TNAB_ECOLI"] * 27,
+            "mod_seq_hash": [
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                6831315783892314113,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+                1784898696230645364,
+            ]
+            * 6,
+            "precursor.mod_seq_charge_hash": [
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3157800000000000000,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+                3178489869623064536,
+            ]
+            * 6,
+            "raw.name": ["run1"] * 9
+            + ["run2"] * 9
+            + ["run3"] * 9
+            + ["run1"] * 9
+            + ["run2"] * 9
+            + ["run3"] * 9,
+            "precursor.intensity": [
+                15453501,
+                3,
+                15453503,
+                15453502,
+                15453502,
+                1,
+                15453502,
+                15453501,
+                15453501,
+                15453501,
+                2,
+                15453502,
+                15453501,
+                15453501,
+                5,
+                15453501,
+                15453501,
+                15453502,
+                15453502,
+                4,
+                15453505,
+                15453501,
+                15453501,
+                3,
+                15453503,
+                15453502,
+                15453503,
+            ]
+            * 2,
+            "delta_rt": [
+                15453501,
+                2,
+                15453503,
+                15453502,
+                15453502,
+                1,
+                15453502,
+                15453501,
+                15453501,
+                15453501,
+                1,
+                15453502,
+                15453501,
+                15453501,
+                5,
+                15453501,
+                15453501,
+                15453502,
+                15453502,
+                2,
+                15453505,
+                15453501,
+                15453501,
+                3,
+                15453503,
+                15453502,
+                15453503,
+            ]
+            * 2,
+            "precursor.rt.library": [100.0] * 54,
+            "precursor.rt.observed": [101.0] * 54,
+        }
+    )
 
 
 class TestFilterFragDf:
@@ -220,28 +551,36 @@ class TestLfq:
                 "prot": mock_prot,
             }
 
-    def test_performs_quantification(self, lfq_data, psm_df, mock_directlfq):
-        """Given fragment data, when LFQ is run, then returns protein quantification."""
+    def test_performs_quantification(
+        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+    ):
+        """Given filtered intensity data, when direct_lfq is run, then returns protein quantification."""
         # Given
-        intensity_df, quality_df = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
+        config = search_config
 
         # When
-        result_df = builder.lfq(intensity_df, quality_df, num_cores=4)
+        result_df = builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         assert isinstance(result_df, pd.DataFrame)
         assert "pg" in result_df.columns
         assert len(result_df) == 2
 
-    def test_configures_directlfq(self, lfq_data, psm_df, mock_directlfq):
+    def test_configures_directlfq(
+        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+    ):
         """Given LFQ parameters, when run, then configures directLFQ correctly."""
         # Given
-        intensity_df, quality_df = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
+        lfq_config = lfq_config("pg", NormalizationMethods.DIRECTLFQ)
+        config = search_config
 
         # When
-        builder.lfq(intensity_df, quality_df, num_cores=4, group_column="pg")
+        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -249,33 +588,45 @@ class TestLfq:
             protein_id="pg", quant_id="ion"
         )
 
-    @pytest.mark.parametrize("normalize", [True, False])
+    @pytest.mark.parametrize("normalize_directlfq", [True, False])
     def test_respects_normalization_flag(
-        self, lfq_data, psm_df, mock_directlfq, normalize
+        self,
+        lfq_data,
+        psm_df,
+        lfq_config,
+        search_config,
+        mock_directlfq,
+        normalize_directlfq,
     ):
         """Given normalization flag, when LFQ is run, then applies normalization conditionally."""
         # Given
-        intensity_df, quality_df = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
+        config = search_config
+        config["search_output"]["normalize_directlfq"] = normalize_directlfq
 
         # When
-        builder.lfq(intensity_df, quality_df, num_cores=4, normalize=normalize)
+        builder.direct_lfq(filtered_intensity_df, lfq_config("pg"), config)
 
         # Then
         mock_norm = mock_directlfq["norm"]
-        if normalize:
+        if normalize_directlfq:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_called_once()
         else:
             mock_norm.NormalizationManagerSamplesOnSelectedProteins.assert_not_called()
 
-    def test_handles_custom_group_column(self, lfq_data, psm_df, mock_directlfq):
+    def test_handles_custom_group_column(
+        self, lfq_data, psm_df, lfq_config, search_config, mock_directlfq
+    ):
         """Given custom group column, when LFQ is run, then groups by specified column."""
         # Given
-        intensity_df, quality_df = lfq_data
+        filtered_intensity_df = lfq_data["intensity"]
         builder = QuantBuilder(psm_df)
+        lfq_config = lfq_config("mod_seq_hash", NormalizationMethods.DIRECTLFQ)
+        config = search_config
 
         # When
-        builder.lfq(intensity_df, quality_df, num_cores=4, group_column="mod_seq_hash")
+        builder.direct_lfq(filtered_intensity_df, lfq_config, config)
 
         # Then
         mock_config = mock_directlfq["config"]
@@ -287,3 +638,25 @@ class TestLfq:
         called_df = mock_utils.index_and_log_transform_input_df.call_args[0][0]
         assert "mod_seq_hash" in called_df.columns
         assert "pg" not in called_df.columns
+
+    def test_quantselect_should_perform_basic_quantification(
+        self, ms2_features, psm_file, lfq_config
+    ):
+        """Test that quantselect_lfq performs basic label-free quantification with quantselect."""
+        # given
+        feature_dfs_dict = ms2_features
+        builder = QuantBuilder(psm_file.assign(**{"precursor.decoy": 0}))
+        lfq_config = lfq_config("pg", NormalizationMethods.QUANTSELECT)
+
+        # when
+        result_df = builder.quantselect_lfq(feature_dfs_dict, lfq_config)
+        # then
+        assert isinstance(result_df, pd.DataFrame)
+        assert len(result_df) == 2  # Three protein groups
+        assert "pg" in result_df.columns
+        assert "run1" in result_df.columns
+        assert "run2" in result_df.columns
+        assert "run3" in result_df.columns
+
+        # Verify expected protein groups
+        assert set(result_df["pg"]) == {"TNAA_ECOLI", "TNAB_ECOLI"}
