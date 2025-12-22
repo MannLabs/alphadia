@@ -5,5 +5,3 @@ search:
   target_num_candidates: 5 # do not change for "second search"
 general:
   mbr_step_enabled: false # do not change for "second search"
-
-# Add remaining config settings per your use case ...
