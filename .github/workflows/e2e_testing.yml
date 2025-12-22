@@ -25,6 +25,7 @@ jobs:
     outputs:
       test_cases: ${{ steps.parse-test-cases.outputs.test_cases }}
       commitish_to_test: ${{ steps.parse-commitish-to-test.outputs.commitish_to_test }}
+      should_run: ${{ steps.check-commit-age.outputs.should_run }}
     steps:
       - id: parse-test-cases
         run: |
@@ -43,9 +44,36 @@ jobs:
             echo "commitish_to_test=" >> $GITHUB_OUTPUT  # this will trigger 'actions/checkout' to use the reference or SHA for the current event
           fi
 
+      - id: check-commit-age
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            # Get the latest commit date on main branch via GitHub API
+            COMMIT_DATE=$(gh api repos/${{ github.repository }}/commits/main --jq '.commit.committer.date')
+
+            # Convert to Unix timestamp
+            COMMIT_TIMESTAMP=$(date -d "$COMMIT_DATE" +%s)
+            CURRENT_TIMESTAMP=$(date +%s)
+            AGE_SECONDS=$((CURRENT_TIMESTAMP - COMMIT_TIMESTAMP))
+            AGE_HOURS=$((AGE_SECONDS / 3600))
+
+            echo "Latest commit on main is $AGE_HOURS hours old"
+
+            if [ $AGE_HOURS -ge 24 ]; then
+              echo "should_run=false" >> $GITHUB_OUTPUT
+              echo "Skipping: commit is older than 24 hours"
+            else
+              echo "should_run=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          fi
+
   end2end_tests:
     name: End to end tests
     needs: parse_inputs
+    if: needs.parse_inputs.outputs.should_run == 'true'
     runs-on: self-hosted
     strategy:
       fail-fast: false
