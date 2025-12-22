@@ -88,7 +88,7 @@ def _apply_lookup_indices(
 
 
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr=0.01, keep_decoys=True) -> None:
+    def __init__(self, fdr=0.01, keep_decoys=False) -> None:
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
