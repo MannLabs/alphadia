@@ -25,12 +25,8 @@ general:
   reuse_calibration: false
   # whether to reuse previously calculated quantification data
   reuse_quant: false
-  # whether to use Astral MS1 feature detection
-  astral_ms1: false
   # logging verbosity level (DEBUG, INFO, PROGRESS, WARNING, ERROR)
   log_level: 'INFO'
-  # whether to memory map detector events for improved performance when reading Bruker files
-  mmap_detector_events: false
   # whether to use GPU acceleration for library prediction and scoring
   use_gpu: true
   # whether to save plots to the output folder

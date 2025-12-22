@@ -55,7 +55,6 @@ class RawFileManager(BaseManager):
             raw_data_type = "bruker"
             dia_data = TimsTOFTranspose(
                 dia_data_path,
-                mmap_detector_events=self._config["general"]["mmap_detector_events"],
             )
 
         elif file_extension.lower() == ".hdf":
@@ -68,7 +67,6 @@ class RawFileManager(BaseManager):
             dia_data = Thermo(
                 dia_data_path,
                 process_count=self._config["general"]["thread_count"],
-                astral_ms1=self._config["general"]["astral_ms1"],
             )
 
         elif file_extension.lower() == ".mzml":
