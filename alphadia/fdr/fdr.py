@@ -13,7 +13,6 @@ from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
 
 if TYPE_CHECKING:
-    from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
     from alphadia.fdr.classifiers import Classifier
 
 max_dia_cycle_shape = 2
@@ -23,7 +22,7 @@ logger = logging.getLogger()
 
 @manage_torch_threads(max_threads=2)
 def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
-    classifier: Classifier | TwoStepClassifier,
+    classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
@@ -42,7 +41,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
 
     Parameters
     ----------
-    classifier : Classifier | TwoStepClassifier
+    classifier : Classifier
         A classifier that implements the fit and predict_proba methods
 
     available_columns : list[str]
