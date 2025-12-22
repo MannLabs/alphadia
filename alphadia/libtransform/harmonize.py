@@ -41,16 +41,25 @@ class PrecursorInitializer(ProcessingStep):
         """Initialize the precursor dataframe with the `precursor_idx`, `decoy`, `channel` and `elution_group_idx` columns."""
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
+        else:
+            logger.info("Decoy column already present, skipping initialization")
 
         if "channel" not in input.precursor_df.columns:
             input.precursor_df["channel"] = 0
+        else:
+            logger.info("Channel column already present, skipping initialization")
 
         if "elution_group_idx" not in input.precursor_df.columns:
             input.precursor_df["elution_group_idx"] = np.arange(len(input.precursor_df))
+        else:
+            logger.info(
+                "Elution group indices already present, skipping initialization"
+            )
 
         if "precursor_idx" not in input.precursor_df.columns:
             input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
-
+        else:
+            logger.info("Precursor indices already present, skipping initialization")
         return input
 
 
@@ -96,6 +105,9 @@ class AnnotateFasta(ProcessingStep):
         protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
         if self.drop_decoy and "decoy" in input.precursor_df.columns:
+            if (input.precursor_df["decoy"] == 1).any():
+                logger.info("Decoys already present, FASTA annotation not necessary")
+                return input
             logger.info("Dropping decoys from input library before annotation")
             input._precursor_df = input._precursor_df[input._precursor_df["decoy"] == 0]
 
@@ -135,8 +147,8 @@ class IsotopeGenerator(ProcessingStep):
         existing_isotopes = get_isotope_columns(input.precursor_df.columns)
 
         if len(existing_isotopes) > 0:
-            logger.warning(
-                "Input library already contains isotope information. Skipping isotope generation. \n Please note that isotope generation outside of alphabase is not supported."
+            logger.info(
+                "Isotope information already present, skipping isotope generation"
             )
             return input
 
