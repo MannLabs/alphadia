@@ -122,9 +122,6 @@ class AlphaRaw(MSData_Base, ABC):
         ms1_df = self.spectrum_df[self.spectrum_df["ms_level"] == 1]
         return ms1_df["spec_idx"].diff().value_counts().shape[0] == 1
 
-    def _filter_spectra(self) -> None:
-        """Filter the spectra."""
-
     def to_jitclass(self) -> AlphaRawJIT:
         """Create a AlphaRawJIT with the current state of this class."""
         return AlphaRawJIT(
@@ -181,11 +178,3 @@ class Thermo(AlphaRaw, ThermoRawData):
         ThermoRawData.__init__(self, process_count=process_count)
         self.load_raw(raw_file_path)
         self._preprocess_raw_data()
-
-    def _filter_spectra(self):
-        """Filter the spectra for collision energies < 0.1 and > 1.1 and create `spec_idx`."""
-        self.spectrum_df = self.spectrum_df[
-            (self.spectrum_df["nce"] < 0.1) | (self.spectrum_df["nce"] > 1.1)
-        ]
-
-        self.spectrum_df["spec_idx"] = np.arange(len(self.spectrum_df))
