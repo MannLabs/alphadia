@@ -1,3 +1,5 @@
+import platform
+import sys
 from dataclasses import dataclass
 from unittest.mock import patch
 
@@ -639,6 +641,12 @@ class TestLfq:
         assert "mod_seq_hash" in called_df.columns
         assert "pg" not in called_df.columns
 
+    @pytest.mark.skipif(
+        sys.platform == "darwin"
+        and platform.machine() == "x86_64"
+        and sys.version_info[:2] in [(3, 11), (3, 12)],
+        reason="Fails with 'joblib.externals.loky.process_executor.BrokenProcessPool: A task has failed to un-serialize'",  # TODO: fix
+    )
     def test_quantselect_should_perform_basic_quantification(
         self, ms2_features, psm_file, lfq_config
     ):
