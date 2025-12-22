@@ -2,7 +2,7 @@
 
 import warnings
 
-__version__ = "2.0.3-dev0"
+__version__ = "2.0.4-dev0"
 
 warnings.filterwarnings(
     "ignore", message="Dependency 'dask' not installed.", module="directlfq"
