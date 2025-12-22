@@ -9,9 +9,9 @@
 	<key>CFBundleIconFile</key>
 	<string>alphadia.icns</string>
 	<key>CFBundleIdentifier</key>
-	<string>alphadia.2.0.3-dev0</string>
+	<string>alphadia.2.0.3</string>
 	<key>CFBundleShortVersionString</key>
-	<string>2.0.3-dev0</string>
+	<string>2.0.3</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
