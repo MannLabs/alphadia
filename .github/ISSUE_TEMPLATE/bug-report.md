@@ -21,7 +21,7 @@ Steps to reproduce the behavior:
 A clear and concise description of what you expected to happen.
 
 **Logs**
-Please provide the log (see the AlphaDIA terminal on where to find it).
+Please provide the log file (see the AlphaDIA terminal on where to find it).
 
 **Screenshots**
 If applicable, add screenshots to help explain your problem.
@@ -41,4 +41,4 @@ If applicable, add screenshots to help explain your problem.
      - [other packages]
 
 **Additional context**
-Add any other context about the problem here. Attached log files or upload data files if possible.
+Add any other context about the problem here. Ideally, provide all input data (raw, fasta, speclib, `frozen_config.yaml`, ..) to reproduce the issue.
