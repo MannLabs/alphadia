@@ -5,8 +5,8 @@ from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
 from alphadia.libtransform.mbr import (
     MbrLibraryBuilder,
-    apply_lookup_indices,
-    compute_lookup_indices,
+    _apply_lookup_indices,
+    _compute_lookup_indices,
 )
 
 
@@ -22,7 +22,7 @@ class TestComputeLookupIndices:
         specific_lookup_keys = np.array([200, 400])
 
         # when
-        fallback_idx, specific_idx, has_specific = compute_lookup_indices(
+        fallback_idx, specific_idx, specific_index_mask = _compute_lookup_indices(
             target_keys,
             target_fallback_keys,
             fallback_lookup_keys,
@@ -31,7 +31,7 @@ class TestComputeLookupIndices:
 
         # then
         np.testing.assert_array_equal(fallback_idx, [0, 0, 1, 1])
-        np.testing.assert_array_equal(has_specific, [False, True, False, True])
+        np.testing.assert_array_equal(specific_index_mask, [False, True, False, True])
         np.testing.assert_array_equal(specific_idx[[1, 3]], [0, 1])
 
     def test_empty_specific_keys(self):
@@ -42,12 +42,12 @@ class TestComputeLookupIndices:
         fallback_lookup_keys = np.array([0, 1, 2])
 
         # when
-        fallback_idx, _, has_specific = compute_lookup_indices(
+        fallback_idx, _, specific_index_mask = _compute_lookup_indices(
             target_keys, target_fallback_keys, fallback_lookup_keys, np.array([])
         )
 
         # then
-        np.testing.assert_array_equal(has_specific, [False, False, False])
+        np.testing.assert_array_equal(specific_index_mask, [False, False, False])
         np.testing.assert_array_equal(fallback_idx, [0, 1, 2])
 
     def test_unsorted_lookup_keys(self):
@@ -58,7 +58,7 @@ class TestComputeLookupIndices:
         fallback_lookup_keys = np.array([1, 2, 0])
 
         # when
-        fallback_idx, _, _ = compute_lookup_indices(
+        fallback_idx, _, _ = _compute_lookup_indices(
             target_keys, target_fallback_keys, fallback_lookup_keys, np.array([])
         )
 
@@ -74,25 +74,25 @@ class TestApplyLookupIndices:
         # given
         fallback_indices = np.array([0, 1, 2, 0])
         specific_indices = np.array([0, 0, 1, 0])
-        has_specific = np.array([False, True, True, False])
+        specific_index_mask = np.array([False, True, True, False])
 
         # when / then - numeric
-        result_num = apply_lookup_indices(
+        result_num = _apply_lookup_indices(
             np.array([10.0, 20.0, 30.0]),
             np.array([100.0, 200.0]),
             fallback_indices,
             specific_indices,
-            has_specific,
+            specific_index_mask,
         )
         np.testing.assert_array_equal(result_num, [10.0, 100.0, 200.0, 10.0])
 
         # when / then - string
-        result_str = apply_lookup_indices(
+        result_str = _apply_lookup_indices(
             np.array(["A", "B", "C"]),
             np.array(["X", "Y"]),
             fallback_indices,
             specific_indices,
-            has_specific,
+            specific_index_mask,
         )
         np.testing.assert_array_equal(result_str, ["A", "X", "Y", "A"])
 
@@ -103,15 +103,15 @@ class TestApplyLookupIndices:
         specific_values = np.array([100.0])
         fallback_indices = np.array([0, 1, 0, 1])
         specific_indices = np.array([0, 0, 0, 0])
-        has_specific = np.array([False, False, False, False])
+        specific_index_mask = np.array([False, False, False, False])
 
         # when
-        result = apply_lookup_indices(
+        result = _apply_lookup_indices(
             fallback_values,
             specific_values,
             fallback_indices,
             specific_indices,
-            has_specific,
+            specific_index_mask,
         )
 
         # then
@@ -166,7 +166,7 @@ class TestMbrLibraryBuilder:
     def test_fdr_filtering_and_decoy_generation(self, base_library, psm_df):
         """Test FDR filtering excludes high qval groups, decoy generation adds decoys."""
         # when - with decoys
-        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys_in_mbr_library=True)
+        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)
         result = builder(psm_df, base_library)
 
         # then - check exact elution groups included
@@ -177,7 +177,7 @@ class TestMbrLibraryBuilder:
         np.testing.assert_array_equal(df["decoy"].values, [0, 1, 0, 1])
 
         # when - without decoys
-        builder_no_decoy = MbrLibraryBuilder(fdr=0.01, keep_decoys_in_mbr_library=False)
+        builder_no_decoy = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)
         result_no_decoy = builder_no_decoy(psm_df, base_library)
 
         # then - only targets
@@ -190,7 +190,7 @@ class TestMbrLibraryBuilder:
     def test_rt_and_pg_assignment(self, base_library, psm_df):
         """Test RT and protein group assignment with fallback and specific values."""
         # when
-        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys_in_mbr_library=True)
+        builder = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)
         result = builder(psm_df, base_library)
 
         # then - group 0: target=10.0 (specific), decoy=10.5 (fallback median)
@@ -231,7 +231,7 @@ class TestMbrLibraryBuilder:
         )
 
         # when - with keep_decoys=True: include decoy-only groups
-        builder_keep = MbrLibraryBuilder(fdr=0.01, keep_decoys_in_mbr_library=True)
+        builder_keep = MbrLibraryBuilder(fdr=0.01, keep_decoys=True)
         result_keep = builder_keep(psm_df, base_library)
 
         # then
@@ -246,7 +246,7 @@ class TestMbrLibraryBuilder:
         )
 
         # when - with keep_decoys=False: exclude decoy-only groups
-        builder_exclude = MbrLibraryBuilder(fdr=0.01, keep_decoys_in_mbr_library=False)
+        builder_exclude = MbrLibraryBuilder(fdr=0.01, keep_decoys=False)
         result_exclude = builder_exclude(psm_df, base_library)
 
         # then
