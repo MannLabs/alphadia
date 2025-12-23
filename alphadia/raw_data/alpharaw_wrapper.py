@@ -71,7 +71,6 @@ class AlphaRaw(MSData_Base, ABC):
 
     def _preprocess_raw_data(self):
         """Process the raw data to extract relevant information."""
-        self._filter_spectra()
 
         if not self._is_ms1_dia():
             logger.warning(
