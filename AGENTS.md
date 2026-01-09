@@ -16,8 +16,8 @@ Key features:
 
 ### Environment Setup
 ```bash
-conda create -n alphadia python=3.11 -y
-conda activate alphadia
+conda create -n alphadia_env python=3.11 -y
+conda activate alphadia_env
 pip install -e ".[stable,development]"
 ```
 
@@ -43,6 +43,9 @@ cd tests && pytest -k "not slow"
 
 # With coverage
 cd tests && coverage run --source=../alphadia -m pytest && coverage html
+
+# End-to-end tests (these take several minutes)
+cd tests && ./run_e2e_tests.sh basic <name of conda environment>
 ```
 
 ### Linting and Type Checking
@@ -97,7 +100,8 @@ SearchPlan (search_plan.py)
 ### Key Modules
 
 - `alphadia/libtransform/` - Library transformation pipeline (loading, prediction, decoys, flattening)
-- `alphadia/search/` - Core search algorithms  - `search/scoring/` - Candidate scoring and feature extraction
+- `alphadia/search/` - Core search algorithms (python version, the rust version is imported from `alphadia_search_rs`)
+  - `search/scoring/` - Candidate scoring and feature extraction
   - `search/selection/` - Candidate selection using FFT-based methods
   - `search/jitclasses/` - Numba JIT-compiled data structures
 - `alphadia/fdr/` - FDR control and classifiers
@@ -118,7 +122,7 @@ Config class in `workflow/config.py` handles merging and validation.
 
 ### External Dependencies
 
-Core scientific stack from AlphaPept ecosystem:
+Core scientific stack from AlphaPept ecosystem (https://github.com/MannLabs):
 - **alphabase** - Base spectral library classes (`SpecLibBase`, `SpecLibFlat`)
 - **alpharaw** - Raw file reading (Thermo, Sciex)
 - **alphatims** - Bruker TimsTOF support
