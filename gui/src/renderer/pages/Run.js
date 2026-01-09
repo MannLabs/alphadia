@@ -9,8 +9,11 @@ import { FixedSizeList } from 'react-window';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import InfiniteLoader from 'react-window-infinite-loader';
 
-import { Box, TextField } from '@mui/material'
+import { Box, Typography } from '@mui/material'
 import { useProfile } from '../logic/profile';
+
+const WARNING_ANSI_CODE = '33;20';
+const ERROR_ANSI_CODE = '31;20';
 
 function replaceConfigFormatUnicodeEscapes(text) {
     // Replace Unicode escape sequences used in formatting the config with their actual characters
@@ -186,6 +189,14 @@ const Output = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [listRef, items.length])
 
+    const warningCount = React.useMemo(() => {
+        return items.filter(line => line.includes(`[${WARNING_ANSI_CODE}m`)).length;
+    }, [items]);
+
+    const errorCount = React.useMemo(() => {
+        return items.filter(line => line.includes(`[${ERROR_ANSI_CODE}m`)).length;
+    }, [items]);
+
     const Row = ({ index, style }) => {
         const content = parseConsoleOutput((index >= items.length) ? "" : items[index], theme);
         return (
@@ -198,6 +209,8 @@ const Output = () => {
     return (
     <Box sx={{
         height: "100%",
+        display: "flex",
+        flexDirection: "column",
         whiteSpace: "break-spaces",
         overflow: "hidden",
         fontFamily: "Roboto Mono",
@@ -205,34 +218,55 @@ const Output = () => {
         lineHeight: "1.0rem",
         }}>
 
-        <InfiniteLoader
-            isItemLoaded={(index) => (index < items.length)}
-            loadMoreItems={()=>{}}
-            itemCount={items.length}
-            >
-            {({ onItemsRendered, ref: setRef }) => (
-        <AutoSizer>
-            {({ height, width }) => (
-                <FixedSizeList
-                    className="List"
-                    height={height}
-                    itemCount={items.length}
-                    itemSize={15}
-                    width={width}
-                    onItemsRendered={onItemsRendered}
-                    onScroll={onScroll}
-                    ref={(list) => {
-
-                    setRef?.(list);
-                    setListRef(list);
-                    }}
+        <Box sx={{ flex: 1, overflow: "hidden" }}>
+            <InfiniteLoader
+                isItemLoaded={(index) => (index < items.length)}
+                loadMoreItems={()=>{}}
+                itemCount={items.length}
                 >
-                    {Row}
-                </FixedSizeList>
-            )}
-        </AutoSizer>
-            )}
-        </InfiniteLoader>
+                {({ onItemsRendered, ref: setRef }) => (
+            <AutoSizer>
+                {({ height, width }) => (
+                    <FixedSizeList
+                        className="List"
+                        height={height}
+                        itemCount={items.length}
+                        itemSize={15}
+                        width={width}
+                        onItemsRendered={onItemsRendered}
+                        onScroll={onScroll}
+                        ref={(list) => {
+
+                        setRef?.(list);
+                        setListRef(list);
+                        }}
+                    >
+                        {Row}
+                    </FixedSizeList>
+                )}
+            </AutoSizer>
+                )}
+            </InfiniteLoader>
+        </Box>
+
+        <Box sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            px: 1,
+            py: 0.5,
+            borderTop: 1,
+            borderColor: "divider",
+            backgroundColor: "background.paper",
+            gap: 2,
+        }}>
+            <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(253 167 0)' : 'rgb(254, 219, 119)' }}>
+                Warnings: {warningCount}
+            </Typography>
+            <Typography variant="caption" sx={{ fontFamily: "Roboto Mono", color: theme.palette.mode === 'light' ? 'rgb(200, 1, 0)' : 'rgb(250, 150, 136)' }}>
+                Errors: {errorCount}
+            </Typography>
+        </Box>
     </Box>
     )}
 
