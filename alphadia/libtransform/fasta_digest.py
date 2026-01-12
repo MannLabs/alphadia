@@ -2,10 +2,8 @@ import logging
 
 import numpy as np
 from alphabase.peptide.fragment import get_charged_frag_types
-from alphabase.protein.fasta import protease_dict
+from alphabase.protein.fasta import SpecLibFasta, protease_dict
 from alphabase.spectral_library.base import SpecLibBase
-from peptdeep.pretrained_models import ModelManager
-from peptdeep.protein.fasta import PredictSpecLibFasta
 
 from alphadia.exceptions import GenericUserError
 from alphadia.libtransform.base import ProcessingStep
@@ -72,12 +70,9 @@ class FastaDigest(ProcessingStep):
     def forward(self, input: list[str]) -> SpecLibBase:
         frag_types = get_charged_frag_types(["b", "y"], 2)
 
-        model_mgr = ModelManager()
-
-        fasta_lib = PredictSpecLibFasta(
-            model_mgr,
+        fasta_lib = SpecLibFasta(
+            frag_types,
             protease=protease_dict[self.enzyme],
-            charged_frag_types=frag_types,
             var_mods=self.variable_modifications,
             fix_mods=self.fixed_modifications,
             max_missed_cleavages=self.missed_cleavages,
