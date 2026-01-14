@@ -3,15 +3,11 @@ import pandas as pd
 import pytest
 from alphabase.spectral_library.base import SpecLibBase, hash_precursor_df
 
-from alphadia.libtransform.mbr import (
-    MbrLibraryBuilder,
-    _apply_lookup_indices,
-    _compute_lookup_indices,
-)
+from alphadia.libtransform.mbr import IndexBuilder, MbrLibraryBuilder
 
 
-class TestComputeLookupIndices:
-    """Tests for compute_lookup_indices function."""
+class TestIndexBuilder:
+    """Tests for IndexBuilder class."""
 
     def test_fallback_and_specific_lookup(self):
         """Test fallback lookup with partial specific overrides."""
@@ -21,18 +17,20 @@ class TestComputeLookupIndices:
         fallback_lookup_keys = np.array([0, 1])
         specific_lookup_keys = np.array([200, 400])
 
+        fallback_values = np.array([10.0, 20.0])
+        specific_values = np.array([100.0, 200.0])
+
         # when
-        fallback_idx, specific_idx, specific_index_mask = _compute_lookup_indices(
+        index_builder = IndexBuilder(
             target_keys,
             target_fallback_keys,
             fallback_lookup_keys,
             specific_lookup_keys,
         )
+        result = index_builder.apply(fallback_values, specific_values)
 
-        # then
-        np.testing.assert_array_equal(fallback_idx, [0, 0, 1, 1])
-        np.testing.assert_array_equal(specific_index_mask, [False, True, False, True])
-        np.testing.assert_array_equal(specific_idx[[1, 3]], [0, 1])
+        # then - targets 100, 300 get fallback; 200, 400 get specific
+        np.testing.assert_array_equal(result, [10.0, 100.0, 20.0, 200.0])
 
     def test_empty_specific_keys(self):
         """Test with no specific keys (all fallback)."""
@@ -41,14 +39,17 @@ class TestComputeLookupIndices:
         target_fallback_keys = np.array([0, 1, 2])
         fallback_lookup_keys = np.array([0, 1, 2])
 
+        fallback_values = np.array([10.0, 20.0, 30.0])
+        specific_values = np.array([])
+
         # when
-        fallback_idx, _, specific_index_mask = _compute_lookup_indices(
+        index_builder = IndexBuilder(
             target_keys, target_fallback_keys, fallback_lookup_keys, np.array([])
         )
+        result = index_builder.apply(fallback_values, specific_values)
 
         # then
-        np.testing.assert_array_equal(specific_index_mask, [False, False, False])
-        np.testing.assert_array_equal(fallback_idx, [0, 1, 2])
+        np.testing.assert_array_equal(result, [10.0, 20.0, 30.0])
 
     def test_unsorted_lookup_keys(self):
         """Test with unsorted fallback lookup keys."""
@@ -57,62 +58,67 @@ class TestComputeLookupIndices:
         target_fallback_keys = np.array([2, 0, 1])
         fallback_lookup_keys = np.array([1, 2, 0])
 
+        fallback_values = np.array([10.0, 20.0, 30.0])
+        specific_values = np.array([])
+
         # when
-        fallback_idx, _, _ = _compute_lookup_indices(
+        index_builder = IndexBuilder(
             target_keys, target_fallback_keys, fallback_lookup_keys, np.array([])
         )
+        result = index_builder.apply(fallback_values, specific_values)
 
-        # then
-        np.testing.assert_array_equal(fallback_idx, [1, 2, 0])
-
-
-class TestApplyLookupIndices:
-    """Tests for apply_lookup_indices function."""
+        # then - target_fallback_keys [2,0,1] map to indices [1,2,0] in fallback_lookup_keys
+        np.testing.assert_array_equal(result, [20.0, 30.0, 10.0])
 
     def test_numeric_and_string_values(self):
         """Test applying indices to both numeric and string arrays."""
         # given
-        fallback_indices = np.array([0, 1, 2, 0])
-        specific_indices = np.array([0, 0, 1, 0])
-        specific_index_mask = np.array([False, True, True, False])
+        target_keys = np.array([100, 200, 300, 400])
+        target_fallback_keys = np.array([0, 1, 2, 0])
+        fallback_lookup_keys = np.array([0, 1, 2])
+        specific_lookup_keys = np.array([200, 300])
 
-        # when / then - numeric
-        result_num = _apply_lookup_indices(
+        # when
+        index_builder = IndexBuilder(
+            target_keys,
+            target_fallback_keys,
+            fallback_lookup_keys,
+            specific_lookup_keys,
+        )
+
+        # then - numeric
+        result_num = index_builder.apply(
             np.array([10.0, 20.0, 30.0]),
             np.array([100.0, 200.0]),
-            fallback_indices,
-            specific_indices,
-            specific_index_mask,
         )
         np.testing.assert_array_equal(result_num, [10.0, 100.0, 200.0, 10.0])
 
-        # when / then - string
-        result_str = _apply_lookup_indices(
+        # then - string
+        result_str = index_builder.apply(
             np.array(["A", "B", "C"]),
             np.array(["X", "Y"]),
-            fallback_indices,
-            specific_indices,
-            specific_index_mask,
         )
         np.testing.assert_array_equal(result_str, ["A", "X", "Y", "A"])
 
     def test_no_specific_matches(self):
         """Test when no specific matches exist (all fallback)."""
         # given
+        target_keys = np.array([100, 200, 300, 400])
+        target_fallback_keys = np.array([0, 1, 0, 1])
+        fallback_lookup_keys = np.array([0, 1])
+        specific_lookup_keys = np.array([999])
+
         fallback_values = np.array([10.0, 20.0])
         specific_values = np.array([100.0])
-        fallback_indices = np.array([0, 1, 0, 1])
-        specific_indices = np.array([0, 0, 0, 0])
-        specific_index_mask = np.array([False, False, False, False])
 
         # when
-        result = _apply_lookup_indices(
-            fallback_values,
-            specific_values,
-            fallback_indices,
-            specific_indices,
-            specific_index_mask,
+        index_builder = IndexBuilder(
+            target_keys,
+            target_fallback_keys,
+            fallback_lookup_keys,
+            specific_lookup_keys,
         )
+        result = index_builder.apply(fallback_values, specific_values)
 
         # then
         np.testing.assert_array_equal(result, [10.0, 20.0, 10.0, 20.0])

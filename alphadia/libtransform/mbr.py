@@ -11,15 +11,10 @@ from alphadia.libtransform.decoy import DecoyGenerator
 logger = logging.getLogger()
 
 
-def _compute_lookup_indices(
-    target_keys: np.ndarray,
-    target_fallback_keys: np.ndarray,
-    fallback_lookup_keys: np.ndarray,
-    specific_lookup_keys: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Compute indices for value lookup with fallback and specific matching.
+class IndexBuilder:
+    """Build and apply lookup indices with fallback and specific matching.
 
-    This function computes indices that map each target to a value in a lookup table.
+    This class computes indices that map each target to a value in a lookup table.
     It uses a two-level lookup strategy:
     1. Fallback: Every target gets an index based on its fallback key (elution_group_idx)
     2. Specific: Targets whose primary key (mod_seq_charge_hash) exists in the specific
@@ -38,53 +33,61 @@ def _compute_lookup_indices(
     specific_lookup_keys : np.ndarray
         Keys in specific lookup table (e.g., PSM mod_seq_charge_hash).
 
-    Returns
-    -------
-    tuple[np.ndarray, np.ndarray, np.ndarray]
-        - fallback_indices: Index into fallback lookup for each target
-        - specific_indices: Index into specific lookup for each target (valid only where specific_index_mask=True)
-        - specific_index_mask: Boolean mask indicating which targets have a specific match
-
     """
-    n_targets = len(target_keys)
 
-    fallback_key_to_idx = pd.Series(
-        np.arange(len(fallback_lookup_keys)), index=fallback_lookup_keys
-    )
-    fallback_indices = fallback_key_to_idx.reindex(target_fallback_keys).values.astype(
-        np.int64
-    )
+    def __init__(
+        self,
+        target_keys: np.ndarray,
+        target_fallback_keys: np.ndarray,
+        fallback_lookup_keys: np.ndarray,
+        specific_lookup_keys: np.ndarray,
+    ) -> None:
+        n_targets = len(target_keys)
 
-    if len(specific_lookup_keys) > 0:
-        specific_key_to_idx = pd.Series(
-            np.arange(len(specific_lookup_keys)), index=specific_lookup_keys
+        fallback_key_to_idx = pd.Series(
+            np.arange(len(fallback_lookup_keys)), index=fallback_lookup_keys
         )
-        specific_lookup = specific_key_to_idx.reindex(target_keys)
-        specific_index_mask = ~pd.isna(specific_lookup.values)
-        specific_indices = np.where(
-            specific_index_mask, specific_lookup.values, 0
-        ).astype(np.int64)
-    else:
-        specific_index_mask = np.zeros(n_targets, dtype=bool)
-        specific_indices = np.zeros(n_targets, dtype=np.int64)
+        self._fallback_indices = fallback_key_to_idx.reindex(
+            target_fallback_keys
+        ).values.astype(np.int64)
 
-    return fallback_indices, specific_indices, specific_index_mask
+        if len(specific_lookup_keys) > 0:
+            specific_key_to_idx = pd.Series(
+                np.arange(len(specific_lookup_keys)), index=specific_lookup_keys
+            )
+            specific_lookup = specific_key_to_idx.reindex(target_keys)
+            self._specific_index_mask = ~pd.isna(specific_lookup.values)
+            self._specific_indices = np.where(
+                self._specific_index_mask, specific_lookup.values, 0
+            ).astype(np.int64)
+        else:
+            self._specific_index_mask = np.zeros(n_targets, dtype=bool)
+            self._specific_indices = np.zeros(n_targets, dtype=np.int64)
 
+    def apply(
+        self, fallback_values: np.ndarray, specific_values: np.ndarray
+    ) -> np.ndarray:
+        """Apply precomputed indices to get values.
 
-def _apply_lookup_indices(
-    fallback_values: np.ndarray,
-    specific_values: np.ndarray,
-    fallback_indices: np.ndarray,
-    specific_indices: np.ndarray,
-    specific_index_mask: np.ndarray,
-) -> np.ndarray:
-    """Apply precomputed indices to get values."""
-    result = fallback_values[fallback_indices]
-    if specific_index_mask.any():
-        result[specific_index_mask] = specific_values[
-            specific_indices[specific_index_mask]
-        ]
-    return result
+        Parameters
+        ----------
+        fallback_values : np.ndarray
+            Values from the fallback lookup table.
+        specific_values : np.ndarray
+            Values from the specific lookup table.
+
+        Returns
+        -------
+        np.ndarray
+            Result array with fallback values, overridden by specific values where available.
+
+        """
+        result = fallback_values[self._fallback_indices]
+        if self._specific_index_mask.any():
+            result[self._specific_index_mask] = specific_values[
+                self._specific_indices[self._specific_index_mask]
+            ]
+        return result
 
 
 class MbrLibraryBuilder(ProcessingStep):
@@ -115,32 +118,21 @@ class MbrLibraryBuilder(ProcessingStep):
             Aggregated PSM data by mod_seq_charge_hash with columns: mod_seq_charge_hash, rt, pg.
 
         """
-        lib_hashes = mbr_spec_lib._precursor_df["mod_seq_charge_hash"].values
-        lib_eg_indices = mbr_spec_lib._precursor_df["elution_group_idx"].values
-
-        fallback_indices, specific_indices, specific_index_mask = (
-            _compute_lookup_indices(
-                target_keys=lib_hashes,
-                target_fallback_keys=lib_eg_indices,
-                fallback_lookup_keys=agg_by_eg["elution_group_idx"].values,
-                specific_lookup_keys=agg_by_hash["mod_seq_charge_hash"].values,
-            )
+        index_builder = IndexBuilder(
+            target_keys=mbr_spec_lib._precursor_df["mod_seq_charge_hash"].values,
+            target_fallback_keys=mbr_spec_lib._precursor_df["elution_group_idx"].values,
+            fallback_lookup_keys=agg_by_eg["elution_group_idx"].values,
+            specific_lookup_keys=agg_by_hash["mod_seq_charge_hash"].values,
         )
 
-        mbr_spec_lib._precursor_df["rt"] = _apply_lookup_indices(
+        mbr_spec_lib._precursor_df["rt"] = index_builder.apply(
             fallback_values=agg_by_eg["rt"].values,
             specific_values=agg_by_hash["rt"].values,
-            fallback_indices=fallback_indices,
-            specific_indices=specific_indices,
-            specific_index_mask=specific_index_mask,
         )
 
-        pg_values = _apply_lookup_indices(
+        pg_values = index_builder.apply(
             fallback_values=agg_by_eg["pg"].values,
             specific_values=agg_by_hash["pg"].values,
-            fallback_indices=fallback_indices,
-            specific_indices=specific_indices,
-            specific_index_mask=specific_index_mask,
         )
         mbr_spec_lib._precursor_df["genes"] = pg_values
         mbr_spec_lib._precursor_df["proteins"] = pg_values
