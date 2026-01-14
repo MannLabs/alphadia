@@ -68,7 +68,7 @@ class AnnotateFasta(ProcessingStep):
         self,
         fasta_path_list: list[str],
         drop_unannotated: bool = True,
-        drop_decoy: bool = True,
+        drop_decoys: bool = False,
     ) -> None:
         """Annotate the precursor dataframe with protein information from a FASTA file.
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
@@ -81,11 +81,14 @@ class AnnotateFasta(ProcessingStep):
         drop_unannotated : bool, optional
             Drop all precursors which could not be annotated by the FASTA file. Default is True.
 
+        drop_decoys : bool, optional
+            Drop decoys from the library before annotation. Default is False.
+
         """
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
-        self.drop_decoy = drop_decoy
+        self.drop_decoys = drop_decoys
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object and that all FASTA files exist."""
@@ -102,14 +105,21 @@ class AnnotateFasta(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Annotate the precursor dataframe with protein information from a FASTA file."""
-        protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
-
-        if self.drop_decoy and "decoy" in input.precursor_df.columns:
-            if (input.precursor_df["decoy"] == 1).any():
-                logger.info("Decoys already present, FASTA annotation not necessary")
+        has_decoys = (
+            "decoy" in input.precursor_df.columns
+            and (input.precursor_df["decoy"] == 1).any()
+        )
+        if has_decoys:
+            if not self.drop_decoys:
+                logger.warning(
+                    "The spectral library already contains targets and decoys. "
+                    "A spectral library with decoys cannot be reannotated. "
+                    "Set drop_decoys=True to make FASTA annotation work."
+                )
                 return input
-            logger.info("Dropping decoys from input library before annotation")
             input._precursor_df = input._precursor_df[input._precursor_df["decoy"] == 0]
+
+        protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
         input._precursor_df = fasta.annotate_precursor_df(
             input.precursor_df, protein_df
