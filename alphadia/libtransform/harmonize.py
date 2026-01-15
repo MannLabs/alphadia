@@ -49,16 +49,21 @@ class PrecursorInitializer(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Initialize the precursor dataframe with the `precursor_idx`, `decoy`, `channel` and `elution_group_idx` columns."""
+        has_decoys = (
+            "decoy" in input.precursor_df.columns
+            and (input.precursor_df["decoy"] == 1).any()
+        )
+
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
+        elif self.drop_decoys and has_decoys:
+            input._precursor_df = input._precursor_df[
+                input._precursor_df["decoy"] == 0
+            ].copy()
+            input.remove_unused_fragments()
+            has_decoys = False
         else:
-            if self.drop_decoys and (input.precursor_df["decoy"] == 1).any():
-                input._precursor_df = input._precursor_df[
-                    input._precursor_df["decoy"] == 0
-                ].copy()
-                input.remove_unused_fragments()
-            else:
-                logger.info("Decoy column already present, skipping initialization")
+            logger.info("Decoy column already present, skipping initialization")
 
         if "channel" not in input.precursor_df.columns:
             input.precursor_df["channel"] = 0
@@ -66,6 +71,12 @@ class PrecursorInitializer(ProcessingStep):
             logger.info("Channel column already present, skipping initialization")
 
         if "elution_group_idx" not in input.precursor_df.columns:
+            if has_decoys:
+                logger.warning(
+                    "Library contains decoys but no elution_group_idx column. "
+                    "Decoys must be paired with targets and linked by giving each "
+                    "target-decoy pair an elution_group_idx. This can affect search performance."
+                )
             input.precursor_df["elution_group_idx"] = np.arange(len(input.precursor_df))
         else:
             logger.info(
