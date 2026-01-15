@@ -148,3 +148,56 @@ def test_multiplex_library():
             ].shape[0]
             == repeat
         )
+
+
+def test_precursor_initializer_drop_decoys():
+    """Test that PrecursorInitializer drops decoys when drop_decoys=True."""
+    speclib = SpecLibBase()
+    speclib._precursor_df = pd.DataFrame(
+        {
+            "sequence": ["PEPTIDE", "ANOTHERPEP", "DECOYSEQ", "DECOYSEQ2"],
+            "mods": ["", "", "", ""],
+            "mod_sites": ["", "", "", ""],
+            "decoy": [0, 0, 1, 1],
+        }
+    )
+    speclib._fragment_mz_df = pd.DataFrame({"b_z1": [1.0, 2.0, 3.0, 4.0]})
+    speclib._fragment_intensity_df = pd.DataFrame(
+        {"b_z1": [100.0, 200.0, 300.0, 400.0]}
+    )
+    speclib._precursor_df["frag_start_idx"] = [0, 1, 2, 3]
+    speclib._precursor_df["frag_stop_idx"] = [1, 2, 3, 4]
+
+    initializer = PrecursorInitializer(drop_decoys=True)
+    result = initializer(speclib)
+
+    assert len(result.precursor_df) == 2
+    assert (result.precursor_df["decoy"] == 0).all()
+    assert "PEPTIDE" in result.precursor_df["sequence"].values
+    assert "ANOTHERPEP" in result.precursor_df["sequence"].values
+    assert "DECOYSEQ" not in result.precursor_df["sequence"].values
+
+
+def test_precursor_initializer_keep_decoys():
+    """Test that PrecursorInitializer keeps decoys when drop_decoys=False (default)."""
+    speclib = SpecLibBase()
+    speclib._precursor_df = pd.DataFrame(
+        {
+            "sequence": ["PEPTIDE", "ANOTHERPEP", "DECOYSEQ", "DECOYSEQ2"],
+            "mods": ["", "", "", ""],
+            "mod_sites": ["", "", "", ""],
+            "decoy": [0, 0, 1, 1],
+        }
+    )
+    speclib._fragment_mz_df = pd.DataFrame({"b_z1": [1.0, 2.0, 3.0, 4.0]})
+    speclib._fragment_intensity_df = pd.DataFrame(
+        {"b_z1": [100.0, 200.0, 300.0, 400.0]}
+    )
+    speclib._precursor_df["frag_start_idx"] = [0, 1, 2, 3]
+    speclib._precursor_df["frag_stop_idx"] = [1, 2, 3, 4]
+
+    initializer = PrecursorInitializer(drop_decoys=False)
+    result = initializer(speclib)
+
+    assert len(result.precursor_df) == 4
+    assert result.precursor_df["decoy"].sum() == 2

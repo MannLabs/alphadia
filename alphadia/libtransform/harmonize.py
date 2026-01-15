@@ -53,14 +53,10 @@ class PrecursorInitializer(ProcessingStep):
             input.precursor_df["decoy"] = 0
         else:
             if self.drop_decoys and (input.precursor_df["decoy"] == 1).any():
-                n_before = len(input.precursor_df)
                 input._precursor_df = input._precursor_df[
                     input._precursor_df["decoy"] == 0
                 ].copy()
                 input.remove_unused_fragments()
-                logger.info(
-                    f"Dropped {n_before - len(input.precursor_df)} decoys from library"
-                )
             else:
                 logger.info("Decoy column already present, skipping initialization")
 
