@@ -6,10 +6,9 @@ import torch
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
-from peptdeep.model.charge import ChargeModelForModAASeq
+from peptdeep.model.charge import MAX_SUPPORTED_CHARGE, MIN_SUPPORTED_CHARGE
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
-from peptdeep.settings import global_settings
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 
@@ -834,20 +833,8 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
-        max_charge = np.max(psm_df["charge"])
-        min_charge = np.min(psm_df["charge"])
-
-        if self.charge_model is None:
-            self.charge_model = ChargeModelForModAASeq(
-                max_charge=max_charge, min_charge=min_charge, device=self.device
-            )
-            self.charge_model.predict_batch_size = global_settings["model_mgr"][
-                "predict"
-            ]["batch_size_charge"]
-            self.charge_prob_cutoff = global_settings["model_mgr"]["charge_prob_cutoff"]
-            self.use_predicted_charge_in_speclib = global_settings["model_mgr"][
-                "use_predicted_charge_in_speclib"
-            ]
+        min_charge = MIN_SUPPORTED_CHARGE
+        max_charge = MAX_SUPPORTED_CHARGE
 
         template_charge_indicators = np.zeros(max_charge - min_charge + 1)
         all_possible_charge_indicators = {

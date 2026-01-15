@@ -115,14 +115,11 @@ class PeptDeepPrediction(ProcessingStep):
 
             logging.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
 
-            charge_model_path = os.path.join(self.peptdeep_model_path, "charge.pth")
             model_mgr.load_external_models(
                 ms2_model_file=os.path.join(self.peptdeep_model_path, "ms2.pth"),
                 rt_model_file=os.path.join(self.peptdeep_model_path, "rt.pth"),
                 ccs_model_file=os.path.join(self.peptdeep_model_path, "ccs.pth"),
-                charge_model_file=charge_model_path
-                if os.path.exists(charge_model_path)
-                else "",
+                charge_model_file=os.path.join(self.peptdeep_model_path, "charge.pth"),
             )
 
         model_mgr.nce = self.nce
