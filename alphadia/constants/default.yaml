@@ -53,6 +53,11 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
+library_loading:
+  # whether to drop decoys from the library during loading
+  # set to true to allow FASTA annotation of libraries that already contain decoys
+  drop_decoys: false
+
 library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties

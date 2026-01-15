@@ -12,12 +12,22 @@ logger = logging.getLogger()
 
 
 class PrecursorInitializer(ProcessingStep):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, drop_decoys: bool = False) -> None:
         """Initialize alphabase spectral library with precursor information.
+
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
-        This step is required for all spectral libraries and will add the `precursor_idx`,`decoy`, `channel` and `elution_group_idx` columns to the precursor dataframe.
+        This step is required for all spectral libraries and will add the `precursor_idx`,
+        `decoy`, `channel` and `elution_group_idx` columns to the precursor dataframe.
+
+        Parameters
+        ----------
+        drop_decoys : bool, optional
+            Drop decoys from the library during initialization. Default is False.
+            Set to True to allow FASTA annotation of libraries that already contain decoys.
+
         """
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.drop_decoys = drop_decoys
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -42,7 +52,17 @@ class PrecursorInitializer(ProcessingStep):
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
         else:
-            logger.info("Decoy column already present, skipping initialization")
+            if self.drop_decoys and (input.precursor_df["decoy"] == 1).any():
+                n_before = len(input.precursor_df)
+                input._precursor_df = input._precursor_df[
+                    input._precursor_df["decoy"] == 0
+                ].copy()
+                input.remove_unused_fragments()
+                logger.info(
+                    f"Dropped {n_before - len(input.precursor_df)} decoys from library"
+                )
+            else:
+                logger.info("Decoy column already present, skipping initialization")
 
         if "channel" not in input.precursor_df.columns:
             input.precursor_df["channel"] = 0
@@ -68,9 +88,9 @@ class AnnotateFasta(ProcessingStep):
         self,
         fasta_path_list: list[str],
         drop_unannotated: bool = True,
-        drop_decoys: bool = False,
     ) -> None:
         """Annotate the precursor dataframe with protein information from a FASTA file.
+
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
         Parameters
@@ -81,14 +101,10 @@ class AnnotateFasta(ProcessingStep):
         drop_unannotated : bool, optional
             Drop all precursors which could not be annotated by the FASTA file. Default is True.
 
-        drop_decoys : bool, optional
-            Drop decoys from the library before annotation. Default is False.
-
         """
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
-        self.drop_decoys = drop_decoys
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object and that all FASTA files exist."""
@@ -110,14 +126,11 @@ class AnnotateFasta(ProcessingStep):
             and (input.precursor_df["decoy"] == 1).any()
         )
         if has_decoys:
-            if not self.drop_decoys:
-                logger.warning(
-                    "The spectral library already contains targets and decoys. "
-                    "A spectral library with decoys cannot be reannotated. "
-                    "Set drop_decoys=True to make FASTA annotation work."
-                )
-                return input
-            input._precursor_df = input._precursor_df[input._precursor_df["decoy"] == 0]
+            logger.warning(
+                "Skipping FASTA annotation: library contains decoys which cannot be annotated. "
+                "Set library_loading.drop_decoys=true to drop decoys and enable annotation."
+            )
+            return input
 
         protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
