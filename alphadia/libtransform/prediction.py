@@ -23,6 +23,8 @@ class PeptDeepPrediction(ProcessingStep):
         peptdeep_model_type: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
+        predict_charge: bool = False,
+        min_charge_probability: float = 0.3,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
 
@@ -57,6 +59,14 @@ class PeptDeepPrediction(ProcessingStep):
         max_fragment_charge : int, optional
             Maximum charge state to predict. Default is 2.
 
+        predict_charge : bool, optional
+            Whether to predict charge states using PeptDeep's charge model.
+            Default is False.
+
+        min_charge_probability : float, optional
+            Minimum probability threshold for including a charge state.
+            Default is 0.3. Uses peptdeep's default charge range (1-10).
+
         """
         if fragment_types is None:
             fragment_types = ["b", "y"]
@@ -73,6 +83,9 @@ class PeptDeepPrediction(ProcessingStep):
 
         self.fragment_types = fragment_types
         self.max_fragment_charge = max_fragment_charge
+
+        self.predict_charge = predict_charge
+        self.min_charge_probability = min_charge_probability
 
     def validate(self, input: list[str]) -> bool:
         return True
@@ -101,18 +114,49 @@ class PeptDeepPrediction(ProcessingStep):
                 )
 
             logging.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
+
+            charge_model_path = os.path.join(self.peptdeep_model_path, "charge.pth")
             model_mgr.load_external_models(
                 ms2_model_file=os.path.join(self.peptdeep_model_path, "ms2.pth"),
                 rt_model_file=os.path.join(self.peptdeep_model_path, "rt.pth"),
                 ccs_model_file=os.path.join(self.peptdeep_model_path, "ccs.pth"),
+                charge_model_file=charge_model_path
+                if os.path.exists(charge_model_path)
+                else "",
             )
 
         model_mgr.nce = self.nce
         model_mgr.instrument = self.instrument
 
+        precursor_df = input.precursor_df
+
+        if self.predict_charge:
+            charge_range = model_mgr.charge_model.charge_range
+            min_supported = int(charge_range.min())
+            max_supported = int(charge_range.max())
+
+            if "charge" in precursor_df.columns:
+                min_charge = max(min_supported, int(precursor_df["charge"].min()))
+                max_charge = min(max_supported, int(precursor_df["charge"].max()))
+            else:
+                min_charge = min_supported
+                max_charge = max_supported
+
+            logger.info(
+                f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
+                f"min probability: {self.min_charge_probability})"
+            )
+            precursor_df = model_mgr.predict_charge(
+                precursor_df,
+                min_precursor_charge=min_charge,
+                max_precursor_charge=max_charge,
+                charge_prob_cutoff=self.min_charge_probability,
+            )
+            logger.info(f"Charge prediction resulted in {len(precursor_df)} precursors")
+
         logger.info("Predicting RT, MS2 and mobility")
         res = model_mgr.predict_all(
-            input.precursor_df,
+            precursor_df,
             predict_items=["rt", "ms2", "mobility"],
             frag_types=charged_frag_types,
             process_num=self.mp_process_num,
