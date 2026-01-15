@@ -5,7 +5,7 @@ alphadia-search-rs>=1,<2
 alpharaw>=0.3.1
 alphatims>=1.0.8
 alphabase>=1.5.0
-peptdeep>=1.4.1
+peptdeep>=1.3.0
 directlfq>=0.2.19
 # quantification model selection
 quantselect>=0.1.3

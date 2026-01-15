@@ -834,11 +834,8 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
-        from peptdeep.model.charge import MAX_SUPPORTED_CHARGE, MIN_SUPPORTED_CHARGE
-
-        # Always use PeptDeep's supported charge range for consistency with model output
-        min_charge = MIN_SUPPORTED_CHARGE
-        max_charge = MAX_SUPPORTED_CHARGE
+        max_charge = np.max(psm_df["charge"])
+        min_charge = np.min(psm_df["charge"])
 
         if self.charge_model is None:
             self.charge_model = ChargeModelForModAASeq(
