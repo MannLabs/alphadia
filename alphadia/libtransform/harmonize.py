@@ -57,6 +57,9 @@ class PrecursorInitializer(ProcessingStep):
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
         elif self.drop_decoys and has_decoys:
+            logger.info(
+                "Removing decoys from input library, decoys will be recalculated"
+            )
             input._precursor_df = input._precursor_df[
                 input._precursor_df["decoy"] == 0
             ].copy()
