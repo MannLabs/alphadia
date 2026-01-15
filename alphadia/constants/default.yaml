@@ -109,6 +109,13 @@ library_prediction:
   # If set to null, the default peptdeep model will be used
   peptdeep_model_type: 'generic'
 
+  # whether to predict charge states using PeptDeep's charge model
+  # if enabled, precursors are filtered based on min_charge_probability
+  predict_charge: false
+
+  # minimum probability threshold for including a predicted charge state
+  min_charge_probability: 0.3
+
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
 custom_modifications:
