@@ -42,8 +42,6 @@ class IndexBuilder:
         fallback_lookup_keys: np.ndarray,
         specific_lookup_keys: np.ndarray,
     ) -> None:
-        n_targets = len(target_keys)
-
         fallback_key_to_idx = pd.Series(
             np.arange(len(fallback_lookup_keys)), index=fallback_lookup_keys
         )
@@ -61,6 +59,7 @@ class IndexBuilder:
                 self._specific_index_mask, specific_lookup.values, 0
             ).astype(np.int64)
         else:
+            n_targets = len(target_keys)
             self._specific_index_mask = np.zeros(n_targets, dtype=bool)
             self._specific_indices = np.zeros(n_targets, dtype=np.int64)
 
@@ -82,8 +81,17 @@ class IndexBuilder:
             Result array with fallback values, overridden by specific values where available.
 
         """
+        assert len(fallback_values) > self._fallback_indices.max(), (
+            f"fallback_values length {len(fallback_values)} must be greater than "
+            f"max fallback index {self._fallback_indices.max()}"
+        )
         result = fallback_values[self._fallback_indices]
         if self._specific_index_mask.any():
+            max_specific_idx = self._specific_indices[self._specific_index_mask].max()
+            assert len(specific_values) > max_specific_idx, (
+                f"specific_values length {len(specific_values)} must be greater than "
+                f"max specific index {max_specific_idx}"
+            )
             result[self._specific_index_mask] = specific_values[
                 self._specific_indices[self._specific_index_mask]
             ]
@@ -91,18 +99,18 @@ class IndexBuilder:
 
 
 class MbrLibraryBuilder(ProcessingStep):
-    def __init__(self, fdr=0.01, keep_decoys=False) -> None:
+    def __init__(self, fdr: float = 0.01, keep_decoys: bool = False) -> None:
         super().__init__()
         self.fdr = fdr
         self.keep_decoys = keep_decoys
 
-    def validate(self, psm_df, base_library) -> bool:
+    def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
         return True
 
     def _assign_rt_and_protein_groups(
         self,
-        mbr_spec_lib: SpecLibBase,
+        mbr_speclib: SpecLibBase,
         agg_by_eg: pd.DataFrame,
         agg_by_hash: pd.DataFrame,
     ) -> None:
@@ -110,7 +118,7 @@ class MbrLibraryBuilder(ProcessingStep):
 
         Parameters
         ----------
-        mbr_spec_lib : SpecLibBase
+        mbr_speclib : SpecLibBase
             MBR library to update in-place.
         agg_by_eg : pd.DataFrame
             Aggregated PSM data by elution_group_idx with columns: elution_group_idx, rt, pg.
@@ -119,23 +127,24 @@ class MbrLibraryBuilder(ProcessingStep):
 
         """
         index_builder = IndexBuilder(
-            target_keys=mbr_spec_lib._precursor_df["mod_seq_charge_hash"].values,
-            target_fallback_keys=mbr_spec_lib._precursor_df["elution_group_idx"].values,
+            target_keys=mbr_speclib._precursor_df["mod_seq_charge_hash"].values,
+            target_fallback_keys=mbr_speclib._precursor_df["elution_group_idx"].values,
             fallback_lookup_keys=agg_by_eg["elution_group_idx"].values,
             specific_lookup_keys=agg_by_hash["mod_seq_charge_hash"].values,
         )
 
-        mbr_spec_lib._precursor_df["rt"] = index_builder.apply(
+        rt_values = index_builder.apply(
             fallback_values=agg_by_eg["rt"].values,
             specific_values=agg_by_hash["rt"].values,
         )
-
         pg_values = index_builder.apply(
             fallback_values=agg_by_eg["pg"].values,
             specific_values=agg_by_hash["pg"].values,
         )
-        mbr_spec_lib._precursor_df["genes"] = pg_values
-        mbr_spec_lib._precursor_df["proteins"] = pg_values
+
+        mbr_speclib._precursor_df["rt"] = rt_values
+        mbr_speclib._precursor_df["genes"] = pg_values
+        mbr_speclib._precursor_df["proteins"] = pg_values
 
     def forward(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> SpecLibBase:
         """Build MBR library from PSM results and base library.
@@ -179,17 +188,17 @@ class MbrLibraryBuilder(ProcessingStep):
         else:
             elution_groups = psm_df[psm_df["decoy"] == 0]["elution_group_idx"].unique()
 
-        mbr_spec_lib = base_library.copy()
-        mbr_spec_lib._precursor_df = mbr_spec_lib._precursor_df[
-            mbr_spec_lib._precursor_df["elution_group_idx"].isin(elution_groups)
+        mbr_speclib = base_library.copy()
+        mbr_speclib._precursor_df = mbr_speclib._precursor_df[
+            mbr_speclib._precursor_df["elution_group_idx"].isin(elution_groups)
         ].copy()
-        mbr_spec_lib.remove_unused_fragments()
+        mbr_speclib.remove_unused_fragments()
 
         if self.keep_decoys:
             decoy_generator = DecoyGenerator(decoy_type="diann")
-            mbr_spec_lib = decoy_generator(mbr_spec_lib)
+            mbr_speclib = decoy_generator(mbr_speclib)
             # Decoys inherit target hashes from DecoyGenerator, rehash to get unique hashes
-            mbr_spec_lib._precursor_df = hash_precursor_df(mbr_spec_lib._precursor_df)
+            mbr_speclib._precursor_df = hash_precursor_df(mbr_speclib._precursor_df)
 
         agg_by_eg = psm_df.groupby("elution_group_idx", as_index=False).agg(
             rt=pd.NamedAgg(column=CalibCols.RT_OBSERVED, aggfunc="median"),
@@ -200,6 +209,6 @@ class MbrLibraryBuilder(ProcessingStep):
             pg=pd.NamedAgg(column="pg", aggfunc="first"),
         )
 
-        self._assign_rt_and_protein_groups(mbr_spec_lib, agg_by_eg, agg_by_hash)
+        self._assign_rt_and_protein_groups(mbr_speclib, agg_by_eg, agg_by_hash)
 
-        return mbr_spec_lib
+        return mbr_speclib
