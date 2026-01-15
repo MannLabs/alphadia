@@ -287,6 +287,8 @@ fdr:
   competitive_scoring: true
   # whether to keep decoy PSMs in the final output
   keep_decoys: false
+  # whether to keep decoy PSMs in the MBR library
+  keep_decoys_in_mbr_library: false
   # whether to perform FDR control separately for each channel
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
