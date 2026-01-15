@@ -558,21 +558,16 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
-        if self._config["search"]["extraction_backend"] == "rust":
-            if self._config["transfer_library"]["enabled"]:
-                raise ConfigError(
-                    "transfer_library.enabled",
-                    self._config["transfer_library"]["enabled"],
-                    "final",
-                    "Library transfer is not yet supported with the 'ng' extraction backend.",
-                )
-            if self._config["multiplexing"]["enabled"]:
-                raise ConfigError(
-                    "multiplexing.enabled",
-                    "True",
-                    "final",
-                    "Multiplexing is not yet supported with the 'ng' extraction backend.",
-                )
+        if (
+            self._config["search"]["extraction_backend"] == "rust"
+            and self._config["multiplexing"]["enabled"]
+        ):
+            raise ConfigError(
+                "multiplexing.enabled",
+                "True",
+                "final",
+                "Multiplexing is not yet supported with the 'ng' extraction backend.",
+            )
 
 
 def _log_exception_event(
