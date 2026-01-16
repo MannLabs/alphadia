@@ -496,7 +496,7 @@ class SearchPlanOutput:
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
         precursor_number = len(mbr_spec_lib.precursor_df)
-        protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
+        protein_number = mbr_spec_lib.precursor_df["proteins"].nunique()
 
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"

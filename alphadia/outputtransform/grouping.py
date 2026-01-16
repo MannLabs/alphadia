@@ -146,7 +146,7 @@ def perform_grouping(
     if len(unique_decoys) == 1:
         upsm[decoy_column] = -1
         upsm["pg_master"], upsm["pg"] = _group_and_parsimony(
-            upsm.precursor_idx.values,
+            upsm["precursor_idx"].values,
             upsm[genes_or_proteins].values,
             return_parsimony_groups,
         )
@@ -159,7 +159,7 @@ def perform_grouping(
         # greedy set cover on targets
         t_df = upsm[target_mask].copy()
         t_df["pg_master"], t_df["pg"] = _group_and_parsimony(
-            t_df.precursor_idx.values,
+            t_df["precursor_idx"].values,
             t_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
@@ -167,7 +167,7 @@ def perform_grouping(
         # greedy set cover on decoys
         d_df = upsm[decoy_mask].copy()
         d_df["pg_master"], d_df["pg"] = _group_and_parsimony(
-            d_df.precursor_idx.values,
+            d_df["precursor_idx"].values,
             d_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
