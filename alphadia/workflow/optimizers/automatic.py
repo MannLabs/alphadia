@@ -511,7 +511,7 @@ class AutomaticMS1Optimizer(AutomaticOptimizer):
     def _get_feature_value(
         self, precursors_df: pd.DataFrame, fragments_df: pd.DataFrame
     ):
-        return precursors_df.isotope_intensity_correlation.mean()
+        return precursors_df["isotope_intensity_correlation"].mean()
 
 
 class AutomaticMobilityOptimizer(AutomaticOptimizer):

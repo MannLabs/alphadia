@@ -530,13 +530,13 @@ def test_automatic_ms2_optimizer():
 
     assert ms2_optimizer.has_converged is True
     assert (
-        ms2_optimizer.history_df.precursor_proportion_detected
+        ms2_optimizer.history_df["precursor_proportion_detected"]
         == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.ms2_error
-        == ms2_optimizer.history_df.parameter[
-            ms2_optimizer.history_df.precursor_proportion_detected.idxmax()
+        == ms2_optimizer.history_df["parameter"][
+            ms2_optimizer.history_df["precursor_proportion_detected"].idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -617,13 +617,13 @@ def test_automatic_rt_optimizer():
 
     assert rt_optimizer.has_converged is True
     assert (
-        rt_optimizer.history_df.precursor_proportion_detected
+        rt_optimizer.history_df["precursor_proportion_detected"]
         == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.rt_error
-        == rt_optimizer.history_df.parameter[
-            rt_optimizer.history_df.precursor_proportion_detected.idxmax()
+        == rt_optimizer.history_df["parameter"][
+            rt_optimizer.history_df["precursor_proportion_detected"].idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
@@ -678,8 +678,8 @@ def test_automatic_ms1_optimizer():
     assert ms1_optimizer.has_converged is True
     assert (
         workflow.optimization_manager.ms1_error
-        == ms1_optimizer.history_df.parameter[
-            ms1_optimizer.history_df.mean_isotope_intensity_correlation.idxmax()
+        == ms1_optimizer.history_df["parameter"][
+            ms1_optimizer.history_df["mean_isotope_intensity_correlation"].idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 0
@@ -732,13 +732,13 @@ def test_automatic_mobility_optimizer():
 
     assert mobility_optimizer.has_converged is True
     assert (
-        mobility_optimizer.history_df.precursor_proportion_detected
+        mobility_optimizer.history_df["precursor_proportion_detected"]
         == pd.Series([1000 / 2000, 1001 / 2000, 1002 / 2000])
     ).all()
     assert (
         workflow.optimization_manager.mobility_error
-        == mobility_optimizer.history_df.parameter[
-            mobility_optimizer.history_df.precursor_proportion_detected.idxmax()
+        == mobility_optimizer.history_df["parameter"][
+            mobility_optimizer.history_df["precursor_proportion_detected"].idxmax()
         ]
     )
     assert workflow.optimization_manager.classifier_version == 2
