@@ -162,7 +162,7 @@ gui/out/
 ###################
 mono_crash*
 
-tests/e2e_tests/**/output/**
+tests/e2e_tests/**/output*/
 
 ###################
 # IDEs            #
