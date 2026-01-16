@@ -104,7 +104,7 @@ class MbrLibraryBuilder(ProcessingStep):
         self.fdr = fdr
         self.keep_decoys = keep_decoys
 
-    def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:
+    def validate(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> bool:  # type: ignore[override]
         """Validate the input object. It is expected that the input is a `SpecLibFlat` object."""
         return True
 
@@ -146,7 +146,7 @@ class MbrLibraryBuilder(ProcessingStep):
         mbr_speclib._precursor_df["genes"] = pg_values
         mbr_speclib._precursor_df["proteins"] = pg_values
 
-    def forward(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> SpecLibBase:
+    def forward(self, psm_df: pd.DataFrame, base_library: SpecLibBase) -> SpecLibBase:  # type: ignore[override]
         """Build MBR library from PSM results and base library.
 
         Parameters

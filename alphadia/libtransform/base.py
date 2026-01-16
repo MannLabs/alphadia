@@ -12,21 +12,23 @@ class ProcessingStep:
         Processing steps can be chained together in a ProcessingPipeline.
         """
 
-    def __call__(self, *args: typing.Any) -> typing.Any:
+    def __call__(self, input_obj: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         logger.info(f"Running {self.__class__.__name__}")
-        if self.validate(*args):
-            return self.forward(*args)
-        logger.critical(f"Input {args} failed validation for {self.__class__.__name__}")
+        if self.validate(input_obj):
+            return self.forward(input_obj)
+        logger.critical(
+            f"Input {input_obj} failed validation for {self.__class__.__name__}"
+        )
         raise ValueError(
-            f"Input {args} failed validation for {self.__class__.__name__}"
+            f"Input {input_obj} failed validation for {self.__class__.__name__}"
         )
 
-    def validate(self, *args: typing.Any) -> bool:
+    def validate(self, input_obj: typing.Any) -> bool:
         """Validate the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
-    def forward(self, *args: typing.Any) -> typing.Any:
+    def forward(self, input_obj: typing.Any) -> typing.Any:
         """Run the processing step on the input object."""
         raise NotImplementedError("Subclasses must implement this method")
 
@@ -54,8 +56,8 @@ class ProcessingPipeline:
         """
         self.steps = steps
 
-    def __call__(self, input: typing.Any) -> typing.Any:
+    def __call__(self, input_obj: typing.Any) -> typing.Any:
         """Run the pipeline on the input object."""
         for step in self.steps:
-            input = step(input)
-        return input
+            input_obj = step(input_obj)
+        return input_obj
