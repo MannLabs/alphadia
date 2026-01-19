@@ -268,6 +268,40 @@ from alphadia.workflow.config import Config
 def foo(config: Config) -> None: ...  # NOT dict
 ```
 
+### 7. Fix for ProcessingStep (libtransform/base.py)
+
+Change from:
+```python
+def validate(self, *args: typing.Any) -> bool:
+def forward(self, *args: typing.Any) -> typing.Any:
+```
+
+To:
+```python
+def validate(self, input: typing.Any) -> bool:
+def forward(self, input: typing.Any) -> typing.Any:
+```
+
+This allows subclasses to narrow the `input` parameter type while remaining compatible.
+
+### 8. Fix for Backend (reporting/reporting.py)
+
+Use explicit parameters instead of `*args`:
+```python
+def log_figure(self, name: str, figure: typing.Any, extension: str = "png", **kwargs: Any) -> None:
+def log_event(self, name: str, value: typing.Any, exception: Exception | None = None, **kwargs: Any) -> None:
+def log_metric(self, name: str, value: float | str, **kwargs: Any) -> None:
+```
+
+### 9. Fix for CalibrationModelProvider.register_model
+
+Change type annotation to accept both types and factory functions:
+```python
+def register_model(
+    self, model_name: str, model_template: type[CalibrationModel] | Callable[..., CalibrationModel]
+) -> None:
+```
+
 ---
 
 ## Testing Strategy
@@ -315,3 +349,78 @@ After each file/stage:
 - **Remaining**: ~152 errors (excluding search/, fdr/_fdrx/, tests/)
 - **Total Original**: ~230 errors
 - **Completion**: ~34% of non-search/test errors fixed
+
+---
+
+## Detailed Error Analysis (from ty check)
+
+**Updated Scope**: 47 type errors within the alphadia package (excluding `ignore/`, `misc/`, notebooks)
+
+### 1. Invalid Method Override Errors (29 errors) - HIGH PRIORITY
+
+**Location**: `libtransform/*.py` and `reporting/reporting.py`
+
+**Root Cause**: Base class methods use `*args: Any` signatures, but subclasses use specific typed parameters, violating the Liskov Substitution Principle.
+
+**Files affected**:
+- `libtransform/base.py` - `ProcessingStep.validate()` and `ProcessingStep.forward()`
+- `libtransform/decoy.py`, `fasta_digest.py`, `flatten.py`, `harmonize.py`, `loader.py`, `mbr.py`, `multiplex.py`, `prediction.py`
+- `reporting/reporting.py` - `Backend.log_figure()`, `log_event()`, `log_metric()`
+
+**Approach**: Change base class signatures from `*args: Any` to use a single `input: Any` parameter that subclasses can narrow.
+
+### 2. Unused `type: ignore` Comments (11 warnings) - EASY
+
+**Location**: Various files - these were likely added for a different type checker.
+
+**Files**:
+- `calibration/models.py:204`
+- `calibration/plot.py:124, 125`
+- `fdr/classifiers.py:507, 508, 510, 511`
+- `fragcomp/fragcomp.py:279`
+- `libtransform/harmonize.py:190`
+- `raw_data/bruker.py:263`
+- `reporting/reporting.py:545`
+- `search_plan.py:121`
+
+**Approach**: Remove unused `# type: ignore` directives.
+
+### 3. Specific Type Errors (5 errors)
+
+| File | Line | Error | Fix |
+|------|------|-------|-----|
+| `calibration/estimator.py` | 384 | Function passed instead of type | Widen type signature to accept `Callable` |
+| `calibration/models.py` | 323 | sum() overload mismatch | Add explicit type annotation or cast |
+| `fdr/plotting.py` | 138 | datetime.now(UTC) issue | Use `datetime.now(timezone.utc)` |
+| `reporting/reporting.py` | 657 | Duplicate parameter | Fix the function call |
+
+### 4. Possibly Missing Attributes (2 warnings)
+
+| File | Line | Issue |
+|------|------|-------|
+| `fdr/classifiers.py` | 277 | `state_dict` might be missing |
+| `search_step.py` | 529 | `log_string` might be missing |
+
+**Approach**: Add proper null/type guards or narrow the types.
+
+---
+
+## Recommended Implementation Order
+
+### Phase 1: Core Infrastructure (fixes cascade to many files)
+1. `libtransform/base.py` - Fix base class signatures (resolves 22 override errors)
+2. `reporting/reporting.py` - Fix Backend base class (resolves 4 override errors)
+
+### Phase 2: Remove Stale Ignores
+3. Remove all unused `# type: ignore` comments (11 files)
+
+### Phase 3: Specific Fixes
+4. `calibration/estimator.py` - Fix register_model type
+5. `calibration/models.py` - Fix sum() call
+6. `fdr/plotting.py` - Fix datetime.now()
+7. `fdr/classifiers.py` - Fix possibly-missing-attribute
+8. `search_step.py` - Fix possibly-missing-attribute
+
+### Phase 4: Verification
+9. Run `uvx ty check --output-format concise` to verify zero errors
+10. Fix any remaining issues that surface

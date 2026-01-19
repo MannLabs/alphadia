@@ -212,25 +212,25 @@ class Backend:
     REQUIRES_CONTEXT = False
 
     def log_figure(
-        self, name: str, figure: typing.Any, *args: Any, **kwargs: Any
+        self, name: str, figure: typing.Any, extension: str = "png", **kwargs: Any
     ) -> None:
         pass
 
-    def log_metric(
-        self, name: str, value: float | str, *args: Any, **kwargs: Any
-    ) -> None:
+    def log_metric(self, name: str, value: float | str, **kwargs: Any) -> None:
         pass
 
-    def log_string(
-        self, value: str, verbosity: str = "info", *args: Any, **kwargs: Any
-    ) -> None:
+    def log_string(self, value: str, verbosity: str = "info", **kwargs: Any) -> None:
         pass
 
-    def log_data(self, name: str, value: typing.Any, *args: Any, **kwargs: Any) -> None:
+    def log_data(self, name: str, value: typing.Any, **kwargs: Any) -> None:
         pass
 
     def log_event(
-        self, name: str, value: typing.Any, *args: Any, **kwargs: Any
+        self,
+        name: str,
+        value: typing.Any,
+        exception: Exception | None = None,
+        **kwargs: Any,
     ) -> None:
         pass
 
@@ -459,7 +459,7 @@ class JSONLBackend(Backend):
         with open(self.events_path, "a") as f:
             f.write(json.dumps(message) + "\n")
 
-    def log_metric(self, name: str, value: float, *args, **kwargs):
+    def log_metric(self, name: str, value: float | str, **kwargs):
         """Log a metric to the `events.jsonl` file.
 
         Important: This method will only log metrics if the backend is in a context.
@@ -471,7 +471,7 @@ class JSONLBackend(Backend):
         name : str
             Name of the metric.
 
-        value : float
+        value : float | str
             Value of the metric.
         """
 
@@ -644,22 +644,26 @@ class Pipeline:
             if backend.REQUIRES_CONTEXT:
                 backend.__exit__(exc_type, exc_value, exc_traceback)
 
-    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
+    def log_figure(
+        self, name: str, figure: typing.Any, extension: str = "png", **kwargs
+    ):
         for backend in self.backends:
-            backend.log_figure(name, figure, *args, **kwargs)
+            backend.log_figure(name, figure, extension, **kwargs)
 
-    def log_metric(self, name: str, value: float | str, *args, **kwargs):
+    def log_metric(self, name: str, value: float | str, **kwargs):
         for backend in self.backends:
-            backend.log_metric(name, value, *args, **kwargs)
+            backend.log_metric(name, value, **kwargs)
 
-    def log_string(self, value: str, *args, verbosity="info", **kwargs):
+    def log_string(self, value: str, verbosity: str = "info", **kwargs):
         for backend in self.backends:
-            backend.log_string(value, *args, verbosity=verbosity, **kwargs)
+            backend.log_string(value, verbosity=verbosity, **kwargs)
 
-    def log_data(self, name: str, value: typing.Any, *args, **kwargs):
+    def log_data(self, name: str, value: typing.Any, **kwargs):
         for backend in self.backends:
-            backend.log_data(name, value, *args, **kwargs)
+            backend.log_data(name, value, **kwargs)
 
-    def log_event(self, name: str, value: typing.Any, *args, **kwargs):
+    def log_event(
+        self, name: str, value: typing.Any, exception: Exception | None = None, **kwargs
+    ):
         for backend in self.backends:
-            backend.log_event(name, value, *args, **kwargs)
+            backend.log_event(name, value, exception, **kwargs)
