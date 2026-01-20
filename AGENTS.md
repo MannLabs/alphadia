@@ -137,13 +137,3 @@ Core scientific stack from AlphaPept ecosystem (https://github.com/MannLabs):
 - `tests/performance_tests/` - Performance benchmarks
 
 pytest marker: `@pytest.mark.slow` for slow tests
-
-## Debugging
-
-Debug e2e tests by running CLI module directly:
-```bash
-# Set environment variable and run
-RUN_MAIN=1 python -m alphadia.cli --config /path/to/config.yaml
-```
-
-See `nbs/debug/debug_lvl1.ipynb` for interactive debugging.
