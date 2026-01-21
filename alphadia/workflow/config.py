@@ -262,12 +262,17 @@ def _update(
                 update_value = False
 
         if (
+            # exception: None -> something allowed
             target_value is not None
-            and type(target_value) is not type(update_value)
+            # exception: something -> None allowed
+            and update_value is not None
+            # exception: int <-> float allowed
             and not (
                 isinstance(target_value, int | float)
                 and isinstance(update_value, int | float)
             )
+            # actual type check
+            and type(target_value) is not type(update_value)
         ):
             raise TypeMismatchConfigError(
                 full_key,

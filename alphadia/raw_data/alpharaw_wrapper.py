@@ -79,7 +79,7 @@ class AlphaRaw(MSData_Base, ABC):
                 "While acquiring data, please make sure to use an integer loop count of 1 or 2 over time based loop count in seconds."
             )
 
-            self.spectrum_df = self.spectrum_df[self.spectrum_df.ms_level > 1]
+            self.spectrum_df = self.spectrum_df[self.spectrum_df["ms_level"] > 1]
             self.has_ms1 = False
 
         self.cycle, self._cycle_start, self._cycle_length = determine_dia_cycle(
@@ -87,32 +87,32 @@ class AlphaRaw(MSData_Base, ABC):
         )
 
         self.spectrum_df = self.spectrum_df.iloc[self._cycle_start :]
-        self.rt_values = self.spectrum_df.rt.values.astype(np.float32) * 60
+        self.rt_values = self.spectrum_df["rt"].values.astype(np.float32) * 60
 
         self._precursor_cycle_max_index = len(self.rt_values) // self.cycle.shape[1]
 
-        self._max_mz_value = self.spectrum_df.precursor_mz.max().astype(np.float32)
-        self._min_mz_value = self.spectrum_df.precursor_mz.min().astype(np.float32)
+        self._max_mz_value = self.spectrum_df["precursor_mz"].max().astype(np.float32)
+        self._min_mz_value = self.spectrum_df["precursor_mz"].min().astype(np.float32)
 
         self._quad_max_mz_value = (
-            self.spectrum_df[self.spectrum_df["ms_level"] == 2]
-            .isolation_upper_mz.max()
+            self.spectrum_df[self.spectrum_df["ms_level"] == 2]["isolation_upper_mz"]
+            .max()
             .astype(np.float32)
         )
         self._quad_min_mz_value = (
-            self.spectrum_df[self.spectrum_df["ms_level"] == 2]
-            .isolation_lower_mz.min()
+            self.spectrum_df[self.spectrum_df["ms_level"] == 2]["isolation_lower_mz"]
+            .min()
             .astype(np.float32)
         )
 
-        self._peak_start_idx_list = self.spectrum_df.peak_start_idx.values.astype(
+        self._peak_start_idx_list = self.spectrum_df["peak_start_idx"].values.astype(
             np.int64
         )
-        self._peak_stop_idx_list = self.spectrum_df.peak_stop_idx.values.astype(
+        self._peak_stop_idx_list = self.spectrum_df["peak_stop_idx"].values.astype(
             np.int64
         )
-        self._mz_values = self.peak_df.mz.values.astype(np.float32)
-        self._intensity_values = self.peak_df.intensity.values.astype(np.float32)
+        self._mz_values = self.peak_df["mz"].values.astype(np.float32)
+        self._intensity_values = self.peak_df["intensity"].values.astype(np.float32)
 
         self.frame_max_index = len(self.rt_values) - 1
 

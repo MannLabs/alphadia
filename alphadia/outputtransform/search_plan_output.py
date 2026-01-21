@@ -485,19 +485,18 @@ class SearchPlanOutput:
         """
         logger.progress("Building MBR spectral library")
 
-        psm_df = psm_df[psm_df["decoy"] == 0]
-
         if len(psm_df) == 0:
             logger.warning("No precursors found, skipping MBR library building")
             return None
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
+            keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
         precursor_number = len(mbr_spec_lib.precursor_df)
-        protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
+        protein_number = mbr_spec_lib.precursor_df["proteins"].nunique()
 
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"
