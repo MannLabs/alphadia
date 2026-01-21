@@ -326,7 +326,9 @@ class SearchStep:
         # 3. import library and harmonize
         harmonize_pipeline = ProcessingPipeline(
             [
-                PrecursorInitializer(),
+                PrecursorInitializer(
+                    drop_decoys=self.config["library_loading"]["drop_decoys"],
+                ),
                 AnnotateFasta(self.fasta_path_list),
                 IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
                 RTNormalization(),

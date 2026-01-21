@@ -11,13 +11,31 @@ from alphadia.utils import get_isotope_columns
 logger = logging.getLogger()
 
 
+def _has_decoys(spec_lib: SpecLibBase) -> bool:
+    """Check if the spectral library contains decoy precursors."""
+    return (
+        "decoy" in spec_lib.precursor_df.columns
+        and (spec_lib.precursor_df["decoy"] == 1).any()
+    )
+
+
 class PrecursorInitializer(ProcessingStep):
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, drop_decoys: bool = False) -> None:
         """Initialize alphabase spectral library with precursor information.
+
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
-        This step is required for all spectral libraries and will add the `precursor_idx`,`decoy`, `channel` and `elution_group_idx` columns to the precursor dataframe.
+        This step is required for all spectral libraries and will add the `precursor_idx`,
+        `decoy`, `channel` and `elution_group_idx` columns to the precursor dataframe.
+
+        Parameters
+        ----------
+        drop_decoys : bool, optional
+            Drop decoys from the library during initialization. Default is False.
+            Set to True to allow FASTA annotation of libraries that already contain decoys.
+
         """
-        super().__init__(*args, **kwargs)
+        super().__init__()
+        self.drop_decoys = drop_decoys
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object."""
@@ -42,15 +60,42 @@ class PrecursorInitializer(ProcessingStep):
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
 
+        has_decoys = _has_decoys(input)
+
+        if self.drop_decoys and has_decoys:
+            logger.info(
+                "Removing decoys from input library, decoys will be recalculated"
+            )
+            input._precursor_df = input._precursor_df[
+                input._precursor_df["decoy"] == 0
+            ].copy()
+            input.remove_unused_fragments()
+            has_decoys = False
+        elif has_decoys:
+            logger.info("Decoy column already present, skipping initialization")
+
         if "channel" not in input.precursor_df.columns:
             input.precursor_df["channel"] = 0
+        else:
+            logger.info("Channel column already present, skipping initialization")
 
         if "elution_group_idx" not in input.precursor_df.columns:
+            if has_decoys:
+                logger.warning(
+                    "Library contains decoys but no elution_group_idx column. "
+                    "Elution groups link targets and decoys via integer indices where "
+                    "the highest scoring match per group is retained. This can affect search performance."
+                )
             input.precursor_df["elution_group_idx"] = np.arange(len(input.precursor_df))
+        else:
+            logger.info(
+                "Elution group indices already present, skipping initialization"
+            )
 
         if "precursor_idx" not in input.precursor_df.columns:
             input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
-
+        else:
+            logger.info("Precursor indices already present, skipping initialization")
         return input
 
 
@@ -59,9 +104,9 @@ class AnnotateFasta(ProcessingStep):
         self,
         fasta_path_list: list[str],
         drop_unannotated: bool = True,
-        drop_decoy: bool = True,
     ) -> None:
         """Annotate the precursor dataframe with protein information from a FASTA file.
+
         Expects a `SpecLibBase` object as input and will return a `SpecLibBase` object.
 
         Parameters
@@ -76,7 +121,6 @@ class AnnotateFasta(ProcessingStep):
         super().__init__()
         self.fasta_path_list = fasta_path_list
         self.drop_unannotated = drop_unannotated
-        self.drop_decoy = drop_decoy
 
     def validate(self, input: SpecLibBase) -> bool:
         """Validate the input object. It is expected that the input is a `SpecLibBase` object and that all FASTA files exist."""
@@ -93,11 +137,14 @@ class AnnotateFasta(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Annotate the precursor dataframe with protein information from a FASTA file."""
-        protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
+        if _has_decoys(input):
+            logger.warning(
+                "Skipping FASTA annotation: library contains decoys which cannot be annotated. "
+                "Set library_loading.drop_decoys=true to drop decoys and enable annotation."
+            )
+            return input
 
-        if self.drop_decoy and "decoy" in input.precursor_df.columns:
-            logger.info("Dropping decoys from input library before annotation")
-            input._precursor_df = input._precursor_df[input._precursor_df["decoy"] == 0]
+        protein_df = fasta.load_fasta_list_as_protein_df(self.fasta_path_list)
 
         input._precursor_df = fasta.annotate_precursor_df(
             input.precursor_df, protein_df
@@ -135,8 +182,8 @@ class IsotopeGenerator(ProcessingStep):
         existing_isotopes = get_isotope_columns(input.precursor_df.columns)
 
         if len(existing_isotopes) > 0:
-            logger.warning(
-                "Input library already contains isotope information. Skipping isotope generation. \n Please note that isotope generation outside of alphabase is not supported."
+            logger.info(
+                "Isotope information already present, skipping isotope generation"
             )
             return input
 
