@@ -324,11 +324,10 @@ class SearchStep:
             spectral_library = pept_deep_prediction(spectral_library)
 
         # 3. import library and harmonize
-        library_loading_config = self.config["library_loading"]
         harmonize_pipeline = ProcessingPipeline(
             [
                 PrecursorInitializer(
-                    drop_decoys=library_loading_config["drop_decoys"],
+                    drop_decoys=self.config["library_loading"]["drop_decoys"],
                 ),
                 AnnotateFasta(self.fasta_path_list),
                 IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),

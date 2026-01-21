@@ -11,6 +11,14 @@ from alphadia.utils import get_isotope_columns
 logger = logging.getLogger()
 
 
+def _has_decoys(spec_lib: SpecLibBase) -> bool:
+    """Check if the spectral library contains decoy precursors."""
+    return (
+        "decoy" in spec_lib.precursor_df.columns
+        and (spec_lib.precursor_df["decoy"] == 1).any()
+    )
+
+
 class PrecursorInitializer(ProcessingStep):
     def __init__(self, drop_decoys: bool = False) -> None:
         """Initialize alphabase spectral library with precursor information.
@@ -49,14 +57,12 @@ class PrecursorInitializer(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Initialize the precursor dataframe with the `precursor_idx`, `decoy`, `channel` and `elution_group_idx` columns."""
-        has_decoys = (
-            "decoy" in input.precursor_df.columns
-            and (input.precursor_df["decoy"] == 1).any()
-        )
-
         if "decoy" not in input.precursor_df.columns:
             input.precursor_df["decoy"] = 0
-        elif self.drop_decoys and has_decoys:
+
+        has_decoys = _has_decoys(input)
+
+        if self.drop_decoys and has_decoys:
             logger.info(
                 "Removing decoys from input library, decoys will be recalculated"
             )
@@ -65,7 +71,7 @@ class PrecursorInitializer(ProcessingStep):
             ].copy()
             input.remove_unused_fragments()
             has_decoys = False
-        else:
+        elif has_decoys:
             logger.info("Decoy column already present, skipping initialization")
 
         if "channel" not in input.precursor_df.columns:
@@ -77,8 +83,8 @@ class PrecursorInitializer(ProcessingStep):
             if has_decoys:
                 logger.warning(
                     "Library contains decoys but no elution_group_idx column. "
-                    "Decoys must be paired with targets and linked by giving each "
-                    "target-decoy pair an elution_group_idx. This can affect search performance."
+                    "Elution groups link targets and decoys via integer indices where "
+                    "the highest scoring match per group is retained. This can affect search performance."
                 )
             input.precursor_df["elution_group_idx"] = np.arange(len(input.precursor_df))
         else:
@@ -131,11 +137,7 @@ class AnnotateFasta(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
         """Annotate the precursor dataframe with protein information from a FASTA file."""
-        has_decoys = (
-            "decoy" in input.precursor_df.columns
-            and (input.precursor_df["decoy"] == 1).any()
-        )
-        if has_decoys:
+        if _has_decoys(input):
             logger.warning(
                 "Skipping FASTA annotation: library contains decoys which cannot be annotated. "
                 "Set library_loading.drop_decoys=true to drop decoys and enable annotation."
