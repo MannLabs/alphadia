@@ -319,10 +319,8 @@ class SearchStep:
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
                 fragment_types=prediction_config["fragment_types"],
                 max_fragment_charge=prediction_config["max_fragment_charge"],
-                predict_charge=prediction_config.get("predict_charge", False),
-                min_charge_probability=prediction_config.get(
-                    "min_charge_probability", 0.3
-                ),
+                predict_charge=prediction_config["predict_charge"],
+                min_charge_probability=prediction_config["min_charge_probability"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)

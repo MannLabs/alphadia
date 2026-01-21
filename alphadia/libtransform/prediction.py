@@ -24,7 +24,7 @@ class PeptDeepPrediction(ProcessingStep):
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
         predict_charge: bool = False,
-        min_charge_probability: float = 0.3,
+        min_charge_probability: float = 0.1,
     ) -> None:
         """Predict the retention time of a spectral library using PeptDeep.
 
@@ -65,7 +65,7 @@ class PeptDeepPrediction(ProcessingStep):
 
         min_charge_probability : float, optional
             Minimum probability threshold for including a charge state.
-            Default is 0.3. Uses peptdeep's default charge range (1-10).
+            Default is 0.1. Uses peptdeep's charge range as defined by the loaded model.
 
         """
         if fragment_types is None:
@@ -143,13 +143,18 @@ class PeptDeepPrediction(ProcessingStep):
                 f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
                 f"min probability: {self.min_charge_probability})"
             )
+            n_before = len(precursor_df)
             precursor_df = model_mgr.predict_charge(
                 precursor_df,
                 min_precursor_charge=min_charge,
                 max_precursor_charge=max_charge,
                 charge_prob_cutoff=self.min_charge_probability,
             )
-            logger.info(f"Charge prediction resulted in {len(precursor_df)} precursors")
+            n_dropped = n_before - len(precursor_df)
+            logger.info(
+                f"Charge prediction kept {len(precursor_df)} precursors, "
+                f"{n_dropped} dropped by min_charge_probability filter"
+            )
 
         logger.info("Predicting RT, MS2 and mobility")
         res = model_mgr.predict_all(
