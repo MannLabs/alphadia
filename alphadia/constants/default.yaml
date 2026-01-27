@@ -49,8 +49,8 @@ general:
   # if null, no specific setting of random states is performed
   random_state: null
 
-  # if true, exit immediately in case a file raises an error. If set to False, errors will be logged but the processing of other files will continue.
-  fail_fast: False
+  # if true, exit immediately in case a file raises an error. If set to false, errors will be logged but the processing of other files will continue.
+  fail_fast: false
 
 library_loading:
   # whether to drop decoys from the library during loading
