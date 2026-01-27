@@ -125,6 +125,15 @@ alphadia \
 
 ## Advanced
 
+### Error handling
+By default, AlphaDIA will continue processing the next file when an error occurs for a raw file.
+In case of errors, at the end of a (one- or multistep) search, all errors will be logged and AlphaDIA will exit with a nonzero exit code.
+You can then check the log file to identify the issues, and, after fixing them, use the
+restarting functionality described [below](#restarting) to continue processing only the missing file(s).
+Beware that for multistep searches, fixed errors in earlier steps require re-running all subsequent steps.
+
+In case you want AlphaDIA to stop processing immediately when an error occurs, you can set the config option `general.fail_fast` to `True`.
+
 ### Restarting
 During the main search, alphaDIA processes each raw file independently.
 After each file, quantification results are saved to `<output_folder>/quant/<raw_file_name>`,

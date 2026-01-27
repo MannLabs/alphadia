@@ -466,6 +466,10 @@ class SearchStep:
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
                 raw_files_with_errors.append((self._step_name, raw_name))
+
+                if self.config["general"]["fail_fast"]:
+                    raise e
+
                 continue
 
             finally:
