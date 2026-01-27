@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
-from alphadia.fdr._fdrx2.classifier import BinaryClassifierXGBoost
+from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr._fdrx2.fdrx2 import get_optimal_training_data
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
+def perform_fdr(  # noqa: C901, PLR0913, PLR0912 # too complex, too many arguments, too many branches
     classifier: Classifier | TwoStepClassifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -103,55 +103,29 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
             f"Using two-stage LDA prefiltering @ {lda_fdr_threshold*100:.0f}% FDR"
         )
 
-        df_decoy, df_target = get_optimal_training_data(
+        df_decoy_lda, df_target_lda = get_optimal_training_data(
             df_decoy, df_target, available_columns
         )
 
-        classifier = BinaryClassifierXGBoost()
+        try:
+            X, X_train, idxs_test, idxs_train, y, y_test, y_train = (
+                _get_train_test_split(
+                    available_columns, df_decoy_lda, df_target_lda, random_state
+                )
+            )
+        # fall back to original classifier in case LDA prefiltering fails
+        except TooFewPSMError:
+            logger.info(
+                "Could not perform train-test split for FDR calculation, falling back to original classifier."
+            )
+            use_lda_prefilter = False
 
-    else:
-        target_len, decoy_len = len(df_target), len(df_decoy)
-        df_target.dropna(subset=available_columns, inplace=True)
-        df_decoy.dropna(subset=available_columns, inplace=True)
-        target_dropped, decoy_dropped = (
-            target_len - len(df_target),
-            decoy_len - len(df_decoy),
+    if not use_lda_prefilter:
+        _drop_na(available_columns, df_decoy, df_target)
+
+        X, X_train, idxs_test, idxs_train, y, y_test, y_train = _get_train_test_split(
+            available_columns, df_decoy, df_target, random_state
         )
-
-        if target_dropped > 0:
-            logger.warning(
-                f"dropped {target_dropped} target PSMs due to missing features"
-            )
-
-        if decoy_dropped > 0:
-            logger.warning(
-                f"dropped {decoy_dropped} decoy PSMs due to missing features"
-            )
-
-        if (
-            np.abs(len(df_target) - len(df_decoy))
-            / ((len(df_target) + len(df_decoy)) / 2)
-            > 0.1  # noqa: PLR2004
-        ):
-            logger.warning(
-                f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
-            )
-            logger.warning(
-                "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
-            )
-
-    # Prepare data for classifier training
-    X_target = df_target[available_columns].to_numpy()
-    X_decoy = df_decoy[available_columns].to_numpy()
-    y_target = np.zeros(len(X_target))
-    y_decoy = np.ones(len(X_decoy))
-
-    X = np.concatenate([X_target, X_decoy])
-    y = np.concatenate([y_target, y_decoy])
-
-    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-        X, y, test_size=0.2, random_state=random_state
-    )
 
     classifier.fit(X_train, y_train)
 
@@ -208,6 +182,58 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         )
 
     return psm_df
+
+
+def _get_train_test_split(
+    available_columns: list[str],
+    df_decoy: pd.DataFrame,
+    df_target: pd.DataFrame,
+    random_state: int | None,
+) -> tuple:
+    """Helper function to get train-test split for FDR calculation."""
+    # Prepare data for classifier training
+    X_target = df_target[available_columns].to_numpy()
+    X_decoy = df_decoy[available_columns].to_numpy()
+    y_target = np.zeros(len(X_target))
+    y_decoy = np.ones(len(X_decoy))
+
+    X = np.concatenate([X_target, X_decoy])
+    y = np.concatenate([y_target, y_decoy])
+
+    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
+        X, y, test_size=0.2, random_state=random_state
+    )
+    return X, X_train, idxs_test, idxs_train, y, y_test, y_train
+
+
+def _drop_na(
+    available_columns: list[str], df_decoy: pd.DataFrame, df_target: pd.DataFrame
+) -> None:
+    """Helper function to drop NaN values from dataframes and log warnings."""
+    target_len, decoy_len = len(df_target), len(df_decoy)
+    df_target.dropna(subset=available_columns, inplace=True)
+    df_decoy.dropna(subset=available_columns, inplace=True)
+    target_dropped, decoy_dropped = (
+        target_len - len(df_target),
+        decoy_len - len(df_decoy),
+    )
+
+    if target_dropped > 0:
+        logger.warning(f"dropped {target_dropped} target PSMs due to missing features")
+
+    if decoy_dropped > 0:
+        logger.warning(f"dropped {decoy_dropped} decoy PSMs due to missing features")
+
+    if (
+        np.abs(len(df_target) - len(df_decoy)) / ((len(df_target) + len(df_decoy)) / 2)
+        > 0.1  # noqa: PLR2004
+    ):
+        logger.warning(
+            f"FDR calculation for {len(df_target)} target and {len(df_decoy)} decoy PSMs"
+        )
+        logger.warning(
+            "FDR calculation may be inaccurate as there is more than 10% difference in the number of target and decoy PSMs"
+        )
 
 
 def keep_best(
