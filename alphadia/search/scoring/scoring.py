@@ -10,6 +10,7 @@ from alphadia.constants.keys import (
     CalibCols,
     CandidatesDfCols,
     PrecursorDfCols,
+    PsmDfCols,
 )
 from alphadia.raw_data import DiaData
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
@@ -489,7 +490,7 @@ class CandidateScoring:
             df,
             candidates_df,
             candidate_columns,
-            on=["precursor_idx", "rank"],
+            on=[CandidatesDfCols.PRECURSOR_IDX, "rank"],
             how="left",
         )
 
@@ -546,7 +547,7 @@ class CandidateScoring:
         """
 
         colnames = [
-            "precursor_idx",
+            PsmDfCols.PRECURSOR_IDX,
             "rank",
             CalibCols.MZ_LIBRARY,
             "mz",

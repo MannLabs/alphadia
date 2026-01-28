@@ -114,7 +114,7 @@ def parse_candidates(
 
     candidates_df = pd.DataFrame(
         {
-            "precursor_idx": precursor_idx,
+            CandidatesDfCols.PRECURSOR_IDX: precursor_idx,
             "rank": rank,
             "score": score,
             "scan_center": scan_center,
@@ -130,7 +130,7 @@ def parse_candidates(
         spectral_library.precursor_df[
             [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
         ],
-        left_on="precursor_idx",
+        left_on=CandidatesDfCols.PRECURSOR_IDX,
         right_on=PrecursorDfCols.PRECURSOR_IDX,
         how="left",
     )
@@ -179,14 +179,15 @@ def to_features_df(
     features_df = features_df.merge(
         spectral_library.precursor_df[
             [
-                "precursor_idx",
+                PrecursorDfCols.PRECURSOR_IDX,
                 "decoy",
                 "elution_group_idx",
                 "channel",
                 "proteins",
             ]
         ],
-        on="precursor_idx",
+        left_on="precursor_idx",  # precursor_idx: features
+        right_on=PrecursorDfCols.PRECURSOR_IDX,
         how="left",
     )
 
@@ -203,7 +204,7 @@ def parse_quantification(
     precursor_dict, fragment_dict = quantified_speclib.to_dict_arrays()
 
     precursor_df = pd.DataFrame(precursor_dict).rename(
-        columns={"idx": "precursor_idx"}
+        columns={"idx": PrecursorDfCols.PRECURSOR_IDX}
     )  # TODO: remove when #96 is merged
 
     fragments_df = pd.DataFrame(fragment_dict).rename(

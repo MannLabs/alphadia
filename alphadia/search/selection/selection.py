@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.constants.keys import CalibCols, PrecursorDfCols
+from alphadia.constants.keys import CalibCols, CandidatesDfCols, PrecursorDfCols
 from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.selection import fft
@@ -671,7 +671,7 @@ class CandidateSelection:
             self.precursors_flat[
                 [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
             ],
-            left_on="precursor_idx",
+            left_on=CandidatesDfCols.PRECURSOR_IDX,
             right_on=PrecursorDfCols.PRECURSOR_IDX,
             how="left",
         )

@@ -10,6 +10,7 @@ from alphadia_search_rs import (
     ScoringParameters,
     SelectionParameters,
 )
+from constants.keys import PrecursorDfCols
 
 from alphadia.constants.keys import CalibCols, CandidatesDfCols
 from alphadia.fragcomp.utils import candidate_hash
@@ -631,8 +632,10 @@ class NgExtractionHandler(ExtractionHandler):
 
         if precursor_fdr_df is not None:
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
-                on=["precursor_idx", "rank"],
+                precursor_fdr_df[
+                    [PrecursorDfCols.PRECURSOR_IDX, "rank", "qval", "proba"]
+                ],
+                on=[PrecursorDfCols.PRECURSOR_IDX, "rank"],
                 how="left",
             )
 
@@ -678,7 +681,8 @@ class NgExtractionHandler(ExtractionHandler):
         """
 
         features_df["_candidate_idx"] = candidate_hash(
-            features_df["precursor_idx"].values, features_df["rank"].values
+            features_df["precursor_idx"].values,
+            features_df["rank"].values,  # precursor_idx: features
         )
         candidates_df["_candidate_idx"] = candidate_hash(
             candidates_df[CandidatesDfCols.PRECURSOR_IDX].values,

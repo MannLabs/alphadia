@@ -5,6 +5,7 @@ import logging
 import numba as nb
 import numpy as np
 import pandas as pd
+from constants.keys import CandidatesDfCols
 
 from alphadia.search.jitclasses.jit_config import JITConfig
 
@@ -256,7 +257,7 @@ class CandidateContainer:
     def get_candidate_df_column_names(self) -> list[str]:
         """Get the column names for the candidate DataFrame."""
         return [
-            "precursor_idx",
+            CandidatesDfCols.PRECURSOR_IDX,
             "rank",
             "score",
             "scan_center",

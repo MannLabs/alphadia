@@ -76,7 +76,7 @@ candidates_schema = Schema(
 features_schema = Schema(
     "candidate_features_df",
     [
-        Required("precursor_idx", np.uint32),
+        Required("precursor_idx", np.uint32),  # precursor_idx: UNCLEAR
         Required("elution_group_idx", np.uint32),
         Required("rank", np.uint8),
         Required("decoy", np.uint8),
@@ -107,7 +107,7 @@ features_schema = Schema(
 fragment_features_schema = Schema(
     "fragment_features_df",
     [
-        Required("precursor_idx", np.uint32),
+        Required("precursor_idx", np.uint32),  # precursor_idx: UNCLEAR
         Required("rank", np.uint8),
         Required("elution_group_idx", np.uint32),
         Required(CalibCols.MZ_LIBRARY, np.float32),
