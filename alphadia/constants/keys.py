@@ -60,6 +60,36 @@ class SearchStepFiles(metaclass=ConstantsClass):
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
 
 
+class PrecursorDfCols(metaclass=ConstantsClass):
+    """String constants for accessing precursor dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class FeaturesDfCols(metaclass=ConstantsClass):
+    """String constants for accessing feature dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class PsmDfCols(metaclass=ConstantsClass):
+    """String constants for accessing psm dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class CandidatesDfCols(metaclass=ConstantsClass):
+    """String constants for accessing candidates dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class FragmentDfCols(metaclass=ConstantsClass):
+    """String constants for accessing fragment dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
 class InferenceStrategy(metaclass=ConstantsClass):
     """String constants for protein inference strategies."""
 
@@ -187,7 +217,7 @@ class StatCalibrationCols(metaclass=ConstantsClass):
 INTERNAL_TO_OUTPUT_MAPPING = {
     "peptide_lfq_intensity": PeptideOutputCols.INTENSITY,
     "precursor_lfq_intensity": PrecursorOutputCols.INTENSITY,
-    "precursor_idx": PrecursorOutputCols.IDX,
+    "precursor_idx": PrecursorOutputCols.IDX,  # precursor_idx: UNCLEAR
     "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
     "rank": PrecursorOutputCols.RANK,
     "naa": PrecursorOutputCols.NAA,

@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
+from alphadia.constants.keys import CandidatesDfCols, PrecursorDfCols
 from alphadia.raw_data import DiaData
 
 
@@ -64,7 +65,7 @@ def speclib_to_ng(
     fragment_df = speclib.fragment_df
 
     return SpecLibFlatNG.from_arrays(
-        precursor_df["precursor_idx"].values.astype(np.uint64),
+        precursor_df[PrecursorDfCols.PRECURSOR_IDX].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
         precursor_df["rt_library"].values.astype(np.float32),
@@ -113,7 +114,7 @@ def parse_candidates(
 
     candidates_df = pd.DataFrame(
         {
-            "precursor_idx": precursor_idx,
+            CandidatesDfCols.PRECURSOR_IDX: precursor_idx,
             "rank": rank,
             "score": score,
             "scan_center": scan_center,
@@ -126,8 +127,11 @@ def parse_candidates(
     )
 
     candidates_df = candidates_df.merge(
-        spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
-        on="precursor_idx",
+        spectral_library.precursor_df[
+            [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
+        ],
+        left_on=CandidatesDfCols.PRECURSOR_IDX,
+        right_on=PrecursorDfCols.PRECURSOR_IDX,
         how="left",
     )
 
@@ -150,7 +154,7 @@ def candidates_to_ng(
     cycle_len = dia_data.cycle.shape[1]
 
     candidates = CandidateCollection.from_arrays(
-        candidates_df["precursor_idx"].values.astype(np.uint64),
+        candidates_df[CandidatesDfCols.PRECURSOR_IDX].values.astype(np.uint64),
         candidates_df["rank"].values.astype(np.uint64),
         candidates_df["score"].values.astype(np.float32),
         candidates_df["scan_center"].values.astype(np.uint64),
@@ -175,14 +179,15 @@ def to_features_df(
     features_df = features_df.merge(
         spectral_library.precursor_df[
             [
-                "precursor_idx",
+                PrecursorDfCols.PRECURSOR_IDX,
                 "decoy",
                 "elution_group_idx",
                 "channel",
                 "proteins",
             ]
         ],
-        on="precursor_idx",
+        left_on="precursor_idx",  # precursor_idx: features
+        right_on=PrecursorDfCols.PRECURSOR_IDX,
         how="left",
     )
 
@@ -199,7 +204,7 @@ def parse_quantification(
     precursor_dict, fragment_dict = quantified_speclib.to_dict_arrays()
 
     precursor_df = pd.DataFrame(precursor_dict).rename(
-        columns={"idx": "precursor_idx"}
+        columns={"idx": PrecursorDfCols.PRECURSOR_IDX}
     )  # TODO: remove when #96 is merged
 
     fragments_df = pd.DataFrame(fragment_dict).rename(

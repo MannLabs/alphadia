@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.keys import PsmDfCols
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
@@ -133,13 +134,13 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
             else ["elution_group_idx"]
         )
     else:
-        group_columns = ["precursor_idx"]
+        group_columns = [PsmDfCols.PRECURSOR_IDX]
 
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
-        ["proba", "precursor_idx"], ascending=True, inplace=True
+        ["proba", PsmDfCols.PRECURSOR_IDX], ascending=True, inplace=True
     )  # last sort to break ties
 
     psm_df = get_q_values(psm_df, "proba", "_decoy")
@@ -206,7 +207,7 @@ def keep_best(
 
     """
     if group_columns is None:
-        group_columns = ["channel", "precursor_idx"]
+        group_columns = ["channel", PsmDfCols.PRECURSOR_IDX]
     df = df.reset_index(drop=True)
     df = df.sort_values(
         [score_column, *group_columns], ascending=True
@@ -272,7 +273,7 @@ def get_q_values(
 
     """
     if extra_sort_columns is None:
-        extra_sort_columns = ["precursor_idx"]
+        extra_sort_columns = [PsmDfCols.PRECURSOR_IDX]
 
     df = df.sort_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True

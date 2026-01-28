@@ -4,6 +4,7 @@ import pandas as pd
 from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
 
+from alphadia.constants.keys import PsmDfCols
 from alphadia.exceptions import TooFewProteinsError
 from alphadia.fdr import fdr
 from alphadia.fdr.plotting import plot_fdr
@@ -24,7 +25,7 @@ def perform_protein_fdr(psm_df: pd.DataFrame, figure_path: str) -> pd.DataFrame:
                 "proteins": group["proteins"].iloc[0],
                 "decoy": group["decoy"].iloc[0],
                 "count": len(group),
-                "n_precursor": len(group["precursor_idx"].unique()),
+                "n_precursor": len(group[PsmDfCols.PRECURSOR_IDX].unique()),
                 "n_peptides": len(group["sequence"].unique()),
                 "n_runs": len(group["run"].unique()),
                 "mean_score": group["proba"].mean(),

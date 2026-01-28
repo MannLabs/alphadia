@@ -5,6 +5,7 @@ from collections.abc import Iterator
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.keys import FragmentDfCols, PrecursorDfCols, PsmDfCols
 from alphadia.outputtransform.quantification.quant_builder import prepare_df
 
 logger = logging.getLogger()
@@ -76,7 +77,7 @@ class FragmentQuantLoader:
 
         df_list = []
         for col in self.columns:
-            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df = df[[FragmentDfCols.PRECURSOR_IDX, "ion", col]].copy()
             feat_df.rename(columns={col: raw_name}, inplace=True)
             df_list.append(feat_df)
 
@@ -85,14 +86,14 @@ class FragmentQuantLoader:
 
             for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
-                    df[["ion", col, "precursor_idx"]],
-                    on=["ion", "precursor_idx"],
+                    df[["ion", col, FragmentDfCols.PRECURSOR_IDX]],
+                    on=["ion", FragmentDfCols.PRECURSOR_IDX],
                     how="outer",
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
         precursor_metadata_df = self.psm_df.groupby(
-            "precursor_idx", as_index=False
+            PsmDfCols.PRECURSOR_IDX, as_index=False
         ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
 
         return {
@@ -150,6 +151,13 @@ class FragmentQuantLoader:
             Fragment data with precursor metadata columns added
         """
         df.fillna(0, inplace=True)
-        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
-        df = df.merge(precursor_metadata_df, on="precursor_idx", how="left")
+        df[FragmentDfCols.PRECURSOR_IDX] = df[FragmentDfCols.PRECURSOR_IDX].astype(
+            np.uint32
+        )
+        df = df.merge(
+            precursor_metadata_df,
+            left_on=FragmentDfCols.PRECURSOR_IDX,
+            right_on=PrecursorDfCols.PRECURSOR_IDX,
+            how="left",
+        )
         return df

@@ -18,6 +18,7 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
+# TODO: unused
 def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
     """
     Determine the group columns based on competitiveness and channel grouping.
@@ -42,7 +43,7 @@ def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
             else ["elution_group_idx"]
         )
     else:
-        group_columns = ["precursor_idx"]
+        group_columns = ["precursor_idx"]  # precursor_idx: UNCLEAR
     return group_columns
 
 
