@@ -5,8 +5,8 @@ import logging
 import numba as nb
 import numpy as np
 import pandas as pd
-from constants.keys import CandidatesDfCols
 
+from alphadia.constants.keys import CandidatesDfCols
 from alphadia.search.jitclasses.jit_config import JITConfig
 
 logger = logging.getLogger()

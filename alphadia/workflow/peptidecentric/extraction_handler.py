@@ -10,9 +10,8 @@ from alphadia_search_rs import (
     ScoringParameters,
     SelectionParameters,
 )
-from constants.keys import PrecursorDfCols
 
-from alphadia.constants.keys import CalibCols, CandidatesDfCols
+from alphadia.constants.keys import CalibCols, CandidatesDfCols, PrecursorDfCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY

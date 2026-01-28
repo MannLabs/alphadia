@@ -5,9 +5,9 @@ import logging
 import numba as nb
 import numpy as np
 import pandas as pd
-from constants.keys import CandidatesDfCols, PrecursorDfCols
 from numba.extending import overload_method
 
+from alphadia.constants.keys import CandidatesDfCols, PrecursorDfCols
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import (
