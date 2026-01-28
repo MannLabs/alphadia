@@ -5,7 +5,7 @@ from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, CandidatesDfCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -127,7 +127,8 @@ class TransferLibraryRequantificationHandler:
 
         # establish mapping
         scored_candidates["_candidate_idx"] = candidate_hash(
-            scored_candidates["precursor_idx"].values, scored_candidates["rank"].values
+            scored_candidates[CandidatesDfCols.PRECURSOR_IDX].values,
+            scored_candidates["rank"].values,
         )
         frag_df["_candidate_idx"] = candidate_hash(
             frag_df["precursor_idx"].values, frag_df["rank"].values

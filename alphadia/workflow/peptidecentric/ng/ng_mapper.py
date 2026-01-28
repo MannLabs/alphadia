@@ -130,7 +130,8 @@ def parse_candidates(
         spectral_library.precursor_df[
             [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
         ],
-        on="precursor_idx",
+        left_on="precursor_idx",
+        right_on=PrecursorDfCols.PRECURSOR_IDX,
         how="left",
     )
 
