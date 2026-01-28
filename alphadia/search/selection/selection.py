@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from alphadia import utils
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, PrecursorDfCols
 from alphadia.raw_data import DiaData, DiaDataJIT
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.selection import fft
@@ -595,9 +595,9 @@ class CandidateSelection:
         """
         self.dia_data_jit: DiaDataJIT = dia_data.to_jitclass()
 
-        self.precursors_flat = precursors_flat.sort_values("precursor_idx").reset_index(
-            drop=True
-        )
+        self.precursors_flat = precursors_flat.sort_values(
+            PrecursorDfCols.PRECURSOR_IDX
+        ).reset_index(drop=True)
         self.fragments_flat = fragments_flat
         self.config_jit = config.to_jitclass()
 
@@ -668,8 +668,11 @@ class CandidateSelection:
         candidate_df = candidate_container_to_df(candidate_container)
 
         candidate_with_precursors_df = candidate_df.merge(
-            self.precursors_flat[["precursor_idx", "elution_group_idx", "decoy"]],
-            on="precursor_idx",
+            self.precursors_flat[
+                [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
+            ],
+            left_on="precursor_idx",
+            right_on=PrecursorDfCols.PRECURSOR_IDX,
             how="left",
         )
 
@@ -724,7 +727,7 @@ class CandidateSelection:
         ).astype(np.uint32)
 
         return PrecursorFlatContainer(
-            precursors_flat["precursor_idx"].values,
+            precursors_flat[PrecursorDfCols.PRECURSOR_IDX].values,
             precursors_flat["flat_frag_start_idx"].values,
             precursors_flat["flat_frag_stop_idx"].values,
             candidate_start_index,

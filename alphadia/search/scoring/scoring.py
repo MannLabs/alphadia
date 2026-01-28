@@ -6,7 +6,7 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, PrecursorDfCols
 from alphadia.raw_data import DiaData
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring.config import CandidateScoringConfig
@@ -237,7 +237,9 @@ class CandidateScoring:
         precursors_flat_schema.validate(
             precursors_flat_df, warn_on_critical_values=True
         )
-        self._precursors_flat_df = precursors_flat_df.sort_values(by="precursor_idx")
+        self._precursors_flat_df = precursors_flat_df.sort_values(
+            by=PrecursorDfCols.PRECURSOR_IDX
+        )
 
     @property
     def fragments_flat_df(self) -> pd.DataFrame:
@@ -310,7 +312,8 @@ class CandidateScoring:
             candidates_df,
             self.precursors_flat_df,
             precursor_columns,
-            on=["precursor_idx"],
+            left_on=["precursor_idx"],
+            right_on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 
@@ -513,7 +516,7 @@ class CandidateScoring:
             df,
             precursors_flat_df,
             precursor_df_columns,
-            on=["precursor_idx"],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 
@@ -573,7 +576,7 @@ class CandidateScoring:
             df,
             self.precursors_flat_df,
             precursor_df_columns,
-            on=["precursor_idx"],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 
