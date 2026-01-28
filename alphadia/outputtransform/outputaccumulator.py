@@ -34,7 +34,12 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
 from tqdm import tqdm
 
-from alphadia.constants.keys import CalibCols, PrecursorDfCols, SearchStepFiles
+from alphadia.constants.keys import (
+    CalibCols,
+    FragmentDfCols,
+    PrecursorDfCols,
+    SearchStepFiles,
+)
 
 logger = logging.getLogger()
 
@@ -136,7 +141,7 @@ def build_speclibflat_from_quant(
         speclib._precursor_df[col] = values
 
     frag_df = frag_df[
-        frag_df["precursor_idx"].isin(
+        frag_df[FragmentDfCols.PRECURSOR_IDX].isin(
             speclib._precursor_df[PrecursorDfCols.PRECURSOR_IDX]
         )
     ]

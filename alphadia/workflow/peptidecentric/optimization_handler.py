@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
-from alphadia.constants.keys import PrecursorDfCols
+from alphadia.constants.keys import FragmentDfCols, PrecursorDfCols
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -542,7 +542,7 @@ class OptimizationHandler:
         decoy_mask = precursor_df["decoy"] == 0
         precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
 
-        precursor_idx_mask = fragments_df["precursor_idx"].isin(
+        precursor_idx_mask = fragments_df[FragmentDfCols.PRECURSOR_IDX].isin(
             precursor_df_filtered[PrecursorDfCols.PRECURSOR_IDX]
         )
         mass_error_mask = (
@@ -552,7 +552,7 @@ class OptimizationHandler:
         fragments_df_filtered = fragments_df[
             precursor_idx_mask & mass_error_mask
         ].sort_values(
-            by=["correlation", "precursor_idx"], ascending=False
+            by=["correlation", FragmentDfCols.PRECURSOR_IDX], ascending=False
         )  # last sort to break ties
 
         # Determine the number of fragments to keep

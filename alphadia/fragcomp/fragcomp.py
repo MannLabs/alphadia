@@ -9,7 +9,7 @@ import pandas as pd
 from alphatims import utils as timsutils
 from pandas.errors import SettingWithCopyWarning
 
-from alphadia.constants.keys import CalibCols, PsmDfCols
+from alphadia.constants.keys import CalibCols, FragmentDfCols, PsmDfCols
 from alphadia.fragcomp.utils import add_frag_start_stop_idx, candidate_hash
 from alphadia.utils import USE_NUMBA_CACHING
 
@@ -258,7 +258,7 @@ class FragmentCompetition:
             psm_df[PsmDfCols.PRECURSOR_IDX].values, psm_df["rank"].values
         )
         frag_df["_candidate_idx"] = candidate_hash(
-            frag_df["precursor_idx"].values, frag_df["rank"].values
+            frag_df[FragmentDfCols.PRECURSOR_IDX].values, frag_df["rank"].values
         )
 
         psm_df = add_frag_start_stop_idx(psm_df, frag_df)
