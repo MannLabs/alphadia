@@ -8,6 +8,7 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
+from alphadia.constants.keys import PrecursorDfCols
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -235,7 +236,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 fragments_df["precursor_idx"].values, fragments_df["rank"].values
             )
             precursor_df["candidate_idx"] = candidate_hash(
-                precursor_df["precursor_idx"].values, precursor_df["rank"].values
+                precursor_df[PrecursorDfCols.PRECURSOR_IDX].values,
+                precursor_df["rank"].values,
             )
 
             fragments_df = fragments_df[

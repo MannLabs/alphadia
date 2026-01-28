@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
+from alphadia.constants.keys import PrecursorDfCols
 from alphadia.raw_data import DiaData
 
 
@@ -64,7 +65,7 @@ def speclib_to_ng(
     fragment_df = speclib.fragment_df
 
     return SpecLibFlatNG.from_arrays(
-        precursor_df["precursor_idx"].values.astype(np.uint64),
+        precursor_df[PrecursorDfCols.PRECURSOR_IDX].values.astype(np.uint64),
         precursor_df["mz_library"].values.astype(np.float32),
         precursor_df[precursor_mz_column].values.astype(np.float32),
         precursor_df["rt_library"].values.astype(np.float32),
@@ -126,7 +127,9 @@ def parse_candidates(
     )
 
     candidates_df = candidates_df.merge(
-        spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
+        spectral_library.precursor_df[
+            [PrecursorDfCols.PRECURSOR_IDX, "elution_group_idx", "decoy"]
+        ],
         on="precursor_idx",
         how="left",
     )

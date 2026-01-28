@@ -60,6 +60,36 @@ class SearchStepFiles(metaclass=ConstantsClass):
     FRAG_TRANSFER_FILE_NAME = "frag.transfer.parquet"
 
 
+class PrecursorDfCols(metaclass=ConstantsClass):
+    """String constants for accessing precursor dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class FeaturesDfCols(metaclass=ConstantsClass):
+    """String constants for accessing feature dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class PsmDfCols(metaclass=ConstantsClass):
+    """String constants for accessing psm dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class CandidatesDfCols(metaclass=ConstantsClass):
+    """String constants for accessing candidates dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
+class FragmentDfCols(metaclass=ConstantsClass):
+    """String constants for accessing fragment dataframe columns."""
+
+    PRECURSOR_IDX = "precursor_idx"
+
+
 class InferenceStrategy(metaclass=ConstantsClass):
     """String constants for protein inference strategies."""
 

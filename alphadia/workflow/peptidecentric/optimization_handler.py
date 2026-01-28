@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 
+from alphadia.constants.keys import PrecursorDfCols
 from alphadia.constants.settings import MAX_FRAGMENT_MZ_TOLERANCE
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -542,7 +543,7 @@ class OptimizationHandler:
         precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
 
         precursor_idx_mask = fragments_df["precursor_idx"].isin(
-            precursor_df_filtered["precursor_idx"]
+            precursor_df_filtered[PrecursorDfCols.PRECURSOR_IDX]
         )
         mass_error_mask = (
             np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE

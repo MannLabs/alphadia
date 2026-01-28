@@ -18,6 +18,7 @@ from alphadia.workflow.managers.base import BaseManager
 logger = logging.getLogger()
 
 
+# TODO: unused
 def get_group_columns(competitive: bool, group_channels: bool) -> list[str]:
     """
     Determine the group columns based on competitiveness and channel grouping.
