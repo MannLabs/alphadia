@@ -217,7 +217,7 @@ class StatCalibrationCols(metaclass=ConstantsClass):
 INTERNAL_TO_OUTPUT_MAPPING = {
     "peptide_lfq_intensity": PeptideOutputCols.INTENSITY,
     "precursor_lfq_intensity": PrecursorOutputCols.INTENSITY,
-    "precursor_idx": PrecursorOutputCols.IDX,
+    "precursor_idx": PrecursorOutputCols.IDX,  # precursor_idx: UNCLEAR
     "elution_group_idx": PrecursorOutputCols.ELUTION_GROUP_IDX,
     "rank": PrecursorOutputCols.RANK,
     "naa": PrecursorOutputCols.NAA,

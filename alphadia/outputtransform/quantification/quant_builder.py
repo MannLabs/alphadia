@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from quantselect.output import run_quantselect
 
-from alphadia.constants.keys import NormalizationMethods, PsmDfCols
+from alphadia.constants.keys import FragmentDfCols, NormalizationMethods, PsmDfCols
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -99,15 +99,17 @@ def prepare_df(
     pd.DataFrame
         Filtered fragment dataframe with ion hash
     """
-    df = df[df["precursor_idx"].isin(psm_df[PsmDfCols.PRECURSOR_IDX])].copy()
+    df = df[
+        df[FragmentDfCols.PRECURSOR_IDX].isin(psm_df[PsmDfCols.PRECURSOR_IDX])
+    ].copy()
     df["ion"] = _ion_hash(
-        df["precursor_idx"].values,
+        df[FragmentDfCols.PRECURSOR_IDX].values,
         df["number"].values,
         df["type"].values,
         df["charge"].values,
         df["loss_type"].values,
     )
-    return df[["precursor_idx", "ion"] + columns]
+    return df[[FragmentDfCols.PRECURSOR_IDX, "ion"] + columns]
 
 
 class QuantBuilder:
@@ -169,7 +171,13 @@ class QuantBuilder:
             c
             for c in intensity_df.columns
             if c
-            not in ["precursor_idx", "ion", "pg", "mod_seq_hash", "mod_seq_charge_hash"]
+            not in [
+                FragmentDfCols.PRECURSOR_IDX,
+                "ion",
+                "pg",
+                "mod_seq_hash",
+                "mod_seq_charge_hash",
+            ]
         ]
 
         quality_df["total"] = np.mean(quality_df[run_columns].values, axis=1)
@@ -209,7 +217,7 @@ class QuantBuilder:
 
         # drop all other columns as they will be interpreted as samples
         columns_to_drop = list(
-            {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
+            {FragmentDfCols.PRECURSOR_IDX, "pg", "mod_seq_hash", "mod_seq_charge_hash"}
             - {lfq_config.quant_level}
         )
         intensity_df = intensity_df.drop(columns=columns_to_drop)

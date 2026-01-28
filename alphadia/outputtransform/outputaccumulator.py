@@ -38,6 +38,7 @@ from alphadia.constants.keys import (
     CalibCols,
     FragmentDfCols,
     PrecursorDfCols,
+    PsmDfCols,
     SearchStepFiles,
 )
 
@@ -72,7 +73,7 @@ def build_speclibflat_from_quant(
 
     if mandatory_precursor_columns is None:
         mandatory_precursor_columns = [
-            "precursor_idx",
+            PsmDfCols.PRECURSOR_IDX,
             "sequence",
             "flat_frag_start_idx",
             "flat_frag_stop_idx",
@@ -149,7 +150,7 @@ def build_speclibflat_from_quant(
         [
             "mz",
             "intensity",
-            "precursor_idx",
+            FragmentDfCols.PRECURSOR_IDX,
             "frag_idx",
             "correlation",
             "number",
@@ -339,7 +340,11 @@ class TransferLearningAccumulator(BaseAccumulator):
         # Sort by modseqhash and proba in ascending order
         self.consensus_speclibase._precursor_df = (
             self.consensus_speclibase._precursor_df.sort_values(
-                ["mod_seq_hash", "proba", "precursor_idx"],  # last sort to break ties
+                [
+                    "mod_seq_hash",
+                    "proba",
+                    PrecursorDfCols.PRECURSOR_IDX,
+                ],  # last sort to break ties
                 ascending=[True, True, True],
             )
         )

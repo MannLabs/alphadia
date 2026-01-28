@@ -420,7 +420,7 @@ class OptimizationHandler:
             precursor_quantified_w_features_df = precursor_quantified_df.merge(
                 precursor_w_features_df,
                 how="left",
-                on=["precursor_idx", "rank"],
+                on=[PrecursorDfCols.PRECURSOR_IDX, "rank"],
                 suffixes=("", "__y"),
                 validate="one_to_one",
             )

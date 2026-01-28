@@ -442,7 +442,7 @@ class CandidateScoring:
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
         candidates_psm_df = pd.DataFrame(features, columns=feature_columns)
-        candidates_psm_df["precursor_idx"] = precursor_idx
+        candidates_psm_df["precursor_idx"] = precursor_idx  # precursor_idx: UNCLEAR
         candidates_psm_df["rank"] = rank
 
         candidates_psm_df = self.merge_candidate_data(
