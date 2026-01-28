@@ -312,8 +312,7 @@ class CandidateScoring:
             candidates_df,
             self.precursors_flat_df,
             precursor_columns,
-            left_on=["precursor_idx"],
-            right_on=[PrecursorDfCols.PRECURSOR_IDX],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 

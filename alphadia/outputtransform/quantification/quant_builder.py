@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from quantselect.output import run_quantselect
 
-from alphadia.constants.keys import NormalizationMethods
+from alphadia.constants.keys import NormalizationMethods, PsmDfCols
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.workflow.config import Config
 
@@ -99,7 +99,7 @@ def prepare_df(
     pd.DataFrame
         Filtered fragment dataframe with ion hash
     """
-    df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
+    df = df[df["precursor_idx"].isin(psm_df[PsmDfCols.PRECURSOR_IDX])].copy()
     df["ion"] = _ion_hash(
         df["precursor_idx"].values,
         df["number"].values,
