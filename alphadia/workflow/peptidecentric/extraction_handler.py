@@ -11,7 +11,7 @@ from alphadia_search_rs import (
     SelectionParameters,
 )
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import CalibCols, CandidatesDfCols
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
@@ -681,7 +681,8 @@ class NgExtractionHandler(ExtractionHandler):
             features_df["precursor_idx"].values, features_df["rank"].values
         )
         candidates_df["_candidate_idx"] = candidate_hash(
-            candidates_df["precursor_idx"].values, candidates_df["rank"].values
+            candidates_df[CandidatesDfCols.PRECURSOR_IDX].values,
+            candidates_df["rank"].values,
         )
 
         # apply FDR to PSMs

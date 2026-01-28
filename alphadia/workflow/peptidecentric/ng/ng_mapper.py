@@ -13,7 +13,7 @@ from alphadia_search_rs import (
 )
 from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
-from alphadia.constants.keys import PrecursorDfCols
+from alphadia.constants.keys import CandidatesDfCols, PrecursorDfCols
 from alphadia.raw_data import DiaData
 
 
@@ -153,7 +153,7 @@ def candidates_to_ng(
     cycle_len = dia_data.cycle.shape[1]
 
     candidates = CandidateCollection.from_arrays(
-        candidates_df["precursor_idx"].values.astype(np.uint64),
+        candidates_df[CandidatesDfCols.PRECURSOR_IDX].values.astype(np.uint64),
         candidates_df["rank"].values.astype(np.uint64),
         candidates_df["score"].values.astype(np.float32),
         candidates_df["scan_center"].values.astype(np.uint64),

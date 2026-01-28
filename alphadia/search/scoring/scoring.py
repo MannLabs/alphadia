@@ -6,7 +6,11 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import CalibCols, PrecursorDfCols
+from alphadia.constants.keys import (
+    CalibCols,
+    CandidatesDfCols,
+    PrecursorDfCols,
+)
 from alphadia.raw_data import DiaData
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring.config import CandidateScoringConfig
@@ -336,7 +340,7 @@ class CandidateScoring:
         score_group_container.build_from_df(
             candidates_df["elution_group_idx"].values,
             candidates_df["score_group_idx"].values,
-            candidates_df["precursor_idx"].values,
+            candidates_df[CandidatesDfCols.PRECURSOR_IDX].values,
             candidates_df["channel"].values,
             candidates_df["rank"].values,
             candidates_df["flat_frag_start_idx"].values,
