@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 def _density_scatter(
     x: np.ndarray | pd.Series | pd.DataFrame,
     y: np.ndarray | pd.Series | pd.DataFrame,
-    axis: plt.Axes = None,
+    axis: plt.Axes | None = None,
     bw_method=None,  # noqa: ANN001
     s: float = 1,
     **kwargs,
@@ -106,7 +106,7 @@ def plot_calibration(
     deviation = calibration.calc_deviation(df)
 
     n_input_properties = deviation.shape[1] - 3
-    input_property = None
+
     if n_input_properties <= 0:
         logging.warning("No input properties found for plotting calibration")
         return
@@ -121,11 +121,13 @@ def plot_calibration(
     )
 
     for input_property in range(n_input_properties):
+        ax_left: plt.Axes = axs[input_property, 0]  # type: ignore[assignment]
+        ax_right: plt.Axes = axs[input_property, 1]  # type: ignore[assignment]
         # plot the relative observed deviation
         _density_scatter(
             deviation[:, 3 + input_property],
             deviation[:, 0],
-            axis=axs[input_property, 0],
+            axis=ax_left,
             s=1,
         )
 
@@ -136,18 +138,18 @@ def plot_calibration(
         x_values = x_values[order]
         y_values = y_values[order]
 
-        axs[input_property, 0].plot(x_values, y_values, color="red")
+        ax_left.plot(x_values, y_values, color="red")
 
         # plot the calibrated deviation
 
         _density_scatter(
             deviation[:, 3 + input_property],
             deviation[:, 2],
-            axis=axs[input_property, 1],
+            axis=ax_right,
             s=1,
         )
 
-        for ax, dim in zip(axs[input_property, :], [0, 2], strict=True):
+        for ax, dim in zip([ax_left, ax_right], [0, 2], strict=True):
             ax.set_xlabel(calibration.input_columns[input_property])
             ax.set_ylabel(f"observed deviation {transform_unit}")
 

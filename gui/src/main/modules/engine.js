@@ -43,8 +43,8 @@ function lineBreakTransform () {
         transform(chunk, encoding, cb) {
         if ( this._last === undefined ) { this._last = "" }
         this._last += decoder.write(chunk);
-        var list = this._last.split(/\n/);
-        //this._last.split(/(?<=\r)|\n/);
+        // Split on \n or \r, keeping the delimiter at the end of each segment
+        var list = this._last.split(/(?<=\r)|\n/);
         this._last = list.pop();
         for (var i = 0; i < list.length; i++) {
             this.push( list[i].slice(0, 1000) );
@@ -521,7 +521,7 @@ class ExecutionManager {
         }
         console.log("runIdx: " + runIdx)
         if (this.runList[runIdx].pid != null){
-            console.log(`Killing process ${this.runList[runIdx].pid}`)
+            console.log(`Killing alphadia process ${this.runList[runIdx].pid}`)
             kill(this.runList[runIdx].pid);
         }
     }

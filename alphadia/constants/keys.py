@@ -84,6 +84,13 @@ class QuantificationLevelKey(metaclass=ConstantsClass):
     PROTEIN = "pg"
 
 
+class NormalizationMethods(metaclass=ConstantsClass):
+    """String constants for LFQ methods."""
+
+    DIRECTLFQ: str = "directlfq"
+    QUANTSELECT: str = "quantselect"
+
+
 class PrecursorOutputCols(metaclass=ConstantsClass):
     """String constants for accessing the precursor output columns."""
 

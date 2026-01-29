@@ -3,6 +3,7 @@ import os
 from collections.abc import Generator
 from copy import deepcopy
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
@@ -44,7 +45,16 @@ from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkfl
 SPECLIB_FILE_NAME = "speclib.hdf"
 SPECLIB_FLAT_FILE_NAME = "speclib_flat.hdf"
 
-logger = logging.getLogger()
+# Type stub for extended Logger with progress method
+# The progress method is added in reporting.py at module load time
+if TYPE_CHECKING:
+
+    class _ExtendedLogger(logging.Logger):
+        def progress(self, message: str, *args: Any, **kws: Any) -> None: ...
+
+    logger: _ExtendedLogger = logging.getLogger()  # type: ignore[assignment]
+else:
+    logger = logging.getLogger()
 
 
 class SearchStep:
@@ -54,6 +64,7 @@ class SearchStep:
         config: dict | Config | None = None,
         cli_config: dict | None = None,
         extra_config: dict | None = None,
+        step_name: str | None = None,
     ) -> None:
         """Highest level class to plan a DIA search step.
 
@@ -79,6 +90,7 @@ class SearchStep:
         os.makedirs(output_folder, exist_ok=True)
         init_logging(self.output_folder)
 
+        self._step_name = step_name
         self._config = self._init_config(
             config, cli_config, extra_config, output_folder
         )
@@ -135,11 +147,11 @@ class SearchStep:
             cli_config_update = Config(cli_config, name=USER_DEFINED_CLI_PARAM)
             config_updates.append(cli_config_update)
 
-        if SearchStep._is_ng_activated(config, config_updates):
+        if not SearchStep._is_ng_activated(config, config_updates):
             ng_default_config = SearchStep._load_default_config(
-                file_name="default_rust.yaml"
+                file_name="default_python.yaml"
             )
-            ng_default_config.name = "default_rust"
+            ng_default_config.name = "default_python"
             config_updates.insert(0, ng_default_config)
 
         # the update done for multi-step search needs to be last in order to overwrite any user-defined output folder
@@ -193,8 +205,8 @@ class SearchStep:
 
         return extraction_backend == "rust"
 
-    def _get_random_number_generator(self) -> None | Generator:
-        """Getnumpy random number generator if random state is set."""
+    def _get_random_number_generator(self) -> np.random.Generator | None:
+        """Get numpy random number generator if random state is set."""
         if (random_state := self._config["general"]["random_state"]) == -1:
             random_state = np.random.randint(0, 1_000_000)
 
@@ -307,6 +319,8 @@ class SearchStep:
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
                 fragment_types=prediction_config["fragment_types"],
                 max_fragment_charge=prediction_config["max_fragment_charge"],
+                predict_charge=prediction_config["predict_charge"],
+                min_charge_probability=prediction_config["min_charge_probability"],
             )
 
             spectral_library = pept_deep_prediction(spectral_library)
@@ -314,7 +328,9 @@ class SearchStep:
         # 3. import library and harmonize
         harmonize_pipeline = ProcessingPipeline(
             [
-                PrecursorInitializer(),
+                PrecursorInitializer(
+                    drop_decoys=self.config["library_loading"]["drop_decoys"],
+                ),
                 AnnotateFasta(self.fasta_path_list),
                 IsotopeGenerator(n_isotopes=4, mp_process_num=thread_count),
                 RTNormalization(),
@@ -371,13 +387,18 @@ class SearchStep:
 
     def run(
         self,
-    ):
+    ) -> list[tuple[str, str]]:
         """Run the search step.
 
         This has three main parts:
         1. Load or build the spectral library
         2. Iterate over all raw files and perform the search workflow
         3. Collect and summarize the results
+
+        Returns
+        -------
+        list of tuples
+            List of tuples containing (step_name, raw_file_name) for files that encountered errors during processing.
         """
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
@@ -385,11 +406,14 @@ class SearchStep:
 
         if not self.raw_path_list:
             logger.warning("No raw files provided, nothing to search.")
-            return
+            return []
 
-        logger.progress("Starting Search Workflows")
+        logger.progress(
+            f"=================== Starting Search Workflows for step {self._step_name} ==================="
+        )
 
         workflow_folder_list = []
+        raw_files_with_errors = []
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
             workflow = None
@@ -397,11 +421,9 @@ class SearchStep:
                 None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
             )
 
+            msg = f" (random_state: {random_state})" if random_state is not None else ""
             logger.progress(
-                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name}"
-                f" (random_state: {random_state})"
-                if random_state is not None
-                else ""
+                f"Loading raw file {i + 1}/{len(self.raw_path_list)}: {raw_name} {msg}"
             )
 
             try:
@@ -443,9 +465,8 @@ class SearchStep:
 
             except Exception as e:
                 _log_exception_event(e, raw_name, workflow)
-                if isinstance(e, CustomError):
-                    continue
-                raise e
+                raw_files_with_errors.append((self._step_name, raw_name))
+                continue
 
             finally:
                 if workflow and workflow.reporter:
@@ -466,13 +487,18 @@ class SearchStep:
 
             output = SearchPlanOutput(self.config, self.output_folder)
             output.build(workflow_folder_list, base_spec_lib)
+
         except Exception as e:
             _log_exception_event(e)
             raise e
         finally:
             self._clean()
 
-        logger.progress("=================== Search Finished ===================")
+        logger.progress(
+            f"=================== Search step '{self._step_name}' finished ==================="
+        )
+
+        return raw_files_with_errors
 
     def _process_raw_file(
         self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat
@@ -536,21 +562,16 @@ class SearchStep:
 
         TODO move this to a dedicated class.
         """
-        if self._config["search"]["extraction_backend"] == "rust":
-            if self._config["transfer_library"]["enabled"]:
-                raise ConfigError(
-                    "transfer_library.enabled",
-                    self._config["transfer_library"]["enabled"],
-                    "final",
-                    "Library transfer is not yet supported with the 'ng' extraction backend.",
-                )
-            if self._config["multiplexing"]["enabled"]:
-                raise ConfigError(
-                    "multiplexing.enabled",
-                    "True",
-                    "final",
-                    "Multiplexing is not yet supported with the 'ng' extraction backend.",
-                )
+        if (
+            self._config["search"]["extraction_backend"] == "rust"
+            and self._config["multiplexing"]["enabled"]
+        ):
+            raise ConfigError(
+                "multiplexing.enabled",
+                "True",
+                "final",
+                "Multiplexing is not yet supported with the 'ng' extraction backend.",
+            )
 
 
 def _log_exception_event(

@@ -38,7 +38,7 @@ class FlattenLibrary(ProcessingStep):
 
     def forward(self, input: SpecLibBase) -> SpecLibFlat:
         """Convert a `SpecLibBase` object into a `SpecLibFlat` object."""
-        input._fragment_cardinality_df = fragment.calc_fragment_cardinality(
+        input._fragment_cardinality_df = fragment.calc_fragment_cardinality(  # type: ignore[attr-defined]
             input.precursor_df, input._fragment_mz_df
         )
         output = SpecLibFlat(
@@ -46,7 +46,8 @@ class FlattenLibrary(ProcessingStep):
             keep_top_k_fragments=self.top_k_fragments,
         )
         output.parse_base_library(
-            input, custom_df={"cardinality": input._fragment_cardinality_df}
+            input,
+            custom_df={"cardinality": input._fragment_cardinality_df},  # type: ignore[attr-defined]
         )
 
         return output

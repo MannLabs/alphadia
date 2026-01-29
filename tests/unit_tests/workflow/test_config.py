@@ -296,6 +296,41 @@ def test_config_update_default_config():
     assert config_1 == config_2
 
 
+def test_config_update_none_values():
+    """Test updating configs with None values in both directions."""
+    config_with_none = Config(
+        {
+            "none_to_int": None,
+            "none_to_dict": None,
+            "none_to_list": None,
+            "int_to_none": 42,
+            "str_to_none": "hello",
+        },
+        "default",
+    )
+
+    update_config = Config(
+        {
+            "none_to_int": 123,
+            "none_to_dict": {"nested_key": "nested_value"},
+            "none_to_list": [1, 2, 3],
+            "int_to_none": None,
+            "str_to_none": None,
+        },
+        "update",
+    )
+
+    config_with_none.update([update_config])
+
+    assert config_with_none == {
+        "none_to_int": 123,
+        "none_to_dict": {"nested_key": "nested_value"},
+        "none_to_list": [1, 2, 3],
+        "int_to_none": None,
+        "str_to_none": None,
+    }
+
+
 def test_config_to_yaml_converts_numpy_types():
     """Test that numpy types are converted to native Python types when saving to YAML."""
     # given

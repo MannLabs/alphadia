@@ -8,8 +8,6 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
-from alphadia.fdr._fdrx.models.logistic_regression import LogisticRegressionClassifier
-from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
@@ -35,40 +33,26 @@ from alphadia.workflow.peptidecentric.utils import (
 
 
 def _get_classifier_base(
-    enable_two_step_classifier: bool = False,
-    two_step_classifier_max_iterations: int = 5,
     enable_nn_hyperparameter_tuning: bool = False,
-    fdr_cutoff: float = 0.01,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching | TwoStepClassifier:
+) -> BinaryClassifierLegacyNewBatching:
     """Creates and returns a classifier base instance.
 
     Parameters
     ----------
-    enable_two_step_classifier : bool, optional
-        If True, uses logistic regression + neural network.
-        If False (default), uses only neural network.
-
-    two_step_classifier_max_iterations : int
-        Maximum number of iterations withtin .fit_predict() of the two-step classifier.
-
     enable_nn_hyperparameter_tuning: bool, optional
         If True, uses hyperparameter tuning for the neural network.
         If False (default), uses default hyperparameters for the neural network.
-
-    fdr_cutoff : float, optional
-        The FDR cutoff threshold used by the second classifier when two-step
-        classification is enabled. Default is 0.01.
 
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
 
     Returns
     -------
-    BinaryClassifierLegacyNewBatching | TwoStepClassifier
-        Neural network or two-step classifier based on enable_two_step_classifier.
+    BinaryClassifierLegacyNewBatching
+        Neural network
     """
-    nn_classifier = BinaryClassifierLegacyNewBatching(
+    return BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
         learning_rate=0.001,
@@ -76,16 +60,6 @@ def _get_classifier_base(
         experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
         random_state=random_state,
     )
-
-    if enable_two_step_classifier:
-        return TwoStepClassifier(
-            first_classifier=LogisticRegressionClassifier(),
-            second_classifier=nn_classifier,
-            second_fdr_cutoff=fdr_cutoff,
-            max_iterations=two_step_classifier_max_iterations,
-        )
-    else:
-        return nn_classifier
 
 
 class PeptideCentricWorkflow(base.WorkflowBase):
@@ -139,14 +113,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             if self._config["search"]["extraction_backend"] == "rust"
             else feature_columns,
             classifier_base=_get_classifier_base(
-                enable_two_step_classifier=config_fdr["enable_two_step_classifier"],
-                two_step_classifier_max_iterations=config_fdr[
-                    "two_step_classifier_max_iterations"
-                ],
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
                 ],
-                fdr_cutoff=config_fdr["fdr"],
                 random_state=self._random_state_fdr_classifier,
             ),
             dia_cycle=self.dia_data.cycle,

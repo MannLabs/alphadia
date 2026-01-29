@@ -6,7 +6,11 @@ import torch
 from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.peptide.mobility import ccs_to_mobility_for_df, mobility_to_ccs_for_df
 from alphabase.peptide.precursor import refine_precursor_df
-from peptdeep.model.charge import ChargeModelForModAASeq
+from peptdeep.model.charge import (
+    MAX_SUPPORTED_CHARGE,
+    MIN_SUPPORTED_CHARGE,
+    ChargeModelForModAASeq,
+)
 from peptdeep.model.model_interface import CallbackHandler, LR_SchedulerInterface
 from peptdeep.pretrained_models import ModelManager
 from peptdeep.settings import global_settings
@@ -834,8 +838,8 @@ class FinetuneManager(ModelManager):
         pd.DataFrame
             Accumulated metrics during the fine tuning process.
         """
-        max_charge = np.max(psm_df["charge"])
-        min_charge = np.min(psm_df["charge"])
+        min_charge = MIN_SUPPORTED_CHARGE
+        max_charge = MAX_SUPPORTED_CHARGE
 
         if self.charge_model is None:
             self.charge_model = ChargeModelForModAASeq(

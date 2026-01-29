@@ -135,7 +135,39 @@ class Config(UserDict):
 # keys that have been removed from the config but are still tolerated
 # Note: if multiple levels have been removed, multiple entries are needed, e.g. ["removed_key_level1, removed_key_level1.removed_key_level2"]
 TOLERATED_KEYS = [
-    "calibration.norm_rt_mode"  # supported until 1.10.4
+    # supported until 2.0.2:
+    "general.astral_ms1",
+    "general.mmap_detector_events",
+    "fdr.enable_two_step_classifier",
+    "fdr.two_step_classifier_max_iterations",
+    # supported until 2.0.1:
+    "scoring_config",
+    "scoring_config.score_grouped",
+    "scoring_config.top_k_isotopes",
+    "scoring_config.reference_channel",
+    "scoring_config.precursor_mz_tolerance",
+    "scoring_config.fragment_mz_tolerance",
+    "selection_config",
+    "selection_config.peak_len_rt",
+    "selection_config.sigma_scale_rt",
+    "selection_config.peak_len_mobility",
+    "selection_config.sigma_scale_mobility",
+    "selection_config.top_k_precursors",
+    "selection_config.kernel_size",
+    "selection_config.f_mobility",
+    "selection_config.f_rt",
+    "selection_config.center_fraction",
+    "selection_config.min_size_mobility",
+    "selection_config.min_size_rt",
+    "selection_config.max_size_mobility",
+    "selection_config.max_size_rt",
+    "selection_config.group_channels",
+    "selection_config.use_weighted_score",
+    "selection_config.join_close_candidates",
+    "selection_config.join_close_candidates_scan_threshold",
+    "selection_config.join_close_candidates_cycle_threshold",
+    # supported until 1.10.4:
+    "calibration.norm_rt_mode",
 ]
 
 
@@ -163,7 +195,7 @@ def _convert_numpy_types(data: Any) -> Any:
         return data.item()
     elif isinstance(data, np.ndarray):
         return data.tolist()
-    elif isinstance(data, list | set):
+    elif isinstance(data, tuple | set):
         raise NotImplementedError(
             "Tuples and sets are not supported in config serialization."
         )
@@ -230,12 +262,17 @@ def _update(
                 update_value = False
 
         if (
+            # exception: None -> something allowed
             target_value is not None
-            and type(target_value) is not type(update_value)
+            # exception: something -> None allowed
+            and update_value is not None
+            # exception: int <-> float allowed
             and not (
                 isinstance(target_value, int | float)
                 and isinstance(update_value, int | float)
             )
+            # actual type check
+            and type(target_value) is not type(update_value)
         ):
             raise TypeMismatchConfigError(
                 full_key,

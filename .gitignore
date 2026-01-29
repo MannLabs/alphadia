@@ -3,7 +3,6 @@ AlphaDIA/logs
 
 *.DS_Store
 *sandbox*
-.neptune
 nbs/mono_crash*
 .coverage
 
@@ -162,6 +161,8 @@ gui/out/
 # mono crash logs #
 ###################
 mono_crash*
+
+tests/e2e_tests/**/output*/
 
 ###################
 # IDEs            #

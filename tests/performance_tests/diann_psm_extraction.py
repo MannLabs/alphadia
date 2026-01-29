@@ -1,9 +1,7 @@
 import logging
 import os
 import pathlib
-import socket
 
-import neptune.new as neptune
 from alphabase.tools.data_downloader import DataShareDownloader
 
 from alphadia.extraction.calibration import RunCalibration
@@ -21,20 +19,6 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    # set up neptune logging
-    try:
-        neptune_token = os.environ["NEPTUNE_TOKEN"]
-    except KeyError:
-        logging.exception("NEPTUNE_TOKEN environtment variable not set")
-        raise KeyError from None
-
-    run = neptune.init_run(project="MannLabs/alphaDIA", api_token=neptune_token)
-    run["version"] = "alpha_0.1"
-    run["sys/tags"].add(["0_brunner_2022_1ng_extraction"])
-    run["host"] = socket.gethostname()
-
-    # set up logging
-
     logging.getLogger().setLevel(logging.INFO)
     logging.info("Starting diann psm extraction performance test")
 
@@ -74,8 +58,6 @@ if __name__ == "__main__":
         script_location, "..", "..", "misc", "config", "default.yaml"
     )
 
-    run["config"].upload(yaml_file)
-
     plan = Plan(yaml_file)
     plan.load_speclib(psm_lib_location, mode="dense")
     calibration = RunCalibration()
@@ -110,7 +92,6 @@ if __name__ == "__main__":
         calibration.predict(precursors_flat, "precursor")
         calibration.predict(fragments_flat, "fragment")
 
-        run["eval/iteration"].log(iteration)
         if iteration == 0:
             column_type = "library"
             num_candidates = 2
@@ -156,20 +137,15 @@ if __name__ == "__main__":
         ]
         features_df["nAA"] = precursors_flat["nAA"].values[features_df["index"].values]
 
-        features_df = fdr_correction(
-            features_df,
-            # neptune_run=run
-        )
+        features_df = fdr_correction(features_df)
 
         feature_filtered = features_df[features_df["qval"] < 0.01]
-        run["eval/precursors"].log(len(feature_filtered))
         logging.info(f"Found {len(feature_filtered):,} features with qval < 0.01")
 
         calibration.fit(
             feature_filtered,
             "precursor",
             plot=True,
-            # neptune_run=run
         )
         m1_70 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.7)[0]
         m1_99 = calibration.get_estimator("precursor", "mz").ci(features_df, 0.99)[0]
@@ -178,10 +154,6 @@ if __name__ == "__main__":
         mobility_99 = calibration.get_estimator("precursor", "mobility").ci(
             features_df, 0.99
         )[0]
-
-        run["eval/99_ms1_error"].log(m1_99)
-        run["eval/99_rt_error"].log(rt_99)
-        run["eval/99_mobility_error"].log(mobility_99)
 
         fragment_calibration_df = unpack_fragment_info(feature_filtered)
         fragment_calibration_df = fragment_calibration_df.sort_values(
@@ -192,7 +164,6 @@ if __name__ == "__main__":
             fragment_calibration_df,
             "fragment",
             plot=True,
-            # neptune_run=run
         )
         m2_70 = calibration.get_estimator("fragment", "mz").ci(
             fragment_calibration_df, 0.7
@@ -200,8 +171,6 @@ if __name__ == "__main__":
         m2_99 = calibration.get_estimator("fragment", "mz").ci(
             fragment_calibration_df, 0.99
         )[0]
-
-        run["eval/99_ms2_error"].log(m2_99)
 
         if (
             initial_ms1_error == target_ms1_error
@@ -215,3 +184,5 @@ if __name__ == "__main__":
         initial_rt_error = max(rt_70, target_rt_error, initial_rt_error * 0.6)
 
         iteration += 1
+
+    # TODO: propagate results

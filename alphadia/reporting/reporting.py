@@ -10,11 +10,14 @@ import warnings
 from datetime import datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from typing import Any
 
 # alphadia imports
 # alpha family imports
 # third party imports
 import matplotlib
+import matplotlib.figure
+import matplotlib.image
 import numpy as np
 from matplotlib.figure import Figure
 
@@ -28,17 +31,17 @@ from alphadia.exceptions import CustomError, GenericUserError
 # Add a new logging level to the default logger, level 21 is just above INFO (20)
 # This has to happen at load time to make the .progress() method available even if no logger is instantiated
 PROGRESS_LEVELV_NUM = 21
-logging.PROGRESS = PROGRESS_LEVELV_NUM
+logging.PROGRESS = PROGRESS_LEVELV_NUM  # type: ignore[attr-defined]
 logging.addLevelName(PROGRESS_LEVELV_NUM, "PROGRESS")
 
 
-def progress(self, message, *args, **kws):
+def progress(self: logging.Logger, message: str, *args: Any, **kws: Any) -> None:
     if self.isEnabledFor(PROGRESS_LEVELV_NUM):
         # Yes, logger takes its '*args' as 'args'.
         self._log(PROGRESS_LEVELV_NUM, message, args, **kws)
 
 
-logging.Logger.progress = progress
+logging.Logger.progress = progress  # type: ignore[attr-defined]
 
 
 class DefaultFormatter(logging.Formatter):
@@ -68,7 +71,7 @@ class DefaultFormatter(logging.Formatter):
             self.formatter = {
                 logging.DEBUG: logging.Formatter(self.template),
                 logging.INFO: logging.Formatter(self.template),
-                logging.PROGRESS: logging.Formatter(
+                PROGRESS_LEVELV_NUM: logging.Formatter(
                     self.green + self.template + self.reset
                 ),
                 logging.WARNING: logging.Formatter(
@@ -83,7 +86,7 @@ class DefaultFormatter(logging.Formatter):
             self.formatter = {
                 logging.DEBUG: logging.Formatter(self.template),
                 logging.INFO: logging.Formatter(self.template),
-                logging.PROGRESS: logging.Formatter(self.template),
+                PROGRESS_LEVELV_NUM: logging.Formatter(self.template),
                 logging.WARNING: logging.Formatter(self.template),
                 logging.ERROR: logging.Formatter(self.template),
                 logging.CRITICAL: logging.Formatter(self.template),
@@ -110,7 +113,7 @@ class DefaultFormatter(logging.Formatter):
         return f"{elapsed} {self.formatter[record.levelno].format(record)}"
 
 
-def init_logging(log_folder: str = None, log_level: int = logging.INFO):
+def init_logging(log_folder: str | None = None, log_level: int = logging.INFO):
     """Initialize the default logger.
     Sets the formatter and the console and file handlers.
 
@@ -208,19 +211,33 @@ class Backend:
 
     REQUIRES_CONTEXT = False
 
-    def log_figure(self, name: str, figure: typing.Any, *args, **kwargs):
+    def log_figure(
+        self, name: str, figure: typing.Any, *args: Any, **kwargs: Any
+    ) -> None:
         pass
 
-    def log_metric(self, name: str, value: float, *args, **kwargs):
+    def log_metric(
+        self, name: str, value: float | str, *args: Any, **kwargs: Any
+    ) -> None:
         pass
 
-    def log_string(self, value: str, *args, **kwargs):
+    def log_string(
+        self, value: str, verbosity: str = "info", *args: Any, **kwargs: Any
+    ) -> None:
         pass
 
-    def log_data(self, name: str, value: typing.Any, *args, **kwargs):
+    def log_data(self, name: str, value: typing.Any, *args: Any, **kwargs: Any) -> None:
         pass
 
-    def log_event(self, name: str, value: typing.Any, *args, **kwargs):
+    def log_event(
+        self, name: str, value: typing.Any, *args: Any, **kwargs: Any
+    ) -> None:
+        pass
+
+    def __enter__(self) -> "Backend":
+        return self
+
+    def __exit__(self, exc_type: Any, exc_value: Any, exc_traceback: Any) -> None:
         pass
 
 
@@ -283,9 +300,9 @@ class FigureBackend(Backend):
         filename = os.path.join(self.figures_path, f"{name}.{extension}")
 
         if isinstance(figure, matplotlib.figure.Figure):
-            figure.savefig(filename, **self.default_savefig_kwargs)
+            figure.savefig(filename, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         elif isinstance(figure, np.ndarray):
-            matplotlib.image.imsave(filename, figure, **self.default_savefig_kwargs)
+            matplotlib.image.imsave(filename, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
 
@@ -472,7 +489,7 @@ class JSONLBackend(Backend):
             }
             f.write(json.dumps(message) + "\n")
 
-    def log_string(self, value: str, verbosity: int = "info", *args, **kwargs):
+    def log_string(self, value: str, verbosity: str = "info", *args, **kwargs):
         """Log a string to the `events.jsonl` file.
 
         Important: This method will only log strings if the backend is in a context.
@@ -484,7 +501,7 @@ class JSONLBackend(Backend):
         value : str
             Value of the string.
 
-        verbosity : int, default 0
+        verbosity : str, default "info"
             Verbosity of the string. Can later be used to filter strings.
 
         """
@@ -525,9 +542,9 @@ class JSONLBackend(Backend):
 
         buffer = BytesIO()
         if isinstance(figure, matplotlib.figure.Figure):
-            figure.savefig(buffer, **self.default_savefig_kwargs)
+            figure.savefig(buffer, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         elif isinstance(figure, np.ndarray):
-            matplotlib.image.imsave(buffer, figure, **self.default_savefig_kwargs)
+            matplotlib.image.imsave(buffer, figure, **self.default_savefig_kwargs)  # type: ignore[arg-type]
         else:
             warnings.warn(f"FigureBackend does not support type {type(figure)}")
             return
@@ -547,16 +564,18 @@ class JSONLBackend(Backend):
 
 
 class LogBackend(Backend):
-    def __init__(self, path: str = None) -> None:
+    def __init__(self, path: str | None = None) -> None:
         if not __is_initiated__ or path is not None:
             init_logging(path)
 
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger()  # Has progress method added by reporting.py
         super().__init__()
 
-    def log_string(self, value: str, verbosity: str = "info", *args, **kwargs):
+    def log_string(
+        self, value: str, verbosity: str = "info", *args: Any, **kwargs: Any
+    ) -> None:
         if verbosity == "progress":
-            self.logger.progress(value)
+            self.logger.progress(value)  # type: ignore[attr-defined]
         elif verbosity == "info":
             self.logger.info(value)
         elif verbosity == "debug":
@@ -595,7 +614,7 @@ class Context:
 class Pipeline:
     def __init__(
         self,
-        backends: list[Backend] = None,
+        backends: list[Backend] | None = None,
     ):
         """Metric logger which allows to log metrics, plots and strings to multiple backends.
 

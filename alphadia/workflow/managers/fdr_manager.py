@@ -11,7 +11,6 @@ import xxhash
 
 import alphadia
 from alphadia.fdr import fdr
-from alphadia.fdr._fdrx.models.two_step_classifier import TwoStepClassifier
 from alphadia.fdr.classifiers import Classifier
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
@@ -56,7 +55,7 @@ class FDRManager(BaseManager):
     def __init__(
         self,
         feature_columns: list,
-        classifier_base: Classifier | TwoStepClassifier,
+        classifier_base: Classifier,
         config: Config,
         dia_cycle: None | np.ndarray = None,
         path: None | str = None,
@@ -91,7 +90,6 @@ class FDRManager(BaseManager):
             self.feature_columns = feature_columns
             self.classifier_store = defaultdict(list)
             self.classifier_base = classifier_base
-            self.is_two_step_classifier = isinstance(classifier_base, TwoStepClassifier)
 
         self._current_version = -1
         self.load_classifier_store()
@@ -163,28 +161,19 @@ class FDRManager(BaseManager):
         )
 
         if decoy_strategy == "precursor":
-            if not self.is_two_step_classifier:
-                psm_df = fdr.perform_fdr(
-                    classifier,
-                    available_columns,
-                    features_df[features_df["decoy"] == 0].copy(),
-                    features_df[features_df["decoy"] == 1].copy(),
-                    competitive=competitive,
-                    group_channels=True,
-                    # TODO move this logic to perform_fdr():
-                    df_fragments=df_fragments if self._compete_for_fragments else None,
-                    dia_cycle=self._dia_cycle,
-                    figure_path=self.figure_path,
-                    random_state=random_state,
-                )
-            else:
-                group_columns = get_group_columns(competitive, group_channels=True)
-
-                psm_df = classifier.fit_predict(
-                    features_df,
-                    available_columns + ["score"],
-                    group_columns=group_columns,
-                )
+            psm_df = fdr.perform_fdr(
+                classifier,
+                available_columns,
+                features_df[features_df["decoy"] == 0].copy(),
+                features_df[features_df["decoy"] == 1].copy(),
+                competitive=competitive,
+                group_channels=True,
+                # TODO move this logic to perform_fdr():
+                df_fragments=df_fragments if self._compete_for_fragments else None,
+                dia_cycle=self._dia_cycle,
+                figure_path=self.figure_path,
+                random_state=random_state,
+            )
 
         elif decoy_strategy == "precursor_channel_wise":
             channels = features_df["channel"].unique()
@@ -320,23 +309,18 @@ class FDRManager(BaseManager):
 
         logger.info(f"Loading classifier store from {path}")
 
-        if (
-            not self.is_two_step_classifier
-        ):  # TODO add pretrained model for TwoStepClassifier
-            for file in os.listdir(path):
-                if file.endswith(".pth"):
-                    classifier_hash = file.split(".")[0]
+        for file in os.listdir(path):
+            if file.endswith(".pth"):
+                classifier_hash = file.split(".")[0]
 
-                    if classifier_hash not in self.classifier_store:
-                        classifier = deepcopy(self.classifier_base)
-                        classifier.from_state_dict(
-                            torch.load(os.path.join(path, file), weights_only=False)
-                        )
-                        self.classifier_store[classifier_hash].append(classifier)
+                if classifier_hash not in self.classifier_store:
+                    classifier = deepcopy(self.classifier_base)
+                    classifier.from_state_dict(
+                        torch.load(os.path.join(path, file), weights_only=False)
+                    )
+                    self.classifier_store[classifier_hash].append(classifier)
 
-    def get_classifier(
-        self, available_columns: list, version: int = -1
-    ) -> Classifier | TwoStepClassifier:
+    def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
         """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
 
         Parameters

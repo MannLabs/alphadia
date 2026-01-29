@@ -108,6 +108,24 @@ const ParameterInput = ({
                     onChange={(event) => {onChange(event.target.value)}}
                 />)
                 break;
+            case "textarea":
+                input = (
+                    <TextField
+                    id="outlined-textarea"
+                    type="text"
+                    variant="standard"
+                    size="small"
+                    multiline
+                    minRows={1}
+                    maxRows={16}
+                    sx = {{width: "150px"}}
+                    value={parameter.value}
+                    onChange={(event) => {
+                        const valueWithoutLineBreaks = event.target.value.replace(/[\r\n]+/g, '');
+                        onChange(valueWithoutLineBreaks);
+                    }}
+                />)
+                break;
             case "boolean":
                 input = (
                     <Box sx={{width: "150px"}}>
@@ -128,7 +146,7 @@ const ParameterInput = ({
                             >
                             {parameter.options.map((option) => {
                                 return (
-                                    <MenuItem value={option}>{option}</MenuItem>
+                                    <MenuItem key={option} value={option}>{option}</MenuItem>
                                 )
                             })}
                         </Select>
@@ -202,8 +220,8 @@ const ParameterInput = ({
                             value={parameter.value}
                             onChange={(event) => {onChange(event.target.value)}}
                             renderValue={(selected) => (
-                                <Typography>
-                                    {selected.length} selected
+                                <Typography sx={{fontSize: "14px", whiteSpace: "normal", wordWrap: "break-word"}}>
+                                    {selected.join(', ')}
                                 </Typography>
                             )}
                         >

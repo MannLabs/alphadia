@@ -35,9 +35,7 @@ class DecoyGenerator(ProcessingStep):
 
         decoy_values = input.precursor_df["decoy"].unique()
         if len(decoy_values) > 1:
-            logger.warning(
-                "Input library already contains decoys. Skipping decoy generation. \n Please note that decoys generated outside of alphabase are not supported."
-            )
+            logger.info("Decoys already present, skipping decoy generation")
             return input
 
         decoy_lib = decoy_lib_provider.get_decoy_lib(self.decoy_type, input.copy())

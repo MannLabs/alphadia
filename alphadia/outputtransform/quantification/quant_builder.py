@@ -1,4 +1,5 @@
 import logging
+from dataclasses import dataclass
 
 import directlfq.config as lfqconfig
 import directlfq.normalization as lfqnorm
@@ -7,10 +8,45 @@ import directlfq.utils as lfqutils
 import numba as nb
 import numpy as np
 import pandas as pd
+from quantselect.output import run_quantselect
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
+
+
+@dataclass
+class LFQOutputConfig:
+    """Configuration for label-free quantification output at a specific level.
+
+    Parameters
+    ----------
+    quant_level : str
+        Column name to use for grouping quantification (e.g., 'mod_seq_charge_hash', 'mod_seq_hash', 'pg')
+    level_name : str
+        Descriptive name for this quantification level (e.g., 'precursor', 'peptide', 'pg')
+    intensity_column : str
+        Name of the intensity column in the output
+    aggregation_components : list[str]
+        Columns which are shared within a group by quant level.
+        e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
+    should_process : bool, default=True
+        Whether to process this quantification level
+    save_fragments : bool, default=False
+        Whether to save fragment-level quantification matrices
+    normalization_method: str | None, default="directlfq"
+        Normalization method to use (e.g., 'directlfq', 'quantselect')
+    """
+
+    quant_level: str
+    level_name: str
+    intensity_column: str
+    aggregation_components: list[str]
+    should_process: bool = True
+    save_fragments: bool = False
+    normalization_method: str = NormalizationMethods.DIRECTLFQ
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
@@ -145,70 +181,93 @@ class QuantBuilder:
         )
         return intensity_df[mask], quality_df[mask]
 
-    def lfq(
+    def direct_lfq(
         self,
         intensity_df: pd.DataFrame,
-        quality_df: pd.DataFrame,
-        num_cores: int,
-        num_samples_quadratic: int = 50,
-        min_nonan: int = 1,
-        normalize: bool = True,
-        group_column: str = "pg",
+        lfq_config: LFQOutputConfig,
+        config: Config,
     ) -> pd.DataFrame:
         """Perform label-free quantification using directLFQ.
 
         Parameters
         ----------
-        intensity_df : pd.DataFrame
-            Fragment intensity data with columns: group_column, ion, run1, run2, ...
-        quality_df : pd.DataFrame
-            Fragment quality data (currently unused but kept for API compatibility)
-        num_cores : int
-            Number of CPU cores for parallel processing
-        num_samples_quadratic : int, default=50
-            Number of samples for quadratic fitting in directLFQ
-        min_nonan : int, default=1
-            Minimum number of non-NaN values required per protein
-        normalize : bool, default=True
-            Whether to normalize intensities across samples
-        group_column : str, default='pg'
-            Column to group by for quantification (pg, mod_seq_hash, mod_seq_charge_hash)
+        intensity_df: pd.DataFrame
+            Fragment intensity dataframe with columns: precursor_idx, ion, run1, run2, ..., pg, mod_seq_hash, mod_seq_charge_hash
+        lfq_config: LFQOutputConfig
+            Configuration for this quantification level
+        config: Config
+            Global configuration object
 
         Returns
         -------
         pd.DataFrame
             Protein/peptide quantification results with columns: group_column, run1, run2, ...
         """
-        logger.info("Performing label-free quantification using directLFQ")
+        logger.info(
+            f"Performing label-free quantification with {lfq_config.normalization_method} normalization"
+        )
 
+        # drop all other columns as they will be interpreted as samples
         columns_to_drop = list(
             {"precursor_idx", "pg", "mod_seq_hash", "mod_seq_charge_hash"}
-            - {group_column}
+            - {lfq_config.quant_level}
         )
-        _intensity_df = intensity_df.drop(columns=columns_to_drop)
+        intensity_df = intensity_df.drop(columns=columns_to_drop)
 
-        lfqconfig.set_global_protein_and_ion_id(protein_id=group_column, quant_id="ion")
+        lfqconfig.set_global_protein_and_ion_id(
+            protein_id=lfq_config.quant_level, quant_id="ion"
+        )
         lfqconfig.set_compile_normalized_ion_table(compile_normalized_ion_table=False)
         lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
         lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
 
-        _intensity_df.sort_values(by=group_column, inplace=True, ignore_index=True)
+        intensity_df.sort_values(
+            by=lfq_config.quant_level, inplace=True, ignore_index=True
+        )
 
-        lfq_df = lfqutils.index_and_log_transform_input_df(_intensity_df)
+        lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
 
-        if normalize:
+        if config["search_output"]["normalize_directlfq"]:
+            logger.info("Applying directLFQ normalization")
             lfq_df = lfqnorm.NormalizationManagerSamplesOnSelectedProteins(
                 lfq_df,
-                num_samples_quadratic=num_samples_quadratic,
+                num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
                 selected_proteins_file=None,
             ).complete_dataframe
 
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
-            min_nonan=min_nonan,
-            num_samples_quadratic=num_samples_quadratic,
-            num_cores=num_cores,
+            min_nonan=config["search_output"]["min_nonnan"],
+            num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
+            num_cores=config["general"]["thread_count"],
         )
-
         return protein_df
+
+    def quantselect_lfq(
+        self,
+        feature_dfs_dict: dict[str, pd.DataFrame],
+        lfq_config: LFQOutputConfig,
+    ) -> pd.DataFrame:
+        """Perform label-free quantification using QuantSelect.
+
+        Parameters
+        ----------
+        feature_dfs_dict: dict[str, pd.DataFrame]
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
+        lfq_config: LFQOutputConfig
+            Configuration for this quantification level
+
+        Returns
+        -------
+        pd.DataFrame
+            Protein/peptide quantification results with columns: group_column, run1, run2, ...
+        """
+        logger.info("Performing label-free quantification with QuantSelect")
+
+        return run_quantselect(
+            seed=42,
+            psm_df=self.psm_df,
+            feature_dfs_dict=feature_dfs_dict,
+            lfq_config=lfq_config,
+        )

@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pandas as pd
 import pytest
 
+from alphadia.constants.keys import NormalizationMethods
 from alphadia.outputtransform.quantification import (
     QuantificationLevelName,
     QuantOutputBuilder,
@@ -24,9 +25,10 @@ def config():
             "min_correlation": 0.5,
             "min_nonnan": 1,
             "num_samples_quadratic": 50,
-            "normalize_lfq": True,
             "save_fragment_quant_matrix": False,
             "file_format": "parquet",
+            "normalization_method": NormalizationMethods.DIRECTLFQ,
+            "normalize_directlfq": True,
         },
     }
 
@@ -80,10 +82,15 @@ def feature_dfs():
 
 
 def lfq_side_effect(*args, **kwargs):
-    group_column = kwargs.get("group_column", "pg")
-    if group_column == "mod_seq_charge_hash":
+    # Extract the lfq_config instance from kwargs (it's passed as a keyword argument)
+    lfq_config = kwargs.get("lfq_config")
+
+    # Get the quant_level attribute from the LFQOutputConfig instance
+    quant_level = getattr(lfq_config, "quant_level", "pg") if lfq_config else "pg"
+
+    if quant_level == "mod_seq_charge_hash":
         return pd.DataFrame({"mod_seq_charge_hash": [10, 20], "run1": [1000.0, 2000.0]})
-    elif group_column == "mod_seq_hash":
+    elif quant_level == "mod_seq_hash":
         return pd.DataFrame({"mod_seq_hash": [1, 2], "run1": [1500.0, 2500.0]})
     return pd.DataFrame({"pg": ["PG001", "PG002"], "run1": [5000.0, 2000.0]})
 
@@ -121,7 +128,7 @@ class TestQuantOutputBuilder:
         pd.testing.assert_frame_equal(result_psm_df, psm_df)
 
     @patch(
-        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.lfq"
+        "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.direct_lfq"
     )
     @patch(
         "alphadia.outputtransform.quantification.quant_output_builder.QuantBuilder.filter_frag_df"
@@ -130,7 +137,7 @@ class TestQuantOutputBuilder:
         "alphadia.outputtransform.quantification.fragment_accumulator.FragmentQuantLoader.accumulate_from_folders"
     )
     def test_build_processes_all_levels_with_correct_annotations(
-        self, mock_accumulate, mock_filter, mock_lfq, psm_df, config, feature_dfs
+        self, mock_accumulate, mock_filter, mock_direct_lfq, psm_df, config, feature_dfs
     ):
         """Given all three quantification levels enabled, when build is called, then all levels return output with correct annotations."""
         # Given
@@ -139,7 +146,7 @@ class TestQuantOutputBuilder:
             feature_dfs["intensity"],
             feature_dfs["correlation"],
         )
-        mock_lfq.side_effect = lfq_side_effect
+        mock_direct_lfq.side_effect = lfq_side_effect
         builder = QuantOutputBuilder(psm_df, config)
 
         # When

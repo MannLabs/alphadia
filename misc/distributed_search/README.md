@@ -48,7 +48,9 @@ Steps to set up a search
     - `--second_search` (1/0): whether to perform a second search with the focused MBR library.
     - `--lfq` (1/0): whether to perform LFQ quantification of the second search results.
 
-An example call to outer.sh could look like this: `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 0 --search_config EXAMPLE_search.config --nnodes 2`
+An example call to outer.sh from a folder called e.g. `example_distributed_search` could look like this: `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 0 --search_config EXAMPLE_search.config --nnodes 2`
+
+After starting the search, a `logs/` directory is created inside `example_distributed_search`. The main orchestration job log would be here `<job number>-dist_AD-slurm.out`, and the sub-jobs for individual searches here: `<job number>_0_alphaDIA-slurm.out`, `<job number>_1_alphaDIA-slurm.out`, etc.
 
 Running the search creates five subdirectories in the target folder:
 

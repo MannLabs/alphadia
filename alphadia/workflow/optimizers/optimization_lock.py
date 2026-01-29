@@ -127,7 +127,7 @@ class OptimizationLock:
         self._feature_dfs += [feature_df]
         self._fragment_dfs += [fragment_df]
 
-        self.total_elution_groups = self.features_df.elution_group_idx.nunique()
+        self.total_elution_groups = self.features_df["elution_group_idx"].nunique()
 
     def update_with_fdr(self, precursor_df: pd.DataFrame):
         """Calculates the number of precursors at 1% FDR for the current optimization lock and determines if it is sufficient to perform calibration and optimization.

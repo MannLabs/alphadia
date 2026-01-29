@@ -1,50 +1,24 @@
 import logging
 import os
-from dataclasses import dataclass
 
 import pandas as pd
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
+    NormalizationMethods,
     QuantificationLevelKey,
     QuantificationLevelName,
 )
 from alphadia.outputtransform.quantification.fragment_accumulator import (
     FragmentQuantLoader,
 )
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    LFQOutputConfig,
+    QuantBuilder,
+)
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 
 logger = logging.getLogger()
-
-
-@dataclass
-class LFQOutputConfig:
-    """Configuration for label-free quantification output at a specific level.
-
-    Parameters
-    ----------
-    quant_level : str
-        Column name to use for grouping quantification (e.g., 'mod_seq_charge_hash', 'mod_seq_hash', 'pg')
-    level_name : str
-        Descriptive name for this quantification level (e.g., 'precursor', 'peptide', 'pg')
-    intensity_column : str
-        Name of the intensity column in the output
-    aggregation_components : list[str]
-        Columns which are shared within a group by quant level.
-        e.g. if the quant level is precursr, all rows will have the same pg, sequence, mods, mod_sites and charge.
-    should_process : bool, default=True
-        Whether to process this quantification level
-    save_fragments : bool, default=False
-        Whether to save fragment-level quantification matrices
-    """
-
-    quant_level: str
-    level_name: str
-    intensity_column: str
-    aggregation_components: list[str]
-    should_process: bool = True
-    save_fragments: bool = False
 
 
 class QuantOutputBuilder:
@@ -61,6 +35,19 @@ class QuantOutputBuilder:
         Configuration dictionary with quantification settings
     """
 
+    QUANTSELECT_COLUMNS = [
+        "intensity",
+        "mass_error",
+        "correlation",
+        "charge",
+        "mz_observed",
+        "type",
+        "number",
+        "cardinality",
+        "position",
+    ]
+    DEFAULT_COLUMNS = ["intensity", "correlation"]
+
     def __init__(self, psm_df: pd.DataFrame, config: dict):
         """Initialize the QuantOutputBuilder.
 
@@ -74,12 +61,17 @@ class QuantOutputBuilder:
         self.psm_df = psm_df
         self.config = config
         psm_no_decoys = psm_df[psm_df["decoy"] == 0]
-        self.fragment_loader = FragmentQuantLoader(
-            psm_no_decoys, columns=["intensity", "correlation"]
-        )
-        self.quant_builder = QuantBuilder(
-            psm_no_decoys, columns=["intensity", "correlation"]
-        )
+
+        if (
+            config["search_output"]["normalization_method"]
+            == NormalizationMethods.QUANTSELECT
+        ):
+            columns = self.QUANTSELECT_COLUMNS
+        else:
+            columns = self.DEFAULT_COLUMNS
+
+        self.fragment_loader = FragmentQuantLoader(psm_no_decoys, columns=columns)
+        self.quant_builder = QuantBuilder(psm_no_decoys, columns=columns)
 
     def build(
         self, folder_list: list[str]
@@ -118,7 +110,7 @@ class QuantOutputBuilder:
             )
 
             lfq_df = self._process_quant_level(
-                quantlevel_config, feature_dfs_dict, self.psm_df
+                lfq_config=quantlevel_config, feature_dfs_dict=feature_dfs_dict
             )
 
             if lfq_df is not None and not lfq_df.empty:
@@ -162,6 +154,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PEPTIDE,
@@ -177,6 +172,9 @@ class QuantOutputBuilder:
                 save_fragments=self.config["search_output"][
                     "save_fragment_quant_matrix"
                 ],
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
             LFQOutputConfig(
                 quant_level=QuantificationLevelKey.PROTEIN,
@@ -186,6 +184,9 @@ class QuantOutputBuilder:
                     QuantificationLevelName.PROTEIN,
                 ],
                 should_process=True,
+                normalization_method=self.config["search_output"][
+                    "normalization_method"
+                ],
             ),
         ]
 
@@ -221,50 +222,49 @@ class QuantOutputBuilder:
 
     def _process_quant_level(
         self,
-        config: LFQOutputConfig,
+        lfq_config: LFQOutputConfig,
         feature_dfs_dict: dict[str, pd.DataFrame],
-        psm_df: pd.DataFrame,
     ) -> pd.DataFrame | None:
         """Process quantification for a single level.
 
         Parameters
         ----------
-        config : LFQOutputConfig
+        lfq_config : LFQOutputConfig
             Configuration for this quantification level
         feature_dfs_dict : dict[str, pd.DataFrame]
-            Dictionary containing intensity and correlation dataframes
-        psm_df : pd.DataFrame
-            PSM dataframe for annotation
+            Dictionary with feature name as key and a df as value, where df is a feature dataframe with the columns precursor_idx, ion, raw_name1, raw_name2, ...
 
         Returns
         -------
         pd.DataFrame | None
             Quantification results, or None if no data available
         """
-        group_intensity_df, _ = self.quant_builder.filter_frag_df(
-            feature_dfs_dict["intensity"],
-            feature_dfs_dict["correlation"],
-            top_n=self.config["search_output"]["min_k_fragments"],
-            min_correlation=self.config["search_output"]["min_correlation"],
-            group_column=config.quant_level,
-        )
-
-        if len(group_intensity_df) == 0:
-            logger.warning(
-                f"No fragments found for {config.level_name}, skipping label-free quantification"
+        if lfq_config.normalization_method == NormalizationMethods.DIRECTLFQ:
+            filtered_intensity_df, _ = self.quant_builder.filter_frag_df(
+                feature_dfs_dict["intensity"],
+                feature_dfs_dict["correlation"],
+                top_n=self.config["search_output"]["min_k_fragments"],
+                min_correlation=self.config["search_output"]["min_correlation"],
+                group_column=lfq_config.quant_level,
             )
-            return None
 
-        lfq_df = self.quant_builder.lfq(
-            group_intensity_df,
-            feature_dfs_dict["correlation"],
-            num_cores=self.config["general"]["thread_count"],
-            min_nonan=self.config["search_output"]["min_nonnan"],
-            num_samples_quadratic=self.config["search_output"]["num_samples_quadratic"],
-            normalize=self.config["search_output"]["normalize_lfq"],
-            group_column=config.quant_level,
-        )
+            if len(filtered_intensity_df) == 0:
+                logger.warning(
+                    f"No fragments found for {lfq_config.level_name}, skipping label-free quantification"
+                )
+                return None
 
+            lfq_df = self.quant_builder.direct_lfq(
+                intensity_df=filtered_intensity_df,
+                lfq_config=lfq_config,
+                config=self.config,
+            )
+
+        else:
+            lfq_df = self.quant_builder.quantselect_lfq(
+                feature_dfs_dict=feature_dfs_dict,
+                lfq_config=lfq_config,
+            )
         return lfq_df
 
     def _apply_output_names(self, df: pd.DataFrame) -> pd.DataFrame:

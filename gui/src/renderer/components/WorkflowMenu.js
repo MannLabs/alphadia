@@ -29,15 +29,17 @@ const WorkflowMenu = ({
             ]}
         >
                 <ButtonBase {...bindTrigger(popupState)}>
-                    {
-                        popupState.isOpen ?
-                        <ArrowRightIcon sx={{color: theme.palette.success.main}}/>
-                        :
-                        <ArrowDropDownIcon sx={{color: theme.palette.success.main}}/>
-                    }
-                    <Typography component="div" sx={{color: theme.palette.success.main, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
-                        {currentWorkflow !== "" ? currentWorkflow : "Select Workflow"}
-                    </Typography>
+                    <>
+                        {
+                            popupState.isOpen ?
+                            <ArrowRightIcon sx={{color: theme.palette.success.main}}/>
+                            :
+                            <ArrowDropDownIcon sx={{color: theme.palette.success.main}}/>
+                        }
+                        <Typography component="div" sx={{color: theme.palette.success.main, fontFamily:"Roboto Mono", fontSize:"0.8rem"}}>
+                            {currentWorkflow !== "" ? currentWorkflow : "Select Workflow"}
+                        </Typography>
+                    </>
                 </ButtonBase>
                 <Menu
                     {...bindMenu(popupState)}

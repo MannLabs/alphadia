@@ -444,13 +444,7 @@ class SearchPlanOutput:
         quant_output_builder = QuantOutputBuilder(psm_df, self.config)
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
-        if save and lfq_results:
-            quant_output_builder.save_results(
-                lfq_results,
-                self.output_folder,
-                file_format=self.config["search_output"]["file_format"],
-            )
-
+        if save:
             logger.info("Writing psm output to disk")
             psm_df_output = apply_output_column_names(psm_df_with_quant)
             write_df(
@@ -458,6 +452,13 @@ class SearchPlanOutput:
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )
+
+            if lfq_results:
+                quant_output_builder.save_results(
+                    lfq_results,
+                    self.output_folder,
+                    file_format=self.config["search_output"]["file_format"],
+                )
 
         return lfq_results
 
@@ -484,19 +485,18 @@ class SearchPlanOutput:
         """
         logger.progress("Building MBR spectral library")
 
-        psm_df = psm_df[psm_df["decoy"] == 0]
-
         if len(psm_df) == 0:
             logger.warning("No precursors found, skipping MBR library building")
             return None
 
         libbuilder = MbrLibraryBuilder(
             fdr=0.01,
+            keep_decoys=self.config["fdr"]["keep_decoys_in_mbr_library"],
         )
         mbr_spec_lib = libbuilder(psm_df, base_spec_lib)
 
         precursor_number = len(mbr_spec_lib.precursor_df)
-        protein_number = mbr_spec_lib.precursor_df.proteins.nunique()
+        protein_number = mbr_spec_lib.precursor_df["proteins"].nunique()
 
         logger.info(
             f"MBR spectral library contains {precursor_number:,} precursors, {protein_number:,} proteins"

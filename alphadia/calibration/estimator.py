@@ -134,10 +134,10 @@ class CalibrationEstimator:
             True if df is valid, False otherwise
 
         """
-        required_columns = set(required_columns)
-        if not required_columns.issubset(df.columns):
+        required_columns_set = set(required_columns)
+        if not required_columns_set.issubset(df.columns):
             logging.warning(
-                f"{self.name}, at least one column {required_columns} not found in dataframe"
+                f"{self.name}, at least one column {required_columns_set} not found in dataframe"
             )
             return False
 
@@ -254,6 +254,8 @@ class CalibrationEstimator:
         input_transform = self.transform_deviation
 
         calibrated_values = self.predict(df, inplace=False)
+        assert calibrated_values is not None  # type checker
+
         if calibrated_values.ndim == 1:
             calibrated_values = calibrated_values[:, np.newaxis]
 
@@ -291,8 +293,8 @@ class CalibrationEstimator:
         """Calculate the metrics for the calibration."""
         deviation = self.calc_deviation(df)
         return {
-            "median_accuracy": np.median(np.abs(deviation[:, 1])),
-            "median_precision": np.median(np.abs(deviation[:, 2])),
+            "median_accuracy": float(np.median(np.abs(deviation[:, 1]))),
+            "median_precision": float(np.median(np.abs(deviation[:, 2]))),
         }
 
     def ci(self, df: pd.DataFrame, ci: float = 0.95) -> float:
@@ -322,7 +324,7 @@ class CalibrationEstimator:
 
         deviation = self.calc_deviation(df)
         residual_deviation = deviation[:, 2]
-        return np.mean(np.abs(np.percentile(residual_deviation, ci_percentile)))
+        return float(np.mean(np.abs(np.percentile(residual_deviation, ci_percentile))))
 
 
 class CalibrationModelProvider:

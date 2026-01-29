@@ -88,7 +88,6 @@ const Config = () => {
                         <AlertTitle>Limited Feature Set</AlertTitle>
                         The selected 'rust' extraction backend is superior in speed and performance, and recommended for Thermo and Sciex data.<br />
                         However, some features are not yet available:<br />
-                        - transfer learning<br />
                         - multiplexing<br />
                         - processing Bruker files<br />
                         If you need these, you need to switch the backend to 'python' in the "Search" parameter group.

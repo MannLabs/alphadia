@@ -6,13 +6,11 @@ import tempfile
 import time
 
 import matplotlib
-import neptune
 import numpy as np
 import pandas as pd
 import torch
 from alphabase.tools.data_downloader import DataShareDownloader
 
-import alphadia
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.workflow.peptidecentric.peptidecentric import feature_columns
@@ -34,21 +32,6 @@ parser.add_argument(
     type=str,
     default="https://datashare.biochem.mpg.de/s/aGpiFGNP1CcljTY",
     help="url to the test data, default: https://datashare.biochem.mpg.de/s/aGpiFGNP1CcljTY",
-)
-
-parser.add_argument(
-    "--neptune-project",
-    type=str,
-    default="MannLabs/alphadia-fdr-optimization",
-    help="Neptune.ai project for continous logging, default: MannLabs/alphadia-fdr-optimization",
-)
-
-parser.add_argument(
-    "--neptune-tag",
-    action="append",
-    dest="neptune_tag",
-    default=[],
-    help="Specify Neptune tags",
 )
 
 parser.add_argument(
@@ -116,16 +99,6 @@ def main():
     # set number of threads
     torch.set_num_threads(args.threads)
 
-    # set neptune.ai logging
-    run = neptune.init_run(
-        project=args.neptune_project,
-        tags=args.neptune_tag,
-    )
-
-    # log parameters to neptune.ai
-    run["parameters"] = vars(args)
-    run["version"] = alphadia.__version__
-
     print(f"Downloading test data from {args.url}...")
     temp_directory = tempfile.gettempdir()
     test_data_location = DataShareDownloader(args.url, temp_directory).download()
@@ -165,7 +138,6 @@ def main():
             target_df,
             decoy_df,
             competitive=True,
-            # neptune_run=run,
         )
 
         stop_time = time.time()
@@ -185,31 +157,7 @@ def main():
     performance_df = pd.DataFrame(performance_dicts)
     performance_df["fdr_ratio"] = performance_df["fdr01"] / performance_df["fdr1"]
 
-    run["eval/fdr1_mean"] = performance_df["fdr1"].mean()
-    run["eval/fdr1_std"] = performance_df["fdr1"].std()
-    run["eval/fdr1_min"] = performance_df["fdr1"].min()
-    run["eval/fdr1_max"] = performance_df["fdr1"].max()
-    run["eval/fdr1_iszero"] = (performance_df["fdr1"] == 0).sum()
-
-    run["eval/fdr01_mean"] = performance_df["fdr01"].mean()
-    run["eval/fdr01_std"] = performance_df["fdr01"].std()
-    run["eval/fdr01_min"] = performance_df["fdr01"].min()
-    run["eval/fdr01_max"] = performance_df["fdr01"].max()
-    run["eval/fdr01_iszero"] = (performance_df["fdr01"] == 0).sum()
-
-    run["eval/fdr_ratio_mean"] = performance_df["fdr_ratio"].mean()
-    run["eval/fdr_ratio_std"] = performance_df["fdr_ratio"].std()
-    run["eval/fdr_ratio_min"] = performance_df["fdr_ratio"].min()
-    run["eval/fdr_ratio_max"] = performance_df["fdr_ratio"].max()
-
-    run["eval/duration_mean"] = performance_df["duration"].mean()
-    run["eval/duration_std"] = performance_df["duration"].std()
-    run["eval/duration_min"] = performance_df["duration"].min()
-    run["eval/duration_max"] = performance_df["duration"].max()
-
-    # TODO this used to upload fig from plot_fdr() to run["eval/fdr"]
-
-    run.stop()
+    # TODO: propagate results
 
     print("==========================")
     print("Precursor @ 1% FDR")

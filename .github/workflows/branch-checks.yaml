@@ -12,9 +12,18 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+    - name: Setup pip cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
     - shell: bash -le {0}
-      # in order to fix the version, install pre-commit manually
-      run: pip install pre-commit==4.3.0
+      run: pip install pre-commit==4.3.0 uv
+      # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
+    - uses: pre-commit/action@v3.0.1
+    - shell: bash -le {0}
+      run: pip install -e ".[stable]"
+      # alphadia installed -> type checking possible (re-does other checks, but should be fast)
     - uses: pre-commit/action@v3.0.1
 
   # For feature branches, we don't test the full matrix (os x [stable, loose]) in order to save time & resources.

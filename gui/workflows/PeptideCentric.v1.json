@@ -248,14 +248,14 @@
                     "name": "Fixed modifications",
                     "default": "Carbamidomethyl@C",
                     "description": "Fixed modifications for in-silico digest. Semicolon separated list \n Format: Modification@AminoAcid \n Example: Carbamidomethyl@C;Dimethyl@N-term",
-                    "type": "string"
+                    "type": "textarea"
                 },
                 {
                     "id": "variable_modifications",
                     "name": "Variable modifications",
                     "default": "Oxidation@M;Acetyl@Protein_N-term",
                     "description": "Variable modifications for in-silico digest. At the moment localisation is not supported. Semicolon separated list \n Example: Oxidation@M;Acetyl@ProteinN-term",
-                    "type": "string"
+                    "type": "textarea"
                 },
                 {
                     "id": "max_var_mod_num",
@@ -437,20 +437,6 @@
                     "type": "boolean"
                 },
                 {
-                    "id": "enable_two_step_classifier",
-                    "name": "Two Step Classifier (Experimental)",
-                    "default": false,
-                    "description": "If enabled, a two step classifier consisting of a linear filter and a neural network will be used.",
-                    "type": "boolean"
-                },
-                {
-                    "id": "two_step_classifier_max_iterations",
-                    "name": "Two Step Classifier Max Iterations (Experimental)",
-                    "default": 5,
-                    "description": "If two step classifier is enabled, this sets the maximum number of iterations for training the classifier.",
-                    "type": "integer"
-                },
-                {
                     "id": "enable_nn_hyperparameter_tuning",
                     "name": "Hyperparameter Tuning (Experimental)",
                     "default": true,
@@ -586,10 +572,21 @@
                     "type": "integer"
                 },
                 {
-                    "id": "normalize_lfq",
-                    "name": "Normalize LFQ",
+                    "id": "normalization_method",
+                    "name": "LFQ method",
+                    "default": "directlfq",
+                    "description": "Select the label-free quantification method. 'directlfq' uses the directLFQ algorithm, 'quantselect' uses the QuantSelect algorithm.",
+                    "type": "dropdown",
+                    "options": [
+                        "directlfq",
+                        "quantselect"
+                    ]
+                },
+                {
+                    "id": "normalize_directlfq",
+                    "name": "Normalize directLFQ",
                     "default": true,
-                    "description": "If enabled, the LFQ defaults will be normalized.",
+                    "description": "Apply directLFQ normalization when using the directLFQ method. Only applies when 'directlfq' is selected as the LFQ method.",
                     "type": "boolean"
                 }
             ]
@@ -603,7 +600,7 @@
                     "id": "enabled",
                     "name": "Enabled for all steps",
                     "default": false,
-                    "description": "If true, transfer learning training dataset is created. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will autoamticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
+                    "description": "If true, transfer learning training dataset is created. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automatically enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
                     "type": "boolean"
                 }
             ],
@@ -665,7 +662,7 @@
                     "id": "enabled",
                     "name": "Enabled for all steps",
                     "default": false,
-                    "description": "If true, a custom peptdeep model will be created using the transfer learned library. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will autoamticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
+                    "description": "If true, a custom peptdeep model will be created using the transfer learned library. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automaticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
                     "type": "boolean"
                 }
             ],
