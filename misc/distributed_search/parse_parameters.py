@@ -96,8 +96,8 @@ for i in range(0, max_tasks):
         )
         sys.exit(1)
 
-    # set library path in config
-    safe_add_key(current_config, None, "library_path", lib_source)
+    # set library path in config (convert to absolute path to avoid working directory issues)
+    safe_add_key(current_config, None, "library_path", os.path.abspath(lib_source))
 
     # set chunk folder as output_directory in the config
     safe_add_key(current_config, None, "output_directory", "./")

@@ -106,6 +106,8 @@ mkdir -p ${mbr_library_directory}
 
 mbr_progress_directory="${target_directory}/3_mbr_library/chunk_0/quant"
 mkdir -p ${mbr_progress_directory}
+# Convert to absolute path to avoid working directory issues in inner.sh
+mbr_progress_directory="$(cd "${mbr_progress_directory}" && pwd)"
 
 second_search_directory="${target_directory}/4_second_search"
 mkdir -p ${second_search_directory}
@@ -115,6 +117,8 @@ mkdir -p ${lfq_directory}
 
 lfq_progress_directory="${target_directory}/5_lfq/chunk_0/quant"
 mkdir -p ${lfq_progress_directory}
+# Convert to absolute path to avoid working directory issues in inner.sh
+lfq_progress_directory="$(cd "${lfq_progress_directory}" && pwd)"
 
 ### PREDICT LIBRARY ###
 
@@ -146,7 +150,8 @@ if [[ "$predict_library" -eq 1 ]]; then
 	cd "${home_directory}"
 
 	# if prediction took place, let the new speclib.hdf be the library path
-	library_path="${predicted_library_directory}/speclib.hdf"
+	# Convert to absolute path to avoid working directory issues
+	library_path="$(cd "$(dirname "${predicted_library_directory}/speclib.hdf")" && pwd)/$(basename "${predicted_library_directory}/speclib.hdf")"
 else
 	echo "Skipping library prediction"
 fi
