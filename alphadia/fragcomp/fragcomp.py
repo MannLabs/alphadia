@@ -6,8 +6,8 @@ import warnings
 import numba as nb
 import numpy as np
 import pandas as pd
-from alpharaw.alpharaw.utils.pjit import pjit
-from alpharaw.alpharaw.utils.pjit import set_threads as set_pjit_threads
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 from pandas.errors import SettingWithCopyWarning
 
 from alphadia.constants.keys import CalibCols

@@ -4,8 +4,8 @@ import logging
 
 import numpy as np
 import pandas as pd
-from alpharaw.alpharaw.utils.pjit import pjit
-from alpharaw.alpharaw.utils.pjit import set_threads as set_pjit_threads
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData

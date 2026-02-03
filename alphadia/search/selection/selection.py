@@ -5,8 +5,8 @@ import logging
 import numba as nb
 import numpy as np
 import pandas as pd
-from alpharaw.alpharaw.utils.pjit import pjit
-from alpharaw.alpharaw.utils.pjit import set_threads as set_pjit_threads
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 
 from alphadia import utils
 from alphadia.constants.keys import CalibCols
