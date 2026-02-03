@@ -3,7 +3,6 @@
 import logging
 import os
 
-import alpharaw.__version__ as alpharaw__version__
 import numba as nb
 import numpy as np
 from alpharaw.bruker.timstof import TimsTOF
@@ -77,15 +76,6 @@ class TimsTOFTranspose(TimsTOF):
         else:
             raise NotImplementedError("ERROR: file extension not understood")
 
-        if not hasattr(self, "version"):
-            self._version = "N.A."
-        if self.version != alpharaw__version__:
-            logger.info(
-                "WARNING: "
-                f"AlphaRaw version {self.version} was used to initialize "
-                f"{bruker_d_folder_name}, while the current version of "
-                f"AlphaRaw is {alpharaw__version__}."
-            )
         self.slice_as_dataframe = slice_as_dataframe
         self.use_calibrated_mz_values_as_default(use_calibrated_mz_values_as_default)
 
