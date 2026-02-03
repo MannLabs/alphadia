@@ -3,10 +3,11 @@
 import logging
 import os
 
-import alphatims.bruker
-import alphatims.utils
+import alpharaw.__version__ as alpharaw__version__
 import numba as nb
 import numpy as np
+from alpharaw.bruker.timstof import TimsTOF
+from alpharaw.utils.pjit import pjit, set_threads
 
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.search.jitclasses.bruker_jit import TimsTOFTransposeJIT
@@ -15,7 +16,7 @@ from alphadia.utils import USE_NUMBA_CACHING
 logger = logging.getLogger()
 
 
-class TimsTOFTranspose(alphatims.bruker.TimsTOF):
+class TimsTOFTranspose(TimsTOF):
     """Transposed TimsTOF data structure."""
 
     def __init__(
@@ -78,12 +79,12 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
 
         if not hasattr(self, "version"):
             self._version = "N.A."
-        if self.version != alphatims.__version__:
+        if self.version != alpharaw__version__:
             logger.info(
                 "WARNING: "
-                f"AlphaTims version {self.version} was used to initialize "
+                f"AlphaRaw version {self.version} was used to initialize "
                 f"{bruker_d_folder_name}, while the current version of "
-                f"AlphaTims is {alphatims.__version__}."
+                f"AlphaRaw is {alpharaw__version__}."
             )
         self.slice_as_dataframe = slice_as_dataframe
         self.use_calibrated_mz_values_as_default(use_calibrated_mz_values_as_default)
@@ -152,7 +153,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         )
 
 
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
+@pjit(cache=USE_NUMBA_CACHING)
 def _transpose_chunk(
     chunk_idx,  # pjit decorator changes the passed argument from an iterable to single index
     chunks,
@@ -200,7 +201,7 @@ def _build_chunks(number_of_elements, num_chunks):
 
 @nb.njit(cache=USE_NUMBA_CACHING)
 def _transpose(tof_indices, push_indptr, n_tof_indices, values):
-    """The default alphatims data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
+    """The default alpharaw (formerly: alphatims) data format consists of a sparse matrix where pushes are the rows, tof indices (discrete mz values) the columns and intensities the values.
     A lookup starts with a given push index p which points to the row. The start and stop indices of the row are accessed from dia_data.push_indptr[p] and dia_data.push_indptr[p+1].
     The tof indices are then accessed from dia_data.tof_indices[start:stop] and the corresponding intensities from dia_data.intensity_values[start:stop].
 
@@ -257,7 +258,7 @@ def _transpose(tof_indices, push_indptr, n_tof_indices, values):
     chunks = _build_chunks(n_tof_indices, 20)
 
     with nb.objmode:
-        alphatims.utils.set_threads(20)
+        set_threads(20)  # TODO: this should set from config!
 
         _transpose_chunk(
             range(len(chunks) - 1),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
