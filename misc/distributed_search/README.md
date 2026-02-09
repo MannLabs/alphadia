@@ -16,23 +16,27 @@ Compared to a linear two step search, distributing the raw file search steps off
 Steps to set up a search
 ========================
 
-1. Set up an empty search directory on your HPCL partition. One directory corresponds to one study, i.e. one set of raw files, fasta/library and search configuration.
-2. Copy all files from alphadia/misc/distributed_search into the search directory
-3. If no .csv file with rawfile paths exists, it can be obtained by running `discover_project_files.py` from the search directory. The following arguments can be set when calling `python discover_project_files.py`:
-    - --project_regex (matchstring to identify project files), e.g. `--project_regex "file_.*_my_project"`
-    - --source_directories (provide directories separated by space), e.g. `--source_directories /"Volumes/ms/2025_01" "/Volumes/ms/2025_2"`
-    - --search_recursively (whether to look for subdirectories within the source directories), either `True` or `False`
-    - --file_ending, e.g. `--file_ending ".raw"`
-    - --output_filename, e.g. `--output_filename "my_project_files_matched_2025_10_03.csv"`
-4. Set first and second search configurations in `first_config.yaml` and `second_config.yaml`. For example, number of precursor candidates and inference strategy, as well as mass tolerances may differ between first and second search. Aside from added custom parameters, leave all the predefined settings in the two .yaml files as they are.
-5. Set the search parameters in `search.config`. The following settings are covered by search.config:
+### 1. Set up an empty search directory on your HPCL partition. 
+One directory corresponds to one study, i.e. one set of raw files, fasta/library and search configuration.
+### 2. Copy all files from alphadia/misc/distributed_search into the search directory
+### 3. If no .csv file with rawfile paths exists, it can be obtained by running `discover_project_files.py` from the search directory. 
+The following arguments can be set when calling `python discover_project_files.py`:
+
+    - `--project_regex` (matchstring to identify project files), e.g. `--project_regex "file_.*_my_project"`
+    - `--source_directories` (provide directories separated by space), e.g. `--source_directories /"Volumes/ms/2025_01" "/Volumes/ms/2025_2"`
+    - `--search_recursively` (whether to look for subdirectories within the source directories), either `True` or `False`
+    - `--file_ending`, e.g. `--file_ending ".raw"`
+    - `--output_filename`, e.g. `--output_filename "my_project_files_matched_2025_10_03.csv"`
+### 4. Set first and second search configurations in `first_config.yaml` and `second_config.yaml`. 
+For example, number of precursor candidates and inference strategy, as well as mass tolerances may differ between first and second search. Aside from added custom parameters, leave all the predefined settings in the two .yaml files as they are.
+### 5. Set the search parameters in `search.config`. The following settings are covered by search.config:
     - `input_directory`: the search directory
     - `target_directory`: the directory where intermediate and final outputs are written (mind that slow read/write speeds to this location may slow down your search)
     - `library_path` (optional, will be reannotated if fasta_path is provided and predict_library is set to 1): absolute path to a .hdf spectral library
     - `fasta_path` (optional if library_path is provided and predict_library is set to 0): absolute path to .fasta file
     - `first_search_config_filename`: name of the .yaml file for the first search
     - `second_search_config_filename`: name of the .yaml file for the building the MBR library, second search and LFQ
-6. Run `outer.sh` with the following command line arguments:
+### 6. Run `outer.sh` with the following command line arguments:
     - `--files`: name of the .csv file containing the paths of rawfiles to be searched.
     - `--search_config`: name of the search configuration file, must be in the same folder as outer.sh
     - `--nnodes` (int): specifies how many nodes can be occupied. Rawfile search will be distributed 
@@ -49,6 +53,12 @@ Steps to set up a search
     - `--lfq` (1/0): whether to perform LFQ quantification of the second search results.
 
 An example call to outer.sh from a folder called e.g. `example_distributed_search` could look like this: `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 1 --search_config EXAMPLE_search.config --nnodes 2`
+
+### 7. Runnable example:
+
+Try the distributed search by activating the corresponding environment on your Slurm-HPCL login and run `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 1 --search_config EXAMPLE_search.config --nnodes 2` from the terminal!
+
+### 8. Results
 
 After starting the search, a `logs/` directory is created inside `example_distributed_search`. The main orchestration job log would be here `<job number>-dist_AD-slurm.out`, and the sub-jobs for individual searches here: `<job number>_0_alphaDIA-slurm.out`, `<job number>_1_alphaDIA-slurm.out`, etc.
 

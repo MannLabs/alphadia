@@ -24,11 +24,11 @@ distributed_search/
 ```
 1. PREDICT LIBRARY    (optional, single task) - generates spectral library from FASTA
         ↓
-2. FIRST SEARCH       (parallelized) - initial search across N chunks
+2. FIRST SEARCH       (parallelized into concurrent single tasks) - initial search across N chunks
         ↓
-3. MBR LIBRARY BUILD  (single task) - aggregates first search, builds focused library
+3. MBR LIBRARY BUILD  (single task) - aggregates first search, builds focused MBR library
         ↓
-4. SECOND SEARCH      (parallelized) - search with MBR library across N chunks
+4. SECOND SEARCH      (parallelized into concurrent single tasks) - search with MBR library across N chunks
         ↓
 5. LFQ QUANTIFICATION (single task) - final protein/precursor quantification
 ```
@@ -143,4 +143,4 @@ ad_search_<basename>/
 2. **Library copying**: Library is copied to each chunk directory to avoid concurrent HDF5 read issues
 3. **Quant aggregation**: `quant_dir` environment variable directs quantification outputs to shared location for MBR/LFQ stages
 4. **Chunk balancing**: `parse_parameters.py` ensures balanced distribution of raw files across nodes
-5. **Environment**: Requires conda environment "alphadia" with mono and alphadia installed
+5. **Environment**: Requires conda/mamba environment "alphadia" with mono and alphadia installed (for MannLabs: conda activate /fs/pool/pool-mann-projects/software/alphadia/2.0.0/alphadia-2.0.0)
