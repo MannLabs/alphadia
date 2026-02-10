@@ -37,7 +37,7 @@ distributed_search/
 
 ### outer.sh (Orchestrator)
 - Reads `search.config` for paths and settings
-- Creates output directory structure: `ad_search_<name>/1_predicted_speclib/`, `2_first_search/`, `3_mbr_library/`, `4_second_search/`, `5_lfq/`
+- Creates output directory structure: `search_<name>/1_speclib_prediction/`, `2_first_search/`, `3_mbr_library/`, `4_second_search/`, `5_lfq/`
 - Submits each stage as Slurm jobs with `--wait` to ensure sequential execution
 - Passes environment variables to inner.sh (target_directory, quant_dir, N_CPUS)
 
@@ -112,14 +112,13 @@ MyProject,/absolute/path/to/file2.raw
 ```
 
 ### YAML Config Templates
-- `first_config.yaml`: Must have `mbr_step_enabled: false`
 - `second_config.yaml`: Must have `inference_strategy: library`, `target_num_candidates: 5`, `mbr_step_enabled: false`
 
 ## Output Structure
 
 ```
-ad_search_<basename>/
-├── 1_predicted_speclib/
+search_<basename>/
+├── 1_speclib_prediction/
 │   └── speclib.hdf
 ├── 2_first_search/
 │   ├── chunk_0/

@@ -80,7 +80,7 @@ echo "Search flags: predict_library=${predict_library}, first_search=${first_sea
 
 # Derive output directory name from CSV filename (without .csv extension)
 csv_basename=$(basename "${input_filename}" .csv)
-output_directory="${target_directory}/ad_search_${csv_basename}"
+output_directory="${target_directory}/search_${csv_basename}"
 
 # Output directory
 mkdir -p "${output_directory}"
@@ -95,7 +95,7 @@ mkdir -p ./logs
 # use output_directory instead of target_directory for all subsequent paths
 target_directory="${output_directory}"
 
-predicted_library_directory="${target_directory}/1_predicted_speclib"
+predicted_library_directory="${target_directory}/1_speclib_prediction"
 mkdir -p ${predicted_library_directory}
 
 first_search_directory="${target_directory}/2_first_search"

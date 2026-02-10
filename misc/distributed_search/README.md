@@ -64,7 +64,7 @@ After starting the search, a `logs/` directory is created inside `example_distri
 
 Running the search creates five subdirectories in the target folder:
 
-- _predicted_speclib_: If spectral library prediction was set, this folder contains the .hdf spectral library
+- _speclib_prediction_: If spectral library prediction was set, this folder contains the .hdf spectral library
 - _first_search_: Contains one subdirectory for each processing chunk. AlphaDIA subprocesses for the first search are run from these chunks and their specific config.yaml files. Precursor and fragment datasets from these searches are saved into the _mbr_library_ folder
 - _mbr_library_: Contains one chunk, since the library is built from all first search results.
 - _second_search_: Analogous to _first_search_, one subdirectory is created for each chunk of rawfiles that are searched with the mbr_library. Precursor and fragment datasets from these searches are saved into the _lfq_ folder.
