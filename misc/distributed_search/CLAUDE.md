@@ -2,7 +2,7 @@
 
 ## Overview
 
-This is a parallel, multi-step proteomics analysis pipeline designed for HPC systems with Slurm. It distributes raw file processing across multiple nodes while maintaining the biological validity of the staged workflow.
+This is a parallel, multi-step proteomics analysis pipeline designed for HPC systems with Slurm. It distributes raw file processing across multiple nodes while maintaining the biological validity of the staged workflow. Note that this is unrelated to the multi-step transfer learning search (https://github.com/MannLabs/alphadia/blob/main/docs/guides/transfer-dimethyl.md). The distributed search described here only works without transfer learning and is solely meant for parallelizing the processing of large studies using HPCL resources.
 
 ## Directory Structure
 
