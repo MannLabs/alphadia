@@ -281,3 +281,7 @@ fi
 
 ### END OF PIPELINE ###
 echo "All jobs submitted."
+
+# Copy outer script log to output directory
+mkdir -p "${output_directory}/logs"
+cp "./logs/${SLURM_JOB_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
