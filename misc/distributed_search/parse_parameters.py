@@ -87,7 +87,9 @@ for i in range(0, max_tasks):
     os.makedirs(chunk_folder, exist_ok=True)
 
     # retrieve library path from config or arguments, set new library path in config
-    if os.path.exists(args.library_path) and (args.library_path.endswith(".hdf") or args.library_path.endswith(".parquet")):
+    if os.path.exists(args.library_path) and (
+        args.library_path.endswith(".hdf") or args.library_path.endswith(".parquet")
+    ):
         lib_source = args.library_path
     else:
         print(
