@@ -16,7 +16,7 @@ distributed_search/
 ├── search.config               # Main configuration file (user edits this)
 ├── first_config.yaml           # First search parameters template
 ├── second_config.yaml          # Second search/MBR/LFQ parameters template
-└── dist_search_setup.md        # Setup documentation
+└── README.md                   # Setup documentation
 ```
 
 ## 5-Stage Workflow
@@ -143,4 +143,4 @@ ad_search_<basename>/
 2. **Library copying**: Library is copied to each chunk directory to avoid concurrent HDF5 read issues
 3. **Quant aggregation**: `quant_dir` environment variable directs quantification outputs to shared location for MBR/LFQ stages
 4. **Chunk balancing**: `parse_parameters.py` ensures balanced distribution of raw files across nodes
-5. **Environment**: Requires conda/mamba environment "alphadia" with mono and alphadia installed (for MannLabs: conda activate /fs/pool/pool-mann-projects/software/alphadia/2.0.0/alphadia-2.0.0)
+5. **Environment**: Requires a mamba/conda environment with mono and alphadia installed activated when launching the shell scripts.
