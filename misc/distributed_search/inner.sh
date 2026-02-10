@@ -7,6 +7,12 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%A_%a_%x-slurm.out
 
+# Save initial directory (where sbatch was called from)
+initial_directory=$(pwd)
+
+# Derive output directory from target_directory (go up one level from stage directory)
+output_directory=$(dirname "${target_directory}")
+
 # navigate to chunk directory
 slurm_index=${SLURM_ARRAY_TASK_ID}
 chunk_directory="${target_directory}/chunk_${slurm_index}/"
@@ -25,3 +31,7 @@ else
 fi
 
 echo "AlphaDIA completed successfully"
+
+# Copy log to output directory
+mkdir -p "${output_directory}/logs"
+cp "${initial_directory}/logs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
