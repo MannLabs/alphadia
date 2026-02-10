@@ -34,4 +34,4 @@ echo "AlphaDIA completed successfully"
 
 # Copy log to output directory
 mkdir -p "${output_directory}/logs"
-cp "${initial_directory}/logs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
+cp "${initial_directory}/logs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
