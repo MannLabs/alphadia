@@ -7,9 +7,16 @@
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%A_%a_%x-slurm.out
 
+# Save initial directory (where sbatch was called from)
+initial_directory=$(pwd)
+
+# Convert target_directory to absolute path and derive output directory
+target_directory_abs=$(cd "${target_directory}" && pwd)
+output_directory=$(dirname "${target_directory_abs}")
+
 # navigate to chunk directory
 slurm_index=${SLURM_ARRAY_TASK_ID}
-chunk_directory="${target_directory}/chunk_${slurm_index}/"
+chunk_directory="${target_directory_abs}/chunk_${slurm_index}/"
 cd $chunk_directory || exit
 
 # config file fixed as config.yaml
@@ -25,3 +32,7 @@ else
 fi
 
 echo "AlphaDIA completed successfully"
+
+# Copy log to output directory
+mkdir -p "${output_directory}/logs"
+cp "${initial_directory}/logs/${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}_${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"

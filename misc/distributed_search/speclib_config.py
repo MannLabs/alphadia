@@ -25,15 +25,14 @@ parser = argparse.ArgumentParser(
     prog="DistributedAlphaDIALibrary",
     description="Append fasta file to config for library prediction.",
 )
-parser.add_argument("--input_directory")
 parser.add_argument("--target_directory")
 parser.add_argument("--fasta_path")
 parser.add_argument("--library_path")
 parser.add_argument("--config_filename")
 args = parser.parse_args()
 
-# read the config.yaml file from the input directory
-with open(os.path.join(args.input_directory, args.config_filename)) as file:
+# read the config.yaml file from current working directory
+with open(args.config_filename) as file:
     config = yaml.safe_load(file) or {}
 
 # if library and fasta are set, predicting will result in repredicted & annotated library
@@ -55,8 +54,10 @@ safe_add_key(config, "general", "mbr_step_enabled", False)
 config.pop("raw_paths", None)
 
 # set output directory for predicted spectral library
-safe_add_key(config, None, "output_directory", os.path.join(args.target_directory))
+# Use current directory since outer.sh will cd into the target directory before running alphadia
+safe_add_key(config, None, "output_directory", ".")
 
-# write speclib_config.yaml to input directory for the library prediction
-with open(os.path.join(config["output_directory"], "speclib_config.yaml"), "w") as file:
+# write speclib_config.yaml to the target directory
+# (config["output_directory"] is "." but we need to write to the actual target path)
+with open(os.path.join(args.target_directory, "speclib_config.yaml"), "w") as file:
     yaml.safe_dump(config, file, default_style=None, default_flow_style=False)

@@ -29,10 +29,12 @@ lfq=1
 
 # Default search configuration file
 search_config="search.config"
+input_filename=""
 
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
+		--files) input_filename="$2"; shift ;;
 		--search_config) search_config="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
@@ -59,21 +61,43 @@ else
 	exit 1
 fi
 
-# report set parameters
+# Validate required input_filename parameter
+if [[ -z "${input_filename}" ]]; then
+	echo "No input file provided. Use --files <filename.csv> to specify the raw file list."
+	exit 1
+fi
+
+# If input_directory is empty, default to current working directory
+if [[ -z "${input_directory}" ]]; then
+	input_directory="$(pwd)"
+fi
+
+# Parameter report
+echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
-# if target directory is not empty, exit
-if [ "$(ls -A ${target_directory})" ]; then
-	echo "Target directory is not empty, exiting"
+# Derive output directory name from CSV filename (without .csv extension)
+csv_basename=$(basename "${input_filename}" .csv)
+output_directory="${target_directory}/search_${csv_basename}"
+
+# Output directory
+mkdir -p "${output_directory}"
+if [ "$(ls -A ${output_directory})" ]; then
+	echo "Output directory ${output_directory} is not empty, exiting"
 	exit 1
 fi
 
-# create logs directory if it does not exist
+# Logs directory for intermediate logs
 mkdir -p ./logs
+# Logs directory in output for final logs
+mkdir -p "${output_directory}/logs"
 
-predicted_library_directory="${target_directory}/1_predicted_speclib"
+# use output_directory instead of target_directory for all subsequent paths
+target_directory="${output_directory}"
+
+predicted_library_directory="${target_directory}/1_speclib_prediction"
 mkdir -p ${predicted_library_directory}
 
 first_search_directory="${target_directory}/2_first_search"
@@ -84,6 +108,8 @@ mkdir -p ${mbr_library_directory}
 
 mbr_progress_directory="${target_directory}/3_mbr_library/chunk_0/quant"
 mkdir -p ${mbr_progress_directory}
+# Convert to absolute path to avoid working directory issues in inner.sh
+mbr_progress_directory="$(cd "${mbr_progress_directory}" && pwd)"
 
 second_search_directory="${target_directory}/4_second_search"
 mkdir -p ${second_search_directory}
@@ -93,6 +119,8 @@ mkdir -p ${lfq_directory}
 
 lfq_progress_directory="${target_directory}/5_lfq/chunk_0/quant"
 mkdir -p ${lfq_progress_directory}
+# Convert to absolute path to avoid working directory issues in inner.sh
+lfq_progress_directory="$(cd "${lfq_progress_directory}" && pwd)"
 
 ### PREDICT LIBRARY ###
 
@@ -100,7 +128,6 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# generate config without rawfiles and with fasta
 	python ./speclib_config.py \
-	--input_directory "${input_directory}" \
 	--target_directory "${predicted_library_directory}" \
 	--fasta_path "${fasta_path}" \
 	--library_path "${library_path}" \
@@ -112,20 +139,25 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# call alphadia to predict spectral library as one task
 	echo "Predicting spectral library with AlphaDIA..."
-	sbatch --array="0-0%1" \
+	speclib_job_output=$(sbatch --array="0-0%1" \
 	--wait \
+	--job-name="alphaDIA" \
 	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output="${home_directory}/logs/%j-%x-speclib-slurm.out" \
-	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml"
+	--output="${home_directory}/logs/%A_%a_%x-speclib-slurm.out" \
+	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml")
+
+	# Extract job ID from sbatch output (format: "Submitted batch job 12345")
+	speclib_job_id=$(echo "$speclib_job_output" | awk '{print $4}')
 
 	# navigate back to home directory
 	cd "${home_directory}"
 
 	# if prediction took place, let the new speclib.hdf be the library path
-	library_path="${predicted_library_directory}/speclib.hdf"
+	# Convert to absolute path to avoid working directory issues
+	library_path="$(cd "$(dirname "${predicted_library_directory}/speclib.hdf")" && pwd)/$(basename "${predicted_library_directory}/speclib.hdf")"
 else
 	echo "Skipping library prediction"
 fi
@@ -251,4 +283,14 @@ if [[ "$lfq" -eq 1 ]]; then
 	--export=ALL,N_CPUS=$cpus,target_directory=${lfq_directory} ./inner.sh
 else
 	echo "Skipping LFQ"
+fi
+
+### END OF PIPELINE ###
+echo "All jobs submitted."
+
+# Copy logs to output directory
+cp "./logs/${SLURM_JOB_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
+# Copy the speclib prediction log if it was run
+if [[ "$predict_library" -eq 1 ]]; then
+	cp "./logs/${speclib_job_id}_0_alphaDIA-speclib-slurm.out" "${output_directory}/logs/"
 fi

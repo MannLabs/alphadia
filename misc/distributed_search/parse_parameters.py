@@ -42,13 +42,13 @@ parser.add_argument("--nnodes")
 parser.add_argument("--reuse_quant")
 args = parser.parse_args()
 
-# read the input filename
+# read the input filename (CSV file list from input_directory)
 infile = pd.read_csv(
     os.path.join(args.input_directory, args.input_filename), skiprows=0
 )
 
-# read the config .yaml file
-with open(os.path.join(args.input_directory, args.config_filename)) as file:
+# read the config .yaml file (from current working directory)
+with open(args.config_filename) as file:
     config = yaml.safe_load(file) or {}
 
 # set requantition, False for searches, True for MBR, LFQ
@@ -87,19 +87,19 @@ for i in range(0, max_tasks):
     os.makedirs(chunk_folder, exist_ok=True)
 
     # retrieve library path from config or arguments, set new library path in config
-    if os.path.exists(args.library_path) and os.path.basename(
-        args.library_path
-    ).endswith(".hdf"):
+    if os.path.exists(args.library_path) and (
+        args.library_path.endswith(".hdf") or args.library_path.endswith(".parquet")
+    ):
         lib_source = args.library_path
     else:
         print(
-            "No valid library_path to a .hdf file provided and no valid library path to a .hdf file specified in config file, exiting...",
+            f"No valid library_path to a .hdf or .parquet file provided and no valid library path to a .hdf or .parquet file specified in config file, got {args.library_path} exiting...",
             file=sys.stderr,
         )
         sys.exit(1)
 
-    # set library path in config
-    safe_add_key(current_config, None, "library_path", lib_source)
+    # set library path in config (convert to absolute path to avoid working directory issues)
+    safe_add_key(current_config, None, "library_path", os.path.abspath(lib_source))
 
     # set chunk folder as output_directory in the config
     safe_add_key(current_config, None, "output_directory", "./")

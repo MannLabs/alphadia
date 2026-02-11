@@ -36,12 +36,12 @@ def match_files(
             _file_dict[str(_file)] = _file
     print(f"--> Collected {len(_file_dict)} '.{file_ending}' files")
 
-    # search project regex against file dict keys and return all matching paths
+    # search project regex against filename stems (not full paths) and return all matching paths
     _matched_paths = []
     regex_pattern = re.compile(project_regex)
-    print(f"--> Searching files matching '{project_regex}'")
+    print(f"--> Searching filenames (stems) matching '{project_regex}'")
     for _file, _path in _file_dict.items():
-        if regex_pattern.search(_file):
+        if regex_pattern.search(_path.stem):
             _matched_paths.append(_path)
 
     # report
