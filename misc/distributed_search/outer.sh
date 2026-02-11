@@ -139,15 +139,18 @@ if [[ "$predict_library" -eq 1 ]]; then
 
 	# call alphadia to predict spectral library as one task
 	echo "Predicting spectral library with AlphaDIA..."
-	sbatch --array="0-0%1" \
+	speclib_job_output=$(sbatch --array="0-0%1" \
 	--wait \
 	--job-name="alphaDIA" \
 	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output="${output_directory}/logs/%A_%a_%x-speclib-slurm.out" \
-	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml"
+	--output="${home_directory}/logs/%A_%a_%x-speclib-slurm.out" \
+	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml")
+
+	# Extract job ID from sbatch output (format: "Submitted batch job 12345")
+	speclib_job_id=$(echo "$speclib_job_output" | awk '{print $4}')
 
 	# navigate back to home directory
 	cd "${home_directory}"
@@ -285,6 +288,9 @@ fi
 ### END OF PIPELINE ###
 echo "All jobs submitted."
 
-# Synchronize logs between ./logs and output_directory/logs
+# Copy logs to output directory
 cp "./logs/${SLURM_JOB_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
-cp "${output_directory}/logs/"*speclib*.out "./logs/"
+# Copy the speclib prediction log if it was run
+if [[ "$predict_library" -eq 1 ]]; then
+	cp "./logs/${speclib_job_id}_0_alphaDIA-speclib-slurm.out" "${output_directory}/logs/"
+fi
