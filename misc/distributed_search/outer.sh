@@ -89,8 +89,10 @@ if [ "$(ls -A ${output_directory})" ]; then
 	exit 1
 fi
 
-# Logs directory
+# Logs directory for intermediate logs
 mkdir -p ./logs
+# Logs directory in output for final logs
+mkdir -p "${output_directory}/logs"
 
 # use output_directory instead of target_directory for all subsequent paths
 target_directory="${output_directory}"
@@ -139,11 +141,12 @@ if [[ "$predict_library" -eq 1 ]]; then
 	echo "Predicting spectral library with AlphaDIA..."
 	sbatch --array="0-0%1" \
 	--wait \
+	--job-name="alphaDIA" \
 	--nodes=1 \
 	--ntasks-per-node=${ntasks_per_node} \
 	--cpus-per-task=${cpus} \
 	--mem=${mem} \
-	--output="${home_directory}/logs/%j-%x-speclib-slurm.out" \
+	--output="${output_directory}/logs/%A_%a_%x-speclib-slurm.out" \
 	--export=ALL,N_CPUS=$cpus --wrap="alphadia --config=speclib_config.yaml"
 
 	# navigate back to home directory
@@ -282,6 +285,6 @@ fi
 ### END OF PIPELINE ###
 echo "All jobs submitted."
 
-# Copy outer script log to output directory
-mkdir -p "${output_directory}/logs"
+# Synchronize logs between ./logs and output_directory/logs
 cp "./logs/${SLURM_JOB_ID}-${SLURM_JOB_NAME}-slurm.out" "${output_directory}/logs/"
+cp "${output_directory}/logs/"*speclib*.out "./logs/"
