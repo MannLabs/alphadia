@@ -19,6 +19,7 @@ nnodes=1
 ntasks_per_node=1
 cpus=32
 mem='250G'
+max_chunk_size=""  # empty means no limit (uses nnodes to determine chunk size)
 
 # Default search flags
 predict_library=1
@@ -41,6 +42,7 @@ while [[ "$#" -gt 0 ]]; do
 		--ntasks_per_node) ntasks_per_node="$2"; shift ;;
 		--cpus) cpus="$2"; shift ;;
 		--mem) mem="$2"; shift ;;
+		--max_chunk_size) max_chunk_size="$2"; shift ;;
 		# Search flags: if a flag is present, set to true
 		--predict_library) predict_library="$2"; shift ;;
 		--first_search) first_search="$2"; shift ;;
@@ -75,7 +77,7 @@ fi
 # Parameter report
 echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
-echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
+echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}, max_chunk_size=${max_chunk_size:-unlimited}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
 
 # Derive output directory name from CSV filename (without .csv extension)
@@ -174,7 +176,8 @@ if [[ "$first_search" -eq 1 ]]; then
 	--target_directory "${first_search_directory}" \
 	--nnodes ${nnodes} \
 	--reuse_quant 0 \
-	--library_path ${library_path})
+	--library_path ${library_path} \
+	--max_chunk_size "${max_chunk_size}")
 
 	# create slurm array for first search
 	slurm_array="0-$(($num_tasks-1))%${nnodes}"
@@ -205,7 +208,8 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	--target_directory "${mbr_library_directory}" \
 	--nnodes 1 \
 	--reuse_quant 1 \
-	--library_path ${library_path})
+	--library_path ${library_path} \
+	--max_chunk_size "${max_chunk_size}")
 
 	# create slurm array with one subdir, which is the quant files from the first search
 	slurm_array="0-$(($num_tasks-1))%${nnodes}"
@@ -235,7 +239,8 @@ if [[ "$second_search" -eq 1 ]]; then
 	--target_directory "${second_search_directory}" \
 	--nnodes ${nnodes} \
 	--reuse_quant 0 \
-	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
+	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf" \
+	--max_chunk_size "${max_chunk_size}")
 
 	# create slurm array for second search
 	slurm_array="0-$(($num_tasks-1))%${nnodes}"
@@ -266,7 +271,8 @@ if [[ "$lfq" -eq 1 ]]; then
 	--target_directory "${lfq_directory}" \
 	--nnodes 1 \
 	--reuse_quant 1 \
-	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf")
+	--library_path "${mbr_library_directory}/chunk_0/speclib.mbr.hdf" \
+	--max_chunk_size "${max_chunk_size}")
 
 	# create slurm array with one subdir, which is the quant files from the second search
 	slurm_array="0-$(($num_tasks-1))%${nnodes}"

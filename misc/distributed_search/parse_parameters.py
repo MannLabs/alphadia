@@ -40,6 +40,7 @@ parser.add_argument("--config_filename")
 parser.add_argument("--target_directory")
 parser.add_argument("--nnodes")
 parser.add_argument("--reuse_quant")
+parser.add_argument("--max_chunk_size", default="", help="Maximum number of files per chunk (empty string means no limit)")
 args = parser.parse_args()
 
 # read the input filename (CSV file list from input_directory)
@@ -62,6 +63,10 @@ config.pop("fasta_paths", None)
 
 # determine chunk size: division of infile rowcount and number of nodes
 chunk_size = int(np.ceil(infile.shape[0] / int(args.nnodes)))
+
+# if max_chunk_size is specified (non-empty string), use the smaller of the two
+if args.max_chunk_size != "":
+    chunk_size = min(chunk_size, int(args.max_chunk_size))
 
 # determine maximum number of tasks, i.e. the number of chunks needed
 max_tasks = int(np.ceil(infile.shape[0] / chunk_size))
