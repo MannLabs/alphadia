@@ -43,7 +43,7 @@ jobs:
       if: ${{ inputs.needs-mono }}
       shell: bash -l {0}
       run: |
-        conda install mono
+        conda install -c conda-forge mono
     - name: Perform pip installation
       shell: bash -l {0}
       run: |
