@@ -8,7 +8,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.ticker
 import numpy as np
-import pytz
 import sklearn
 from matplotlib.figure import Figure
 
@@ -135,7 +134,7 @@ def _add_metadata_to_figure(
     file_path: Path,
 ) -> None:
     """Add metadata to the figure."""
-    current_date = datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d %H:%M:%S")
+    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # noqa: DTZ005
     n_train = len(y_train)
     n_test = len(y_test)
     n_train_targets = (y_train == 0).sum()
