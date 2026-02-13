@@ -13,7 +13,7 @@ on:
       needs-mono:
         required: false
         type: boolean
-        default: false
+        default: true
       install-script:
         required: true
         type: string
@@ -43,7 +43,7 @@ jobs:
       if: ${{ inputs.needs-mono }}
       shell: bash -l {0}
       run: |
-        conda install -c conda-forge mono
+        conda install mono
     - name: Perform pip installation
       shell: bash -l {0}
       run: |
