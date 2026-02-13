@@ -43,7 +43,11 @@ jobs:
       if: ${{ inputs.needs-mono }}
       shell: bash -l {0}
       run: |
-        conda install -c conda-forge mono
+        if [[ "$RUNNER_OS" == "macOS" ]]; then
+          brew install mono
+        else
+          conda install -c conda-forge mono
+        fi
     - name: Perform pip installation
       shell: bash -l {0}
       run: |
