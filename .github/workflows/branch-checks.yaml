@@ -32,13 +32,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15]
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
     uses: ./.github/workflows/_run_tests.yml
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} false
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env unit
 
   run-notebook-tests-stable:
@@ -46,13 +46,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15]
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
     uses: ./.github/workflows/_run_tests.yml
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} false
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_nb_tests.sh alphadia-env
 
   run-slow-tests:
@@ -60,13 +60,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15]
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
     uses: ./.github/workflows/_run_tests.yml
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} false
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env integration
 
   get-code-review-input:

@@ -27,14 +27,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os:  [ubuntu-latest, macos-15-intel, windows-latest]
+        os:  [ubuntu-latest, macos-15, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
     uses: ./.github/workflows/_run_tests.yml
     with:
       python-version: ${{ matrix.python-version }}
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
-      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }}
+      install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') && matrix.os != 'macOS' }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
 
   run-unit-integration--tests-loose:
@@ -43,7 +43,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-latest, macos-15-intel, windows-latest ]
+        os: [ ubuntu-latest, macos-15, windows-latest ]
         python-version: ["3.10", "3.11", "3.12"]
     uses: ./.github/workflows/_run_tests.yml
     with:
@@ -51,5 +51,5 @@ jobs:
       os: ${{ matrix.os }}
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
       # Use CPU pytorch on ubuntu for loose installation to void "disk full" error
-      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') }} ${{ contains(matrix.os, 'ubuntu') && 'CPU' || 'GPU' }}
+      install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') && matrix.os != 'macOS' }} ${{ contains(matrix.os, 'ubuntu') && 'CPU' || 'GPU' }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
