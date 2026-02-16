@@ -38,6 +38,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    decoy_weight: float = 1.0,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -87,6 +88,9 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    decoy_weight : float, default=1.0
+        Weight applied to each decoy when computing FDR.
 
     Returns
     -------
@@ -160,7 +164,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
 
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values(psm_df, "proba", "_decoy", decoy_weight=decoy_weight)
 
     if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
         # use a FDR of 10% as starting point
@@ -181,7 +185,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
             )
 
     psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    psm_df = get_q_values(psm_df, "proba", "_decoy", decoy_weight=decoy_weight)
 
     if figure_path is not None:
         plot_fdr(
@@ -307,12 +311,13 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
-def get_q_values(
+def get_q_values(  # noqa: PLR0913
     df: pd.DataFrame,
     score_column: str = "proba",
     decoy_column: str = "_decoy",
     qval_column: str = "qval",
     extra_sort_columns: list[str] | None = None,
+    decoy_weight: float = 1.0,
 ) -> pd.DataFrame:
     """Calculates q-values for a dataframe containing PSMs.
 
@@ -335,6 +340,10 @@ def get_q_values(
     extra_sort_columns : list[str], default=['precursor_idx']
         Additional columns to sort by after score_column and decoy_column to break ties.
 
+    decoy_weight : float, default=1.0
+        Weight applied to each decoy when computing FDR. Use 1/(1-hidden_decoy_fraction)
+        to correct for hidden decoys that are disguised as targets.
+
     Returns
     -------
     pd.DataFrame
@@ -348,7 +357,7 @@ def get_q_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
     )  # last sort to break ties
     target_values = 1 - df[decoy_column].to_numpy()
-    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy())
+    decoy_cumsum = np.cumsum(df[decoy_column].to_numpy()) * decoy_weight
     target_cumsum = np.cumsum(target_values)
     fdr_values = (
         decoy_cumsum / target_cumsum

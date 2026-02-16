@@ -95,6 +95,7 @@ class FDRManager(BaseManager):
         self.load_classifier_store()
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
+        self._hidden_decoy_fraction = config["fdr"]["hidden_decoy_fraction"]
 
         self._dia_cycle = dia_cycle
 
@@ -110,6 +111,7 @@ class FDRManager(BaseManager):
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
+        hidden_decoy_fraction: float | None = None,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -127,6 +129,9 @@ class FDRManager(BaseManager):
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
         version: int
             Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        hidden_decoy_fraction: float | None
+            Fraction of decoys hidden as targets. If None, uses the value from config.
+            Pass 0.0 when hidden decoys have already been revealed.
 
         Notes
         -----
@@ -155,6 +160,12 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"Decoy channel: {decoy_channel}")
         self.reporter.log_string(f"competitive: {competitive}")
 
+        if hidden_decoy_fraction is None:
+            hidden_decoy_fraction = self._hidden_decoy_fraction
+        decoy_weight = (
+            1.0 / (1.0 - hidden_decoy_fraction) if hidden_decoy_fraction > 0.0 else 1.0
+        )
+
         classifier = self.get_classifier(available_columns, version)
         random_state = (
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
@@ -173,6 +184,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                decoy_weight=decoy_weight,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -196,6 +208,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        decoy_weight=decoy_weight,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -216,6 +229,7 @@ class FDRManager(BaseManager):
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        decoy_weight=decoy_weight,
                     )
                 )
 
