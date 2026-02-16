@@ -108,10 +108,8 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
         )
 
         try:
-            _X, X_train, idxs_test, idxs_train, _y, y_test, y_train = (  # noqa: N806
-                _get_train_test_split(
-                    available_columns, df_decoy_lda, df_target_lda, random_state
-                )
+            _, X_train, _, _, _, _, y_train = _get_train_test_split(
+                available_columns, df_decoy_lda, df_target_lda, random_state
             )
         # fall back to original classifier in case LDA prefiltering fails
         except TooFewPSMError:
@@ -127,9 +125,19 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
             available_columns, df_decoy, df_target, random_state
         )
     else:
-        X, _, _, _, y, _, _ = _get_train_test_split(
-            available_columns, df_decoy, df_target, random_state
-        )
+        # TODO: resolve code dup with _get_train_test_split
+        X_target = df_target[available_columns].to_numpy()
+        X_decoy = df_decoy[available_columns].to_numpy()
+        X = np.concatenate([X_target, X_decoy])
+        y = np.concatenate([np.zeros(len(X_target)), np.ones(len(X_decoy))])
+
+        # Map LDA-filtered rows back to positional indices in the full array
+        target_in_lda = df_target.index.isin(df_target_lda.index)
+        decoy_in_lda = df_decoy.index.isin(df_decoy_lda.index)
+        lda_mask = np.concatenate([target_in_lda, decoy_in_lda])
+        idxs_train = np.where(lda_mask)[0]
+        idxs_test = np.where(~lda_mask)[0]
+        y_test = y[idxs_test]
 
     classifier.fit(X_train, y_train)
 
@@ -177,7 +185,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
 
     if figure_path is not None:
         plot_fdr(
-            y_train,
+            y[idxs_train],
             y_test,
             predicted_proba[idxs_train],
             predicted_proba[idxs_test],
