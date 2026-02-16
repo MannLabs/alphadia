@@ -271,7 +271,7 @@ class ExtractionHandler(ABC):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
-        hidden_decoy_fraction: float | None = None,
+        entrapment_fdr: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -285,9 +285,8 @@ class ExtractionHandler(ABC):
         candidates_df : pd.DataFrame
             DataFrame with candidates
 
-        hidden_decoy_fraction : float | None
-            Fraction of decoys hidden as targets. If None, uses the value from config.
-            Pass 0.0 when hidden decoys have already been revealed.
+        entrapment_fdr : bool
+            If True, compute FDR using only hidden decoys.
 
         Returns
         -------
@@ -678,7 +677,7 @@ class NgExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
-        hidden_decoy_fraction: float | None = None,
+        entrapment_fdr: bool = False,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -699,7 +698,7 @@ class NgExtractionHandler(ExtractionHandler):
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=self._optimization_manager.classifier_version,
-            hidden_decoy_fraction=hidden_decoy_fraction,
+            entrapment_fdr=entrapment_fdr,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

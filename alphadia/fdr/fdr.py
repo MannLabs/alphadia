@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too many branches
+def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many arguments, too many branches
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -39,6 +39,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
     decoy_weight: float = 1.0,
+    exclude_non_hidden_decoys: bool = False,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -91,6 +92,9 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
 
     decoy_weight : float, default=1.0
         Weight applied to each decoy when computing FDR.
+
+    exclude_non_hidden_decoys : bool, default=False
+        Whether to exclude decoys that are not marked as hidden decoys in the 'is_hidden' column.
 
     Returns
     -------
@@ -160,6 +164,11 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too m
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
     psm_df["proba"] = predicted_proba
+
+    if exclude_non_hidden_decoys and "is_hidden_decoy" in psm_df.columns:
+        is_normal_decoy = (psm_df["_decoy"] == 1) & (~psm_df["is_hidden_decoy"])
+        psm_df = psm_df[~is_normal_decoy].copy()
+
     psm_df.sort_values(
         ["proba", "precursor_idx"], ascending=True, inplace=True
     )  # last sort to break ties
