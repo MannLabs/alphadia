@@ -162,15 +162,6 @@ class FDRManager(BaseManager):
         self.reporter.log_string(f"competitive: {competitive}")
 
         hidden_decoy_fraction = self._hidden_decoy_fraction
-        if entrapment_fdr and hidden_decoy_fraction > 0.0:
-            decoy_weight = 1.0 / hidden_decoy_fraction
-            exclude_non_hidden_decoys = True
-        elif hidden_decoy_fraction > 0.0:
-            decoy_weight = 1.0 / (1.0 - hidden_decoy_fraction)
-            exclude_non_hidden_decoys = False
-        else:
-            decoy_weight = 1.0
-            exclude_non_hidden_decoys = False
 
         classifier = self.get_classifier(available_columns, version)
         random_state = (
@@ -190,8 +181,8 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
-                decoy_weight=decoy_weight,
-                exclude_non_hidden_decoys=exclude_non_hidden_decoys,
+                entrapment_fdr=entrapment_fdr,
+                hidden_decoy_fraction=hidden_decoy_fraction,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -215,8 +206,8 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
-                        decoy_weight=decoy_weight,
-                        exclude_non_hidden_decoys=exclude_non_hidden_decoys,
+                        entrapment_fdr=entrapment_fdr,
+                        hidden_decoy_fraction=hidden_decoy_fraction,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -237,8 +228,8 @@ class FDRManager(BaseManager):
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,
-                        decoy_weight=decoy_weight,
-                        exclude_non_hidden_decoys=exclude_non_hidden_decoys,
+                        entrapment_fdr=entrapment_fdr,
+                        hidden_decoy_fraction=hidden_decoy_fraction,
                     )
                 )
 

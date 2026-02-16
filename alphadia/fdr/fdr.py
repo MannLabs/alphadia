@@ -23,7 +23,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many arguments, too many branches
+def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, too many arguments, too many branches
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -38,8 +38,8 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
-    decoy_weight: float = 1.0,
-    exclude_non_hidden_decoys: bool = False,
+    entrapment_fdr: bool = False,
+    hidden_decoy_fraction: float = 0.0,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -90,12 +90,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     random_state : int, optional
         The random state for train-test split reproducibility.
 
-    decoy_weight : float, default=1.0
-        Weight applied to each decoy when computing FDR.
-
-    exclude_non_hidden_decoys : bool, default=False
-        Whether to exclude decoys that are not marked as hidden decoys in the 'is_hidden' column.
-
     Returns
     -------
     psm_df : pd.DataFrame
@@ -105,6 +99,17 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     """
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
+
+    if hidden_decoy_fraction > 0.0:
+        if entrapment_fdr:
+            decoy_weight = 1.0 / hidden_decoy_fraction
+            exclude_non_hidden_decoys = True
+        else:
+            decoy_weight = 1.0 / (1.0 - hidden_decoy_fraction)
+            exclude_non_hidden_decoys = False
+    else:
+        decoy_weight = 1.0
+        exclude_non_hidden_decoys = False
 
     if use_lda_prefilter:
         logger.info(
@@ -203,7 +208,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         normal_decoy_df["qval"] = 1.0
         psm_df = pd.concat([psm_df, normal_decoy_df])
 
-    if figure_path is not None:
+    if figure_path is not None and not exclude_non_hidden_decoys:
         plot_fdr(
             y[idxs_train],
             y_test,

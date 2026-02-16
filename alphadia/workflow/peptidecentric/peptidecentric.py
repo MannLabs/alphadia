@@ -206,10 +206,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
             )
 
-            if "is_hidden_decoy" in precursor_quantified_w_features_df.columns:
-                precursor_quantified_w_features_df.loc[
-                    precursor_quantified_w_features_df["is_hidden_decoy"], "decoy"
-                ] = 1
+            # if "is_hidden_decoy" in precursor_quantified_w_features_df.columns:
+            #     precursor_quantified_w_features_df.loc[
+            #         precursor_quantified_w_features_df["is_hidden_decoy"], "decoy"
+            #     ] = 1
 
             self.reporter.log_string(
                 f"=== Performing FDR correction with classifier version {self.optimization_manager.classifier_version} ===",
@@ -253,10 +253,10 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 candidates_df, self.dia_data, self.spectral_library
             )
 
-            if "is_hidden_decoy" in precursor_w_features_df.columns:
-                precursor_w_features_df.loc[
-                    precursor_w_features_df["is_hidden_decoy"], "decoy"
-                ] = 1
+            # if "is_hidden_decoy" in precursor_w_features_df.columns:
+            #     precursor_w_features_df.loc[
+            #         precursor_w_features_df["is_hidden_decoy"], "decoy"
+            #     ] = 1
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
