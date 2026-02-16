@@ -47,19 +47,20 @@ At line 358, pass `hidden_decoy_fraction=self.config["fdr"]["hidden_decoy_fracti
 
 In `extraction()`, insert reveal logic before FDR computation for each backend:
 
-**Python backend** (before line 219, the `fit_predict` call):
-```python
-if "is_hidden_decoy" in precursor_quantified_w_features_df.columns:
-    precursor_quantified_w_features_df.loc[
-        precursor_quantified_w_features_df["is_hidden_decoy"], "decoy"
-    ] = 1
-```
 
 **Rust/NG backend** (before line 250, the `perform_fdr_and_filter_candidates` call):
 ```python
 if "is_hidden_decoy" in precursor_w_features_df.columns:
     precursor_w_features_df.loc[
         precursor_w_features_df["is_hidden_decoy"], "decoy"
+    ] = 1
+```
+
+**IGNORE FOR NOW** **Python backend** (before line 219, the `fit_predict` call):
+```python
+if "is_hidden_decoy" in precursor_quantified_w_features_df.columns:
+    precursor_quantified_w_features_df.loc[
+        precursor_quantified_w_features_df["is_hidden_decoy"], "decoy"
     ] = 1
 ```
 
