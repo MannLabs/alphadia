@@ -44,7 +44,7 @@ jobs:
       shell: bash -l {0}
       # conda does not have mono for arm64 macos, so use brew there
       run: |
-        if [[ "$RUNNER_OS" == "macOS" ]]; then
+        if [[ "${{ inputs.os }}" == "macos-15" ]]; then
           brew install mono
         else
           conda install mono
