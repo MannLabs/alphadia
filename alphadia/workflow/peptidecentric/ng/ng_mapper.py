@@ -125,8 +125,11 @@ def parse_candidates(
         }
     )
 
+    merge_cols = ["precursor_idx", "elution_group_idx", "decoy"]
+    if "is_hidden_decoy" in spectral_library.precursor_df.columns:
+        merge_cols.append("is_hidden_decoy")
     candidates_df = candidates_df.merge(
-        spectral_library.precursor_df[["precursor_idx", "elution_group_idx", "decoy"]],
+        spectral_library.precursor_df[merge_cols],
         on="precursor_idx",
         how="left",
     )
@@ -172,16 +175,17 @@ def to_features_df(
 
     features_df = pd.DataFrame(features_dict)
 
+    feature_merge_cols = [
+        "precursor_idx",
+        "decoy",
+        "elution_group_idx",
+        "channel",
+        "proteins",
+    ]
+    if "is_hidden_decoy" in spectral_library.precursor_df.columns:
+        feature_merge_cols.append("is_hidden_decoy")
     features_df = features_df.merge(
-        spectral_library.precursor_df[
-            [
-                "precursor_idx",
-                "decoy",
-                "elution_group_idx",
-                "channel",
-                "proteins",
-            ]
-        ],
+        spectral_library.precursor_df[feature_merge_cols],
         on="precursor_idx",
         how="left",
     )

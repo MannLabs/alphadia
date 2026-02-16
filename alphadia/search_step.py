@@ -358,6 +358,7 @@ class SearchStep:
                 DecoyGenerator(
                     decoy_type="diann",
                     mp_process_num=thread_count,
+                    hidden_decoy_fraction=self.config["fdr"]["hidden_decoy_fraction"],
                 ),
                 FlattenLibrary(
                     max(

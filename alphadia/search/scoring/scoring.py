@@ -96,6 +96,7 @@ DEFAULT_PRECURSOR_COLUMNS = [
     CalibCols.MZ_LIBRARY,
     "charge",
     "decoy",
+    "is_hidden_decoy",
     "channel",
     "flat_frag_start_idx",
     "flat_frag_stop_idx",
@@ -504,6 +505,10 @@ class CandidateScoring:
         precursor_df_columns = precursor_df_columns + _get_isotope_column_names(
             precursors_flat_df.columns
         )
+
+        precursor_df_columns = [
+            col for col in precursor_df_columns if col in precursors_flat_df.columns
+        ]
 
         for col in [rt_column, mobility_column, precursor_mz_column]:
             if col not in precursor_df_columns:
