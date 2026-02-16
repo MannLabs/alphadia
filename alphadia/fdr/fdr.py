@@ -23,8 +23,8 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913, PLR0912 # too complex, too many arguments, too many branches
-    classifier: Classifier | TwoStepClassifier,
+def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments, too many branches
+    classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
@@ -108,7 +108,7 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0912 # too complex, too many argumen
         )
 
         try:
-            X, X_train, idxs_test, idxs_train, y, y_test, y_train = (
+            _X, X_train, idxs_test, idxs_train, _y, y_test, y_train = (  # noqa: N806
                 _get_train_test_split(
                     available_columns, df_decoy_lda, df_target_lda, random_state
                 )
@@ -120,10 +120,14 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0912 # too complex, too many argumen
             )
             use_lda_prefilter = False
 
-    if not use_lda_prefilter:
-        _drop_na(available_columns, df_decoy, df_target)
+    _drop_na(available_columns, df_decoy, df_target)
 
+    if not use_lda_prefilter:
         X, X_train, idxs_test, idxs_train, y, y_test, y_train = _get_train_test_split(
+            available_columns, df_decoy, df_target, random_state
+        )
+    else:
+        X, _, _, _, y, _, _ = _get_train_test_split(
             available_columns, df_decoy, df_target, random_state
         )
 
