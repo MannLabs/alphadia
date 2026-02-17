@@ -96,6 +96,7 @@ class FDRManager(BaseManager):
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
         self._hidden_decoy_fraction = config["fdr"]["hidden_decoy_fraction"]
+        self._lda_fdr_threshold = config["fdr"]["lda_fdr_threshold"]
 
         self._dia_cycle = dia_cycle
 
@@ -180,6 +181,7 @@ class FDRManager(BaseManager):
                 df_fragments=df_fragments if self._compete_for_fragments else None,
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
+                lda_fdr_threshold=self._lda_fdr_threshold,
                 random_state=random_state,
                 entrapment_fdr=entrapment_fdr,
                 hidden_decoy_fraction=hidden_decoy_fraction,
@@ -205,6 +207,7 @@ class FDRManager(BaseManager):
                         else None,
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
+                        lda_fdr_threshold=self._lda_fdr_threshold,
                         random_state=random_state,
                         entrapment_fdr=entrapment_fdr,
                         hidden_decoy_fraction=hidden_decoy_fraction,
@@ -227,6 +230,7 @@ class FDRManager(BaseManager):
                         competitive=competitive,
                         group_channels=False,
                         figure_path=self.figure_path,
+                        lda_fdr_threshold=self._lda_fdr_threshold,
                         random_state=random_state,
                         entrapment_fdr=entrapment_fdr,
                         hidden_decoy_fraction=hidden_decoy_fraction,

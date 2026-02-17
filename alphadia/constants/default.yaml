@@ -293,6 +293,7 @@ fdr:
   # how are proteins inferred from peptides: "library", "heuristic" or "maximum_parsimony"
   inference_strategy: "heuristic"
 
+  lda_fdr_threshold: -1
 
   # === advanced settings ===
   # whether to enable competitive scoring during FDR control
@@ -306,7 +307,7 @@ fdr:
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
   # Fraction of decoys to treat as hidden entrapment targets (0.0 = disabled)
-  hidden_decoy_fraction: 0.2
+  hidden_decoy_fraction: 0.0
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

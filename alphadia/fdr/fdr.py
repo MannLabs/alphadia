@@ -30,8 +30,7 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
     df_decoy: pd.DataFrame,
     *,
     competitive: bool = False,
-    use_lda_prefilter: bool = True,
-    lda_fdr_threshold: float = 0.5,
+    lda_fdr_threshold: float = -1,
     group_channels: bool = True,
     figure_path: str | None = None,
     df_fragments: pd.DataFrame | None = None,
@@ -62,15 +61,11 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
     competitive : bool
         Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
 
-    use_lda_prefilter : bool, default=False
+    lda_fdr_threshold : float, default=-1
         Whether to use two-stage LDA prefiltering before training the ML classifier.
-        When enabled, trains LDA on rank 0 candidates, filters to lda_fdr_threshold,
+        When >0, trains LDA on rank 0 candidates, filters to lda_fdr_threshold,
         and uses filtered data for ML classifier training. Requires 'rank' and
         'elution_group_idx' columns in the input dataframes.
-
-    lda_fdr_threshold : float, default=0.5
-        FDR threshold for LDA filtering when use_lda_prefilter is True.
-        PSMs passing this threshold are used for ML classifier training.
 
     group_channels : bool
         Whether to group PSMs by channel before performing competitive FDR calculation
@@ -111,7 +106,9 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
         decoy_weight = 1.0
         exclude_non_hidden_decoys = False
 
-    if use_lda_prefilter:
+    use_lda_prefilter = False
+    if lda_fdr_threshold > 0:
+        use_lda_prefilter = True
         logger.info(
             f"Using two-stage LDA prefiltering @ {lda_fdr_threshold*100:.0f}% FDR"
         )
