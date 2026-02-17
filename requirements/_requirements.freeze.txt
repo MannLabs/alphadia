@@ -59,7 +59,6 @@ pyparsing==3.2.3
 pyteomics==4.7.5
 python-dateutil==2.9.0.post0
 pythonnet==3.0.5
-pytz==2025.2
 pyyaml==6.0.2
 pyzstd==0.16.2
 quantselect==0.1.3

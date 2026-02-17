@@ -42,8 +42,13 @@ jobs:
     - name: Install mono
       if: ${{ inputs.needs-mono }}
       shell: bash -l {0}
+      # conda does not have mono for arm64 macos, so use brew there
       run: |
-        conda install mono
+        if [[ "${{ inputs.os }}" == "macos-15" ]]; then
+          brew install mono
+        else
+          conda install mono
+        fi
     - name: Perform pip installation
       shell: bash -l {0}
       run: |
