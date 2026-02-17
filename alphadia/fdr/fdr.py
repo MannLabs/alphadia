@@ -170,11 +170,15 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
 
     psm_df["proba"] = predicted_proba
 
-    normal_decoy_df = None
+    non_hidden_decoys_df = None
     if exclude_non_hidden_decoys and "is_hidden_decoy" in psm_df.columns:
-        is_normal_decoy = (psm_df["_decoy"] == 1) & (~psm_df["is_hidden_decoy"])
-        normal_decoy_df = psm_df[is_normal_decoy].copy()
-        psm_df = psm_df[~is_normal_decoy].copy()
+        # Reveal hidden decoys: flip _decoy from 0 to 1 so they count as decoys
+        psm_df.loc[psm_df["is_hidden_decoy"], "_decoy"] = 1
+
+        # Exclude non-hidden decoys from FDR calculation
+        non_hidden_mask = (psm_df["_decoy"] == 1) & (~psm_df["is_hidden_decoy"])
+        non_hidden_decoys_df = psm_df[non_hidden_mask].copy()
+        psm_df = psm_df[~non_hidden_mask].copy()
 
     psm_df.sort_values(
         ["proba", "precursor_idx"], ascending=True, inplace=True
@@ -203,11 +207,6 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
     psm_df = keep_best(psm_df, group_columns=group_columns)
     psm_df = get_q_values(psm_df, "proba", "_decoy", decoy_weight=decoy_weight)
 
-    if normal_decoy_df is not None:
-        # TODO: clash with plot?
-        normal_decoy_df["qval"] = 1.0
-        psm_df = pd.concat([psm_df, normal_decoy_df])
-
     if figure_path is not None and not exclude_non_hidden_decoys:
         plot_fdr(
             y[idxs_train],
@@ -217,6 +216,10 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
             psm_df["qval"],
             figure_path=figure_path,
         )
+
+    if non_hidden_decoys_df is not None:
+        non_hidden_decoys_df["qval"] = 1.0
+        psm_df = pd.concat([psm_df, non_hidden_decoys_df])
 
     return psm_df
 

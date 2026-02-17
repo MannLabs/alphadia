@@ -637,10 +637,21 @@ class NgExtractionHandler(ExtractionHandler):
 
         if precursor_fdr_df is not None:
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+                precursor_fdr_df[
+                    [
+                        "precursor_idx",
+                        "rank",
+                        "qval",
+                        "proba",
+                        "_decoy",
+                    ]
+                ],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
+            # TODO: this is most likely a bad idea
+            precursor_df["decoy"] = precursor_fdr_df["_decoy"]
+            del precursor_df["_decoy"]
 
         return precursor_df, fragments_df
 
