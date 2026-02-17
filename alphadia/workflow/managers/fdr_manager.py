@@ -12,6 +12,7 @@ import xxhash
 import alphadia
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
+from alphadia.libtransform.decoy import DUAL_DECOY_HIDDEN_FRACTION, DUAL_DECOY_SENTINEL
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -96,6 +97,8 @@ class FDRManager(BaseManager):
 
         self._compete_for_fragments = config["search"]["compete_for_fragments"]
         self._hidden_decoy_fraction = config["fdr"]["hidden_decoy_fraction"]
+        if self._hidden_decoy_fraction == DUAL_DECOY_SENTINEL:
+            self._hidden_decoy_fraction = DUAL_DECOY_HIDDEN_FRACTION
         self._lda_fdr_threshold = config["fdr"]["lda_fdr_threshold"]
 
         self._dia_cycle = dia_cycle

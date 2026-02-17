@@ -104,7 +104,10 @@ def perform_fdr(  # noqa: D417,  C901, PLR0912, PLR0913, PLR0915 # too complex, 
             exclude_non_hidden_decoys = False
     else:
         decoy_weight = 1.0
-        exclude_non_hidden_decoys = False
+        if entrapment_fdr:  # noqa: SIM108
+            exclude_non_hidden_decoys = True
+        else:
+            exclude_non_hidden_decoys = False
 
     use_lda_prefilter = False
     if lda_fdr_threshold > 0:

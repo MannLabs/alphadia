@@ -8,6 +8,9 @@ from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
 
+DUAL_DECOY_SENTINEL = 99
+DUAL_DECOY_HIDDEN_FRACTION = 0.25
+
 
 class DecoyGenerator(ProcessingStep):
     def __init__(
@@ -59,7 +62,49 @@ class DecoyGenerator(ProcessingStep):
         input._precursor_df["is_hidden_decoy"] = False
         decoy_lib._precursor_df["is_hidden_decoy"] = False
 
-        if self.hidden_decoy_fraction > 0:
+        if self.hidden_decoy_fraction == DUAL_DECOY_SENTINEL:
+            decoy_lib2 = decoy_lib_provider.get_decoy_lib(
+                "pseudo_reverse", input.copy()
+            )
+            decoy_lib2.charged_frag_types = input.charged_frag_types
+            decoy_lib2.decoy_sequence(mp_process_num=self.mp_process_num)
+            decoy_lib2.calc_precursor_mz()
+            decoy_lib2.remove_unused_fragments()
+            decoy_lib2.calc_fragment_mz_df()
+            decoy_lib2._precursor_df["decoy"] = 1
+            decoy_lib2._precursor_df["is_hidden_decoy"] = False
+
+            rng = np.random.default_rng(seed=42)
+
+            n_decoys_1 = len(decoy_lib._precursor_df)
+            n_hidden_1 = int(n_decoys_1 * DUAL_DECOY_HIDDEN_FRACTION)
+            hidden_idx_1 = rng.choice(n_decoys_1, size=n_hidden_1, replace=False)
+            decoy_lib._precursor_df.iloc[
+                hidden_idx_1, decoy_lib._precursor_df.columns.get_loc("decoy")
+            ] = 0
+            decoy_lib._precursor_df.iloc[
+                hidden_idx_1,
+                decoy_lib._precursor_df.columns.get_loc("is_hidden_decoy"),
+            ] = True
+
+            n_decoys_2 = len(decoy_lib2._precursor_df)
+            n_hidden_2 = int(n_decoys_2 * DUAL_DECOY_HIDDEN_FRACTION)
+            hidden_idx_2 = rng.choice(n_decoys_2, size=n_hidden_2, replace=False)
+            decoy_lib2._precursor_df.iloc[
+                hidden_idx_2, decoy_lib2._precursor_df.columns.get_loc("decoy")
+            ] = 0
+            decoy_lib2._precursor_df.iloc[
+                hidden_idx_2,
+                decoy_lib2._precursor_df.columns.get_loc("is_hidden_decoy"),
+            ] = True
+
+            logger.info(
+                f"Created dual decoy libraries: {n_hidden_1} hidden ({n_hidden_1/n_decoys_1:.1%}) + {n_decoys_1 - n_hidden_1} visible ({(n_decoys_1 - n_hidden_1)/n_decoys_1:.1%}) ({self.decoy_type}), "
+                f"{n_hidden_2} hidden ({n_hidden_2/n_decoys_2:.1%}) + {n_decoys_2 - n_hidden_2} visible ({(n_decoys_2 - n_hidden_2)/n_decoys_2:.1%}) (pseudo_reverse)"
+            )
+
+            decoy_lib.append(decoy_lib2)
+        elif self.hidden_decoy_fraction > 0:
             n_decoys = len(decoy_lib._precursor_df)
             n_hidden = int(n_decoys * self.hidden_decoy_fraction)
             if n_hidden == 0:

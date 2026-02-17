@@ -127,6 +127,17 @@ class LogFlatLibraryStats(ProcessingStep):
             n_decoys = len(input.precursor_df.query("decoy == True"))
             logger.info(f"\tthereof targets:{n_targets:,}")
             logger.info(f"\tthereof decoys: {n_decoys:,}")
+
+            if "is_hidden_decoy" in input.precursor_df.columns:
+                n_hidden = len(input.precursor_df.query("is_hidden_decoy == True"))
+                n_total_decoys = n_hidden + n_decoys
+                if n_total_decoys > 0:
+                    logger.info(
+                        f"\tthereof hidden decoys: {n_hidden:,} ({n_hidden/n_total_decoys:.1%})"
+                    )
+                    logger.info(
+                        f"\tthereof visible decoys: {n_decoys:,} ({n_decoys/n_total_decoys:.1%})"
+                    )
         else:
             logger.warning("no decoy column was found")
 
