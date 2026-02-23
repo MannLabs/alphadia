@@ -61,6 +61,7 @@ class FDRManager(BaseManager):
         path: None | str = None,
         load_from_file: bool = True,
         random_state: int | None = None,
+        hidden_decoy_fraction: float = 0.0,
         **kwargs,
     ):
         """Contains, updates and applies classifiers for target-decoy competition-based false discovery rate (FDR) estimation.
@@ -81,6 +82,8 @@ class FDRManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
         random_state: int, optional
             Random state for reproducibility.
+        hidden_decoy_fraction: float, optional
+            Fraction of decoys reserved as hidden for final FDR estimation.
         """
         super().__init__(path=path, load_from_file=load_from_file, **kwargs)
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
@@ -98,6 +101,8 @@ class FDRManager(BaseManager):
 
         self._dia_cycle = dia_cycle
 
+        self._hidden_decoy_fraction = hidden_decoy_fraction
+
         self._np_rng = (
             None if random_state is None else np.random.default_rng(random_state)
         )
@@ -110,6 +115,7 @@ class FDRManager(BaseManager):
         df_fragments: pd.DataFrame | None = None,
         decoy_channel: int = -1,
         version: int = -1,
+        decoy_value: int = 1,
     ):
         """Fit the classifier and perform FDR estimation.
 
@@ -127,6 +133,8 @@ class FDRManager(BaseManager):
             Channel to use for decoy competition if decoy_strategy is "channel". Defaults to -1, which means no decoy channel is used.
         version: int
             Version of the classifier to use. If -1, uses the latest version. Defaults to -1.
+        decoy_value: int
+            Which decoy class to use for FDR estimation (1=training decoys, 2=hidden decoys). Defaults to 1.
 
         Notes
         -----
@@ -160,12 +168,20 @@ class FDRManager(BaseManager):
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
 
+        if self._hidden_decoy_fraction > 0.0:
+            if decoy_value == 2:
+                decoy_correction_factor = 1.0 / self._hidden_decoy_fraction
+            else:
+                decoy_correction_factor = 1.0 / (1.0 - self._hidden_decoy_fraction)
+        else:
+            decoy_correction_factor = 1.0
+
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
                 available_columns,
                 features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == 1].copy(),
+                features_df[features_df["decoy"] == decoy_value].copy(),
                 competitive=competitive,
                 group_channels=True,
                 # TODO move this logic to perform_fdr():
@@ -173,6 +189,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                decoy_correction_factor=decoy_correction_factor,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -187,7 +204,7 @@ class FDRManager(BaseManager):
                         classifier,
                         available_columns,
                         channel_df[channel_df["decoy"] == 0].copy(),
-                        channel_df[channel_df["decoy"] == 1].copy(),
+                        channel_df[channel_df["decoy"] == decoy_value].copy(),
                         competitive=competitive,
                         group_channels=True,
                         df_fragments=df_fragments
@@ -196,6 +213,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        decoy_correction_factor=decoy_correction_factor,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -216,6 +234,7 @@ class FDRManager(BaseManager):
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        decoy_correction_factor=decoy_correction_factor,
                     )
                 )
 

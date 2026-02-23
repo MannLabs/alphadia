@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -685,12 +686,18 @@ class NgExtractionHandler(ExtractionHandler):
         )
 
         # apply FDR to PSMs
+        decoy_value = (
+            HIDDEN_DECOY_VALUE
+            if self._config["fdr"]["hidden_decoy_fraction"] > 0.0
+            else 1
+        )
         precursor_fdr_df = self._fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise, raise error for now
             competitive=self._config["fdr"]["competitive_scoring"],
             df_fragments=None,  # TODO: support fragments_df,
             version=self._optimization_manager.classifier_version,
+            decoy_value=decoy_value,
         )
         precursor_fdr_df = precursor_fdr_df[
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]

@@ -1,7 +1,9 @@
+import logging
 import os
 
 import numpy as np
 import pandas as pd
+from alphabase.peptide.fragment import remove_unused_fragments
 from alphabase.spectral_library.flat import SpecLibFlat
 
 try:  # noqa: SIM105
@@ -10,6 +12,7 @@ except ImportError:
     pass
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationGroups
@@ -30,6 +33,35 @@ from alphadia.workflow.peptidecentric.utils import (
     log_precursor_df,
     use_timing_manager,
 )
+
+logger = logging.getLogger()
+
+
+def _filter_hidden_decoys(library: SpecLibFlat) -> SpecLibFlat:
+    """Return a copy of the library with hidden decoys (decoy=2) removed.
+
+    Parameters
+    ----------
+    library : SpecLibFlat
+        The spectral library containing targets (decoy=0), training decoys (decoy=1),
+        and hidden decoys (decoy=2).
+
+    Returns
+    -------
+    SpecLibFlat
+        A new library containing only targets and training decoys.
+    """
+    filtered = library.copy()
+    mask = filtered._precursor_df["decoy"] != HIDDEN_DECOY_VALUE
+    filtered._precursor_df = filtered._precursor_df[mask].reset_index(drop=True)
+    remove_unused_fragments(
+        filtered._precursor_df,
+        filtered._fragment_mz_df,
+        filtered._fragment_intensity_df,
+    )
+    n_removed = (~mask).sum()
+    logger.info(f"Filtered {n_removed} hidden decoys from optimization library")
+    return filtered
 
 
 def _get_classifier_base(
@@ -122,6 +154,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             config=self.config,
             figure_path=self._figure_path,
             random_state=self._random_state_fdr_manager,
+            hidden_decoy_fraction=config_fdr.get("hidden_decoy_fraction", 0.0),
         )
 
         init_spectral_library(
@@ -157,13 +190,17 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             )
             return
 
+        optimization_library = self.spectral_library
+        if self._config["fdr"]["hidden_decoy_fraction"] > 0.0:
+            optimization_library = _filter_hidden_decoys(self.spectral_library)
+
         optimization_handler = OptimizationHandler(
             self.config,
             self.optimization_manager,
             self.calibration_manager,
             self._fdr_manager,
             self.reporter,
-            self.spectral_library,
+            optimization_library,
             self.dia_data,
             self._figure_path,
         )
@@ -216,12 +253,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 else "precursor"
             )
 
+            decoy_value = (
+                HIDDEN_DECOY_VALUE
+                if self._config["fdr"]["hidden_decoy_fraction"] > 0.0
+                else 1
+            )
             precursor_df = self._fdr_manager.fit_predict(
                 precursor_quantified_w_features_df,
                 decoy_strategy=decoy_strategy,
                 competitive=self._config["fdr"]["competitive_scoring"],
                 df_fragments=fragments_df,
                 version=self.optimization_manager.classifier_version,
+                decoy_value=decoy_value,
             )
 
             precursor_df = precursor_df[

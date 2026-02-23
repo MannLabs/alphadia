@@ -15,7 +15,7 @@ from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import ConfigKeys, SearchStepFiles
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
-from alphadia.libtransform.decoy import DecoyGenerator
+from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE, DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
 from alphadia.libtransform.flatten import (
     FlattenLibrary,
@@ -358,6 +358,7 @@ class SearchStep:
                 DecoyGenerator(
                     decoy_type="diann",
                     mp_process_num=thread_count,
+                    hidden_decoy_fraction=self.config["fdr"]["hidden_decoy_fraction"],
                 ),
                 FlattenLibrary(
                     max(
@@ -526,6 +527,8 @@ class SearchStep:
 
         workflow_path = Path(workflow.path)
         psm_df["run"] = workflow.instance_name
+        if self.config["fdr"]["hidden_decoy_fraction"] > 0.0:
+            psm_df["decoy"] = psm_df["decoy"].replace(HIDDEN_DECOY_VALUE, 1)
 
         for file_name, df in {
             SearchStepFiles.PSM_FILE_NAME: psm_df,
