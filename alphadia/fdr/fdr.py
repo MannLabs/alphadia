@@ -21,12 +21,13 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
+def perform_fdr(  # noqa: C901, PLR0913, PLR0915, PLR0912 # too complex, too many arguments
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
     df_decoy: pd.DataFrame,
     *,
+    df_decoy_fdr: pd.DataFrame | None = None,
     competitive: bool = False,
     group_channels: bool = True,
     figure_path: str | None = None,
@@ -52,7 +53,13 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         A dataframe of target PSMs
 
     df_decoy : pd.DataFrame
-        A dataframe of decoy PSMs
+        A dataframe of decoy PSMs used for classifier training.
+
+    df_decoy_fdr : pd.DataFrame, default=None
+        A separate dataframe of decoy PSMs used for FDR estimation.
+        When provided, FDR is estimated on df_target + df_decoy_fdr
+        while the classifier is still trained on df_target + df_decoy.
+        When None (default), df_decoy is used for both training and FDR estimation.
 
     competitive : bool
         Whether to perform competitive FDR calculation where only the highest scoring PSM in a target-decoy pair is retained
@@ -99,6 +106,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     if decoy_dropped > 0:
         logger.warning(f"dropped {decoy_dropped} decoy PSMs due to missing features")
 
+    # TODO: maybe remove?
     if (
         np.abs(len(df_target) - len(df_decoy)) / ((len(df_target) + len(df_decoy)) / 2)
         > 0.1  # noqa: PLR2004
@@ -113,6 +121,7 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     if random_state is not None:
         logger.info(f"Using random state {random_state} for FDR calculation")
 
+    # Train classifier on targets + df_decoy
     X_target = df_target[available_columns].to_numpy()
     X_decoy = df_decoy[available_columns].to_numpy()
     y_target = np.zeros(len(X_target))
@@ -127,8 +136,25 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
 
     classifier.fit(X_train, y_train)
 
-    psm_df = pd.concat([df_target, df_decoy])
-    psm_df["_decoy"] = y
+    # FDR estimation: use df_decoy_fdr if provided, otherwise df_decoy
+    if df_decoy_fdr is not None:
+        df_decoy_fdr = df_decoy_fdr.dropna(subset=available_columns)
+        X_decoy_fdr = df_decoy_fdr[available_columns].to_numpy()  # noqa: N806
+        X_fdr = np.concatenate([X_target, X_decoy_fdr])  # noqa: N806
+        y_fdr = np.concatenate([np.zeros(len(X_target)), np.ones(len(X_decoy_fdr))])
+
+        logger.info(
+            f"trained on {len(X_target)} targets + {len(X_decoy)} training decoys, "
+            f"FDR on {len(X_target)} targets + {len(X_decoy_fdr)} hidden decoys"
+        )
+
+        psm_df = pd.concat([df_target, df_decoy_fdr])
+        psm_df["_decoy"] = y_fdr
+        predicted_proba = classifier.predict_proba(X_fdr)[:, 1]
+    else:
+        psm_df = pd.concat([df_target, df_decoy])
+        psm_df["_decoy"] = y
+        predicted_proba = classifier.predict_proba(X)[:, 1]
 
     if competitive:
         group_columns = (
@@ -138,8 +164,6 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         )
     else:
         group_columns = ["precursor_idx"]
-
-    predicted_proba = classifier.predict_proba(X)[:, 1]
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
@@ -174,6 +198,10 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     )
 
     if figure_path is not None:
+        if df_decoy_fdr is not None:
+            predicted_proba = classifier.predict_proba(X)[:, 1]
+            # otherwise, predicted_proba can be reused from above
+
         plot_fdr(
             y_train,
             y_test,

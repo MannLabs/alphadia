@@ -182,7 +182,12 @@ class FDRManager(BaseManager):
                 classifier,
                 available_columns,
                 features_df[features_df["decoy"] == 0].copy(),
-                features_df[features_df["decoy"] == decoy_value].copy(),
+                features_df[features_df["decoy"] == 1].copy(),
+                df_decoy_fdr=(
+                    features_df[features_df["decoy"] == HIDDEN_DECOY_VALUE].copy()
+                    if decoy_value == HIDDEN_DECOY_VALUE
+                    else None
+                ),
                 competitive=competitive,
                 group_channels=True,
                 # TODO move this logic to perform_fdr():
@@ -205,7 +210,12 @@ class FDRManager(BaseManager):
                         classifier,
                         available_columns,
                         channel_df[channel_df["decoy"] == 0].copy(),
-                        channel_df[channel_df["decoy"] == decoy_value].copy(),
+                        channel_df[channel_df["decoy"] == 1].copy(),
+                        df_decoy_fdr=(
+                            channel_df[channel_df["decoy"] == HIDDEN_DECOY_VALUE].copy()
+                            if decoy_value == HIDDEN_DECOY_VALUE
+                            else None
+                        ),
                         competitive=competitive,
                         group_channels=True,
                         df_fragments=df_fragments
