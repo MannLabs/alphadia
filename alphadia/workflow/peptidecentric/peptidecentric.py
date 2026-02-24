@@ -191,8 +191,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         optimization_library = self.spectral_library
-        if self._config["fdr"]["hidden_decoy_fraction"] > 0.0:
-            optimization_library = _filter_hidden_decoys(self.spectral_library)
+        # if self._config["fdr"]["hidden_decoy_fraction"] > 0.0:
+        #     optimization_library = _filter_hidden_decoys(self.spectral_library)
 
         optimization_handler = OptimizationHandler(
             self.config,
@@ -236,7 +236,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             apply_cutoff=True,
         )
 
+        decoy_value = (
+            HIDDEN_DECOY_VALUE
+            if self._config["fdr"]["hidden_decoy_fraction"] > 0.0
+            else 1
+        )
+
         if self._config["search"]["extraction_backend"] == "python":
+            if decoy_value == HIDDEN_DECOY_VALUE:
+                raise NotImplementedError(
+                    "FDR with hidden decoys is not yet implemented for the python extraction backend"
+                )
+
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
                     candidates_df, self.dia_data, self.spectral_library
@@ -253,11 +264,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 else "precursor"
             )
 
-            decoy_value = (
-                HIDDEN_DECOY_VALUE
-                if self._config["fdr"]["hidden_decoy_fraction"] > 0.0
-                else 1
-            )
             precursor_df = self._fdr_manager.fit_predict(
                 precursor_quantified_w_features_df,
                 decoy_strategy=decoy_strategy,
@@ -292,7 +298,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
 
             candidates_fdr_df, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    precursor_w_features_df,
+                    candidates_df,
+                    decoy_value=decoy_value,
                 )
             )
 

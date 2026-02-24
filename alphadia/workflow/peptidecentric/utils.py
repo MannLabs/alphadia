@@ -89,6 +89,8 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
     target_precursors_percentages = target_precursors / total_precursors_denom * 100
     decoy_precursors = len(precursor_df[precursor_df["decoy"] == 1])
     decoy_precursors_percentages = decoy_precursors / total_precursors_denom * 100
+    decoy_precursors2 = len(precursor_df[precursor_df["decoy"] == 2])
+    decoy_precursors_percentages2 = decoy_precursors2 / total_precursors_denom * 100
 
     reporter.log_string(
         "============================= Precursor FDR =============================",
@@ -103,6 +105,10 @@ def log_precursor_df(reporter: Pipeline, precursor_df: pd.DataFrame) -> None:
     )
     reporter.log_string(
         f"Decoy precursors: {decoy_precursors:,} ({decoy_precursors_percentages:.2f}%)",
+        verbosity="progress",
+    )
+    reporter.log_string(
+        f"Decoy precursors2: {decoy_precursors2:,} ({decoy_precursors_percentages2:.2f}%)",
         verbosity="progress",
     )
 

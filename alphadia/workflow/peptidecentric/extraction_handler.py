@@ -13,7 +13,6 @@ from alphadia_search_rs import (
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
-from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -269,7 +268,10 @@ class ExtractionHandler(ABC):
         raise NotImplementedError()
 
     def perform_fdr_and_filter_candidates(
-        self, features_df: pd.DataFrame, candidates_df: pd.DataFrame
+        self,
+        features_df: pd.DataFrame,
+        candidates_df: pd.DataFrame,
+        decoy_value: int = 1,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -282,6 +284,9 @@ class ExtractionHandler(ABC):
 
         candidates_df : pd.DataFrame
             DataFrame with candidates
+
+        decoy_value : int
+            Which decoy class to use for FDR estimation (1=training, 2=hidden). Defaults to 1.
 
         Returns
         -------
@@ -672,6 +677,7 @@ class NgExtractionHandler(ExtractionHandler):
         self,
         features_df: pd.DataFrame,
         candidates_df: pd.DataFrame,
+        decoy_value: int = 1,
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Perform FDR on features and filter candidates accordingly.
 
@@ -685,12 +691,12 @@ class NgExtractionHandler(ExtractionHandler):
             candidates_df["precursor_idx"].values, candidates_df["rank"].values
         )
 
+        if decoy_value == 2:
+            features_df.to_parquet(
+                f"{self._config['output_directory']}/features.parquet"
+            )
+
         # apply FDR to PSMs
-        decoy_value = (
-            HIDDEN_DECOY_VALUE
-            if self._config["fdr"]["hidden_decoy_fraction"] > 0.0
-            else 1
-        )
         precursor_fdr_df = self._fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise, raise error for now
