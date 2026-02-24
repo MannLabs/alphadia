@@ -527,7 +527,11 @@ class SearchStep:
 
         workflow_path = Path(workflow.path)
         psm_df["run"] = workflow.instance_name
+
         if self.config["fdr"]["hidden_decoy_fraction"] > 0.0:
+            assert not sum(
+                psm_df["decoy"] == 1
+            )  # there should be no "normal" decoys left here
             psm_df["decoy"] = psm_df["decoy"].replace(HIDDEN_DECOY_VALUE, 1)
 
         for file_name, df in {

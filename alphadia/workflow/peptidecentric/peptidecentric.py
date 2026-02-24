@@ -191,6 +191,8 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             return
 
         optimization_library = self.spectral_library
+
+        # TODO investigate if "hidden decoys" could be easily removed from the library during optimization
         # if self._config["fdr"]["hidden_decoy_fraction"] > 0.0:
         #     optimization_library = _filter_hidden_decoys(self.spectral_library)
 

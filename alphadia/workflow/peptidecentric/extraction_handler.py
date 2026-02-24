@@ -13,6 +13,7 @@ from alphadia_search_rs import (
 
 from alphadia.constants.keys import CalibCols
 from alphadia.fragcomp.utils import candidate_hash
+from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -691,7 +692,8 @@ class NgExtractionHandler(ExtractionHandler):
             candidates_df["precursor_idx"].values, candidates_df["rank"].values
         )
 
-        if decoy_value == 2:
+        # temporary output
+        if decoy_value == HIDDEN_DECOY_VALUE:
             features_df.to_parquet(
                 f"{self._config['output_directory']}/features.parquet"
             )

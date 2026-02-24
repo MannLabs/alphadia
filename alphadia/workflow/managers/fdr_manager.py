@@ -12,6 +12,7 @@ import xxhash
 import alphadia
 from alphadia.fdr import fdr
 from alphadia.fdr.classifiers import Classifier
+from alphadia.libtransform.decoy import HIDDEN_DECOY_VALUE
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -169,7 +170,7 @@ class FDRManager(BaseManager):
         )
 
         if self._hidden_decoy_fraction > 0.0:
-            if decoy_value == 2:
+            if decoy_value == HIDDEN_DECOY_VALUE:
                 decoy_correction_factor = 1.0 / self._hidden_decoy_fraction
             else:
                 decoy_correction_factor = 1.0 / (1.0 - self._hidden_decoy_fraction)
@@ -218,6 +219,11 @@ class FDRManager(BaseManager):
                 )
             psm_df = pd.concat(psm_df_list)
         elif decoy_strategy == "channel":
+            if self._hidden_decoy_fraction > 0.0:
+                raise NotImplementedError(
+                    "Hidden decoys are not supported with channel-based decoy strategy."
+                )
+
             channels = list(set(features_df["channel"].unique()) - set([decoy_channel]))
             psm_df_list = []
             for channel in channels:
