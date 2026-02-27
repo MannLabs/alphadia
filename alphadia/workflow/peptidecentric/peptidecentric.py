@@ -216,7 +216,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ),
         )
 
-        candidates_df = extraction_handler.select_candidates(
+        candidates = extraction_handler.select_candidates(
             self.dia_data,
             self.spectral_library,
             apply_cutoff=True,
@@ -225,7 +225,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
-                    candidates_df, self.dia_data, self.spectral_library
+                    candidates, self.dia_data, self.spectral_library
                 )
             )
 
@@ -266,18 +266,18 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             ]
 
         else:
-            precursor_w_features_df = extraction_handler.score_candidates(
-                candidates_df, self.dia_data, self.spectral_library
+            features_df = extraction_handler.score_candidates(
+                candidates, self.dia_data, self.spectral_library
             )
 
-            candidates_fdr_df, precursor_fdr_df = (
+            candidates_fdr, precursor_fdr_df = (
                 extraction_handler.perform_fdr_and_filter_candidates(
-                    precursor_w_features_df, candidates_df
+                    features_df, candidates
                 )
             )
 
             precursor_df, fragments_df = extraction_handler.quantify_candidates(
-                candidates_fdr_df,
+                candidates_fdr,
                 precursor_fdr_df,
                 self.dia_data,
                 self.spectral_library,

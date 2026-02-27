@@ -370,7 +370,7 @@ class OptimizationHandler:
             ),
         )
 
-        candidates_df = extraction_handler.select_candidates(
+        candidates = extraction_handler.select_candidates(
             self._dia_data,
             self._optlock.batch_library,
         )
@@ -378,7 +378,7 @@ class OptimizationHandler:
         if self._config["search"]["extraction_backend"] == "python":
             precursor_quantified_w_features_df, fragments_df = (
                 extraction_handler.score_and_quantify_candidates(
-                    candidates_df,
+                    candidates,
                     self._dia_data,
                     self._optlock.batch_library,
                 )
@@ -403,12 +403,12 @@ class OptimizationHandler:
             )
         else:
             precursor_w_features_df = extraction_handler.score_candidates(
-                candidates_df, self._dia_data, self._optlock.batch_library
+                candidates, self._dia_data, self._optlock.batch_library
             )
 
             precursor_quantified_df, fragments_df = (
                 extraction_handler.quantify_candidates(
-                    candidates_df,
+                    candidates,
                     None,
                     self._dia_data,
                     self._optlock.batch_library,
@@ -437,7 +437,7 @@ class OptimizationHandler:
             )
 
             _, precursor_df = extraction_handler.perform_fdr_and_filter_candidates(
-                self._optlock.features_df, candidates_df
+                self._optlock.features_df, candidates
             )
 
         self._reporter.log_string(
