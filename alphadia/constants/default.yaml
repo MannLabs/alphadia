@@ -308,6 +308,8 @@ fdr:
   channel_wise_fdr: false
   # optimizes the batch size and learning rate of the neural network
   enable_nn_hyperparameter_tuning: true
+  # classifier type: "nn" for standard NN, "zscore_nn" for two-stage z-score pre-filter then NN
+  classifier_type: "nn"
 
 search_output:
   # Output file format for search results. Can be either "tsv" or "parquet"

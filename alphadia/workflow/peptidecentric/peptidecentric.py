@@ -8,7 +8,8 @@ try:  # noqa: SIM105
     from alphadia.workflow.peptidecentric.ng.ng_mapper import get_feature_names
 except ImportError:
     pass
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
+from alphadia.fdr.zscore_nn_classifier import ZScoreNNClassifier
 from alphadia.fragcomp.utils import candidate_hash
 from alphadia.workflow import base
 from alphadia.workflow.config import Config
@@ -35,7 +36,8 @@ from alphadia.workflow.peptidecentric.utils import (
 def _get_classifier_base(
     enable_nn_hyperparameter_tuning: bool = False,
     random_state: int | None = None,
-) -> BinaryClassifierLegacyNewBatching:
+    classifier_type: str = "nn",
+) -> Classifier:
     """Creates and returns a classifier base instance.
 
     Parameters
@@ -47,11 +49,23 @@ def _get_classifier_base(
     random_state : int | None, optional
         Random state for reproducibility. Default is None.
 
+    classifier_type : str, optional
+        Type of classifier to use. "nn" for standard NN, "zscore_nn" for
+        two-stage z-score pre-filter then NN. Default is "nn".
+
     Returns
     -------
-    BinaryClassifierLegacyNewBatching
-        Neural network
+    Classifier
+        Classifier instance.
     """
+    if classifier_type == "zscore_nn":
+        return ZScoreNNClassifier(
+            test_size=0.001,
+            batch_size=5000,
+            learning_rate=0.001,
+            epochs=10,
+            experimental_hyperparameter_tuning=enable_nn_hyperparameter_tuning,
+        )
     return BinaryClassifierLegacyNewBatching(
         test_size=0.001,
         batch_size=5000,
@@ -108,15 +122,24 @@ class PeptideCentricWorkflow(base.WorkflowBase):
             f"Initializing workflow {self.instance_name}", verbosity="progress"
         )
         config_fdr = self.config["fdr"]
-        self._fdr_manager = FDRManager(
-            feature_columns=get_feature_names()
+        classifier_type = config_fdr.get("classifier_type", "nn")
+
+        fdr_feature_columns = (
+            get_feature_names()
             if self._config["search"]["extraction_backend"] == "rust"
-            else feature_columns,
+            else feature_columns
+        )
+        if classifier_type == "zscore_nn" and "rank" not in fdr_feature_columns:
+            fdr_feature_columns = [*fdr_feature_columns, "rank"]
+
+        self._fdr_manager = FDRManager(
+            feature_columns=fdr_feature_columns,
             classifier_base=_get_classifier_base(
                 enable_nn_hyperparameter_tuning=config_fdr[
                     "enable_nn_hyperparameter_tuning"
                 ],
                 random_state=self._random_state_fdr_classifier,
+                classifier_type=classifier_type,
             ),
             dia_cycle=self.dia_data.cycle,
             config=self.config,

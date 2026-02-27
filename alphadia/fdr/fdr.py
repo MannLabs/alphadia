@@ -121,6 +121,9 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         X, y, test_size=0.2, random_state=random_state
     )
 
+    if hasattr(classifier, "set_available_columns"):
+        classifier.set_available_columns(available_columns)
+
     classifier.fit(X_train, y_train)
 
     psm_df = pd.concat([df_target, df_decoy])

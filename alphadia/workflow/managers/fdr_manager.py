@@ -315,9 +315,15 @@ class FDRManager(BaseManager):
 
                 if classifier_hash not in self.classifier_store:
                     classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(
-                        torch.load(os.path.join(path, file), weights_only=False)
-                    )
+                    try:
+                        classifier.from_state_dict(
+                            torch.load(os.path.join(path, file), weights_only=False)
+                        )
+                    except (KeyError, TypeError):
+                        logger.warning(
+                            f"Skipping incompatible stored classifier {file}"
+                        )
+                        continue
                     self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
