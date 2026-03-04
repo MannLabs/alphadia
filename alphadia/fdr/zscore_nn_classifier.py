@@ -24,6 +24,7 @@ ZSCORE_FEATURES = [
 ZSCORE_FDR_THRESHOLD = 0.50
 MIN_MATCHED_STRICT = 3
 _MIN_STD = 1e-10
+_MIN_SURVIVORS = 500
 
 
 def _find_score_threshold(
@@ -170,6 +171,14 @@ class ZScoreNNClassifier(Classifier):
         )
         all_scores = np.sum((all_feat - means) / stds * signs, axis=1)
         survivors = all_scores >= self._threshold
+
+        if survivors.sum() < _MIN_SURVIVORS:
+            logger.warning(
+                f"Z-score pre-filter produced only {survivors.sum()} survivors "
+                f"(minimum: {_MIN_SURVIVORS}). Skipping pre-filter for this iteration."
+            )
+            self._threshold = -np.inf
+            survivors = np.ones(len(x), dtype=bool)
 
         logger.info(
             f"Z-score pre-filter: {survivors.sum():,} / {len(x):,} survivors "
