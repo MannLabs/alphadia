@@ -58,6 +58,9 @@ class Config(UserDict):
             raise NotImplementedError("Use update() to update the config.")
         return super().__setitem__(key, item)
 
+    def set_path(self, key: str, path: str | list[str]) -> None:
+        return super().__setitem__(key, path)
+
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
 
