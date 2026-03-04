@@ -54,10 +54,18 @@ class Config(UserDict):
         with open(path, "w") as f:
             json.dump(self.data, f)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str):
+        """Get a config value.
+
+        Returns a read-only view of dicts and a copy of lists to prevent mutation of the original config.
+        (the fact that modifying lists does not raise is not optimal but the solution is simpled and pragmatic).
+        """
         value = self.data[key]
         if isinstance(value, dict):
-            return _to_read_only(value)
+            return _to_read_only_dict(value)
+        if isinstance(value, list):
+            # prevents mutation of original list, but does not raise (not optimal, but pragmatic)
+            return list(value)
         return value
 
     def __setitem__(self, key, item):
@@ -206,10 +214,10 @@ TOLERATED_KEYS = [
 ]
 
 
-def _to_read_only(d: dict) -> MappingProxyType:
+def _to_read_only_dict(d: dict) -> MappingProxyType:
     """Recursively wrap dicts in MappingProxyType to prevent mutation."""
     return MappingProxyType(
-        {k: _to_read_only(v) if isinstance(v, dict) else v for k, v in d.items()}
+        {k: _to_read_only_dict(v) if isinstance(v, dict) else v for k, v in d.items()}
     )
 
 

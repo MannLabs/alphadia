@@ -425,3 +425,11 @@ def test_set_path_disallowed_key_raises():
     config = Config({"a": {"b": "old"}})
     with pytest.raises(NotImplementedError):
         config.set_path(("a", "b"), "new")
+
+
+def test_list_mutation_does_not_affect_config():
+    """Test that mutating a list retrieved via __getitem__ does not affect the config."""
+    config = Config({"paths": ["/a", "/b"]})
+    retrieved = config["paths"]
+    retrieved.append("/c")
+    assert config["paths"] == ["/a", "/b"]
