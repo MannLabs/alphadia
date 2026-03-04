@@ -11,6 +11,7 @@ import json
 import logging
 from collections import UserDict, defaultdict
 from copy import deepcopy
+from types import MappingProxyType
 from typing import Any
 
 import numpy as np
@@ -52,6 +53,12 @@ class Config(UserDict):
     def to_json(self, path: str) -> None:
         with open(path, "w") as f:
             json.dump(self.data, f)
+
+    def __getitem__(self, key):
+        value = self.data[key]
+        if isinstance(value, dict):
+            return _to_read_only(value)
+        return value
 
     def __setitem__(self, key, item):
         if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
@@ -172,6 +179,13 @@ TOLERATED_KEYS = [
     # supported until 1.10.4:
     "calibration.norm_rt_mode",
 ]
+
+
+def _to_read_only(d: dict) -> MappingProxyType:
+    """Recursively wrap dicts in MappingProxyType to prevent mutation."""
+    return MappingProxyType(
+        {k: _to_read_only(v) if isinstance(v, dict) else v for k, v in d.items()}
+    )
 
 
 def _convert_numpy_types(data: Any) -> Any:
