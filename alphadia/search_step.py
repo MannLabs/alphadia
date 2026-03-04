@@ -586,8 +586,9 @@ class SearchStep:
             else:
                 config.set_path(key, expand_path(config[key]))
 
-        config["library_prediction"]["peptdeep_model_path"] = expand_path(
-            config["library_prediction"]["peptdeep_model_path"]
+        config.set_path(
+            ("library_prediction", "peptdeep_model_path"),
+            expand_path(config["library_prediction"]["peptdeep_model_path"]),
         )
 
     def _validate_config(self):

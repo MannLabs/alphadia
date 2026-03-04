@@ -1,6 +1,7 @@
 import os
 import tempfile
 from io import StringIO
+from types import MappingProxyType
 from unittest.mock import patch
 
 import numpy as np
@@ -381,3 +382,46 @@ def test_config_to_yaml_converts_numpy_types():
         assert "!!python/object" not in yaml_content
     finally:
         os.unlink(temp_path)
+
+
+def test_nested_dict_access_returns_read_only():
+    """Test that accessing nested dicts via __getitem__ returns a read-only MappingProxyType."""
+    config = Config({"section": {"key": "value"}})
+    nested = config["section"]
+    assert isinstance(nested, MappingProxyType)
+    assert nested["key"] == "value"
+
+
+def test_nested_dict_mutation_raises():
+    """Test that setting values on nested dicts retrieved via __getitem__ raises TypeError."""
+    config = Config({"section": {"key": "value"}})
+    with pytest.raises(TypeError):
+        config["section"]["key"] = "new_value"
+
+
+def test_deeply_nested_mutation_raises():
+    """Test that mutation is also blocked at deeper nesting levels."""
+    config = Config({"a": {"b": {"c": "value"}}})
+    with pytest.raises(TypeError):
+        config["a"]["b"]["c"] = "new_value"
+
+
+def test_set_path_top_level():
+    """Test that set_path works for top-level keys."""
+    config = Config({"output_directory": "/old/path"})
+    config.set_path("output_directory", "/new/path")
+    assert config["output_directory"] == "/new/path"
+
+
+def test_set_path_nested():
+    """Test that set_path works for tuple keys for nested access."""
+    config = Config({"library_prediction": {"peptdeep_model_path": None}})
+    config.set_path(("library_prediction", "peptdeep_model_path"), "/some/path")
+    assert config["library_prediction"]["peptdeep_model_path"] == "/some/path"
+
+
+def test_set_path_disallowed_key_raises():
+    """Test that set_path rejects keys not in the allowlist."""
+    config = Config({"a": {"b": "old"}})
+    with pytest.raises(NotImplementedError):
+        config.set_path(("a", "b"), "new")

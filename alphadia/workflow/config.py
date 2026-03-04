@@ -65,8 +65,33 @@ class Config(UserDict):
             raise NotImplementedError("Use update() to update the config.")
         return super().__setitem__(key, item)
 
-    def set_path(self, key: str, path: str | list[str]) -> None:
-        return super().__setitem__(key, path)
+    def set_path(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
+        """Set a path value.
+
+        Only certain paths are allowed to be set.
+        Use a tuple key for nested access, e.g. ("library_prediction", "peptdeep_model_path").
+
+        """
+
+        if key not in [
+            ConfigKeys.OUTPUT_DIRECTORY,
+            ConfigKeys.LIBRARY_PATH,
+            ConfigKeys.QUANT_DIRECTORY,
+            ConfigKeys.RAW_PATHS,
+            ConfigKeys.FASTA_PATHS,
+            ("library_prediction", "peptdeep_model_path"),
+        ]:
+            raise NotImplementedError(
+                "Only certain paths may be set directly, use update() to update the config otherwise."
+            )
+
+        if isinstance(key, tuple):
+            target = self.data
+            for k in key[:-1]:
+                target = target[k]
+            target[key[-1]] = path
+        else:
+            self.data[key] = path
 
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
