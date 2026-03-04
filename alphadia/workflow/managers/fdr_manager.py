@@ -160,6 +160,15 @@ class FDRManager(BaseManager):
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
 
+        # debug
+        if 1:
+            features_df.to_parquet(
+                os.path.join(
+                    self.figure_path,
+                    f"features_df_v{self._current_version + 1}.parquet",
+                )
+            )
+
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
@@ -315,9 +324,15 @@ class FDRManager(BaseManager):
 
                 if classifier_hash not in self.classifier_store:
                     classifier = deepcopy(self.classifier_base)
-                    classifier.from_state_dict(
-                        torch.load(os.path.join(path, file), weights_only=False)
-                    )
+                    try:
+                        classifier.from_state_dict(
+                            torch.load(os.path.join(path, file), weights_only=False)
+                        )
+                    except (KeyError, TypeError):
+                        logger.warning(
+                            f"Skipping incompatible stored classifier {file}"
+                        )
+                        continue
                     self.classifier_store[classifier_hash].append(classifier)
 
     def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
