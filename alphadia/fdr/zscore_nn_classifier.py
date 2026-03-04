@@ -9,6 +9,7 @@ import logging
 
 import numpy as np
 
+from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 logger = logging.getLogger()
@@ -24,7 +25,7 @@ ZSCORE_FEATURES = [
 ZSCORE_FDR_THRESHOLD = 0.50
 MIN_MATCHED_STRICT = 3
 _MIN_STD = 1e-10
-_MIN_SURVIVORS = 500
+_MIN_SURVIVORS = -1
 
 
 def _find_score_threshold(
@@ -195,7 +196,14 @@ class ZScoreNNClassifier(Classifier):
                 input_dim=n_nn_features,
                 **self._nn_kwargs,
             )
-        self._nn.fit(x_nn, y_nn)
+
+        try:
+            self._nn.fit(x_nn, y_nn)
+        except TooFewPSMError:
+            logger.warning(
+                f"Z-score pre-filter left only {survivors.sum()} survivors, "
+                f"too few to train NN. Keeping previous weights."
+            )
 
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict class labels. Non-survivors get label 1 (decoy)."""
