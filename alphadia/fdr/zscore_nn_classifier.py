@@ -189,11 +189,12 @@ class ZScoreNNClassifier(Classifier):
         x_nn = x[survivors][:, nn_cols]
         y_nn = y[survivors]
 
-        n_nn_features = len(nn_cols)
-        self._nn = BinaryClassifierLegacyNewBatching(
-            input_dim=n_nn_features,
-            **self._nn_kwargs,
-        )
+        if self._nn is None:
+            n_nn_features = len(nn_cols)
+            self._nn = BinaryClassifierLegacyNewBatching(
+                input_dim=n_nn_features,
+                **self._nn_kwargs,
+            )
         self._nn.fit(x_nn, y_nn)
 
     def predict(self, x: np.ndarray) -> np.ndarray:
