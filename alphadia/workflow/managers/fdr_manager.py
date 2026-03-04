@@ -160,6 +160,15 @@ class FDRManager(BaseManager):
             None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
         )
 
+        # debug
+        if 1:
+            features_df.to_parquet(
+                os.path.join(
+                    self.figure_path,
+                    f"features_df_v{self._current_version + 1}.parquet",
+                )
+            )
+
         if decoy_strategy == "precursor":
             psm_df = fdr.perform_fdr(
                 classifier,
