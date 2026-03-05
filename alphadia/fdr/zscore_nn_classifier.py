@@ -12,6 +12,13 @@ import numpy as np
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
+try:
+    from alphadia_search_rs import zscore_filter_mask as _zscore_filter_mask_rs
+
+    _HAS_RUST_ZSCORE = True
+except ImportError:
+    _HAS_RUST_ZSCORE = False
+
 logger = logging.getLogger()
 
 ZSCORE_FEATURES = [
@@ -23,7 +30,6 @@ ZSCORE_FEATURES = [
 ]
 
 ZSCORE_FDR_THRESHOLD = 0.50
-MIN_MATCHED_STRICT = 3
 _MIN_STD = 1e-10
 _MIN_SURVIVORS = -1
 
@@ -126,6 +132,39 @@ class ZScoreNNClassifier(Classifier):
         """Set the available columns (called before fit if not passed to constructor)."""
         self._available_columns = columns
 
+    def _zscore_survivors(self, x: np.ndarray, zscore_cols: list[int]) -> np.ndarray:
+        """Compute z-score filter mask using Rust if available, else numpy.
+
+        Parameters
+        ----------
+        x : np.ndarray
+            Feature matrix of shape (n_samples, n_features).
+        zscore_cols : list[int]
+            Column indices for z-score features.
+
+        Returns
+        -------
+        np.ndarray
+            Boolean mask of shape (n_samples,). True = passes z-score filter.
+
+        """
+        p = self._zscore_params
+        if _HAS_RUST_ZSCORE:
+            return _zscore_filter_mask_rs(
+                np.ascontiguousarray(x, dtype=np.float64),
+                zscore_cols,
+                p["means"].tolist(),
+                p["stds"].tolist(),
+                p["signs"].tolist(),
+                self._threshold,
+            )
+
+        feat = np.nan_to_num(
+            x[:, zscore_cols].astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0
+        )
+        scores = np.sum((feat - p["means"]) / p["stds"] * p["signs"], axis=1)
+        return scores >= self._threshold
+
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:
         """Fit z-score threshold on rank 0, then train NN on survivors.
 
@@ -166,12 +205,8 @@ class ZScoreNNClassifier(Classifier):
             r0_t_scores, r0_d_scores, self._zscore_fdr_threshold
         )
 
-        # Score all candidates and filter
-        all_feat = np.nan_to_num(
-            x[:, zscore_cols].astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0
-        )
-        all_scores = np.sum((all_feat - means) / stds * signs, axis=1)
-        survivors = all_scores >= self._threshold
+        # Score all candidates and filter (uses Rust if available)
+        survivors = self._zscore_survivors(x, zscore_cols)
 
         if survivors.sum() < _MIN_SURVIVORS:
             logger.warning(
@@ -226,13 +261,8 @@ class ZScoreNNClassifier(Classifier):
         """
         rank_col, zscore_cols, nn_cols = self._resolve_columns()
 
-        # Z-score filter
-        feat = np.nan_to_num(
-            x[:, zscore_cols].astype(np.float64), nan=0.0, posinf=0.0, neginf=0.0
-        )
-        p = self._zscore_params
-        scores = np.sum((feat - p["means"]) / p["stds"] * p["signs"], axis=1)
-        survivors = scores >= self._threshold
+        # Z-score filter (uses Rust if available)
+        survivors = self._zscore_survivors(x, zscore_cols)
 
         # Default: all are decoys
         proba = np.zeros((len(x), 2))

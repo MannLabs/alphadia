@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
 
+import numpy as np
 import pandas as pd
 from alphabase.spectral_library.flat import SpecLibFlat
 from alphadia_search_rs import (
+    CandidateCollection,
     PeakGroupQuantification,
     PeakGroupScoring,
     PeakGroupSelection,
@@ -12,7 +14,6 @@ from alphadia_search_rs import (
 )
 
 from alphadia.constants.keys import CalibCols
-from alphadia.fragcomp.utils import candidate_hash
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import DEFAULT_VALUE_NO_MOBILITY
 from alphadia.reporting.reporting import Pipeline
@@ -27,8 +28,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.peptidecentric.column_name_handler import ColumnNameHandler
 from alphadia.workflow.peptidecentric.ng.ng_mapper import (
-    candidates_to_ng,
-    parse_candidates,
+    candidates_to_df,
     parse_quantification,
     speclib_to_ng,
     to_features_df,
@@ -530,17 +530,37 @@ class NgExtractionHandler(ExtractionHandler):
                 fragment_mz_column=self._column_name_handler.get_fragment_mz_column(),
             )
 
-    def _select_candidates(
+    def select_candidates(
         self,
-        dia_data: "DiaDataNG",  # noqa: F821
+        dia_data: "DiaData | DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
-    ) -> pd.DataFrame:
-        """Select candidates using NG backend.
+        apply_cutoff: bool = False,
+    ) -> CandidateCollection:
+        """Select candidates using NG backend, returning CandidateCollection directly.
 
-        See superclass documentation for interface details.
+        Overrides the base class to keep candidates in Rust-native format,
+        avoiding Rust→DataFrame→Rust round-trips between pipeline stages.
+
+        Parameters
+        ----------
+        dia_data : DiaData | DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library containing precursors and fragments
+        apply_cutoff : bool
+            Whether to apply score cutoff filtering
+
+        Returns
+        -------
+        CandidateCollection
+            Rust-native candidate collection
         """
-
         self._lazy_init_speclib_ng(spectral_library)
+
+        self._reporter.log_string(
+            f"Extracting batch of {len(spectral_library.precursor_df)} precursors",
+            verbosity="progress",
+        )
 
         self._log_parameters()
 
@@ -548,8 +568,8 @@ class NgExtractionHandler(ExtractionHandler):
         selection_params.update(
             {
                 "fwhm_rt": self._optimization_manager.fwhm_rt,
-                # 'kernel_size': 20,  # 15?
                 "top_k_fragments": self._config["search"]["top_k_fragments_selection"],
+                "min_fragments": self._config["search"]["min_fragments_selection"],
                 "peak_length": self._config["search"]["quant_window"],
                 "mass_tolerance": self._optimization_manager.ms2_error,
                 "rt_tolerance": self._optimization_manager.rt_error,
@@ -561,23 +581,53 @@ class NgExtractionHandler(ExtractionHandler):
             dia_data, self._speclib_ng
         )
 
-        cands = parse_candidates(candidates, spectral_library, dia_data)
+        if apply_cutoff:
+            n_before = candidates.len()
+            candidates = candidates.filter_by_score(
+                self._optimization_manager.score_cutoff
+            )
+            self._reporter.log_string(
+                f"Removed {n_before - candidates.len()} precursors with score below cutoff "
+                f"{self._optimization_manager.score_cutoff}",
+            )
 
-        return cands
+        return candidates
+
+    def _select_candidates(
+        self,
+        dia_data: "DiaDataNG",  # noqa: F821
+        spectral_library: SpecLibFlat,
+    ) -> CandidateCollection:
+        """Select candidates using NG backend.
+
+        Note: For the NG backend, select_candidates() is overridden, so this
+        method is only called as fallback.
+        """
+        return self.select_candidates(dia_data, spectral_library, apply_cutoff=False)
 
     def score_candidates(
         self,
-        candidates_df: pd.DataFrame,
+        candidates: CandidateCollection,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
     ) -> pd.DataFrame:
         """Score candidates using NG backend.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        candidates : CandidateCollection
+            Rust-native candidate collection
+        dia_data : DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library
+
+        Returns
+        -------
+        pd.DataFrame
+            Features dataframe with scoring results
         """
         self._lazy_init_speclib_ng(spectral_library)
-
-        candidates = candidates_to_ng(candidates_df, dia_data)
 
         scoring_params = ScoringParameters()
         scoring_params.update(
@@ -597,7 +647,7 @@ class NgExtractionHandler(ExtractionHandler):
 
     def quantify_candidates(
         self,
-        candidates_df: pd.DataFrame,
+        candidates: CandidateCollection,
         precursor_fdr_df: pd.DataFrame | None,
         dia_data: "DiaDataNG",  # noqa: F821
         spectral_library: SpecLibFlat,
@@ -605,24 +655,38 @@ class NgExtractionHandler(ExtractionHandler):
     ) -> tuple[pd.DataFrame, pd.DataFrame]:
         """Quantify candidates using NG backend.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        candidates : CandidateCollection
+            Rust-native candidate collection (FDR-filtered)
+        precursor_fdr_df : pd.DataFrame | None
+            DataFrame with post-FDR precursor results
+        dia_data : DiaDataNG
+            DIA data to extract from.
+        spectral_library : SpecLibFlat
+            Spectral library
+        top_k_fragments : int, optional
+            Top k fragments for quantification
+
+        Returns
+        -------
+        tuple[pd.DataFrame, pd.DataFrame]
+            Precursor dataframe and fragments dataframe
         """
         self._lazy_init_speclib_ng(spectral_library)
 
-        candidates_collection = candidates_to_ng(candidates_df, dia_data)
-
-        # run quantification
         quant_params = QuantificationParameters()
         if top_k_fragments is not None:
             quant_params.update({"top_k_fragments": top_k_fragments})
 
         peak_group_quantification = PeakGroupQuantification(quant_params)
         quantified_lib = peak_group_quantification.quantify(
-            dia_data, self._speclib_ng, candidates_collection
+            dia_data, self._speclib_ng, candidates
         )
         precursor_df, fragments_df = parse_quantification(quantified_lib)
 
-        # merge in missing columns
+        # Convert to DataFrame only for the final merge (small after FDR filtering)
+        candidates_df = candidates_to_df(candidates, spectral_library, dia_data)
         precursor_df = CandidateScoring.merge_candidate_data(
             precursor_df, candidates_df
         )
@@ -670,21 +734,22 @@ class NgExtractionHandler(ExtractionHandler):
     def perform_fdr_and_filter_candidates(
         self,
         features_df: pd.DataFrame,
-        candidates_df: pd.DataFrame,
-    ) -> tuple[pd.DataFrame, pd.DataFrame]:
-        """Perform FDR on features and filter candidates accordingly.
+        candidates: CandidateCollection,
+    ) -> tuple[CandidateCollection, pd.DataFrame]:
+        """Perform FDR on features and filter CandidateCollection accordingly.
 
-        See superclass documentation for interface details.
+        Parameters
+        ----------
+        features_df : pd.DataFrame
+            DataFrame with features (scored candidates)
+        candidates : CandidateCollection
+            Rust-native candidate collection
+
+        Returns
+        -------
+        tuple[CandidateCollection, pd.DataFrame]
+            Filtered candidate collection and post-FDR precursor dataframe
         """
-
-        features_df["_candidate_idx"] = candidate_hash(
-            features_df["precursor_idx"].values, features_df["rank"].values
-        )
-        candidates_df["_candidate_idx"] = candidate_hash(
-            candidates_df["precursor_idx"].values, candidates_df["rank"].values
-        )
-
-        # apply FDR to PSMs
         precursor_fdr_df = self._fdr_manager.fit_predict(
             features_df,
             decoy_strategy="precursor",  # TODO support channel_wise, raise error for now
@@ -696,10 +761,9 @@ class NgExtractionHandler(ExtractionHandler):
             precursor_fdr_df["qval"] <= self._config["fdr"]["fdr"]
         ]
 
-        # filter2: candidates by precursors
-        candidates_filtered = candidates_df[
-            candidates_df["_candidate_idx"].isin(precursor_fdr_df["_candidate_idx"])
-        ].copy()
-        del candidates_filtered["_candidate_idx"]
+        candidates_filtered = candidates.filter_by_keys(
+            precursor_fdr_df["precursor_idx"].values.astype(np.uint64),
+            precursor_fdr_df["rank"].values.astype(np.uint64),
+        )
 
         return candidates_filtered, precursor_fdr_df

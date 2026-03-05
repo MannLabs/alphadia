@@ -92,36 +92,41 @@ def get_feature_names() -> list[str]:
     ]
 
 
-def parse_candidates(
+def candidates_to_df(
     candidates: CandidateCollection, spectral_library: SpecLibFlat, dia_data: DiaDataNG
 ) -> pd.DataFrame:
-    """Parse candidates from NG to classic format."""
+    """Convert CandidateCollection to a DataFrame for merge_candidate_data.
 
+    Only used at the end of the pipeline on FDR-filtered survivors (small).
+
+    Parameters
+    ----------
+    candidates : CandidateCollection
+        Rust candidate collection
+    spectral_library : SpecLibFlat
+        Spectral library for elution_group_idx lookup
+    dia_data : DiaDataNG
+        DIA data (needed for cycle_len to convert cycles to frames)
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with candidate columns needed by merge_candidate_data
+    """
     cycle_len = dia_data.cycle.shape[1]
-
     result = candidates.to_arrays()
-
-    precursor_idx = result[0]
-    rank = result[1]
-    score = result[2]
-    scan_center = result[3]
-    scan_start = result[4]
-    scan_stop = result[5]
-    frame_center = result[6]
-    frame_start = result[7]
-    frame_stop = result[8]
 
     candidates_df = pd.DataFrame(
         {
-            "precursor_idx": precursor_idx,
-            "rank": rank,
-            "score": score,
-            "scan_center": scan_center,
-            "scan_start": scan_start,
-            "scan_stop": scan_stop,
-            "frame_center": frame_center,
-            "frame_start": frame_start,
-            "frame_stop": frame_stop,
+            "precursor_idx": result[0],
+            "rank": result[1],
+            "score": result[2],
+            "scan_center": result[3],
+            "scan_start": result[4],
+            "scan_stop": result[5],
+            "frame_center": result[6],
+            "frame_start": result[7],
+            "frame_stop": result[8],
         }
     )
 
@@ -140,27 +145,6 @@ def parse_candidates(
     candidates_df["scan_center"] = 0
 
     return candidates_df
-
-
-def candidates_to_ng(
-    candidates_df: pd.DataFrame, dia_data: DiaDataNG
-) -> CandidateCollection:
-    """Convert candidates from classic to NG format."""
-
-    cycle_len = dia_data.cycle.shape[1]
-
-    candidates = CandidateCollection.from_arrays(
-        candidates_df["precursor_idx"].values.astype(np.uint64),
-        candidates_df["rank"].values.astype(np.uint64),
-        candidates_df["score"].values.astype(np.float32),
-        candidates_df["scan_center"].values.astype(np.uint64),
-        candidates_df["scan_start"].values.astype(np.uint64),
-        candidates_df["scan_stop"].values.astype(np.uint64),
-        candidates_df["frame_center"].values.astype(np.uint64) // cycle_len,
-        candidates_df["frame_start"].values.astype(np.uint64) // cycle_len,
-        candidates_df["frame_stop"].values.astype(np.uint64) // cycle_len,
-    )
-    return candidates
 
 
 def to_features_df(

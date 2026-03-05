@@ -181,6 +181,9 @@ search:
   # the number of most intense fragments to use in the selection
   top_k_fragments_selection: 12
 
+  # minimum number of matched fragments at the apex cycle to keep a candidate during selection (rust backend only)
+  min_fragments_selection: 3
+
   # the number of most intense fragments to use in the scoring
   top_k_fragments_scoring: 12
 
