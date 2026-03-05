@@ -1,12 +1,11 @@
 """Module providing methods to read and process raw data in the following formats: Bruker."""
 
 import logging
-import os
 
-import alphatims.bruker
-import alphatims.utils
 import numba as nb
 import numpy as np
+from alpharaw.bruker.timstof import TimsTOFBase
+from alpharaw.utils.pjit import pjit, set_threads
 
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.search.jitclasses.bruker_jit import TimsTOFTransposeJIT
@@ -15,80 +14,35 @@ from alphadia.utils import USE_NUMBA_CACHING
 logger = logging.getLogger()
 
 
-class TimsTOFTranspose(alphatims.bruker.TimsTOF):
+class TimsTOFTranspose(TimsTOFBase):
     """Transposed TimsTOF data structure."""
 
     def __init__(
         self,
         bruker_d_folder_name: str,
-        *,
-        mz_estimation_from_frame: int = 1,
-        mobility_estimation_from_frame: int = 1,
-        slice_as_dataframe: bool = True,
-        use_calibrated_mz_values_as_default: int = 0,
-        use_hdf_if_available: bool = False,
-        drop_polarity: bool = True,
-        convert_polarity_to_int: bool = True,
     ):
+        super().__init__(
+            bruker_d_folder_name,
+            mz_estimation_from_frame=1,
+            mobility_estimation_from_frame=1,
+            drop_polarity=True,
+            convert_polarity_to_int=True,
+        )
+
+        try:
+            cycle_shape = self._cycle.shape[0]
+        except AttributeError as e:
+            raise NotValidDiaDataError("Could not find cycle shape attribute.") from e
+        else:
+            if cycle_shape != 1:
+                raise NotValidDiaDataError(
+                    f"Unexpected cycle shape: {cycle_shape} (expected: 1)."
+                )
         self.has_mobility = True
         self.has_ms1 = True
 
-        bruker_d_folder_name = bruker_d_folder_name.removesuffix("/")
-        logger.info(f"Importing data from {bruker_d_folder_name}")
-        if bruker_d_folder_name.endswith(".d"):
-            bruker_hdf_file_name = f"{bruker_d_folder_name[:-2]}.hdf"
-            hdf_file_exists = os.path.exists(bruker_hdf_file_name)
-            if use_hdf_if_available and hdf_file_exists:
-                self._import_data_from_hdf_file(
-                    bruker_hdf_file_name,
-                )
-                self.bruker_hdf_file_name = bruker_hdf_file_name
-            else:
-                self.bruker_d_folder_name = os.path.abspath(bruker_d_folder_name)
-                self._import_data_from_d_folder(
-                    bruker_d_folder_name,
-                    mz_estimation_from_frame,
-                    mobility_estimation_from_frame,
-                    drop_polarity,
-                    convert_polarity_to_int,
-                    mmap_detector_events=False,
-                )
+        self.transpose()
 
-                try:
-                    cycle_shape = self._cycle.shape[0]
-                except AttributeError as e:
-                    raise NotValidDiaDataError(
-                        "Could not find cycle shape attribute."
-                    ) from e
-                else:
-                    if cycle_shape != 1:
-                        raise NotValidDiaDataError(
-                            f"Unexpected cycle shape: {cycle_shape} (expected: 1)."
-                        )
-
-                self.transpose()
-
-        elif bruker_d_folder_name.endswith(".hdf"):
-            self._import_data_from_hdf_file(
-                bruker_d_folder_name,
-            )
-            self.bruker_hdf_file_name = bruker_d_folder_name
-        else:
-            raise NotImplementedError("ERROR: file extension not understood")
-
-        if not hasattr(self, "version"):
-            self._version = "N.A."
-        if self.version != alphatims.__version__:
-            logger.info(
-                "WARNING: "
-                f"AlphaTims version {self.version} was used to initialize "
-                f"{bruker_d_folder_name}, while the current version of "
-                f"AlphaTims is {alphatims.__version__}."
-            )
-        self.slice_as_dataframe = slice_as_dataframe
-        self.use_calibrated_mz_values_as_default(use_calibrated_mz_values_as_default)
-
-        # Precompile
         logger.info(f"Successfully imported data from {bruker_d_folder_name}")
 
     def transpose(self):
@@ -152,7 +106,7 @@ class TimsTOFTranspose(alphatims.bruker.TimsTOF):
         )
 
 
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
+@pjit(cache=USE_NUMBA_CACHING)
 def _transpose_chunk(
     chunk_idx,  # pjit decorator changes the passed argument from an iterable to single index
     chunks,
@@ -257,7 +211,7 @@ def _transpose(tof_indices, push_indptr, n_tof_indices, values):
     chunks = _build_chunks(n_tof_indices, 20)
 
     with nb.objmode:
-        alphatims.utils.set_threads(20)
+        set_threads(20)
 
         _transpose_chunk(
             range(len(chunks) - 1),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
