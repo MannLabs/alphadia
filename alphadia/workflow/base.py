@@ -3,12 +3,11 @@ import os
 import time
 
 from alphabase.spectral_library.flat import SpecLibFlat
-from alphatims.bruker import TimsTOF
 
 from alphadia.constants.keys import ConfigKeys
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import GenericUserError
-from alphadia.raw_data import DiaData
+from alphadia.raw_data import DiaData, TimsTOFTranspose
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.calibration_manager import CalibrationManager
@@ -119,7 +118,7 @@ class WorkflowBase:
 
         if self._config["search"]["extraction_backend"] == "rust":
             time_start = time.time()
-            if isinstance(self._dia_data, TimsTOF):
+            if isinstance(self._dia_data, TimsTOFTranspose):
                 raise GenericUserError(
                     "NOT_SUPPORTED_BY_NG",
                     "Rust backend does not support TimsTOF data yet. Please use extraction_backend='python'.",
