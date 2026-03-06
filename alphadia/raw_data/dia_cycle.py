@@ -37,7 +37,10 @@ def _normed_auto_correlation(x: np.ndarray) -> np.ndarray:
 
 
 def _get_cycle_length(cycle_signature: np.ndarray) -> int:
-    """Get the cycle length from the cycle signature.
+    """Determine the number of spectra in one complete DIA cycle.
+
+    Uses normalized autocorrelation to find the periodicity of the cycle signature.
+    The highest autocorrelation peak corresponds to the cycle length.
 
     Parameters
     ----------
@@ -47,7 +50,7 @@ def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     Returns
     -------
     cycle_length: int
-        The length of the DIA cycle, -1 in case it could not be determined.
+        The number of spectra per cycle (e.g. 301 = 1 MS1 + 300 MS2 scans), -1 if it could not be determined.
 
     """
     corr = _normed_auto_correlation(cycle_signature)
@@ -69,7 +72,11 @@ def _get_cycle_start(
     cycle_signature: np.ndarray,
     cycle_length: int,
 ) -> int:
-    """Get the cycle start from the cycle signature.
+    """Find the index of the first complete DIA cycle in the spectrum sequence.
+
+    Some raw files have an incomplete or irregular prefix before the regular cycling pattern
+    begins. This function scans forward to find the first position where two consecutive
+    windows of length `cycle_length` have identical signatures.
 
     Parameters
     ----------
@@ -77,12 +84,12 @@ def _get_cycle_start(
         The signature of the DIA cycle. This will usually be the sum of the isolation windows.
 
     cycle_length: int
-        The length of the DIA cycle.
+        The number of spectra per cycle.
 
     Returns
     -------
     cycle_start: int
-        The index of the first cycle in the signature.
+        The spectrum index where the first complete cycle begins, -1 if it could not be determined.
 
     """
     for i in range(len(cycle_signature) - (2 * cycle_length)):
@@ -102,7 +109,10 @@ def _get_cycle_start(
 def _is_valid_cycle(
     cycle_signature: np.ndarray, cycle_length: int, cycle_start: int
 ) -> bool:
-    """Return whether the found DIA cycle is valid.
+    """Validate that the DIA cycle repeats consistently throughout the signature.
+
+    Checks that every pair of consecutive cycle-length windows (starting from `cycle_start`)
+    has identical signatures. Returns False if any mismatch is found.
 
     Parameters
     ----------
@@ -110,15 +120,15 @@ def _is_valid_cycle(
         The signature of the DIA cycle. This will usually be the sum of the isolation windows.
 
     cycle_length: int
-        The length of the DIA cycle.
+        The number of spectra per cycle.
 
     cycle_start: int
-        The index of the first cycle in the signature.
+        The spectrum index where the first complete cycle begins.
 
     Returns
     -------
     cycle_valid: bool
-        True if the cycle is valid, False otherwise.
+        True if the cycle pattern is consistent across the entire signature.
 
     """
     for i in range(len(cycle_signature) - (2 * cycle_length) - cycle_start):
@@ -136,15 +146,32 @@ def determine_dia_cycle(
     spectrum_df: pd.DataFrame,
     subset_for_cycle_detection: int = 10000,
 ) -> tuple[np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]], int, int]:
-    """Determine the DIA cycle.
+    """Determine the repeating DIA cycle from a spectrum dataframe.
+
+    Detects the cycle length (number of spectra per cycle) via autocorrelation,
+    finds where the first complete cycle begins, validates consistency, and returns
+    the isolation window boundaries for one cycle.
 
     Parameters
     ----------
     spectrum_df : pandas.DataFrame
-        AlphaRaw compatible spectrum dataframe.
+        AlphaRaw compatible spectrum dataframe with columns
+        ``isolation_lower_mz``, ``isolation_upper_mz``, and ``rt``.
 
     subset_for_cycle_detection : int, default = 10000
         The number of spectra to use for cycle detection.
+
+    Returns
+    -------
+    cycle : np.ndarray
+        Array of shape ``(1, cycle_length, 1, 2)`` containing the lower and upper
+        isolation m/z boundaries for each scan position in the cycle.
+
+    cycle_start : int
+        The spectrum index where the first complete cycle begins.
+
+    cycle_length : int
+        The number of spectra per cycle.
 
     """
     logger.info("Determining DIA cycle")
