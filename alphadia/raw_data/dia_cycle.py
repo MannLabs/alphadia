@@ -15,25 +15,64 @@ from alphadia.utils import USE_NUMBA_CACHING
 logger = logging.getLogger()
 
 
-def _normed_auto_correlation(x: np.ndarray) -> np.ndarray:
-    """Calculate the normalized auto correlation of a 1D array.
+def determine_dia_cycle(
+    spectrum_df: pd.DataFrame,
+    subset_for_cycle_detection: int = 10000,
+) -> tuple[np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]], int, int]:
+    """Determine the repeating DIA cycle from a spectrum dataframe.
+
+    Detects the cycle length (number of spectra per cycle) via autocorrelation,
+    finds where the first complete cycle begins, validates consistency, and returns
+    the isolation window boundaries for one cycle.
 
     Parameters
     ----------
-    x : np.ndarray
-        The input array.
+    spectrum_df : pandas.DataFrame
+        AlphaRaw compatible spectrum dataframe with columns
+        ``isolation_lower_mz``, ``isolation_upper_mz``, and ``rt``.
+
+    subset_for_cycle_detection : int, default = 10000
+        The number of spectra to use for cycle detection.
 
     Returns
     -------
-    np.ndarray
-        The normalized auto correlation of the input array.
+    cycle : np.ndarray
+        Array of shape ``(1, cycle_length, 1, 2)`` containing the lower and upper
+        isolation m/z boundaries for each scan position in the cycle.
+
+    cycle_start : int
+        The spectrum index where the first complete cycle begins.
+
+    cycle_length : int
+        The number of spectra per cycle.
 
     """
-    x = x - x.mean()
-    result = np.correlate(x, x, mode="full")
-    result = result[len(result) // 2 :]
-    result /= result[0]
-    return result
+    logger.info("Determining DIA cycle")
+
+    cycle_signature = (
+        spectrum_df["isolation_lower_mz"].to_numpy()[:subset_for_cycle_detection]
+        + spectrum_df["isolation_upper_mz"].to_numpy()[:subset_for_cycle_detection]
+    )
+
+    if (cycle_length := _get_cycle_length(cycle_signature)) == -1:
+        raise NotValidDiaDataError("Failed to determine length of DIA cycle.")
+
+    if (cycle_start := _get_cycle_start(cycle_signature, cycle_length)) == -1:
+        raise NotValidDiaDataError("Failed to determine start of DIA cycle.")
+
+    cycle_start_rt = spectrum_df["rt"].to_numpy()[cycle_start]
+    if not _is_valid_cycle(cycle_signature, cycle_length, cycle_start):
+        raise NotValidDiaDataError(
+            f"Cycle with start {cycle_start_rt:.2f} min and length {cycle_length} detected, but is not consistent."
+        )
+
+    logger.info(
+        f"Found cycle with start {cycle_start_rt:.2f} min and length {cycle_length}."
+    )
+
+    cycle = _build_cycle_array(spectrum_df, cycle_start, cycle_length)
+
+    return cycle, cycle_start, cycle_length
 
 
 def _get_cycle_length(cycle_signature: np.ndarray) -> int:
@@ -65,6 +104,27 @@ def _get_cycle_length(cycle_signature: np.ndarray) -> int:
     argmax = np.argmax(corr[peak_index])
 
     return peak_index[argmax]
+
+
+def _normed_auto_correlation(x: np.ndarray) -> np.ndarray:
+    """Calculate the normalized auto correlation of a 1D array.
+
+    Parameters
+    ----------
+    x : np.ndarray
+        The input array.
+
+    Returns
+    -------
+    np.ndarray
+        The normalized auto correlation of the input array.
+
+    """
+    x = x - x.mean()
+    result = np.correlate(x, x, mode="full")
+    result = result[len(result) // 2 :]
+    result /= result[0]
+    return result
 
 
 @nb.njit(cache=USE_NUMBA_CACHING)
@@ -176,63 +236,3 @@ def _build_cycle_array(
         cycle_start : cycle_start + cycle_length
     ]
     return cycle
-
-
-def determine_dia_cycle(
-    spectrum_df: pd.DataFrame,
-    subset_for_cycle_detection: int = 10000,
-) -> tuple[np.ndarray[tuple[int, int, int, int], np.dtype[np.float64]], int, int]:
-    """Determine the repeating DIA cycle from a spectrum dataframe.
-
-    Detects the cycle length (number of spectra per cycle) via autocorrelation,
-    finds where the first complete cycle begins, validates consistency, and returns
-    the isolation window boundaries for one cycle.
-
-    Parameters
-    ----------
-    spectrum_df : pandas.DataFrame
-        AlphaRaw compatible spectrum dataframe with columns
-        ``isolation_lower_mz``, ``isolation_upper_mz``, and ``rt``.
-
-    subset_for_cycle_detection : int, default = 10000
-        The number of spectra to use for cycle detection.
-
-    Returns
-    -------
-    cycle : np.ndarray
-        Array of shape ``(1, cycle_length, 1, 2)`` containing the lower and upper
-        isolation m/z boundaries for each scan position in the cycle.
-
-    cycle_start : int
-        The spectrum index where the first complete cycle begins.
-
-    cycle_length : int
-        The number of spectra per cycle.
-
-    """
-    logger.info("Determining DIA cycle")
-
-    cycle_signature = (
-        spectrum_df["isolation_lower_mz"].to_numpy()[:subset_for_cycle_detection]
-        + spectrum_df["isolation_upper_mz"].to_numpy()[:subset_for_cycle_detection]
-    )
-
-    if (cycle_length := _get_cycle_length(cycle_signature)) == -1:
-        raise NotValidDiaDataError("Failed to determine length of DIA cycle.")
-
-    if (cycle_start := _get_cycle_start(cycle_signature, cycle_length)) == -1:
-        raise NotValidDiaDataError("Failed to determine start of DIA cycle.")
-
-    cycle_start_rt = spectrum_df["rt"].to_numpy()[cycle_start]
-    if not _is_valid_cycle(cycle_signature, cycle_length, cycle_start):
-        raise NotValidDiaDataError(
-            f"Cycle with start {cycle_start_rt:.2f} min and length {cycle_length} detected, but is not consistent."
-        )
-
-    logger.info(
-        f"Found cycle with start {cycle_start_rt:.2f} min and length {cycle_length}."
-    )
-
-    cycle = _build_cycle_array(spectrum_df, cycle_start, cycle_length)
-
-    return cycle, cycle_start, cycle_length
