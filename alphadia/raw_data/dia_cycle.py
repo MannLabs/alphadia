@@ -142,6 +142,42 @@ def _is_valid_cycle(
     return True
 
 
+def _build_cycle_array(
+    spectrum_df: pd.DataFrame,
+    cycle_start: int,
+    cycle_length: int,
+) -> np.ndarray:
+    """Build the cycle array containing isolation window boundaries for one complete cycle.
+
+    Parameters
+    ----------
+    spectrum_df : pandas.DataFrame
+        AlphaRaw compatible spectrum dataframe with columns
+        ``isolation_lower_mz`` and ``isolation_upper_mz``.
+
+    cycle_start : int
+        The spectrum index where the first complete cycle begins.
+
+    cycle_length : int
+        The number of spectra per cycle.
+
+    Returns
+    -------
+    cycle : np.ndarray
+        Array of shape ``(1, cycle_length, 1, 2)`` containing the lower and upper
+        isolation m/z boundaries for each scan position in the cycle.
+
+    """
+    cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
+    cycle[0, :, 0, 0] = spectrum_df["isolation_lower_mz"].to_numpy()[
+        cycle_start : cycle_start + cycle_length
+    ]
+    cycle[0, :, 0, 1] = spectrum_df["isolation_upper_mz"].to_numpy()[
+        cycle_start : cycle_start + cycle_length
+    ]
+    return cycle
+
+
 def determine_dia_cycle(
     spectrum_df: pd.DataFrame,
     subset_for_cycle_detection: int = 10000,
@@ -197,12 +233,6 @@ def determine_dia_cycle(
         f"Found cycle with start {cycle_start_rt:.2f} min and length {cycle_length}."
     )
 
-    cycle = np.zeros((1, cycle_length, 1, 2), dtype=np.float64)
-    cycle[0, :, 0, 0] = spectrum_df["isolation_lower_mz"].to_numpy()[
-        cycle_start : cycle_start + cycle_length
-    ]
-    cycle[0, :, 0, 1] = spectrum_df["isolation_upper_mz"].to_numpy()[
-        cycle_start : cycle_start + cycle_length
-    ]
+    cycle = _build_cycle_array(spectrum_df, cycle_start, cycle_length)
 
     return cycle, cycle_start, cycle_length
