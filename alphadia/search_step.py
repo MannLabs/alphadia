@@ -12,7 +12,11 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import __version__ as alphadia_version
-from alphadia.constants.keys import ConfigKeys, SearchStepFiles
+from alphadia.constants.keys import (
+    MULTIPLEXING_CHANNELS_DELIM,
+    ConfigKeys,
+    SearchStepFiles,
+)
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
@@ -385,7 +389,10 @@ class SearchStep:
         """Validate that the spectral library contains the required channels for multiplexing."""
         library_channels = set(self.spectral_library.precursor_df["channel"].unique())
         target_channels = [
-            int(c) for c in self.config["multiplexing"]["target_channels"].split(",")
+            int(c)
+            for c in self.config["multiplexing"]["target_channels"].split(
+                MULTIPLEXING_CHANNELS_DELIM
+            )
         ]
         decoy_channel = self.config["multiplexing"]["decoy_channel"]
         reference_channel = self.config["multiplexing"]["reference_channel"]

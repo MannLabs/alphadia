@@ -1,7 +1,7 @@
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import MULTIPLEXING_CHANNELS_DELIM, CalibCols
 from alphadia.reporting.reporting import Pipeline
 
 
@@ -65,7 +65,9 @@ def init_spectral_library(
     spectral_library.precursor_df_unfiltered = spectral_library._precursor_df.copy()
 
     if channel_filter:
-        selected_channels = [int(c) for c in channel_filter.split(",")]
+        selected_channels = [
+            int(c) for c in channel_filter.split(MULTIPLEXING_CHANNELS_DELIM)
+        ]
 
         spectral_library._precursor_df = spectral_library.precursor_df_unfiltered[
             spectral_library.precursor_df_unfiltered["channel"].isin(selected_channels)

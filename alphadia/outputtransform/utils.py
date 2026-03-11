@@ -7,6 +7,7 @@ from alphabase.peptide import precursor
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
+    MULTIPLEXING_CHANNELS_DELIM,
     InferenceStrategy,
 )
 from alphadia.outputtransform import grouping
@@ -313,10 +314,14 @@ def get_channels_from_config(config: dict) -> list[int]:
     if config["search"]["channel_filter"] == "":
         all_channels = {0}
     else:
-        all_channels = set(config["search"]["channel_filter"].split(","))
+        all_channels = set(
+            config["search"]["channel_filter"].split(MULTIPLEXING_CHANNELS_DELIM)
+        )
 
     if config["multiplexing"]["enabled"]:
-        all_channels &= set(config["multiplexing"]["target_channels"].split(","))
+        all_channels &= set(
+            config["multiplexing"]["target_channels"].split(MULTIPLEXING_CHANNELS_DELIM)
+        )
 
     all_channels = sorted([int(c) for c in all_channels])
 

@@ -1,3 +1,6 @@
+MULTIPLEXING_CHANNELS_DELIM = ","
+
+
 class ConstantsClass(type):
     """A metaclass for classes that should only contain string constants."""
 

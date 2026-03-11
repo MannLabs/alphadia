@@ -2,6 +2,7 @@
 
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
+from constants.keys import MULTIPLEXING_CHANNELS_DELIM
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -69,7 +70,10 @@ class MultiplexingRequantificationHandler:
         )
 
         target_channels = [
-            int(c) for c in self._config["multiplexing"]["target_channels"].split(",")
+            int(c)
+            for c in self._config["multiplexing"]["target_channels"].split(
+                MULTIPLEXING_CHANNELS_DELIM
+            )
         ]
         self._reporter.log_string(
             f"target channels: {target_channels}", verbosity="progress"
