@@ -25,6 +25,13 @@ def determine_dia_cycle(
     finds where the first complete cycle begins, validates consistency, and returns
     the isolation window boundaries for one cycle.
 
+    Background:
+    In DIA, a collection of fragmentation spectra with predefined isolation windows is recorded.
+    After acquisition of the last isolation window, it starts with the first one and starts a cycle. AlphaDIA requires
+    having such a global cycle on the MS2 level for analytical and algorithmic reasons. It therefore needs to be determined.
+    Some MS methods start recording before the sample is actually reaching the instrument. The beginning of the file is
+    therefore padded with non-DIA scans. AlphaDIA supports this by detecting the start and only beginning analysis from this point.
+
     Parameters
     ----------
     spectrum_df : pandas.DataFrame
