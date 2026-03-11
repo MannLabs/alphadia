@@ -7,10 +7,10 @@ from alphabase.peptide import precursor
 
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
-    MULTIPLEXING_CHANNELS_DELIM,
     InferenceStrategy,
 )
 from alphadia.outputtransform import grouping
+from alphadia.workflow.config import MULTIPLEXING_CHANNELS_DELIM
 
 logger = logging.getLogger()
 supported_formats = ["parquet", "tsv"]

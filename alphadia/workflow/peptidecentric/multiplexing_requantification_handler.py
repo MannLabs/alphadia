@@ -2,7 +2,6 @@
 
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
-from constants.keys import MULTIPLEXING_CHANNELS_DELIM
 
 from alphadia.raw_data import DiaData
 from alphadia.reporting.reporting import Pipeline
@@ -12,7 +11,7 @@ from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
-from alphadia.workflow.config import Config
+from alphadia.workflow.config import MULTIPLEXING_CHANNELS_DELIM, Config
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,

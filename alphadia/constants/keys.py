@@ -1,4 +1,4 @@
-MULTIPLEXING_CHANNELS_DELIM = ","
+"""String constants for accessing keys, e.g. in the config and output files and in tables."""
 
 
 class ConstantsClass(type):

@@ -1,8 +1,9 @@
 import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 
-from alphadia.constants.keys import MULTIPLEXING_CHANNELS_DELIM, CalibCols
+from alphadia.constants.keys import CalibCols
 from alphadia.reporting.reporting import Pipeline
+from alphadia.workflow.config import MULTIPLEXING_CHANNELS_DELIM
 
 
 def init_spectral_library(

@@ -13,7 +13,6 @@ from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import __version__ as alphadia_version
 from alphadia.constants.keys import (
-    MULTIPLEXING_CHANNELS_DELIM,
     ConfigKeys,
     SearchStepFiles,
 )
@@ -39,6 +38,8 @@ from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
+    MODIFICATIONS_DELIM,
+    MULTIPLEXING_CHANNELS_DELIM,
     MULTISTEP_SEARCH,
     USER_DEFINED,
     USER_DEFINED_CLI_PARAM,
@@ -258,7 +259,7 @@ class SearchStep:
 
         def _parse_modifications(mod_str: str) -> list[str]:
             """Parse modification string."""
-            return [] if mod_str == "" else mod_str.split(";")
+            return [] if mod_str == "" else mod_str.split(MODIFICATIONS_DELIM)
 
         # 1. Check if library exists, else perform fasta digest
         general_config = self.config["general"]
