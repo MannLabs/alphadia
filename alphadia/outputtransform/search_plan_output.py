@@ -82,7 +82,7 @@ class SearchPlanOutput:
 
         self._figure_path = (
             os.path.join(self.output_folder, FIGURES_FOLDER_NAME)
-            if self.config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            if self.config[ConfigKeys.GENERAL][ConfigKeys.General.SAVE_FIGURES]
             else None
         )
         if self._figure_path and not os.path.exists(self._figure_path):

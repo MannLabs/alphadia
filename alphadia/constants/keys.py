@@ -27,6 +27,7 @@ class StatOutputCols(metaclass=ConstantsClass):
 class ConfigKeys(metaclass=ConstantsClass):
     """String constants for accessing the config."""
 
+    # level 0, no child elements
     VERSION = "version"
     OUTPUT_DIRECTORY = "output_directory"
     LIBRARY_PATH = "library_path"
@@ -34,13 +35,18 @@ class ConfigKeys(metaclass=ConstantsClass):
     FASTA_PATHS = "fasta_paths"
     QUANT_DIRECTORY = "quant_directory"
 
+    # level 0, with child elements
     GENERAL = "general"
-    SAVE_FIGURES = "save_figures"
-
     LIBRARY_PREDICTION = "library_prediction"
 
+    # level 1
+    class General(metaclass=ConstantsClass):
+        """String constants for accessing child elements of config level 'general'."""
+
+        SAVE_FIGURES = "save_figures"
+
     class LibraryPrediction(metaclass=ConstantsClass):
-        """String constants for accessing the 'library_prediction' level of the config."""
+        """String constants for accessing child elements of config level 'library_prediction'."""
 
         PEPTDEEP_MODEL_PATH = "peptdeep_model_path"
 

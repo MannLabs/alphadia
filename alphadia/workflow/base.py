@@ -68,7 +68,7 @@ class WorkflowBase:
 
         self._figure_path: str = (
             os.path.join(self.path, FIGURES_FOLDER_NAME)
-            if config[ConfigKeys.GENERAL][ConfigKeys.SAVE_FIGURES]
+            if config[ConfigKeys.GENERAL][ConfigKeys.General.SAVE_FIGURES]
             else None
         )
 
