@@ -87,7 +87,10 @@ class Config(UserDict):
             ConfigKeys.QUANT_DIRECTORY,
             ConfigKeys.RAW_PATHS,
             ConfigKeys.FASTA_PATHS,
-            ("library_prediction", "peptdeep_model_path"),
+            (
+                ConfigKeys.LIBRARY_PREDICTION,
+                ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH,
+            ),
         ]:
             raise NotImplementedError(
                 "Only certain paths may be set directly, use update() to update the config otherwise."

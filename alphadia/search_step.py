@@ -262,7 +262,7 @@ class SearchStep:
 
         # 1. Check if library exists, else perform fasta digest
         general_config = self.config["general"]
-        prediction_config = self.config["library_prediction"]
+        prediction_config = self.config[ConfigKeys.LIBRARY_PREDICTION]
 
         if self.library_path is None:
             if not prediction_config["enabled"]:
@@ -319,7 +319,9 @@ class SearchStep:
                 nce=prediction_config["nce"],
                 instrument=prediction_config["instrument"],
                 mp_process_num=thread_count,
-                peptdeep_model_path=prediction_config["peptdeep_model_path"],
+                peptdeep_model_path=prediction_config[
+                    ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH
+                ],
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
                 fragment_types=prediction_config["fragment_types"],
                 max_fragment_charge=prediction_config["max_fragment_charge"],
@@ -587,8 +589,15 @@ class SearchStep:
                 config.set_path(key, expand_path(config[key]))
 
         config.set_path(
-            ("library_prediction", "peptdeep_model_path"),
-            expand_path(config["library_prediction"]["peptdeep_model_path"]),
+            (
+                ConfigKeys.LIBRARY_PREDICTION,
+                ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH,
+            ),
+            expand_path(
+                config[ConfigKeys.LIBRARY_PREDICTION][
+                    ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH
+                ]
+            ),
         )
 
     def _validate_config(self):

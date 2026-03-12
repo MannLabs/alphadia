@@ -37,6 +37,13 @@ class ConfigKeys(metaclass=ConstantsClass):
     GENERAL = "general"
     SAVE_FIGURES = "save_figures"
 
+    LIBRARY_PREDICTION = "library_prediction"
+
+    class LibraryPrediction(metaclass=ConstantsClass):
+        """String constants for accessing the 'library_prediction' level of the config."""
+
+        PEPTDEEP_MODEL_PATH = "peptdeep_model_path"
+
 
 class CalibCols(metaclass=ConstantsClass):
     """String constants for accessing (mz, rt, mobility) columns in the context of calibration."""
