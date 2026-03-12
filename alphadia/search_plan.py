@@ -141,7 +141,7 @@ class SearchPlan:
 
             extra_config_from_transfer_step = {
                 ConfigKeys.LIBRARY_PREDICTION: {
-                    ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH: os.path.join(
+                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH: os.path.join(
                         self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                     ),
                     "enabled": True,  # the step following the 'transfer' step needs to have this

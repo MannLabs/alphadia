@@ -89,7 +89,7 @@ class Config(UserDict):
             ConfigKeys.FASTA_PATHS,
             (
                 ConfigKeys.LIBRARY_PREDICTION,
-                ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH,
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
             ),
         ]:
             raise NotImplementedError(

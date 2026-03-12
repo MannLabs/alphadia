@@ -320,7 +320,7 @@ class SearchStep:
                 instrument=prediction_config["instrument"],
                 mp_process_num=thread_count,
                 peptdeep_model_path=prediction_config[
-                    ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH
+                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
                 ],
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
                 fragment_types=prediction_config["fragment_types"],
@@ -591,11 +591,11 @@ class SearchStep:
         config.set_path(
             (
                 ConfigKeys.LIBRARY_PREDICTION,
-                ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH,
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
             ),
             expand_path(
                 config[ConfigKeys.LIBRARY_PREDICTION][
-                    ConfigKeys.LibraryPrediction.PEPTDEEP_MODEL_PATH
+                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
                 ]
             ),
         )
