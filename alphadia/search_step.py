@@ -578,25 +578,27 @@ class SearchStep:
             ConfigKeys.RAW_PATHS,
             ConfigKeys.FASTA_PATHS,
         ]:
-            if isinstance(config[key], list):
+            value = config.get(key)
+            if isinstance(value, list):
                 paths = []
-                for p in config[key]:
+                for p in value:
                     paths.append(expand_path(p))
 
                 config.set_path(key, paths)
 
-            else:
-                config.set_path(key, expand_path(config[key]))
+            elif value is not None:
+                config.set_path(key, expand_path(value))
 
+        # this cannot be treated in above loop easily
         config.set_path(
             (
                 ConfigKeys.LIBRARY_PREDICTION,
                 ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
             ),
             expand_path(
-                config[ConfigKeys.LIBRARY_PREDICTION][
+                config.get(ConfigKeys.LIBRARY_PREDICTION, {}).get(
                     ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
-                ]
+                )
             ),
         )
 
