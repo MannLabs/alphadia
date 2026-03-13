@@ -16,6 +16,7 @@ import yaml
 
 from alphadia import __version__  # noqa: E402
 from alphadia.constants.keys import ConfigKeys
+from alphadia.utils import expand_path
 
 logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
@@ -150,7 +151,8 @@ def _get_config_from_args(
 
     config = {}
     if args.config is not None:
-        with open(args.config) as f:
+        config_path = expand_path(args.config)
+        with open(config_path) as f:
             config = yaml.safe_load(f)
 
     merged_config_dict = {}
@@ -199,15 +201,17 @@ def _get_raw_path_list_from_args_and_config(
         list: a list of file paths that match the specified regex pattern.
     """
 
-    raw_path_list = config.get(ConfigKeys.RAW_PATHS, [])
-    raw_path_list += args.file
+    raw_path_list = list(config.get(ConfigKeys.RAW_PATHS, []))
+    raw_path_list += list(args.file)
 
     if (config_directory := config.get("directory")) is not None:
+        config_directory = expand_path(config_directory)
         raw_path_list += [
             os.path.join(config_directory, f) for f in os.listdir(config_directory)
         ]
 
     for directory in args.directory:
+        directory = expand_path(directory)
         raw_path_list += [os.path.join(directory, f) for f in os.listdir(directory)]
 
     # filter raw files by regex
@@ -256,6 +260,7 @@ def run(*args, **kwargs):
     output_directory = _get_from_args_or_config(
         args, user_config, args_key="output", config_key="output_directory"
     )
+    output_directory = expand_path(output_directory)
 
     if output_directory is None:
         parser.print_help()
@@ -278,7 +283,7 @@ def run(*args, **kwargs):
     cli_params_config = {
         **({ConfigKeys.RAW_PATHS: raw_paths} if raw_paths else {}),
         **({ConfigKeys.LIBRARY_PATH: args.library} if args.library is not None else {}),
-        **({ConfigKeys.FASTA_PATHS: args.fasta} if args.fasta else {}),
+        **({ConfigKeys.FASTA_PATHS: list(args.fasta)} if args.fasta else {}),
         **(
             {ConfigKeys.QUANT_DIRECTORY: args.quant_dir}
             if args.quant_dir is not None

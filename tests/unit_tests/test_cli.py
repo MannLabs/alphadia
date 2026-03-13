@@ -128,6 +128,9 @@ def test_cli_minimal_args(mock_parse_known_args):
         version=None,
         check=None,
         output="/output",
+        library="/path/to/library.hdf",
+        fasta=["/path/to/fasta.fa"],
+        quant_dir="/path/to/quant",
         config_dict=[],
         file=[],
         directory=[],
@@ -153,10 +156,9 @@ def test_cli_minimal_args(mock_parse_known_args):
         "/output",
         {},
         {
-            # TODO raw_paths missing here
-            "library_path": mock_args.library,
-            "fasta_paths": mock_args.fasta,
-            "quant_directory": mock_args.quant_dir,
+            "library_path": "/path/to/library.hdf",
+            "fasta_paths": ["/path/to/fasta.fa"],
+            "quant_directory": "/path/to/quant",
         },
     )
     mock_search_plan.return_value.run_plan.assert_called_once()

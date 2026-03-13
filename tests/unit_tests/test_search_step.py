@@ -36,6 +36,7 @@ def test_initializes_with_default_config(mock_load_default_config):
             "key1": "value1",
             "key2": "value2",
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         },
         "default",
     )  # not using a mock here as working with the real object is much simpler
@@ -61,6 +62,7 @@ def test_updates_with_user_config_object(mock_load_default_config):
             "key1": "value1",
             "key2": "value2",
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -75,6 +77,7 @@ def test_updates_with_user_config_object(mock_load_default_config):
         "output_directory": "/output",
         "search": {"extraction_backend": "rust"},
         "version": alphadia_version,
+        "library_prediction": {"peptdeep_model_path": None},
     }
 
 
@@ -91,6 +94,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
             "key4": "value4",
             "output_directory": None,
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -115,6 +119,7 @@ def test_updates_with_user_and_cli_and_extra_config_dicts(
         "output_directory": "/output",
         "search": {"extraction_backend": "rust"},
         "version": alphadia_version,
+        "library_prediction": {"peptdeep_model_path": None},
     }
 
 
@@ -128,6 +133,7 @@ def test_updates_with_cli_config_overwrite_output_path(
             "key1": "value1",
             "output_directory": None,
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -146,6 +152,7 @@ def test_updates_with_cli_config_overwrite_output_path(
         "output_directory": "/actual_output_directory",
         "search": {"extraction_backend": "rust"},
         "version": alphadia_version,
+        "library_prediction": {"peptdeep_model_path": None},
     }
 
 
@@ -159,6 +166,7 @@ def test_updates_with_extra_config_overwrite_output_path(
             "key1": "value1",
             "output_directory": "/default_output",
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         }
     )
     mock_load_default_config.return_value = deepcopy(default_config)
@@ -174,6 +182,7 @@ def test_updates_with_extra_config_overwrite_output_path(
         "output_directory": "/extra_output",
         "search": {"extraction_backend": "rust"},
         "version": alphadia_version,
+        "library_prediction": {"peptdeep_model_path": None},
     }
 
 
@@ -186,6 +195,7 @@ def test_updates_with_user_config_object_python_backend(mock_load_default_config
             "key2": "value2",
             "key3": "value3",
             "search": {"extraction_backend": "rust"},
+            "library_prediction": {"peptdeep_model_path": None},
         }
     )
     default_config_ng = Config(
@@ -213,6 +223,7 @@ def test_updates_with_user_config_object_python_backend(mock_load_default_config
         "output_directory": "/output",
         "search": {"extraction_backend": "python"},
         "version": alphadia_version,
+        "library_prediction": {"peptdeep_model_path": None},
     }
     mock_load_default_config.assert_has_calls(
         [call(), call(file_name="default_python.yaml")]

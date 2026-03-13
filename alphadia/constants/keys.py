@@ -13,6 +13,19 @@ class ConstantsClass(type):
         ]
 
 
+class ConstantNamespace(str):
+    """A string that can also hold child constants as attributes."""
+
+    def __new__(cls, value, **children):
+        instance = super().__new__(cls, value)
+        for k, v in children.items():
+            object.__setattr__(instance, k, v)
+        return instance
+
+    def __setattr__(self, name, value):
+        raise TypeError("Constants cannot be modified")
+
+
 class StatOutputCols(metaclass=ConstantsClass):
     """String constants for reading and writing output columns for the `stat` file."""
 
@@ -27,6 +40,7 @@ class StatOutputCols(metaclass=ConstantsClass):
 class ConfigKeys(metaclass=ConstantsClass):
     """String constants for accessing the config."""
 
+    # level 0, no child elements
     VERSION = "version"
     OUTPUT_DIRECTORY = "output_directory"
     LIBRARY_PATH = "library_path"
@@ -34,8 +48,15 @@ class ConfigKeys(metaclass=ConstantsClass):
     FASTA_PATHS = "fasta_paths"
     QUANT_DIRECTORY = "quant_directory"
 
-    GENERAL = "general"
-    SAVE_FIGURES = "save_figures"
+    # level 0, with child elements
+    GENERAL = ConstantNamespace(
+        "general",
+        SAVE_FIGURES="save_figures",
+    )
+
+    LIBRARY_PREDICTION = ConstantNamespace(
+        "library_prediction", PEPTDEEP_MODEL_PATH="peptdeep_model_path"
+    )
 
 
 class CalibCols(metaclass=ConstantsClass):

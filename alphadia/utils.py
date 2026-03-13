@@ -3,6 +3,7 @@
 import logging
 import os
 import platform
+from pathlib import Path
 
 import numpy as np
 
@@ -10,6 +11,15 @@ logger = logging.getLogger()
 
 
 USE_NUMBA_CACHING = os.environ.get("USE_NUMBA_CACHING", "0") == "1"
+
+
+def expand_path(path: str) -> str | None:
+    """Expand ~ in a path to the user's home directory."""
+
+    if path is None:
+        return path
+
+    return str(Path(path).expanduser())
 
 
 def get_torch_device(use_gpu: bool = False):

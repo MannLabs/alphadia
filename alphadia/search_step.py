@@ -33,6 +33,7 @@ from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
+from alphadia.utils import expand_path
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
     MULTISTEP_SEARCH,
@@ -86,16 +87,16 @@ class SearchStep:
             additional config values (parameters to orchestrate multistep searches). Overrides values in `config` and `cli_config`.
 
         """
-        self.output_folder = output_folder
-        os.makedirs(output_folder, exist_ok=True)
+        self.output_folder = expand_path(output_folder)
+        os.makedirs(self.output_folder, exist_ok=True)
         init_logging(self.output_folder)
 
         self._step_name = step_name
         self._config = self._init_config(
-            config, cli_config, extra_config, output_folder
+            config, cli_config, extra_config, self.output_folder
         )
         self._validate_config()
-        self._save_config(output_folder)
+        self._save_config(self.output_folder)
 
         logger.setLevel(logging.getLevelName(self._config["general"]["log_level"]))
 
@@ -172,6 +173,9 @@ class SearchStep:
             logger.warning(
                 f"Using output directory '{output_folder}' provided via CLI, the value specified in config ('{current_config_output_folder}') will be ignored."
             )
+
+        SearchStep._expand_config_paths(config)
+
         config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
         config[ConfigKeys.VERSION] = alphadia_version
 
@@ -258,7 +262,7 @@ class SearchStep:
 
         # 1. Check if library exists, else perform fasta digest
         general_config = self.config["general"]
-        prediction_config = self.config["library_prediction"]
+        prediction_config = self.config[ConfigKeys.LIBRARY_PREDICTION]
 
         if self.library_path is None:
             if not prediction_config["enabled"]:
@@ -315,7 +319,9 @@ class SearchStep:
                 nce=prediction_config["nce"],
                 instrument=prediction_config["instrument"],
                 mp_process_num=thread_count,
-                peptdeep_model_path=prediction_config["peptdeep_model_path"],
+                peptdeep_model_path=prediction_config[
+                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
+                ],
                 peptdeep_model_type=prediction_config["peptdeep_model_type"],
                 fragment_types=prediction_config["fragment_types"],
                 max_fragment_charge=prediction_config["max_fragment_charge"],
@@ -560,6 +566,41 @@ class SearchStep:
 
         logger.info(f"Using library: {self.library_path}")
         logger.info(f"Saving output to: {self.output_folder}")
+
+    @staticmethod
+    def _expand_config_paths(config: Config) -> None:
+        """Expand ~ in all user-provided path config values."""
+
+        for key in [
+            ConfigKeys.OUTPUT_DIRECTORY,
+            ConfigKeys.LIBRARY_PATH,
+            ConfigKeys.QUANT_DIRECTORY,
+            ConfigKeys.RAW_PATHS,
+            ConfigKeys.FASTA_PATHS,
+        ]:
+            value = config.get(key)
+            if isinstance(value, list):
+                paths = []
+                for p in value:
+                    paths.append(expand_path(p))
+
+                config.set_path(key, paths)
+
+            elif value is not None:
+                config.set_path(key, expand_path(value))
+
+        # this cannot be treated in above loop easily
+        config.set_path(
+            (
+                ConfigKeys.LIBRARY_PREDICTION,
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
+            ),
+            expand_path(
+                config.get(ConfigKeys.LIBRARY_PREDICTION, {}).get(
+                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
+                )
+            ),
+        )
 
     def _validate_config(self):
         """Validate the config for required parameters and combinations.

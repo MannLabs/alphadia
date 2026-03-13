@@ -11,6 +11,7 @@ import json
 import logging
 from collections import UserDict, defaultdict
 from copy import deepcopy
+from types import MappingProxyType
 from typing import Any
 
 import numpy as np
@@ -53,10 +54,55 @@ class Config(UserDict):
         with open(path, "w") as f:
             json.dump(self.data, f)
 
+    def __getitem__(self, key: str):
+        """Get a config value.
+
+        Returns a read-only view of dicts and a copy of lists to prevent mutation of the original config.
+        (the fact that modifying lists does not raise is not optimal but the solution is simpled and pragmatic).
+        """
+        value = self.data[key]
+        if isinstance(value, dict):
+            return _to_read_only_dict(value)
+        if isinstance(value, list):
+            # prevents mutation of original list, but does not raise (not optimal, but pragmatic)
+            return list(value)
+        return value
+
     def __setitem__(self, key, item):
         if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
             raise NotImplementedError("Use update() to update the config.")
         return super().__setitem__(key, item)
+
+    def set_path(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
+        """Set a path value.
+
+        Only certain paths are allowed to be set.
+        Use a tuple key for nested access, e.g. ("library_prediction", "peptdeep_model_path").
+
+        """
+
+        if key not in [
+            ConfigKeys.OUTPUT_DIRECTORY,
+            ConfigKeys.LIBRARY_PATH,
+            ConfigKeys.QUANT_DIRECTORY,
+            ConfigKeys.RAW_PATHS,
+            ConfigKeys.FASTA_PATHS,
+            (
+                ConfigKeys.LIBRARY_PREDICTION,
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
+            ),
+        ]:
+            raise NotImplementedError(
+                "Only certain paths may be set directly, use update() to update the config otherwise."
+            )
+
+        if isinstance(key, tuple):
+            target = self.data
+            for k in key[:-1]:
+                target = target[k]
+            target[key[-1]] = path
+        else:
+            self.data[key] = path
 
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
@@ -169,6 +215,13 @@ TOLERATED_KEYS = [
     # supported until 1.10.4:
     "calibration.norm_rt_mode",
 ]
+
+
+def _to_read_only_dict(d: dict) -> MappingProxyType:
+    """Recursively wrap dicts in MappingProxyType to prevent mutation."""
+    return MappingProxyType(
+        {k: _to_read_only_dict(v) if isinstance(v, dict) else v for k, v in d.items()}
+    )
 
 
 def _convert_numpy_types(data: Any) -> Any:
