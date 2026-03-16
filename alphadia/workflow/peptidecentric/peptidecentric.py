@@ -253,6 +253,11 @@ class PeptideCentricWorkflow(base.WorkflowBase):
                 )
             )
 
+            # TODO: check: is this required?
+            if candidates_fdr_df.empty:
+                log_precursor_df(self.reporter, precursor_fdr_df)
+                return pd.DataFrame(), pd.DataFrame()
+
             precursor_df, fragments_df = extraction_handler.quantify_candidates(
                 candidates_fdr_df,
                 precursor_fdr_df,
