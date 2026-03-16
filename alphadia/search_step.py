@@ -12,7 +12,10 @@ from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.flat import SpecLibFlat
 
 from alphadia import __version__ as alphadia_version
-from alphadia.constants.keys import ConfigKeys, SearchStepFiles
+from alphadia.constants.keys import (
+    ConfigKeys,
+    SearchStepFiles,
+)
 from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
@@ -35,6 +38,8 @@ from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
+    MODIFICATIONS_DELIM,
+    MULTIPLEXING_CHANNELS_DELIM,
     MULTISTEP_SEARCH,
     USER_DEFINED,
     USER_DEFINED_CLI_PARAM,
@@ -254,7 +259,7 @@ class SearchStep:
 
         def _parse_modifications(mod_str: str) -> list[str]:
             """Parse modification string."""
-            return [] if mod_str == "" else mod_str.split(";")
+            return [] if mod_str == "" else mod_str.split(MODIFICATIONS_DELIM)
 
         # 1. Check if library exists, else perform fasta digest
         general_config = self.config["general"]
@@ -373,10 +378,34 @@ class SearchStep:
 
         self.spectral_library = prepare_pipeline(spectral_library)
 
+        if self.config["multiplexing"]["enabled"]:
+            self._validate_multiplexing()
+
         if general_config["save_flat_library"]:
             library_path = os.path.join(self.output_folder, SPECLIB_FLAT_FILE_NAME)
             logger.info(f"Saving flat library to {library_path}")
             self.spectral_library.save_hdf(library_path)
+
+    def _validate_multiplexing(self):
+        """Validate that the spectral library contains the required channels for multiplexing."""
+        library_channels = set(self.spectral_library.precursor_df["channel"].unique())
+        target_channels = [
+            int(c)
+            for c in self.config["multiplexing"]["target_channels"].split(
+                MULTIPLEXING_CHANNELS_DELIM
+            )
+        ]
+        decoy_channel = self.config["multiplexing"]["decoy_channel"]
+        reference_channel = self.config["multiplexing"]["reference_channel"]
+        required_channels = set(target_channels + [decoy_channel, reference_channel])
+        missing_channels = required_channels - library_channels
+        if missing_channels:
+            raise ValueError(
+                f"Multiplexing channels {missing_channels} are not present in "
+                f"spectral library (channels: {library_channels}). "
+                f"Add the missing channels with appropriate modifications "
+                f"to library_multiplexing.multiplex_mapping and recreate the library. "
+            )
 
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""

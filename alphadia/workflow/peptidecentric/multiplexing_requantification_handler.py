@@ -11,7 +11,7 @@ from alphadia.search.scoring.utils import (
     candidate_features_to_candidates,
     multiplex_candidates,
 )
-from alphadia.workflow.config import Config
+from alphadia.workflow.config import MULTIPLEXING_CHANNELS_DELIM, Config
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationGroups,
     CalibrationManager,
@@ -69,7 +69,10 @@ class MultiplexingRequantificationHandler:
         )
 
         target_channels = [
-            int(c) for c in self._config["multiplexing"]["target_channels"].split(",")
+            int(c)
+            for c in self._config["multiplexing"]["target_channels"].split(
+                MULTIPLEXING_CHANNELS_DELIM
+            )
         ]
         self._reporter.log_string(
             f"target channels: {target_channels}", verbosity="progress"

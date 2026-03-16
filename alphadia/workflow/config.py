@@ -26,6 +26,10 @@ USER_DEFINED = "user defined"
 USER_DEFINED_CLI_PARAM = "user defined (cli)"
 MULTISTEP_SEARCH = "multistep search"
 
+# delimiters to parse config
+MULTIPLEXING_CHANNELS_DELIM = ","
+MODIFICATIONS_DELIM = ";"
+
 
 class Config(UserDict):
     """Dict-like config class that can read from and write to yaml and json files and allows updating with other config objects."""
