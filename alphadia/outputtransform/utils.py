@@ -8,6 +8,7 @@ from alphabase.peptide import precursor
 from alphadia.constants.keys import (
     INTERNAL_TO_OUTPUT_MAPPING,
     InferenceStrategy,
+    PsmDfCols,
 )
 from alphadia.outputtransform import grouping
 
@@ -163,7 +164,7 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
         Precursor table with protein grouping and FDR filtering applied
     """
     pg_count = psm_df[psm_df["decoy"] == 0]["pg"].nunique()
-    precursor_count = psm_df[psm_df["decoy"] == 0]["precursor_idx"].nunique()
+    precursor_count = psm_df[psm_df["decoy"] == 0][PsmDfCols.PRECURSOR_IDX].nunique()
 
     logger.info(
         "================ Protein FDR =================",
