@@ -193,7 +193,7 @@ def load_psm_files_from_folders(
     Returns
     -------
     pd.DataFrame
-        Concatenated PSM dataframe from all folders
+        Concatenated PSM dataframe from all folders, empty dataframe if no valid PSM files are found
     """
     psm_df_list = []
 
@@ -212,6 +212,9 @@ def load_psm_files_from_folders(
             except Exception as e:
                 logger.warning(f"Error reading psm file for {raw_name}")
                 logger.warning(e)
+
+    if len(psm_df_list) == 0:
+        return pd.DataFrame()
 
     logger.info("Building combined output")
     psm_df = pd.concat(psm_df_list)
