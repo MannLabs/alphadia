@@ -11,7 +11,7 @@ from alphadia.constants.keys import (
     ConfigKeys,
 )
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
-from alphadia.exceptions import NoPsmFoundError
+from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
@@ -292,12 +292,17 @@ class SearchPlanOutput:
         psm_df: pd.DataFrame
             Precursor table
         """
-        logger.progress("Performing protein grouping and FDR")
+        logger.progress("=== Performing protein grouping and FDR ===")
 
-        psm_df = load_psm_files_from_folders(folder_list, self.PSM_INPUT)
+        psm_df_list = load_psm_files_from_folders(folder_list, self.PSM_INPUT)
+
+        if len(psm_df_list) == 0:
+            raise NoPSMFilesFoundError()
+
+        psm_df = pd.concat(psm_df_list)
 
         if len(psm_df) == 0:
-            raise NoPsmFoundError()
+            raise NoPSMFoundError()
 
         logger.info("Performing protein inference")
 

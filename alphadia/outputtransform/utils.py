@@ -181,8 +181,8 @@ def log_protein_fdr_summary(psm_df: pd.DataFrame) -> None:
 
 def load_psm_files_from_folders(
     folder_list: list[str], psm_file_name: str
-) -> pd.DataFrame:
-    """Load and concatenate PSM files from multiple folders.
+) -> list[pd.DataFrame]:
+    """Load PSM files from multiple folders.
 
     Parameters
     ----------
@@ -193,8 +193,8 @@ def load_psm_files_from_folders(
 
     Returns
     -------
-    pd.DataFrame
-        Concatenated PSM dataframe from all folders, empty dataframe if no valid PSM files are found
+    list[pd.DataFrame]
+        List of PSM dataframes from all folders
     """
     psm_df_list = []
 
@@ -214,13 +214,7 @@ def load_psm_files_from_folders(
                 logger.warning(f"Error reading psm file for {raw_name}")
                 logger.warning(e)
 
-    if len(psm_df_list) == 0:
-        return pd.DataFrame()
-
-    logger.info("Building combined output")
-    psm_df = pd.concat(psm_df_list)
-
-    return psm_df
+    return psm_df_list
 
 
 # TODO: remove this function in the future, shouldn't be necessary if well typed & tested
