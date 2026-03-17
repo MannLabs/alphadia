@@ -2,7 +2,6 @@
 alphabase==1.7.1 # manually bumped
 alphadia-search-rs==1.1.1
 alpharaw==0.4.7
-alphatims==1.0.9
 argparse==1.4.0
 biopython==1.85
 certifi==2025.1.31
