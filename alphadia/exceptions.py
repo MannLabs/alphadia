@@ -69,7 +69,9 @@ class NoPsmFoundError(BusinessError):
 
     _error_code = "NO_PSM_FOUND"
 
-    _msg = "No psm files accumulated, can't continue."
+    _msg = "No PSM files accumulated."
+
+    _detail_msg = "None of the search results contained any PSMs. Please check the file-specific searches for errors."
 
 
 class TooFewPSMError(BusinessError):
