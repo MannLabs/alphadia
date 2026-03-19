@@ -445,24 +445,45 @@ class SearchPlanOutput:
         save: bool
             Save the precursor table to disk
         """
-        quant_output_builder = QuantOutputBuilder(psm_df, self.config)
-        lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+
+        psm_df_and_suffix_to_output = []
+        if self.config["multiplexing"]["enabled"]:
+            for channel in get_channels_from_config(self.config):
+                psm_df_and_suffix_to_output.append(
+                    (psm_df[psm_df["channel"] == channel], f".ch{channel}")
+                )
+        else:
+            psm_df_and_suffix_to_output.append((psm_df, ""))
+
+        all_psm_with_quant = []
+
+        for current_psm_df, channel_suffix in psm_df_and_suffix_to_output:
+            quant_output_builder = QuantOutputBuilder(current_psm_df, self.config)
+            lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
+            all_psm_with_quant.append(psm_df_with_quant)
+
+            if save and lfq_results:
+                quant_output_builder.save_results(
+                    lfq_results,
+                    self.output_folder,
+                    file_format=self.config["search_output"]["file_format"],
+                    channel_suffix=channel_suffix,
+                )
 
         if save:
+            combined_psm_df = (
+                pd.concat(all_psm_with_quant, ignore_index=True)
+                if all_psm_with_quant
+                else psm_df
+            )
+
             logger.info("Writing psm output to disk")
-            psm_df_output = apply_output_column_names(psm_df_with_quant)
+            psm_df_output = apply_output_column_names(combined_psm_df)
             write_df(
                 psm_df_output,
                 os.path.join(self.output_folder, f"{self.PRECURSOR_OUTPUT}"),
                 file_format=self.config["search_output"]["file_format"],
             )
-
-            if lfq_results:
-                quant_output_builder.save_results(
-                    lfq_results,
-                    self.output_folder,
-                    file_format=self.config["search_output"]["file_format"],
-                )
 
         return lfq_results
 

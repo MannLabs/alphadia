@@ -49,8 +49,11 @@ The final results will still be saved in the `output` folder.
 | `precursors.parquet` | Main output with precursor-level information, quantification, and scoring |
 | `stats.tsv` | Summary statistics and quality metrics per run/channel |
 | `pg.matrix.parquet` | Protein group quantification matrix across all samples |
+| `pg.matrix.ch<N>.parquet` | Per-channel protein group quantification matrix (multiplexing only) |
 | `peptide.matrix.parquet` | Peptide-level quantification matrix (if enabled) |
+| `peptide.matrix.ch<N>.parquet` | Per-channel peptide-level quantification matrix (multiplexing only, if enabled) |
 | `precursor.matrix.parquet` | Precursor-level quantification matrix (if enabled) |
+| `precursor.matrix.ch<N>.parquet` | Per-channel precursor-level quantification matrix (multiplexing only, if enabled) |
 | `internal.tsv` | Internal statistics and metadata from the search |
 | `speclib.hdf` | Input spectral library (may be reannotated or predicted) |
 | `speclib.mbr.hdf` | MBR library containing all identified precursors |

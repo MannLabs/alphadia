@@ -287,6 +287,7 @@ class QuantOutputBuilder:
         lfq_results: dict[str, pd.DataFrame],
         output_folder: str,
         file_format: str = "parquet",
+        channel_suffix: str = "",
     ) -> None:
         """Save quantification results to disk with output column names.
 
@@ -298,6 +299,8 @@ class QuantOutputBuilder:
             Output folder path
         file_format : str, default='parquet'
             File format for output files
+        channel_suffix : str, default=''
+            Suffix appended to matrix file names, e.g. '.ch4' for multiplexing
         """
         from alphadia.outputtransform.utils import write_df
 
@@ -317,7 +320,9 @@ class QuantOutputBuilder:
 
             write_df(
                 lfq_df_output,
-                os.path.join(output_folder, f"{config.level_name}.matrix"),
+                os.path.join(
+                    output_folder, f"{config.level_name}.matrix{channel_suffix}"
+                ),
                 file_format=file_format,
             )
 

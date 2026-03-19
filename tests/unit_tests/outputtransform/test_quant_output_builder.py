@@ -274,6 +274,31 @@ class TestQuantOutputBuilder:
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
+    @patch("alphadia.outputtransform.utils.write_df")
+    def test_save_results_with_channel_suffix(self, mock_write_df, psm_df, config):
+        """Given channel_suffix='.ch4', when save_results is called, then filenames contain the suffix."""
+        # given
+        lfq_results = {
+            QuantificationLevelName.PRECURSOR: pd.DataFrame(
+                {"mod_seq_charge_hash": [10], "run1": [1000.0]}
+            ),
+            QuantificationLevelName.PROTEIN: pd.DataFrame(
+                {"pg": ["PG001"], "run1": [5000.0]}
+            ),
+        }
+        builder = QuantOutputBuilder(psm_df, config)
+
+        # when
+        builder.save_results(
+            lfq_results, "/output", file_format="parquet", channel_suffix=".ch4"
+        )
+
+        # then
+        assert mock_write_df.call_count == 2
+        written_paths = [call.args[1] for call in mock_write_df.call_args_list]
+        assert "/output/precursor.matrix.ch4" in written_paths
+        assert "/output/pg.matrix.ch4" in written_paths
+
     def test_annotate_protein(self, psm_df, config):
         """Given protein-level LFQ dataframe, when annotated, then returns unchanged with no added annotations."""
         # Given
