@@ -164,17 +164,23 @@ Format: one row per run/channel combination.
 The protein group quantification matrix provides protein-level quantification across all samples.
 It contains one row per protein group and one column per sample.
 
+When multiplexing is enabled, separate per-channel matrices are produced instead: `pg.matrix.ch0.parquet`, `pg.matrix.ch4.parquet`, etc. Each has the same structure but contains quantification for a single channel only.
+
 **Important**: This matrix contains only protein groups with valid quantification values. The number of non-zero entries per sample may be slightly lower (~0.3-0.8%) than the `search.proteins` count in `stats.tsv`, which reports all identified proteins. The difference represents proteins that were identified but could not be quantified due to insufficient fragment data or quality.
 
 ## `peptide.matrix.parquet`
 The peptide quantification matrix provides peptide-level quantification across all samples (when peptide-level LFQ is enabled).
 It contains one row per peptide and one column per sample.
 
+When multiplexing is enabled, separate per-channel matrices are produced instead: `peptide.matrix.ch0.parquet`, `peptide.matrix.ch4.parquet`, etc.
+
 **Important**: This matrix contains only peptides with valid quantification values. Peptides that were identified but failed quality filters for LFQ will have missing (NaN) values or may be absent from the matrix entirely.
 
 ## `precursor.matrix.parquet`
 The precursor quantification matrix provides precursor-level quantification across all samples (when precursor-level LFQ is enabled).
 It contains one row per precursor and one column per sample.
+
+When multiplexing is enabled, separate per-channel matrices are produced instead: `precursor.matrix.ch0.parquet`, `precursor.matrix.ch4.parquet`, etc.
 
 **Important**: This matrix contains only precursors with valid quantification values. The number of non-zero entries per sample will be lower (~3-4%) than the `search.precursors` count in `stats.tsv`. The difference represents precursors that were identified but failed quantification quality filters such as:
 - Poor fragment quality or correlation (below `min_correlation` threshold)
