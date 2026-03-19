@@ -110,6 +110,7 @@ Format: one row per identified precursor per run.
 
 **Notes:**
 - Mobility columns are only present for ion mobility data
+- `precursor.mz.calibrated` is calculated only if the MS1 spectra in the raw file follow a DIA cycle. Currently not calculated when using the `rust` extraction backend.
 - LFQ intensities are only present when label-free quantification is enabled
 - Decoy precursors (`decoy=1`) are typically filtered out unless `keep_decoys` is enabled
 - The `precursor.proba` value represents the decoy probability score (lower is better for target hits)
