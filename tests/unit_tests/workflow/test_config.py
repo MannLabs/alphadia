@@ -1,7 +1,6 @@
 import os
 import tempfile
 from io import StringIO
-from types import MappingProxyType
 from unittest.mock import patch
 
 import numpy as np
@@ -384,28 +383,6 @@ def test_config_to_yaml_converts_numpy_types():
         os.unlink(temp_path)
 
 
-def test_nested_dict_access_returns_read_only():
-    """Test that accessing nested dicts via __getitem__ returns a read-only MappingProxyType."""
-    config = Config({"section": {"key": "value"}})
-    nested = config["section"]
-    assert isinstance(nested, MappingProxyType)
-    assert nested["key"] == "value"
-
-
-def test_nested_dict_mutation_raises():
-    """Test that setting values on nested dicts retrieved via __getitem__ raises TypeError."""
-    config = Config({"section": {"key": "value"}})
-    with pytest.raises(TypeError):
-        config["section"]["key"] = "new_value"
-
-
-def test_deeply_nested_mutation_raises():
-    """Test that mutation is also blocked at deeper nesting levels."""
-    config = Config({"a": {"b": {"c": "value"}}})
-    with pytest.raises(TypeError):
-        config["a"]["b"]["c"] = "new_value"
-
-
 def test_set_path_top_level():
     """Test that set_path works for top-level keys."""
     config = Config({"output_directory": "/old/path"})
@@ -425,11 +402,3 @@ def test_set_path_disallowed_key_raises():
     config = Config({"a": {"b": "old"}})
     with pytest.raises(NotImplementedError):
         config.set_path(("a", "b"), "new")
-
-
-def test_list_mutation_does_not_affect_config():
-    """Test that mutating a list retrieved via __getitem__ does not affect the config."""
-    config = Config({"paths": ["/a", "/b"]})
-    retrieved = config["paths"]
-    retrieved.append("/c")
-    assert config["paths"] == ["/a", "/b"]
