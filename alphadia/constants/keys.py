@@ -1,3 +1,6 @@
+"""String constants for accessing keys, e.g. in the config and output files and in tables."""
+
+
 class ConstantsClass(type):
     """A metaclass for classes that should only contain string constants."""
 
