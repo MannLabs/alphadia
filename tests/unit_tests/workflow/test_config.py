@@ -383,22 +383,22 @@ def test_config_to_yaml_converts_numpy_types():
         os.unlink(temp_path)
 
 
-def test_set_path_top_level():
-    """Test that set_path works for top-level keys."""
+def test_set_value_top_level():
+    """Test that set_value works for top-level keys."""
     config = Config({"output_directory": "/old/path"})
-    config.set_path("output_directory", "/new/path")
+    config.set_value("output_directory", "/new/path")
     assert config["output_directory"] == "/new/path"
 
 
-def test_set_path_nested():
-    """Test that set_path works for tuple keys for nested access."""
+def test_set_value_nested():
+    """Test that set_value works for tuple keys for nested access."""
     config = Config({"library_prediction": {"peptdeep_model_path": None}})
-    config.set_path(("library_prediction", "peptdeep_model_path"), "/some/path")
+    config.set_value(("library_prediction", "peptdeep_model_path"), "/some/path")
     assert config["library_prediction"]["peptdeep_model_path"] == "/some/path"
 
 
-def test_set_path_disallowed_key_raises():
-    """Test that set_path rejects keys not in the allowlist."""
+def test_set_value_disallowed_key_raises():
+    """Test that set_value rejects keys not in the allowlist."""
     config = Config({"a": {"b": "old"}})
     with pytest.raises(NotImplementedError):
-        config.set_path(("a", "b"), "new")
+        config.set_value(("a", "b"), "new")

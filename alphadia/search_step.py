@@ -159,7 +159,7 @@ class SearchStep:
         if extra_config:
             extra_config_update = Config(extra_config, name=MULTISTEP_SEARCH)
             # need to overwrite user-defined output folder here to have correct value in config dump
-            extra_config_update[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
+            extra_config_update.set_value(ConfigKeys.OUTPUT_DIRECTORY, output_folder)
             config_updates.append(extra_config_update)
 
         if config_updates:
@@ -176,8 +176,8 @@ class SearchStep:
 
         SearchStep._expand_config_paths(config)
 
-        config[ConfigKeys.OUTPUT_DIRECTORY] = output_folder
-        config[ConfigKeys.VERSION] = alphadia_version
+        config.set_value(ConfigKeys.OUTPUT_DIRECTORY, output_folder)
+        config.set_value(ConfigKeys.VERSION, alphadia_version)
 
         return config
 
@@ -584,13 +584,13 @@ class SearchStep:
                 for p in value:
                     paths.append(expand_path(p))
 
-                config.set_path(key, paths)
+                config.set_value(key, paths)
 
             elif value is not None:
-                config.set_path(key, expand_path(value))
+                config.set_value(key, expand_path(value))
 
         # this cannot be treated in above loop easily
-        config.set_path(
+        config.set_value(
             (
                 ConfigKeys.LIBRARY_PREDICTION,
                 ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,

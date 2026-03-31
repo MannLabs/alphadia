@@ -57,19 +57,21 @@ class Config(UserDict):
             json.dump(self.data, f)
 
     def __setitem__(self, key: str, item: Any):
-        if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
-            raise NotImplementedError("Use update() to update the config.")
-        return super().__setitem__(key, item)
+        """Forbid settings keys directly.
 
-    def set_path(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
-        """Set a path value.
+        Use set_path() to set certain (nested) keys, or update() for other keys.
+        """
+        raise NotImplementedError("Use set_value() or update() to update the config.")
 
-        Only certain paths are allowed to be set.
+    def set_value(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
+        """Set a config key.
+
+        Only certain keys are allowed to be set.
         Use a tuple key for nested access, e.g. ("library_prediction", "peptdeep_model_path").
-
         """
 
         if key not in [
+            ConfigKeys.VERSION,
             ConfigKeys.OUTPUT_DIRECTORY,
             ConfigKeys.LIBRARY_PATH,
             ConfigKeys.QUANT_DIRECTORY,
@@ -81,10 +83,11 @@ class Config(UserDict):
             ),
         ]:
             raise NotImplementedError(
-                "Only certain paths may be set directly, use update() to update the config otherwise."
+                "Only certain values may be set directly, use update() to update the config otherwise."
             )
 
         if isinstance(key, tuple):
+            # nested access
             target = self.data
             for k in key[:-1]:
                 target = target[k]
