@@ -64,12 +64,24 @@ class GenericUserError(UserError):
         self._detail_msg = detail_msg
 
 
-class NoPsmFoundError(BusinessError):
+class NoPSMFilesFoundError(BusinessError):
+    """Raise when no PSMs files found in the search results."""
+
+    _error_code = "NO_PSM_FILES_FOUND"
+
+    _msg = "No PSM files found."
+
+    _detail_msg = "No PSM files were created during search. Please check the file-specific searches for errors."
+
+
+class NoPSMFoundError(BusinessError):
     """Raise when no PSMs are found in the search results."""
 
     _error_code = "NO_PSM_FOUND"
 
-    _msg = "No psm files accumulated, can't continue."
+    _msg = "No PSMs found."
+
+    _detail_msg = "No PSMs were found during search. Please check the input parameters."
 
 
 class TooFewPSMError(BusinessError):
