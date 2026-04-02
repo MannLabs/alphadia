@@ -381,3 +381,24 @@ def test_config_to_yaml_converts_numpy_types():
         assert "!!python/object" not in yaml_content
     finally:
         os.unlink(temp_path)
+
+
+def test_set_value_top_level():
+    """Test that set_value works for top-level keys."""
+    config = Config({"output_directory": "/old/path"})
+    config.set_value("output_directory", "/new/path")
+    assert config["output_directory"] == "/new/path"
+
+
+def test_set_value_nested():
+    """Test that set_value works for tuple keys for nested access."""
+    config = Config({"library_prediction": {"peptdeep_model_path": None}})
+    config.set_value(("library_prediction", "peptdeep_model_path"), "/some/path")
+    assert config["library_prediction"]["peptdeep_model_path"] == "/some/path"
+
+
+def test_set_value_disallowed_key_raises():
+    """Test that set_value rejects keys not in the allowlist."""
+    config = Config({"a": {"b": "old"}})
+    with pytest.raises(NotImplementedError):
+        config.set_value(("a", "b"), "new")

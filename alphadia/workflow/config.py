@@ -32,7 +32,10 @@ MODIFICATIONS_DELIM = ";"
 
 
 class Config(UserDict):
-    """Dict-like config class that can read from and write to yaml and json files and allows updating with other config objects."""
+    """Dict-like config class that can read from and write to yaml and json files and allows updating with other config objects.
+
+    TODO: this class should be read-only, but currently mutable value elements can be mutated.
+    """
 
     def __init__(self, data: dict = None, name: str = DEFAULT) -> None:
         # super class deliberately not called as this calls "update" (which we overwrite)
@@ -57,10 +60,44 @@ class Config(UserDict):
         with open(path, "w") as f:
             json.dump(self.data, f)
 
-    def __setitem__(self, key, item):
-        if key not in [ConfigKeys.OUTPUT_DIRECTORY, ConfigKeys.VERSION]:
-            raise NotImplementedError("Use update() to update the config.")
-        return super().__setitem__(key, item)
+    def __setitem__(self, key: str, item: Any):
+        """Forbid settings keys directly.
+
+        Use set_path() to set certain (nested) keys, or update() for other keys.
+        """
+        raise NotImplementedError("Use set_value() or update() to update the config.")
+
+    def set_value(self, key: str | tuple[str, ...], path: str | list[str]) -> None:
+        """Set a config key.
+
+        Only certain keys are allowed to be set.
+        Use a tuple key for nested access, e.g. ("library_prediction", "peptdeep_model_path").
+        """
+
+        if key not in [
+            ConfigKeys.VERSION,
+            ConfigKeys.OUTPUT_DIRECTORY,
+            ConfigKeys.LIBRARY_PATH,
+            ConfigKeys.QUANT_DIRECTORY,
+            ConfigKeys.RAW_PATHS,
+            ConfigKeys.FASTA_PATHS,
+            (
+                ConfigKeys.LIBRARY_PREDICTION,
+                ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH,
+            ),
+        ]:
+            raise NotImplementedError(
+                "Only certain values may be set directly, use update() to update the config otherwise."
+            )
+
+        if isinstance(key, tuple):
+            # nested access
+            target = self.data
+            for k in key[:-1]:
+                target = target[k]
+            target[key[-1]] = path
+        else:
+            self.data[key] = path
 
     def __delitem__(self, key):
         raise NotImplementedError("Use update() to update the config.")
