@@ -34,7 +34,13 @@ from alphabase.spectral_library import base
 from alphabase.spectral_library.flat import SpecLibFlat
 from tqdm import tqdm
 
-from alphadia.constants.keys import CalibCols, SearchStepFiles
+from alphadia.constants.keys import (
+    CalibCols,
+    FragmentDfCols,
+    PrecursorDfCols,
+    PsmDfCols,
+    SearchStepFiles,
+)
 
 logger = logging.getLogger()
 
@@ -67,7 +73,7 @@ def build_speclibflat_from_quant(
 
     if mandatory_precursor_columns is None:
         mandatory_precursor_columns = [
-            "precursor_idx",
+            PsmDfCols.PRECURSOR_IDX,
             "sequence",
             "flat_frag_start_idx",
             "flat_frag_stop_idx",
@@ -136,13 +142,15 @@ def build_speclibflat_from_quant(
         speclib._precursor_df[col] = values
 
     frag_df = frag_df[
-        frag_df["precursor_idx"].isin(speclib._precursor_df["precursor_idx"])
+        frag_df[FragmentDfCols.PRECURSOR_IDX].isin(
+            speclib._precursor_df[PrecursorDfCols.PRECURSOR_IDX]
+        )
     ]
     speclib._fragment_df = frag_df[
         [
             "mz",
             "intensity",
-            "precursor_idx",
+            FragmentDfCols.PRECURSOR_IDX,
             "frag_idx",
             "correlation",
             "number",
@@ -332,7 +340,11 @@ class TransferLearningAccumulator(BaseAccumulator):
         # Sort by modseqhash and proba in ascending order
         self.consensus_speclibase._precursor_df = (
             self.consensus_speclibase._precursor_df.sort_values(
-                ["mod_seq_hash", "proba", "precursor_idx"],  # last sort to break ties
+                [
+                    "mod_seq_hash",
+                    "proba",
+                    PrecursorDfCols.PRECURSOR_IDX,
+                ],  # last sort to break ties
                 ascending=[True, True, True],
             )
         )

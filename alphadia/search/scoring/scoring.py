@@ -6,7 +6,12 @@ import alphatims.utils
 import numpy as np
 import pandas as pd
 
-from alphadia.constants.keys import CalibCols
+from alphadia.constants.keys import (
+    CalibCols,
+    CandidatesDfCols,
+    PrecursorDfCols,
+    PsmDfCols,
+)
 from alphadia.raw_data import DiaData
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.search.scoring.config import CandidateScoringConfig
@@ -237,7 +242,9 @@ class CandidateScoring:
         precursors_flat_schema.validate(
             precursors_flat_df, warn_on_critical_values=True
         )
-        self._precursors_flat_df = precursors_flat_df.sort_values(by="precursor_idx")
+        self._precursors_flat_df = precursors_flat_df.sort_values(
+            by=PrecursorDfCols.PRECURSOR_IDX
+        )
 
     @property
     def fragments_flat_df(self) -> pd.DataFrame:
@@ -310,7 +317,7 @@ class CandidateScoring:
             candidates_df,
             self.precursors_flat_df,
             precursor_columns,
-            on=["precursor_idx"],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 
@@ -334,7 +341,7 @@ class CandidateScoring:
         score_group_container.build_from_df(
             candidates_df["elution_group_idx"].values,
             candidates_df["score_group_idx"].values,
-            candidates_df["precursor_idx"].values,
+            candidates_df[CandidatesDfCols.PRECURSOR_IDX].values,
             candidates_df["channel"].values,
             candidates_df["rank"].values,
             candidates_df["flat_frag_start_idx"].values,
@@ -436,7 +443,7 @@ class CandidateScoring:
         precursor_idx, rank, features = psm_proto_df.to_precursor_df()
 
         candidates_psm_df = pd.DataFrame(features, columns=feature_columns)
-        candidates_psm_df["precursor_idx"] = precursor_idx
+        candidates_psm_df["precursor_idx"] = precursor_idx  # precursor_idx: UNCLEAR
         candidates_psm_df["rank"] = rank
 
         candidates_psm_df = self.merge_candidate_data(
@@ -483,7 +490,7 @@ class CandidateScoring:
             df,
             candidates_df,
             candidate_columns,
-            on=["precursor_idx", "rank"],
+            on=[CandidatesDfCols.PRECURSOR_IDX, "rank"],
             how="left",
         )
 
@@ -513,7 +520,7 @@ class CandidateScoring:
             df,
             precursors_flat_df,
             precursor_df_columns,
-            on=["precursor_idx"],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 
@@ -540,7 +547,7 @@ class CandidateScoring:
         """
 
         colnames = [
-            "precursor_idx",
+            PsmDfCols.PRECURSOR_IDX,
             "rank",
             CalibCols.MZ_LIBRARY,
             "mz",
@@ -573,7 +580,7 @@ class CandidateScoring:
             df,
             self.precursors_flat_df,
             precursor_df_columns,
-            on=["precursor_idx"],
+            on=[PrecursorDfCols.PRECURSOR_IDX],
             how="left",
         )
 

@@ -2,6 +2,8 @@
 import numpy as np
 import pandas as pd
 
+from alphadia.constants.keys import PsmDfCols
+
 
 def get_pep(
     psm_df: pd.DataFrame,
@@ -96,7 +98,7 @@ def add_q_values(
     """
     EPSILON = 1e-6
     df = df.sort_values(
-        [decoy_proba_column, decoy_column, "precursor_idx"], ascending=True
+        [decoy_proba_column, decoy_column, PsmDfCols.PRECURSOR_IDX], ascending=True
     )  # last sort to break ties
 
     # translate the decoy probabilities to target probabilities
@@ -160,7 +162,7 @@ def keep_best(
         group_columns = ["channel", "mod_seq_charge_hash"]
     df = df.reset_index(drop=True)
     df = df.sort_values(
-        [score_column, *group_columns, "precursor_idx"], ascending=True
+        [score_column, *group_columns, PsmDfCols.PRECURSOR_IDX], ascending=True
     )  # last sort to break ties
     df = df.groupby(group_columns).head(1)
     df = df.sort_index().reset_index(drop=True)

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 from numba.extending import overload_method
 
+from alphadia.constants.keys import CandidatesDfCols, PrecursorDfCols
 from alphadia.search.jitclasses.fragment_container import FragmentContainer
 from alphadia.utils import USE_NUMBA_CACHING
 from alphadia.validation.schemas import (
@@ -93,7 +94,7 @@ def candidate_features_to_candidates(
 
     required_columns = [
         "elution_group_idx",
-        "precursor_idx",
+        "precursor_idx",  # precursor_idx: UNCLEAR
         "rank",
         "scan_start",
         "scan_stop",
@@ -160,7 +161,7 @@ def multiplex_candidates(
     # the candidate used for multiplexing is the best scoring candidate in each elution group
     best_candidate_view = (
         best_candidate_view.sort_values(
-            ["proba", "precursor_idx"]
+            ["proba", CandidatesDfCols.PRECURSOR_IDX],
         )  # last sort to break ties
         .groupby("elution_group_idx")
         .first()
@@ -180,10 +181,12 @@ def multiplex_candidates(
     ]
     # remove original precursors
     precursors_flat_view = precursors_flat_view[
-        ["elution_group_idx", "precursor_idx", "channel"]
+        ["elution_group_idx", PrecursorDfCols.PRECURSOR_IDX, "channel"]
     ]
     # reduce precursors to the elution group level
-    best_candidate_view = best_candidate_view.drop(columns=["precursor_idx"])
+    best_candidate_view = best_candidate_view.drop(
+        columns=[CandidatesDfCols.PRECURSOR_IDX]
+    )
     if "channel" in best_candidate_view.columns:
         best_candidate_view = best_candidate_view.drop(columns=["channel"])
 
@@ -389,12 +392,12 @@ def calculate_score_groups(
     # if no rank is present, pretend rank 0
     if "rank" in input_df.columns:
         input_df = input_df.sort_values(
-            by=["elution_group_idx", "decoy", "rank", "precursor_idx"]
+            by=["elution_group_idx", "decoy", "rank", CandidatesDfCols.PRECURSOR_IDX]
         )  # last sort to break ties
         rank_values = input_df["rank"].values
     else:
         input_df = input_df.sort_values(
-            by=["elution_group_idx", "decoy", "precursor_idx"]
+            by=["elution_group_idx", "decoy", CandidatesDfCols.PRECURSOR_IDX]
         )  # last sort to break ties
         rank_values = np.zeros(len(input_df), dtype=np.uint32)
 
@@ -405,9 +408,9 @@ def calculate_score_groups(
     else:
         input_df["score_group_idx"] = np.arange(len(input_df), dtype=np.uint32)
 
-    return input_df.sort_values(by=["score_group_idx", "precursor_idx"]).reset_index(
-        drop=True
-    )  # last sort to break ties
+    return input_df.sort_values(
+        by=["score_group_idx", CandidatesDfCols.PRECURSOR_IDX]
+    ).reset_index(drop=True)  # last sort to break ties
 
 
 @overload_method(

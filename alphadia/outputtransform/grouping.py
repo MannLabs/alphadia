@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 from numpy.typing import NDArray
 
+from alphadia.constants.keys import PsmDfCols
+
 
 def _group_and_parsimony(
     precursor_idx: NDArray[np.int64],
@@ -128,12 +130,12 @@ def perform_grouping(
         raise ValueError("Selected column must be 'genes' or 'proteins'")
 
     # create non-duplicated view of precursor table
-    unique_mask = ~psm_df.duplicated(subset=["precursor_idx"], keep="first")
+    unique_mask = ~psm_df.duplicated(subset=[PsmDfCols.PRECURSOR_IDX], keep="first")
 
     # make sure column is string and subset to relevant columns
     psm_df[genes_or_proteins] = psm_df[genes_or_proteins].astype(str)
     unique_psm_df = psm_df.loc[
-        unique_mask, ["precursor_idx", genes_or_proteins, decoy_column]
+        unique_mask, [PsmDfCols.PRECURSOR_IDX, genes_or_proteins, decoy_column]
     ]
 
     # greedy set cover on all proteins if there is only one decoy class
@@ -141,12 +143,12 @@ def perform_grouping(
     if len(unique_decoys) == 1:
         unique_psm_df[decoy_column] = -1
         unique_psm_df["pg_master"], unique_psm_df["pg"] = _group_and_parsimony(
-            unique_psm_df["precursor_idx"].values,
+            unique_psm_df[PsmDfCols.PRECURSOR_IDX].values,
             unique_psm_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
         unique_psm_df = unique_psm_df[
-            ["precursor_idx", "pg_master", "pg", genes_or_proteins]
+            [PsmDfCols.PRECURSOR_IDX, "pg_master", "pg", genes_or_proteins]
         ]
     else:
         # handle case with multiple decoy classes
@@ -156,7 +158,7 @@ def perform_grouping(
         # greedy set cover on targets
         target_df = unique_psm_df[target_mask].copy()
         target_df["pg_master"], target_df["pg"] = _group_and_parsimony(
-            target_df["precursor_idx"].values,
+            target_df[PsmDfCols.PRECURSOR_IDX].values,
             target_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
@@ -164,13 +166,13 @@ def perform_grouping(
         # greedy set cover on decoys
         decoy_df = unique_psm_df[decoy_mask].copy()
         decoy_df["pg_master"], decoy_df["pg"] = _group_and_parsimony(
-            decoy_df["precursor_idx"].values,
+            decoy_df[PsmDfCols.PRECURSOR_IDX].values,
             decoy_df[genes_or_proteins].values,
             return_parsimony_groups,
         )
 
         unique_psm_df = pd.concat([target_df, decoy_df])[
-            ["precursor_idx", "pg_master", "pg", genes_or_proteins]
+            [PsmDfCols.PRECURSOR_IDX, "pg_master", "pg", genes_or_proteins]
         ]
 
     # heuristic grouping: from each initial precursor's protein ID set, filter out proteins that
@@ -191,4 +193,4 @@ def perform_grouping(
 
     unique_psm_df.drop(columns=[genes_or_proteins], inplace=True)
 
-    return psm_df.merge(unique_psm_df, on="precursor_idx", how="left")
+    return psm_df.merge(unique_psm_df, on=PsmDfCols.PRECURSOR_IDX, how="left")

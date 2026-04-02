@@ -4,6 +4,7 @@ import numpy as np
 from alphabase.spectral_library.base import SpecLibBase
 from alphabase.spectral_library.decoy import decoy_lib_provider
 
+from alphadia.constants.keys import PrecursorDfCols
 from alphadia.libtransform.base import ProcessingStep
 
 logger = logging.getLogger()
@@ -48,15 +49,19 @@ class DecoyGenerator(ProcessingStep):
         decoy_lib._precursor_df["decoy"] = 1
 
         # keep original precursor_idx and only create new ones for decoys
-        start_precursor_idx = input.precursor_df["precursor_idx"].max() + 1
-        decoy_lib._precursor_df["precursor_idx"] = np.arange(
+        start_precursor_idx = (
+            input.precursor_df[PrecursorDfCols.PRECURSOR_IDX].max() + 1
+        )
+        decoy_lib._precursor_df[PrecursorDfCols.PRECURSOR_IDX] = np.arange(
             start_precursor_idx, start_precursor_idx + len(decoy_lib.precursor_df)
         )
 
         input.append(decoy_lib)
         input._precursor_df.sort_values("elution_group_idx", inplace=True)
         input._precursor_df.reset_index(drop=True, inplace=True)
-        input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
+        input.precursor_df[PrecursorDfCols.PRECURSOR_IDX] = np.arange(
+            len(input.precursor_df)
+        )
         input.remove_unused_fragments()
 
         return input

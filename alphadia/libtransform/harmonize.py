@@ -5,6 +5,7 @@ import numpy as np
 from alphabase.protein import fasta
 from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.constants.keys import PrecursorDfCols
 from alphadia.libtransform.base import ProcessingStep
 from alphadia.utils import get_isotope_columns
 
@@ -92,8 +93,10 @@ class PrecursorInitializer(ProcessingStep):
                 "Elution group indices already present, skipping initialization"
             )
 
-        if "precursor_idx" not in input.precursor_df.columns:
-            input.precursor_df["precursor_idx"] = np.arange(len(input.precursor_df))
+        if PrecursorDfCols.PRECURSOR_IDX not in input.precursor_df.columns:
+            input.precursor_df[PrecursorDfCols.PRECURSOR_IDX] = np.arange(
+                len(input.precursor_df)
+            )
         else:
             logger.info("Precursor indices already present, skipping initialization")
         return input
