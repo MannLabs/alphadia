@@ -75,7 +75,12 @@ def _density_scatter(
 
     # Calculate the point density
     xy = np.vstack([x, y])
-    z = gaussian_kde(xy, bw_method=bw_method)(xy)
+    try:
+        z = gaussian_kde(xy, bw_method=bw_method)(xy)
+    except np.linalg.LinAlgError:
+        # Singular covariance matrix when data has near-zero variance in one dimension
+        axis.scatter(x, y, s=s, **kwargs)
+        return
 
     # Sort the points by density, so that the densest points are plotted last
     idx = z.argsort()
