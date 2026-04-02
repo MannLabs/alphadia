@@ -58,6 +58,7 @@ class MultiplexLibrary(ProcessingStep):
             input.precursor_df = input.precursor_df[
                 input.precursor_df["channel"] == self._input_channel
             ]
+            input.remove_unused_fragments()
 
         channel_lib_list = []
         for channel, channel_mod_translations in self._multiplex_mapping.items():
