@@ -418,4 +418,4 @@ class ScoreGroupContainer:
 
 
 # TODO: why is this necessary?
-ScoreGroupContainer.__module__ = "alphatims.extraction.plexscoring"
+# ScoreGroupContainer.__module__ = "alphatims.extraction.plexscoring"

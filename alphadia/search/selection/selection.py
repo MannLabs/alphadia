@@ -2,10 +2,11 @@
 
 import logging
 
-import alphatims.utils
 import numba as nb
 import numpy as np
 import pandas as pd
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 
 from alphadia import utils
 from alphadia.constants.keys import CalibCols
@@ -75,7 +76,7 @@ def _is_valid(
     return True
 
 
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
+@pjit(cache=USE_NUMBA_CACHING)
 def _select_candidates_pjit(
     i: int,  # pjit decorator changes the passed argument from an iterable to single index
     jit_data: DiaDataJIT,
@@ -626,7 +627,7 @@ class CandidateSelection:
         Elution groups are stored in the ElutionGroupContainer Numba JIT object.
 
         2. Then, the elution groups are iterated over and the candidates are selected.
-        The candidate selection is performed in parallel using the alphatims.utils.pjit function.
+        The candidate selection is performed in parallel using the `pjit` decorator.
 
         3. Finally, the candidates are collected from the ElutionGroup,
         assembled into a pd.DataFrame and precursor information is appended.
@@ -653,7 +654,7 @@ class CandidateSelection:
             iterator_len = min(10, len(self.precursors_flat))
             thread_count = 1
 
-        alphatims.utils.set_threads(thread_count)
+        set_pjit_threads(thread_count)
 
         _select_candidates_pjit(
             range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
