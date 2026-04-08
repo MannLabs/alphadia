@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
@@ -21,7 +22,7 @@ logger = logging.getLogger()
 
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
+def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, Too many statements, too many arguments
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -117,9 +118,18 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
     X = np.concatenate([X_target, X_decoy])
     y = np.concatenate([y_target, y_decoy])
 
-    X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
-        X, y, test_size=0.2, random_state=random_state
-    )
+    try:
+        X_train, X_test, y_train, y_test, idxs_train, idxs_test = train_test_split_(
+            X, y, test_size=0.2, random_state=random_state
+        )
+    except TooFewPSMError:
+        logger.warning(
+            "Too few PSMs for FDR classification, assigning qval=1.0 and proba=1.0 to all PSMs."
+        )
+        psm_df = pd.concat([df_target, df_decoy])
+        psm_df["qval"] = 1.0
+        psm_df["proba"] = 1.0
+        return psm_df
 
     classifier.fit(X_train, y_train)
 
