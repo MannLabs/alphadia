@@ -29,7 +29,7 @@ LMHSPTGRRRKK
 >sp|P39935|TIF4631_YEAST Translation initiation factor eIF-4G 1 OS=Saccharomyces cerevisiae (strain ATCC 204508 / S288c) OX=559292 GN=TIF4631 YGR254W PE=1 SV=2
 KSKSSGEHLDLKSGEHLDLKLMHSPTGR
 
-"""
+""".strip()
 
     library = """PrecursorMz	ProductMz	Annotation	ProteinId	GeneName	PeptideSequence	ModifiedPeptideSequence	PrecursorCharge	LibraryIntensity	NormalizedRetentionTime	PrecursorIonMobility	FragmentType	FragmentCharge	FragmentSeriesNumber	FragmentLossType
 300.156968	333.188096	y3^1	Q9CX84	Rgs19	LMHSPTGR	LMHSPTGR	3	4311.400524927019	-25.676406886060136		y	1	3
