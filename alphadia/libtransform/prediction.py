@@ -159,11 +159,19 @@ class PeptDeepPrediction(ProcessingStep):
             )
 
         logger.info("Predicting RT, MS2 and mobility")
+
+        process_num = self.mp_process_num
+        if device == "mps" and process_num > 1:
+            logger.info(
+                "Multiprocessing is not supported with MPS device, falling back to single process"
+            )
+            process_num = 1
+
         res = model_mgr.predict_all(
             precursor_df,
             predict_items=["rt", "ms2", "mobility"],
             frag_types=charged_frag_types,
-            process_num=self.mp_process_num,
+            process_num=process_num,
         )
 
         if "fragment_mz_df" in res:
