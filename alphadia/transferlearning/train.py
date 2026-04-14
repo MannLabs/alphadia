@@ -241,7 +241,9 @@ class FinetuneManager(ModelManager):
         if set(self.charged_frag_types) != set(
             self.ms2_model.model.supported_charged_frag_types
         ):
-            self.reinitialize_ms2_model(charged_frag_types=self.charged_frag_types)
+            self.reinitialize_ms2_model(
+                charged_frag_types=self.charged_frag_types, device=self.device
+            )
         self.load_installed_models()
 
     def _reset_frag_idx(self, df):

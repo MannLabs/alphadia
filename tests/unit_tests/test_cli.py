@@ -1,5 +1,6 @@
 """This module provides unit tests for alphadia.cli."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
 
 import yaml
@@ -152,8 +153,9 @@ def test_cli_minimal_args(mock_parse_known_args):
     ):
         run()
 
+    expected_output = str(Path("/output"))
     mock_search_plan.assert_called_once_with(
-        "/output",
+        expected_output,
         {},
         {
             "library_path": "/path/to/library.hdf",
@@ -163,7 +165,7 @@ def test_cli_minimal_args(mock_parse_known_args):
     )
     mock_search_plan.return_value.run_plan.assert_called_once()
 
-    mock_reporting.init_logging.assert_called_once_with("/output")
+    mock_reporting.init_logging.assert_called_once_with(expected_output)
 
 
 @patch("alphadia.cli.parser.parse_known_args")
@@ -196,12 +198,13 @@ def test_cli_minimal_args_all_none(mock_parse_known_args):
     ):
         run()
 
+    expected_output = str(Path("/output"))
     mock_search_plan.assert_called_once_with(
-        "/output",
+        expected_output,
         {},
         {},
     )
 
     mock_search_plan.return_value.run_plan.assert_called_once()
 
-    mock_reporting.init_logging.assert_called_once_with("/output")
+    mock_reporting.init_logging.assert_called_once_with(expected_output)

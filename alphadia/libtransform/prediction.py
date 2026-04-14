@@ -101,7 +101,9 @@ class PeptDeepPrediction(ProcessingStep):
 
         model_mgr = ModelManager(device=device)
         # Set the requested charged fragment types for the ms2 model
-        model_mgr.reinitialize_ms2_model(charged_frag_types=charged_frag_types)
+        model_mgr.reinitialize_ms2_model(
+            charged_frag_types=charged_frag_types, device=device
+        )
 
         if self.peptdeep_model_type:
             logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
