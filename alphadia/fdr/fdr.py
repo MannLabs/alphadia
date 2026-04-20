@@ -67,7 +67,7 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, Too many stateme
         The fragment dataframe.
 
     dia_cycle : np.ndarray, default=None
-        The DIA cycle as provided by alphatims. Required if df_fragments is provided.
+        The DIA cycle. Required if df_fragments is provided.
 
     fdr_heuristic : float, default=0.1
         The FDR heuristic to use for the initial selection of PSMs before fragment competition

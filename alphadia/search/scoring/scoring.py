@@ -2,9 +2,10 @@
 
 import logging
 
-import alphatims.utils
 import numpy as np
 import pandas as pd
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 
 from alphadia.constants.keys import CalibCols
 from alphadia.raw_data import DiaData
@@ -111,7 +112,7 @@ def _get_isotope_column_names(colnames):
     return [f"i_{i}" for i in get_isotope_columns(colnames)]
 
 
-@alphatims.utils.pjit(cache=USE_NUMBA_CACHING)
+@pjit(cache=USE_NUMBA_CACHING)
 def _process_score_groups(
     i,  # pjit decorator changes the passed argument from an iterable to single index
     sg_container: ScoreGroupContainer,
@@ -124,7 +125,7 @@ def _process_score_groups(
 ):
     """
     Helper function.
-    Is decorated with alphatims.utils.pjit to enable parallel execution of HybridElutionGroup.process.
+    Is decorated with `pjit` to enable parallel execution of HybridElutionGroup.process.
     """
 
     sg_container[i].process(
@@ -630,7 +631,7 @@ class CandidateScoring:
             thread_count = 1
             iterator_len = min(10, iterator_len)
 
-        alphatims.utils.set_threads(thread_count)
+        set_pjit_threads(thread_count)
         _process_score_groups(
             range(iterator_len),  # type: ignore  # noqa: PGH003  # function is wrapped by pjit -> will be turned into single index and passed to the method
             score_group_container,
