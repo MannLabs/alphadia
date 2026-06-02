@@ -11,7 +11,7 @@
 ![Coverage](https://github.com/MannLabs/alphadia/raw/main/coverage.svg)
 ![Github](https://img.shields.io/github/stars/mannlabs/alphadia?style=social)
 
-Open-source DIA search engine built with the alphaX ecosystem. Built with [alpharaw](https://github.com/MannLabs/alpharaw) and [alphatims](https://github.com/MannLabs/alphatims) for raw file acces. Spectral libraries are predicted with [peptdeep](https://github.com/MannLabs/alphapeptdeep) and managed by [alphabase](https://github.com/MannLabs/alphabase). Quantification is powered by [directLFQ](https://github.com/MannLabs/directLFQ).
+Open-source DIA search engine built with the alphaX ecosystem. Built with [alpharaw](https://github.com/MannLabs/alpharaw) for raw file acces. Spectral libraries are predicted with [peptdeep](https://github.com/MannLabs/alphapeptdeep) and managed by [alphabase](https://github.com/MannLabs/alphabase). Quantification is powered by [directLFQ](https://github.com/MannLabs/directLFQ).
 
 **Features**
 - Empirical library and fully predicted library search

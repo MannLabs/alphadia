@@ -124,8 +124,7 @@ Config class in `workflow/config.py` handles merging and validation.
 
 Core scientific stack from AlphaPept ecosystem (https://github.com/MannLabs):
 - **alphabase** - Base spectral library classes (`SpecLibBase`, `SpecLibFlat`)
-- **alpharaw** - Raw file reading (Thermo, Sciex)
-- **alphatims** - Bruker TimsTOF support
+- **alpharaw** - Raw file reading
 - **alphapeptdeep** - Deep learning models for property prediction
 - **directlfq** - Label-free quantification
 

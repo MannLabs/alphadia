@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 import alphabase
 import alpharaw
-import alphatims
 import directlfq
 import peptdeep
 
@@ -60,7 +59,6 @@ def print_environment() -> None:
     logger.info("================ AlphaX Environment ===============")
     logger.info(f"{'alphabase':<15} : {alphabase.__version__}")
     logger.info(f"{'alpharaw':<15} : {alpharaw.__version__}")
-    logger.info(f"{'alphatims':<15} : {alphatims.__version__:}")
     logger.info(f"{'alphapeptdeep':<15} : {peptdeep.__version__}")
     logger.info(f"{'directlfq':<15} : {directlfq.__version__}")
     logger.info("===================================================")

@@ -6,7 +6,8 @@ import warnings
 import numba as nb
 import numpy as np
 import pandas as pd
-from alphatims import utils as timsutils
+from alpharaw.utils.pjit import pjit
+from alpharaw.utils.pjit import set_threads as set_pjit_threads
 from pandas.errors import SettingWithCopyWarning
 
 from alphadia.constants.keys import CalibCols
@@ -48,7 +49,7 @@ def _get_fragment_overlap(
     return np.sum(ppm_delta_mz < mass_tol_ppm)
 
 
-@timsutils.pjit(cache=USE_NUMBA_CACHING)
+@pjit(cache=USE_NUMBA_CACHING)
 def _compete_for_fragments(  # noqa: PLR0913 # Too many arguments
     thread_idx: int,  # pjit decorator changes the passed argument from an iterable to single index
     precursor_start_idxs: np.ndarray,
@@ -242,7 +243,7 @@ class FragmentCompetition:
             The fragment dataframe.
 
         cycle: np.ndarray
-            DIA cycle as provided by alphatims.
+            DIA cycle.
 
         Returns
         -------
@@ -272,7 +273,7 @@ class FragmentCompetition:
         valid = np.ones(len(psm_df)).astype(bool)
         # psm_df["valid"] = True
 
-        timsutils.set_threads(self.thread_count)
+        set_pjit_threads(self.thread_count)
         thread_plan_df = self._get_thread_plan_df(psm_df)
 
         _compete_for_fragments(
