@@ -145,6 +145,12 @@ class TimsTOFTranspose(TimsTOFBase):
 
         self.__dict__.update(loaded)
 
+        # h5py reads arrays back as C-contiguous, but `quad_mz_values` is built
+        # by alpharaw as a transpose (`np.stack([quad_low_values, quad_high_values]).T`,
+        # i.e. Fortran-contiguous) and the JIT class expects that layout
+        # (`float64[::1, :]`). Restore it to match the .d path.
+        self._quad_mz_values = np.asfortranarray(self._quad_mz_values)
+
     def to_jitclass(self) -> TimsTOFTransposeJIT:
         """Create a TimsTOFTransposeJIT with the current state of this class."""
         return TimsTOFTransposeJIT(
