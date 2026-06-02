@@ -3,15 +3,26 @@
 import logging
 import os
 
+import h5py
 import numpy as np
 
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import AlphaRawBase, MzML, Sciex, Thermo
-from alphadia.raw_data.bruker import TimsTOFTranspose
+from alphadia.raw_data.bruker import ALPHATIMS_HDF_GROUP, TimsTOFTranspose
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
 logger = logging.getLogger()
+
+
+def _is_alphatims_hdf(hdf_path: str) -> bool:
+    """Return whether an HDF file holds an alphatims-serialized TimsTOF object.
+
+    alphatims writes a top-level `raw` group, whereas alpharaw's HDF format
+    (read by AlphaRawBase) uses a `ms_data` group instead.
+    """
+    with h5py.File(hdf_path, "r") as hdf:
+        return ALPHATIMS_HDF_GROUP in hdf
 
 
 class RawFileManager(BaseManager):
@@ -58,8 +69,12 @@ class RawFileManager(BaseManager):
             )
 
         elif file_extension.lower() == ".hdf":
-            raw_data_type = "alpharaw"
-            dia_data = AlphaRawBase(dia_data_path)
+            if _is_alphatims_hdf(dia_data_path):
+                raw_data_type = "alphatims"
+                dia_data = TimsTOFTranspose(dia_data_path)
+            else:
+                raw_data_type = "alpharaw"
+                dia_data = AlphaRawBase(dia_data_path)
 
         elif file_extension.lower() == ".raw":
             raw_data_type = "thermo"
