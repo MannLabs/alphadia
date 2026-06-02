@@ -8,7 +8,8 @@ import numpy as np
 
 from alphadia.raw_data import DiaData
 from alphadia.raw_data.alpharaw_wrapper import AlphaRawBase, MzML, Sciex, Thermo
-from alphadia.raw_data.bruker import ALPHATIMS_HDF_GROUP, TimsTOFTranspose
+from alphadia.raw_data.bruker import TimsTOFTranspose
+from alphadia.raw_data.bruker_hdf import ALPHATIMS_HDF_GROUP
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
