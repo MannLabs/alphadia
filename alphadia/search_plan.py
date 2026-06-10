@@ -24,7 +24,7 @@ from alphadia.search_step import (
 TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
-
+CONTEXT_STEP_NAME = "context"
 # TODO we need to make sure basic users settings are compatible with each step in multistep search
 # e.g. by printing warning messages on the biggest mistakes
 
@@ -79,6 +79,14 @@ class SearchPlan:
         self._transfer_step_enabled = user_config_general.get(
             "transfer_step_enabled", default_config_general["transfer_step_enabled"]
         )
+        self._context_step_enabled = user_config_general.get(
+            "context_step_enabled", default_config_general["context_step_enabled"]
+        )
+        # either context step or transfer step can be enabled, but not both
+        if self._transfer_step_enabled and self._context_step_enabled:
+            raise CustomError(
+                "Both 'transfer_step_enabled' and 'context_step_enabled' cannot be True. Please choose one of the two steps to run."
+            )
         self._mbr_step_enabled = user_config_general.get(
             "mbr_step_enabled", default_config_general["mbr_step_enabled"]
         )
@@ -86,6 +94,11 @@ class SearchPlan:
         if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
             with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
+                self._multistep_config = yaml.safe_load(f)
+        
+        if self._context_step_enabled:
+            self._update_paths()
+            with (CONSTANTS_FOLDER_PATH / "multistep_context.yaml").open() as f:
                 self._multistep_config = yaml.safe_load(f)
 
         self._raw_files_with_errors: list[tuple[str, str]] = []
@@ -107,6 +120,8 @@ class SearchPlan:
         if self._mbr_step_enabled:
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
 
+        if self._context_step_enabled:
+            self._context_step_output_dir = self._output_dir / CONTEXT_STEP_NAME
     def run_plan(self):
         """Run the search plan.
 
@@ -119,7 +134,7 @@ class SearchPlan:
         # When multistep is enabled, _multistep_config is guaranteed to be set (line 88)
         extra_config_for_library_step = (
             self._multistep_config[LIBRARY_STEP_NAME]  # type: ignore[index]
-            if self._transfer_step_enabled or self._mbr_step_enabled
+            if self._transfer_step_enabled or self._mbr_step_enabled or self._context_step_enabled  
             else {}
         )
 
@@ -145,6 +160,7 @@ class SearchPlan:
                         self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                     ),
                     "enabled": True,  # the step following the 'transfer' step needs to have this
+                    "use_peptdeepptcm": False
                 }
             }
 
@@ -157,6 +173,39 @@ class SearchPlan:
                 | extra_config_from_transfer_step
                 | optimized_values_config
             )
+        if self._context_step_enabled:
+            assert self._context_step_output_dir is not None  # type checker
+
+            logger.info(
+                f"=================== Running step '{CONTEXT_STEP_NAME}' ==================="
+            )
+
+            # extract context (once for all files, file-independent) (outer.sh-step 1)
+
+            self.run_step(
+                self._context_step_output_dir,
+                self._multistep_config[CONTEXT_STEP_NAME],
+                CONTEXT_STEP_NAME,
+            )
+
+            extra_config_from_context_step = {
+                ConfigKeys.LIBRARY_PREDICTION: {
+                    ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
+                        self._context_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT
+                    ),
+                    "enabled": True,  # the step following the 'context' step needs to have this
+                    "use_peptdeepptcm": True
+                }
+            }
+            optimized_values_config = self._get_optimized_values_config(
+                self._context_step_output_dir
+            )
+            extra_config_for_library_step = (
+                extra_config_for_library_step
+                | extra_config_from_context_step
+                | optimized_values_config
+            )
+
 
         # same as transfer_step
         # output: MBR library

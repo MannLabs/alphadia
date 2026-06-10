@@ -37,7 +37,7 @@ from alphadia.outputtransform.utils import (
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
-
+from alphadia.transferlearning.context_extraction import ContextExtractor
 logger = logging.getLogger()
 
 
@@ -50,6 +50,7 @@ class SearchPlanOutput:
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
+    CONTEXT_OUTPUT = "peptdeepptcm.context"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
 
     def __init__(self, config: Config, output_folder: str):
@@ -125,6 +126,30 @@ class SearchPlanOutput:
 
         if self.config["transfer_learning"]["enabled"]:
             self._build_transfer_model(save=True)
+
+        if self.config["context_extraction"].get("enabled", False):
+            self._extract_context()
+    
+    def _extract_context(self) -> None:
+        """Extract the context of the raw files using peptdeepptcm."""
+        context_extractor = ContextExtractor(
+            annotated_speclib_path=os.path.join(
+                self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf"
+            ),
+            charged_frag_types=fragment.get_charged_frag_types(
+                self.config["transfer_library"]["fragment_types"],
+                self.config["transfer_library"]["max_charge"],
+            ),
+            pretrained_context_model_path=self.config["context_extraction"]["context_model_path"],
+            tto_epoch=self.config["context_extraction"]["tto_epochs"],
+            tto_batch_size=self.config["context_extraction"]["tto_batch_size"],
+            tto_lr=self.config["context_extraction"]["tto_lr"],
+            tto_warmup_epochs=self.config["context_extraction"]["tto_warmup_epochs"],
+            context_indicator_columns=self.config["context_extraction"]["context_indicators"],
+            verbose=True,
+        )
+        context_extractor.run(os.path.join(self.output_folder, self.CONTEXT_OUTPUT))
+        
 
     def _build_transfer_model(self, save=True):
         """
@@ -246,12 +271,12 @@ class SearchPlanOutput:
             f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
+        transferAccumulator.consensus_speclibase.precursor_df['constant_context_indicator'] = "constant_context"
         if save:
             logging.info("Writing transfer library to disk")
             transferAccumulator.consensus_speclibase.save_hdf(
                 os.path.join(self.output_folder, f"{self.TRANSFER_OUTPUT}.hdf")
             )
-
         return transferAccumulator.consensus_speclibase
 
     def _load_precursor_table(self):

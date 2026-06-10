@@ -20,6 +20,9 @@ general:
   # Enables separate MBR step
   mbr_step_enabled: false
 
+  # context step (its either this or transfer step, but not both)
+  context_step_enabled: false
+
   # === advanced settings ===
   # whether to reuse previously calculated calibration data
   reuse_calibration: false
@@ -61,6 +64,8 @@ library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
   enabled: false
+  #wether to use peptdeepptcm or peptdeep for library prediction
+  use_peptdeepptcm: false
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest
@@ -123,6 +128,17 @@ library_prediction:
 
   # minimum probability threshold for including a predicted charge state
   min_charge_probability: 0.1
+
+  # peptdeepptcm model path
+  peptdeepptcm_model_path: '/fs/home/sameh/peptdeepptcm/models/models_v8/ContextDownstream'
+
+  #context path if set to null it will use zero context 
+  context_path: null
+
+  #columns to define teh context 
+  context_indicators:
+    - 'constant_context_indicator'
+
 
 # define custom alphabase modifications not part of unimod or alphabase
 # also used for decoy channels
@@ -439,6 +455,28 @@ transfer_library:
 
   # include only fragments with a XIC correlation at least 0.75 of the median for all fragments
   fragment_correlation_ratio: 0.75
+
+context_extraction:
+  # if true, peptdeepptcm will be used to extract the context and do the library prediction 
+  enabled: False
+
+  tto_epochs: 10
+
+  tto_warmup_epochs: 5
+
+  tto_batch_size: 2000
+  
+  tto_lr: 0.1
+
+  context_indicators:
+    - 'constant_context_indicator'
+
+  context_model_path: '/fs/home/sameh/peptdeepptcm/models/models_v8/ContextModel'
+
+  fragment_types: ['b', 'y']
+
+  # maximum charge for fragments
+  max_charge: 2
 
 transfer_learning:
 

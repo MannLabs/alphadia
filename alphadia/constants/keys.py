@@ -58,7 +58,7 @@ class ConfigKeys(metaclass=ConstantsClass):
     )
 
     LIBRARY_PREDICTION = ConstantNamespace(
-        "library_prediction", PEPTDEEP_MODEL_PATH="peptdeep_model_path"
+        "library_prediction", PEPTDEEP_MODEL_PATH="peptdeep_model_path", PEPTDEEPPTCM_MODEL_PATH="peptdeepptcm_model_path", CONTEXT_PATH="context_path"
     )
 
 

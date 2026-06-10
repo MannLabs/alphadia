@@ -7,6 +7,15 @@ from peptdeep.pretrained_models import ModelManager
 
 from alphadia import utils
 from alphadia.libtransform.base import ProcessingStep
+from peptdeepptcm.core.model_manager import ModelManager as PeptDeepPTCMModelManager
+from peptdeepptcm.core.model_manager import ModelManagerConfig
+from peptdeepptcm.datasets.prediction_aggregator import PredictionAggregator
+from peptdeepptcm.datasets.context import Context, ZeroContext
+from peptdeepptcm.utils.cfg import get_pretrained_model_config_from_dir
+from peptdeepptcm.datasets.prediction_dataset import (
+    PredictionDataset,
+    PredictionDatasetConfig,
+)
 
 logger = logging.getLogger()
 
@@ -181,3 +190,154 @@ class PeptDeepPrediction(ProcessingStep):
             input._precursor_df = res["precursor_df"]
 
         return input
+
+
+
+class PeptDeepPTCMPrediction(ProcessingStep):
+    def __init__(
+        self,
+        use_gpu: bool = True,
+        peptdeepptcm_model_path: str | None = None,
+        context_path: str | None = None,
+        fragment_types: list[str] | None = None,
+        max_fragment_charge: int = 2,
+        predict_charge: bool = False,
+        min_charge_probability: float = 0.1,
+        indicator_columns: list[str] = ['raw_name'],
+    ) -> None:
+        """Predict the retention time of a spectral library using PeptDeep.
+
+        Parameters
+        ----------
+        use_gpu : bool, optional
+            Use GPU for prediction. Default is True.
+
+        mp_process_num : int, optional
+            Number of processes to use for prediction. Default is 8.
+
+        fragment_mz : List[int], optional
+            MZ range for fragment prediction. Default is [100, 2000].
+
+        nce : int, optional
+            Normalized collision energy for prediction. Default is 25.
+
+        instrument : str, optional
+            Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
+
+        peptdeep_model_path : str, optional
+            Path to a folder containing PeptDeep models. If not provided, the default models will be used.
+
+        peptdeep_model_type : str, optional
+            Use other peptdeep models provided by the peptdeep model manager.
+            Default is None, which means the default model provided by peptdeep (e.g. "generic" for version 1.4.0) is being used.
+            Possible values are ['generic','phospho','digly']
+
+        fragment_types : list[str], optional
+            Fragment types to predict. Default is ["b", "y"].
+
+        max_fragment_charge : int, optional
+            Maximum charge state to predict. Default is 2.
+
+        predict_charge : bool, optional
+            Whether to predict charge states using PeptDeep's charge model.
+            Default is False.
+
+        min_charge_probability : float, optional
+            Minimum probability threshold for including a charge state.
+            Default is 0.1. Uses peptdeep's charge range as defined by the loaded model.
+
+        """
+        if fragment_types is None:
+            fragment_types = ["b", "y"]
+
+        super().__init__()
+
+        logging.info(f"Loading PeptDeepptcm model with context path {context_path}")
+
+        self.use_gpu = use_gpu
+        self.peptdeepptcm_model_path = peptdeepptcm_model_path
+        self.context_path = context_path
+
+        self.fragment_types = fragment_types
+        self.max_fragment_charge = max_fragment_charge
+
+        self.predict_charge = predict_charge
+        self.min_charge_probability = min_charge_probability
+        self.charged_frag_types = get_charged_frag_types(
+            self.fragment_types, self.max_fragment_charge
+        )
+        self.model_mgr_config = ModelManagerConfig(
+            pretrained_downstream_model=get_pretrained_model_config_from_dir(peptdeepptcm_model_path),
+            requested_charged_fragment_types=self.charged_frag_types,
+            dataset_config = PredictionDatasetConfig(
+                feat_extractor="BertaFeatureExtractor",
+                indicator_columns=indicator_columns,
+            ),
+            )
+
+    def validate(self, input: list[str]) -> bool:
+        return True
+
+    def forward(self, input: SpecLibBase) -> SpecLibBase:
+        
+
+        input.charged_frag_types = self.charged_frag_types
+
+        device = utils.get_torch_device(self.use_gpu)
+
+        model_mgr = ModelManager(device=device)
+ 
+
+        precursor_df = input.precursor_df
+
+        if self.predict_charge:
+            charge_range = model_mgr.charge_model.charge_range
+            min_supported = int(charge_range.min())
+            max_supported = int(charge_range.max())
+
+            if "charge" in precursor_df.columns:
+                min_charge = max(min_supported, int(precursor_df["charge"].min()))
+                max_charge = min(max_supported, int(precursor_df["charge"].max()))
+            else:
+                min_charge = min_supported
+                max_charge = max_supported
+
+            logger.info(
+                f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
+                f"min probability: {self.min_charge_probability})"
+            )
+            n_before = len(precursor_df)
+            precursor_df = model_mgr.predict_charge(
+                precursor_df,
+                min_precursor_charge=min_charge,
+                max_precursor_charge=max_charge,
+                charge_prob_cutoff=self.min_charge_probability,
+            )
+            n_dropped = n_before - len(precursor_df)
+            logger.info(
+                f"Charge prediction kept {len(precursor_df)} precursors, "
+                f"{n_dropped} dropped by min_charge_probability filter"
+            )
+        # predict mobility 
+        precursor_df = model_mgr.predict_mobility(precursor_df)
+        if self.context_path:
+            context = Context()
+            context.load(self.context_path+".json")  
+        else:
+            context = ZeroContext()
+        prediction_dataset = PredictionDataset(
+            self.model_mgr_config.dataset_config,
+            input.precursor_df,
+            context,
+        )
+
+        prediction_aggregator = PredictionAggregator(
+            input.precursor_df,
+        )
+        prediction_aggregator.reset()
+        model_mgr = PeptDeepPTCMModelManager(model_manager_config=self.model_mgr_config)
+
+        model_mgr.predict(prediction_dataset, prediction_aggregator)
+
+        output = prediction_aggregator.predicted_spectral_library
+        return output
