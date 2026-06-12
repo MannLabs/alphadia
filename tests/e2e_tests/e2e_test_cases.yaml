@@ -62,10 +62,11 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        transfer_step_enabled: True
+        adaptation_step_enabled: True
+        adaptation_method: "transfer"
         mbr_step_enabled: True
       search:
-        extraction_backend: python # TODO: switch when transfer learning is supported
+        # extraction_backend: python # TODO: switch when transfer learning is supported
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
@@ -96,53 +97,20 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        context_step_enabled: True
+        adaptation_step_enabled: True
+        adaptation_method: "tto"
         mbr_step_enabled: True
       search:
-        extraction_backend: python # TODO: switch when transfer learning is supported
+        # extraction_backend: python # TODO: switch when transfer learning is supported
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
         target_rt_tolerance: 0.5 # mbr: 0
-      transfer_learning:
-        epochs: 5  # this is reduced to speed the test up a little
+      context_extraction:
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
       library_prediction:
         enabled: True
-        precursor_mz:
-          - 380
-          - 980
-        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
-        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
-        max_var_mod_num: 1 # mbr: 2
-        missed_cleavages: 0  # mbr: 1
-
-    # dimethyl data (from tutorial)
-    fasta_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
-    raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
-    metrics:
-      - BasicStats
-
-  - name: phase_inv1
-    # see also transfer-dimethyl.md
-    config:
-      general:
-        transfer_step_enabled: True
-        mbr_step_enabled: True
-      search:
-        extraction_backend: python # TODO: switch when transfer learning is supported
-#        target_num_candidates: # mbr: 3
-        target_ms1_tolerance: 4
-        target_ms2_tolerance: 7
-        target_rt_tolerance: 0.5 # mbr: 0
-      transfer_learning:
-        epochs: 5  # this is reduced to speed the test up a little
-      library_prediction:
-        enabled: True
-        use_peptdeepptcm: True
+        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
         precursor_mz:
           - 380
           - 980
@@ -165,19 +133,22 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        context_step_enabled: True
+        adaptation_step_enabled: True
+        adaptation_method: "tto"
         mbr_step_enabled: True
       search:
-        extraction_backend: python # TODO: switch when transfer learning is supported
+        # extraction_backend: python # TODO: switch when transfer learning is supported
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
         target_rt_tolerance: 0.5 # mbr: 0
-      transfer_learning:
-        epochs: 5  # this is reduced to speed the test up a little
+      context_extraction:
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
       library_prediction:
         enabled: True
-        use_peptdeepptcm: True
+        use_peptdeep_kontext: True
+        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
+
         precursor_mz:
           - 380
           - 980
@@ -200,7 +171,8 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        context_step_enabled: True
+        adaptation_step_enabled: True
+        adaptation_method: "tto"
         mbr_step_enabled: True
       search:
         extraction_backend: python # TODO: switch when transfer learning is supported
@@ -212,7 +184,7 @@ test_cases:
         epochs: 5  # this is reduced to speed the test up a little
       library_prediction:
         enabled: True
-        use_peptdeepptcm: True
+        use_peptdeep_kontext: True
         context_indicators:
           - 'raw_name'
         precursor_mz:
@@ -241,20 +213,23 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        context_step_enabled: True
+        adaptation_step_enabled: True
+        adaptation_method: "tto"
         mbr_step_enabled: True
       search:
-        extraction_backend: python # TODO: switch when transfer learning is supported
 #        target_num_candidates: # mbr: 3
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
         target_rt_tolerance: 0.5 # mbr: 0
       transfer_library:
         fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
-
+      context_extraction:
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
       library_prediction:
         enabled: True
-        use_peptdeepptcm: True
+        use_peptdeep_kontext: True
+        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
+
         precursor_mz:
           - 380
           - 980

@@ -33,7 +33,8 @@ from alphadia.libtransform.harmonize import (
 )
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
-from alphadia.libtransform.prediction import PeptDeepPrediction,PeptDeepPTCMPrediction
+from alphadia.libtransform.prediction import PeptDeepKontextPrediction, PeptDeepPrediction
+from alphadia.transferlearning.context_extraction import resolve_context_model_path
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
@@ -323,13 +324,15 @@ class SearchStep:
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
-            if prediction_config["use_peptdeepptcm"]:
-                logger.info("Using PeptDeepPTCM for library prediction.")
-                peptdeepptcm_prediction = PeptDeepPTCMPrediction(
+            if prediction_config["use_peptdeep_kontext"]:
+                logger.info("Using peptdeep_kontext for library prediction.")
+                kontext_prediction = PeptDeepKontextPrediction(
                     use_gpu=general_config["use_gpu"],
-                    peptdeepptcm_model_path=prediction_config[
-                        ConfigKeys.LIBRARY_PREDICTION.PEPTDEEPPTCM_MODEL_PATH
-                    ],
+                    peptdeep_kontext_model_path=resolve_context_model_path(
+                        prediction_config,
+                        path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
+                        subdir="ContextDownstream",
+                    ),
                     context_path=prediction_config[ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH],
                     fragment_types=prediction_config["fragment_types"],
                     max_fragment_charge=prediction_config["max_fragment_charge"],
@@ -337,7 +340,7 @@ class SearchStep:
                     min_charge_probability=prediction_config["min_charge_probability"],
                     indicator_columns=prediction_config["context_indicators"],
                 )
-                spectral_library = peptdeepptcm_prediction(spectral_library)
+                spectral_library = kontext_prediction(spectral_library)
 
             else:
                 logger.info("Using PeptDeep for library prediction.")

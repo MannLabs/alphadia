@@ -3,21 +3,21 @@ import os
 
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
-from peptdeep.pretrained_models import ModelManager
-
-from alphadia import utils
-from alphadia.libtransform.base import ProcessingStep
-from peptdeepptcm.core.model_manager import ModelManager as PeptDeepPTCMModelManager
-from peptdeepptcm.core.model_manager import ModelManagerConfig
-from peptdeepptcm.datasets.prediction_aggregator import PredictionAggregator
-from peptdeepptcm.datasets.context import Context, ZeroContext
-from peptdeepptcm.utils.cfg import get_pretrained_model_config_from_dir
-from peptdeepptcm.datasets.prediction_dataset import (
+from peptdeep.pretrained_models import ModelManager as PeptDeepModelManager
+from peptdeep_kontext.core.model_manager import ModelManager as PeptDeepKontextModelManager
+from peptdeep_kontext.core.model_manager import ModelManagerConfig
+from peptdeep_kontext.datasets.context import Context, ZeroContext
+from peptdeep_kontext.datasets.prediction_aggregator import PredictionAggregator
+from peptdeep_kontext.datasets.prediction_dataset import (
     PredictionDataset,
     PredictionDatasetConfig,
 )
+from peptdeep_kontext.utils.cfg import get_pretrained_model_config_from_dir
 
-logger = logging.getLogger()
+from alphadia import utils
+from alphadia.libtransform.base import ProcessingStep
+
+logger = logging.getLogger(__name__)
 
 
 class PeptDeepPrediction(ProcessingStep):
@@ -35,47 +35,37 @@ class PeptDeepPrediction(ProcessingStep):
         predict_charge: bool = False,
         min_charge_probability: float = 0.1,
     ) -> None:
-        """Predict the retention time of a spectral library using PeptDeep.
+        """Predict RT, MS2 and mobility using PeptDeep.
 
         Parameters
         ----------
         use_gpu : bool, optional
             Use GPU for prediction. Default is True.
-
         mp_process_num : int, optional
             Number of processes to use for prediction. Default is 8.
-
-        fragment_mz : List[int], optional
+        fragment_mz : list[int], optional
             MZ range for fragment prediction. Default is [100, 2000].
-
         nce : int, optional
             Normalized collision energy for prediction. Default is 25.
-
         instrument : str, optional
-            Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
-
+            Instrument type for prediction. Default is "Lumos". Must be a valid
+            PeptDeep instrument.
         peptdeep_model_path : str, optional
-            Path to a folder containing PeptDeep models. If not provided, the default models will be used.
-
+            Path to a folder containing PeptDeep models. If not provided, the
+            default models are used.
         peptdeep_model_type : str, optional
-            Use other peptdeep models provided by the peptdeep model manager.
-            Default is None, which means the default model provided by peptdeep (e.g. "generic" for version 1.4.0) is being used.
-            Possible values are ['generic','phospho','digly']
-
+            Named model set to load via the PeptDeep model manager (e.g.
+            ``"generic"``, ``"phospho"``, ``"digly"``). Default is None.
         fragment_types : list[str], optional
             Fragment types to predict. Default is ["b", "y"].
-
         max_fragment_charge : int, optional
             Maximum charge state to predict. Default is 2.
-
         predict_charge : bool, optional
             Whether to predict charge states using PeptDeep's charge model.
             Default is False.
-
         min_charge_probability : float, optional
             Minimum probability threshold for including a charge state.
-            Default is 0.1. Uses peptdeep's charge range as defined by the loaded model.
-
+            Default is 0.1.
         """
         if fragment_types is None:
             fragment_types = ["b", "y"]
@@ -108,15 +98,15 @@ class PeptDeepPrediction(ProcessingStep):
 
         device = utils.get_torch_device(self.use_gpu)
 
-        model_mgr = ModelManager(device=device)
+        model_mgr = PeptDeepModelManager(device=device)
         # Set the requested charged fragment types for the ms2 model
         model_mgr.reinitialize_ms2_model(charged_frag_types=charged_frag_types)
 
         if self.peptdeep_model_type:
-            logging.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
+            logger.info(f"Loading PeptDeep models of type {self.peptdeep_model_type}")
             model_mgr.load_installed_models(self.peptdeep_model_type)
         else:
-            logging.info("Using PeptDeep default model.")
+            logger.info("Using PeptDeep default model.")
 
         if self.peptdeep_model_path:
             if not os.path.exists(self.peptdeep_model_path):
@@ -124,7 +114,7 @@ class PeptDeepPrediction(ProcessingStep):
                     f"PeptDeep model checkpoint folder {self.peptdeep_model_path} does not exist"
                 )
 
-            logging.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
+            logger.info(f"Loading PeptDeep models from {self.peptdeep_model_path}")
 
             model_mgr.load_external_models(
                 ms2_model_file=os.path.join(self.peptdeep_model_path, "ms2.pth"),
@@ -192,70 +182,58 @@ class PeptDeepPrediction(ProcessingStep):
         return input
 
 
-
-class PeptDeepPTCMPrediction(ProcessingStep):
+class PeptDeepKontextPrediction(ProcessingStep):
     def __init__(
         self,
         use_gpu: bool = True,
-        peptdeepptcm_model_path: str | None = None,
+        peptdeep_kontext_model_path: str | None = None,
         context_path: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
         predict_charge: bool = False,
         min_charge_probability: float = 0.1,
-        indicator_columns: list[str] = ['raw_name'],
+        indicator_columns: list[str] | None = None,
     ) -> None:
-        """Predict the retention time of a spectral library using PeptDeep.
+        """Predict RT and MS2 using peptdeep_kontext context-aware models.
+
+        Mobility is predicted with PeptDeep; RT and MS2 use the pretrained
+        peptdeep_kontext downstream model conditioned on extracted context vectors.
 
         Parameters
         ----------
         use_gpu : bool, optional
             Use GPU for prediction. Default is True.
-
-        mp_process_num : int, optional
-            Number of processes to use for prediction. Default is 8.
-
-        fragment_mz : List[int], optional
-            MZ range for fragment prediction. Default is [100, 2000].
-
-        nce : int, optional
-            Normalized collision energy for prediction. Default is 25.
-
-        instrument : str, optional
-            Instrument type for prediction. Default is "Lumos". Must be a valid PeptDeep instrument.
-
-        peptdeep_model_path : str, optional
-            Path to a folder containing PeptDeep models. If not provided, the default models will be used.
-
-        peptdeep_model_type : str, optional
-            Use other peptdeep models provided by the peptdeep model manager.
-            Default is None, which means the default model provided by peptdeep (e.g. "generic" for version 1.4.0) is being used.
-            Possible values are ['generic','phospho','digly']
-
+        peptdeep_kontext_model_path : str, optional
+            Path to the pretrained peptdeep_kontext downstream model directory.
+            If not provided, the default bundled model is used.
+        context_path : str, optional
+            Base path to the extracted context file (without ``.json`` extension).
+            If not provided, a zero context is used.
         fragment_types : list[str], optional
             Fragment types to predict. Default is ["b", "y"].
-
         max_fragment_charge : int, optional
-            Maximum charge state to predict. Default is 2.
-
+            Maximum fragment charge state to predict. Default is 2.
         predict_charge : bool, optional
             Whether to predict charge states using PeptDeep's charge model.
             Default is False.
-
         min_charge_probability : float, optional
             Minimum probability threshold for including a charge state.
-            Default is 0.1. Uses peptdeep's charge range as defined by the loaded model.
-
+            Default is 0.1.
+        indicator_columns : list[str], optional
+            Columns used to match precursors to context vectors (e.g.
+            ``['raw_name']``). Defaults to ``['constant_context_indicator']``.
         """
         if fragment_types is None:
             fragment_types = ["b", "y"]
+        if indicator_columns is None:
+            indicator_columns = ["constant_context_indicator"]
 
         super().__init__()
 
-        logging.info(f"Loading PeptDeepptcm model with context path {context_path}")
+        logger.info(f"Loading peptdeep_kontext model with context path {context_path}")
 
         self.use_gpu = use_gpu
-        self.peptdeepptcm_model_path = peptdeepptcm_model_path
+        self.peptdeep_kontext_model_path = peptdeep_kontext_model_path
         self.context_path = context_path
 
         self.fragment_types = fragment_types
@@ -267,31 +245,31 @@ class PeptDeepPTCMPrediction(ProcessingStep):
             self.fragment_types, self.max_fragment_charge
         )
         self.model_mgr_config = ModelManagerConfig(
-            pretrained_downstream_model=get_pretrained_model_config_from_dir(peptdeepptcm_model_path),
+            pretrained_downstream_model=get_pretrained_model_config_from_dir(
+                peptdeep_kontext_model_path
+            ),
             requested_charged_fragment_types=self.charged_frag_types,
-            dataset_config = PredictionDatasetConfig(
+            dataset_config=PredictionDatasetConfig(
                 feat_extractor="BertaFeatureExtractor",
                 indicator_columns=indicator_columns,
             ),
-            )
+        )
 
     def validate(self, input: list[str]) -> bool:
         return True
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
-        
-
         input.charged_frag_types = self.charged_frag_types
 
         device = utils.get_torch_device(self.use_gpu)
 
-        model_mgr = ModelManager(device=device)
- 
+        # Use PeptDeep for mobility prediction only
+        peptdeep_mgr = PeptDeepModelManager(device=device)
 
         precursor_df = input.precursor_df
 
         if self.predict_charge:
-            charge_range = model_mgr.charge_model.charge_range
+            charge_range = peptdeep_mgr.charge_model.charge_range
             min_supported = int(charge_range.min())
             max_supported = int(charge_range.max())
 
@@ -307,7 +285,7 @@ class PeptDeepPTCMPrediction(ProcessingStep):
                 f"min probability: {self.min_charge_probability})"
             )
             n_before = len(precursor_df)
-            precursor_df = model_mgr.predict_charge(
+            precursor_df = peptdeep_mgr.predict_charge(
                 precursor_df,
                 min_precursor_charge=min_charge,
                 max_precursor_charge=max_charge,
@@ -318,26 +296,31 @@ class PeptDeepPTCMPrediction(ProcessingStep):
                 f"Charge prediction kept {len(precursor_df)} precursors, "
                 f"{n_dropped} dropped by min_charge_probability filter"
             )
-        # predict mobility 
-        precursor_df = model_mgr.predict_mobility(precursor_df)
+
+        logger.info("Predicting mobility with PeptDeep")
+        precursor_df = peptdeep_mgr.predict_mobility(precursor_df)
+
+        # Propagate charge/mobility updates before building the prediction dataset
+        input._precursor_df = precursor_df
+
         if self.context_path:
             context = Context()
-            context.load(self.context_path+".json")  
+            context.load(f"{self.context_path}.json")
         else:
             context = ZeroContext()
+
         prediction_dataset = PredictionDataset(
             self.model_mgr_config.dataset_config,
             input.precursor_df,
             context,
         )
 
-        prediction_aggregator = PredictionAggregator(
-            input.precursor_df,
-        )
+        prediction_aggregator = PredictionAggregator(input.precursor_df)
         prediction_aggregator.reset()
-        model_mgr = PeptDeepPTCMModelManager(model_manager_config=self.model_mgr_config)
 
-        model_mgr.predict(prediction_dataset, prediction_aggregator)
+        kontext_mgr = PeptDeepKontextModelManager(
+            model_manager_config=self.model_mgr_config
+        )
+        kontext_mgr.predict(prediction_dataset, prediction_aggregator)
 
-        output = prediction_aggregator.predicted_spectral_library
-        return output
+        return prediction_aggregator.predicted_spectral_library

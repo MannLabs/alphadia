@@ -14,14 +14,15 @@ general:
 
   # number of threads to use for parallel processing
   thread_count: 10
-  # Enables separate transfer learning step
-  transfer_step_enabled: false
+
+  # Enables the adaptation step before the main search (transfer learning or TTO)
+  adaptation_step_enabled: false
+
+  # Method for the adaptation step: "transfer" (peptdeep fine-tuning) or "tto" (peptdeep_kontext TTO)
+  adaptation_method: "transfer"
 
   # Enables separate MBR step
   mbr_step_enabled: false
-
-  # context step (its either this or transfer step, but not both)
-  context_step_enabled: false
 
   # === advanced settings ===
   # whether to reuse previously calculated calibration data
@@ -64,8 +65,8 @@ library_prediction:
   # Basic parameters
   # whether to use alphaPeptDeep to predict peptide properties
   enabled: false
-  #wether to use peptdeepptcm or peptdeep for library prediction
-  use_peptdeepptcm: false
+  # whether to use peptdeep_kontext or peptdeep for library prediction
+  use_peptdeep_kontext: false
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest
@@ -129,8 +130,8 @@ library_prediction:
   # minimum probability threshold for including a predicted charge state
   min_charge_probability: 0.1
 
-  # peptdeepptcm model path
-  peptdeepptcm_model_path: '/fs/home/sameh/peptdeepptcm/models/models_v8/ContextDownstream'
+  # peptdeep_kontext downstream model path; if null, weights are auto-downloaded to ~/.cache/peptdeep_kontext
+  peptdeep_kontext_model_path: null
 
   #context path if set to null it will use zero context 
   context_path: null
@@ -457,7 +458,7 @@ transfer_library:
   fragment_correlation_ratio: 0.75
 
 context_extraction:
-  # if true, peptdeepptcm will be used to extract the context and do the library prediction 
+  # if true, peptdeep_kontext will be used to extract the context and do the library prediction
   enabled: False
 
   tto_epochs: 10
@@ -465,13 +466,18 @@ context_extraction:
   tto_warmup_epochs: 5
 
   tto_batch_size: 2000
-  
+
   tto_lr: 0.1
 
   context_indicators:
     - 'constant_context_indicator'
 
-  context_model_path: '/fs/home/sameh/peptdeepptcm/models/models_v8/ContextModel'
+  # path to the pretrained peptdeep_kontext ContextModel directory
+  # if null, weights are auto-downloaded to ~/.cache/peptdeep_kontext
+  context_model_path: null
+
+  # version tag used when auto-downloading peptdeep_kontext model weights
+  context_model_version: "v8"
 
   fragment_types: ['b', 'y']
 

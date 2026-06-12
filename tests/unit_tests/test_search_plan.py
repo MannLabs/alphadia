@@ -5,14 +5,19 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from alphadia.exceptions import CustomError
 from alphadia.search_plan import SearchPlan
 
 MOCK_DEFAULT_CONFIG = {
-    "general": {"transfer_step_enabled": False, "mbr_step_enabled": False},
+    "general": {
+        "adaptation_step_enabled": False,
+        "adaptation_method": "transfer",
+        "mbr_step_enabled": False,
+    },
 }
 
 MOCK_MULTISTEP_CONFIG = {
-    "transfer": {"some_transfer_config_key": "some_transfer_config_value"},
+    "adaptation": {"some_adaptation_config_key": "some_adaptation_config_value"},
     "library": {"some_library_config_key": "some_library_config_value"},
     "mbr": {"some_mbr_config_key": "some_mbr_config_value"},
 }
@@ -52,7 +57,7 @@ def get_search_plan(
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.SearchStep")
 def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
-    """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps."""
+    """Test that the SearchPlan object runs the plan correctly without adaptation and mbr steps."""
     search_plan = get_search_plan(BASE_USER_CONFIG)
 
     # when
@@ -77,7 +82,7 @@ def test_runs_plan_without_transfer_and_mbr_steps(mock_plan, mock_init_logging):
 def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
     mock_plan, mock_init_logging
 ):
-    """Test that the SearchPlan object runs the plan correctly without transfer and mbr steps when all parameters are none or empty."""
+    """Test that the SearchPlan object runs the plan correctly without adaptation and mbr steps when all parameters are none or empty."""
 
     search_plan = get_search_plan({}, {})
 
@@ -99,21 +104,22 @@ def test_runs_plan_without_transfer_and_mbr_steps_none_dirs(
 
 
 @pytest.mark.parametrize(
-    ("transfer_step_enabled", "mbr_step_enabled"),
+    ("adaptation_step_enabled", "adaptation_method", "mbr_step_enabled"),
     [
-        (True, True),
-        (False, True),
-        (True, False),
-        (False, False),
+        (True, "transfer", True),
+        (True, "tto", False),
+        (False, "transfer", True),
+        (False, "transfer", False),
     ],
 )
 @patch("alphadia.search_plan.reporting.init_logging")
 def test_default_correctly_read(
     mock_init_logging,
-    transfer_step_enabled,
+    adaptation_step_enabled,
+    adaptation_method,
     mbr_step_enabled,
 ):
-    """Test that the defualts are correctly propagated to the class internals."""
+    """Test that the defaults are correctly propagated to the class internals."""
 
     search_plan = get_search_plan(
         {},
@@ -121,7 +127,8 @@ def test_default_correctly_read(
         [
             {
                 "general": {
-                    "transfer_step_enabled": transfer_step_enabled,
+                    "adaptation_step_enabled": adaptation_step_enabled,
+                    "adaptation_method": adaptation_method,
                     "mbr_step_enabled": mbr_step_enabled,
                 }
             },
@@ -129,21 +136,36 @@ def test_default_correctly_read(
         ],
     )
 
-    # when
-    assert search_plan._transfer_step_enabled == transfer_step_enabled
+    assert search_plan._adaptation_step_enabled == adaptation_step_enabled
+    assert search_plan._adaptation_method == adaptation_method
     assert search_plan._mbr_step_enabled == mbr_step_enabled
+
+
+@patch("alphadia.search_plan.reporting.init_logging")
+def test_raises_on_invalid_adaptation_method(mock_init_logging):
+    """Test that an invalid adaptation_method raises a CustomError."""
+    with pytest.raises(CustomError):
+        get_search_plan(
+            {
+                "general": {
+                    "adaptation_step_enabled": True,
+                    "adaptation_method": "invalid_method",
+                }
+            }
+        )
 
 
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
-def test_runs_plan_with_transfer_step(
+def test_runs_plan_with_adaptation_step_transfer(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
-    """Test that the SearchPlan object runs the plan correctly with the transfer step enabled."""
+    """Test that the SearchPlan object runs the plan correctly with the adaptation step (transfer method)."""
     additional_user_config = {
         "general": {
-            "transfer_step_enabled": True,
+            "adaptation_step_enabled": True,
+            "adaptation_method": "transfer",
             "mbr_step_enabled": False,
         }
     }
@@ -158,13 +180,14 @@ def test_runs_plan_with_transfer_step(
 
     mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
-    # transfer_step
+    # adaptation_step
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": _convert_path("/user_provided_output_path/transfer"),
+        "output_folder": _convert_path("/user_provided_output_path/adaptation"),
         "config": BASE_USER_CONFIG | additional_user_config,
-        "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
+        "extra_config": MOCK_MULTISTEP_CONFIG["adaptation"]
+        | {"transfer_learning": {"enabled": True}},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
-        "step_name": "transfer",
+        "step_name": "adaptation",
     }
 
     # library_step
@@ -175,9 +198,10 @@ def test_runs_plan_with_transfer_step(
         | {
             "library_prediction": {
                 "peptdeep_model_path": _convert_path(
-                    "/user_provided_output_path/transfer/peptdeep.transfer"
+                    "/user_provided_output_path/adaptation/peptdeep.transfer"
                 ),
                 "enabled": True,
+                "use_peptdeep_kontext": False,
             },
         }
         | dynamic_config,
@@ -187,7 +211,67 @@ def test_runs_plan_with_transfer_step(
 
     assert mock_plan.return_value.run.call_count == 2
     mock_get_dyn_config.assert_called_once_with(
-        Path("/user_provided_output_path/transfer")
+        Path("/user_provided_output_path/adaptation")
+    )
+
+
+@patch("alphadia.search_plan.reporting.init_logging")
+@patch("alphadia.search_plan.SearchStep")
+@patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
+def test_runs_plan_with_adaptation_step_tto(
+    mock_get_dyn_config, mock_plan, mock_init_logging
+):
+    """Test that the SearchPlan object runs the plan correctly with the adaptation step (tto method)."""
+    additional_user_config = {
+        "general": {
+            "adaptation_step_enabled": True,
+            "adaptation_method": "tto",
+            "mbr_step_enabled": False,
+        }
+    }
+
+    search_plan = get_search_plan(BASE_USER_CONFIG | additional_user_config)
+
+    dynamic_config = {"some_dynamic_config_key": "some_dynamic_config_value"}
+    mock_get_dyn_config.return_value = dynamic_config
+
+    # when
+    search_plan.run_plan()
+
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
+
+    # adaptation_step
+    assert mock_plan.call_args_list[0].kwargs == {
+        "output_folder": _convert_path("/user_provided_output_path/adaptation"),
+        "config": BASE_USER_CONFIG | additional_user_config,
+        "extra_config": MOCK_MULTISTEP_CONFIG["adaptation"]
+        | {"context_extraction": {"enabled": True}},
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "step_name": "adaptation",
+    }
+
+    # library_step
+    assert mock_plan.call_args_list[1].kwargs == {
+        "output_folder": _convert_path("/user_provided_output_path"),
+        "config": BASE_USER_CONFIG | additional_user_config,
+        "extra_config": MOCK_MULTISTEP_CONFIG["library"]
+        | {
+            "library_prediction": {
+                "context_path": _convert_path(
+                    "/user_provided_output_path/adaptation/peptdeep_kontext.context"
+                ),
+                "enabled": True,
+                "use_peptdeep_kontext": True,
+            },
+        }
+        | dynamic_config,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "step_name": "library",
+    }
+
+    assert mock_plan.return_value.run.call_count == 2
+    mock_get_dyn_config.assert_called_once_with(
+        Path("/user_provided_output_path/adaptation")
     )
 
 
@@ -198,7 +282,7 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
     """Test that the SearchPlan object runs the plan correctly with the mbr step enabled."""
     additional_user_config = {
         "general": {
-            "transfer_step_enabled": False,
+            "adaptation_step_enabled": False,
             "mbr_step_enabled": True,
         }
     }
@@ -246,13 +330,14 @@ def test_runs_plan_with_mbr_step(mock_get_dyn_config, mock_plan, mock_init_loggi
 @patch("alphadia.search_plan.reporting.init_logging")
 @patch("alphadia.search_plan.SearchStep")
 @patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
-def test_runs_plan_with_transfer_and_mbr_steps(
+def test_runs_plan_with_adaptation_transfer_and_mbr_steps(
     mock_get_dyn_config, mock_plan, mock_init_logging
 ):
-    """Test that the SearchPlan object runs the plan correctly with both the transfer and mbr steps enabled."""
+    """Test that the SearchPlan object runs the plan correctly with both the adaptation (transfer) and mbr steps enabled."""
     additional_user_config = {
         "general": {
-            "transfer_step_enabled": True,
+            "adaptation_step_enabled": True,
+            "adaptation_method": "transfer",
             "mbr_step_enabled": True,
         }
     }
@@ -267,13 +352,14 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     mock_init_logging.assert_called_once_with("/user_provided_output_path")
 
-    # transfer_step
+    # adaptation_step
     assert mock_plan.call_args_list[0].kwargs == {
-        "output_folder": _convert_path("/user_provided_output_path/transfer"),
+        "output_folder": _convert_path("/user_provided_output_path/adaptation"),
         "config": BASE_USER_CONFIG | additional_user_config,
-        "extra_config": MOCK_MULTISTEP_CONFIG["transfer"],
+        "extra_config": MOCK_MULTISTEP_CONFIG["adaptation"]
+        | {"transfer_learning": {"enabled": True}},
         "cli_config": BASE_CLI_PARAMS_CONFIG,
-        "step_name": "transfer",
+        "step_name": "adaptation",
     }
 
     # library_step
@@ -284,9 +370,10 @@ def test_runs_plan_with_transfer_and_mbr_steps(
         | {
             "library_prediction": {
                 "peptdeep_model_path": str(
-                    Path("/user_provided_output_path/transfer/peptdeep.transfer")
+                    Path("/user_provided_output_path/adaptation/peptdeep.transfer")
                 ),
                 "enabled": True,
+                "use_peptdeep_kontext": False,
             },
         }
         | dynamic_config,
@@ -311,7 +398,82 @@ def test_runs_plan_with_transfer_and_mbr_steps(
 
     assert mock_plan.return_value.run.call_count == 3
     mock_get_dyn_config.assert_called_once_with(
-        Path("/user_provided_output_path/transfer")
+        Path("/user_provided_output_path/adaptation")
+    )
+
+
+@patch("alphadia.search_plan.reporting.init_logging")
+@patch("alphadia.search_plan.SearchStep")
+@patch("alphadia.search_plan.SearchPlan._get_optimized_values_config")
+def test_runs_plan_with_adaptation_tto_and_mbr_steps(
+    mock_get_dyn_config, mock_plan, mock_init_logging
+):
+    """Test that the SearchPlan object runs the plan correctly with both the adaptation (tto) and mbr steps enabled."""
+    additional_user_config = {
+        "general": {
+            "adaptation_step_enabled": True,
+            "adaptation_method": "tto",
+            "mbr_step_enabled": True,
+        }
+    }
+
+    search_plan = get_search_plan(BASE_USER_CONFIG | additional_user_config)
+
+    dynamic_config = {"some_dynamic_config_key": "some_dynamic_config_value"}
+    mock_get_dyn_config.return_value = dynamic_config
+
+    # when
+    search_plan.run_plan()
+
+    mock_init_logging.assert_called_once_with("/user_provided_output_path")
+
+    # adaptation_step
+    assert mock_plan.call_args_list[0].kwargs == {
+        "output_folder": _convert_path("/user_provided_output_path/adaptation"),
+        "config": BASE_USER_CONFIG | additional_user_config,
+        "extra_config": MOCK_MULTISTEP_CONFIG["adaptation"]
+        | {"context_extraction": {"enabled": True}},
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "step_name": "adaptation",
+    }
+
+    # library_step
+    assert mock_plan.call_args_list[1].kwargs == {
+        "output_folder": _convert_path("/user_provided_output_path/library"),
+        "config": BASE_USER_CONFIG | additional_user_config,
+        "extra_config": MOCK_MULTISTEP_CONFIG["library"]
+        | {
+            "library_prediction": {
+                "context_path": str(
+                    Path("/user_provided_output_path/adaptation/peptdeep_kontext.context")
+                ),
+                "enabled": True,
+                "use_peptdeep_kontext": True,
+            },
+        }
+        | dynamic_config,
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "step_name": "library",
+    }
+
+    # mbr_step
+    assert mock_plan.call_args_list[2].kwargs == {
+        "output_folder": _convert_path("/user_provided_output_path"),
+        "config": BASE_USER_CONFIG | additional_user_config,
+        "extra_config": MOCK_MULTISTEP_CONFIG["mbr"]
+        | dynamic_config
+        | {
+            "library_path": str(
+                Path("/user_provided_output_path/library/speclib.mbr.hdf")
+            ),
+        },
+        "cli_config": BASE_CLI_PARAMS_CONFIG,
+        "step_name": "mbr",
+    }
+
+    assert mock_plan.return_value.run.call_count == 3
+    mock_get_dyn_config.assert_called_once_with(
+        Path("/user_provided_output_path/adaptation")
     )
 
 

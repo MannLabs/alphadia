@@ -55,10 +55,14 @@ class ConfigKeys(metaclass=ConstantsClass):
     GENERAL = ConstantNamespace(
         "general",
         SAVE_FIGURES="save_figures",
+        ADAPTATION_METHOD="adaptation_method",
     )
 
     LIBRARY_PREDICTION = ConstantNamespace(
-        "library_prediction", PEPTDEEP_MODEL_PATH="peptdeep_model_path", PEPTDEEPPTCM_MODEL_PATH="peptdeepptcm_model_path", CONTEXT_PATH="context_path"
+        "library_prediction",
+        PEPTDEEP_MODEL_PATH="peptdeep_model_path",
+        PEPTDEEP_KONTEXT_MODEL_PATH="peptdeep_kontext_model_path",
+        CONTEXT_PATH="context_path",
     )
 
 
