@@ -62,7 +62,7 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        adaptation_step_enabled: True
+        transfer_step_enabled: True
         adaptation_method: "transfer"
         mbr_step_enabled: True
       search:
@@ -97,7 +97,7 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        adaptation_step_enabled: True
+        transfer_step_enabled: True
         adaptation_method: "tto"
         mbr_step_enabled: True
       search:
@@ -133,7 +133,7 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        adaptation_step_enabled: True
+        transfer_step_enabled: True
         adaptation_method: "tto"
         mbr_step_enabled: True
       search:
@@ -171,7 +171,7 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        adaptation_step_enabled: True
+        transfer_step_enabled: True
         adaptation_method: "tto"
         mbr_step_enabled: True
       search:
@@ -213,7 +213,7 @@ test_cases:
     # see also transfer-dimethyl.md
     config:
       general:
-        adaptation_step_enabled: True
+        transfer_step_enabled: True
         adaptation_method: "tto"
         mbr_step_enabled: True
       search:
@@ -221,10 +221,13 @@ test_cases:
         target_ms1_tolerance: 4
         target_ms2_tolerance: 7
         target_rt_tolerance: 0.5 # mbr: 0
+        # Experiment 1: raise the per-precursor fragment cap (default 12) above the 24 charged
+        # fragment types so reliable b/y ions survive flattening instead of being crowded out
+        # by high-predicted z/a ions. See plan: test whether this alone recovers identifications.
+        top_k_fragments_selection: 48
+        top_k_fragments_scoring: 48
       transfer_library:
         fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
-      context_extraction:
-        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
       library_prediction:
         enabled: True
         use_peptdeep_kontext: True
@@ -240,6 +243,8 @@ test_cases:
         fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
       context_extraction:
         fragment_types: ['a', 'b', 'c', 'x', 'y', 'z', 'b_H2O', 'y_H2O', 'b_NH3', 'y_NH3', 'z_addH', 'c_lossH']
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
+
     # dimethyl data (from tutorial)
     fasta_paths:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
