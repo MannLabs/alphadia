@@ -15,8 +15,9 @@ general:
   # number of threads to use for parallel processing
   thread_count: 10
 
-  # Enables the adaptation step before the main search (transfer learning or TTO)
-  adaptation_step_enabled: false
+  # Enables the transfer/adaptation step before the main search (transfer learning or TTO)
+  # TODO: rename to adaptation_step_enabled once backward compat is dropped
+  transfer_step_enabled: false
 
   # Method for the adaptation step: "transfer" (peptdeep fine-tuning) or "tto" (peptdeep_kontext TTO)
   adaptation_method: "transfer"

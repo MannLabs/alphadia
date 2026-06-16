@@ -55,6 +55,7 @@ class ConfigKeys(metaclass=ConstantsClass):
     GENERAL = ConstantNamespace(
         "general",
         SAVE_FIGURES="save_figures",
+        # TODO: belongs to the adaptation/transfer step; rename when step naming is finalised
         ADAPTATION_METHOD="adaptation_method",
     )
 

@@ -3,7 +3,8 @@
 
 # future : default.yaml -> user.yaml -> multistep_user.yaml -> multistep.yaml
 
-adaptation:
+# TODO: rename back to adaptation: once backward compat with transfer_step_enabled is dropped
+transfer:
 #  library_prediction:  # should be done in 99% of cases
 #      predict: True
   transfer_library:

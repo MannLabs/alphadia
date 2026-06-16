@@ -33,7 +33,8 @@ from alphadia.libtransform.harmonize import (
 )
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
-from alphadia.libtransform.prediction import PeptDeepKontextPrediction, PeptDeepPrediction
+from alphadia.libtransform.peptdeep_kontext_prediction import PeptDeepKontextPrediction
+from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.transferlearning.context_extraction import resolve_context_model_path
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file

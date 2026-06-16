@@ -20,7 +20,8 @@ from alphadia.search_step import (
     logger,
 )
 
-ADAPTATION_STEP_NAME = "adaptation"
+# TODO: rename to ADAPTATION_STEP_NAME = "adaptation" once backward compat with transfer_step_enabled is dropped
+TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
 
@@ -66,7 +67,8 @@ class SearchPlan:
 
         # multistep search:
         self._multistep_config: dict = {}
-        self._adaptation_step_output_dir: Path | None = None
+        # TODO: rename to _adaptation_step_output_dir once backward compat with transfer_step_enabled is dropped
+        self._transfer_step_output_dir: Path | None = None
 
         # We read the default values for the step-enabled flags directly from the default.yaml,
         # but then forget about them. They will still end up correctly in the frozen_config.yaml as they are read
@@ -75,9 +77,10 @@ class SearchPlan:
         with (CONSTANTS_FOLDER_PATH / "default.yaml").open() as f:
             default_config_general = yaml.safe_load(f)["general"]
 
-        self._adaptation_step_enabled = user_config_general.get(
-            "adaptation_step_enabled",
-            default_config_general["adaptation_step_enabled"],
+        # TODO: rename config key to adaptation_step_enabled once backward compat is dropped
+        self._transfer_step_enabled = user_config_general.get(
+            "transfer_step_enabled",
+            default_config_general["transfer_step_enabled"],
         )
         self._adaptation_method = user_config_general.get(
             "adaptation_method",
@@ -87,13 +90,13 @@ class SearchPlan:
             "mbr_step_enabled", default_config_general["mbr_step_enabled"]
         )
 
-        if self._adaptation_step_enabled and self._adaptation_method not in _VALID_ADAPTATION_METHODS:
+        if self._transfer_step_enabled and self._adaptation_method not in _VALID_ADAPTATION_METHODS:
             raise CustomError(
                 f"Invalid adaptation_method '{self._adaptation_method}'. "
                 f"Must be one of: {', '.join(_VALID_ADAPTATION_METHODS)}."
             )
 
-        if self._adaptation_step_enabled or self._mbr_step_enabled:
+        if self._transfer_step_enabled or self._mbr_step_enabled:
             self._update_paths()
             with (CONSTANTS_FOLDER_PATH / "multistep.yaml").open() as f:
                 self._multistep_config = yaml.safe_load(f)
@@ -108,8 +111,8 @@ class SearchPlan:
         If the mbr step is enabled, the library step output is moved to a subdirectory so the root
             can be used for the final MBR output.
         """
-        if self._adaptation_step_enabled:
-            self._adaptation_step_output_dir = self._output_dir / ADAPTATION_STEP_NAME
+        if self._transfer_step_enabled:
+            self._transfer_step_output_dir = self._output_dir / TRANSFER_STEP_NAME
 
         if self._mbr_step_enabled:
             self._library_step_output_dir = self._output_dir / LIBRARY_STEP_NAME
@@ -126,16 +129,16 @@ class SearchPlan:
         # When multistep is enabled, _multistep_config is guaranteed to be set
         extra_config_for_library_step = (
             self._multistep_config[LIBRARY_STEP_NAME]  # type: ignore[index]
-            if self._adaptation_step_enabled or self._mbr_step_enabled
+            if self._transfer_step_enabled or self._mbr_step_enabled
             else {}
         )
 
         optimized_values_config = {}
-        if self._adaptation_step_enabled:
-            assert self._adaptation_step_output_dir is not None  # type checker
+        if self._transfer_step_enabled:
+            assert self._transfer_step_output_dir is not None  # type checker
 
             logger.info(
-                f"=================== Running step '{ADAPTATION_STEP_NAME}' ==================="
+                f"=================== Running step '{TRANSFER_STEP_NAME}' ==================="
             )
 
             method_config = (
@@ -143,18 +146,19 @@ class SearchPlan:
                 if self._adaptation_method == "transfer"
                 else {"context_extraction": {"enabled": True}}
             )
-            adaptation_extra_config = self._multistep_config[ADAPTATION_STEP_NAME] | method_config
+            # TODO: rename TRANSFER_STEP_NAME key to ADAPTATION_STEP_NAME once backward compat is dropped
+            transfer_extra_config = self._multistep_config[TRANSFER_STEP_NAME] | method_config
             self.run_step(
-                self._adaptation_step_output_dir,
-                adaptation_extra_config,
-                ADAPTATION_STEP_NAME,
+                self._transfer_step_output_dir,
+                transfer_extra_config,
+                TRANSFER_STEP_NAME,
             )
 
             if self._adaptation_method == "transfer":
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH: os.path.join(
-                            self._adaptation_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
+                            self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                         ),
                         "enabled": True,
                         "use_peptdeep_kontext": False,
@@ -164,7 +168,7 @@ class SearchPlan:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
-                            self._adaptation_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT
+                            self._transfer_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT
                         ),
                         "enabled": True,
                         "use_peptdeep_kontext": True,
@@ -172,7 +176,7 @@ class SearchPlan:
                 }
 
             optimized_values_config = self._get_optimized_values_config(
-                self._adaptation_step_output_dir
+                self._transfer_step_output_dir
             )
 
             extra_config_for_library_step = (

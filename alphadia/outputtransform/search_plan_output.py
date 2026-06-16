@@ -200,7 +200,8 @@ class SearchPlanOutput:
             ),
         )
         rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        # charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
+        charge_stats = rt_stats.copy()
         ms2_stats = tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
