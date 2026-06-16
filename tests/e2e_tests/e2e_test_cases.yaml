@@ -13,50 +13,50 @@ test_cases:
 #      # possible selections are all subclasses of the calc_metrics.py:Metrics class
 
 # NOTE: if you want these tests run in the GitHub Actions CI, make sure to add them to e2e_testing.yml (look for 'NEW TEST CASES ARE ADDED HERE')
-#   - name: basic
-#     config:
-#       search_initial:
-#         num_candidates: 1
-#         rt_tolerance: 300
-#       search:
-#         target_num_candidates: 1
-#         target_ms1_tolerance: 4
-#         target_ms2_tolerance: 7
-#         target_rt_tolerance: 100
-#       calibration:
-#         batch_size: 1000
-#     library_path:
-# #      - source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk # hela_hybrid.hdf
-#       - source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz # hela_hybrid.small.hdf
-#     raw_paths:
-#       - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
-# #      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
-# #      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
-#     metrics:
-#       - BasicStats
+  - name: basic
+    config:
+      search_initial:
+        num_candidates: 1
+        rt_tolerance: 300
+      search:
+        target_num_candidates: 1
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 100
+      calibration:
+        batch_size: 1000
+    library_path:
+#      - source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk # hela_hybrid.hdf
+      - source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz # hela_hybrid.small.hdf
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
+    metrics:
+      - BasicStats
 
-#   - name: basic_python
-#     config:
-#       search_initial:
-#         num_candidates: 1
-#         rt_tolerance: 300
-#       search:
-#         extraction_backend: python
-#         target_num_candidates: 1
-#         target_ms1_tolerance: 4
-#         target_ms2_tolerance: 7
-#         target_rt_tolerance: 100
-#       calibration:
-#         batch_size: 1000
-#     library_path:
-# #      - source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk # hela_hybrid.hdf
-#       - source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz # hela_hybrid.small.hdf
-#     raw_paths:
-#       - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
-# #      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
-# #      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
-#     metrics:
-#       - BasicStats
+  - name: basic_python
+    config:
+      search_initial:
+        num_candidates: 1
+        rt_tolerance: 300
+      search:
+        extraction_backend: python
+        target_num_candidates: 1
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 100
+      calibration:
+        batch_size: 1000
+    library_path:
+#      - source_url: https://datashare.biochem.mpg.de/s/Uw2yfNSbApfPpTk # hela_hybrid.hdf
+      - source_url: https://datashare.biochem.mpg.de/s/cNdrN4OJC9AAHhz # hela_hybrid.small.hdf
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_05.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_06.raw
+#      - source_url: https://datashare.biochem.mpg.de/s/339jg5HtGrwLwDN/download?files=20231017_OA2_TiHe_ADIAMA_HeLa_200ng_Evo011_21min_F-40_07.raw
+    metrics:
+      - BasicStats
 
   - name: multistep
     # see also transfer-dimethyl.md
@@ -64,115 +64,6 @@ test_cases:
       general:
         transfer_step_enabled: True
         adaptation_method: "transfer"
-        mbr_step_enabled: True
-      search:
-        # extraction_backend: python # TODO: switch when transfer learning is supported
-#        target_num_candidates: # mbr: 3
-        target_ms1_tolerance: 4
-        target_ms2_tolerance: 7
-        target_rt_tolerance: 0.5 # mbr: 0
-      transfer_learning:
-        epochs: 5  # this is reduced to speed the test up a little
-      library_prediction:
-        enabled: True
-        precursor_mz:
-          - 380
-          - 980
-        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
-        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
-        max_var_mod_num: 1 # mbr: 2
-        missed_cleavages: 0  # mbr: 1
-
-    # dimethyl data (from tutorial)
-    fasta_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
-    raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
-    metrics:
-      - BasicStats
-
-  - name: phase1
-    # see also transfer-dimethyl.md
-    config:
-      general:
-        transfer_step_enabled: True
-        adaptation_method: "tto"
-        mbr_step_enabled: True
-      search:
-        # extraction_backend: python # TODO: switch when transfer learning is supported
-#        target_num_candidates: # mbr: 3
-        target_ms1_tolerance: 4
-        target_ms2_tolerance: 7
-        target_rt_tolerance: 0.5 # mbr: 0
-      context_extraction:
-        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
-      library_prediction:
-        enabled: True
-        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
-        precursor_mz:
-          - 380
-          - 980
-        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
-        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
-        max_var_mod_num: 1 # mbr: 2
-        missed_cleavages: 0  # mbr: 1
-
-    # dimethyl data (from tutorial)
-    fasta_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
-    raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
-    metrics:
-      - BasicStats
-
-  - name: phase2
-    # see also transfer-dimethyl.md
-    config:
-      general:
-        transfer_step_enabled: True
-        adaptation_method: "tto"
-        mbr_step_enabled: True
-      search:
-        # extraction_backend: python # TODO: switch when transfer learning is supported
-#        target_num_candidates: # mbr: 3
-        target_ms1_tolerance: 4
-        target_ms2_tolerance: 7
-        target_rt_tolerance: 0.5 # mbr: 0
-      context_extraction:
-        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
-      library_prediction:
-        enabled: True
-        use_peptdeep_kontext: True
-        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
-
-        precursor_mz:
-          - 380
-          - 980
-        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
-        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
-        max_var_mod_num: 1 # mbr: 2
-        missed_cleavages: 0  # mbr: 1
-
-    # dimethyl data (from tutorial)
-    fasta_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
-    raw_paths:
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
-      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
-    metrics:
-      - BasicStats
-
-  - name: phase2_per_raw
-    # see also transfer-dimethyl.md
-    config:
-      general:
-        transfer_step_enabled: True
-        adaptation_method: "tto"
         mbr_step_enabled: True
       search:
         extraction_backend: python # TODO: switch when transfer learning is supported
@@ -184,9 +75,6 @@ test_cases:
         epochs: 5  # this is reduced to speed the test up a little
       library_prediction:
         enabled: True
-        use_peptdeep_kontext: True
-        context_indicators:
-          - 'raw_name'
         precursor_mz:
           - 380
           - 980
@@ -194,10 +82,6 @@ test_cases:
         variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
         max_var_mod_num: 1 # mbr: 2
         missed_cleavages: 0  # mbr: 1
-      context_extraction:
-        context_indicators:
-          - 'raw_name'
-
 
     # dimethyl data (from tutorial)
     fasta_paths:
@@ -209,7 +93,79 @@ test_cases:
     metrics:
       - BasicStats
 
-  - name: phase2_more_frags
+  - name: peptdeep_kontext_phase1
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "tto"
+        mbr_step_enabled: True
+      search:
+        # extraction_backend: python # TODO: switch when transfer learning is supported
+#        target_num_candidates: # mbr: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 0.5 # mbr: 0
+      context_extraction:
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
+      library_prediction:
+        enabled: True
+        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
+        precursor_mz:
+          - 380
+          - 980
+        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
+        max_var_mod_num: 1 # mbr: 2
+        missed_cleavages: 0  # mbr: 1
+
+    # dimethyl data (from tutorial)
+    fasta_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
+    metrics:
+      - BasicStats
+
+  - name: peptdeep_kontext_phase2
+    config:
+      general:
+        transfer_step_enabled: True
+        adaptation_method: "tto"
+        mbr_step_enabled: True
+      search:
+        # extraction_backend: python # TODO: switch when transfer learning is supported
+#        target_num_candidates: # mbr: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 0.5 # mbr: 0
+      context_extraction:
+        context_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/jd8hv2lu/ContextModel"
+      library_prediction:
+        enabled: True
+        use_peptdeep_kontext: True
+        peptdeep_kontext_model_path: "/fs/pool/pool-mann-projects/0_Georg/ptcm_training/context/tmp/w2qymqjp/ContextDownstream"
+
+        precursor_mz:
+          - 380
+          - 980
+        fixed_modifications: 'Dimethyl@Any_N-term;Dimethyl@K'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein_N-term'
+        max_var_mod_num: 1 # mbr: 2
+        missed_cleavages: 0  # mbr: 1
+
+    # dimethyl data (from tutorial)
+    fasta_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/2024_01_12_human.fasta
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B1.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B2.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
+    metrics:
+      - BasicStats
+
+  - name: peptdeep_kontext_phase2_more_frags
     # see also transfer-dimethyl.md
     config:
       general:
@@ -254,98 +210,99 @@ test_cases:
       - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/1GiKQSwlPf6YlMm/raw_data/20240408_OA1_Evo12_31min_TiHe_SA_H032_E32_F-40_B3.raw
     metrics:
       - BasicStats
-  # - name: synchropasef
-  #   config:
-  #     search:
-  #       extraction_backend: python # TODO: switch when Bruker data is supported
-  #       target_num_candidates: 5
-  #       target_ms1_tolerance: 15
-  #       target_ms2_tolerance: 15
-  #       target_mobility_tolerance: 0.04
-  #       target_rt_tolerance: 50
-  #       quant_window: 6
-  #       quant_all: true
-  #     search_initial:
-  #       num_candidates: 1
-  #       ms1_tolerance: 30
-  #       ms2_tolerance: 30
-  #       mobility_tolerance: 0.08
-  #       rt_tolerance: 240
-  #     search_output:
-  #       save_fragment_quant_matrix: true
-  #   library_path:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/MSFragger_library_60SPD_2.tsv
-  #   raw_paths:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-E7_1_41539.d/?accept=zip
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F1_1_41545.d/?accept=zip
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F7_1_41551.d/?accept=zip
-  #   metrics:
-  #     - BasicStats
 
-  # - name: astral
-  #   config:
-  #     library_prediction:
-  #       enabled: true
-  #       fixed_modifications: 'Carbamidomethyl@C'
-  #       variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
-  #       max_var_mod_num: 2
-  #       missed_cleavages: 1
-  #       precursor_mz:
-  #         - 380
-  #         - 980
-  #       nce: 25
-  #       instrument: Lumos
-  #     search:
-  #       target_num_candidates: 3
-  #       target_ms1_tolerance: 4
-  #       target_ms2_tolerance: 7
-  #       target_rt_tolerance: 200
-  #     search_initial:
-  #       num_candidates: 1
-  #       ms1_tolerance: 10
-  #       ms2_tolerance: 15
-  #       rt_tolerance: 300
-  #   fasta_paths:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
-  #   raw_paths:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
-  #   metrics:
-  #     - BasicStats
+  - name: synchropasef
+    config:
+      search:
+        extraction_backend: python # TODO: switch when Bruker data is supported
+        target_num_candidates: 5
+        target_ms1_tolerance: 15
+        target_ms2_tolerance: 15
+        target_mobility_tolerance: 0.04
+        target_rt_tolerance: 50
+        quant_window: 6
+        quant_all: true
+      search_initial:
+        num_candidates: 1
+        ms1_tolerance: 30
+        ms2_tolerance: 30
+        mobility_tolerance: 0.08
+        rt_tolerance: 240
+      search_output:
+        save_fragment_quant_matrix: true
+    library_path:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/MSFragger_library_60SPD_2.tsv
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-E7_1_41539.d/?accept=zip
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F1_1_41545.d/?accept=zip
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/e4jqILnxHPujBBP/20231218_TIMS03_PaSk_SA_K562_syPASEF_200ng_var_IM0713_S1-F7_1_41551.d/?accept=zip
+    metrics:
+      - BasicStats
+
+  - name: astral
+    config:
+      library_prediction:
+        enabled: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: 4
+        target_ms2_tolerance: 7
+        target_rt_tolerance: 200
+      search_initial:
+        num_candidates: 1
+        ms1_tolerance: 10
+        ms2_tolerance: 15
+        rt_tolerance: 300
+    fasta_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
+    metrics:
+      - BasicStats
 
 
-  # - name: astral_automatic_calibration
-  #   config:
-  #     library_prediction:
-  #       enabled: true
-  #       fixed_modifications: 'Carbamidomethyl@C'
-  #       variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
-  #       max_var_mod_num: 2
-  #       missed_cleavages: 1
-  #       precursor_mz:
-  #         - 380
-  #         - 980
-  #       nce: 25
-  #       instrument: Lumos
-  #     search:
-  #       target_num_candidates: 3
-  #       target_ms1_tolerance: -1
-  #       target_ms2_tolerance: -1
-  #       target_rt_tolerance: -1
-  #     search_initial:
-  #       num_candidates: 1
-  #       ms1_tolerance: 100
-  #       ms2_tolerance: 100
-  #       rt_tolerance: 600
-  #   fasta_paths:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
-  #   raw_paths:
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
-  #     - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
-  #   metrics:
-  #     - BasicStats
+  - name: astral_automatic_calibration
+    config:
+      library_prediction:
+        enabled: true
+        fixed_modifications: 'Carbamidomethyl@C'
+        variable_modifications: 'Oxidation@M;Acetyl@Protein N-term'
+        max_var_mod_num: 2
+        missed_cleavages: 1
+        precursor_mz:
+          - 380
+          - 980
+        nce: 25
+        instrument: Lumos
+      search:
+        target_num_candidates: 3
+        target_ms1_tolerance: -1
+        target_ms2_tolerance: -1
+        target_rt_tolerance: -1
+      search_initial:
+        num_candidates: 1
+        ms1_tolerance: 100
+        ms2_tolerance: 100
+        rt_tolerance: 600
+    fasta_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/2024_01_12_human.fasta
+    raw_paths:
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_01.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_02.raw
+      - source_url: https://datashare.biochem.mpg.de/public.php/dav/files/WTu3rFZHNeb3uG2/20231024_OA3_TiHe_ADIAMA_HeLa_200ng_Evo01_21min_F-40_iO_before_03.raw
+    metrics:
+      - BasicStats
 
 #  - name: astral_mixed_species
 #    config:

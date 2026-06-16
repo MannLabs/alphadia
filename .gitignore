@@ -162,17 +162,10 @@ gui/out/
 ###################
 mono_crash*
 
-tests/e2e_tests/**/output*/
+tests/e2e_tests/runs/
 
 ###################
 # IDEs            #
 ###################
 .idea
 .vscode
-tests/e2e_tests/multistep/*
-tests/e2e_tests/phase1/*
-tests/e2e_tests/phase2/*
-
-tests/e2e_tests/phase2_more_frags/*
-tests/e2e_tests/phase2_per_raw/*
-tests/e2e_tests/phase_inv1/*

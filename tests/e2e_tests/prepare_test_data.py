@@ -11,6 +11,7 @@ import yaml
 from alphabase.tools.data_downloader import DataShareDownloader
 
 OUTPUT_DIR_NAME = "output"
+RUNS_DIR_NAME = "runs"
 
 TEST_CASES_FILE_NAME = "e2e_test_cases.yaml"
 
@@ -85,7 +86,7 @@ def get_test_case(test_case_name: str) -> dict:
 
 if __name__ == "__main__":
     test_case_name = sys.argv[1]
-    target_path = test_case_name
+    target_path = os.path.join(RUNS_DIR_NAME, test_case_name)
 
     os.makedirs(os.path.join(target_path, OUTPUT_DIR_NAME), exist_ok=True)
 

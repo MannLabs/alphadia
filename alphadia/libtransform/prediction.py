@@ -171,8 +171,3 @@ class PeptDeepPrediction(ProcessingStep):
             input._precursor_df = res["precursor_df"]
 
         return input
-
-
-# Re-export for backward compatibility with callers that import from this module.
-# TODO: remove once the transfer path is dropped and peptdeep_kontext_prediction is the sole prediction module.
-from alphadia.libtransform.peptdeep_kontext_prediction import PeptDeepKontextPrediction  # noqa: F401, E402
