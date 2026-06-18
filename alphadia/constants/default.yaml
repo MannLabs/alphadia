@@ -16,7 +16,7 @@ general:
   thread_count: 10
 
   # Enables the transfer/adaptation step before the main search (transfer learning or TTO)
-  # TODO: rename to adaptation_step_enabled once backward compat is dropped
+  # TODO: rename to adaptation_step_enabled in a subsequent release to better reflect that it includes both transfer learning and TTO
   transfer_step_enabled: false
 
   # Method for the adaptation step: "transfer" (peptdeep fine-tuning) or "tto" (peptdeep_kontext TTO)
@@ -130,7 +130,8 @@ library_prediction:
 
   # minimum probability threshold for including a predicted charge state
   min_charge_probability: 0.1
-
+  
+  ###### peptdeep_kontext specific settings ######
   # peptdeep_kontext downstream model path; if null, weights are auto-downloaded to ~/.cache/peptdeep_kontext
   peptdeep_kontext_model_path: null
 
@@ -458,18 +459,22 @@ transfer_library:
   # include only fragments with a XIC correlation at least 0.75 of the median for all fragments
   fragment_correlation_ratio: 0.75
 
+# This section controls the context extraction and prediction using peptdeep_kontext. 
+# This step can be used as an alternative to transfer learning for library adaptation. 
+# See https://github.com/MannLabs/peptdeep_kontext/blob/main/docs/configs.md for more details.
 context_extraction:
   # if true, peptdeep_kontext will be used to extract the context and do the library prediction
   enabled: False
-
+  # Number of epochs used to extract the context during TTO.
   tto_epochs: 10
-
+  # Number of warmup epochs during which the learning rate is ramped up during TTO. 
   tto_warmup_epochs: 5
-
+  # Number of precursors per batch during TTO.
   tto_batch_size: 2000
-
+  # Maximum learning rate per batch during TTO. The maximum learning rate will be reached after a warmup phase.
   tto_lr: 0.1
-
+  # columns used to group precursors with different contexts during TTO and prediction. 
+  # constant_context_indicator can be used to indicate that all precursors belong to the same context.
   context_indicators:
     - 'constant_context_indicator'
 
@@ -478,8 +483,9 @@ context_extraction:
   context_model_path: null
 
   # version tag used when auto-downloading peptdeep_kontext model weights
-  context_model_version: "v8"
+  context_model_version: "v2"
 
+  # list of fragment types (see alphabase.peptide.fragment.FRAGMENT_TYPES for supported types)
   fragment_types: ['b', 'y']
 
   # maximum charge for fragments

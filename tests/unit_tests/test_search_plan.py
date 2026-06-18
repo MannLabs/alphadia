@@ -342,7 +342,7 @@ def test_runs_plan_with_adaptation_step_tto(
         | {
             "library_prediction": {
                 "context_path": _convert_path(
-                    "/user_provided_output_path/transfer/peptdeep_kontext.context"
+                    "/user_provided_output_path/transfer/peptdeep_kontext.context.json"
                 ),
                 "enabled": True,
                 "use_peptdeep_kontext": True,
@@ -529,7 +529,7 @@ def test_runs_plan_with_adaptation_tto_and_mbr_steps(
         | {
             "library_prediction": {
                 "context_path": str(
-                    Path("/user_provided_output_path/transfer/peptdeep_kontext.context")
+                    Path("/user_provided_output_path/transfer/peptdeep_kontext.context.json")
                 ),
                 "enabled": True,
                 "use_peptdeep_kontext": True,

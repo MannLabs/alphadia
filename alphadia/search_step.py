@@ -329,7 +329,7 @@ class SearchStep:
                 logger.info("Using peptdeep_kontext for library prediction.")
                 kontext_prediction = PeptDeepKontextPrediction(
                     use_gpu=general_config["use_gpu"],
-                    peptdeep_kontext_model_path=resolve_context_model_path(
+                    model_path=resolve_context_model_path(
                         prediction_config,
                         path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
                         subdir="ContextDownstream",

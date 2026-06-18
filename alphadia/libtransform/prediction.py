@@ -11,6 +11,48 @@ from alphadia.libtransform.base import ProcessingStep
 logger = logging.getLogger(__name__)
 
 
+def predict_charge_states(
+    model_mgr: PeptDeepModelManager,
+    precursor_df,
+    min_charge_probability: float,
+):
+    """Predict charge states and filter by minimum probability threshold.
+
+    Uses the model manager's charge model to expand the precursor dataframe
+    with predicted charge states, dropping those below `min_charge_probability`.
+    The charge range is clamped to the range already present in `precursor_df`
+    when a ``charge`` column exists.
+    """
+    charge_range = model_mgr.charge_model.charge_range
+    min_supported = int(charge_range.min())
+    max_supported = int(charge_range.max())
+
+    if "charge" in precursor_df.columns:
+        min_charge = max(min_supported, int(precursor_df["charge"].min()))
+        max_charge = min(max_supported, int(precursor_df["charge"].max()))
+    else:
+        min_charge = min_supported
+        max_charge = max_supported
+
+    logger.info(
+        f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
+        f"min probability: {min_charge_probability})"
+    )
+    n_before = len(precursor_df)
+    precursor_df = model_mgr.predict_charge(
+        precursor_df,
+        min_precursor_charge=min_charge,
+        max_precursor_charge=max_charge,
+        charge_prob_cutoff=min_charge_probability,
+    )
+    n_dropped = n_before - len(precursor_df)
+    logger.info(
+        f"Charge prediction kept {len(precursor_df)} precursors, "
+        f"{n_dropped} dropped by min_charge_probability filter"
+    )
+    return precursor_df
+
+
 class PeptDeepPrediction(ProcessingStep):
     def __init__(
         self,
@@ -120,32 +162,8 @@ class PeptDeepPrediction(ProcessingStep):
         precursor_df = input.precursor_df
 
         if self.predict_charge:
-            charge_range = model_mgr.charge_model.charge_range
-            min_supported = int(charge_range.min())
-            max_supported = int(charge_range.max())
-
-            if "charge" in precursor_df.columns:
-                min_charge = max(min_supported, int(precursor_df["charge"].min()))
-                max_charge = min(max_supported, int(precursor_df["charge"].max()))
-            else:
-                min_charge = min_supported
-                max_charge = max_supported
-
-            logger.info(
-                f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
-                f"min probability: {self.min_charge_probability})"
-            )
-            n_before = len(precursor_df)
-            precursor_df = model_mgr.predict_charge(
-                precursor_df,
-                min_precursor_charge=min_charge,
-                max_precursor_charge=max_charge,
-                charge_prob_cutoff=self.min_charge_probability,
-            )
-            n_dropped = n_before - len(precursor_df)
-            logger.info(
-                f"Charge prediction kept {len(precursor_df)} precursors, "
-                f"{n_dropped} dropped by min_charge_probability filter"
+            precursor_df = predict_charge_states(
+                model_mgr, precursor_df, self.min_charge_probability
             )
 
         logger.info("Predicting RT, MS2 and mobility")

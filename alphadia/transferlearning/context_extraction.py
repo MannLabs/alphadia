@@ -16,9 +16,11 @@ from peptdeep_kontext.utils.cfg import (
     get_pretrained_model_config_from_dir,
 )
 
+from alphadia.utils import expand_path
+
 logger = logging.getLogger(__name__)
 
-_DEFAULT_KONTEXT_CACHE = os.path.join(os.path.expanduser("~"), ".cache", "peptdeep_kontext")
+_DEFAULT_KONTEXT_CACHE = expand_path("~/.cache/peptdeep_kontext")
 
 
 def resolve_context_model_path(
@@ -42,9 +44,9 @@ def resolve_context_model_path(
     """
     model_path = config.get(path_key)
     if model_path:
-        return model_path
+        return expand_path(model_path)
 
-    version = config.get("context_model_version", "v8")
+    version = config.get("context_model_version")
     logger.info(
         f"{path_key} not set — downloading peptdeep_kontext weights "
         f"(version={version}) to {_DEFAULT_KONTEXT_CACHE}"
@@ -112,7 +114,7 @@ class ContextExtractor:
                 frag_types=charged_frag_types,
             ),
         )
-        self.tto_manager = TTOManager(tto_config)
+        self._tto_manager = TTOManager(tto_config)
 
     def run(self, save_path: str) -> None:
         """Extract context from the annotated spectral library and save to disk.
@@ -123,4 +125,4 @@ class ContextExtractor:
             Base path for the output file. The ``".json"`` extension is appended
             automatically, producing ``<save_path>.json``.
         """
-        self.tto_manager.run(f"{save_path}.json")
+        self._tto_manager.run(f"{save_path}.json")

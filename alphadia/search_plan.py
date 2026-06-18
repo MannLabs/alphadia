@@ -168,7 +168,7 @@ class SearchPlan:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
-                            self._transfer_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT
+                            self._transfer_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT + ".json"
                         ),
                         "enabled": True,
                         "use_peptdeep_kontext": True,

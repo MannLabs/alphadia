@@ -17,6 +17,7 @@ from peptdeep_kontext.utils.cfg import get_pretrained_model_config_from_dir
 
 from alphadia import utils
 from alphadia.libtransform.base import ProcessingStep
+from alphadia.libtransform.prediction import predict_charge_states
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ class PeptDeepKontextPrediction(ProcessingStep):
     def __init__(
         self,
         use_gpu: bool = True,
-        peptdeep_kontext_model_path: str | None = None,
+        model_path: str | None = None,
         context_path: str | None = None,
         fragment_types: list[str] | None = None,
         max_fragment_charge: int = 2,
@@ -42,11 +43,11 @@ class PeptDeepKontextPrediction(ProcessingStep):
         ----------
         use_gpu : bool, optional
             Use GPU for prediction. Default is True.
-        peptdeep_kontext_model_path : str, optional
-            Path to the pretrained peptdeep_kontext downstream model directory.
+        model_path : str, optional
+            Path to the pretrained downstream model directory.
             If not provided, the default bundled model is used.
         context_path : str, optional
-            Base path to the extracted context file (without ``.json`` extension).
+            Path to the extracted context file (including ``.json`` extension).
             If not provided, a zero context is used.
         fragment_types : list[str], optional
             Fragment types to predict. Default is ["b", "y"].
@@ -56,7 +57,7 @@ class PeptDeepKontextPrediction(ProcessingStep):
             Whether to predict charge states using PeptDeep's charge model.
             Default is False.
         min_charge_probability : float, optional
-            Minimum probability threshold for including a charge state.
+            Minimum probability threshold for including a charge state. When predicting charge states, PeptDeep outputs probabilities for each charge state; only those with probability above this threshold will be included in the predictions.
             Default is 0.1.
         indicator_columns : list[str], optional
             Columns used to match precursors to context vectors (e.g.
@@ -71,23 +72,23 @@ class PeptDeepKontextPrediction(ProcessingStep):
 
         logger.info(f"Loading peptdeep_kontext model with context path {context_path}")
 
-        self.use_gpu = use_gpu
-        self.peptdeep_kontext_model_path = peptdeep_kontext_model_path
-        self.context_path = context_path
+        self._use_gpu = use_gpu
+        self._model_path = model_path
+        self._context_path = context_path
 
-        self.fragment_types = fragment_types
-        self.max_fragment_charge = max_fragment_charge
+        self._fragment_types = fragment_types
+        self._max_fragment_charge = max_fragment_charge
 
-        self.predict_charge = predict_charge
-        self.min_charge_probability = min_charge_probability
-        self.charged_frag_types = get_charged_frag_types(
-            self.fragment_types, self.max_fragment_charge
+        self._predict_charge = predict_charge
+        self._min_charge_probability = min_charge_probability
+        self._charged_frag_types = get_charged_frag_types(
+            self._fragment_types, self._max_fragment_charge
         )
-        self.model_mgr_config = ModelManagerConfig(
+        self._model_mgr_config = ModelManagerConfig(
             pretrained_downstream_model=get_pretrained_model_config_from_dir(
-                peptdeep_kontext_model_path
+                model_path
             ),
-            requested_charged_fragment_types=self.charged_frag_types,
+            requested_charged_fragment_types=self._charged_frag_types,
             dataset_config=PredictionDatasetConfig(
                 feat_extractor="BertaFeatureExtractor",
                 indicator_columns=indicator_columns,
@@ -98,42 +99,18 @@ class PeptDeepKontextPrediction(ProcessingStep):
         return True
 
     def forward(self, input: SpecLibBase) -> SpecLibBase:
-        input.charged_frag_types = self.charged_frag_types
+        input.charged_frag_types = self._charged_frag_types
 
-        device = utils.get_torch_device(self.use_gpu)
+        device = utils.get_torch_device(self._use_gpu)
 
-        # Use PeptDeep for mobility prediction only
+        # Use PeptDeep for mobility prediction and charge state prediction (if enabled)
         peptdeep_mgr = PeptDeepModelManager(device=device)
 
         precursor_df = input.precursor_df
 
-        if self.predict_charge:
-            charge_range = peptdeep_mgr.charge_model.charge_range
-            min_supported = int(charge_range.min())
-            max_supported = int(charge_range.max())
-
-            if "charge" in precursor_df.columns:
-                min_charge = max(min_supported, int(precursor_df["charge"].min()))
-                max_charge = min(max_supported, int(precursor_df["charge"].max()))
-            else:
-                min_charge = min_supported
-                max_charge = max_supported
-
-            logger.info(
-                f"Predicting charge states (charge range: {min_charge}-{max_charge}, "
-                f"min probability: {self.min_charge_probability})"
-            )
-            n_before = len(precursor_df)
-            precursor_df = peptdeep_mgr.predict_charge(
-                precursor_df,
-                min_precursor_charge=min_charge,
-                max_precursor_charge=max_charge,
-                charge_prob_cutoff=self.min_charge_probability,
-            )
-            n_dropped = n_before - len(precursor_df)
-            logger.info(
-                f"Charge prediction kept {len(precursor_df)} precursors, "
-                f"{n_dropped} dropped by min_charge_probability filter"
+        if self._predict_charge:
+            precursor_df = predict_charge_states(
+                peptdeep_mgr, precursor_df, self._min_charge_probability
             )
 
         logger.info("Predicting mobility with PeptDeep")
@@ -142,14 +119,14 @@ class PeptDeepKontextPrediction(ProcessingStep):
         # Propagate charge/mobility updates before building the prediction dataset
         input._precursor_df = precursor_df
 
-        if self.context_path:
+        if self._context_path:
             context = Context()
-            context.load(f"{self.context_path}.json")
+            context.load(self._context_path)
         else:
             context = ZeroContext()
 
         prediction_dataset = PredictionDataset(
-            self.model_mgr_config.dataset_config,
+            self._model_mgr_config.dataset_config,
             input.precursor_df,
             context,
         )
@@ -158,7 +135,7 @@ class PeptDeepKontextPrediction(ProcessingStep):
         prediction_aggregator.reset()
 
         kontext_mgr = PeptDeepKontextModelManager(
-            model_manager_config=self.model_mgr_config
+            model_manager_config=self._model_mgr_config
         )
         kontext_mgr.predict(prediction_dataset, prediction_aggregator)
 

@@ -34,7 +34,7 @@ def test_resolve_context_model_path_auto_download():
 
 
 def test_resolve_context_model_path_auto_download_default_version():
-    """When context_model_version is missing, version 'v8' is used as default."""
+    """When context_model_version is missing, None is passed so the library uses its own default."""
     config = {}
     with patch(
         "alphadia.transferlearning.context_extraction.download_pretrained_models",
@@ -42,7 +42,7 @@ def test_resolve_context_model_path_auto_download_default_version():
     ) as mock_download:
         resolve_context_model_path(config)
 
-    mock_download.assert_called_once_with(version="v8", target_dir=_DEFAULT_KONTEXT_CACHE)
+    mock_download.assert_called_once_with(version=None, target_dir=_DEFAULT_KONTEXT_CACHE)
 
 
 def test_resolve_context_model_path_custom_subdir():

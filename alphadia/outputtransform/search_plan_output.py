@@ -200,8 +200,7 @@ class SearchPlanOutput:
             ),
         )
         rt_stats = tune_mgr.finetune_rt(transfer_lib.precursor_df)
-        # charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
-        charge_stats = rt_stats.copy()
+        charge_stats = tune_mgr.finetune_charge(transfer_lib.precursor_df)
         ms2_stats = tune_mgr.finetune_ms2(
             transfer_lib.precursor_df.copy(), transfer_lib.fragment_intensity_df.copy()
         )
@@ -275,6 +274,7 @@ class SearchPlanOutput:
             f"Built transfer library using {len(folder_list)} folders and {number_of_processes} processes"
         )
         log_stat_df(transfer_library_stat_df(transferAccumulator.consensus_speclibase))
+        # Add a constant context indicator column to the precursor df to let the peptdeep_kontext know that all precursors belong to the same context
         transferAccumulator.consensus_speclibase.precursor_df['constant_context_indicator'] = "constant_context"
         if save:
             logger.info("Writing transfer library to disk")
