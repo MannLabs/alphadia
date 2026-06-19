@@ -226,7 +226,7 @@ def test_old_config_runs_transfer_path_without_adaptation_method(
                     "/user_provided_output_path/transfer/peptdeep.transfer"
                 ),
                 "enabled": True,
-                "use_peptdeep_kontext": False,
+                "prediction_framework": "peptdeep",
             },
         }
         | dynamic_config,
@@ -285,7 +285,7 @@ def test_runs_plan_with_adaptation_step_transfer(
                     "/user_provided_output_path/transfer/peptdeep.transfer"
                 ),
                 "enabled": True,
-                "use_peptdeep_kontext": False,
+                "prediction_framework": "peptdeep",
             },
         }
         | dynamic_config,
@@ -345,7 +345,7 @@ def test_runs_plan_with_adaptation_step_tto(
                     "/user_provided_output_path/transfer/peptdeep_kontext.context.json"
                 ),
                 "enabled": True,
-                "use_peptdeep_kontext": True,
+                "prediction_framework": "peptdeep_kontext",
             },
         }
         | dynamic_config,
@@ -457,7 +457,7 @@ def test_runs_plan_with_adaptation_transfer_and_mbr_steps(
                     Path("/user_provided_output_path/transfer/peptdeep.transfer")
                 ),
                 "enabled": True,
-                "use_peptdeep_kontext": False,
+                "prediction_framework": "peptdeep",
             },
         }
         | dynamic_config,
@@ -532,7 +532,7 @@ def test_runs_plan_with_adaptation_tto_and_mbr_steps(
                     Path("/user_provided_output_path/transfer/peptdeep_kontext.context.json")
                 ),
                 "enabled": True,
-                "use_peptdeep_kontext": True,
+                "prediction_framework": "peptdeep_kontext",
             },
         }
         | dynamic_config,

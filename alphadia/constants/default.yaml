@@ -64,10 +64,10 @@ library_loading:
 
 library_prediction:
   # Basic parameters
-  # whether to use alphaPeptDeep to predict peptide properties
+  # whether to use alphaPeptDeep or peptdeep_kontext to predict peptide properties
   enabled: false
-  # whether to use peptdeep_kontext or peptdeep for library prediction
-  use_peptdeep_kontext: false
+  # prediction framework to use for library prediction: "peptdeep" or "peptdeep_kontext"
+  prediction_framework: "peptdeep"
   # enzyme used for in-silico digest
   enzyme: trypsin
   # fixed modifications for in-silico digest

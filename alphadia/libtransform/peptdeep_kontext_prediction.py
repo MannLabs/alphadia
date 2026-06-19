@@ -109,6 +109,7 @@ class PeptDeepKontextPrediction(ProcessingStep):
         precursor_df = input.precursor_df
 
         if self._predict_charge:
+            logger.info("Predicting charge states with PeptDeep")
             precursor_df = predict_charge_states(
                 peptdeep_mgr, precursor_df, self._min_charge_probability
             )
@@ -137,6 +138,8 @@ class PeptDeepKontextPrediction(ProcessingStep):
         kontext_mgr = PeptDeepKontextModelManager(
             model_manager_config=self._model_mgr_config
         )
+        logger.info("Predicting RT and MS2 with peptdeep_kontext")
+
         kontext_mgr.predict(prediction_dataset, prediction_aggregator)
 
         return prediction_aggregator.predicted_spectral_library

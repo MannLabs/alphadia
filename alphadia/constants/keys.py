@@ -64,6 +64,7 @@ class ConfigKeys(metaclass=ConstantsClass):
         PEPTDEEP_MODEL_PATH="peptdeep_model_path",
         PEPTDEEP_KONTEXT_MODEL_PATH="peptdeep_kontext_model_path",
         CONTEXT_PATH="context_path",
+        PREDICTION_FRAMEWORK="prediction_framework",
     )
 
 

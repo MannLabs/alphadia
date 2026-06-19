@@ -161,7 +161,7 @@ class SearchPlan:
                             self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
                         ),
                         "enabled": True,
-                        "use_peptdeep_kontext": False,
+                        ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep",
                     }
                 }
             else:  # "tto"
@@ -171,7 +171,7 @@ class SearchPlan:
                             self._transfer_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT + ".json"
                         ),
                         "enabled": True,
-                        "use_peptdeep_kontext": True,
+                        ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep_kontext",
                     }
                 }
 

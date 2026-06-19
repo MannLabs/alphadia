@@ -325,7 +325,11 @@ class SearchStep:
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
-            if prediction_config["use_peptdeep_kontext"]:
+            framework = prediction_config.get(
+                ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK, "peptdeep"
+            )
+
+            if framework == "peptdeep_kontext":
                 logger.info("Using peptdeep_kontext for library prediction.")
                 kontext_prediction = PeptDeepKontextPrediction(
                     use_gpu=general_config["use_gpu"],
@@ -479,7 +483,6 @@ class SearchStep:
         raw_files_with_errors = []
 
         for i, (raw_name, dia_path, speclib) in enumerate(self._get_run_data()):
-            # self.load_library(raw_name)  # need to reload library for each raw file if context extraction is enabled since context is raw file specific
             workflow = None
             random_state = (
                 None if self._np_rng is None else self._np_rng.integers(0, 1_000_000)
