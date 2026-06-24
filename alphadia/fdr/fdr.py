@@ -20,9 +20,14 @@ max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
 
+# Standard deviation below which the FDR classifier's predicted probability is treated
+# as collapsed (near-constant): targets and decoys cannot be separated, so q-values
+# degenerate to the global decoy/target ratio and no PSMs get filtered.
+_PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
+
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, Too many statements, too many arguments
+def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -146,6 +151,16 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, Too many stateme
         group_columns = ["precursor_idx"]
 
     predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    proba_std = float(np.std(predicted_proba))
+    if proba_std < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability "
+            f"(std={proba_std:.2e}, {np.unique(predicted_proba).size} unique value(s)) "
+            f"over {len(predicted_proba):,} PSMs: target/decoy separation failed, so "
+            "q-values will not filter PSMs. This often indicates a candidate-set "
+            "explosion or degenerate input features."
+        )
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
