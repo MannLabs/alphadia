@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -24,6 +25,9 @@ logger = logging.getLogger()
 # as collapsed (near-constant): targets and decoys cannot be separated, so q-values
 # degenerate to the global decoy/target ratio and no PSMs get filtered.
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
+
+# Number of times to reinitialize and retry a collapsed FDR classifier before giving up.
+_MAX_FDR_CLASSIFIER_REINITS = 3
 
 
 @manage_torch_threads(max_threads=2)
@@ -136,6 +140,9 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
+    # Keep a pristine (unfitted) copy so a collapsed classifier can be reinitialized
+    # from scratch and retried below.
+    fresh_classifier = deepcopy(classifier)
     classifier.fit(X_train, y_train)
 
     psm_df = pd.concat([df_target, df_decoy])
@@ -152,14 +159,30 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
-    proba_std = float(np.std(predicted_proba))
-    if proba_std < _PROBA_COLLAPSE_STD_THRESHOLD:
+    # A collapsed classifier (near-constant probability) cannot separate targets from
+    # decoys, so q-values degenerate to the global decoy/target ratio and no PSMs are
+    # filtered. As this is often an unlucky weight initialization, reinitialize the
+    # classifier from scratch and retry.
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
         logger.warning(
-            "FDR classifier produced a near-constant probability "
-            f"(std={proba_std:.2e}, {np.unique(predicted_proba).size} unique value(s)) "
-            f"over {len(predicted_proba):,} PSMs: target/decoy separation failed, so "
-            "q-values will not filter PSMs. This often indicates a candidate-set "
-            "explosion or degenerate input features."
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier = deepcopy(fresh_classifier)
+        classifier.fit(X_train, y_train)
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            f"FDR classifier still collapsed after {n_reinit} reinitialization(s); "
+            "target/decoy separation failed and q-values will not filter PSMs."
         )
 
     psm_df["proba"] = predicted_proba
