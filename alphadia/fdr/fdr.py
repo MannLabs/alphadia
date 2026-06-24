@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from copy import deepcopy
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -15,7 +14,7 @@ from alphadia.fdr.utils import manage_torch_threads, train_test_split_
 from alphadia.fragcomp.fragcomp import FragmentCompetition
 
 if TYPE_CHECKING:
-    from alphadia.fdr.classifiers import Classifier
+    from alphadia.fdr.classifiers import Classifier, ClassifierRegistry
 
 max_dia_cycle_shape = 2
 
@@ -44,6 +43,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
     dia_cycle: np.ndarray | None = None,
     fdr_heuristic: float = 0.1,
     random_state: int | None = None,
+    classifier_registry: ClassifierRegistry | None = None,
 ) -> pd.DataFrame:
     """Performs FDR calculation on a dataframe of PSMs.
 
@@ -83,6 +83,10 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     random_state : int, optional
         The random state for train-test split reproducibility.
+
+    classifier_registry : ClassifierRegistry, optional
+        Registry used to obtain a fresh, unfitted classifier when reinitializing after a
+        classifier collapse. If None, no reinitialization is attempted.
 
     Returns
     -------
@@ -140,9 +144,6 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
         psm_df["proba"] = 1.0
         return psm_df
 
-    # Keep a pristine (unfitted) copy so a collapsed classifier can be reinitialized
-    # from scratch and retried below.
-    fresh_classifier = deepcopy(classifier)
     classifier.fit(X_train, y_train)
 
     psm_df = pd.concat([df_target, df_decoy])
@@ -161,11 +162,12 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     # A collapsed classifier (near-constant probability) cannot separate targets from
     # decoys, so q-values degenerate to the global decoy/target ratio and no PSMs are
-    # filtered. As this is often an unlucky weight initialization, reinitialize the
-    # classifier from scratch and retry.
+    # filtered. As this is often an unlucky weight initialization, get a fresh classifier
+    # from the registry and retry from scratch.
     n_reinit = 0
     while (
-        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        classifier_registry is not None
+        and float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
         and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
     ):
         n_reinit += 1
@@ -175,14 +177,14 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
             f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
             f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
         )
-        classifier = deepcopy(fresh_classifier)
+        classifier = classifier_registry.get_fresh()
         classifier.fit(X_train, y_train)
         predicted_proba = classifier.predict_proba(X)[:, 1]
 
     if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
         logger.warning(
-            f"FDR classifier still collapsed after {n_reinit} reinitialization(s); "
-            "target/decoy separation failed and q-values will not filter PSMs."
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
         )
 
     psm_df["proba"] = predicted_proba

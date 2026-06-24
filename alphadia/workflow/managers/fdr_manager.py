@@ -11,7 +11,7 @@ import xxhash
 
 import alphadia
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import Classifier
+from alphadia.fdr.classifiers import Classifier, ClassifierRegistry
 from alphadia.workflow.config import Config
 from alphadia.workflow.managers.base import BaseManager
 
@@ -173,6 +173,7 @@ class FDRManager(BaseManager):
                 dia_cycle=self._dia_cycle,
                 figure_path=self.figure_path,
                 random_state=random_state,
+                classifier_registry=self.classifier_registry,
             )
 
         elif decoy_strategy == "precursor_channel_wise":
@@ -196,6 +197,7 @@ class FDRManager(BaseManager):
                         dia_cycle=self._dia_cycle,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        classifier_registry=self.classifier_registry,
                     )
                 )
             psm_df = pd.concat(psm_df_list)
@@ -216,6 +218,7 @@ class FDRManager(BaseManager):
                         group_channels=False,
                         figure_path=self.figure_path,
                         random_state=random_state,
+                        classifier_registry=self.classifier_registry,
                     )
                 )
 
@@ -320,8 +323,13 @@ class FDRManager(BaseManager):
                     )
                     self.classifier_store[classifier_hash].append(classifier)
 
+    @property
+    def classifier_registry(self) -> ClassifierRegistry:
+        """Registry providing fresh, unfitted copies of the base classifier."""
+        return ClassifierRegistry(self.classifier_base)
+
     def get_classifier(self, available_columns: list, version: int = -1) -> Classifier:
-        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets the base classifier instead.
+        """Gets the classifier for a given set of feature columns and version. If the classifier is not found in the store, gets a fresh base classifier instead.
 
         Parameters
         ----------
@@ -338,10 +346,8 @@ class FDRManager(BaseManager):
         """
         classifier_hash = column_hash(available_columns)
         if classifier_hash in self.classifier_store:
-            classifier = self.classifier_store[classifier_hash][version]
-        else:
-            classifier = self.classifier_base
-        return deepcopy(classifier)
+            return deepcopy(self.classifier_store[classifier_hash][version])
+        return self.classifier_registry.get_fresh()
 
     @property
     def current_version(self):

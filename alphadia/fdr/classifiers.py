@@ -101,6 +101,23 @@ class Classifier(ABC):
         """
 
 
+class ClassifierRegistry:
+    """Registry that hands out fresh, unfitted classifier instances.
+
+    Holds a base (template) classifier and returns an independent, unfitted copy on
+    request. This lets callers obtain a classifier "from scratch" without copying a
+    possibly already-fitted instance (e.g. to retry FDR after a classifier collapse).
+    """
+
+    def __init__(self, classifier_base: Classifier):
+        """Store the base (template) classifier to hand out fresh copies from."""
+        self._classifier_base = classifier_base
+
+    def get_fresh(self) -> Classifier:
+        """Return a fresh, unfitted copy of the registered base classifier."""
+        return deepcopy(self._classifier_base)
+
+
 def _get_scaled_training_params(
     df: pd.DataFrame | np.ndarray,
     base_lr: float = 0.001,
