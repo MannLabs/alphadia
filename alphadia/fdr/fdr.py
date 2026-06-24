@@ -326,7 +326,14 @@ def get_q_values(
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
 
-    if _USE_RUST_FDR and len(extra_sort_columns) == 1:
+    # The Rust kernel requires an integer tie-break key. Precursor FDR sorts by
+    # `precursor_idx` (integer), but protein FDR sorts by the protein-group accession
+    # (a string), so fall back to the reference pandas path for non-integer columns.
+    if (
+        _USE_RUST_FDR
+        and len(extra_sort_columns) == 1
+        and pd.api.types.is_integer_dtype(df[extra_sort_columns[0]])
+    ):
         order, qvalues = _rs_q_values(
             df[score_column].to_numpy(dtype=np.float64),
             df[decoy_column].to_numpy(dtype=np.float64),
