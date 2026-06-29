@@ -86,7 +86,7 @@ def speclib_to_ng(
 
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
-    blacklist = ["fwhm_rt"]  # TODO: remove
+    blacklist = [] # some features might be experimental and therefor blacklisted
     return [
         f for f in CandidateFeatureCollection.get_feature_names() if f not in blacklist
     ]
