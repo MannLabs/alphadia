@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_KONTEXT_CACHE = expand_path("~/.cache/peptdeep_kontext")
 
 
-def resolve_context_model_path(
+def prepare_context_model_path(
     config: dict,
     path_key: str = "context_model_path",
     subdir: str = "ContextModel",
@@ -124,7 +124,6 @@ class ContextExtractor:
         Parameters
         ----------
         save_path : str
-            Base path for the output file. The ``".json"`` extension is appended
-            automatically, producing ``<save_path>.json``.
+            Full output path for the context including the extension.
         """
-        self._tto_manager.run(f"{save_path}.json")
+        self._tto_manager.run(save_path)

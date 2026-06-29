@@ -37,7 +37,7 @@ from alphadia.libtransform.peptdeep_kontext_prediction import PeptDeepKontextPre
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
-from alphadia.transferlearning.context_extraction import resolve_context_model_path
+from alphadia.transferlearning.context_extraction import prepare_context_model_path
 from alphadia.utils import expand_path
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -261,6 +261,12 @@ class SearchStep:
 
         Steps 1 to 3 are performed depending on the quality and information in the spectral library.
         Step 4 is always performed to prepare the library for search.
+
+        Parameters
+        ----------
+        raw_name : str, optional
+            Name of the raw file to use as context indicator for all precursors in the library.
+            If not provided, a constant context indicator with value "constant_context" is used for all precursors.
         """
 
         def _parse_modifications(mod_str: str) -> list[str]:
@@ -321,7 +327,7 @@ class SearchStep:
             and "constant_context_indicator"
             not in prediction_config["context_indicators"]
         ):
-            # Combine the cont
+            # Use the raw file name as context indicator for all precursors in the library.
             indicator = prediction_config["context_indicators"][0]
             spectral_library.precursor_df[indicator] = raw_name
         else:
@@ -339,7 +345,7 @@ class SearchStep:
                 logger.info("Using peptdeep_kontext for library prediction.")
                 kontext_prediction = PeptDeepKontextPrediction(
                     use_gpu=general_config["use_gpu"],
-                    model_path=resolve_context_model_path(
+                    model_path=prepare_context_model_path(
                         prediction_config,
                         path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
                         subdir="ContextDownstream",

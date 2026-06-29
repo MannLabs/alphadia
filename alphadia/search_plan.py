@@ -9,7 +9,7 @@ import pandas as pd
 import yaml
 
 from alphadia.constants.keys import ConfigKeys, StatOutputCols
-from alphadia.exceptions import CustomError
+from alphadia.exceptions import CustomError, UserError
 from alphadia.outputtransform.search_plan_output import (
     SearchPlanOutput,
 )
@@ -94,7 +94,7 @@ class SearchPlan:
             self._transfer_step_enabled
             and self._adaptation_method not in _VALID_ADAPTATION_METHODS
         ):
-            raise CustomError(
+            raise UserError(
                 f"Invalid adaptation_method '{self._adaptation_method}'. "
                 f"Must be one of: {', '.join(_VALID_ADAPTATION_METHODS)}."
             )
@@ -109,10 +109,10 @@ class SearchPlan:
     def _update_paths(self) -> None:
         """Set directories for the different steps.
 
-        If the adaptation step is enabled, the library step output directory is unchanged (it stays
-            at the root output dir), but the adaptation step gets its own subdirectory.
-        If the mbr step is enabled, the library step output is moved to a subdirectory so the root
-            can be used for the final MBR output.
+        If the transfer step is enabled, the quant and library paths for the library step are pointed to the
+            output of the transfer step.
+        If the mbr step is enabled, the quant and library paths for the mbr step are pointed to the output of the
+            library step. Also, the output path for the library step is adjusted to be in a subdirectory of the original output path.
         """
         if self._transfer_step_enabled:
             self._transfer_step_output_dir = self._output_dir / TRANSFER_STEP_NAME
@@ -144,11 +144,10 @@ class SearchPlan:
                 f"=================== Running step '{TRANSFER_STEP_NAME}' ==================="
             )
 
-            method_config = (
-                {"transfer_learning": {"enabled": True}}
-                if self._adaptation_method == "transfer"
-                else {"context_extraction": {"enabled": True}}
-            )
+            if self._adaptation_method == "transfer":
+                method_config = {"transfer_learning": {"enabled": True}}
+            elif self._adaptation_method == "tto":
+                method_config = {"context_extraction": {"enabled": True}}
             # TODO: rename TRANSFER_STEP_NAME key to ADAPTATION_STEP_NAME once backward compat is dropped
             transfer_extra_config = (
                 self._multistep_config[TRANSFER_STEP_NAME] | method_config
@@ -175,7 +174,7 @@ class SearchPlan:
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
                             self._transfer_step_output_dir,
-                            SearchPlanOutput.CONTEXT_OUTPUT + ".json",
+                            SearchPlanOutput.CONTEXT_OUTPUT,
                         ),
                         "enabled": True,
                         ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep_kontext",

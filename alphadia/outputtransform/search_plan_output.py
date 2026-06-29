@@ -37,7 +37,7 @@ from alphadia.outputtransform.utils import (
 )
 from alphadia.transferlearning.context_extraction import (
     ContextExtractor,
-    resolve_context_model_path,
+    prepare_context_model_path,
 )
 from alphadia.transferlearning.train import FinetuneManager
 from alphadia.workflow.config import Config
@@ -46,6 +46,7 @@ logger = logging.getLogger(__name__)
 
 
 class SearchPlanOutput:
+    # extension omitted: format is determined at write time (e.g. .tsv or .parquet)
     PSM_INPUT = "psm"
     PRECURSOR_OUTPUT = "precursors"
     STAT_OUTPUT = "stat"
@@ -54,8 +55,9 @@ class SearchPlanOutput:
     LIBRARY_OUTPUT = "speclib.mbr"
     TRANSFER_OUTPUT = "speclib.transfer"
     TRANSFER_MODEL = "peptdeep.transfer"
-    CONTEXT_OUTPUT = "peptdeep_kontext.context"
     TRANSFER_STATS_OUTPUT = "stats.transfer"
+    # extension included: format is always .json
+    CONTEXT_OUTPUT = "peptdeep_kontext.context.json"
 
     def __init__(self, config: Config, output_folder: str):
         """Combine individual searches into and build combined outputs
@@ -144,7 +146,7 @@ class SearchPlanOutput:
                 self.config["transfer_library"]["fragment_types"],
                 self.config["transfer_library"]["max_charge"],
             ),
-            pretrained_context_model_path=resolve_context_model_path(
+            pretrained_context_model_path=prepare_context_model_path(
                 self.config["context_extraction"]
             ),
             tto_epoch=self.config["context_extraction"]["tto_epochs"],
