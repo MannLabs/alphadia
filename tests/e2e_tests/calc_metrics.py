@@ -11,7 +11,11 @@ from typing import Any
 import pandas as pd
 
 try:
-    from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, RUNS_DIR_NAME, get_test_case
+    from tests.e2e_tests.prepare_test_data import (
+        OUTPUT_DIR_NAME,
+        RUNS_DIR_NAME,
+        get_test_case,
+    )
 except ModuleNotFoundError:
     from prepare_test_data import OUTPUT_DIR_NAME, RUNS_DIR_NAME, get_test_case
 

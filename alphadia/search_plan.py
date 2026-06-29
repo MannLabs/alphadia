@@ -90,7 +90,10 @@ class SearchPlan:
             "mbr_step_enabled", default_config_general["mbr_step_enabled"]
         )
 
-        if self._transfer_step_enabled and self._adaptation_method not in _VALID_ADAPTATION_METHODS:
+        if (
+            self._transfer_step_enabled
+            and self._adaptation_method not in _VALID_ADAPTATION_METHODS
+        ):
             raise CustomError(
                 f"Invalid adaptation_method '{self._adaptation_method}'. "
                 f"Must be one of: {', '.join(_VALID_ADAPTATION_METHODS)}."
@@ -147,7 +150,9 @@ class SearchPlan:
                 else {"context_extraction": {"enabled": True}}
             )
             # TODO: rename TRANSFER_STEP_NAME key to ADAPTATION_STEP_NAME once backward compat is dropped
-            transfer_extra_config = self._multistep_config[TRANSFER_STEP_NAME] | method_config
+            transfer_extra_config = (
+                self._multistep_config[TRANSFER_STEP_NAME] | method_config
+            )
             self.run_step(
                 self._transfer_step_output_dir,
                 transfer_extra_config,
@@ -158,7 +163,8 @@ class SearchPlan:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH: os.path.join(
-                            self._transfer_step_output_dir, SearchPlanOutput.TRANSFER_MODEL
+                            self._transfer_step_output_dir,
+                            SearchPlanOutput.TRANSFER_MODEL,
                         ),
                         "enabled": True,
                         ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep",
@@ -168,7 +174,8 @@ class SearchPlan:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(
-                            self._transfer_step_output_dir, SearchPlanOutput.CONTEXT_OUTPUT + ".json"
+                            self._transfer_step_output_dir,
+                            SearchPlanOutput.CONTEXT_OUTPUT + ".json",
                         ),
                         "enabled": True,
                         ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep_kontext",

@@ -5,7 +5,9 @@ import logging
 from alphabase.peptide.fragment import get_charged_frag_types
 from alphabase.spectral_library.base import SpecLibBase
 from peptdeep.pretrained_models import ModelManager as PeptDeepModelManager
-from peptdeep_kontext.core.model_manager import ModelManager as PeptDeepKontextModelManager
+from peptdeep_kontext.core.model_manager import (
+    ModelManager as PeptDeepKontextModelManager,
+)
 from peptdeep_kontext.core.model_manager import ModelManagerConfig
 from peptdeep_kontext.datasets.context import Context, ZeroContext
 from peptdeep_kontext.datasets.prediction_aggregator import PredictionAggregator

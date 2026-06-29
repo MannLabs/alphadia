@@ -35,9 +35,9 @@ from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
 from alphadia.libtransform.peptdeep_kontext_prediction import PeptDeepKontextPrediction
 from alphadia.libtransform.prediction import PeptDeepPrediction
-from alphadia.transferlearning.context_extraction import resolve_context_model_path
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
+from alphadia.transferlearning.context_extraction import resolve_context_model_path
 from alphadia.utils import expand_path
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -256,7 +256,7 @@ class SearchStep:
 
             modification.add_new_modifications(new_modifications)
 
-    def load_library(self,raw_name: str | None = None) -> None:
+    def load_library(self, raw_name: str | None = None) -> None:
         """Load or build spectral library as configured.
 
         Steps 1 to 3 are performed depending on the quality and information in the spectral library.
@@ -316,12 +316,18 @@ class SearchStep:
         # 2. Check if properties should be predicted
 
         thread_count = general_config["thread_count"]
-        if raw_name is not None and 'constant_context_indicator' not in prediction_config['context_indicators']:
+        if (
+            raw_name is not None
+            and "constant_context_indicator"
+            not in prediction_config["context_indicators"]
+        ):
             # Combine the cont
             indicator = prediction_config["context_indicators"][0]
             spectral_library.precursor_df[indicator] = raw_name
         else:
-            spectral_library.precursor_df["constant_context_indicator"] = "constant_context"
+            spectral_library.precursor_df["constant_context_indicator"] = (
+                "constant_context"
+            )
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
@@ -338,7 +344,9 @@ class SearchStep:
                         path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
                         subdir="ContextDownstream",
                     ),
-                    context_path=prediction_config[ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH],
+                    context_path=prediction_config[
+                        ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH
+                    ],
                     fragment_types=prediction_config["fragment_types"],
                     max_fragment_charge=prediction_config["max_fragment_charge"],
                     predict_charge=prediction_config["predict_charge"],
@@ -468,7 +476,9 @@ class SearchStep:
         """
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
-            sample_raw_name = Path(self.raw_path_list[0]).stem if self.raw_path_list else None
+            sample_raw_name = (
+                Path(self.raw_path_list[0]).stem if self.raw_path_list else None
+            )
             self.load_library(sample_raw_name)
 
         if not self.raw_path_list:

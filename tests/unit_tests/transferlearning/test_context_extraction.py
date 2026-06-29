@@ -1,7 +1,5 @@
 from unittest.mock import patch
 
-import pytest
-
 from alphadia.transferlearning.context_extraction import (
     _DEFAULT_KONTEXT_CACHE,
     resolve_context_model_path,
@@ -29,7 +27,9 @@ def test_resolve_context_model_path_auto_download():
     ) as mock_download:
         result = resolve_context_model_path(config)
 
-    mock_download.assert_called_once_with(version="v8", target_dir=_DEFAULT_KONTEXT_CACHE)
+    mock_download.assert_called_once_with(
+        version="v8", target_dir=_DEFAULT_KONTEXT_CACHE
+    )
     assert result == "/cache/peptdeep_kontext/models_v8/ContextModel"
 
 
@@ -42,7 +42,9 @@ def test_resolve_context_model_path_auto_download_default_version():
     ) as mock_download:
         resolve_context_model_path(config)
 
-    mock_download.assert_called_once_with(version=None, target_dir=_DEFAULT_KONTEXT_CACHE)
+    mock_download.assert_called_once_with(
+        version=None, target_dir=_DEFAULT_KONTEXT_CACHE
+    )
 
 
 def test_resolve_context_model_path_custom_subdir():

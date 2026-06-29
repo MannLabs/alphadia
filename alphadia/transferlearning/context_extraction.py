@@ -51,7 +51,9 @@ def resolve_context_model_path(
         f"{path_key} not set — downloading peptdeep_kontext weights "
         f"(version={version}) to {_DEFAULT_KONTEXT_CACHE}"
     )
-    base_dir = download_pretrained_models(version=version, target_dir=_DEFAULT_KONTEXT_CACHE)
+    base_dir = download_pretrained_models(
+        version=version, target_dir=_DEFAULT_KONTEXT_CACHE
+    )
     return os.path.join(base_dir, subdir)
 
 

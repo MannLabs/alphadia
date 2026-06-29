@@ -529,7 +529,9 @@ def test_runs_plan_with_adaptation_tto_and_mbr_steps(
         | {
             "library_prediction": {
                 "context_path": str(
-                    Path("/user_provided_output_path/transfer/peptdeep_kontext.context.json")
+                    Path(
+                        "/user_provided_output_path/transfer/peptdeep_kontext.context.json"
+                    )
                 ),
                 "enabled": True,
                 "prediction_framework": "peptdeep_kontext",
