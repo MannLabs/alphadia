@@ -231,6 +231,23 @@ def _get_raw_path_list_from_args_and_config(
     return raw_path_list
 
 
+def _print_vendor_format_support() -> None:
+    """Print whether vendor-specific raw file formats can be read.
+
+    Reading Thermo (.raw) and Sciex (.wiff) files requires Dotnet/Mono, an
+    optional dependency. Surfacing support explicitly avoids only discovering
+    it is missing when a search later fails to read a raw file.
+    """
+    from alpharaw.raw_access import pysciexwifffilereader, pythermorawfilereader
+
+    for vendor, has_support in (
+        ("Thermo (.raw)", pythermorawfilereader.HAS_DOTNET),
+        ("Sciex (.wiff)", pysciexwifffilereader.HAS_DOTNET),
+    ):
+        status = "enabled" if has_support else "disabled (requires Mono/Dotnet)"
+        print(f"{vendor} support: {status}")
+
+
 def run(*args, **kwargs):
     args, unknown = parser.parse_known_args()
 
@@ -253,6 +270,7 @@ def run(*args, **kwargs):
             f"{__version__}"
         )  # important to have version as first string as this is picked up by the GUI
         print("Importing AlphaDIA works!")
+        _print_vendor_format_support()
         return
 
     user_config, config_file_path, extra_config_dict = _get_config_from_args(args)
