@@ -94,6 +94,8 @@ jobs:
       - name: Pip installation (stable)
         id: pip_installation
         shell: bash -el {0}
+        env:
+          PEPTDEEP_KONTEXT_TOKEN: ${{ secrets.PEPTDEEP_KONTEXT_TOKEN }}  # TEMP(pd_k)
         run: |
           conda info
           cd misc

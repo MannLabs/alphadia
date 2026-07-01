@@ -25,7 +25,9 @@ TRANSFER_STEP_NAME = "transfer"
 LIBRARY_STEP_NAME = "library"
 MBR_STEP_NAME = "mbr"
 
-_VALID_ADAPTATION_METHODS = ("transfer", "tto")
+ADAPTATION_METHOD_TRANSFER = "transfer"
+ADAPTATION_METHOD_TTO = "tto"
+_VALID_ADAPTATION_METHODS = (ADAPTATION_METHOD_TRANSFER, ADAPTATION_METHOD_TTO)
 
 CONSTANTS_FOLDER_PATH = Path(os.path.dirname(__file__)) / "constants"
 
@@ -144,9 +146,9 @@ class SearchPlan:
                 f"=================== Running step '{TRANSFER_STEP_NAME}' ==================="
             )
 
-            if self._adaptation_method == "transfer":
+            if self._adaptation_method == ADAPTATION_METHOD_TRANSFER:
                 method_config = {"transfer_learning": {"enabled": True}}
-            elif self._adaptation_method == "tto":
+            elif self._adaptation_method == ADAPTATION_METHOD_TTO:
                 method_config = {"context_extraction": {"enabled": True}}
             # TODO: rename TRANSFER_STEP_NAME key to ADAPTATION_STEP_NAME once backward compat is dropped
             transfer_extra_config = (
@@ -158,7 +160,7 @@ class SearchPlan:
                 TRANSFER_STEP_NAME,
             )
 
-            if self._adaptation_method == "transfer":
+            if self._adaptation_method == ADAPTATION_METHOD_TRANSFER:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH: os.path.join(
@@ -169,7 +171,7 @@ class SearchPlan:
                         ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK: "peptdeep",
                     }
                 }
-            else:  # "tto"
+            elif self._adaptation_method == ADAPTATION_METHOD_TTO:
                 extra_config_from_adaptation = {
                     ConfigKeys.LIBRARY_PREDICTION: {
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH: os.path.join(

@@ -51,6 +51,8 @@ jobs:
         fi
     - name: Perform pip installation
       shell: bash -l {0}
+      env:
+        PEPTDEEP_KONTEXT_TOKEN: ${{ secrets.PEPTDEEP_KONTEXT_TOKEN }}  # TEMP(pd_k)
       run: |
         cd misc
         . ./${{ inputs.install-script }}

@@ -36,6 +36,7 @@ jobs:
       needs-mono: ${{ !contains(matrix.os, 'windows') }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') && matrix.os != 'macos-15' }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
+    secrets: inherit  # TEMP(pd_k)
 
   run-unit-integration--tests-loose:
     if: contains(github.event.pull_request.labels.*.name, 'test:unit') || github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -53,3 +54,4 @@ jobs:
       # Use CPU pytorch on ubuntu for loose installation to void "disk full" error
       install-script: ./pip_install.sh tests alphadia-env ${{ matrix.python-version }} ${{ !contains(matrix.os, 'windows') && matrix.os != 'macos-15' }} ${{ contains(matrix.os, 'ubuntu') && 'CPU' || 'GPU' }}
       test-script: ./run_unit_integration_tests.sh alphadia-env all
+    secrets: inherit  # TEMP(pd_k)
