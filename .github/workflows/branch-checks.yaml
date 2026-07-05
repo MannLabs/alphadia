@@ -21,6 +21,14 @@ jobs:
       run: pip install pre-commit==4.3.0 uv
       # alphadia not installed -> no type checking possible yet (this is for fast feedback!)
     - uses: pre-commit/action@v3.0.1
+    - name: Install peptdeep_kontext (private)  # TEMP(pd_k)
+      shell: bash -le {0}
+      env:
+        PEPTDEEP_KONTEXT_TOKEN: ${{ secrets.PEPTDEEP_KONTEXT_TOKEN }}
+      run: |
+        if [ -n "${PEPTDEEP_KONTEXT_TOKEN:-}" ]; then
+          pip install "peptdeep_kontext @ git+https://x-access-token:${PEPTDEEP_KONTEXT_TOKEN}@github.com/MannLabs/peptdeep_kontext.git@main"
+        fi
     - shell: bash -le {0}
       run: pip install -e ".[stable]"
       # alphadia installed -> type checking possible (re-does other checks, but should be fast)
@@ -40,6 +48,7 @@ jobs:
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env unit
+    secrets: inherit  # TEMP(pd_k)
 
   run-notebook-tests-stable:
     name: Notebook tests stable;ubuntu-latest
@@ -54,6 +63,7 @@ jobs:
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_nb_tests.sh alphadia-env
+    secrets: inherit  # TEMP(pd_k)
 
   run-slow-tests:
     name: Integration tests stable;ubuntu-latest
@@ -68,6 +78,7 @@ jobs:
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh stable,tests alphadia-env ${{ matrix.python-version }} true
       test-script: ./run_unit_integration_tests.sh alphadia-env integration
+    secrets: inherit  # TEMP(pd_k)
 
   get-code-review-input:
     runs-on: ubuntu-latest

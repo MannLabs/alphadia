@@ -33,9 +33,11 @@ from alphadia.libtransform.harmonize import (
 )
 from alphadia.libtransform.loader import DynamicLoader
 from alphadia.libtransform.multiplex import MultiplexLibrary
+from alphadia.libtransform.peptdeep_kontext_prediction import PeptDeepKontextPrediction
 from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
+from alphadia.transferlearning.context_extraction import prepare_context_model_path
 from alphadia.utils import expand_path
 from alphadia.workflow.base import WorkflowBase
 from alphadia.workflow.config import (
@@ -254,11 +256,17 @@ class SearchStep:
 
             modification.add_new_modifications(new_modifications)
 
-    def load_library(self):
+    def load_library(self, raw_name: str | None = None) -> None:
         """Load or build spectral library as configured.
 
         Steps 1 to 3 are performed depending on the quality and information in the spectral library.
         Step 4 is always performed to prepare the library for search.
+
+        Parameters
+        ----------
+        raw_name : str, optional
+            Name of the raw file to use as context indicator for all precursors in the library.
+            If not provided, a constant context indicator with value "constant_context" is used for all precursors.
         """
 
         def _parse_modifications(mod_str: str) -> list[str]:
@@ -314,27 +322,64 @@ class SearchStep:
         # 2. Check if properties should be predicted
 
         thread_count = general_config["thread_count"]
-
+        if (
+            raw_name is not None
+            and "constant_context_indicator"
+            not in prediction_config["context_indicators"]
+        ):
+            # Use the raw file name as context indicator for all precursors in the library.
+            indicator = prediction_config["context_indicators"][0]
+            spectral_library.precursor_df[indicator] = raw_name
+        else:
+            spectral_library.precursor_df["constant_context_indicator"] = (
+                "constant_context"
+            )
         if prediction_config["enabled"]:
             logger.progress("Predicting library properties.")
 
-            pept_deep_prediction = PeptDeepPrediction(
-                use_gpu=general_config["use_gpu"],
-                fragment_mz=prediction_config["fragment_mz"],
-                nce=prediction_config["nce"],
-                instrument=prediction_config["instrument"],
-                mp_process_num=thread_count,
-                peptdeep_model_path=prediction_config[
-                    ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
-                ],
-                peptdeep_model_type=prediction_config["peptdeep_model_type"],
-                fragment_types=prediction_config["fragment_types"],
-                max_fragment_charge=prediction_config["max_fragment_charge"],
-                predict_charge=prediction_config["predict_charge"],
-                min_charge_probability=prediction_config["min_charge_probability"],
+            framework = prediction_config.get(
+                ConfigKeys.LIBRARY_PREDICTION.PREDICTION_FRAMEWORK, "peptdeep"
             )
 
-            spectral_library = pept_deep_prediction(spectral_library)
+            if framework == "peptdeep_kontext":
+                logger.info("Using peptdeep_kontext for library prediction.")
+                kontext_prediction = PeptDeepKontextPrediction(
+                    use_gpu=general_config["use_gpu"],
+                    model_path=prepare_context_model_path(
+                        prediction_config,
+                        path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
+                        subdir="ContextDownstream",
+                    ),
+                    context_path=prediction_config[
+                        ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH
+                    ],
+                    fragment_types=prediction_config["fragment_types"],
+                    max_fragment_charge=prediction_config["max_fragment_charge"],
+                    predict_charge=prediction_config["predict_charge"],
+                    min_charge_probability=prediction_config["min_charge_probability"],
+                    indicator_columns=prediction_config["context_indicators"],
+                )
+                spectral_library = kontext_prediction(spectral_library)
+
+            else:
+                logger.info("Using PeptDeep for library prediction.")
+                pept_deep_prediction = PeptDeepPrediction(
+                    use_gpu=general_config["use_gpu"],
+                    fragment_mz=prediction_config["fragment_mz"],
+                    nce=prediction_config["nce"],
+                    instrument=prediction_config["instrument"],
+                    mp_process_num=thread_count,
+                    peptdeep_model_path=prediction_config[
+                        ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_MODEL_PATH
+                    ],
+                    peptdeep_model_type=prediction_config["peptdeep_model_type"],
+                    fragment_types=prediction_config["fragment_types"],
+                    max_fragment_charge=prediction_config["max_fragment_charge"],
+                    predict_charge=prediction_config["predict_charge"],
+                    min_charge_probability=prediction_config["min_charge_probability"],
+                )
+
+                spectral_library = pept_deep_prediction(spectral_library)
 
         # 3. import library and harmonize
         harmonize_pipeline = ProcessingPipeline(
@@ -437,7 +482,10 @@ class SearchStep:
         """
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
-            self.load_library()
+            sample_raw_name = (
+                Path(self.raw_path_list[0]).stem if self.raw_path_list else None
+            )
+            self.load_library(sample_raw_name)
 
         if not self.raw_path_list:
             logger.warning("No raw files provided, nothing to search.")

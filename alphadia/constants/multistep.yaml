@@ -3,13 +3,14 @@
 
 # future : default.yaml -> user.yaml -> multistep_user.yaml -> multistep.yaml
 
+# TODO: rename back to adaptation: once backward compat with transfer_step_enabled is dropped
 transfer:
 #  library_prediction:  # should be done in 99% of cases
 #      predict: True
   transfer_library:
     enabled: True
-  transfer_learning:
-    enabled: True
+  # transfer_learning: enabled is injected by search_plan.py (always True for the "transfer" adaptation_method)
+  # context_extraction: enabled is injected instead when adaptation_method is "tto"
 
   # override settings that could have been set by the user:
   quant_directory: null # is step-specific, so user-defined values are not applicable as they would overwrite all steps' values with a single value
@@ -30,7 +31,8 @@ library:
 # will be set in search_plan.py if transfer step is enabled:
 #  library_prediction:
 #    enabled: True
-#    peptdeep_model_path: <value from transfer step>
+#    peptdeep_model_path: <value from transfer step> (transfer method)
+#    context_path: <value from transfer step> (tto method)
 
 mbr:
   fasta_paths: []

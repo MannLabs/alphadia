@@ -21,3 +21,4 @@ jobs:
       os: ${{ matrix.os }}
       install-script: ./pip_install.sh tests alphadia-env 3.11 true CPU
       test-script: ./run_unit_integration_tests.sh alphadia-env all
+    secrets: inherit  # TEMP(pd_k)

@@ -10,10 +10,10 @@ cd e2e_tests
 conda run -n $ENV_NAME --no-capture-output python prepare_test_data.py $TEST_CASE_NAME
 ls */*
 
-cat $TEST_CASE_NAME/config.yaml
+cat runs/$TEST_CASE_NAME/config.yaml
 
 TIMESTAMP_START=$(date +%s)
-conda run -n $ENV_NAME --no-capture-output alphadia --config $TEST_CASE_NAME/config.yaml
+conda run -n $ENV_NAME --no-capture-output alphadia --config runs/$TEST_CASE_NAME/config.yaml
 ls */*
 
 RUN_TIME=$(($(date +%s) - $TIMESTAMP_START))

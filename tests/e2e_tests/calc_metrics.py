@@ -11,9 +11,13 @@ from typing import Any
 import pandas as pd
 
 try:
-    from tests.e2e_tests.prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+    from tests.e2e_tests.prepare_test_data import (
+        OUTPUT_DIR_NAME,
+        RUNS_DIR_NAME,
+        get_test_case,
+    )
 except ModuleNotFoundError:
-    from prepare_test_data import OUTPUT_DIR_NAME, get_test_case
+    from prepare_test_data import OUTPUT_DIR_NAME, RUNS_DIR_NAME, get_test_case
 
 
 def _load_tsv(file_path: str) -> pd.DataFrame:
@@ -154,7 +158,7 @@ if __name__ == "__main__":
     test_results["branch_name"] = branch_name
     test_results["test_case_details"] = str(test_case)
 
-    output_path = os.path.join(test_case_name, OUTPUT_DIR_NAME)
+    output_path = os.path.join(RUNS_DIR_NAME, test_case_name, OUTPUT_DIR_NAME)
 
     metrics_classes = [
         cls for cls in Metrics.__subclasses__() if cls.__name__ in selected_metrics

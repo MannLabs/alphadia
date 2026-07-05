@@ -68,15 +68,20 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
 
     Returns
     -------
-    int64
+    uint64
         64-bit hash value
     """
+    # All arithmetic must stay in uint64: mixing the uint64 precursor_idx with the
+    # int64 shifted terms promotes the result to float64, which cannot represent
+    # integers above 2**53 exactly. With neutral-loss fragment types (loss_type > 0)
+    # the loss_type << 56 term exceeds that limit, so the low bits (precursor_idx,
+    # number, type) get rounded away and distinct fragments collide to the same hash.
     return (
-        precursor_idx
-        + (number << 32)
-        + (type << 40)
-        + (charge << 48)
-        + (loss_type << 56)
+        precursor_idx.astype(np.uint64)
+        + (number.astype(np.uint64) << np.uint64(32))
+        + (type.astype(np.uint64) << np.uint64(40))
+        + (charge.astype(np.uint64) << np.uint64(48))
+        + (loss_type.astype(np.uint64) << np.uint64(56))
     )
 
 

@@ -50,6 +50,13 @@ if [ -f ../requirements/_requirements.freeze.txt.backup ]; then
   mv ../requirements/_requirements.freeze.txt.backup ../requirements/_requirements.freeze.txt
 fi
 
+# TEMP(pd_k): install private peptdeep_kontext until it is on PyPI. Remove this whole block then.
+# Guarded so local dev (already installed) and fork PRs (no secret) still run. set -u -> use ${VAR:-}.
+if [ -n "${PEPTDEEP_KONTEXT_TOKEN:-}" ]; then
+  conda run -n $ENV_NAME --no-capture-output pip install \
+    "peptdeep_kontext @ git+https://x-access-token:${PEPTDEEP_KONTEXT_TOKEN}@github.com/MannLabs/peptdeep_kontext.git@main"
+fi
+
 # conda 'run' vs. 'activate', cf. https://stackoverflow.com/a/72395091
 conda run -n $ENV_NAME --no-capture-output pip install -e "../.$INSTALL_STRING"
 
