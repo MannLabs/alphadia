@@ -49,6 +49,18 @@
                     "description": "Whether to perform a 'second search' step after the first search. All parameters set here will also be used for this step (except those required to switch on the specific behaviour of this step).",
                     "type": "boolean",
                     "hidden": true
+                },
+                {
+                    "id": "adaptation_method",
+                    "name": "Adaptation Method",
+                    "default": "transfer",
+                    "description": "Method for the adaptation step: 'transfer' (peptdeep fine-tuning) or 'tto' (peptdeep_kontext test-time optimization). Selected via the Adaptation node in the workflow overview.",
+                    "type": "dropdown",
+                    "options": [
+                        "transfer",
+                        "tto"
+                    ],
+                    "hidden": true
                 }
             ],
             "parameters_advanced": [
@@ -190,6 +202,17 @@
                     "default": false,
                     "description": "Use alphaPeptDeep to predict peptide. \n If a FASTA file is provided an in silico digest will be performed. \n If a spectral library is provided precursor properties for library precursor will be performed.",
                     "type": "boolean"
+                },
+                {
+                    "id": "prediction_framework",
+                    "name": "Prediction Framework",
+                    "default": "peptdeep",
+                    "description": "Framework used for library prediction. \n 'peptdeep' uses alphaPeptDeep. \n 'peptdeep_kontext' uses the peptdeep_kontext models (see the Kontext Model Path and Context Path in the advanced parameters). \n Note: when a multistep TTO adaptation step is enabled, this is set automatically for the main search.",
+                    "type": "dropdown",
+                    "options": [
+                        "peptdeep",
+                        "peptdeep_kontext"
+                    ]
                 },
                 {
                     "id": "enzyme",
@@ -381,6 +404,20 @@
                         "phospho",
                         "digly"
                     ]
+                },
+                {
+                    "id": "peptdeep_kontext_model_path",
+                    "name": "Kontext Model Path",
+                    "default": null,
+                    "description": "peptdeep_kontext downstream (ContextDownstream) model directory used when Prediction Framework is 'peptdeep_kontext'. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
+                    "type": "singleFolderSelection"
+                },
+                {
+                    "id": "context_path",
+                    "name": "Context Path",
+                    "default": null,
+                    "description": "Path to the context used for peptdeep_kontext library prediction. If empty, a zero context is used. In a multistep TTO run this is set automatically from the adaptation step output.",
+                    "type": "singleFolderSelection"
                 }
             ]
         },
@@ -595,6 +632,9 @@
             "id": "transfer_library",
             "name": "Transfer Library",
             "hidden": true,
+            "visible_when": {
+                "general.transfer_step_enabled": true
+            },
             "parameters": [
                 {
                     "id": "enabled",
@@ -657,6 +697,10 @@
             "id": "transfer_learning",
             "name": "Transfer Learning",
             "hidden": true,
+            "visible_when": {
+                "general.transfer_step_enabled": true,
+                "general.adaptation_method": "transfer"
+            },
             "parameters": [
                 {
                     "id": "enabled",
@@ -748,6 +792,86 @@
                         "Velos", "Elite", "OrbitrapTribrid", "ThermoTribrid", "QE+",
                         "QEHF", "QEHFX", "Exploris", "Exploris480"
                     ]
+                }
+            ]
+        },
+        {
+            "id": "context_extraction",
+            "name": "Context Extraction",
+            "hidden": true,
+            "visible_when": {
+                "general.transfer_step_enabled": true,
+                "general.adaptation_method": "tto"
+            },
+            "parameters": [
+                {
+                    "id": "enabled",
+                    "name": "Enabled for all steps",
+                    "default": false,
+                    "description": "If true, peptdeep_kontext test-time optimization (TTO) is used to extract the context and predict the library. The settings in this section will be used for all steps. If you are using a multistep workflow with the 'tto' adaptation method, this option is automatically enabled for the adaptation step. Only use this section to configure individual settings but do not activate this option for all steps.",
+                    "type": "boolean"
+                }
+            ],
+            "parameters_advanced": [
+                {
+                    "id": "tto_epochs",
+                    "name": "TTO epochs",
+                    "default": 10,
+                    "description": "Number of epochs used to extract the context during TTO.",
+                    "type": "integer"
+                },
+                {
+                    "id": "tto_warmup_epochs",
+                    "name": "TTO warmup epochs",
+                    "default": 5,
+                    "description": "Number of warmup epochs during which the learning rate is ramped up during TTO.",
+                    "type": "integer"
+                },
+                {
+                    "id": "tto_batch_size",
+                    "name": "TTO batch size",
+                    "default": 2000,
+                    "description": "Number of precursors per batch during TTO.",
+                    "type": "integer"
+                },
+                {
+                    "id": "tto_lr",
+                    "name": "TTO learning rate",
+                    "default": 0.1,
+                    "description": "Maximum learning rate per batch during TTO. The maximum learning rate will be reached after a warmup phase.",
+                    "type": "float"
+                },
+                {
+                    "id": "context_model_path",
+                    "name": "Context Model Path",
+                    "default": null,
+                    "description": "Path to the pretrained peptdeep_kontext ContextModel directory. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
+                    "type": "singleFolderSelection"
+                },
+                {
+                    "id": "context_model_version",
+                    "name": "Context Model Version",
+                    "default": "v2",
+                    "description": "Version tag used when auto-downloading peptdeep_kontext model weights.",
+                    "type": "string"
+                },
+                {
+                    "id": "fragment_types",
+                    "name": "Fragment types",
+                    "default": ["b", "y"],
+                    "description": "List of fragment types to quantify in the library.",
+                    "type": "multi_select",
+                    "options": [
+                        "b", "y", "b_modloss", "y_modloss", "a", "c", "x", "z",
+                        "b_H2O", "y_H2O", "b_NH3", "y_NH3", "c_lossH", "z_addH"
+                    ]
+                },
+                {
+                    "id": "max_charge",
+                    "name": "Maximum charge",
+                    "default": 2,
+                    "description": "Maximum charge for fragments.",
+                    "type": "integer"
                 }
             ]
         }

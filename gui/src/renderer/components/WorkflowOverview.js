@@ -2,7 +2,7 @@ import * as React from 'react'
 import { useMethod } from '../logic/context'
 import { useMethodDispatch } from '../logic/context';
 import { Masonry } from '@mui/lab';
-import { Box, Typography, Switch, useTheme, List, ListItem, ListItemText, Stack } from '@mui/material';
+import { Box, Typography, Switch, useTheme, List, ListItem, ListItemText, Stack, ToggleButton, ToggleButtonGroup } from '@mui/material';
 
 import ReactFlow, {
     ReactFlowProvider,
@@ -175,31 +175,64 @@ const InputNode = ({ data, id, onEnabledChange }) => {
     );
 };
 
-const TransferLearningNode = ({ data, id, onEnabledChange }) => {
+const TransferLearningNode = ({ data, id, onEnabledChange, onMethodChange }) => {
+    const method = data.adaptationMethod === "tto" ? "tto" : "transfer";
+    const description = method === "tto"
+        ? "Search all files and extract the context with peptdeep_kontext. Will be used for main search."
+        : "Search all files and train a custom PeptDeep model. Will be used for main search.";
+
+    const handleMethodChange = (event, newMethod) => {
+        // ToggleButtonGroup passes null when the active button is re-clicked; ignore to keep a selection.
+        if (newMethod !== null) {
+            onMethodChange(newMethod);
+        }
+    };
+
     return (
         <CustomNodeBase data={data} id={id} onEnabledChange={onEnabledChange} tooltipTitle={
                     <Stack spacing={0.5}>
-                        <Typography sx={{ fontWeight: 'bold' }}>Transfer Learning</Typography>
-                        <Typography sx={{ fontFamily: 'monospace' }}>{`[general.transfer_step_enabled]`}</Typography>
+                        <Typography sx={{ fontWeight: 'bold' }}>Adaptation</Typography>
+                        <Typography sx={{ fontFamily: 'monospace' }}>{`[general.transfer_step_enabled] [general.adaptation_method]`}</Typography>
                         <Typography>
-                            The transfer learning step will perform a whole search of all selected raw files before the first search. It can be used with a spectral library or with fasta files and fully predicted library.
+                            The adaptation step will perform a whole search of all selected raw files before the first search. It can be used with a spectral library or with fasta files and fully predicted library.
+                            <br/><br/>
+                            Two methods are available:
+                            <br/>
+                            &bull; <b>Transfer</b>: fine-tune a custom PeptDeep model (transfer learning).
+                            <br/>
+                            &bull; <b>TTO</b>: extract the context with peptdeep_kontext (test-time optimization).
                             <br/><br/>
                             All parameters set in the configuration will also be used for this step (except those required to switch on the specific behavior of this step).
                             <br/><br/>
-                            If this step is enabled, the transfer library module as well as transfer learning module will be automatically activated for this step:
+                            If this step is enabled, the relevant modules are automatically activated for this step:
                         </Typography>
                         <Typography sx={{ fontFamily: 'monospace' }}>
-                            transfer_library.enabled  = true<br/>
-                            transfer_learning.enabled = true
+                            {method === "tto"
+                                ? "context_extraction.enabled = true"
+                                : <>transfer_library.enabled  = true<br/>transfer_learning.enabled = true</>}
                         </Typography>
                         <Typography>
-                            The configuration section for transfer learning and transfer library offer advanced parameters to tune the behavior of the transfer learning step.
+                            The corresponding configuration section offers advanced parameters to tune the behavior of the adaptation step.
                         </Typography>
                     </Stack>
                 }
             >
-                <Typography variant="body2" sx={{paddingTop: 2, pointerEvents: 'auto'}}>
-                    Search all files and train custom PeptDeep model. Will be used for main search.
+                {data.enabled && (
+                    <Box sx={{ paddingTop: 2, pointerEvents: 'auto' }}>
+                        <ToggleButtonGroup
+                            value={method}
+                            exclusive
+                            size="small"
+                            onChange={handleMethodChange}
+                            fullWidth
+                        >
+                            <ToggleButton value="transfer" sx={{ textTransform: 'none', py: 0.25 }}>Transfer</ToggleButton>
+                            <ToggleButton value="tto" sx={{ textTransform: 'none', py: 0.25 }}>TTO</ToggleButton>
+                        </ToggleButtonGroup>
+                    </Box>
+                )}
+                <Typography variant="body2" sx={{paddingTop: data.enabled ? 1 : 2, pointerEvents: 'auto'}}>
+                    {description}
                 </Typography>
         </CustomNodeBase>
     );
@@ -267,9 +300,9 @@ const OutputNode = ({ data, id, onEnabledChange }) => {
 };
 
 // Update createNodeTypes to use the renamed component
-const createNodeTypes = (handleEnabledChange) => ({
+const createNodeTypes = (handleEnabledChange, handleMethodChange) => ({
     inputIO: (props) => <InputNode {...props} onEnabledChange={handleEnabledChange} />,
-    transferLearning: (props) => <TransferLearningNode {...props} onEnabledChange={handleEnabledChange} />,
+    transferLearning: (props) => <TransferLearningNode {...props} onEnabledChange={handleEnabledChange} onMethodChange={handleMethodChange} />,
     librarySearch: (props) => <LibrarySearchNode {...props} onEnabledChange={handleEnabledChange} />,
     matchBetweenRuns: (props) => <MatchBetweenRunsNode {...props} onEnabledChange={handleEnabledChange} />,
     outputIO: (props) => <OutputNode {...props} onEnabledChange={handleEnabledChange} />
@@ -280,7 +313,7 @@ const edgeTypes = {
     animated: AnimatedEdge,
 };
 
-const getNodesForNodeStates = (transferLearningEnabled, matchBetweenRunsEnabled) => {
+const getNodesForNodeStates = (transferLearningEnabled, matchBetweenRunsEnabled, adaptationMethod) => {
     return [
         {
             id: '1',
@@ -298,9 +331,10 @@ const getNodesForNodeStates = (transferLearningEnabled, matchBetweenRunsEnabled)
             id: '2',
             position: { x: X0 + DELTA, y: 75 },
             data: {
-                label: 'Transfer Learning',
+                label: 'Adaptation',
                 isSwitchable: true,
                 enabled: transferLearningEnabled,
+                adaptationMethod: adaptationMethod,
                 isSource: true,
                 isTarget: true
             },
@@ -390,9 +424,12 @@ const getWorkflowStates = (method) => {
     const matchBetweenRunsStep = generalParameterGroup.parameters.find(parameter => parameter.id === "mbr_step_enabled");
     const matchBetweenRunsStepEnabled = matchBetweenRunsStep.value;
 
+    const adaptationMethodParameter = generalParameterGroup.parameters.find(parameter => parameter.id === "adaptation_method");
+    const adaptationMethod = adaptationMethodParameter ? adaptationMethodParameter.value : "transfer";
+
     return {
         edges: getEdgesForNodeStates(transferLearningStepEnabled, matchBetweenRunsStepEnabled),
-        nodes: getNodesForNodeStates(transferLearningStepEnabled, matchBetweenRunsStepEnabled)
+        nodes: getNodesForNodeStates(transferLearningStepEnabled, matchBetweenRunsStepEnabled, adaptationMethod)
     };
 };
 
@@ -437,10 +474,19 @@ const WorkflowOverview = () => {
 
     };
 
+    const handleMethodChange = (method) => {
+        dispatch({
+            type: 'updateParameter',
+            parameterGroupId: "general",
+            parameterId: "adaptation_method",
+            value: method
+        })
+    };
+
     // Memoize the nodeTypes object
     const nodeTypes = React.useMemo(
-        () => createNodeTypes(handleEnabledChange),
-        [handleEnabledChange]
+        () => createNodeTypes(handleEnabledChange, handleMethodChange),
+        [handleEnabledChange, handleMethodChange]
     );
 
     return (

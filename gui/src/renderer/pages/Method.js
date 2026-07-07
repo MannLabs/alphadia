@@ -13,6 +13,25 @@ const FullWidthBox = styled(Box)(({ theme }) => ({
     marginBottom: '8px'
 }))
 
+// Resolve a "section_id.parameter_id" reference to its current value in the method config.
+const getParameterValue = (method, path) => {
+    const [groupId, parameterId] = path.split('.');
+    const group = method.config.find(g => g.id === groupId);
+    if (!group) return undefined;
+    const parameter = [...(group.parameters || []), ...(group.parameters_advanced || [])]
+        .find(p => p.id === parameterId);
+    return parameter ? parameter.value : undefined;
+}
+
+// A section without `visible_when` is always shown. Otherwise every referenced
+// parameter must equal its expected value for the section to render.
+const isSectionVisible = (section, method) => {
+    if (!section.visible_when) return true;
+    return Object.entries(section.visible_when).every(
+        ([path, expected]) => getParameterValue(method, path) === expected
+    );
+}
+
 const Files = () => {
     const method = useMethod();
     const dispatch = useMethodDispatch();
@@ -112,7 +131,9 @@ const Config = () => {
                 />
             </Box>
             <Masonry columns={{ xs: 1, sm: 2, md: 2, lg: 3, xl: 3 }} spacing={1}>
-                {method.config.map((parameterGroup, index) => (
+                {method.config
+                    .filter(parameterGroup => isSectionVisible(parameterGroup, method))
+                    .map((parameterGroup, index) => (
                 <ParameterGroup
                     key={parameterGroup.id}
                     parameterGroup={parameterGroup}
