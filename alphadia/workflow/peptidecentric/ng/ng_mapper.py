@@ -15,6 +15,11 @@ from alphadia_search_rs import SpecLibFlat as SpecLibFlatNG
 
 from alphadia.raw_data import DiaData
 
+# NG feature names mapped to their classic equivalents when converting to a classic
+# features DataFrame. Kept in one place so the classifier feature list and the DataFrame
+# columns stay in sync.
+_FEATURE_RENAME_MAP = {"fwhm_rt": "cycle_fwhm"}
+
 
 def set_ng_thread_count(thread_count: int) -> None:
     """Set the number of threads for NG computations."""
@@ -86,9 +91,9 @@ def speclib_to_ng(
 
 def get_feature_names() -> list[str]:
     """Get feature names from NG CandidateFeatureCollection."""
-    blacklist = ["fwhm_rt"]  # TODO: remove
     return [
-        f for f in CandidateFeatureCollection.get_feature_names() if f not in blacklist
+        _FEATURE_RENAME_MAP.get(f, f)
+        for f in CandidateFeatureCollection.get_feature_names()
     ]
 
 
@@ -186,7 +191,7 @@ def to_features_df(
         how="left",
     )
 
-    features_df.rename(columns={"fwhm_rt": "cycle_fwhm"}, inplace=True)
+    features_df.rename(columns=_FEATURE_RENAME_MAP, inplace=True)
 
     return features_df
 
