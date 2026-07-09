@@ -51,6 +51,34 @@ const ParameterInput = ({
         searchTerm = '',
         sx
     }) => {
+        // Read-only status indicator: a disabled, checked checkbox. This module is activated by the
+        // multistep orchestration, not by the user, so the value is never written to the config (see workflowToConfig).
+        if (parameter.type === "disabledcheckbox") {
+            return (
+                <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    spacing={2}
+                    sx={{minHeight: "30px"}}
+                >
+                    <InfoTooltip title={
+                        <Stack spacing={0.5}>
+                            <Typography sx={{ fontWeight: 'bold' }}>{parameter.name}</Typography>
+                            <Typography>{parameter.description}</Typography>
+                        </Stack>
+                    }>
+                        <Typography sx={{ fontWeight: 400, fontSize: "12px", color: "text.secondary" }}>
+                            {parameter.name}
+                        </Typography>
+                    </InfoTooltip>
+                    <Box sx={{width: "150px"}}>
+                        <StyledCheckbox checked disabled size='small' />
+                    </Box>
+                </Stack>
+            )
+        }
+
         const theme = useTheme();
 
         // Check if parameter matches search term (space-separated terms are treated as AND)

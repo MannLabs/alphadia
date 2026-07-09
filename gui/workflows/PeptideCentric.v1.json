@@ -637,11 +637,10 @@
             },
             "parameters": [
                 {
-                    "id": "enabled",
-                    "name": "Enabled for all steps",
-                    "default": false,
-                    "description": "If true, transfer learning training dataset is created. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automatically enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
-                    "type": "boolean"
+                    "id": "info",
+                    "name": "Enabled for adaptation step",
+                    "description": "The transfer-learning training dataset is created for the adaptation step. The advanced settings below are applied to that step — adjust them only to fine-tune its behavior.",
+                    "type": "disabledcheckbox"
                 }
             ],
             "parameters_advanced": [
@@ -703,11 +702,10 @@
             },
             "parameters": [
                 {
-                    "id": "enabled",
-                    "name": "Enabled for all steps",
-                    "default": false,
-                    "description": "If true, a custom peptdeep model will be created using the transfer learned library. The settings in this section will be used for all steps. if you are using a multistep workflow, this option will automaticallly enabled for the transfer learning step. Only use this section to configure individual settings but do not activate this option for all steps.",
-                    "type": "boolean"
+                    "id": "info",
+                    "name": "Enabled for adaptation step",
+                    "description": "A custom PeptDeep model is trained automatically for the adaptation step when the 'Transfer' method is selected. The advanced settings below are applied to that step — adjust them only to fine-tune its behavior.",
+                    "type": "disabledcheckbox"
                 }
             ],
             "parameters_advanced": [
@@ -805,11 +803,10 @@
             },
             "parameters": [
                 {
-                    "id": "enabled",
-                    "name": "Enabled for all steps",
-                    "default": false,
-                    "description": "If true, peptdeep_kontext test-time optimization (TTO) is used to extract the context and predict the library. The settings in this section will be used for all steps. If you are using a multistep workflow with the 'tto' adaptation method, this option is automatically enabled for the adaptation step. Only use this section to configure individual settings but do not activate this option for all steps.",
-                    "type": "boolean"
+                    "id": "info",
+                    "name": "Enabled for adaptation step",
+                    "description": "The peptdeep_kontext context is extracted automatically (test-time optimization) for the adaptation step when the 'TTO' method is selected. The advanced settings below are applied to that step — adjust them only to fine-tune its behavior.",
+                    "type": "disabledcheckbox"
                 }
             ],
             "parameters_advanced": [

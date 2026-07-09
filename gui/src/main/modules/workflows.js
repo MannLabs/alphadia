@@ -125,9 +125,11 @@ function workflowToConfig(workflow) {
     workflow.config.forEach((config) => {
         output[config.id] = {}
         config.parameters.forEach((parameter) => {
+            if (parameter.type === "disabledcheckbox") return;
             output[config.id][parameter.id] = parameter.value
         })
         config.parameters_advanced.forEach((parameter) => {
+            if (parameter.type === "disabledcheckbox") return;
             output[config.id][parameter.id] = parameter.value
         })
     })
