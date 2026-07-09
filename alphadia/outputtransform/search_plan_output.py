@@ -147,7 +147,8 @@ class SearchPlanOutput:
                 self.config["transfer_library"]["max_charge"],
             ),
             pretrained_context_model_path=prepare_context_model_path(
-                self.config["context_extraction"]
+                self.config["context_extraction"],
+                version=self.config["context_extraction"]["context_model_version"],
             ),
             tto_epoch=self.config["context_extraction"]["tto_epochs"],
             tto_batch_size=self.config["context_extraction"]["tto_batch_size"],

@@ -27,32 +27,38 @@ def prepare_context_model_path(
     config: dict,
     path_key: str = "context_model_path",
     subdir: str = "ContextModel",
+    version: str | None = None,
 ) -> str:
     """Return the peptdeep_kontext model path, downloading weights first if not set.
 
     Parameters
     ----------
     config : dict
-        Config section containing the explicit path under ``path_key`` and
-        optionally ``context_model_version`` for the download version tag.
+        Config section containing the explicit model path under ``path_key``.
     path_key : str
         Key within ``config`` that holds the explicit model path.
         Defaults to ``"context_model_path"``.
     subdir : str
         Subdirectory within the downloaded model bundle to return when the
         explicit path is not set. Defaults to ``"ContextModel"``.
+    version : str, optional
+        Weights version tag used when auto-downloading, sourced by the caller
+        from ``context_extraction.context_model_version``. If None, the
+        downloader's own default version is used.
     """
     model_path = config.get(path_key)
     if model_path:
         return expand_path(model_path)
 
-    version = config.get("context_model_version")
     logger.info(
         f"{path_key} not set — downloading peptdeep_kontext weights "
-        f"(version={version}) to {_DEFAULT_KONTEXT_CACHE}"
+        f"(version={version or 'default'}) to {_DEFAULT_KONTEXT_CACHE}"
     )
+    # Don't forward a None version: download_pretrained_models has its own
+    # default, and passing None would override it and build a "models_None" URL.
+    version_kwargs = {"version": version} if version is not None else {}
     base_dir = download_pretrained_models(
-        version=version, target_dir=_DEFAULT_KONTEXT_CACHE
+        target_dir=_DEFAULT_KONTEXT_CACHE, **version_kwargs
     )
     return os.path.join(base_dir, subdir)
 

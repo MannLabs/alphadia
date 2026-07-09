@@ -349,6 +349,9 @@ class SearchStep:
                         prediction_config,
                         path_key=ConfigKeys.LIBRARY_PREDICTION.PEPTDEEP_KONTEXT_MODEL_PATH,
                         subdir="ContextDownstream",
+                        version=self.config["context_extraction"][
+                            "context_model_version"
+                        ],
                     ),
                     context_path=prediction_config[
                         ConfigKeys.LIBRARY_PREDICTION.CONTEXT_PATH
