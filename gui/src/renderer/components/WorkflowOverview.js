@@ -178,8 +178,8 @@ const InputNode = ({ data, id, onEnabledChange }) => {
 const TransferLearningNode = ({ data, id, onEnabledChange, onMethodChange }) => {
     const method = data.adaptationMethod === "tto" ? "tto" : "transfer";
     const description = method === "tto"
-        ? "Search all files and extract the context with peptdeep_kontext. Will be used for main search."
-        : "Search all files and train a custom PeptDeep model. Will be used for main search.";
+        ? "Search all files and extract the context with peptdeep_kontext. The result will be used for the main search."
+        : "Search all files and train a custom PeptDeep model. The result will be used for the main search.";
 
     const handleMethodChange = (event, newMethod) => {
         // ToggleButtonGroup passes null when the active button is re-clicked; ignore to keep a selection.

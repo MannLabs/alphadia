@@ -390,14 +390,14 @@
                     "id": "peptdeep_model_path",
                     "name": "PeptDeep Model Path",
                     "default": null,
-                    "description": "Select a custom PeptDeep model for library prediction. This can be a DDA or DIA trained model. Please make sure that you use the same instrument type and NCE for prediction as the model was trained on. If empty, a generic model provided by peptdeep will be used.",
+                    "description": "Custom PeptDeep model for library prediction. Relevant when using 'peptdeep' as the Prediction Framework, or when running the Transfer Learning adaptation method. This can be a DDA or DIA trained model; make sure to use the same instrument type and NCE for prediction as the model was trained on. If empty, a generic model provided by peptdeep is used.",
                     "type": "singleFolderSelection"
                 },
                 {
                     "id": "peptdeep_model_type",
                     "name": "PeptDeep Model Type",
                     "default": "generic",
-                    "description": "Select a custom pretrained PeptDeep model for library prediction. Possible defaults are 'generic', 'phospho' and 'digly'.",
+                    "description": "Pretrained PeptDeep model type for library prediction. Relevant when using 'peptdeep' as the Prediction Framework, or when running the Transfer Learning adaptation method. Possible values are 'generic', 'phospho' and 'digly'.",
                     "type": "dropdown",
                     "options": [
                         "generic",
@@ -407,16 +407,16 @@
                 },
                 {
                     "id": "peptdeep_kontext_model_path",
-                    "name": "Kontext Model Path",
+                    "name": "Peptdeep_Kontext Model Path",
                     "default": null,
-                    "description": "peptdeep_kontext downstream (ContextDownstream) model directory used when Prediction Framework is 'peptdeep_kontext'. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
+                    "description": "peptdeep_kontext downstream (ContextDownstream) model directory. Relevant when using 'peptdeep_kontext' as the Prediction Framework, or when running the TTO adaptation method. If empty, the weights are auto-downloaded to ~/.cache/peptdeep_kontext.",
                     "type": "singleFolderSelection"
                 },
                 {
                     "id": "context_path",
-                    "name": "Context Path",
+                    "name": "Peptdeep_Kontext Experiment Context Path",
                     "default": null,
-                    "description": "Path to the context used for peptdeep_kontext library prediction. If empty, a zero context is used. In a multistep TTO run this is set automatically from the adaptation step output.",
+                    "description": "Path to the experiment context used for peptdeep_kontext library prediction. Relevant when using 'peptdeep_kontext' as the Prediction Framework. If empty, a zero context is used. In a multistep TTO run this is set automatically from the adaptation step output, so you do not need to set it here.",
                     "type": "singleFolderSelection"
                 }
             ]
