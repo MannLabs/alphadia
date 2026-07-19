@@ -631,7 +631,9 @@ class NgExtractionHandler(ExtractionHandler):
 
         if precursor_fdr_df is not None:
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+                precursor_fdr_df[
+                    ["precursor_idx", "rank", "qval", "proba", "cycle_fwhm"]
+                ],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
@@ -653,8 +655,6 @@ class NgExtractionHandler(ExtractionHandler):
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
         )
 
-        # TODO: get this from the ng backend
-        features_or_precursor_df["cycle_fwhm"] = 3  # TODO: remove
         features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
             CalibCols.MZ_LIBRARY
         ]  # required for transfer library building
