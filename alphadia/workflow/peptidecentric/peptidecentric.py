@@ -133,11 +133,15 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
 
     def _save_managers(self):
-        """Saves the calibration, optimization and FDR managers to disk so that they can be reused if needed.
+        """Saves the optimization manager to disk so that it can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
         The FDR manager is not saved because it is not used in subsequent parts of the workflow.
+        Calibration is not reused across runs, so only its metrics are written out (as
+        JSON) for the output statistics.
         """
-        self.calibration_manager.save()
+        self.calibration_manager.save_stats(
+            os.path.join(self.path, self.CALIBRATION_STATS_FILE_NAME)
+        )
         self.optimization_manager.save()  # this replaces the .save() call when the optimization manager is fitted, since there seems little point in saving an intermediate optimization manager.
 
     @use_timing_manager("optimization")
@@ -145,18 +149,9 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """Performs optimization of the search parameters.
 
         Delegates the actual optimization to the OptimizationHandler.search_parameter_optimization(), see docstring there for more details.
-        """
-        # First check to see if the calibration has already been performed. Return if so.
-        if (
-            self.calibration_manager.is_loaded_from_file
-            and self.calibration_manager.all_fitted
-        ):
-            self.reporter.log_string(
-                "Skipping calibration as existing calibration was found",
-                verbosity="progress",
-            )
-            return
 
+        Note: calibration is not reused across runs; it is always re-fitted here.
+        """
         optimization_handler = OptimizationHandler(
             self.config,
             self.optimization_manager,

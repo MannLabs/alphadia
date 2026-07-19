@@ -31,7 +31,9 @@ class WorkflowBase:
     """
 
     RAW_FILE_MANAGER_PKL_NAME = "raw_file_manager.pkl"
-    CALIBRATION_MANAGER_PKL_NAME = "calibration_manager.pkl"
+    # Calibration is not persisted/reused across runs; only its metrics are written
+    # out (as JSON) for the output statistics.
+    CALIBRATION_STATS_FILE_NAME = "calibration.stats.json"
     OPTIMIZATION_MANAGER_PKL_NAME = "optimization_manager.pkl"
     TIMING_MANAGER_PKL_NAME = "timing_manager.pkl"
     FDR_MANAGER_PKL_NAME = "fdr_manager.pkl"
@@ -144,9 +146,10 @@ class WorkflowBase:
 
         self._spectral_library: SpecLibFlat = spectral_library.copy()
 
+        # Calibration is always re-fitted (not reused across runs), so it is neither
+        # loaded from nor pickled to disk; only its metrics are exported as JSON.
         self._calibration_manager = CalibrationManager(
-            path=os.path.join(self.path, self.CALIBRATION_MANAGER_PKL_NAME),
-            load_from_file=self.config["general"]["reuse_calibration"],
+            load_from_file=False,
             has_ms1=self._dia_data.has_ms1,
             has_mobility=self._dia_data.has_mobility,
             reporter=self.reporter,
