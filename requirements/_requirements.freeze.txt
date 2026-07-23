@@ -74,7 +74,7 @@ six==1.17.0
 sympy==1.13.1
 threadpoolctl==3.6.0
 tokenizers==0.21.1
-torch==2.6.0  ; sys_platform != 'darwin' or platform_machine != 'x86_64'
+torch==2.6.0
 torchmetrics==1.7.1
 tqdm==4.67.1
 transformers==4.51.2
@@ -83,4 +83,3 @@ typing-extensions==4.13.2
 tzdata==2025.2
 urllib3==2.4.0
 xxhash==3.5.0
-torch==2.2.2; sys_platform == 'darwin' and platform_machine == 'x86_64'
