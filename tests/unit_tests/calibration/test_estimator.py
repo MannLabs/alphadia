@@ -31,8 +31,8 @@ def test_fit_predict_ppm():
 
     assert mz_calibration.is_fitted is True
     assert "calibrated_mz" in mz_df.columns
-    assert mz_calibration.metrics.median_accuracy >= 0
-    assert mz_calibration.metrics.median_precision >= 0
+    assert mz_calibration.metrics.median_bias >= 0
+    assert mz_calibration.metrics.median_variance >= 0
 
     # calibration should bring the predicted values closer to the observed ones
     raw_err = np.median(np.abs(mz_df["observed_mz"] - mz_df["library_mz"]))

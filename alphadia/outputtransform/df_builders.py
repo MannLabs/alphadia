@@ -125,24 +125,18 @@ def build_run_stat_df(
                 CalibrationGroups.FRAGMENT, {}
             ).get(CalibrationEstimators.MZ):
                 metrics = CalibrationMetrics(**fragment_mz)
-                # TODO: rename median_accuracy -> median_bias, median_precision -> median_variance
-                calibration_stats[StatCalibrationCols.MS2_BIAS] = (
-                    metrics.median_accuracy
-                )
-                calibration_stats[StatCalibrationCols.MS2_ERROR] = (
-                    metrics.median_precision
+                calibration_stats[StatCalibrationCols.MS2_BIAS] = metrics.median_bias
+                calibration_stats[StatCalibrationCols.MS2_VARIANCE] = (
+                    metrics.median_variance
                 )
 
             if precursor_mz := calibration_metrics.get(
                 CalibrationGroups.PRECURSOR, {}
             ).get(CalibrationEstimators.MZ):
                 metrics = CalibrationMetrics(**precursor_mz)
-                # TODO: rename median_accuracy -> median_bias, median_precision -> median_variance
-                calibration_stats[StatCalibrationCols.MS1_BIAS] = (
-                    metrics.median_accuracy
-                )
-                calibration_stats[StatCalibrationCols.MS1_ERROR] = (
-                    metrics.median_precision
+                calibration_stats[StatCalibrationCols.MS1_BIAS] = metrics.median_bias
+                calibration_stats[StatCalibrationCols.MS1_VARIANCE] = (
+                    metrics.median_variance
                 )
 
         else:
@@ -150,9 +144,9 @@ def build_run_stat_df(
 
         for key in [
             StatCalibrationCols.MS2_BIAS,
-            StatCalibrationCols.MS2_ERROR,
+            StatCalibrationCols.MS2_VARIANCE,
             StatCalibrationCols.MS1_BIAS,
-            StatCalibrationCols.MS1_ERROR,
+            StatCalibrationCols.MS1_VARIANCE,
         ]:
             stats[key] = calibration_stats.get(key, "NaN")
 

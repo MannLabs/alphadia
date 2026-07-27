@@ -23,16 +23,16 @@ class CalibrationMetrics:
 
     Attributes
     ----------
-    median_accuracy : float
+    median_bias : float
         Median absolute calibrated deviation (systematic bias after calibration).
 
-    median_precision : float
+    median_variance : float
         Median absolute residual deviation (spread after calibration).
 
     """
 
-    median_accuracy: float
-    median_precision: float
+    median_bias: float
+    median_variance: float
 
 
 class CalibrationEstimator:
@@ -83,12 +83,13 @@ class CalibrationEstimator:
         self.transform_deviation = (
             float(transform_deviation) if transform_deviation is not None else None
         )
-        # kept as a list for backwards-compatible access from the plotting code
-        self.input_columns = [input_column]
-        self._target_columns = [target_column]
-        self._output_columns = [output_column]
+        self._input_column = input_column
+        self._target_column = target_column
+        self._output_column = output_column
 
-        self._rust = _RustCalibrationEstimator(n_kernels, self.transform_deviation)
+        self._calibration_estimator = _RustCalibrationEstimator(
+            n_kernels, self.transform_deviation
+        )
 
         self.is_fitted = False
         self.metrics: CalibrationMetrics | None = None
@@ -96,6 +97,11 @@ class CalibrationEstimator:
     def __repr__(self) -> str:
         """Return a string representation of the Calibration object."""
         return f"<Calibration {self.name}, is_fitted: {self.is_fitted}>"
+
+    @property
+    def input_column(self) -> str:
+        """Column used as input for the estimator e.g. 'mz_library'."""
+        return self._input_column
 
     def _validate_columns(self, df: pd.DataFrame, required_columns: list[str]) -> bool:
         """Validate that the required columns are present in the dataframe."""
@@ -107,11 +113,18 @@ class CalibrationEstimator:
             return False
         return True
 
-    def _input_array(self, df: pd.DataFrame) -> np.ndarray:
-        return df[self.input_columns[0]].to_numpy(dtype=np.float32)
+    def _get_input_array(self, df: pd.DataFrame) -> np.ndarray:
+        """Return the input column as a float32 array.
 
-    def _target_array(self, df: pd.DataFrame) -> np.ndarray:
-        return df[self._target_columns[0]].to_numpy(dtype=np.float32)
+        Whether this is a copy or a view on the dataframe depends on the column dtype,
+        so the result is only ever passed on read-only: the Rust binding takes
+        ``Vec<f32>`` and copies it.
+        """
+        return df[self._input_column].to_numpy(dtype=np.float32)
+
+    def _get_target_array(self, df: pd.DataFrame) -> np.ndarray:
+        """Return the target column as a float32 array. See `_get_input_array`."""
+        return df[self._target_column].to_numpy(dtype=np.float32)
 
     def fit(
         self,
@@ -134,31 +147,31 @@ class CalibrationEstimator:
             If not None, the plot is saved to the given path.
 
         """
-        if not self._validate_columns(df, self.input_columns + self._target_columns):
+        if not self._validate_columns(df, [self._input_column, self._target_column]):
             raise ValueError(
                 f"{self.name} calibration fitting: failed input validation"
             )
 
-        input_values = self._input_array(df)
-        target_values = self._target_array(df)
+        input_values = self._get_input_array(df)
+        target_values = self._get_target_array(df)
 
         # a fresh Rust estimator is created for every fit (no reuse across runs)
-        self._rust = _RustCalibrationEstimator(
+        self._calibration_estimator = _RustCalibrationEstimator(
             self._n_kernels, self.transform_deviation
         )
         try:
-            self._rust.fit(input_values, target_values)
+            self._calibration_estimator.fit(input_values, target_values)
         except Exception as e:  # noqa: BLE001
             logging.warning(f"Could not fit estimator {self.name}: {e}")
             return
 
         self.is_fitted = True
 
-        metrics = self._rust.metrics()
+        metrics = self._calibration_estimator.metrics()
         self.metrics = (
             CalibrationMetrics(
-                median_accuracy=float(metrics[0]),
-                median_precision=float(metrics[1]),
+                median_bias=float(metrics[0]),
+                median_variance=float(metrics[1]),
             )
             if metrics is not None
             else None
@@ -190,17 +203,18 @@ class CalibrationEstimator:
             )
             return None
 
-        if not self._validate_columns(df, self.input_columns):
+        if not self._validate_columns(df, [self._input_column]):
             raise ValueError(
                 f"{self.name} calibration prediction: failed input validation"
             )
 
         predicted_values = np.asarray(
-            self._rust.predict(self._input_array(df)), dtype=np.float64
+            self._calibration_estimator.predict(self._get_input_array(df)),
+            dtype=np.float64,
         )
 
         if inplace:
-            df[self._output_columns[0]] = predicted_values
+            df[self._output_column] = predicted_values
             return None
 
         return predicted_values
@@ -216,14 +230,14 @@ class CalibrationEstimator:
         Returns
         -------
         np.ndarray
-            Array of shape (n_samples, 3 + n_input_columns) with columns
+            Array of shape (n_samples, 4) with columns
             [observed deviation, calibrated deviation, residual deviation, input].
 
         """
-        observed, calibrated, residual = self._rust.deviation(
-            self._input_array(df), self._target_array(df)
+        observed, calibrated, residual = self._calibration_estimator.deviation(
+            self._get_input_array(df), self._get_target_array(df)
         )
-        input_values = df[self.input_columns].to_numpy()
+        input_values = df[[self._input_column]].to_numpy()
         return np.concatenate(
             [
                 np.asarray(observed)[:, np.newaxis],
@@ -257,4 +271,8 @@ class CalibrationEstimator:
         if not self.is_fitted:
             return 0
 
-        return float(self._rust.ci(self._input_array(df), self._target_array(df), ci))
+        return float(
+            self._calibration_estimator.ci(
+                self._get_input_array(df), self._get_target_array(df), ci
+            )
+        )

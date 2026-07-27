@@ -177,7 +177,7 @@ def test_calibration_manager_save_stats():
     stats = calibration_manager.get_stats()
     assert set(stats["precursor"]) == {"mz", "rt"}  # mobility skipped
     assert set(stats["fragment"]) == {"mz"}
-    assert set(stats["precursor"]["mz"]) == {"median_accuracy", "median_precision"}
+    assert set(stats["precursor"]["mz"]) == {"median_bias", "median_variance"}
 
     stats_path = os.path.join(tempfile.tempdir, "calibration.stats.json")
     calibration_manager.save_stats(stats_path)
