@@ -34,6 +34,8 @@ function getBinaryPath() {
     }
 }
 
+const MAX_LINE_LENGTH = 1000;
+
 function lineBreakTransform () {
 
     // https://stackoverflow.com/questions/40781713/getting-chunks-by-newline-in-node-js-data-stream
@@ -43,18 +45,28 @@ function lineBreakTransform () {
         transform(chunk, encoding, cb) {
         if ( this._last === undefined ) { this._last = "" }
         this._last += decoder.write(chunk);
-        // Split on \n or \r, keeping the delimiter at the end of each segment
-        var list = this._last.split(/(?<=\r)|\n/);
-        this._last = list.pop();
+
+        // The backend uses CRLF line endings on Windows. Those \r must be dropped
+        // here, because a segment ending in \r is the signal the renderer uses to
+        // overwrite the previous line for tqdm-style in-place progress updates.
+        // A \r at the very end of the buffer is held back: it may be the first half
+        // of a CRLF that is split across two chunks.
+        const trailingCr = this._last.endsWith("\r") ? "\r" : ""
+        const buffered = (trailingCr ? this._last.slice(0, -1) : this._last).replace(/\r\n/g, "\n")
+
+        // Split on \n or \r, keeping a bare \r at the end of the preceding segment
+        var list = buffered.split(/(?<=\r)|\n/);
+        this._last = list.pop() + trailingCr;
         for (var i = 0; i < list.length; i++) {
-            this.push( list[i].slice(0, 1000) );
+            this.push( list[i].slice(0, MAX_LINE_LENGTH) );
         }
         cb();
     },
 
     flush(cb) {
         this._last += decoder.end()
-        if (this._last) { this.push(this._last.slice(0, 1000)) }
+        this._last = this._last.replace(/\r\n/g, "\n")
+        if (this._last) { this.push(this._last.slice(0, MAX_LINE_LENGTH)) }
         cb()
     }
     });
