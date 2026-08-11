@@ -63,7 +63,7 @@ class ConfigKeys(metaclass=ConstantsClass):
 
 
 class CalibCols(metaclass=ConstantsClass):
-    """String constants for accessing (mz, rt, mobility) columns in the context of calibration."""
+    """String constants for accessing (mz, rt, or mobility) columns in the context of calibration."""
 
     MZ_OBSERVED = "mz_observed"
     MZ_LIBRARY = "mz_library"

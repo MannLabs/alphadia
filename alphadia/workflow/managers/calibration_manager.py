@@ -48,7 +48,7 @@ class CalibrationManager(BaseManager):
         Calibrations are grouped into calibration groups. Each calibration group is
         applied to a single data structure (precursor dataframe, fragment dataframe).
         Each group contains multiple estimators which each calibrate a single
-        property (mz, rt, mobility). The numeric model and its configuration live in
+        property (mz, rt, or mobility). The numeric model and its configuration live in
         the Rust backend; this manager only maps dataframe columns to estimators.
 
         Parameters
@@ -100,6 +100,9 @@ class CalibrationManager(BaseManager):
         """
         self.reporter.log_string("Setting up calibration estimators ..")
 
+        # Note: the mapping to which columns to actually use is currently done in
+        # ColumnNameHandler.
+        # TODO: rethink this coupling
         fragment_group = {
             CalibrationEstimators.MZ: CalibrationEstimator(
                 name=CalibrationEstimators.MZ,
@@ -223,7 +226,7 @@ class CalibrationManager(BaseManager):
 
         Shape: ``{group_name: {estimator_name: {metric: value}}}``. Estimators that
         have not been fitted (no metrics) are omitted. Used to export calibration
-        statistics for the output without persisting the whole manager.
+        statistics for the output.
         """
         return {
             group_name: {

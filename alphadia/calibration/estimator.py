@@ -36,7 +36,7 @@ class CalibrationMetrics:
 
 
 class CalibrationEstimator:
-    """A single estimator for a property (mz, rt, mobility).
+    """A single estimator for a property (e.g. mz, rt, or mobility).
 
     Calibration models the deviation of an input value (e.g. ``mz_library``) from
     an observed property (e.g. ``mz_observed``). Once fitted, calibrated values

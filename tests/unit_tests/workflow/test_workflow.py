@@ -164,8 +164,6 @@ def test_calibration_manager_fit_predict():
 
 
 def test_calibration_manager_save_stats():
-    # Calibration is not reused across runs; only its metrics are exported as JSON
-    # for the output statistics.
     calibration_manager = CalibrationManager(load_from_file=False, has_mobility=False)
 
     test_df = calibration_testdata()

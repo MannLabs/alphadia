@@ -136,8 +136,7 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """Saves the optimization manager to disk so that it can be reused if needed.
         Note the timing manager is not saved at this point as it is saved with every call to it.
         The FDR manager is not saved because it is not used in subsequent parts of the workflow.
-        Calibration is not reused across runs, so only its metrics are written out (as
-        JSON) for the output statistics.
+        The calibration metrics are written out as JSON for the output statistics.
         """
         self.calibration_manager.save_stats(
             os.path.join(self.path, self.CALIBRATION_STATS_FILE_NAME)
@@ -149,8 +148,6 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         """Performs optimization of the search parameters.
 
         Delegates the actual optimization to the OptimizationHandler.search_parameter_optimization(), see docstring there for more details.
-
-        Note: calibration is not reused across runs; it is always re-fitted here.
         """
         optimization_handler = OptimizationHandler(
             self.config,
