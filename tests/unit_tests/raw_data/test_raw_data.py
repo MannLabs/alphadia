@@ -5,6 +5,8 @@ import pytest
 
 from alphadia.exceptions import NotValidDiaDataError
 from alphadia.raw_data import alpharaw_wrapper, bruker
+from alphadia.raw_data.alpharaw_wrapper import ALPHARAW_HDF_GROUP
+from alphadia.raw_data.bruker_hdf import ALPHATIMS_HDF_GROUP
 from alphadia.workflow.managers.raw_file_manager import _is_alphatims_hdf
 
 
@@ -241,7 +243,7 @@ def _write_group_from_dict(group, data):
             group.attrs[key] = value
 
 
-def _write_timstof_hdf(path, data, group_name=bruker.ALPHATIMS_HDF_GROUP):
+def _write_timstof_hdf(path, data, group_name=ALPHATIMS_HDF_GROUP):
     with h5py.File(path, "w") as hdf_file:
         _write_group_from_dict(hdf_file.create_group(group_name), data)
 
@@ -284,12 +286,23 @@ def test_is_alphatims_hdf(tmp_path):
     # given
     alphatims_path = str(tmp_path / "alphatims.hdf")
     with h5py.File(alphatims_path, "w") as hdf_file:
-        hdf_file.create_group(bruker.ALPHATIMS_HDF_GROUP)
+        hdf_file.create_group(ALPHATIMS_HDF_GROUP)
 
     alpharaw_path = str(tmp_path / "alpharaw.hdf")
     with h5py.File(alpharaw_path, "w") as hdf_file:
-        hdf_file.create_group("ms_data")
+        hdf_file.create_group(ALPHARAW_HDF_GROUP)
 
     # when / then
     assert _is_alphatims_hdf(alphatims_path) is True
     assert _is_alphatims_hdf(alpharaw_path) is False
+
+
+def test_is_alphatims_hdf_unknown_group_raises(tmp_path):
+    # given
+    hdf_path = str(tmp_path / "unknown.hdf")
+    with h5py.File(hdf_path, "w") as hdf_file:
+        hdf_file.create_group("something_else")
+
+    # when / then
+    with pytest.raises(NotValidDiaDataError, match="holds neither"):
+        _is_alphatims_hdf(hdf_path)
