@@ -155,7 +155,6 @@ class CalibrationEstimator:
         input_values = self._get_input_array(df)
         target_values = self._get_target_array(df)
 
-        # a fresh Rust estimator is created for every fit (no reuse across runs)
         self._calibration_estimator = _RustCalibrationEstimator(
             self._n_kernels, self.transform_deviation
         )
