@@ -1,11 +1,11 @@
+import json
 import logging
+from dataclasses import asdict
+from pathlib import Path
 
 import pandas as pd
 
-from alphadia.calibration.estimator import (
-    CalibrationEstimator,
-    calibration_model_provider,
-)
+from alphadia.calibration.estimator import CalibrationEstimator
 from alphadia.constants.keys import CalibCols, ConstantsClass
 from alphadia.workflow.managers.base import BaseManager
 
@@ -13,7 +13,6 @@ logger = logging.getLogger()
 
 
 EstimatorGroups = dict[str, dict[str, CalibrationEstimator]]
-CalibrationConfig = dict[str, dict[str, dict[str, str | int | list[str]]]]
 
 
 class CalibrationGroups(metaclass=ConstantsClass):
@@ -31,44 +30,8 @@ class CalibrationEstimators(metaclass=ConstantsClass):
     MOBILITY = "mobility"
 
 
-# Configuration for the calibration manager.
-# Note: The mapping to which columns to actually use it currently done in ColumnNameHandler. # TODO: rethink this coupling
-CALIBRATION_GROUPS_CONFIG: CalibrationConfig = {
-    CalibrationGroups.FRAGMENT: {
-        CalibrationEstimators.MZ: {
-            "input_columns": [CalibCols.MZ_LIBRARY],
-            "target_columns": [CalibCols.MZ_OBSERVED],
-            "output_columns": [CalibCols.MZ_CALIBRATED],
-            "model": "LOESSRegression",
-            "model_args": {"n_kernels": 2},
-            "transform_deviation": "1e6",
-        }
-    },
-    CalibrationGroups.PRECURSOR: {
-        CalibrationEstimators.MZ: {
-            "input_columns": [CalibCols.MZ_LIBRARY],
-            "target_columns": [CalibCols.MZ_OBSERVED],
-            "output_columns": [CalibCols.MZ_CALIBRATED],
-            "model": "LOESSRegression",
-            "model_args": {"n_kernels": 2},
-            "transform_deviation": "1e6",
-        },
-        CalibrationEstimators.RT: {
-            "input_columns": [CalibCols.RT_LIBRARY],
-            "target_columns": [CalibCols.RT_OBSERVED],
-            "output_columns": [CalibCols.RT_CALIBRATED],
-            "model": "LOESSRegression",
-            "model_args": {"n_kernels": 6},
-        },
-        CalibrationEstimators.MOBILITY: {
-            "input_columns": [CalibCols.MOBILITY_LIBRARY],
-            "target_columns": [CalibCols.MOBILITY_OBSERVED],
-            "output_columns": [CalibCols.MOBILITY_CALIBRATED],
-            "model": "LOESSRegression",
-            "model_args": {"n_kernels": 2},
-        },
-    },
-}
+# Transform factor for deviations expressed in parts-per-million (m/z calibration).
+PPM_TRANSFORM = 1e6
 
 
 class CalibrationManager(BaseManager):
@@ -82,7 +45,11 @@ class CalibrationManager(BaseManager):
     ):
         """Contains, updates and applies all calibrations for a single run.
 
-        Calibrations are grouped into calibration groups. Each calibration group is applied to a single data structure (precursor dataframe, fragment fataframe, etc.). Each calibration group contains multiple estimators which each calibrate a single property (mz, rt, etc.). Each estimator is a `Calibration` object which contains the estimator function.
+        Calibrations are grouped into calibration groups. Each calibration group is
+        applied to a single data structure (precursor dataframe, fragment dataframe).
+        Each group contains multiple estimators which each calibrate a single
+        property (mz, rt, or mobility). The numeric model and its configuration live in
+        the Rust backend; this manager only maps dataframe columns to estimators.
 
         Parameters
         ----------
@@ -93,13 +60,13 @@ class CalibrationManager(BaseManager):
             If True, the manager will be loaded from file if it exists.
 
         has_ms1 : bool, default=True
-            If True, the calibration manager will include MS1 calibration. This will include an MS1 estimator in the precursor group.
+            If True, an MS1 (precursor mz) estimator is included in the precursor group.
 
         has_mobility : bool, default=True
-            If True, the calibration manager will include mobility calibration. This will include a mobility estimator in the precursor group.
+            If True, a mobility estimator is included in the precursor group.
 
         kwargs :
-             Will be passed to the parent class `BaseManager`, need to be valid keyword arguments.
+             Passed to the parent class `BaseManager`.
 
         """
 
@@ -113,9 +80,7 @@ class CalibrationManager(BaseManager):
 
         if not self.is_loaded_from_file:
             self.all_fitted = False
-            self.estimator_groups: EstimatorGroups = self.setup_estimator_groups(
-                CALIBRATION_GROUPS_CONFIG
-            )
+            self.estimator_groups: EstimatorGroups = self._build_estimator_groups()
 
     @property
     def estimator_groups(self) -> EstimatorGroups:
@@ -126,91 +91,74 @@ class CalibrationManager(BaseManager):
     def estimator_groups(self, value: EstimatorGroups):
         self._estimator_groups = value
 
-    def setup_estimator_groups(self, calibration_config: CalibrationConfig):
-        """Load calibration configuration.
+    def _build_estimator_groups(self) -> EstimatorGroups:
+        """Build the fixed set of calibration estimators.
 
-        Each calibration config is a list of calibration groups which consist of multiple estimators.
-        For each estimator the `model` and `model_args` are used to request a model from the calibration_model_provider and to initialize it.
-        The estimator is then initialized with the `Calibration` class and added to the group.
-
-        Parameters
-        ----------
-        calibration_config : CalibrationConfig
-            Calibration configuration
-
-        Example
-        -------
-        Create a calibration manager with a single group and a single estimator:
-
-        .. code-block:: python
-
-            calibration_manager = CalibrationManager()
-            calibration_manager.load_config({
-                'mz_calibration': [
-                    {
-                        'name': 'mz',
-                        'model': 'LOESSRegression',
-                        'model_args': { 'n_kernels': 2 },
-                        'input_columns': [CalibCols.MZ_LIBRARY],
-                        'target_columns': [CalibCols.MZ_OBSERVED],
-                        'output_columns': [CalibCols.MZ_CALIBRATED],
-                        'transform_deviation': 1e6
-                    }
-                ]
-            })
-
+        The configuration (number of kernels, ppm transform) is hardcoded in the
+        Rust backend and selected by the estimator ``kind``. Estimators that are not
+        available in the raw data (MS1, mobility) are skipped.
         """
         self.reporter.log_string("Setting up calibration estimators ..")
 
-        estimator_groups: EstimatorGroups = {}
-        for group_name, estimators_params_in_group in calibration_config.items():
+        # Note: the mapping to which columns to actually use is currently done in
+        # ColumnNameHandler.
+        # TODO: rethink this coupling
+        fragment_group = {
+            CalibrationEstimators.MZ: CalibrationEstimator(
+                name=CalibrationEstimators.MZ,
+                n_kernels=2,
+                transform_deviation=PPM_TRANSFORM,
+                input_column=CalibCols.MZ_LIBRARY,
+                target_column=CalibCols.MZ_OBSERVED,
+                output_column=CalibCols.MZ_CALIBRATED,
+            )
+        }
+
+        precursor_group: dict[str, CalibrationEstimator] = {}
+
+        if self._has_ms1:
+            precursor_group[CalibrationEstimators.MZ] = CalibrationEstimator(
+                name=CalibrationEstimators.MZ,
+                n_kernels=2,
+                transform_deviation=PPM_TRANSFORM,
+                input_column=CalibCols.MZ_LIBRARY,
+                target_column=CalibCols.MZ_OBSERVED,
+                output_column=CalibCols.MZ_CALIBRATED,
+            )
+        else:
             self.reporter.log_string(
-                f"Found {len(estimators_params_in_group)} estimator(s) in calibration group '{group_name}'"
+                f"Skipping estimator '{CalibrationEstimators.MZ}' in group '{CalibrationGroups.PRECURSOR}' as it is not available in the raw data",
             )
 
-            initialized_estimators: dict[str, CalibrationEstimator] = {}
-            for estimator_name, estimator_params in estimators_params_in_group.items():
-                if (
-                    not self._has_mobility
-                    and estimator_name == CalibrationEstimators.MOBILITY
-                ):
-                    self.reporter.log_string(
-                        f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{group_name}' as it is not available in the raw data",
-                    )
-                    continue
+        precursor_group[CalibrationEstimators.RT] = CalibrationEstimator(
+            name=CalibrationEstimators.RT,
+            n_kernels=6,
+            transform_deviation=None,
+            input_column=CalibCols.RT_LIBRARY,
+            target_column=CalibCols.RT_OBSERVED,
+            output_column=CalibCols.RT_CALIBRATED,
+        )
 
-                if (
-                    not self._has_ms1
-                    and group_name == CalibrationGroups.PRECURSOR
-                    and estimator_name == CalibrationEstimators.MZ
-                ):
-                    self.reporter.log_string(
-                        f"Skipping estimator '{CalibrationEstimators.MZ}' in group '{group_name}' as it is not available in the raw data",
-                    )
-                    continue
-
-                model = calibration_model_provider.get_model(estimator_params["model"])
-                model_args = estimator_params.get("model_args", {})
-
-                self.reporter.log_string(
-                    f"Initializing estimator '{estimator_name}' in group '{group_name}' with '{estimator_params}' .."
-                )
-                initialized_estimators[estimator_name] = CalibrationEstimator(
-                    name=estimator_name,
-                    model=model(**model_args),
-                    input_columns=estimator_params["input_columns"],
-                    target_columns=estimator_params["target_columns"],
-                    output_columns=estimator_params["output_columns"],
-                    transform_deviation=estimator_params.get(
-                        "transform_deviation", None
-                    ),
-                )
-
-            estimator_groups[group_name] = initialized_estimators
+        if self._has_mobility:
+            precursor_group[CalibrationEstimators.MOBILITY] = CalibrationEstimator(
+                name=CalibrationEstimators.MOBILITY,
+                n_kernels=2,
+                transform_deviation=None,
+                input_column=CalibCols.MOBILITY_LIBRARY,
+                target_column=CalibCols.MOBILITY_OBSERVED,
+                output_column=CalibCols.MOBILITY_CALIBRATED,
+            )
+        else:
+            self.reporter.log_string(
+                f"Skipping estimator '{CalibrationEstimators.MOBILITY}' in group '{CalibrationGroups.PRECURSOR}' as it is not available in the raw data",
+            )
 
         self.reporter.log_string("Done setting up calibration estimators.")
 
-        return estimator_groups
+        return {
+            CalibrationGroups.FRAGMENT: fragment_group,
+            CalibrationGroups.PRECURSOR: precursor_group,
+        }
 
     def get_estimator(
         self, group_name: str, estimator_name: str
@@ -219,7 +167,6 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-
         group_name : str
             Name of the calibration group
 
@@ -248,7 +195,6 @@ class CalibrationManager(BaseManager):
 
         Parameters
         ----------
-
         df : pandas.DataFrame
             Dataframe containing the input and target columns
 
@@ -263,7 +209,6 @@ class CalibrationManager(BaseManager):
 
         """
 
-        # only iterate over the first group with the given name
         for estimator in self.estimator_groups[group_name].values():
             self.reporter.log_string(
                 f"Fitting estimator '{estimator.name}' in calibration group '{group_name}' .."
@@ -276,14 +221,34 @@ class CalibrationManager(BaseManager):
                 all_fitted &= estimator.is_fitted
         self.all_fitted = all_fitted
 
+    def get_stats(self) -> dict[str, dict[str, dict[str, float]]]:
+        """Return the fitted metrics for each estimator, grouped by calibration group.
+
+        Shape: ``{group_name: {estimator_name: {metric: value}}}``. Estimators that
+        have not been fitted (no metrics) are omitted. Used to export calibration
+        statistics for the output.
+        """
+        return {
+            group_name: {
+                estimator_name: asdict(estimator.metrics)
+                for estimator_name, estimator in group.items()
+                if estimator.metrics is not None
+            }
+            for group_name, group in self.estimator_groups.items()
+        }
+
+    def save_stats(self, path: str) -> None:
+        """Write the calibration metrics (see `get_stats`) to a JSON file."""
+        with Path(path).open("w") as f:
+            json.dump(self.get_stats(), f)
+
     def predict(self, df: pd.DataFrame, group_name: str):
         """Predict all estimators in a calibration group.
 
         Parameters
         ----------
-
         df : pandas.DataFrame
-            Dataframe containing the input and target columns
+            Dataframe containing the input column
 
         group_name : str
             Name of the calibration group
