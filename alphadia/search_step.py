@@ -37,7 +37,7 @@ from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
-from alphadia.workflow.base import WorkflowBase
+from alphadia.workflow.base import WorkflowBase, get_quant_path
 from alphadia.workflow.config import (
     MODIFICATIONS_DELIM,
     MULTIPLEXING_CHANNELS_DELIM,
@@ -420,6 +420,68 @@ class SearchStep:
             raw_name = Path(raw_location).stem
             yield raw_name, raw_location, self.spectral_library
 
+    def _has_quant_results(self, folder: str) -> bool:
+        """Check if `folder` holds all quantification files required for reusing it."""
+        required_files = [
+            SearchStepFiles.PSM_FILE_NAME,
+            SearchStepFiles.FRAG_FILE_NAME,
+        ]
+        if self.config["transfer_library"]["enabled"]:
+            required_files.append(SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
+
+        return all(
+            os.path.exists(os.path.join(folder, file_name))
+            for file_name in required_files
+        )
+
+    def _get_reusable_quant_folder(self, raw_name: str) -> str | None:
+        """Get the folder holding quantification results for `raw_name`, or None if there is none.
+
+        The quant directory of this step is considered if `general.reuse_quant` is set, the directories
+        given in `general.reuse_quant_from` are always considered.
+        """
+        general_config = self.config[ConfigKeys.GENERAL]
+        reuse_quant = general_config[ConfigKeys.GENERAL.REUSE_QUANT]
+        reuse_quant_from = general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]
+
+        if reuse_quant:
+            own_folder = os.path.join(
+                get_quant_path(self.config, self.config[ConfigKeys.QUANT_DIRECTORY]),
+                raw_name,
+            )
+            if self._has_quant_results(own_folder):
+                logger.info(
+                    f"general.reuse_quant: found existing quantification for {raw_name}, skipping processing .."
+                )
+                return own_folder
+
+        external_folders = []
+        for quant_directory in reuse_quant_from:
+            folder = os.path.join(quant_directory, raw_name)
+            if self._has_quant_results(folder):
+                external_folders.append(folder)
+
+        if len(external_folders) > 1:
+            raise ConfigError(
+                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                str(reuse_quant_from),
+                "final",
+                f"Found quantification results for {raw_name} in more than one directory: {external_folders}",
+            )
+
+        if external_folders:
+            logger.info(
+                f"general.reuse_quant_from: found existing quantification for {raw_name} in {external_folders[0]}, skipping processing .."
+            )
+            return external_folders[0]
+
+        if reuse_quant or reuse_quant_from:
+            logger.warning(
+                f"found no existing quantification for {raw_name}, proceeding with processing .."
+            )
+
+        return None
+
     def run(
         self,
     ) -> list[tuple[str, str]]:
@@ -462,39 +524,21 @@ class SearchStep:
             )
 
             try:
+                # no workflow is created for reused results to make sure their folder is not written to
+                if (
+                    reused_folder := self._get_reusable_quant_folder(raw_name)
+                ) is not None:
+                    workflow_folder_list.append(reused_folder)
+                    continue
+
                 workflow = PeptideCentricWorkflow(
                     raw_name,
                     self.config,
-                    quant_path=self.config["quant_directory"],
+                    quant_path=self.config[ConfigKeys.QUANT_DIRECTORY],
                     random_state=random_state,
                 )
-                workflow_path = Path(workflow.path)
 
-                # check if the raw file is already processed, i.e. if all relevant files exist
-                is_already_processed = False
-                if self.config["general"]["reuse_quant"]:
-                    required_files = [
-                        SearchStepFiles.PSM_FILE_NAME,
-                        SearchStepFiles.FRAG_FILE_NAME,
-                    ]
-                    if self.config["transfer_library"]["enabled"]:
-                        required_files.append(SearchStepFiles.FRAG_TRANSFER_FILE_NAME)
-
-                    if all(
-                        (workflow_path / file_name).exists()
-                        for file_name in required_files
-                    ):
-                        logger.info(
-                            f"general.reuse_quant: found existing quantification for {raw_name}, skipping processing .."
-                        )
-                        is_already_processed = True
-                    else:
-                        logger.warning(
-                            f"general.reuse_quant: found no existing quantification for {raw_name}, proceeding with processing .."
-                        )
-
-                if not is_already_processed:
-                    self._process_raw_file(workflow, dia_path, speclib)
+                self._process_raw_file(workflow, dia_path, speclib)
 
                 workflow_folder_list.append(workflow.path)
 
@@ -618,7 +662,17 @@ class SearchStep:
             elif value is not None:
                 config.set_value(key, expand_path(value))
 
-        # this cannot be treated in above loop easily
+        # these cannot be treated in above loop easily
+        config.set_value(
+            (ConfigKeys.GENERAL, ConfigKeys.GENERAL.REUSE_QUANT_FROM),
+            [
+                expand_path(path)
+                for path in config.get(ConfigKeys.GENERAL, {}).get(
+                    ConfigKeys.GENERAL.REUSE_QUANT_FROM, []
+                )
+            ],
+        )
+
         config.set_value(
             (
                 ConfigKeys.LIBRARY_PREDICTION,
@@ -646,6 +700,18 @@ class SearchStep:
                 "final",
                 "Multiplexing is not yet supported with the 'ng' extraction backend.",
             )
+
+        # a nonexistent directory would silently lead to re-searching all raw files
+        for quant_directory in self._config[ConfigKeys.GENERAL][
+            ConfigKeys.GENERAL.REUSE_QUANT_FROM
+        ]:
+            if not os.path.isdir(quant_directory):
+                raise ConfigError(
+                    f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                    quant_directory,
+                    "final",
+                    "Directory does not exist.",
+                )
 
 
 def _log_exception_event(

@@ -151,6 +151,13 @@ After all quantifications are available, the workflow continues normally, combin
 This way, an alphaDIA run that failed at file 9/10 (e.g. due to a cluster timeout) can simply be restarted,
 as only the missing files (9 and 10) will be processed.
 
+To reuse quantification results of *other* runs, list their quant directories in the config option
+`general.reuse_quant_from` (default: `[]`), e.g. `['/path/to/previous_run/quant']`.
+Before processing each raw file, these directories are searched for a folder named after the raw file
+that holds all required quantification results. They are only read from, never written to:
+a raw file without reusable results is searched and written to the quant directory of the current run.
+A raw file found in more than one of these directories is an error.
+
 The `--quant-dir` CLI parameter (Config: `quant_directory`, default: `null`)
 can be used to specify a directory containing quantification results different from `<output_folder>/quant`.
 Note: this parameter is not supported with multistep search as each search step has its own quant directory.

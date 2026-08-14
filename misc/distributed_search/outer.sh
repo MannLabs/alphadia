@@ -9,6 +9,9 @@
 #SBATCH --job-name=dist_AD
 #SBATCH --time=21-00:00:00
 #SBATCH --output=./logs/%j-%x-slurm.out
+# This job only orchestrates, the actual searches are submitted as separate jobs
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=2G
 
 # Set behavior when errors are encountered
 # add -x for debugging
@@ -31,7 +34,7 @@ lfq=1
 search_config="search.config"
 input_filename=""
 
-# Optional file listing previous AlphaDIA run folders whose quant results are reused
+# Optional file listing the quant directories of previous AlphaDIA runs whose results are reused
 reuse_quant_from=""
 
 while [[ "$#" -gt 0 ]]; do
@@ -68,13 +71,6 @@ fi
 # Validate required input_filename parameter
 if [[ -z "${input_filename}" ]]; then
 	echo "No input file provided. Use --files <filename.csv> to specify the raw file list."
-	exit 1
-fi
-
-# Reusing quant results and searching the same files in the first search would
-# overwrite the reused results through the symlinks created below
-if [[ -n "${reuse_quant_from}" ]] && [[ "$first_search" -eq 1 ]]; then
-	echo "--reuse_quant_from requires --first_search 0, exiting"
 	exit 1
 fi
 
@@ -133,19 +129,6 @@ lfq_progress_directory="${target_directory}/5_lfq/chunk_0/quant"
 mkdir -p ${lfq_progress_directory}
 # Convert to absolute path to avoid working directory issues in inner.sh
 lfq_progress_directory="$(cd "${lfq_progress_directory}" && pwd)"
-
-### REUSE EXISTING QUANT RESULTS ###
-
-if [[ -n "${reuse_quant_from}" ]]; then
-
-	# link the quant folders of previously searched raw files to where the
-	# first search would have written them
-	num_reused=$(python ./link_quant_folders.py \
-	--run_folders_filename "${reuse_quant_from}" \
-	--target_directory "${mbr_progress_directory}")
-
-	echo "Reusing quantification results of ${num_reused} raw files from the run folders in ${reuse_quant_from}"
-fi
 
 ### PREDICT LIBRARY ###
 
@@ -230,6 +213,7 @@ if [[ "$mbr_library" -eq 1 ]]; then
 	--target_directory "${mbr_library_directory}" \
 	--nnodes 1 \
 	--reuse_quant 1 \
+	--reuse_quant_from "${reuse_quant_from}" \
 	--library_path ${library_path})
 
 	# create slurm array with one subdir, which is the quant files from the first search

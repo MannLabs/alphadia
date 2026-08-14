@@ -55,6 +55,8 @@ class ConfigKeys(metaclass=ConstantsClass):
     GENERAL = ConstantNamespace(
         "general",
         SAVE_FIGURES="save_figures",
+        REUSE_QUANT="reuse_quant",
+        REUSE_QUANT_FROM="reuse_quant_from",
     )
 
     LIBRARY_PREDICTION = ConstantNamespace(

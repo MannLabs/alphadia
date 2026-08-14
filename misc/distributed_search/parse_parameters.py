@@ -40,6 +40,7 @@ parser.add_argument("--config_filename")
 parser.add_argument("--target_directory")
 parser.add_argument("--nnodes")
 parser.add_argument("--reuse_quant")
+parser.add_argument("--reuse_quant_from", default="")
 args = parser.parse_args()
 
 # read the input filename (CSV file list from input_directory)
@@ -53,6 +54,24 @@ with open(args.config_filename) as file:
 
 # set requantition, False for searches, True for MBR, LFQ
 safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")
+
+# reuse the quantification results of previous runs, one quant directory per line
+if args.reuse_quant_from:
+    with open(args.reuse_quant_from) as file:
+        quant_directories = [
+            os.path.abspath(line.strip())
+            for line in file
+            if line.strip() and not line.startswith("#")
+        ]
+
+    if not quant_directories:
+        print(
+            f"No quant directories found in {args.reuse_quant_from}, exiting...",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    safe_add_key(config, "general", "reuse_quant_from", quant_directories)
 
 # library must be predicted/annotated prior to chunking
 safe_add_key(config, "library_prediction", "enabled", False)
