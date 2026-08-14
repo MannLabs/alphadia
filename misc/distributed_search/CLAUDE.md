@@ -12,6 +12,7 @@ distributed_search/
 ├── inner.sh                    # Worker script for each chunk
 ├── parse_parameters.py         # Splits raw files into chunks, generates configs
 ├── speclib_config.py           # Library prediction config generator
+├── link_quant_folders.py       # Links quant results of previous runs for reuse
 ├── discover_project_files.py   # Raw file discovery utility
 ├── search.config               # Main configuration file (user edits this)
 ├── first_config.yaml           # First search parameters template
@@ -58,6 +59,11 @@ distributed_search/
 - Generates config for library prediction from FASTA
 - Disables raw file processing, enables `library_prediction.enabled: True`
 
+### link_quant_folders.py
+- Symlinks `<previous_run>/quant/<raw_name>` folders into `3_mbr_library/chunk_0/quant`
+- Enables skipping the first search when the raw files were already searched
+- Fails on missing `psm.parquet`/`frag.parquet` and on duplicate raw file names across runs
+
 ### discover_project_files.py
 - Utility to find raw files matching regex patterns
 - Outputs 2-column CSV: project | filepath
@@ -73,6 +79,9 @@ sbatch outer.sh --files file_list.csv --nnodes 45 --predict_library 0
 
 # Only run first search
 sbatch outer.sh --files file_list.csv --nnodes 45 --mbr_library 0 --second_search 0 --lfq 0
+
+# Reuse quant results of previous runs instead of running the first search
+sbatch outer.sh --files file_list.csv --nnodes 45 --predict_library 0 --first_search 0 --reuse_quant_from previous_runs.txt
 ```
 
 ### Command-Line Parameters
@@ -88,6 +97,7 @@ sbatch outer.sh --files file_list.csv --nnodes 45 --mbr_library 0 --second_searc
 | `--mbr_library` | 1 | Enable MBR library building |
 | `--second_search` | 1 | Enable second search |
 | `--lfq` | 1 | Enable LFQ quantification |
+| `--reuse_quant_from` | '' | Text file listing previous run folders whose quant results are reused (requires `--first_search 0`) |
 
 ## Configuration
 

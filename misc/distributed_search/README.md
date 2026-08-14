@@ -51,6 +51,9 @@ For example, number of precursor candidates and inference strategy, as well as m
     - `--mbr_library` (1/0): whether to aggregate first search results into a focused "MBR" library.
     - `--second_search` (1/0): whether to perform a second search with the focused MBR library.
     - `--lfq` (1/0): whether to perform LFQ quantification of the second search results.
+    - `--reuse_quant_from`: name of a text file listing the output folders of previous AlphaDIA runs
+    (one absolute path per line) whose quantification results shall be reused instead of running the
+    first search. Requires `--first_search 0`, see "Reusing previous search results" below.
 
 An example call to outer.sh from a folder called e.g. `example_distributed_search` could look like this: `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 1 --search_config EXAMPLE_search.config --nnodes 2`
 
@@ -69,3 +72,24 @@ Running the search creates five subdirectories in the target folder:
 - _mbr_library_: Contains one chunk, since the library is built from all first search results.
 - _second_search_: Analogous to _first_search_, one subdirectory is created for each chunk of rawfiles that are searched with the mbr_library. Precursor and fragment datasets from these searches are saved into the _lfq_ folder.
 - _lfq_: Analogous to _mbr_library_, contains one chunk which runs label free quantification (LFQ) on each output from the second search. After all search steps are completed, the final precursor and protein tables are saved here.
+
+Reusing previous search results
+===============================
+
+If the raw files have already been searched by AlphaDIA, the first search can be skipped and the MBR
+library built from the existing quantification results. Write the output folders of the previous runs
+(each containing a `quant` folder) into a text file, one absolute path per line, and pass it via
+`--reuse_quant_from`:
+
+    sbatch outer.sh --files EXAMPLE_FILES.csv --search_config EXAMPLE_search.config --nnodes 2 --predict_library 0 --first_search 0 --reuse_quant_from previous_runs.txt
+
+The quantification folders are symlinked into `3_mbr_library/chunk_0/quant`, where the first search
+would have written them. Mind the following:
+
+- `library_path` in `search.config` must point to the spectral library that the previous runs were
+  searched with, as it is needed for building the MBR library.
+- The .csv file passed via `--files` must list the raw files of all previous runs. Their file names
+  must be unique across runs and match the folder names inside the `quant` folders.
+- The raw files still have to be accessible, as the second search reads them again.
+- `--first_search 0` is required: searching the same files again would overwrite the reused results
+  through the symlinks.

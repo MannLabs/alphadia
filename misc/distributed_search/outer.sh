@@ -31,11 +31,15 @@ lfq=1
 search_config="search.config"
 input_filename=""
 
+# Optional file listing previous AlphaDIA run folders whose quant results are reused
+reuse_quant_from=""
+
 while [[ "$#" -gt 0 ]]; do
 	case $1 in
 		# Search parameters
 		--files) input_filename="$2"; shift ;;
 		--search_config) search_config="$2"; shift ;;
+		--reuse_quant_from) reuse_quant_from="$2"; shift ;;
 		# SLURM parameters
 		--nnodes) nnodes="$2"; shift ;;
 		--ntasks_per_node) ntasks_per_node="$2"; shift ;;
@@ -67,6 +71,13 @@ if [[ -z "${input_filename}" ]]; then
 	exit 1
 fi
 
+# Reusing quant results and searching the same files in the first search would
+# overwrite the reused results through the symlinks created below
+if [[ -n "${reuse_quant_from}" ]] && [[ "$first_search" -eq 1 ]]; then
+	echo "--reuse_quant_from requires --first_search 0, exiting"
+	exit 1
+fi
+
 # If input_directory is empty, default to current working directory
 if [[ -z "${input_directory}" ]]; then
 	input_directory="$(pwd)"
@@ -77,6 +88,7 @@ echo "Input file: ${input_filename}"
 echo "Search config: ${search_config}"
 echo "SLURM parameters: nnodes=${nnodes}, ntasks_per_node=${ntasks_per_node}, cpus=${cpus}, mem=${mem}"
 echo "Search flags: predict_library=${predict_library}, first_search=${first_search}, mbr_library=${mbr_library}, second_search=${second_search}, lfq=${lfq}"
+echo "Reuse quant from: ${reuse_quant_from:-none}"
 
 # Derive output directory name from CSV filename (without .csv extension)
 csv_basename=$(basename "${input_filename}" .csv)
@@ -121,6 +133,19 @@ lfq_progress_directory="${target_directory}/5_lfq/chunk_0/quant"
 mkdir -p ${lfq_progress_directory}
 # Convert to absolute path to avoid working directory issues in inner.sh
 lfq_progress_directory="$(cd "${lfq_progress_directory}" && pwd)"
+
+### REUSE EXISTING QUANT RESULTS ###
+
+if [[ -n "${reuse_quant_from}" ]]; then
+
+	# link the quant folders of previously searched raw files to where the
+	# first search would have written them
+	num_reused=$(python ./link_quant_folders.py \
+	--run_folders_filename "${reuse_quant_from}" \
+	--target_directory "${mbr_progress_directory}")
+
+	echo "Reusing quantification results of ${num_reused} raw files from the run folders in ${reuse_quant_from}"
+fi
 
 ### PREDICT LIBRARY ###
 
