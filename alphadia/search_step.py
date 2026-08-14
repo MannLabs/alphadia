@@ -434,8 +434,24 @@ class SearchStep:
             for file_name in required_files
         )
 
-    def _get_reusable_quant_folder(self, raw_name: str) -> str | None:
-        """Get the folder holding quantification results for `raw_name`, or None if there is none.
+    def _get_raw_names_with_quant_results(
+        self, quant_directory: str, raw_names: list[str]
+    ) -> list[str]:
+        """Get the names of those `raw_names` for which `quant_directory` holds quantification results."""
+        matched_raw_names = [
+            raw_name
+            for raw_name in raw_names
+            if self._has_quant_results(os.path.join(quant_directory, raw_name))
+        ]
+
+        logger.progress(
+            f"Found quantification results for {len(matched_raw_names)}/{len(raw_names)} raw files in {quant_directory}"
+        )
+
+        return matched_raw_names
+
+    def _get_reusable_quant_folders(self) -> dict[str, str]:
+        """Map the name of each raw file with reusable quantification results to the folder holding them.
 
         The quant directory of this step is considered if `general.reuse_quant` is set, the directories
         given in `general.reuse_quant_from` are always considered.
@@ -444,43 +460,58 @@ class SearchStep:
         reuse_quant = general_config[ConfigKeys.GENERAL.REUSE_QUANT]
         reuse_quant_from = general_config[ConfigKeys.GENERAL.REUSE_QUANT_FROM]
 
-        if reuse_quant:
-            own_folder = os.path.join(
-                get_quant_path(self.config, self.config[ConfigKeys.QUANT_DIRECTORY]),
-                raw_name,
-            )
-            if self._has_quant_results(own_folder):
-                logger.info(
-                    f"general.reuse_quant: found existing quantification for {raw_name}, skipping processing .."
-                )
-                return own_folder
+        if not reuse_quant and not reuse_quant_from:
+            return {}
 
-        external_folders = []
+        raw_names = [Path(raw_location).stem for raw_location in self.raw_path_list]
+
+        folder_by_raw_name = {}
         for quant_directory in reuse_quant_from:
-            folder = os.path.join(quant_directory, raw_name)
-            if self._has_quant_results(folder):
-                external_folders.append(folder)
-
-        if len(external_folders) > 1:
-            raise ConfigError(
-                f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
-                str(reuse_quant_from),
-                "final",
-                f"Found quantification results for {raw_name} in more than one directory: {external_folders}",
+            matched_raw_names = self._get_raw_names_with_quant_results(
+                quant_directory, raw_names
             )
 
-        if external_folders:
-            logger.info(
-                f"general.reuse_quant_from: found existing quantification for {raw_name} in {external_folders[0]}, skipping processing .."
-            )
-            return external_folders[0]
+            if not matched_raw_names:
+                raise ConfigError(
+                    f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                    quant_directory,
+                    "final",
+                    "No quantification results found for any of the raw files. This directory needs to "
+                    f"hold one folder per raw file, e.g. '{os.path.join(quant_directory, raw_names[0], SearchStepFiles.PSM_FILE_NAME)}'.",
+                )
 
-        if reuse_quant or reuse_quant_from:
+            for raw_name in matched_raw_names:
+                if raw_name in folder_by_raw_name:
+                    raise ConfigError(
+                        f"{ConfigKeys.GENERAL}.{ConfigKeys.GENERAL.REUSE_QUANT_FROM}",
+                        str(reuse_quant_from),
+                        "final",
+                        f"Found quantification results for {raw_name} in more than one directory: "
+                        f"{folder_by_raw_name[raw_name]} and {quant_directory}",
+                    )
+                folder_by_raw_name[raw_name] = os.path.join(quant_directory, raw_name)
+
+        if reuse_quant:
+            # results of this step take precedence as they were created with its configuration
+            own_quant_directory = get_quant_path(
+                self.config, self.config[ConfigKeys.QUANT_DIRECTORY]
+            )
+            for raw_name in self._get_raw_names_with_quant_results(
+                own_quant_directory, raw_names
+            ):
+                folder_by_raw_name[raw_name] = os.path.join(
+                    own_quant_directory, raw_name
+                )
+
+        if missing_raw_names := [
+            raw_name for raw_name in raw_names if raw_name not in folder_by_raw_name
+        ]:
             logger.warning(
-                f"found no existing quantification for {raw_name}, proceeding with processing .."
+                f"Found no quantification results for {len(missing_raw_names)}/{len(raw_names)} raw files, "
+                f"they will be processed: {missing_raw_names}"
             )
 
-        return None
+        return folder_by_raw_name
 
     def run(
         self,
@@ -509,6 +540,8 @@ class SearchStep:
             f"=================== Starting Search Workflows for step {self._step_name} ==================="
         )
 
+        reusable_quant_folders = self._get_reusable_quant_folders()
+
         workflow_folder_list = []
         raw_files_with_errors = []
 
@@ -525,9 +558,10 @@ class SearchStep:
 
             try:
                 # no workflow is created for reused results to make sure their folder is not written to
-                if (
-                    reused_folder := self._get_reusable_quant_folder(raw_name)
-                ) is not None:
+                if (reused_folder := reusable_quant_folders.get(raw_name)) is not None:
+                    logger.info(
+                        f"Reusing quantification results from {reused_folder}, skipping processing .."
+                    )
                     workflow_folder_list.append(reused_folder)
                     continue
 

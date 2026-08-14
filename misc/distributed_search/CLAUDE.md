@@ -91,7 +91,7 @@ sbatch outer.sh --files file_list.csv --nnodes 45 --predict_library 0 --first_se
 | `--mbr_library` | 1 | Enable MBR library building |
 | `--second_search` | 1 | Enable second search |
 | `--lfq` | 1 | Enable LFQ quantification |
-| `--reuse_quant_from` | '' | Text file listing the quant directories of previous runs whose results are reused (read-only, passed to the MBR step as `general.reuse_quant_from`) |
+| `--reuse_quant_from` | '' | Text file listing the quant directories of previous runs (or the output folders holding them) whose results are reused (read-only, passed to the MBR step as `general.reuse_quant_from`) |
 
 ## Configuration
 

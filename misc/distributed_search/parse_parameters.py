@@ -16,6 +16,18 @@ import numpy as np
 import pandas as pd
 import yaml
 
+QUANT_FOLDER_NAME = "quant"
+
+
+def get_quant_directory(path):
+    """Get the quant directory for a path that may also point to a run output folder."""
+    directory = os.path.abspath(path)
+    nested_quant_directory = os.path.join(directory, QUANT_FOLDER_NAME)
+
+    return (
+        nested_quant_directory if os.path.isdir(nested_quant_directory) else directory
+    )
+
 
 # Add keys to config if they don't exist
 def safe_add_key(config, parent_key, key, value):
@@ -55,11 +67,12 @@ with open(args.config_filename) as file:
 # set requantition, False for searches, True for MBR, LFQ
 safe_add_key(config, "general", "reuse_quant", args.reuse_quant == "1")
 
-# reuse the quantification results of previous runs, one quant directory per line
+# reuse the quantification results of previous runs, one quant directory
+# (or run output folder holding it) per line
 if args.reuse_quant_from:
     with open(args.reuse_quant_from) as file:
         quant_directories = [
-            os.path.abspath(line.strip())
+            get_quant_directory(line.strip())
             for line in file
             if line.strip() and not line.startswith("#")
         ]

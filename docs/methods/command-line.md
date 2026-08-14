@@ -156,7 +156,8 @@ To reuse quantification results of *other* runs, list their quant directories in
 Before processing each raw file, these directories are searched for a folder named after the raw file
 that holds all required quantification results. They are only read from, never written to:
 a raw file without reusable results is searched and written to the quant directory of the current run.
-A raw file found in more than one of these directories is an error.
+A raw file found in more than one of these directories is an error, as is a directory
+that holds no results for any of the raw files.
 
 The `--quant-dir` CLI parameter (Config: `quant_directory`, default: `null`)
 can be used to specify a directory containing quantification results different from `<output_folder>/quant`.

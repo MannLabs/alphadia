@@ -52,8 +52,9 @@ For example, number of precursor candidates and inference strategy, as well as m
     - `--second_search` (1/0): whether to perform a second search with the focused MBR library.
     - `--lfq` (1/0): whether to perform LFQ quantification of the second search results.
     - `--reuse_quant_from`: name of a text file listing the `quant` directories of previous AlphaDIA runs
-    (one absolute path per line) whose quantification results shall be reused instead of running the
-    first search, see "Reusing previous search results" below.
+    (one absolute path per line, output folders holding a `quant` directory are also accepted) whose
+    quantification results shall be reused instead of running the first search,
+    see "Reusing previous search results" below.
 
 An example call to outer.sh from a folder called e.g. `example_distributed_search` could look like this: `sbatch outer.sh --files EXAMPLE_FILES.csv --predict_library 1 --search_config EXAMPLE_search.config --nnodes 2`
 
@@ -78,7 +79,8 @@ Reusing previous search results
 
 If the raw files have already been searched by AlphaDIA, the first search can be skipped and the MBR
 library built from the existing quantification results. Write the `quant` directories of the previous
-runs into a text file, one absolute path per line, and pass it via `--reuse_quant_from`:
+runs (or the output folders holding them) into a text file, one absolute path per line, and pass it
+via `--reuse_quant_from`:
 
     sbatch outer.sh --files EXAMPLE_FILES.csv --search_config EXAMPLE_search.config --nnodes 2 --predict_library 0 --first_search 0 --reuse_quant_from previous_runs.txt
 
