@@ -121,8 +121,10 @@ def prepare_df(
         Filtered fragment dataframe with ion hash
     """
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
+    # a uint64 precursor_idx would make numba promote the hash to float64,
+    # which silently rounds away the lower bits for large hashes
     df["ion"] = _ion_hash(
-        df["precursor_idx"].values,
+        df["precursor_idx"].values.astype(np.int64),
         df["number"].values,
         df["type"].values,
         df["charge"].values,
