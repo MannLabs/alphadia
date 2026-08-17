@@ -31,7 +31,7 @@ else
     alphadia --config ${config_filename} --config-dict "{\"general\": {\"thread_count\": $N_THREADS}}" --quant-dir ${quant_dir}
 fi
 
-echo "AlphaDIA completed successfully"
+echo "inner.sh: AlphaDIA completed successfully"
 
 # Copy log to output directory
 mkdir -p "${output_directory}/logs"
