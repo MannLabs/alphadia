@@ -2,10 +2,12 @@ import logging
 import os
 from collections.abc import Iterator
 
-import numpy as np
 import pandas as pd
 
-from alphadia.outputtransform.quantification.quant_builder import prepare_df
+from alphadia.outputtransform.quantification.quant_builder import (
+    precursor_idx_from_ion,
+    prepare_df,
+)
 
 logger = logging.getLogger()
 
@@ -74,9 +76,11 @@ class FragmentQuantLoader:
 
         df = prepare_df(df, self.psm_df, columns=self.columns)
 
+        # the ion hash already encodes the precursor_idx, so it is the only join key
+        # needed here and is expanded again once all runs are merged
         df_list = []
         for col in self.columns:
-            feat_df = df[["precursor_idx", "ion", col]].copy()
+            feat_df = df[["ion", col]].copy()
             feat_df.rename(columns={col: raw_name}, inplace=True)
             df_list.append(feat_df)
 
@@ -85,8 +89,8 @@ class FragmentQuantLoader:
 
             for idx, col in enumerate(self.columns):
                 df_list[idx] = df_list[idx].merge(
-                    df[["ion", col, "precursor_idx"]],
-                    on=["ion", "precursor_idx"],
+                    df[["ion", col]],
+                    on="ion",
                     how="outer",
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
@@ -135,21 +139,21 @@ class FragmentQuantLoader:
     def _add_precursor_idx(
         df: pd.DataFrame, precursor_metadata_df: pd.DataFrame
     ) -> pd.DataFrame:
-        """Add precursor index metadata to fragment data.
+        """Add precursor index and its metadata to fragment data.
 
         Parameters
         ----------
         df : pd.DataFrame
-            Fragment data with precursor_idx
+            Fragment data with ion
         precursor_metadata_df : pd.DataFrame
             Precursor metadata with precursor_idx, pg, mod_seq_hash, mod_seq_charge_hash
 
         Returns
         -------
         pd.DataFrame
-            Fragment data with precursor metadata columns added
+            Fragment data with precursor_idx and precursor metadata columns added
         """
         df.fillna(0, inplace=True)
-        df["precursor_idx"] = df["precursor_idx"].astype(np.uint32)
+        df.insert(0, "precursor_idx", precursor_idx_from_ion(df["ion"].values))
         df = df.merge(precursor_metadata_df, on="precursor_idx", how="left")
         return df
