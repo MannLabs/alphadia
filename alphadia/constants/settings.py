@@ -1,6 +1,7 @@
 """Internal constants."""
 
 FIGURES_FOLDER_NAME = "figures"
+LFQ_CHECKPOINT_FOLDER_NAME = "lfq_checkpoint"
 
 NUM_FEATURES = 46
 MAX_FRAGMENT_MZ_TOLERANCE = 200

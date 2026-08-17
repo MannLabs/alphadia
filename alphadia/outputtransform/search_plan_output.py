@@ -13,6 +13,7 @@ from alphadia.constants.keys import (
 from alphadia.constants.settings import FIGURES_FOLDER_NAME
 from alphadia.exceptions import NoPSMFilesFoundError, NoPSMFoundError
 from alphadia.libtransform.mbr import MbrLibraryBuilder
+from alphadia.outputtransform.checkpoint import save_lfq_checkpoint
 from alphadia.outputtransform.df_builders import (
     build_run_internal_df,
     build_run_stat_df,
@@ -450,6 +451,8 @@ class SearchPlanOutput:
         save: bool
             Save the precursor table to disk
         """
+        save_lfq_checkpoint(self.output_folder, folder_list, psm_df, self.config)
+
         quant_output_builder = QuantOutputBuilder(psm_df, self.config)
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
