@@ -3,8 +3,10 @@ import os
 from collections.abc import Iterator
 
 import pandas as pd
+import pyarrow.parquet as pq
 
 from alphadia.outputtransform.quantification.quant_builder import (
+    ION_HASH_COLUMNS,
     precursor_idx_from_ion,
     prepare_df,
 )
@@ -29,6 +31,9 @@ class FragmentQuantLoader:
     def __init__(self, psm_df: pd.DataFrame, columns: list[str] | None = None):
         self.psm_df = psm_df
         self.columns = ["intensity", "correlation"] if columns is None else columns
+        # the remaining columns of the fragment files are never used downstream,
+        # reading them would roughly double the bytes read per file
+        self._read_columns = list(dict.fromkeys(ION_HASH_COLUMNS + self.columns))
 
     def accumulate_from_folders(
         self, folder_list: list[str]
@@ -126,14 +131,26 @@ class FragmentQuantLoader:
             if not os.path.exists(frag_path):
                 logger.warning(f"no frag file found for {raw_name}")
             else:
+                # checked before reading, as a schema mismatch affects all runs and
+                # must not be swallowed by the warning below
+                self._check_read_columns(frag_path)
+
                 try:
                     logger.info(f"reading frag file for {raw_name}")
-                    run_df = pd.read_parquet(frag_path)
+                    run_df = pd.read_parquet(frag_path, columns=self._read_columns)
                 except Exception as e:
                     logger.warning(f"Error reading frag file for {raw_name}")
                     logger.warning(e)
                 else:
                     yield raw_name, run_df
+
+    def _check_read_columns(self, frag_path: str) -> None:
+        """Raise if the fragment file does not contain all required columns."""
+        missing_columns = set(self._read_columns) - set(pq.read_schema(frag_path).names)
+        if missing_columns:
+            raise ValueError(
+                f"Fragment file {frag_path} is missing required columns: {sorted(missing_columns)}"
+            )
 
     @staticmethod
     def _add_precursor_idx(

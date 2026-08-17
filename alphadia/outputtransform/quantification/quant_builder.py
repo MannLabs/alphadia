@@ -18,6 +18,9 @@ logger = logging.getLogger()
 
 PRECURSOR_IDX_MASK = 0xFFFFFFFF
 
+# fragment columns consumed by `_ion_hash`, in the order of its signature
+ION_HASH_COLUMNS = ["precursor_idx", "number", "type", "charge", "loss_type"]
+
 
 @dataclass
 class LFQOutputConfig:

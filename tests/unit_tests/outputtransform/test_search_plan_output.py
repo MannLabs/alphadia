@@ -12,6 +12,7 @@ from alphadia.outputtransform.quantification.quant_output_builder import (
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
 from alphadia.workflow.base import QUANT_FOLDER_NAME
+from alphadia.workflow.config import Config
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.timing_manager import TimingManager
 from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
@@ -114,7 +115,7 @@ def test_search_plan_output_integration():
             timing_manager.save()
 
     # when
-    SearchPlanOutput(config, temp_folder).build(raw_folders, None)
+    SearchPlanOutput(Config(config), temp_folder).build(raw_folders, None)
 
     # then
     psm_df = pd.read_parquet(

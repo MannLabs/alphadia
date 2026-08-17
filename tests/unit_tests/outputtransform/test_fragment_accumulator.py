@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
 import pandas as pd
@@ -153,14 +153,16 @@ class TestFragmentQuantLoaderAccumulate:
 class TestFragmentQuantLoaderAccumulateFromFolders:
     """Test cases for FragmentQuantLoader.accumulate_from_folders() method."""
 
+    @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")
     @patch("pandas.read_parquet")
     def test_accumulate_from_folders_success(
-        self, mock_read_parquet, mock_exists, psm_df, fragment_df
+        self, mock_read_parquet, mock_exists, mock_read_schema, psm_df, fragment_df
     ):
         """Test accumulate_from_folders reads parquet files and uses folder basename."""
         # given
         mock_exists.return_value = True
+        mock_read_schema.return_value = Mock(names=list(fragment_df.columns))
         mock_read_parquet.return_value = fragment_df
         loader = FragmentQuantLoader(psm_df)
         folders = ["/path/to/run1", "/path/to/run2"]
@@ -187,14 +189,16 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
         # then
         assert result is None
 
+    @patch("pyarrow.parquet.read_schema")
     @patch("os.path.exists")
     @patch("pandas.read_parquet")
     def test_accumulate_from_folders_read_errors(
-        self, mock_read_parquet, mock_exists, psm_df
+        self, mock_read_parquet, mock_exists, mock_read_schema, psm_df, fragment_df
     ):
         """Test accumulate_from_folders handles read errors gracefully."""
         # given
         mock_exists.return_value = True
+        mock_read_schema.return_value = Mock(names=list(fragment_df.columns))
         mock_read_parquet.side_effect = Exception("Read error")
         loader = FragmentQuantLoader(psm_df)
 
@@ -203,3 +207,18 @@ class TestFragmentQuantLoaderAccumulateFromFolders:
 
         # then
         assert result is None
+
+    @patch("pyarrow.parquet.read_schema")
+    @patch("os.path.exists")
+    def test_accumulate_from_folders_missing_column_raises(
+        self, mock_exists, mock_read_schema, psm_df
+    ):
+        """Test accumulate_from_folders raises if a required column is not in the file."""
+        # given
+        mock_exists.return_value = True
+        mock_read_schema.return_value = Mock(names=["precursor_idx", "intensity"])
+        loader = FragmentQuantLoader(psm_df)
+
+        # when / then
+        with pytest.raises(ValueError, match="missing required columns"):
+            loader.accumulate_from_folders(["some_folder"])
