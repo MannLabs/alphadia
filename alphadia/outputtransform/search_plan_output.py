@@ -37,6 +37,7 @@ from alphadia.outputtransform.utils import (
     write_df,
 )
 from alphadia.transferlearning.train import FinetuneManager
+from alphadia.utils import log_lfq_step
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
@@ -112,7 +113,6 @@ class SearchPlanOutput:
         psm_df = self._build_precursor_table(folder_list, save=False)
         self._build_stat_df(folder_list, psm_df=psm_df, save=True)
         self._build_internal_df(folder_list, save=True)
-        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
             if base_spec_lib is None:
@@ -126,6 +126,10 @@ class SearchPlanOutput:
 
         if self.config["transfer_learning"]["enabled"]:
             self._build_transfer_model(save=True)
+
+        # runs last as it is by far the most memory intensive step and none of
+        # the outputs above depend on it
+        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
     def _build_transfer_model(self, save=True):
         """
@@ -453,11 +457,15 @@ class SearchPlanOutput:
         """
         save_lfq_checkpoint(self.output_folder, folder_list, psm_df, self.config)
 
+        log_lfq_step(
+            f"starting for {len(folder_list)} folders and {len(psm_df):,} precursors"
+        )
+
         quant_output_builder = QuantOutputBuilder(psm_df, self.config)
         lfq_results, psm_df_with_quant = quant_output_builder.build(folder_list)
 
         if save:
-            logger.info("Writing psm output to disk")
+            log_lfq_step("writing psm output to disk")
             psm_df_output = apply_output_column_names(psm_df_with_quant)
             write_df(
                 psm_df_output,
@@ -471,6 +479,8 @@ class SearchPlanOutput:
                     self.output_folder,
                     file_format=self.config["search_output"]["file_format"],
                 )
+
+        log_lfq_step("finished")
 
         return lfq_results
 

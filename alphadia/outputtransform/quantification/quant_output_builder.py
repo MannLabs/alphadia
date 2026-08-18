@@ -17,6 +17,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     QuantBuilder,
 )
 from alphadia.outputtransform.utils import merge_quant_levels_to_psm
+from alphadia.utils import log_lfq_step
 
 logger = logging.getLogger()
 
@@ -91,12 +92,16 @@ class QuantOutputBuilder:
             - Updated PSM dataframe with merged quantification data
         """
         logger.info("Performing label free quantification")
+        log_lfq_step(f"accumulating fragments from {len(folder_list)} folders")
 
         feature_dfs_dict = self.fragment_loader.accumulate_from_folders(folder_list)
 
         if feature_dfs_dict is None or not feature_dfs_dict:
             logger.warning("No fragment data found, skipping quantification")
             return {}, self.psm_df
+
+        shapes = {col: df.shape for col, df in feature_dfs_dict.items()}
+        log_lfq_step(f"accumulated fragment matrices {shapes}")
 
         quantlevel_configs = self._create_quant_level_configs()
         lfq_results = {}
@@ -114,16 +119,26 @@ class QuantOutputBuilder:
             )
 
             if lfq_df is not None and not lfq_df.empty:
+                log_lfq_step(
+                    f"{quantlevel_config.level_name} level quantified, "
+                    f"shape {lfq_df.shape}"
+                )
                 lfq_df = self._annotate_quant_df(lfq_df, self.psm_df, quantlevel_config)
+                log_lfq_step(f"{quantlevel_config.level_name} level annotated")
                 lfq_results[quantlevel_config.level_name] = lfq_df
             else:
                 logger.warning(
                     f"No fragments found for {quantlevel_config.level_name}, skipping label-free quantification"
                 )
 
+        log_lfq_step(
+            f"merging {len(lfq_results)} quant levels into "
+            f"{len(self.psm_df):,} precursors"
+        )
         psm_df_with_quant = merge_quant_levels_to_psm(
             self.psm_df, lfq_results, quantlevel_configs
         )
+        log_lfq_step(f"merged into precursor table, shape {psm_df_with_quant.shape}")
 
         return lfq_results, psm_df_with_quant
 
@@ -311,7 +326,7 @@ class QuantOutputBuilder:
             if lfq_df is None or lfq_df.empty:
                 continue
 
-            logger.info(f"Writing {config.level_name} output to disk")
+            log_lfq_step(f"writing {config.level_name} output, shape {lfq_df.shape}")
 
             lfq_df_output = self._apply_output_names(lfq_df)
 

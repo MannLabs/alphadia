@@ -11,7 +11,7 @@ import pandas as pd
 from quantselect.output import run_quantselect
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.utils import USE_NUMBA_CACHING
+from alphadia.utils import USE_NUMBA_CACHING, log_lfq_step
 from alphadia.workflow.config import Config
 
 logger = logging.getLogger()
@@ -202,6 +202,10 @@ class QuantBuilder:
         mask = (quality_df["rank"].values <= top_n) | (
             quality_df["total"].values > min_correlation
         )
+        log_lfq_step(
+            f"filtered fragments on {group_column}: "
+            f"{mask.sum():,} of {len(mask):,} kept"
+        )
         return intensity_df[mask], quality_df[mask]
 
     def direct_lfq(
@@ -244,12 +248,15 @@ class QuantBuilder:
         lfqconfig.check_wether_to_copy_numpy_arrays_derived_from_pandas()
         lfqconfig.set_log_processed_proteins(log_processed_proteins=True)
 
+        log_lfq_step(f"sorting {len(intensity_df):,} ions by {lfq_config.quant_level}")
         intensity_df.sort_values(
             by=lfq_config.quant_level, inplace=True, ignore_index=True
         )
 
+        log_lfq_step("indexing and log transforming input")
         lfq_df = lfqutils.index_and_log_transform_input_df(intensity_df)
         lfq_df = lfqutils.remove_allnan_rows_input_df(lfq_df)
+        log_lfq_step(f"input ready with shape {lfq_df.shape}")
 
         if config["search_output"]["normalize_directlfq"]:
             logger.info("Applying directLFQ normalization")
@@ -258,13 +265,21 @@ class QuantBuilder:
                 num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
                 selected_proteins_file=None,
             ).complete_dataframe
+            log_lfq_step("directLFQ normalization done")
 
+        num_cores = config["general"]["thread_count"]
+        log_lfq_step(
+            f"estimating protein intensities for {lfq_df.shape[0]:,} ions "
+            f"on {num_cores} cores, this spawns subprocesses"
+        )
         protein_df, _ = lfqprot_estimation.estimate_protein_intensities(
             lfq_df,
             min_nonan=config["search_output"]["min_nonnan"],
             num_samples_quadratic=config["search_output"]["num_samples_quadratic"],
-            num_cores=config["general"]["thread_count"],
+            num_cores=num_cores,
         )
+        log_lfq_step(f"estimated protein intensities, shape {protein_df.shape}")
+
         return protein_df
 
     def quantselect_lfq(
@@ -286,7 +301,7 @@ class QuantBuilder:
         pd.DataFrame
             Protein/peptide quantification results with columns: group_column, run1, run2, ...
         """
-        logger.info("Performing label-free quantification with QuantSelect")
+        log_lfq_step("running QuantSelect")
 
         return run_quantselect(
             seed=42,

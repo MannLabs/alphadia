@@ -7,7 +7,27 @@ from pathlib import Path
 
 import numpy as np
 
+try:
+    import resource
+except ImportError:  # not available on windows
+    resource = None
+
 logger = logging.getLogger()
+
+
+def get_peak_memory_gb() -> float:
+    """Return the peak resident set size of this process in GB, 0.0 if unavailable."""
+    if resource is None:
+        return 0.0
+
+    max_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # linux reports kilobytes, macOS bytes
+    return max_rss / 1e6 if platform.system() == "Linux" else max_rss / 1e9
+
+
+def log_lfq_step(message: str) -> None:
+    """Log a step of the label-free quantification, tagged for grepping."""
+    logger.info(f"[lfq] {message} | peak memory {get_peak_memory_gb():.2f} GB")
 
 
 USE_NUMBA_CACHING = os.environ.get("USE_NUMBA_CACHING", "0") == "1"

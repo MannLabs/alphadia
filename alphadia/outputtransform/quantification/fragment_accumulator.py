@@ -10,6 +10,7 @@ from alphadia.outputtransform.quantification.quant_builder import (
     precursor_idx_from_ion,
     prepare_df,
 )
+from alphadia.utils import log_lfq_step
 
 logger = logging.getLogger()
 
@@ -89,7 +90,7 @@ class FragmentQuantLoader:
             feat_df.rename(columns={col: raw_name}, inplace=True)
             df_list.append(feat_df)
 
-        for raw_name, df in df_iterable:
+        for run_number, (raw_name, df) in enumerate(df_iterable, start=2):
             df = prepare_df(df, self.psm_df, columns=self.columns)
 
             for idx, col in enumerate(self.columns):
@@ -100,6 +101,12 @@ class FragmentQuantLoader:
                 )
                 df_list[idx].rename(columns={col: raw_name}, inplace=True)
 
+            log_lfq_step(
+                f"merged run {run_number} ({raw_name}), "
+                f"{len(df_list[0]):,} ions accumulated"
+            )
+
+        log_lfq_step("building precursor metadata")
         precursor_metadata_df = self.psm_df.groupby(
             "precursor_idx", as_index=False
         ).agg({"pg": "first", "mod_seq_hash": "first", "mod_seq_charge_hash": "first"})
@@ -142,6 +149,7 @@ class FragmentQuantLoader:
                     logger.warning(f"Error reading frag file for {raw_name}")
                     logger.warning(e)
                 else:
+                    log_lfq_step(f"read {len(run_df):,} fragments for {raw_name}")
                     yield raw_name, run_df
 
     def _check_read_columns(self, frag_path: str) -> None:
