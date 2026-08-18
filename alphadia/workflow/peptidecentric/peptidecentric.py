@@ -21,7 +21,10 @@ from alphadia.workflow.peptidecentric.library_init import init_spectral_library
 from alphadia.workflow.peptidecentric.multiplexing_requantification_handler import (
     MultiplexingRequantificationHandler,
 )
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
+from alphadia.workflow.peptidecentric.optimization_handler import (
+    OptimizationHandler,
+    filter_dfs,
+)
 from alphadia.workflow.peptidecentric.transfer_library_requantification_handler import (
     TransferLibraryRequantificationHandler,
 )
@@ -169,6 +172,48 @@ class PeptideCentricWorkflow(base.WorkflowBase):
         )
         self.calibration_manager.predict(
             self.spectral_library.fragment_df, CalibrationGroups.FRAGMENT
+        )
+
+    @use_timing_manager("optimization")
+    def restore_state_from_quant_results(
+        self, psm_df: pd.DataFrame, frag_df: pd.DataFrame
+    ) -> None:
+        """Restore calibration and optimized search parameters from the results of an earlier search.
+
+        Takes the place of `search_parameter_optimization()`: the calibration is fitted on the stored
+        results instead of on a fresh search, and the optimized parameters are read from the
+        optimization manager written by that search.
+
+        Parameters
+        ----------
+        psm_df : pd.DataFrame
+            Precursor dataframe of the earlier search.
+
+        frag_df : pd.DataFrame
+            Fragment dataframe of the earlier search.
+
+        """
+        self.optimization_manager.load()
+        if not self.optimization_manager.is_loaded_from_file:
+            self.reporter.log_string(
+                f"No optimization manager found in {self.path}, "
+                f"falling back to the initial search parameters.",
+                verbosity="warning",
+            )
+
+        precursor_df_filtered, fragments_df_filtered = filter_dfs(
+            psm_df, frag_df, self.config, self.reporter
+        )
+
+        self.calibration_manager.fit(
+            precursor_df_filtered,
+            CalibrationGroups.PRECURSOR,
+            figure_path=self._figure_path,
+        )
+        self.calibration_manager.fit(
+            fragments_df_filtered,
+            CalibrationGroups.FRAGMENT,
+            figure_path=self._figure_path,
         )
 
     @use_timing_manager("extraction")

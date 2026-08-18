@@ -31,6 +31,73 @@ from alphadia.workflow.peptidecentric.recalibration_handler import Recalibration
 from alphadia.workflow.peptidecentric.utils import log_precursor_df
 
 
+def filter_dfs(
+    precursor_df: pd.DataFrame,
+    fragments_df: pd.DataFrame,
+    config: Config,
+    reporter: Pipeline,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
+
+    Parameters
+    ----------
+    precursor_df : pd.DataFrame
+        Precursor dataframe after FDR correction.
+
+    fragments_df : pd.DataFrame
+        Fragment dataframe.
+
+    config : Config
+        Configuration of the workflow.
+
+    reporter : Pipeline
+        Reporter to log to.
+
+    Returns
+    -------
+    precursor_df_filtered : pd.DataFrame
+        Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
+
+    fragments_df_filtered : pd.DataFrame
+        Filtered fragment dataframe. Retained fragments must either:
+            1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
+            2) belong to the top 500 fragments sorted by correlation otherwise.
+        Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
+    """
+    qval_mask = precursor_df["qval"] < 0.01
+    decoy_mask = precursor_df["decoy"] == 0
+    precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
+
+    precursor_idx_mask = fragments_df["precursor_idx"].isin(
+        precursor_df_filtered["precursor_idx"]
+    )
+    mass_error_mask = np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE
+
+    fragments_df_filtered = fragments_df[
+        precursor_idx_mask & mass_error_mask
+    ].sort_values(
+        by=["correlation", "precursor_idx"], ascending=False
+    )  # last sort to break ties
+
+    # Determine the number of fragments to keep
+    high_corr_count = (
+        fragments_df_filtered["correlation"] > config["calibration"]["min_correlation"]
+    ).sum()
+    stop_rank = min(
+        high_corr_count,
+        config["calibration"]["max_fragments"],
+    )
+
+    # Select top fragments
+    fragments_df_filtered = fragments_df_filtered.head(stop_rank)
+
+    reporter.log_string(
+        f"fragments_df: keeping {len(fragments_df_filtered)} of {len(fragments_df)} [{sum(precursor_idx_mask)=} {sum(mass_error_mask)=} {stop_rank=}"
+    )
+
+    return precursor_df_filtered, fragments_df_filtered
+
+
 class OptimizationHandler:
     """
     Handles the optimization of peptide-centric workflows.
@@ -292,8 +359,11 @@ class OptimizationHandler:
 
                 else:
                     log_string("Target number of precursors reached.")
-                    precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
-                        precursor_df, self._optlock.fragments_df
+                    precursor_df_filtered, fragments_df_filtered = filter_dfs(
+                        precursor_df,
+                        self._optlock.fragments_df,
+                        self._config,
+                        self._reporter,
                     )
 
                     self._optlock.update()
@@ -327,8 +397,8 @@ class OptimizationHandler:
 
         if insufficient_precursors_to_optimize:
             log_string("Handling insufficient precursors to optimize...")
-            precursor_df_filtered, fragments_df_filtered = self._filter_dfs(
-                precursor_df, self._optlock.fragments_df
+            precursor_df_filtered, fragments_df_filtered = filter_dfs(
+                precursor_df, self._optlock.fragments_df, self._config, self._reporter
             )
             if precursor_df_filtered.shape[0] >= 6:
                 recalibration_handler.recalibrate(
@@ -514,61 +584,3 @@ class OptimizationHandler:
 
         for optimizer in optimizers:
             optimizer.skip()
-
-    def _filter_dfs(self, precursor_df: pd.DataFrame, fragments_df: pd.DataFrame):
-        """Filters precursor and fragment dataframes to extract the most reliable examples for calibration.
-
-        Parameters
-        ----------
-        precursor_df : pd.DataFrame
-            Precursor dataframe after FDR correction.
-
-        fragments_df : pd.DataFrame
-            Fragment dataframe.
-
-        Returns
-        -------
-        precursor_df_filtered : pd.DataFrame
-            Filtered precursor dataframe. Decoy precursors and those found at worse than 1% FDR are removed from the precursor dataframe.
-
-        fragments_df_filtered : pd.DataFrame
-            Filtered fragment dataframe. Retained fragments must either:
-                1) have a correlation greater than 0.7 and belong to the top 5000 fragments sorted by correlation, if there are more than 500 with a correlation greater than 0.7, or
-                2) belong to the top 500 fragments sorted by correlation otherwise.
-            Fragments with abs(mass_error) greater than MAX_FRAGMENT_MZ_TOLERANCE (200) are removed.
-        """
-        qval_mask = precursor_df["qval"] < 0.01
-        decoy_mask = precursor_df["decoy"] == 0
-        precursor_df_filtered = precursor_df[qval_mask & decoy_mask]
-
-        precursor_idx_mask = fragments_df["precursor_idx"].isin(
-            precursor_df_filtered["precursor_idx"]
-        )
-        mass_error_mask = (
-            np.abs(fragments_df["mass_error"]) <= MAX_FRAGMENT_MZ_TOLERANCE
-        )
-
-        fragments_df_filtered = fragments_df[
-            precursor_idx_mask & mass_error_mask
-        ].sort_values(
-            by=["correlation", "precursor_idx"], ascending=False
-        )  # last sort to break ties
-
-        # Determine the number of fragments to keep
-        high_corr_count = (
-            fragments_df_filtered["correlation"]
-            > self._config["calibration"]["min_correlation"]
-        ).sum()
-        stop_rank = min(
-            high_corr_count,
-            self._config["calibration"]["max_fragments"],
-        )
-
-        # Select top fragments
-        fragments_df_filtered = fragments_df_filtered.head(stop_rank)
-
-        self._reporter.log_string(
-            f"fragments_df: keeping {len(fragments_df_filtered)} of {len(fragments_df)} [{sum(precursor_idx_mask)=} {sum(mass_error_mask)=} {stop_rank=}"
-        )
-
-        return precursor_df_filtered, fragments_df_filtered

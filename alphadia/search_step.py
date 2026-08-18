@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 import torch
 from alphabase.constants import modification
 from alphabase.spectral_library.base import SpecLibBase
@@ -37,7 +38,7 @@ from alphadia.libtransform.prediction import PeptDeepPrediction
 from alphadia.outputtransform.search_plan_output import SearchPlanOutput
 from alphadia.reporting.reporting import init_logging, move_existing_file
 from alphadia.utils import expand_path
-from alphadia.workflow.base import WorkflowBase
+from alphadia.workflow.base import WorkflowBase, get_quant_path
 from alphadia.workflow.config import (
     MODIFICATIONS_DELIM,
     MULTIPLEXING_CHANNELS_DELIM,
@@ -413,6 +414,61 @@ class SearchStep:
                 f"to library_multiplexing.multiplex_mapping and recreate the library. "
             )
 
+    def _validate_transfer_library(self) -> None:
+        """Validate the configuration for reusing quantification results for the transfer library.
+
+        As reusing is all-or-nothing, this needs to happen before any raw file is processed.
+        """
+        transfer_library_config = self.config[ConfigKeys.TRANSFER_LIBRARY]
+        config_key = (
+            f"{ConfigKeys.TRANSFER_LIBRARY}.{ConfigKeys.TRANSFER_LIBRARY.REUSE_QUANT}"
+        )
+
+        if not transfer_library_config[ConfigKeys.TRANSFER_LIBRARY.REUSE_QUANT]:
+            return
+
+        if not transfer_library_config[ConfigKeys.TRANSFER_LIBRARY.ENABLED]:
+            raise ConfigError(
+                config_key,
+                "True",
+                "final",
+                f"Reusing quantification results requires "
+                f"{ConfigKeys.TRANSFER_LIBRARY}.{ConfigKeys.TRANSFER_LIBRARY.ENABLED} to be set.",
+            )
+
+        quant_directory = get_quant_path(
+            self.config, self.config[ConfigKeys.QUANT_DIRECTORY]
+        )
+        if missing_raw_names := [
+            raw_name
+            for raw_name in (Path(location).stem for location in self.raw_path_list)
+            if not self._has_quant_results(os.path.join(quant_directory, raw_name))
+        ]:
+            raise ConfigError(
+                config_key,
+                quant_directory,
+                "final",
+                f"Found no quantification results for {len(missing_raw_names)}/{len(self.raw_path_list)} "
+                f"raw files: {missing_raw_names}. This directory needs to hold one folder per raw file, "
+                f"e.g. '{os.path.join(quant_directory, missing_raw_names[0], SearchStepFiles.PSM_FILE_NAME)}'.",
+            )
+
+        logger.progress(
+            f"{config_key}: reusing quantification results of {len(self.raw_path_list)} raw files "
+            f"from {quant_directory}"
+        )
+
+    @staticmethod
+    def _has_quant_results(folder: str) -> bool:
+        """Check if `folder` holds the quantification results required for the transfer library requantification."""
+        return all(
+            os.path.exists(os.path.join(folder, file_name))
+            for file_name in (
+                SearchStepFiles.PSM_FILE_NAME,
+                SearchStepFiles.FRAG_FILE_NAME,
+            )
+        )
+
     def _get_run_data(self) -> Generator[tuple[str, str, SpecLibFlat]]:
         """Generator for raw data and spectral library."""
         # iterate over raw files and yield raw data and spectral library
@@ -435,6 +491,8 @@ class SearchStep:
         list of tuples
             List of tuples containing (step_name, raw_file_name) for files that encountered errors during processing.
         """
+        self._validate_transfer_library()
+
         if self.spectral_library is None:
             logger.progress("Loading spectral library")
             self.load_library()
@@ -494,7 +552,14 @@ class SearchStep:
                         )
 
                 if not is_already_processed:
-                    self._process_raw_file(workflow, dia_path, speclib)
+                    if self.config[ConfigKeys.TRANSFER_LIBRARY][
+                        ConfigKeys.TRANSFER_LIBRARY.REUSE_QUANT
+                    ]:
+                        self._process_raw_file_transfer_only(
+                            workflow, dia_path, speclib
+                        )
+                    else:
+                        self._process_raw_file(workflow, dia_path, speclib)
 
                 workflow_folder_list.append(workflow.path)
 
@@ -571,6 +636,41 @@ class SearchStep:
                 file_path = workflow_path / file_name
                 workflow.reporter.log_string(f"Saving results to {file_path}")
                 df.to_parquet(file_path, index=False)
+
+        workflow.timing_manager.set_end_time("total")
+        workflow.timing_manager.save()
+
+    def _process_raw_file_transfer_only(
+        self, workflow: PeptideCentricWorkflow, dia_path: str, speclib: SpecLibFlat
+    ) -> None:
+        """Rebuild the transfer library fragments of a single raw file from existing quantification results.
+
+        The search is not repeated: the calibration is restored from the stored results and only the
+        transfer learning requantification is run. Note that `psm.parquet` is overwritten, as it needs
+        to index into the newly created fragments.
+        """
+        workflow_path = Path(workflow.path)
+
+        psm_df = pd.read_parquet(workflow_path / SearchStepFiles.PSM_FILE_NAME)
+        frag_df = pd.read_parquet(workflow_path / SearchStepFiles.FRAG_FILE_NAME)
+
+        workflow.timing_manager.set_start_time("total")
+
+        workflow.load(dia_path, speclib)
+
+        workflow.restore_state_from_quant_results(psm_df, frag_df)
+
+        psm_df, frag_transfer_df = workflow.requantify_fragments(psm_df)
+
+        psm_df["run"] = workflow.instance_name
+
+        for file_name, df in {
+            SearchStepFiles.PSM_FILE_NAME: psm_df,
+            SearchStepFiles.FRAG_TRANSFER_FILE_NAME: frag_transfer_df,
+        }.items():
+            file_path = workflow_path / file_name
+            workflow.reporter.log_string(f"Saving results to {file_path}")
+            df.to_parquet(file_path, index=False)
 
         workflow.timing_manager.set_end_time("total")
         workflow.timing_manager.save()

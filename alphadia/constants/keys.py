@@ -61,6 +61,12 @@ class ConfigKeys(metaclass=ConstantsClass):
         "library_prediction", PEPTDEEP_MODEL_PATH="peptdeep_model_path"
     )
 
+    TRANSFER_LIBRARY = ConstantNamespace(
+        "transfer_library",
+        ENABLED="enabled",
+        REUSE_QUANT="reuse_quant",
+    )
+
 
 class CalibCols(metaclass=ConstantsClass):
     """String constants for accessing (mz, rt, or mobility) columns in the context of calibration."""

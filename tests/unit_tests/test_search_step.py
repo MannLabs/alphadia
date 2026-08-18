@@ -1,5 +1,6 @@
 import tempfile
 from copy import deepcopy
+from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -7,6 +8,7 @@ from alphabase.constants.modification import MOD_DF
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
+from alphadia.exceptions import ConfigError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
 
@@ -248,3 +250,72 @@ def test_raises_value_error_for_invalid_config(
     with pytest.raises(TypeError, match="'str' object is not a mapping"):
         # when
         SearchStep._init_config(config1, config2, config3, "/output")
+
+
+def _get_search_step_for_transfer_library(
+    transfer_library_config: dict, quant_directory: str, raw_path_list: list[str]
+) -> SearchStep:
+    """Get a SearchStep instance with the minimal state required for `_validate_transfer_library`."""
+    step = object.__new__(SearchStep)
+    step._config = {
+        "transfer_library": transfer_library_config,
+        "quant_directory": quant_directory,
+    }
+    step.raw_path_list = raw_path_list
+    return step
+
+
+def test_validate_transfer_library_passes_if_not_reusing_quant():
+    """Test that no quantification results are required if reusing is not requested."""
+    step = _get_search_step_for_transfer_library(
+        {"enabled": False, "reuse_quant": False}, "/does/not/exist", ["/raw/file1.raw"]
+    )
+
+    # when
+    step._validate_transfer_library()
+
+
+def test_validate_transfer_library_raises_if_transfer_library_not_enabled():
+    """Test that reusing quantification results requires the transfer library to be enabled."""
+    step = _get_search_step_for_transfer_library(
+        {"enabled": False, "reuse_quant": True}, "/does/not/exist", ["/raw/file1.raw"]
+    )
+
+    with pytest.raises(ConfigError, match="transfer_library.enabled"):
+        # when
+        step._validate_transfer_library()
+
+
+def test_validate_transfer_library_raises_if_quant_results_are_missing():
+    """Test that missing quantification results are reported for all raw files up front."""
+    with tempfile.TemporaryDirectory() as quant_directory:
+        (Path(quant_directory) / "file1" / "figures").mkdir(parents=True)
+        (Path(quant_directory) / "file1" / "psm.parquet").touch()
+
+        step = _get_search_step_for_transfer_library(
+            {"enabled": True, "reuse_quant": True},
+            quant_directory,
+            ["/raw/file1.raw", "/raw/file2.raw"],
+        )
+
+        with pytest.raises(ConfigError, match="file1.*file2"):
+            # when
+            step._validate_transfer_library()
+
+
+def test_validate_transfer_library_passes_if_quant_results_are_present():
+    """Test that complete quantification results for all raw files are accepted."""
+    with tempfile.TemporaryDirectory() as quant_directory:
+        for raw_name in ["file1", "file2"]:
+            (Path(quant_directory) / raw_name).mkdir()
+            (Path(quant_directory) / raw_name / "psm.parquet").touch()
+            (Path(quant_directory) / raw_name / "frag.parquet").touch()
+
+        step = _get_search_step_for_transfer_library(
+            {"enabled": True, "reuse_quant": True},
+            quant_directory,
+            ["/raw/file1.raw", "/raw/file2.raw"],
+        )
+
+        # when
+        step._validate_transfer_library()

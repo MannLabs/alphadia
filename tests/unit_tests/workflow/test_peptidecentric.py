@@ -1,12 +1,11 @@
 """Unit test for the peptidecentric module."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 
-from alphadia.workflow.peptidecentric.optimization_handler import OptimizationHandler
-from alphadia.workflow.peptidecentric.peptidecentric import PeptideCentricWorkflow
+from alphadia.workflow.peptidecentric.optimization_handler import filter_dfs
 
 
 @pytest.fixture
@@ -30,24 +29,9 @@ def test_filters_precursors_and_fragments_correctly(mock_config):
             "correlation": [0.7, 0.5, 0.8, 0.6, 0.9, 0.95],
         }
     )
-    instance = PeptideCentricWorkflow("test_instance", mock_config)
-    instance.reporter = MagicMock()
-    with patch(
-        "alphadia.workflow.peptidecentric.optimization_handler.OptimizationLock"
-    ):
-        instance._optimization_handler = OptimizationHandler(
-            mock_config,
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-        )
-
     # when
-    filtered_precursors, filtered_fragments = (
-        instance._optimization_handler._filter_dfs(precursor_df, fragments_df)
+    filtered_precursors, filtered_fragments = filter_dfs(
+        precursor_df, fragments_df, mock_config, MagicMock()
     )
 
     pd.testing.assert_frame_equal(
