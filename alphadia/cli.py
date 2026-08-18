@@ -262,6 +262,7 @@ def run(*args, **kwargs):
 
     # load modules only here to speed up -v and -h commands
     from alphadia.exceptions import CustomError
+    from alphadia.exit_probe import enable_exit_probes, log_system_exit, mark_finished
     from alphadia.reporting import reporting
     from alphadia.search_plan import SearchPlan
 
@@ -314,8 +315,15 @@ def run(*args, **kwargs):
     # important to suppress matplotlib output
     matplotlib.use("Agg")
 
+    enable_exit_probes()
+
     try:
         SearchPlan(output_directory, user_config, cli_params_config).run_plan()
+        mark_finished()
+
+    except SystemExit as e:
+        log_system_exit(e)
+        raise
 
     except Exception as e:
         if isinstance(e, CustomError):
@@ -327,6 +335,7 @@ def run(*args, **kwargs):
             exit_code = EXIT_CODE_UNKNOWN_ERROR
 
         logger.error(e)
+        mark_finished()
         return exit_code
 
 
