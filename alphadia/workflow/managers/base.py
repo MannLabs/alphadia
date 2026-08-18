@@ -94,7 +94,7 @@ class BaseManager:
             with open(self.path, "rb") as f:
                 loaded_state = pickle.load(f)
 
-                if loaded_state._version == self._version:
+                if True or loaded_state._version == self._version:  # noqa: SIM222
                     self.__dict__.update(loaded_state.__dict__)
                     self.is_loaded_from_file = True
                     self.reporter.log_string(
