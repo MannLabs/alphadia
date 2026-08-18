@@ -111,7 +111,6 @@ class SearchPlanOutput:
         psm_df = self._build_precursor_table(folder_list, save=False)
         self._build_stat_df(folder_list, psm_df=psm_df, save=True)
         self._build_internal_df(folder_list, save=True)
-        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
         if self.config["general"]["save_mbr_library"]:
             if base_spec_lib is None:
@@ -125,6 +124,10 @@ class SearchPlanOutput:
 
         if self.config["transfer_learning"]["enabled"]:
             self._build_transfer_model(save=True)
+
+        # runs last as it is by far the most memory intensive step and none of
+        # the outputs above depend on it
+        self._build_lfq_tables(folder_list, psm_df=psm_df, save=True)
 
     def _build_transfer_model(self, save=True):
         """
