@@ -3,11 +3,15 @@ import sys
 from dataclasses import dataclass
 from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 import pytest
 
 from alphadia.constants.keys import NormalizationMethods
-from alphadia.outputtransform.quantification.quant_builder import QuantBuilder
+from alphadia.outputtransform.quantification.quant_builder import (
+    QuantBuilder,
+    prepare_df,
+)
 
 
 @pytest.fixture
@@ -668,3 +672,46 @@ class TestLfq:
 
         # Verify expected protein groups
         assert set(result_df["pg"]) == {"TNAA_ECOLI", "TNAB_ECOLI"}
+
+
+class TestPrepareDf:
+    """Tests for handling fragment data of older alphadia versions."""
+
+    @staticmethod
+    def _get_frag_df(with_loss_type: bool) -> pd.DataFrame:
+        frag_df = pd.DataFrame(
+            {
+                "precursor_idx": np.array([1, 1, 2], dtype=np.uint64),
+                "number": np.array([3, 4, 3], dtype=np.uint8),
+                "type": np.array([98, 121, 98], dtype=np.uint8),
+                "charge": np.array([1, 1, 2], dtype=np.uint8),
+                "intensity": [10.0, 20.0, 30.0],
+            }
+        )
+        if with_loss_type:
+            frag_df["loss_type"] = np.zeros(len(frag_df), dtype=np.uint8)
+        return frag_df
+
+    def test_missing_loss_type_gives_same_ions(self):
+        """Test that fragment data without a loss type column yields the same ions."""
+        psm_df = pd.DataFrame({"precursor_idx": np.array([1, 2], dtype=np.uint64)})
+
+        # when
+        result = prepare_df(
+            self._get_frag_df(with_loss_type=False), psm_df, columns=["intensity"]
+        )
+
+        expected = prepare_df(
+            self._get_frag_df(with_loss_type=True), psm_df, columns=["intensity"]
+        )
+        pd.testing.assert_frame_equal(result, expected)
+
+    def test_missing_loss_type_raises_for_ambiguous_fragments(self):
+        """Test that fragments which cannot be distinguished without a loss type are rejected."""
+        psm_df = pd.DataFrame({"precursor_idx": np.array([1, 2], dtype=np.uint64)})
+        frag_df = self._get_frag_df(with_loss_type=False)
+        frag_df = pd.concat([frag_df, frag_df.iloc[[0]]], ignore_index=True)
+
+        with pytest.raises(ValueError, match="cannot be distinguished without it"):
+            # when
+            prepare_df(frag_df, psm_df, columns=["intensity"])

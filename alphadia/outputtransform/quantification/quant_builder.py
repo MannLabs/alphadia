@@ -80,6 +80,32 @@ def _ion_hash(precursor_idx, number, type, charge, loss_type):
     )
 
 
+LOSS_TYPE_COLUMN = "loss_type"
+
+# the remaining columns entering the ion hash, see `_ion_hash`
+ION_HASH_COLUMNS = ["precursor_idx", "number", "type", "charge"]
+
+
+def _add_missing_loss_type(df: pd.DataFrame) -> pd.DataFrame:
+    """Add the loss type column, which fragment data of older alphadia versions does not contain.
+
+    Assuming fragments without a loss is only correct if the remaining ion hash columns already
+    identify each fragment uniquely, i.e. the data holds no fragments differing in loss type alone.
+    """
+    if df.duplicated(ION_HASH_COLUMNS).any():
+        raise ValueError(
+            f"Fragment data has no '{LOSS_TYPE_COLUMN}' column and holds fragments that cannot be "
+            f"distinguished without it. It was created with an incompatible alphadia version."
+        )
+
+    logger.warning(
+        f"Fragment data has no '{LOSS_TYPE_COLUMN}' column, assuming fragments without a loss."
+    )
+    df[LOSS_TYPE_COLUMN] = np.zeros(len(df), dtype=np.uint8)
+
+    return df
+
+
 def prepare_df(
     df: pd.DataFrame, psm_df: pd.DataFrame, columns: list[str]
 ) -> pd.DataFrame:
@@ -100,6 +126,10 @@ def prepare_df(
         Filtered fragment dataframe with ion hash
     """
     df = df[df["precursor_idx"].isin(psm_df["precursor_idx"])].copy()
+
+    if LOSS_TYPE_COLUMN not in df.columns:
+        df = _add_missing_loss_type(df)
+
     df["ion"] = _ion_hash(
         df["precursor_idx"].values,
         df["number"].values,
