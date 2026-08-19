@@ -246,6 +246,21 @@ def test_optimization_manager_save_load():
     os.remove(temp_path)
 
 
+def test_optimization_manager_without_config_does_not_initialize():
+    """Test that a manager whose state cannot be loaded is usable for reading, cf. df_builders."""
+    temp_path = os.path.join(tempfile.tempdir, "unloadable_optimization_manager.pkl")
+    with open(temp_path, "wb") as f:
+        # references a class path of an older alphadia version
+        f.write(b"calphadia.workflow.manager\nOptimizationManager\n)\x81.")
+
+    # when
+    optimization_manager = OptimizationManager(path=temp_path)
+
+    assert optimization_manager.is_loaded_from_file is False
+
+    os.remove(temp_path)
+
+
 def test_optimization_manager_fit():
     temp_path = os.path.join(tempfile.tempdir, "optimization_manager.pkl")
     optimization_manager = OptimizationManager(

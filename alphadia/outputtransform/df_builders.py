@@ -80,13 +80,13 @@ def build_run_stat_df(
 
         # collect optimization stats
         optimization_stats = defaultdict(lambda: np.nan)
-        if os.path.exists(
-            optimization_manager_path := os.path.join(
+        optimization_manager = OptimizationManager(
+            path=os.path.join(
                 folder,
                 PeptideCentricWorkflow.OPTIMIZATION_MANAGER_PKL_NAME,
             )
-        ):
-            optimization_manager = OptimizationManager(path=optimization_manager_path)
+        )
+        if optimization_manager.is_loaded_from_file:
             optimization_stats[StatOutputCols.MS2_ERROR] = (
                 optimization_manager.ms2_error
             )

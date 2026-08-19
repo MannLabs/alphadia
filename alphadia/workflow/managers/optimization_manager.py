@@ -29,7 +29,8 @@ class OptimizationManager(BaseManager):
         self.reporter.log_string(f"Initializing {self.__class__.__name__}")
         self.reporter.log_event("initializing", {"name": f"{self.__class__.__name__}"})
 
-        if not self.is_loaded_from_file:
+        # without a config, the manager can only be used to read a state from disk
+        if not self.is_loaded_from_file and config is not None:
             self.ms1_error = config["search_initial"]["ms1_tolerance"]
             self.ms2_error = config["search_initial"]["ms2_tolerance"]
 
