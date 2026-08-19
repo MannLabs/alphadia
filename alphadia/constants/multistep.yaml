@@ -25,6 +25,7 @@ library:
     save_library: False
   transfer_library:
     enabled: False
+    reuse_quant: False
   transfer_learning:
     enabled: False
 # will be set in search_plan.py if transfer step is enabled:
@@ -44,6 +45,7 @@ mbr:
     enabled: False
   transfer_library:
     enabled: False
+    reuse_quant: False
   transfer_learning:
     enabled: False
 # will be set in search_plan.py if mbr step is enabled:

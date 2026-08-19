@@ -17,7 +17,12 @@ from alphadia.constants.keys import (
     ConfigKeys,
     SearchStepFiles,
 )
-from alphadia.exceptions import ConfigError, CustomError, NoLibraryAvailableError
+from alphadia.exceptions import (
+    ConfigError,
+    CustomError,
+    GenericUserError,
+    NoLibraryAvailableError,
+)
 from alphadia.libtransform.base import ProcessingPipeline
 from alphadia.libtransform.decoy import DecoyGenerator
 from alphadia.libtransform.fasta_digest import FastaDigest
@@ -62,6 +67,35 @@ if TYPE_CHECKING:
     logger: _ExtendedLogger = logging.getLogger()  # type: ignore[assignment]
 else:
     logger = logging.getLogger()
+
+
+# older alphabase versions spelled terminal modifications with a space instead of an underscore
+LEGACY_MODIFICATION_NAME_REPLACEMENTS = {
+    " N-term": "_N-term",
+    " C-term": "_C-term",
+}
+
+
+def _harmonize_modification_names(mods: pd.Series) -> pd.Series:
+    """Translate modification names written by older alphabase versions, e.g. 'Acetyl@Protein N-term'."""
+    for legacy_infix, infix in LEGACY_MODIFICATION_NAME_REPLACEMENTS.items():
+        mods = mods.str.replace(legacy_infix, infix, regex=False)
+
+    if unknown_mod_names := sorted(
+        {
+            mod_name
+            for mod_names in mods
+            for mod_name in mod_names.split(MODIFICATIONS_DELIM)
+            if mod_name and mod_name not in modification.MOD_MASS
+        }
+    ):
+        raise GenericUserError(
+            f"Unknown modifications in quantification results: {unknown_mod_names}.",
+            "These modifications are not known to the installed alphabase version. The quantification "
+            "results were likely created with an incompatible version and cannot be reused.",
+        )
+
+    return mods
 
 
 class SearchStep:
@@ -653,6 +687,8 @@ class SearchStep:
 
         psm_df = pd.read_parquet(workflow_path / SearchStepFiles.PSM_FILE_NAME)
         frag_df = pd.read_parquet(workflow_path / SearchStepFiles.FRAG_FILE_NAME)
+
+        psm_df["mods"] = _harmonize_modification_names(psm_df["mods"])
 
         workflow.timing_manager.set_start_time("total")
 

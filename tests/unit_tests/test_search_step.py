@@ -3,12 +3,13 @@ from copy import deepcopy
 from pathlib import Path
 from unittest.mock import MagicMock, call, patch
 
+import pandas as pd
 import pytest
 from alphabase.constants.modification import MOD_DF
 
 from alphadia import __version__ as alphadia_version
 from alphadia import search_step
-from alphadia.exceptions import ConfigError
+from alphadia.exceptions import ConfigError, GenericUserError
 from alphadia.search_step import SearchStep
 from alphadia.workflow.config import Config
 
@@ -319,3 +320,39 @@ def test_validate_transfer_library_passes_if_quant_results_are_present():
 
         # when
         step._validate_transfer_library()
+
+
+def test_harmonize_modification_names_translates_legacy_names():
+    """Test that terminal modifications of older alphabase versions are translated."""
+    mods = pd.Series(
+        [
+            "Acetyl@Protein N-term",
+            "Oxidation@M;Acetyl@Protein N-term",
+            "Carbamidomethyl@C",
+            "",
+        ]
+    )
+
+    # when
+    result = search_step._harmonize_modification_names(mods)
+
+    pd.testing.assert_series_equal(
+        result,
+        pd.Series(
+            [
+                "Acetyl@Protein_N-term",
+                "Oxidation@M;Acetyl@Protein_N-term",
+                "Carbamidomethyl@C",
+                "",
+            ]
+        ),
+    )
+
+
+def test_harmonize_modification_names_raises_for_unknown_modification():
+    """Test that modifications unknown to the installed alphabase version are reported."""
+    mods = pd.Series(["Oxidation@M;ThisModDoesNotExist@K"])
+
+    with pytest.raises(GenericUserError, match="ThisModDoesNotExist@K"):
+        # when
+        search_step._harmonize_modification_names(mods)
