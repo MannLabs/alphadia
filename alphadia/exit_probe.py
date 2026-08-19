@@ -2,17 +2,25 @@
 
 alphaDIA catches `Exception` at every level, so a `SystemExit` raised anywhere
 below passes through unreported and ends the process with its own exit code,
-producing no traceback and no log. Together with faulthandler these probes tell
-apart a `sys.exit()`, a crash in a C extension, and a hard kill that no handler
-can observe.
+producing no traceback and no log. Together with faulthandler and the signal
+handlers these probes tell apart a `sys.exit()`, a crash in a C extension, an
+external termination signal such as the SIGTERM a scheduler sends on a time or
+memory limit, and a SIGKILL that nothing can observe.
 """
 
 import atexit
 import faulthandler
 import logging
+import os
+import signal
 import traceback
+from types import FrameType
 
 logger = logging.getLogger()
+
+# termination signals a scheduler may send. SIGKILL is deliberately absent as it
+# cannot be caught. SIGINT is left alone so Ctrl-C keeps raising KeyboardInterrupt.
+_TERMINATION_SIGNAL_NAMES = ("SIGTERM", "SIGXCPU", "SIGUSR1", "SIGUSR2", "SIGHUP")
 
 # mutable so the atexit handler observes updates without a global statement
 _state = {"finished": False}
@@ -22,6 +30,35 @@ def enable_exit_probes() -> None:
     """Install the probes, as early in the process as possible."""
     faulthandler.enable()
     atexit.register(_report_unfinished_exit)
+
+    for signum in _termination_signals():
+        signal.signal(signum, _on_termination_signal)
+        if hasattr(faulthandler, "register"):
+            # dumps every thread from the C handler, which runs even while the
+            # interpreter is blocked inside a native call
+            faulthandler.register(signum, chain=True)
+
+
+def _termination_signals() -> list[int]:
+    """Return the termination signals available on this platform."""
+    return [
+        getattr(signal, name)
+        for name in _TERMINATION_SIGNAL_NAMES
+        if hasattr(signal, name)
+    ]
+
+
+def _on_termination_signal(signum: int, _frame: FrameType | None) -> None:
+    """Report an external termination, then die from that same signal."""
+    logger.error(
+        f"Received {signal.Signals(signum).name} from outside the process; "
+        f"alphaDIA did not choose to exit. A scheduler sends this on a time or "
+        f"memory limit, or on a cancel request."
+    )
+    logging.shutdown()
+
+    signal.signal(signum, signal.SIG_DFL)
+    os.kill(os.getpid(), signum)
 
 
 def mark_finished() -> None:
