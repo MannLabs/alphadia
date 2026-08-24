@@ -631,9 +631,7 @@ class NgExtractionHandler(ExtractionHandler):
 
         if precursor_fdr_df is not None:
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[
-                    ["precursor_idx", "rank", "qval", "proba", "cycle_fwhm"]
-                ],
+                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
