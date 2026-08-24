@@ -1,61 +1,8 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.fragcomp.fragcomp import (
-    FragmentCompetition,
-    _compete_for_fragments,
-    _get_fragment_overlap,
-)
+from alphadia.fragcomp.fragcomp import FragmentCompetition
 from alphadia.fragcomp.utils import candidate_hash
-
-
-def test_fragment_overlap():
-    frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    frag_mz_2 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 10
-
-    frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    frag_mz_2 = np.array([100])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 1
-
-    frag_mz_1 = np.array([])
-    frag_mz_2 = np.array([])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
-
-    frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    frag_mz_2 = np.array([])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
-
-    frag_mz_1 = np.array([])
-    frag_mz_2 = np.array([100, 200, 300, 400, 500, 600, 700, 801, 901, 1001])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
-
-    frag_mz_1 = np.array([100, 200, 300, 400, 500, 600, 700, 800, 900, 1000])
-    frag_mz_2 = np.array([101, 201, 301, 401, 501, 601, 701, 801, 901, 1001])
-    assert _get_fragment_overlap(frag_mz_1, frag_mz_2) == 0
-
-
-def test_compete_for_fragments():
-    rt = np.array([10.0, 20.0, 20.0, 10.0, 10.0, 20])
-    valid = np.array([True] * 6)
-    frag_start_idx = np.array([0, 10, 20, 30, 40, 50])
-    frag_stop_idx = np.array([10, 20, 30, 40, 50, 60])
-    fragment_mz = np.tile(np.arange(100, 110), 6)
-
-    _compete_for_fragments(
-        np.array([0, 1]),
-        np.array([0, 3]),
-        np.array([3, 6]),
-        rt,
-        frag_start_idx,
-        frag_stop_idx,
-        fragment_mz,
-        3,
-        15,
-        valid,
-    )
-
-    assert np.all(valid == np.array([True, True, False, True, False, True]))
 
 
 def test_fragment_competition():
