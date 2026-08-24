@@ -289,6 +289,35 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     return np.flip(q_values_flipped)
 
 
+def _integer_tiebreak(values: pd.Series) -> np.ndarray:
+    """Map a tie-break column to integer keys that sort like the column itself.
+
+    The Rust q-value kernel takes an integer tie-break key, but not every caller
+    breaks ties on an integer: protein FDR sorts by the protein-group accession, a
+    string. Factorizing with `sort=True` numbers the unique values in sorted order,
+    so ordering by the codes reproduces ordering by the original values and the
+    kernel stays exact for any sortable dtype.
+
+    Parameters
+    ----------
+    values : pd.Series
+        The tie-break column.
+
+    Returns
+    -------
+    np.ndarray
+        int64 keys with the same ordering as `values`.
+
+    """
+    if pd.api.types.is_integer_dtype(values):
+        return values.to_numpy(dtype=np.int64)
+
+    codes, _ = pd.factorize(values, sort=True)
+    # factorize codes missing values as -1, which would sort them first; pandas
+    # sorts them last.
+    return np.where(codes < 0, np.iinfo(np.int64).max, codes).astype(np.int64)
+
+
 def get_q_values(
     df: pd.DataFrame,
     score_column: str = "proba",
@@ -326,18 +355,13 @@ def get_q_values(
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
 
-    # The Rust kernel requires an integer tie-break key. Precursor FDR sorts by
-    # `precursor_idx` (integer), but protein FDR sorts by the protein-group accession
-    # (a string), so fall back to the reference pandas path for non-integer columns.
-    if (
-        _USE_RUST_FDR
-        and len(extra_sort_columns) == 1
-        and pd.api.types.is_integer_dtype(df[extra_sort_columns[0]])
-    ):
+    # The Rust kernel takes a single tie-break key, so multi-column tie-breaks stay
+    # on the reference path.
+    if _USE_RUST_FDR and len(extra_sort_columns) == 1:
         order, qvalues = _rs_q_values(
             df[score_column].to_numpy(dtype=np.float64),
             df[decoy_column].to_numpy(dtype=np.float64),
-            df[extra_sort_columns[0]].to_numpy(dtype=np.int64),
+            _integer_tiebreak(df[extra_sort_columns[0]]),
         )
         df = df.iloc[order].copy()
         df[qval_column] = qvalues

@@ -109,6 +109,48 @@ def test_get_q_values():
     )
 
 
+def test_integer_tiebreak_preserves_integer_column():
+    # Given: an integer tie-break column
+    values = pd.Series([7, 3, 3, 11], dtype="int64")
+
+    # When: mapping it to kernel tie-break keys
+    keys = fdr._integer_tiebreak(values)
+
+    # Then: the values are passed through unchanged
+    np.testing.assert_array_equal(keys, np.array([7, 3, 3, 11], dtype=np.int64))
+
+
+def test_integer_tiebreak_reproduces_string_sort_order():
+    # Given: a string tie-break column, as protein FDR uses for the protein group
+    test_df = pd.DataFrame(
+        {
+            "proba": [0.1] * 5,
+            "decoy": [0.0] * 5,
+            "pg": ["Q9Y6K9", "A0A024", "P12345", "B2RXH2", "A0A024"],
+        }
+    )
+
+    # When: sorting by the tie-break keys instead of by the strings
+    by_string = test_df.sort_values(["proba", "decoy", "pg"]).index.tolist()
+    test_df["key"] = fdr._integer_tiebreak(test_df["pg"])
+    by_key = test_df.sort_values(["proba", "decoy", "key"]).index.tolist()
+
+    # Then: both orderings agree, so the kernel stays exact on string columns
+    assert by_key == by_string
+
+
+def test_integer_tiebreak_sorts_missing_values_last():
+    # Given: a tie-break column with a missing value
+    values = pd.Series(["B", None, "A"])
+
+    # When: mapping it to kernel tie-break keys
+    keys = fdr._integer_tiebreak(values)
+
+    # Then: the missing value sorts last, as it does in pandas
+    assert keys[1] == np.iinfo(np.int64).max
+    assert list(np.argsort(keys, kind="stable")) == [2, 0, 1]
+
+
 def gen_data_np(
     n_features=10,
     n_samples=10000,
