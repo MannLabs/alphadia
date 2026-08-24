@@ -31,12 +31,32 @@ def enable_exit_probes() -> None:
     faulthandler.enable()
     atexit.register(_report_unfinished_exit)
 
+    _install_termination_handlers()
+
+    # multiprocessing pools, such as the one directLFQ uses, SIGTERM their
+    # workers as part of normal teardown. Forked children inherit the handlers
+    # above, so they must be reset or that teardown is reported as a failure.
+    os.register_at_fork(after_in_child=_reset_termination_handlers)
+
+
+def _install_termination_handlers() -> None:
+    """Report and stack dump on signals that terminate the process."""
     for signum in _termination_signals():
         signal.signal(signum, _on_termination_signal)
         if hasattr(faulthandler, "register"):
             # dumps every thread from the C handler, which runs even while the
             # interpreter is blocked inside a native call
             faulthandler.register(signum, chain=True)
+
+
+def _reset_termination_handlers() -> None:
+    """Restore the default handling a process has without these probes."""
+    for signum in _termination_signals():
+        signal.signal(signum, signal.SIG_DFL)
+        if hasattr(faulthandler, "unregister"):
+            faulthandler.unregister(signum)
+
+    _state["finished"] = True
 
 
 def _termination_signals() -> list[int]:
