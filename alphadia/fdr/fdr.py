@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -19,6 +20,23 @@ if TYPE_CHECKING:
 max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
+
+try:
+    from alphadia_search_rs import fdr_finalize as _rs_finalize
+    from alphadia_search_rs import fdr_keep_best as _rs_keep_best
+    from alphadia_search_rs import fdr_q_values as _rs_q_values
+
+    _RUST_FDR_AVAILABLE = True
+except ImportError:
+    _RUST_FDR_AVAILABLE = False
+
+# Rust-accelerated q-value/keep-best kernels are used by default when available.
+# Set ALPHADIA_RUST_FDR=0 to force the reference pandas implementation (for A/B benchmarking).
+_USE_RUST_FDR = _RUST_FDR_AVAILABLE and os.environ.get("ALPHADIA_RUST_FDR", "1") != "0"
+
+# Bin resolution for the sort-free histogram q-value estimation. 2**20 bins over
+# proba in [0, 1] gives ~1e-6 resolution, far finer than any FDR threshold.
+_FDR_QVALUE_BINS = 1 << 20
 
 
 @manage_torch_threads(max_threads=2)
@@ -148,32 +166,48 @@ def perform_fdr(  # noqa: C901, PLR0913, PLR0915 # too complex, Too many stateme
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
     psm_df["proba"] = predicted_proba
-    psm_df.sort_values(
-        ["proba", "precursor_idx"], ascending=True, inplace=True
-    )  # last sort to break ties
 
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+    do_fragment_competition = (
+        dia_cycle is not None
+        and dia_cycle.shape[2] <= max_dia_cycle_shape
+        and df_fragments is not None
+    )
 
-    if dia_cycle is not None and dia_cycle.shape[2] <= max_dia_cycle_shape:
-        # use a FDR of 10% as starting point
-        # if there are no PSMs with a FDR < 10% use all PSMs
-        start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
-        if start_idx == 0:
-            start_idx = len(psm_df)
+    if _USE_RUST_FDR and not do_fragment_competition:
+        # Fused sort-free finalization: keep-best per group and q-values are
+        # computed in a single counting pass (no full sort, no O(N) ordering).
+        group_id = (
+            psm_df.groupby(group_columns, sort=False).ngroup().to_numpy(dtype=np.int64)
+        )
+        order, qvalues = _rs_finalize(
+            psm_df["proba"].to_numpy(dtype=np.float64),
+            psm_df["_decoy"].to_numpy(dtype=np.float64),
+            group_id,
+            _FDR_QVALUE_BINS,
+        )
+        psm_df = psm_df.iloc[order].copy()
+        psm_df["qval"] = qvalues
+    else:
+        psm_df.sort_values(
+            ["proba", "precursor_idx"], ascending=True, inplace=True
+        )  # last sort to break ties
 
-        # make sure fragments are not reused
-        if df_fragments is not None:
-            if dia_cycle is None:
-                raise ValueError(
-                    "dia_cycle must be provided if df_fragments is provided"
-                )
+        psm_df = get_q_values(psm_df, "proba", "_decoy")
+
+        if do_fragment_competition:
+            # use a FDR of 10% as starting point
+            # if there are no PSMs with a FDR < 10% use all PSMs
+            start_idx = psm_df["qval"].searchsorted(fdr_heuristic, side="left")
+            if start_idx == 0:
+                start_idx = len(psm_df)
+
             fragment_competition = FragmentCompetition()
             psm_df = fragment_competition(
                 psm_df.iloc[:start_idx], df_fragments, dia_cycle
             )
 
-    psm_df = keep_best(psm_df, group_columns=group_columns)
-    psm_df = get_q_values(psm_df, "proba", "_decoy")
+        psm_df = keep_best(psm_df, group_columns=group_columns)
+        psm_df = get_q_values(psm_df, "proba", "_decoy")
 
     if figure_path is not None:
         plot_fdr(
@@ -218,6 +252,14 @@ def keep_best(
     if group_columns is None:
         group_columns = ["channel", "precursor_idx"]
     df = df.reset_index(drop=True)
+
+    if _USE_RUST_FDR:
+        group_id = (
+            df.groupby(group_columns, sort=False).ngroup().to_numpy(dtype=np.int64)
+        )
+        keep = _rs_keep_best(df[score_column].to_numpy(dtype=np.float64), group_id)
+        return df.iloc[keep].reset_index(drop=True)
+
     df = df.sort_values(
         [score_column, *group_columns], ascending=True
     )  # last sort to break ties
@@ -245,6 +287,35 @@ def _fdr_to_q_values(fdr_values: np.ndarray) -> np.ndarray:
     fdr_values_flipped = np.flip(fdr_values)
     q_values_flipped = np.minimum.accumulate(fdr_values_flipped)
     return np.flip(q_values_flipped)
+
+
+def _integer_tiebreak(values: pd.Series) -> np.ndarray:
+    """Map a tie-break column to integer keys that sort like the column itself.
+
+    The Rust q-value kernel takes an integer tie-break key, but not every caller
+    breaks ties on an integer: protein FDR sorts by the protein-group accession, a
+    string. Factorizing with `sort=True` numbers the unique values in sorted order,
+    so ordering by the codes reproduces ordering by the original values and the
+    kernel stays exact for any sortable dtype.
+
+    Parameters
+    ----------
+    values : pd.Series
+        The tie-break column.
+
+    Returns
+    -------
+    np.ndarray
+        int64 keys with the same ordering as `values`.
+
+    """
+    if pd.api.types.is_integer_dtype(values):
+        return values.to_numpy(dtype=np.int64)
+
+    codes, _ = pd.factorize(values, sort=True)
+    # factorize codes missing values as -1, which would sort them first; pandas
+    # sorts them last.
+    return np.where(codes < 0, np.iinfo(np.int64).max, codes).astype(np.int64)
 
 
 def get_q_values(
@@ -283,6 +354,18 @@ def get_q_values(
     """
     if extra_sort_columns is None:
         extra_sort_columns = ["precursor_idx"]
+
+    # The Rust kernel takes a single tie-break key, so multi-column tie-breaks stay
+    # on the reference path.
+    if _USE_RUST_FDR and len(extra_sort_columns) == 1:
+        order, qvalues = _rs_q_values(
+            df[score_column].to_numpy(dtype=np.float64),
+            df[decoy_column].to_numpy(dtype=np.float64),
+            _integer_tiebreak(df[extra_sort_columns[0]]),
+        )
+        df = df.iloc[order].copy()
+        df[qval_column] = qvalues
+        return df
 
     df = df.sort_values(
         [score_column, decoy_column, *extra_sort_columns], ascending=True
