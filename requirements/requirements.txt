@@ -1,7 +1,7 @@
 # Dependencies required for running AlphaDIA.
 # If these are changed, use the "update_requirements" workflow to update the _requirements.freeze.txt files.
 # alphaX
-alphadia-search-rs>=1,<2
+alphadia-search-rs>=1.2.0,<2
 alpharaw>=0.6.0
 alphabase>=1.5.0
 peptdeep>=1.4.1
@@ -10,7 +10,7 @@ directlfq>=0.2.19
 quantselect>=0.1.3
 # others
 argparse
-seaborn
+matplotlib
 rocket_fft
 xxhash
 torchmetrics

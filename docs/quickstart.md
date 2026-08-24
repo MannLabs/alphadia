@@ -17,7 +17,7 @@ Download the test samples and save them:
 ## 3. Search settings
 
 ### Input Files
-Import the library `.hdf` file and select the thre `.raw` files. You can select a human `.fasta` file for reannotation but it's generally not recommended for empirical spectral libraries.
+Import the library `.hdf` file and select the three `.raw` files. You can select a human `.fasta` file for reannotation but it's generally not recommended for empirical spectral libraries.
 
 ### Method Settings
 Although alphaDIA is highly customizable, we will only specify a limited number of settings here. Go to the *Search* settings and make the following changes:
@@ -34,5 +34,5 @@ Click *Run Workflow* to start the search and see the progress.
 # Quickstart using CLI
 1. Clone the repository from GitHub
 2. Create a conda environment called `alphadia` and install AlphaDIA (either from `pip` or local, cf. [Installation](installation.md))
-3. `cd` into the root folder of the repository, then `cd test`
+3. `cd` into the root folder of the repository, then `cd tests`
 4. `./run_e2e_tests.sh basic alphadia` will run a basic test after downloading the test data

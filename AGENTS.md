@@ -16,8 +16,8 @@ Key features:
 
 ### Environment Setup
 ```bash
-conda create -n alphadia_env python=3.11 -y
-conda activate alphadia_env
+conda create -n alphadia python=3.11 -y
+conda activate alphadia
 pip install -e ".[stable,development]"
 ```
 

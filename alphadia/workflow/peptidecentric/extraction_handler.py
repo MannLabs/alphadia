@@ -146,7 +146,7 @@ class ExtractionHandler(ABC):
         )
         candidates_df = self._select_candidates(dia_data, spectral_library)
 
-        # sns.histplot(candidates_df, x="score", hue="decoy", bins=100)
+        # plt.hist(candidates_df["score"], bins=100)
 
         if apply_cutoff:
             candidates_df = self._apply_score_cutoff(candidates_df)

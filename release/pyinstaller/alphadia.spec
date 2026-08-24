@@ -6,8 +6,6 @@ import sys
 from PyInstaller.building.build_main import Analysis, PYZ, EXE, COLLECT, BUNDLE, TOC
 import PyInstaller.utils.hooks
 from PyInstaller.utils.hooks import copy_metadata
-import pkg_resources
-import importlib.metadata
 
 
 ##################### User definitions

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 from alphadia.reporting import reporting
 from alphadia.workflow.config import Config
@@ -156,17 +155,15 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
             label=f"Optimal {self.parameter_name}",
         )
 
-        sns.lineplot(
-            data=self.history_df,
-            x="parameter",
-            y=self._feature_name,
-            ax=ax,
+        # sort by parameter so the connecting line follows increasing x
+        sorted_history_df = self.history_df.sort_values("parameter")
+        ax.plot(
+            sorted_history_df["parameter"],
+            sorted_history_df[self._feature_name],
         )
-        sns.scatterplot(
-            data=self.history_df,
-            x="parameter",
-            y=self._feature_name,
-            ax=ax,
+        ax.scatter(
+            self.history_df["parameter"],
+            self.history_df[self._feature_name],
         )
 
         ax.set_xlabel(self.parameter_name)
