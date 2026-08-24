@@ -46,6 +46,46 @@ def test_get_q_values_matches_reference(monkeypatch):
     )
 
 
+def test_get_q_values_string_tiebreak_matches_reference(monkeypatch):
+    """Protein FDR breaks ties on the protein group accession, a string column."""
+    rng = np.random.default_rng(1)
+    n = 20_000
+    df = pd.DataFrame(
+        {
+            # deliberate proba ties, so the tie-break column decides the ordering
+            "proba": rng.choice(np.linspace(0.0, 1.0, n // 10), n),
+            "decoy": (rng.random(n) < 0.4).astype(float),
+            "pg": [f"P{i:06d}" for i in rng.permutation(n)],
+        }
+    )
+
+    rust = _run(
+        monkeypatch,
+        True,
+        fdr.get_q_values,
+        df.copy(),
+        "proba",
+        "decoy",
+        extra_sort_columns=["pg"],
+    )
+    ref = _run(
+        monkeypatch,
+        False,
+        fdr.get_q_values,
+        df.copy(),
+        "proba",
+        "decoy",
+        extra_sort_columns=["pg"],
+    )
+
+    rust = rust.sort_values("pg").reset_index(drop=True)
+    ref = ref.sort_values("pg").reset_index(drop=True)
+
+    np.testing.assert_allclose(
+        rust["qval"].to_numpy(), ref["qval"].to_numpy(), atol=1e-12
+    )
+
+
 @pytest.mark.parametrize(
     "group_columns",
     [["precursor_idx"], ["channel", "elution_group_idx"], ["elution_group_idx"]],
