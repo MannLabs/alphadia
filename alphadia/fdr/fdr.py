@@ -20,9 +20,15 @@ max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
 
+# Below this standard deviation the probability is almost constant. The classifier then
+# cannot separate targets from decoys, and the FDR filter keeps all PSMs.
+_PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
+
+_MAX_FDR_CLASSIFIER_REINITS = 3
+
 
 @manage_torch_threads(max_threads=2)
-def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
+def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too many branches, too many statements, too many arguments
     classifier: Classifier,
     available_columns: list[str],
     df_target: pd.DataFrame,
@@ -146,6 +152,29 @@ def perform_fdr(  # noqa: C901, PLR0913 # too complex, too many arguments
         group_columns = ["precursor_idx"]
 
     predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
+    n_reinit = 0
+    while (
+        float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD
+        and n_reinit < _MAX_FDR_CLASSIFIER_REINITS
+    ):
+        n_reinit += 1
+        logger.warning(
+            f"FDR classifier collapsed to a near-constant probability "
+            f"({np.unique(predicted_proba).size} unique value(s) over "
+            f"{len(predicted_proba):,} PSMs); reinitializing from scratch and "
+            f"retrying ({n_reinit}/{_MAX_FDR_CLASSIFIER_REINITS})."
+        )
+        classifier.reset()
+        classifier.fit(X_train, y_train)
+        predicted_proba = classifier.predict_proba(X)[:, 1]
+
+    if float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD:
+        logger.warning(
+            "FDR classifier produced a near-constant probability; target/decoy "
+            "separation failed and q-values will not filter PSMs."
+        )
 
     psm_df["proba"] = predicted_proba
     psm_df.sort_values(
