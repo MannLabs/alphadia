@@ -11,7 +11,7 @@ import pandas as pd
 from alphadia.exceptions import TooFewPSMError
 from alphadia.fdr.plotting import plot_fdr
 from alphadia.fdr.utils import manage_torch_threads, train_test_split_
-from alphadia.fragcomp.fragcomp import FragmentCompetition
+from alphadia.fragcomp.fragcomp import compete_for_fragments
 
 if TYPE_CHECKING:
     from alphadia.fdr.classifiers import Classifier, ClassifierRegistry
@@ -207,8 +207,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
                 raise ValueError(
                     "dia_cycle must be provided if df_fragments is provided"
                 )
-            fragment_competition = FragmentCompetition()
-            psm_df = fragment_competition(
+            psm_df = compete_for_fragments(
                 psm_df.iloc[:start_idx], df_fragments, dia_cycle
             )
 

@@ -126,10 +126,10 @@ class BasicStats(Metrics):
             "optimization.ms1_error",
             "optimization.rt_error",
             "optimization.mobility_error",
-            "calibration.ms2_median_accuracy",
-            "calibration.ms2_median_precision",
-            "calibration.ms1_median_accuracy",
-            "calibration.ms1_median_precision",
+            "calibration.ms2_bias",
+            "calibration.ms2_variance",
+            "calibration.ms1_bias",
+            "calibration.ms1_variance",
         ]:
             try:
                 self._metrics[f"{self._name}/{col}_mean"] = df[col].mean()

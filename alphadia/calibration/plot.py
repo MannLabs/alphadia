@@ -155,7 +155,7 @@ def plot_calibration(
         )
 
         for ax, dim in zip([ax_left, ax_right], [0, 2], strict=True):
-            ax.set_xlabel(calibration.input_columns[input_property])
+            ax.set_xlabel(calibration.input_column)
             ax.set_ylabel(f"observed deviation {transform_unit}")
 
             # get absolute y value and set limits to plus minus absolute y
@@ -169,14 +169,12 @@ def plot_calibration(
         figure_path_ = Path(figure_path)
         i = 0
         figure_file_path = (
-            figure_path_
-            / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
+            figure_path_ / f"calibration_{calibration.input_column}_{i}.pdf"
         )
 
         while figure_file_path.exists():
             figure_file_path = (
-                figure_path_
-                / f"calibration_{calibration.input_columns[input_property]}_{i}.pdf"
+                figure_path_ / f"calibration_{calibration.input_column}_{i}.pdf"
             )
 
             i += 1
