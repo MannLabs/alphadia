@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from alphadia.fragcomp.fragcomp import FragmentCompetition
+from alphadia.fragcomp.fragcomp import compete_for_fragments
 from alphadia.fragcomp.utils import candidate_hash
 
 
@@ -12,7 +12,6 @@ def test_fragment_competition():
         {
             "precursor_idx": np.arange(6, dtype=np.uint32),
             "rt_observed": np.array([10.0, 20.0, 20.0, 10.0, 10.0, 20]),
-            "valid": np.array([True] * 6),
             "mz_observed": np.array([100, 100, 100, 200, 200, 200]),
             "proba": np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6]),
             "rank": np.zeros(6, dtype=np.uint8),
@@ -28,8 +27,7 @@ def test_fragment_competition():
     )
 
     # when
-    fragment_competition = FragmentCompetition()
-    psm_df = fragment_competition(psm_df, frag_df, cycle)
+    psm_df = compete_for_fragments(psm_df, frag_df, cycle)
 
     pd.testing.assert_frame_equal(
         psm_df.reset_index(drop=True),
@@ -37,7 +35,6 @@ def test_fragment_competition():
             {
                 "precursor_idx": np.array([0, 1, 3, 5], dtype=np.uint32),
                 "rt_observed": np.array([10.0, 20.0, 10.0, 20]),
-                "valid": np.array([True] * 4),
                 "mz_observed": np.array([100, 100, 200, 200]),
                 "proba": np.array([0.1, 0.2, 0.4, 0.6]),
                 "rank": np.array([0, 0, 0, 0], dtype=np.uint8),
