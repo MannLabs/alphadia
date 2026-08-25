@@ -68,7 +68,7 @@ feature_columns = [
     "n_b_ions",
     "n_y_ions",
     "f_masked",
-    "cycle_fwhm",
+    "fwhm_rt",
     "mobility_fwhm",
     "top_3_ms2_mass_error",
     "mean_ms2_mass_error",

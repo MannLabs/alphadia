@@ -115,7 +115,7 @@ def profile_features(
     # ============= FWHM RT =============
 
     # (n_fragments, n_observations)
-    cycle_fwhm = np.zeros(
+    fwhm_rt = np.zeros(
         (
             fragments_frame_profile.shape[0],
             fragments_frame_profile.shape[1],
@@ -136,14 +136,12 @@ def profile_features(
                 fragments_frame_profile[i_fragment, i_observation]
             )
 
-            cycle_fwhm[i_fragment, i_observation] = fraction_above * rt_width
+            fwhm_rt[i_fragment, i_observation] = fraction_above * rt_width
 
-    cycle_fwhm_mean_list = np.sum(
-        cycle_fwhm * observation_importance.reshape(1, -1), axis=-1
-    )
-    cycle_fwhm_mean_agg = np.sum(cycle_fwhm_mean_list * fragment_intensity)
+    fwhm_rt_mean_list = np.sum(fwhm_rt * observation_importance.reshape(1, -1), axis=-1)
+    fwhm_rt_mean_agg = np.sum(fwhm_rt_mean_list * fragment_intensity)
 
-    feature_array[38] = cycle_fwhm_mean_agg
+    feature_array[38] = fwhm_rt_mean_agg
 
     # ============= FWHM MOBILITY =============
 

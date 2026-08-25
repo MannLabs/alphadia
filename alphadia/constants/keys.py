@@ -233,7 +233,7 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "qval": PrecursorOutputCols.QVAL,
     "proba": PrecursorOutputCols.PROBA,
     "score": PrecursorOutputCols.SCORE,
-    "cycle_fwhm": PrecursorOutputCols.RT_FWHM,
+    "fwhm_rt": PrecursorOutputCols.RT_FWHM,
     "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,

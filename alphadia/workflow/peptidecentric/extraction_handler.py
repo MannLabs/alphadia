@@ -630,12 +630,10 @@ class NgExtractionHandler(ExtractionHandler):
         precursor_df = self.add_columns_from_library(precursor_df, spectral_library)
 
         if precursor_fdr_df is not None:
-            # cycle_fwhm is a scoring feature (not produced by quantification), so it is
+            # fwhm_rt is a scoring feature (not produced by quantification), so it is
             # carried over from the post-FDR precursors into the quantified output.
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[
-                    ["precursor_idx", "rank", "qval", "proba", "cycle_fwhm"]
-                ],
+                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba", "fwhm_rt"]],
                 on=["precursor_idx", "rank"],
                 how="left",
             )

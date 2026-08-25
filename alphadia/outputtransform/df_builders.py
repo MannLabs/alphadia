@@ -70,8 +70,8 @@ def build_run_stat_df(
         }
 
         stats[StatSearchCols.FWHM_RT] = np.nan
-        if "cycle_fwhm" in channel_df.columns:
-            stats[StatSearchCols.FWHM_RT] = np.mean(channel_df["cycle_fwhm"])
+        if "fwhm_rt" in channel_df.columns:
+            stats[StatSearchCols.FWHM_RT] = np.mean(channel_df["fwhm_rt"])
 
         stats[StatSearchCols.FWHM_MOBILITY] = np.nan
         if "mobility_fwhm" in channel_df.columns:

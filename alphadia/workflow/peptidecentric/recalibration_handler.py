@@ -81,7 +81,7 @@ class RecalibrationHandler:
         self._reporter.log_string(f"Using score_cutoff {score_cutoff} ({fac=}, {q=})")
 
         self._optimization_manager.update(
-            fwhm_rt=precursor_df_filtered["cycle_fwhm"].median(),
+            fwhm_rt=precursor_df_filtered["fwhm_rt"].median(),
             fwhm_mobility=precursor_df_filtered["mobility_fwhm"].median(),
             score_cutoff=score_cutoff,
         )

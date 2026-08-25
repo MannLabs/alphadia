@@ -12,7 +12,7 @@ from alphadia.workflow.managers.fdr_manager import FDRManager
 feature_columns = [
     "base_width_mobility",
     "base_width_rt",
-    "cycle_fwhm",
+    "fwhm_rt",
     "diff_b_y_ion_intensity",
     "fragment_frame_correlation",
     "fragment_scan_correlation",

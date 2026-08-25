@@ -71,7 +71,7 @@ DEFAULT_FEATURE_COLUMNS = [
     "n_b_ions",
     "top3_y_ion_correlation",
     "n_y_ions",
-    "cycle_fwhm",
+    "fwhm_rt",
     "mobility_fwhm",
     "delta_frame_peak",
     "top_3_ms2_mass_error",

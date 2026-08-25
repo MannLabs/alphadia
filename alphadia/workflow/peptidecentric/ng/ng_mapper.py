@@ -18,7 +18,7 @@ from alphadia.raw_data import DiaData
 # NG feature names mapped to their classic equivalents when converting to a classic
 # features DataFrame. Kept in one place so the classifier feature list and the DataFrame
 # columns stay in sync.
-_FEATURE_RENAME_MAP = {"fwhm_rt": "cycle_fwhm"}
+_FEATURE_RENAME_MAP = {"fwhm_rt": "fwhm_rt"}
 
 
 def set_ng_thread_count(thread_count: int) -> None:
