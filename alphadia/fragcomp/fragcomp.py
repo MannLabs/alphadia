@@ -1,8 +1,7 @@
 """The fragment competition module contains functionality to maintain the exclusive assignment of signal to identifications.
 
-The numeric work — DIA-window assignment, priority ranking and the fragment-overlap
-sweep — lives in Rust (`alphadia_search_rs.FragmentCompetition`). This module only
-prepares the candidate/fragment index bookkeeping around it.
+The sweep itself lives in Rust (`alphadia_search_rs.FragmentCompetition`); what is
+left here is the dataframe bookkeeping it needs.
 """
 
 import logging
@@ -31,9 +30,9 @@ def compete_for_fragments(
 ) -> pd.DataFrame:
     """Remove PSMs that share fragments with other PSMs.
 
-    PSMs compete only against others in the same DIA isolation window and within
-    `rt_tol_seconds`; of two PSMs sharing fragments the one with the lower `proba`
-    wins. Row order is irrelevant and is preserved in the result.
+    PSMs only compete against others in the same DIA window and within
+    `rt_tol_seconds`, and the lower `proba` wins. Row order does not matter and is
+    preserved.
 
     Parameters
     ----------
@@ -82,7 +81,7 @@ def compete_for_fragments(
         np.ascontiguousarray(cycle, dtype=np.float32),
     )
 
-    # clean up
+    # these only exist to point the Rust sweep at each PSM's fragments
     psm_df.drop(columns=["_frag_start_idx", "_frag_stop_idx"], inplace=True)
 
     warnings.simplefilter(action="default", category=(SettingWithCopyWarning))
