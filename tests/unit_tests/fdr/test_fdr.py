@@ -6,7 +6,7 @@ import pandas as pd
 import torch
 
 from alphadia.fdr import fdr
-from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching
+from alphadia.fdr.classifiers import BinaryClassifierLegacyNewBatching, Classifier
 
 
 def test_keep_best():
@@ -165,3 +165,101 @@ def test_feed_forward_save():
 
     y_pred = new_classifier.predict(x)  # noqa: F841  # TODO fix this test
     # assert np.all(y_pred == y)
+
+
+def test_classifier_reset():
+    # Given: a fitted classifier
+    x, y = gen_data_np()
+    classifier = BinaryClassifierLegacyNewBatching(batch_size=100)
+    classifier.fit(x, y)
+    first_weights = classifier.network.fc_layers[0].weight.detach().numpy().copy()
+
+    # When: it is reset
+    classifier.reset()
+
+    # Then: it is unfitted again, with no network and no metrics left over
+    assert classifier.fitted is False
+    assert classifier.network is None
+    assert all(len(values) == 0 for values in classifier.metrics.values())
+
+    # And: refitting starts from new random weights rather than the original ones
+    classifier.fit(x, y)
+    second_weights = classifier.network.fc_layers[0].weight.detach().numpy()
+    assert classifier.fitted is True
+    assert not np.allclose(first_weights, second_weights)
+
+
+class _CollapsingClassifier(Classifier):
+    """Predicts a constant probability until it has been reset `n_collapses` times."""
+
+    def __init__(self, n_collapses: int):
+        self._n_collapses = n_collapses
+        self._fitted = False
+        self.reset_count = 0
+
+    @property
+    def fitted(self) -> bool:
+        return self._fitted
+
+    def fit(self, x, y):
+        self._fitted = True
+
+    def reset(self):
+        self.reset_count += 1
+        self._fitted = False
+
+    def predict(self, x):
+        return self.predict_proba(x)[:, 1]
+
+    def predict_proba(self, x):
+        if self.reset_count < self._n_collapses:
+            return np.full((len(x), 2), 0.5)
+        proba = np.linspace(0.0, 1.0, len(x))
+        return np.stack([1 - proba, proba], axis=1)
+
+    def to_state_dict(self):
+        return {}
+
+    def from_state_dict(self, state_dict):
+        pass
+
+
+def _gen_target_decoy_dfs(n_samples: int = 200):
+    feature = np.linspace(0.0, 1.0, n_samples)
+    target_df = pd.DataFrame(
+        {
+            "precursor_idx": np.arange(n_samples),
+            "decoy": 0,
+            "feature": feature,
+        }
+    )
+    decoy_df = target_df.assign(
+        precursor_idx=np.arange(n_samples, 2 * n_samples), decoy=1
+    )
+    return target_df, decoy_df
+
+
+def test_perform_fdr_resets_collapsed_classifier():
+    # Given: a classifier that collapses on its first fit and separates after one reset
+    classifier = _CollapsingClassifier(n_collapses=1)
+    target_df, decoy_df = _gen_target_decoy_dfs()
+
+    # When: FDR is performed
+    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+
+    # Then: the classifier was reset once and the recovered probabilities are used
+    assert classifier.reset_count == 1
+    assert psm_df["proba"].std() > 0.0
+
+
+def test_perform_fdr_gives_up_after_max_reinits():
+    # Given: a classifier that never recovers
+    classifier = _CollapsingClassifier(n_collapses=1000)
+    target_df, decoy_df = _gen_target_decoy_dfs()
+
+    # When: FDR is performed
+    psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
+
+    # Then: the retries are capped and the collapsed probabilities are returned as is
+    assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
+    assert psm_df["proba"].std() == 0.0

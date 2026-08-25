@@ -47,6 +47,10 @@ class Classifier(ABC):
         """
 
     @abstractmethod
+    def reset(self) -> None:
+        """Return the classifier to an unfitted state."""
+
+    @abstractmethod
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
@@ -99,23 +103,6 @@ class Classifier(ABC):
             State dict of the classifier.
 
         """
-
-
-class ClassifierRegistry:
-    """Registry that hands out fresh, unfitted classifier instances.
-
-    Holds a base (template) classifier and returns an independent, unfitted copy on
-    request. This lets callers obtain a classifier "from scratch" without copying a
-    possibly already-fitted instance (e.g. to retry FDR after a classifier collapse).
-    """
-
-    def __init__(self, classifier_base: Classifier):
-        """Store the base (template) classifier to hand out fresh copies from."""
-        self._classifier_base = classifier_base
-
-    def get_fresh(self) -> Classifier:
-        """Return a fresh, unfitted copy of the registered base classifier."""
-        return deepcopy(self._classifier_base)
 
 
 def _get_scaled_training_params(
@@ -323,6 +310,20 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         if load_hyperparameters:
             self.__dict__.update(_state_dict)
+
+    def reset(self) -> None:
+        """Return the classifier to an unfitted state.
+
+        Drops the trained network so the next `fit` rebuilds it with a new random weight
+        initialization. This deliberately does not restore a saved initialization:
+        recovering from a collapsed fit requires different starting weights, not the
+        original ones.
+        """
+        self.network = None
+        self.optimizer = None
+        self._fitted = False
+        for values in self.metrics.values():
+            values.clear()
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements
