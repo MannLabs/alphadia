@@ -174,15 +174,15 @@ def test_classifier_reset():
     classifier.fit(x, y)
     first_weights = classifier.network.fc_layers[0].weight.detach().numpy().copy()
 
-    # When: it is reset
+    # When: the test resets it
     classifier.reset()
 
-    # Then: it is unfitted again, with no network and no metrics left over
+    # Then: the classifier is unfitted, with no network and no metrics
     assert classifier.fitted is False
     assert classifier.network is None
     assert all(len(values) == 0 for values in classifier.metrics.values())
 
-    # And: refitting starts from new random weights rather than the original ones
+    # And: a new fit uses new random weights, not the first ones
     classifier.fit(x, y)
     second_weights = classifier.network.fc_layers[0].weight.detach().numpy()
     assert classifier.fitted is True
@@ -190,7 +190,7 @@ def test_classifier_reset():
 
 
 class _CollapsingClassifier(Classifier):
-    """Predicts a constant probability until it has been reset `n_collapses` times."""
+    """Give a constant probability until the caller resets it `n_collapses` times."""
 
     def __init__(self, n_collapses: int):
         self._n_collapses = n_collapses
@@ -240,26 +240,26 @@ def _gen_target_decoy_dfs(n_samples: int = 200):
 
 
 def test_perform_fdr_resets_collapsed_classifier():
-    # Given: a classifier that collapses on its first fit and separates after one reset
+    # Given: a classifier that collapses once, then separates targets from decoys
     classifier = _CollapsingClassifier(n_collapses=1)
     target_df, decoy_df = _gen_target_decoy_dfs()
 
-    # When: FDR is performed
+    # When: perform_fdr runs
     psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
 
-    # Then: the classifier was reset once and the recovered probabilities are used
+    # Then: perform_fdr resets the classifier once and uses the new probabilities
     assert classifier.reset_count == 1
     assert psm_df["proba"].std() > 0.0
 
 
-def test_perform_fdr_gives_up_after_max_reinits():
+def test_perform_fdr_stops_after_max_reinits():
     # Given: a classifier that never recovers
     classifier = _CollapsingClassifier(n_collapses=1000)
     target_df, decoy_df = _gen_target_decoy_dfs()
 
-    # When: FDR is performed
+    # When: perform_fdr runs
     psm_df = fdr.perform_fdr(classifier, ["feature"], target_df, decoy_df)
 
-    # Then: the retries are capped and the collapsed probabilities are returned as is
+    # Then: perform_fdr stops after the maximum number of retries
     assert classifier.reset_count == fdr._MAX_FDR_CLASSIFIER_REINITS
     assert psm_df["proba"].std() == 0.0

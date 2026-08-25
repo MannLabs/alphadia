@@ -20,12 +20,10 @@ max_dia_cycle_shape = 2
 
 logger = logging.getLogger()
 
-# Standard deviation below which the FDR classifier's predicted probability is treated
-# as collapsed (near-constant): targets and decoys cannot be separated, so q-values
-# degenerate to the global decoy/target ratio and no PSMs get filtered.
+# Below this standard deviation the probability is almost constant. The classifier then
+# cannot separate targets from decoys, and the FDR filter keeps all PSMs.
 _PROBA_COLLAPSE_STD_THRESHOLD = 1e-4
 
-# Number of times to reinitialize and retry a collapsed FDR classifier before giving up.
 _MAX_FDR_CLASSIFIER_REINITS = 3
 
 
@@ -155,10 +153,7 @@ def perform_fdr(  # noqa: C901, PLR0912, PLR0913, PLR0915 # too complex, too man
 
     predicted_proba = classifier.predict_proba(X)[:, 1]
 
-    # A collapsed classifier (near-constant probability) cannot separate targets from
-    # decoys, so q-values degenerate to the global decoy/target ratio and no PSMs are
-    # filtered. As this is often an unlucky weight initialization, reset the classifier
-    # and refit it, which starts from new random weights.
+    # A collapse is usually an unlucky set of start weights, so a new fit recovers it.
     n_reinit = 0
     while (
         float(np.std(predicted_proba)) < _PROBA_COLLAPSE_STD_THRESHOLD

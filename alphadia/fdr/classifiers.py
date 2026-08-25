@@ -48,7 +48,7 @@ class Classifier(ABC):
 
     @abstractmethod
     def reset(self) -> None:
-        """Return the classifier to an unfitted state."""
+        """Set the classifier back to an unfitted state."""
 
     @abstractmethod
     def predict(self, x: np.ndarray) -> np.ndarray:
@@ -312,12 +312,10 @@ class BinaryClassifierLegacyNewBatching(Classifier):
             self.__dict__.update(_state_dict)
 
     def reset(self) -> None:
-        """Return the classifier to an unfitted state.
+        """Set the classifier back to an unfitted state.
 
-        Drops the trained network so the next `fit` rebuilds it with a new random weight
-        initialization. This deliberately does not restore a saved initialization:
-        recovering from a collapsed fit requires different starting weights, not the
-        original ones.
+        The next fit starts from new random weights, not from the first ones. A retry after
+        a collapsed fit needs different start weights.
         """
         self.network = None
         self.optimizer = None
