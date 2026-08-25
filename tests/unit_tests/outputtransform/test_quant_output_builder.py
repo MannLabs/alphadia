@@ -10,6 +10,8 @@ from alphadia.outputtransform.quantification import (
 )
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
+    merge_channel_lfq_results,
+    save_lfq_results,
 )
 
 
@@ -188,10 +190,8 @@ class TestQuantOutputBuilder:
                 {"pg": ["PG001"], "run1": [5000.0]}
             ),
         }
-        builder = QuantOutputBuilder(psm_df, config)
-
         # When
-        builder.save_results(lfq_results, "/output", file_format="parquet")
+        save_lfq_results(lfq_results, "/output", config, file_format="parquet")
 
         # Then
         assert mock_write_df.call_count == 2
@@ -205,10 +205,8 @@ class TestQuantOutputBuilder:
                 {"pg": ["PG001"], "run1": [5000.0]}
             ),
         }
-        builder = QuantOutputBuilder(psm_df, config)
-
         # When
-        builder.save_results(lfq_results, "/output", file_format="parquet")
+        save_lfq_results(lfq_results, "/output", config, file_format="parquet")
 
         # Then
         assert mock_write_df.call_count == 1
@@ -274,31 +272,6 @@ class TestQuantOutputBuilder:
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
 
-    @patch("alphadia.outputtransform.utils.write_df")
-    def test_save_results_with_channel_suffix(self, mock_write_df, psm_df, config):
-        """Given channel_suffix='.ch4', when save_results is called, then filenames contain the suffix."""
-        # given
-        lfq_results = {
-            QuantificationLevelName.PRECURSOR: pd.DataFrame(
-                {"mod_seq_charge_hash": [10], "run1": [1000.0]}
-            ),
-            QuantificationLevelName.PROTEIN: pd.DataFrame(
-                {"pg": ["PG001"], "run1": [5000.0]}
-            ),
-        }
-        builder = QuantOutputBuilder(psm_df, config)
-
-        # when
-        builder.save_results(
-            lfq_results, "/output", file_format="parquet", channel_suffix=".ch4"
-        )
-
-        # then
-        assert mock_write_df.call_count == 2
-        written_paths = [call.args[1] for call in mock_write_df.call_args_list]
-        assert "/output/precursor.matrix.ch4" in written_paths
-        assert "/output/pg.matrix.ch4" in written_paths
-
     def test_annotate_protein(self, psm_df, config):
         """Given protein-level LFQ dataframe, when annotated, then returns unchanged with no added annotations."""
         # Given
@@ -329,3 +302,129 @@ class TestQuantOutputBuilder:
             }
         )
         pd.testing.assert_frame_equal(annotated_df, expected_df)
+
+
+class TestMergeChannelLfqResults:
+    RUN_NAMES = ["run1", "run2"]
+
+    def test_merges_shared_rows_into_channel_columns(self, config):
+        """Given protein groups quantified in two channels, when merged, then one row holds all run/channel columns."""
+        # Given
+        lfq_results_per_channel = [
+            (
+                0,
+                {
+                    QuantificationLevelName.PROTEIN: pd.DataFrame(
+                        {
+                            "pg": ["PG001", "PG002"],
+                            "run1": [1.0, 2.0],
+                            "run2": [3.0, 4.0],
+                        }
+                    )
+                },
+            ),
+            (
+                4,
+                {
+                    QuantificationLevelName.PROTEIN: pd.DataFrame(
+                        {
+                            "pg": ["PG001", "PG003"],
+                            "run1": [5.0, 6.0],
+                            "run2": [7.0, 8.0],
+                        }
+                    )
+                },
+            ),
+        ]
+
+        # When
+        merged = merge_channel_lfq_results(
+            lfq_results_per_channel, config, run_names=self.RUN_NAMES
+        )
+
+        # Then
+        expected_df = pd.DataFrame(
+            {
+                "pg": ["PG001", "PG002", "PG003"],
+                "run1.channel_0": [1.0, 2.0, None],
+                "run2.channel_0": [3.0, 4.0, None],
+                "run1.channel_4": [5.0, None, 6.0],
+                "run2.channel_4": [7.0, None, 8.0],
+            }
+        )
+        pd.testing.assert_frame_equal(
+            merged[QuantificationLevelName.PROTEIN], expected_df
+        )
+
+    def test_merges_channel_specific_rows_into_sparse_blocks(self, config):
+        """Given precursors with channel-specific hashes, when merged, then each row is filled in its own channel columns."""
+        # Given
+        lfq_results_per_channel = [
+            (
+                0,
+                {
+                    QuantificationLevelName.PRECURSOR: pd.DataFrame(
+                        {"mod_seq_charge_hash": [10], "run1": [1.0], "run2": [2.0]}
+                    )
+                },
+            ),
+            (
+                4,
+                {
+                    QuantificationLevelName.PRECURSOR: pd.DataFrame(
+                        {"mod_seq_charge_hash": [20], "run1": [3.0], "run2": [4.0]}
+                    )
+                },
+            ),
+        ]
+
+        # When
+        merged = merge_channel_lfq_results(
+            lfq_results_per_channel, config, run_names=self.RUN_NAMES
+        )
+
+        # Then
+        expected_df = pd.DataFrame(
+            {
+                "mod_seq_charge_hash": [10, 20],
+                "run1.channel_0": [1.0, None],
+                "run2.channel_0": [2.0, None],
+                "run1.channel_4": [None, 3.0],
+                "run2.channel_4": [None, 4.0],
+            }
+        )
+        pd.testing.assert_frame_equal(
+            merged[QuantificationLevelName.PRECURSOR], expected_df
+        )
+
+    def test_keeps_plain_run_columns_without_channel(self, config):
+        """Given a channel of None, when merged, then run columns keep their plain names."""
+        # Given
+        lfq_df = pd.DataFrame(
+            {"pg": ["PG001"], "run1": [1.0], "run2": [2.0]},
+        )
+        lfq_results_per_channel = [(None, {QuantificationLevelName.PROTEIN: lfq_df})]
+
+        # When
+        merged = merge_channel_lfq_results(
+            lfq_results_per_channel, config, run_names=self.RUN_NAMES
+        )
+
+        # Then
+        pd.testing.assert_frame_equal(merged[QuantificationLevelName.PROTEIN], lfq_df)
+
+    def test_skips_levels_without_results(self, config):
+        """Given empty per-channel results, when merged, then the level is absent from the output."""
+        # Given
+        lfq_results_per_channel = [
+            (0, {QuantificationLevelName.PROTEIN: pd.DataFrame()}),
+            (4, {}),
+        ]
+
+        # When
+        merged = merge_channel_lfq_results(
+            lfq_results_per_channel, config, run_names=self.RUN_NAMES
+        )
+
+        # Then
+        assert merged == {}

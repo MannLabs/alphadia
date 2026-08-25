@@ -5,7 +5,11 @@ import tempfile
 import pandas as pd
 from conftest import mock_fragment_df, mock_precursor_df
 
-from alphadia.constants.keys import InferenceStrategy, NormalizationMethods
+from alphadia.constants.keys import (
+    InferenceStrategy,
+    NormalizationMethods,
+    ProteinGroupOutputCols,
+)
 from alphadia.outputtransform.quantification.quant_output_builder import (
     LFQOutputConfig,
 )
@@ -183,9 +187,8 @@ def test_search_plan_output_integration():
 def test_search_plan_output_multiplexed():
     """Integration test for SearchPlanOutput.build() with multiplexing enabled.
 
-    Tests that when multiplexing is enabled, per-channel matrix files are produced
-    (e.g. pg.matrix.ch0.parquet, pg.matrix.ch4.parquet) and the combined
-    precursors.parquet is written.
+    Tests that when multiplexing is enabled, a single matrix file is produced with one
+    column per run/channel combination, and the combined precursors.parquet is written.
     """
     # given
     run_columns = ["run_0", "run_1", "run_2"]
@@ -285,9 +288,13 @@ def test_search_plan_output_multiplexed():
     SearchPlanOutput(config, temp_folder).build(raw_folders, None)
 
     # then
-    # Per-channel matrix files should exist for both channels
-    assert os.path.exists(os.path.join(temp_folder, "pg.matrix.ch0.parquet"))
-    assert os.path.exists(os.path.join(temp_folder, "pg.matrix.ch4.parquet"))
+    # a single matrix file holds one column per run/channel combination
+    pg_matrix_path = os.path.join(temp_folder, "pg.matrix.parquet")
+    assert os.path.exists(pg_matrix_path)
+    pg_matrix_df = pd.read_parquet(pg_matrix_path)
+    assert set(pg_matrix_df.columns) == {ProteinGroupOutputCols.NAME} | {
+        f"{run}.channel_{channel}" for run in run_columns for channel in (0, 4)
+    }
 
     # Combined precursors file should exist
     precursors_path = os.path.join(

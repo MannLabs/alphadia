@@ -49,11 +49,8 @@ The final results will still be saved in the `output` folder.
 | `precursors.parquet` | Main output with precursor-level information, quantification, and scoring |
 | `stats.tsv` | Summary statistics and quality metrics per run/channel |
 | `pg.matrix.parquet` | Protein group quantification matrix across all samples |
-| `pg.matrix.ch<N>.parquet` | Per-channel protein group quantification matrix (multiplexing only) |
 | `peptide.matrix.parquet` | Peptide-level quantification matrix (if enabled) |
-| `peptide.matrix.ch<N>.parquet` | Per-channel peptide-level quantification matrix (multiplexing only, if enabled) |
 | `precursor.matrix.parquet` | Precursor-level quantification matrix (if enabled) |
-| `precursor.matrix.ch<N>.parquet` | Per-channel precursor-level quantification matrix (multiplexing only, if enabled) |
 | `internal.tsv` | Internal statistics and metadata from the search |
 | `speclib.hdf` | Input spectral library (may be reannotated or predicted) |
 | `speclib.mbr.hdf` | MBR library containing all identified precursors |
@@ -61,6 +58,15 @@ The final results will still be saved in the `output` folder.
 | `frozen_config.yaml` | Complete configuration snapshot for reproducibility |
 | `quant/` | Per-file quantification data for checkpointing |
 | `figures/` | Quality control figures and visualizations |
+
+### Quantification matrices
+
+One row per protein group, peptide or precursor, one column per sample.
+
+For multiplexed searches, each run contributes one column per channel, named
+`<run>.channel_<channel>`. Peptide and precursor rows are channel-specific, since
+channels differ in their label modifications, so such a row is only quantified in
+the columns of its own channel.
 
 ### `precursors.parquet`
 The main output file containing precursor-level identifications with scoring, quantification, and metadata.
