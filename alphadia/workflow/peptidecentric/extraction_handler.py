@@ -660,7 +660,7 @@ class NgExtractionHandler(ExtractionHandler):
         ]  # required for transfer library building
 
         # dummy values required to satisfy some downstream calculations
-        features_or_precursor_df["mobility_fwhm"] = -1
+        features_or_precursor_df["fwhm_mobility"] = -1
         features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
             DEFAULT_VALUE_NO_MOBILITY
         )

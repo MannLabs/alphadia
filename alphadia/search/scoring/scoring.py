@@ -72,7 +72,7 @@ DEFAULT_FEATURE_COLUMNS = [
     "top3_y_ion_correlation",
     "n_y_ions",
     "fwhm_rt",
-    "mobility_fwhm",
+    "fwhm_mobility",
     "delta_frame_peak",
     "top_3_ms2_mass_error",
     "mean_ms2_mass_error",

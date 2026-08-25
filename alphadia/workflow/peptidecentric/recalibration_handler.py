@@ -82,6 +82,6 @@ class RecalibrationHandler:
 
         self._optimization_manager.update(
             fwhm_rt=precursor_df_filtered["fwhm_rt"].median(),
-            fwhm_mobility=precursor_df_filtered["mobility_fwhm"].median(),
+            fwhm_mobility=precursor_df_filtered["fwhm_mobility"].median(),
             score_cutoff=score_cutoff,
         )

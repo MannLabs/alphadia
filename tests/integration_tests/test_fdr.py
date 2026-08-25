@@ -25,7 +25,7 @@ feature_columns = [
     "isotope_height_correlation",
     "isotope_intensity_correlation",
     "mean_observation_score",
-    "mobility_fwhm",
+    "fwhm_mobility",
     "mobility_observed",
     "mono_ms1_height",
     "mono_ms1_intensity",

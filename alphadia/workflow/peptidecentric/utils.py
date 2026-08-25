@@ -69,7 +69,7 @@ feature_columns = [
     "n_y_ions",
     "f_masked",
     "fwhm_rt",
-    "mobility_fwhm",
+    "fwhm_mobility",
     "top_3_ms2_mass_error",
     "mean_ms2_mass_error",
     "n_overlapping",

@@ -148,7 +148,7 @@ def profile_features(
     # will be skipped if no mobility dimension is present
     if dia_data.has_mobility:
         # (n_fragments, n_observations)
-        mobility_fwhm = np.zeros(
+        fwhm_mobility = np.zeros(
             (
                 fragments_scan_profile.shape[0],
                 fragments_scan_profile.shape[1],
@@ -174,16 +174,16 @@ def profile_features(
                     fragments_scan_profile[i_fragment, i_observation]
                 )
 
-                mobility_fwhm[i_fragment, i_observation] = (
+                fwhm_mobility[i_fragment, i_observation] = (
                     fraction_above * mobility_width
                 )
 
-        mobility_fwhm_mean_list = np.sum(
-            mobility_fwhm * observation_importance.reshape(1, -1), axis=-1
+        fwhm_mobility_mean_list = np.sum(
+            fwhm_mobility * observation_importance.reshape(1, -1), axis=-1
         )
-        mobility_fwhm_mean_agg = np.sum(mobility_fwhm_mean_list * fragment_intensity)
+        fwhm_mobility_mean_agg = np.sum(fwhm_mobility_mean_list * fragment_intensity)
 
-        feature_array[39] = mobility_fwhm_mean_agg
+        feature_array[39] = fwhm_mobility_mean_agg
 
     # ============= RT SHIFT =============
 

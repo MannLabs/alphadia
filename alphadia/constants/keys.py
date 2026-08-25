@@ -234,7 +234,7 @@ INTERNAL_TO_OUTPUT_MAPPING = {
     "proba": PrecursorOutputCols.PROBA,
     "score": PrecursorOutputCols.SCORE,
     "fwhm_rt": PrecursorOutputCols.RT_FWHM,
-    "mobility_fwhm": PrecursorOutputCols.MOBILITY_FWHM,
+    "fwhm_mobility": PrecursorOutputCols.MOBILITY_FWHM,
     "channel": PrecursorOutputCols.CHANNEL,
     "decoy": PrecursorOutputCols.DECOY,
     "pg": ProteinGroupOutputCols.NAME,

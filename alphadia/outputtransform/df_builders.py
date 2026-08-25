@@ -74,8 +74,8 @@ def build_run_stat_df(
             stats[StatSearchCols.FWHM_RT] = np.mean(channel_df["fwhm_rt"])
 
         stats[StatSearchCols.FWHM_MOBILITY] = np.nan
-        if "mobility_fwhm" in channel_df.columns:
-            stats[StatSearchCols.FWHM_MOBILITY] = np.mean(channel_df["mobility_fwhm"])
+        if "fwhm_mobility" in channel_df.columns:
+            stats[StatSearchCols.FWHM_MOBILITY] = np.mean(channel_df["fwhm_mobility"])
 
         # collect optimization stats
         optimization_stats = defaultdict(lambda: np.nan)

@@ -174,7 +174,7 @@ class TestCandidateScoringCollectCandidates:
                 "top3_y_ion_correlation": [0.89, 0.91],
                 "n_y_ions": [6.0, 7.0],
                 "fwhm_rt": [20.0, 22.0],
-                "mobility_fwhm": [15.0, 17.0],
+                "fwhm_mobility": [15.0, 17.0],
                 "delta_frame_peak": [2.5, 3.0],
                 "top_3_ms2_mass_error": [0.02, 0.025],
                 "mean_ms2_mass_error": [0.01, 0.015],
