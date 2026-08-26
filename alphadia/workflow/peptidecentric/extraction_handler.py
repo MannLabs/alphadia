@@ -630,8 +630,10 @@ class NgExtractionHandler(ExtractionHandler):
         precursor_df = self.add_columns_from_library(precursor_df, spectral_library)
 
         if precursor_fdr_df is not None:
+            # fwhm_rt is a scoring feature (not produced by quantification), so it is
+            # carried over from the post-FDR precursors into the quantified output.
             precursor_df = precursor_df.merge(
-                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba"]],
+                precursor_fdr_df[["precursor_idx", "rank", "qval", "proba", "fwhm_rt"]],
                 on=["precursor_idx", "rank"],
                 how="left",
             )
@@ -653,14 +655,12 @@ class NgExtractionHandler(ExtractionHandler):
             precursor_mz_column=self._column_name_handler.get_precursor_mz_column(),
         )
 
-        # TODO: get this from the ng backend
-        features_or_precursor_df["cycle_fwhm"] = 3  # TODO: remove
         features_or_precursor_df[CalibCols.MZ_OBSERVED] = features_or_precursor_df[
             CalibCols.MZ_LIBRARY
         ]  # required for transfer library building
 
         # dummy values required to satisfy some downstream calculations
-        features_or_precursor_df["mobility_fwhm"] = -1
+        features_or_precursor_df["fwhm_mobility"] = -1
         features_or_precursor_df[CalibCols.MOBILITY_OBSERVED] = (
             DEFAULT_VALUE_NO_MOBILITY
         )
