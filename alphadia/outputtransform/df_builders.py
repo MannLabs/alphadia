@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from collections import defaultdict
@@ -6,6 +7,7 @@ import numpy as np
 import pandas as pd
 from alphabase.spectral_library.base import SpecLibBase
 
+from alphadia.calibration.estimator import CalibrationMetrics
 from alphadia.constants.keys import (
     OutputRawCols,
     StatCalibrationCols,
@@ -15,7 +17,6 @@ from alphadia.constants.keys import (
 from alphadia.workflow.managers.calibration_manager import (
     CalibrationEstimators,
     CalibrationGroups,
-    CalibrationManager,
 )
 from alphadia.workflow.managers.optimization_manager import OptimizationManager
 from alphadia.workflow.managers.raw_file_manager import RawFileManager
@@ -112,49 +113,40 @@ def build_run_stat_df(
         # collect calibration stats
         calibration_stats = defaultdict(lambda: np.nan)
         if os.path.exists(
-            calibration_manager_path := os.path.join(
+            calibration_stats_path := os.path.join(
                 folder,
-                PeptideCentricWorkflow.CALIBRATION_MANAGER_PKL_NAME,
+                PeptideCentricWorkflow.CALIBRATION_STATS_FILE_NAME,
             )
         ):
-            calibration_manager = CalibrationManager(path=calibration_manager_path)
+            with open(calibration_stats_path) as f:
+                calibration_metrics = json.load(f)
 
-            if (
-                fragment_mz_estimator := calibration_manager.get_estimator(
-                    CalibrationGroups.FRAGMENT, CalibrationEstimators.MZ
+            if fragment_mz := calibration_metrics.get(
+                CalibrationGroups.FRAGMENT, {}
+            ).get(CalibrationEstimators.MZ):
+                metrics = CalibrationMetrics(**fragment_mz)
+                calibration_stats[StatCalibrationCols.MS2_BIAS] = metrics.median_bias
+                calibration_stats[StatCalibrationCols.MS2_VARIANCE] = (
+                    metrics.median_variance
                 )
-            ) and (fragment_mz_metrics := fragment_mz_estimator.metrics):
-                # TODO: rename internal metric key "median_accuracy" to "median_bias"
-                calibration_stats[StatCalibrationCols.MS2_BIAS] = fragment_mz_metrics[
-                    "median_accuracy"
-                ]
-                # TODO: rename internal metric key "median_precision" to "median_variance"
-                calibration_stats[StatCalibrationCols.MS2_ERROR] = fragment_mz_metrics[
-                    "median_precision"
-                ]
 
-            if (
-                precursor_mz_estimator := calibration_manager.get_estimator(
-                    CalibrationGroups.PRECURSOR, CalibrationEstimators.MZ
+            if precursor_mz := calibration_metrics.get(
+                CalibrationGroups.PRECURSOR, {}
+            ).get(CalibrationEstimators.MZ):
+                metrics = CalibrationMetrics(**precursor_mz)
+                calibration_stats[StatCalibrationCols.MS1_BIAS] = metrics.median_bias
+                calibration_stats[StatCalibrationCols.MS1_VARIANCE] = (
+                    metrics.median_variance
                 )
-            ) and (precursor_mz_metrics := precursor_mz_estimator.metrics):
-                # TODO: rename internal metric key "median_accuracy" to "median_bias"
-                calibration_stats[StatCalibrationCols.MS1_BIAS] = precursor_mz_metrics[
-                    "median_accuracy"
-                ]
-                # TODO: rename internal metric key "median_precision" to "median_variance"
-                calibration_stats[StatCalibrationCols.MS1_ERROR] = precursor_mz_metrics[
-                    "median_precision"
-                ]
 
         else:
-            logger.warning(f"Error reading calibration manager for {raw_name}")
+            logger.warning(f"No calibration stats found for {raw_name}")
 
         for key in [
             StatCalibrationCols.MS2_BIAS,
-            StatCalibrationCols.MS2_ERROR,
+            StatCalibrationCols.MS2_VARIANCE,
             StatCalibrationCols.MS1_BIAS,
-            StatCalibrationCols.MS1_ERROR,
+            StatCalibrationCols.MS1_VARIANCE,
         ]:
             stats[key] = calibration_stats.get(key, "NaN")
 

@@ -47,6 +47,10 @@ class Classifier(ABC):
         """
 
     @abstractmethod
+    def reset(self) -> None:
+        """Set the classifier back to an unfitted state."""
+
+    @abstractmethod
     def predict(self, x: np.ndarray) -> np.ndarray:
         """Predict the class of the data.
 
@@ -306,6 +310,18 @@ class BinaryClassifierLegacyNewBatching(Classifier):
 
         if load_hyperparameters:
             self.__dict__.update(_state_dict)
+
+    def reset(self) -> None:
+        """Set the classifier back to an unfitted state.
+
+        The next fit starts from new random weights, not from the first ones. A retry after
+        a collapsed fit needs different start weights.
+        """
+        self.network = None
+        self.optimizer = None
+        self._fitted = False
+        for values in self.metrics.values():
+            values.clear()
 
     @manage_torch_threads(max_threads=2)
     def fit(self, x: np.ndarray, y: np.ndarray) -> None:  # noqa: PLR0915 # Too many statements

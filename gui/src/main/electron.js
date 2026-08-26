@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme } = require('electron')
+const { app, BrowserWindow, Menu, ipcMain, dialog, shell, nativeTheme, powerMonitor, powerSaveBlocker } = require('electron')
 const contextMenu = require('electron-context-menu');
 const osu = require('node-os-utils')
 const path = require("path");

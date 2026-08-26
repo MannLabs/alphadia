@@ -63,7 +63,7 @@ class ConfigKeys(metaclass=ConstantsClass):
 
 
 class CalibCols(metaclass=ConstantsClass):
-    """String constants for accessing (mz, rt, mobility) columns in the context of calibration."""
+    """String constants for accessing (mz, rt, or mobility) columns in the context of calibration."""
 
     MZ_OBSERVED = "mz_observed"
     MZ_LIBRARY = "mz_library"
@@ -202,9 +202,9 @@ class StatCalibrationCols(metaclass=ConstantsClass):
     """String constants for calibration statistics columns."""
 
     MS2_BIAS = "calibration.ms2_bias"
-    MS2_ERROR = "calibration.ms2_variance"
+    MS2_VARIANCE = "calibration.ms2_variance"
     MS1_BIAS = "calibration.ms1_bias"
-    MS1_ERROR = "calibration.ms1_variance"
+    MS1_VARIANCE = "calibration.ms1_variance"
 
 
 # this mapping is also used to filter the output columns, so only its values are kept
