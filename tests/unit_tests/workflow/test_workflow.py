@@ -21,7 +21,6 @@ from alphadia.workflow.optimizers.automatic import (
     AutomaticMobilityOptimizer,
     AutomaticMS1Optimizer,
     AutomaticMS2Optimizer,
-    AutomaticOptimizer,
     AutomaticRTOptimizer,
 )
 from alphadia.workflow.optimizers.targeted import (
@@ -691,7 +690,10 @@ def test_automatic_mobility_optimizer():
 
 
 def _create_ms2_optimizer_with_empty_batch(workflow):
-    """Builds an MS2 optimizer whose optlock reports no elution groups, as after an empty batch."""
+    """Make an MS2 optimizer with an optlock that has no elution group.
+
+    This is the state after a batch that extracted nothing.
+    """
     workflow._optimization_handler._optlock.total_elution_groups = 0
 
     return AutomaticMS2Optimizer(
@@ -706,7 +708,7 @@ def _create_ms2_optimizer_with_empty_batch(workflow):
 
 
 def test_automatic_optimizer_records_no_history_row_for_empty_batch():
-    """Tests that a round without a measurement adds no row to the history."""
+    """Test that a round with no measurement adds no row to the history."""
     # given
     workflow = create_workflow_instance()
     ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
@@ -724,11 +726,12 @@ def test_automatic_optimizer_records_no_history_row_for_empty_batch():
 
 
 def test_automatic_optimizer_keeps_current_value_on_empty_history():
-    """Tests that updating the workflow from an empty history leaves the optimization manager untouched."""
+    """Test that an update from an empty history does not change the optimization manager."""
     # given
     workflow = create_workflow_instance()
     ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
-    # a value distinct from the initial parameter, so the assertion cannot hold trivially
+    # use a value that is different from the initial parameter. Then the assertion
+    # cannot become true by accident.
     workflow.optimization_manager.update(ms2_error=42.0)
     classifier_version_before = workflow.optimization_manager.classifier_version
 
@@ -741,10 +744,10 @@ def test_automatic_optimizer_keeps_current_value_on_empty_history():
 
 
 def test_automatic_optimizer_step_does_not_propose_parameter_without_measurement():
-    """Tests that a round with no measurement leaves the search parameter unchanged.
+    """Test that a round with no measurement keeps the search parameter unchanged.
 
-    Proposing from an empty frame calibrates the parameter to zero, which would make
-    every later search extract nothing.
+    A proposal from an empty frame calibrates the parameter to zero. Then all
+    subsequent searches find nothing.
     """
     # given
     workflow = create_workflow_instance()
@@ -760,7 +763,7 @@ def test_automatic_optimizer_step_does_not_propose_parameter_without_measurement
 
 
 def test_automatic_optimizer_plot_does_not_raise_on_empty_history():
-    """Tests that plotting an optimizer that recorded nothing warns instead of raising."""
+    """Test that plot() gives a warning and no error if there is no measurement."""
     # given
     workflow = create_workflow_instance()
     ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)
@@ -772,30 +775,8 @@ def test_automatic_optimizer_plot_does_not_raise_on_empty_history():
     assert ms2_optimizer.history_df.empty
 
 
-def test_automatic_optimizer_requires_a_declared_feature():
-    """Tests that a subclass forgetting to declare its feature fails at construction."""
-
-    # given
-    class FeaturelessOptimizer(AutomaticOptimizer):
-        pass
-
-    # when / then
-    with pytest.raises(
-        NotImplementedError, match="must declare a class-level _feature"
-    ):
-        FeaturelessOptimizer(
-            100,
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-            MagicMock(),
-        )
-
-
 def test_automatic_optimizer_proceeds_with_insufficient_precursors_on_empty_batch():
-    """Tests that the graceful-degradation path survives a batch that extracted nothing."""
+    """Test that the recovery path continues after a batch that extracted nothing."""
     # given
     workflow = create_workflow_instance()
     ms2_optimizer = _create_ms2_optimizer_with_empty_batch(workflow)

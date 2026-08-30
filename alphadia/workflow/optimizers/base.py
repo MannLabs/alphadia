@@ -109,6 +109,6 @@ class BaseOptimizer(ABC):
         Returns
         -------
         bool
-            True if a measurement was recorded, False otherwise.
+            True if this method recorded a measurement, False if it did not.
 
         """

@@ -19,7 +19,7 @@ def _optlock(total_elution_groups: int) -> MagicMock:
 
 
 def test_precursor_proportion_detected_returns_ratio():
-    """Tests that the precursor proportion is the number of precursors over the elution groups."""
+    """Test that the feature divides the number of precursors by the elution groups."""
     # given
     feature = PrecursorProportionDetected()
     precursors_df = pd.DataFrame({"precursor_idx": np.arange(500)})
@@ -32,7 +32,10 @@ def test_precursor_proportion_detected_returns_ratio():
 
 
 def test_precursor_proportion_detected_returns_zero_for_empty_precursors():
-    """Tests that no precursors in a non-empty batch is a measurement of zero, not a missing measurement."""
+    """Test that a batch with elution groups and no precursor measures zero.
+
+    This value is a correct measurement. It is not a missing measurement.
+    """
     # given
     feature = PrecursorProportionDetected()
 
@@ -44,7 +47,7 @@ def test_precursor_proportion_detected_returns_zero_for_empty_precursors():
 
 
 def test_precursor_proportion_detected_returns_none_for_empty_batch():
-    """Tests that a batch without elution groups admits no measurement."""
+    """Test that a batch with no elution group gives no measurement."""
     # given
     feature = PrecursorProportionDetected()
 
@@ -56,7 +59,7 @@ def test_precursor_proportion_detected_returns_none_for_empty_batch():
 
 
 def test_mean_isotope_intensity_correlation_returns_mean():
-    """Tests that the mean isotope intensity correlation is averaged over the precursors."""
+    """Test that the feature calculates the mean over the precursors."""
     # given
     feature = MeanIsotopeIntensityCorrelation()
     precursors_df = pd.DataFrame({"isotope_intensity_correlation": [0.2, 0.4, 0.6]})
@@ -69,7 +72,7 @@ def test_mean_isotope_intensity_correlation_returns_mean():
 
 
 def test_mean_isotope_intensity_correlation_returns_none_for_empty_precursors():
-    """Tests that an empty precursor frame yields None rather than NaN."""
+    """Test that an empty precursor frame gives None and not NaN."""
     # given
     feature = MeanIsotopeIntensityCorrelation()
     precursors_df = pd.DataFrame({"isotope_intensity_correlation": []})
@@ -82,7 +85,10 @@ def test_mean_isotope_intensity_correlation_returns_none_for_empty_precursors():
 
 
 def test_mean_isotope_intensity_correlation_returns_none_for_all_nan_column():
-    """Tests that an all-NaN column yields None rather than a NaN that propagates silently."""
+    """Test that a column with only NaN gives None.
+
+    A NaN moves through the subsequent calculations without a message.
+    """
     # given
     feature = MeanIsotopeIntensityCorrelation()
     precursors_df = pd.DataFrame(
@@ -97,7 +103,7 @@ def test_mean_isotope_intensity_correlation_returns_none_for_all_nan_column():
 
 
 def test_feature_names():
-    """Tests that the features keep the history column names used before the refactor."""
+    """Test that the features keep the history column names of the previous code."""
     # given / when / then
     assert PrecursorProportionDetected.name == "precursor_proportion_detected"
     assert MeanIsotopeIntensityCorrelation.name == "mean_isotope_intensity_correlation"

@@ -1,4 +1,4 @@
-"""Features tracked by the automatic optimizers across optimization rounds."""
+"""The features that the automatic optimizers track in each optimization round."""
 
 from abc import ABC, abstractmethod
 
@@ -8,13 +8,14 @@ from alphadia.workflow.optimizers.optimization_lock import OptimizationLock
 
 
 class OptimizationFeature(ABC):
-    """The quantity an AutomaticOptimizer maximises across optimization rounds.
+    """The value that an AutomaticOptimizer makes as large as possible.
 
-    Bundles the history column name with its computation so the two cannot drift
-    apart, and gives every feature one definition of the empty search.
+    A feature keeps its history column name and its calculation together. Thus the
+    name and the calculation stay in agreement. Each feature also gives one
+    definition of a round that has no data.
 
-    Implementations must be stateless: a single instance is shared by all
-    optimizers declaring the feature.
+    A feature must not keep state. All optimizers that use a feature share one
+    instance of it.
     """
 
     name: str
@@ -26,7 +27,7 @@ class OptimizationFeature(ABC):
         fragments_df: pd.DataFrame,
         optlock: OptimizationLock,
     ) -> float | None:
-        """Return the feature value, or None when this round admits no measurement.
+        """Calculate the feature value for one optimization round.
 
         Parameters
         ----------
@@ -37,17 +38,22 @@ class OptimizationFeature(ABC):
             The filtered fragment dataframe for the search.
 
         optlock: OptimizationLock
-            The optimization lock holding the state of the current batch.
+            The optimization lock that holds the state of the current batch.
+
+        Returns
+        -------
+        float | None
+            The feature value, or None if this round has no data to measure.
 
         """
 
 
 class PrecursorProportionDetected(OptimizationFeature):
-    """Fraction of the batch's elution groups that yielded a precursor at 1% FDR.
+    """The part of the elution groups in the batch that gave a precursor at 1% FDR.
 
-    Undefined when the batch contributed no elution groups: there is nothing for a
-    proportion to be *of*. Zero precursors out of a non-empty batch, by contrast, is
-    a real measurement of zero and is recorded as such.
+    The value has no definition if the batch has no elution groups. There is no
+    quantity to calculate a part of. But if the batch has elution groups and no
+    precursor, the value is a correct measurement of zero. The optimizer records it.
     """
 
     name = "precursor_proportion_detected"
@@ -65,10 +71,11 @@ class PrecursorProportionDetected(OptimizationFeature):
 
 
 class MeanIsotopeIntensityCorrelation(OptimizationFeature):
-    """Mean isotope intensity correlation over the detected precursors.
+    """The mean isotope intensity correlation of the precursors that were found.
 
-    Undefined with no precursors: pandas returns NaN, which propagates silently
-    through the convergence comparisons rather than stopping them.
+    The value has no definition if there is no precursor. In this condition pandas
+    gives NaN. A NaN does not stop the convergence calculations. It moves through
+    them without a message.
     """
 
     name = "mean_isotope_intensity_correlation"
@@ -83,8 +90,8 @@ class MeanIsotopeIntensityCorrelation(OptimizationFeature):
         if precursors_df.empty:
             return None
 
-        # An all-NaN column is as unmeasurable as an empty frame, and pandas reports
-        # both as NaN rather than raising.
+        # A column that contains only NaN has no more data than an empty frame.
+        # Pandas gives NaN for the two conditions and does not raise an error.
         mean_correlation = precursors_df["isotope_intensity_correlation"].mean()
         if pd.isna(mean_correlation):
             return None

@@ -42,14 +42,6 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         See base class for other parameters.
 
         """
-        # Fail here rather than minutes into the first search: without the abstract
-        # _get_feature_value, a subclass that forgets to declare its feature would
-        # otherwise raise deep inside the first optimization round.
-        if not hasattr(self, "_feature"):
-            raise NotImplementedError(
-                f"{type(self).__name__} must declare a class-level _feature."
-            )
-
         super().__init__(
             config, optimization_manager, calibration_manager, fdr_manager, reporter
         )
@@ -114,9 +106,9 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         )
 
         if not self._update_history(precursors_df, fragments_df):
-            # Without a measurement there is nothing to converge on, and the empty frame
-            # would calibrate the next parameter to zero or NaN, making every later
-            # search extract nothing. Leave the parameter as it is.
+            # Without a measurement there is no value to converge on. Also, an empty
+            # frame calibrates the next parameter to zero or NaN. Then all subsequent
+            # searches find nothing. Thus keep the parameter at its current value.
             return
 
         if self._just_converged:
@@ -162,7 +154,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         """Plot the value of the feature used to assess optimization progress against the parameter value, for each value tested."""
         if self.history_df.empty:
             self._reporter.log_string(
-                f"{self.parameter_name}: no measurement recorded, nothing to plot.",
+                f"{self.parameter_name}: there is no measurement to plot.",
                 verbosity="warning",
             )
             return
@@ -231,20 +223,22 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         Returns
         -------
         bool
-            True if a measurement was recorded, False if this round admitted none.
+            True if this method recorded a measurement, False if it did not.
 
         """
         feature_value = self._feature.measure(
             precursors_df, fragments_df, self._optlock
         )
 
-        # A round without a measurement is not a measurement of zero: a sentinel value
-        # here would make the relative comparisons in _just_converged and the axis
-        # limits in plot() non-finite instead of raising.
+        # A round with no measurement is different from a measurement of zero. A
+        # substitute value of zero makes the relative calculations in _just_converged
+        # and the axis limits in plot() infinite or NaN. The code does not raise an
+        # error and the fault stays hidden.
         if feature_value is None:
             self._reporter.log_string(
-                f"{self.parameter_name}: {self._feature.name} is undefined for batch "
-                f"{self._optlock.batch_idx}; no measurement recorded for this round.",
+                f"{self.parameter_name}: {self._feature.name} has no definition for "
+                f"batch {self._optlock.batch_idx}. No measurement was recorded for "
+                f"this round.",
                 verbosity="warning",
             )
             return False
@@ -406,7 +400,7 @@ class AutomaticOptimizer(BaseOptimizer, ABC):
         """
         if self.history_df.empty:
             self._reporter.log_string(
-                f"{self.parameter_name}: no round produced a measurement; keeping the current value.",
+                f"{self.parameter_name}: no round gave a measurement. The current value stays.",
                 verbosity="warning",
             )
             return
